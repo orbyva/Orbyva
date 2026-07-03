@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import { DynamicIcon, IconName } from "lucide-react/dynamic";
+import { TypeIcon } from "@/components/TypeIcon";
 import {
   deleteRecurringApi,
   softDeleteRecurring,
@@ -56,13 +56,11 @@ interface RecurringTableProps {
 }
 
 function RecurringIcon({ recurring }: { recurring: Recurring }) {
-  if (!recurring.class?.type?.lucide_icon) return null;
-
   return (
-    <DynamicIcon
-      name={recurring.class.type.lucide_icon as IconName}
+    <TypeIcon
+      name={recurring.class?.type?.lucide_icon}
       className="h-4 w-4"
-      style={{ color: String(recurring.class.type.hex_color) }}
+      style={{ color: String(recurring.class?.type?.hex_color ?? "") }}
     />
   );
 }

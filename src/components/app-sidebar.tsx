@@ -39,10 +39,6 @@ const data = {
           url: "/",
         },
         {
-          title: "Assistente",
-          url: "/finance/assistant",
-        },
-        {
           title: "Dimensões",
           url: "/finance/dimensions",
         },

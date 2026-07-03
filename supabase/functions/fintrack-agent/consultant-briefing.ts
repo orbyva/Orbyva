@@ -62,7 +62,7 @@ export async function prefetchConsultantBriefing(
 }
 
 export function isCadastroRequest(text: string): boolean {
-  return /cadastr|registrar|criar|crie|adicion|inser|lancar|lançar|propor|anotar|colocar.*despesa|colocar.*receita|parcela de r\$|despesa de r\$|receita de r\$|\d+(\,\d+)?\s*(reais|r\$).*?(despesa|receita|transa)/i.test(
+  return /cadastr|registrar|criar|crie|adicion|inser|lancar|lançar|propor|anotar|colocar.*despesa|colocar.*receita|parcela de r\$|despesa de r\$|receita de r\$|\d+(,\d+)?\s*(reais|r\$).*?(despesa|receita|transa)/i.test(
     text
   );
 }

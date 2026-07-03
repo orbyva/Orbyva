@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { HexColorPicker } from "react-colorful";
-import { DynamicIcon, IconName } from "lucide-react/dynamic";
+import { TYPE_ICON_OPTIONS, TypeIcon } from "@/components/TypeIcon";
 import { Trash, Pen } from "lucide-react";
 import {
   deleteTypeApi,
@@ -38,12 +38,6 @@ import {
 } from "@/api/finance";
 import { Type, Nature, TypeCreateRequest, TypeUpdateRequest } from "@/types/finance";
 
-const ICON_OPTIONS = [
-  "wrench", "utensils", "activity", "briefcase", "dollar-sign", "credit-card",
-  "shopping-bag", "shopping-cart", "heart", "coffee", "home", "car", "book", "plane",
-  "gift", "music", "film", "calendar", "clock", "globe", "map-pin", "umbrella", "truck",
-  "bell", "bar-chart-2", "award", "ticket", "tv", "cpu", "dribbble"
-];
 
 function TypeManager({
   natures,
@@ -175,10 +169,10 @@ function TypeManager({
                 <SelectItem value="null">
                   <span>Nenhum</span>
                 </SelectItem>
-                {ICON_OPTIONS.map((icon) => (
+                {TYPE_ICON_OPTIONS.map((icon) => (
                   <SelectItem key={icon} value={icon || "null"}>
                     <div className="flex items-center">
-                      <DynamicIcon name={icon as IconName} size={16} className="mr-2" />
+                      <TypeIcon name={icon} size={16} className="mr-2" />
                       <span>{icon}</span>
                     </div>
                   </SelectItem>
@@ -311,8 +305,8 @@ function TypeManager({
                           <SelectTrigger className="flex items-center w-full md:w-auto">
                             {editingType.lucide_icon ? (
                               <>
-                                <DynamicIcon
-                                  name={editingType.lucide_icon as IconName}
+                                <TypeIcon
+                                  name={editingType.lucide_icon}
                                   size={16}
                                   className="mr-2"
                                 />
@@ -326,15 +320,18 @@ function TypeManager({
                             <SelectItem value="null">
                               <span>Nenhum</span>
                             </SelectItem>
-                            {ICON_OPTIONS.map((icon) => (
+                            {TYPE_ICON_OPTIONS.map((icon) => (
                               <SelectItem key={icon} value={icon}>
-                                {icon}
+                                <div className="flex items-center gap-2">
+                                  <TypeIcon name={icon} size={16} />
+                                  {icon}
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       ) : editingType?.id !== type.id && type.lucide_icon ? (
-                        <DynamicIcon name={type.lucide_icon as IconName} size={16} />
+                        <TypeIcon name={type.lucide_icon} size={16} />
                       ) : (
                         <span>None</span>
                       )}

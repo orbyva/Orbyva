@@ -1,4 +1,4 @@
-import { Trash2, Pen, CircleDollarSign, Receipt } from "lucide-react";
+import { Trash2, Pen, Receipt } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -22,7 +22,7 @@ import {
 import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import { DynamicIcon, IconName } from "lucide-react/dynamic";
+import { TypeIcon } from "@/components/TypeIcon";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { ActionTooltip } from "@/components/ActionTooltip";
 import { EmptyState } from "@/components/EmptyState";
@@ -41,20 +41,11 @@ interface TransactionsTableProps {
 }
 
 function TransactionIcon({ transaction }: { transaction: Transaction }) {
-  if (transaction.class?.type?.lucide_icon) {
-    return (
-      <DynamicIcon
-        name={transaction.class.type.lucide_icon as IconName}
-        className="h-4 w-4"
-        style={{ color: String(transaction.class.type.hex_color) }}
-      />
-    );
-  }
-
-  const isReceita = transaction.class?.type?.nature?.name === "Receita";
   return (
-    <CircleDollarSign
-      className={cn("h-4 w-4", isReceita ? "text-green-400" : "text-red-400")}
+    <TypeIcon
+      name={transaction.class?.type?.lucide_icon}
+      className="h-4 w-4"
+      style={{ color: String(transaction.class?.type?.hex_color ?? "") }}
     />
   );
 }
