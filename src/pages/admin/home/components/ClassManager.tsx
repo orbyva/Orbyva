@@ -3,11 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectTrigger, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectTrigger,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 import { Trash, Pen } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { fetchClasses, deleteClassApi, createClassApi, updateClassApi } from "@/api/finance";
 import { Class, ClassCreateRequest, ClassUpdateRequest, Type } from "@/types/finance";
+import { FormLabel } from "@/components/FormLabel";
 
 function ClassManager({ types }: { types: Type[] }) {
   const [newClass, setNewClass] = useState<ClassCreateRequest>({
@@ -18,6 +25,7 @@ function ClassManager({ types }: { types: Type[] }) {
   const [editingClass, setEditingClass] = useState<ClassUpdateRequest | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [forDeletionClass, setForDeletionClass] = useState<number | null>(null);
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     fetchClasses().then(setClasses);
@@ -43,6 +51,16 @@ function ClassManager({ types }: { types: Type[] }) {
   }
 
   async function handleCreate() {
+    if (!newClass.name.trim()) {
+      setFormError("Informe o nome da classe.");
+      return;
+    }
+    if (!newClass.type_id) {
+      setFormError("Selecione o Tipo.");
+      return;
+    }
+
+    setFormError("");
     await createClassApi(newClass);
     fetchClasses().then(setClasses);
     setNewClass({ name: "", type_id: 0 });
@@ -58,7 +76,7 @@ function ClassManager({ types }: { types: Type[] }) {
 
   function startEditing(cls: Class) {
     setEditingClass({ id: cls.id, name: cls.name, type_id: cls.type.id });
-  }  
+  }
 
   function cancelEditing() {
     setEditingClass(null);
@@ -70,30 +88,43 @@ function ClassManager({ types }: { types: Type[] }) {
         <CardTitle>Gerenciamento de Classes</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col md:flex-row flex-wrap items-center gap-4">
-          <Input
-            value={newClass.name}
-            onChange={(e) => setNewClass({ ...newClass, name: e.target.value })}
-            placeholder="Nome da Classe"
-            className="w-[60%]"
-          />
-          <Select
-            value={String(newClass.type_id) || "Selecione"}
-            onValueChange={(value) => setNewClass({ ...newClass, type_id: parseInt(value) })}
-          >
-            <SelectTrigger>
-              {newClass.type_id ? types.find((t) => t.id == newClass.type_id)?.name : "Tipo"}
-            </SelectTrigger>
-            <SelectContent>
-              {types.map((type) => (
-                <SelectItem key={type.id} value={String(type.id)}>
-                  {type.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={handleCreate}>Criar Classe</Button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <FormLabel required>Nome</FormLabel>
+            <Input
+              value={newClass.name}
+              onChange={(e) => setNewClass({ ...newClass, name: e.target.value })}
+              placeholder="Ex: Supermercado, Uber..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <FormLabel required>Tipo</FormLabel>
+            <Select
+              value={newClass.type_id ? String(newClass.type_id) : ""}
+              onValueChange={(value) =>
+                setNewClass({ ...newClass, type_id: parseInt(value) })
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione o Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                {types.map((type) => (
+                  <SelectItem key={type.id} value={String(type.id)}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+
+        {formError && <p className="mt-3 text-sm text-red-500">{formError}</p>}
+
+        <Button onClick={handleCreate} className="mt-4 w-full sm:w-auto">
+          Adicionar Classe
+        </Button>
 
         <div className="mt-8 border-t border-gray-200 pt-4"></div>
 
@@ -116,6 +147,7 @@ function ClassManager({ types }: { types: Type[] }) {
                         onChange={(e) =>
                           setEditingClass({ ...editingClass, name: e.target.value })
                         }
+                        placeholder="Nome da classe"
                       />
                     ) : (
                       cls.name
@@ -130,7 +162,7 @@ function ClassManager({ types }: { types: Type[] }) {
                         }
                       >
                         <SelectTrigger>
-                          {types.find((t) => t.id === editingClass.type_id)?.name || "Selecione o Tipo"}
+                          <SelectValue placeholder="Selecione o Tipo" />
                         </SelectTrigger>
                         <SelectContent>
                           {types.map((type) => (
@@ -172,7 +204,6 @@ function ClassManager({ types }: { types: Type[] }) {
         </div>
       </CardContent>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogTitle>Confirmar Exclusão</DialogTitle>

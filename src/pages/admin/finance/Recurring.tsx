@@ -1,6 +1,7 @@
 import { RecurringFormDialog } from "@/pages/admin/finance/components/RecurringFormDialog";
 import { RecurringTable } from "@/pages/admin/finance/components/RecurringTable";
-import { useEffect, useState } from "react";
+import { RecurringFilters } from "@/pages/admin/finance/components/RecurringFilters";
+import { useEffect, useMemo, useState } from "react";
 import {
   calculateInstallments,
   fetchRecurringTransactions,
@@ -8,13 +9,21 @@ import {
   fetchDimensions,
   updateRecurringApi,
   createRecurringApi,
+  getRecurringDueAlerts,
+  resolvePaymentStartDate,
+  filterRecurringList,
+  getRecurringProgress,
+  type RecurringFilter,
 } from "@/api/recurring";
 import { RecurringSummary } from "./components/RecurringSummary";
+import { RecurringDueAlerts } from "./components/RecurringDueAlerts";
 import type { Dimension, Recurring, RecurringCreateRequest } from "@/types/recurring";
 import { toast } from "@/hooks/use-toast";
+import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 
 export default function Recurring() {
   const [recurring, setRecurring] = useState<Recurring[]>([]);
+  const [activeFilter, setActiveFilter] = useState<RecurringFilter>("all");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmOpenSoft, setConfirmOpenSoft] = useState(false);
   const [confirmPaymentOpen, setConfirmPaymentOpen] = useState(false);
@@ -29,6 +38,9 @@ export default function Recurring() {
     description: "",
     frequency: "",
     validity: null,
+    due_day: null,
+    installment_count: null,
+    payment_start_date: new Date().toISOString().split("T")[0],
     status: true,
   };
 
@@ -47,7 +59,12 @@ export default function Recurring() {
       const data = await fetchRecurringTransactions();
       const withInstallments = data.map((rec) => ({
         ...rec,
-        installments: calculateInstallments(rec.created_at, rec.validity),
+        installments: calculateInstallments(
+          resolvePaymentStartDate(rec),
+          rec.due_day,
+          rec.installment_count,
+          rec.validity
+        ),
       }));
 
       setRecurring(withInstallments);
@@ -74,6 +91,39 @@ export default function Recurring() {
     fetchAndSetDimensions();
   }, []);
 
+  const dueAlerts = useMemo(
+    () => getRecurringDueAlerts(recurring),
+    [recurring]
+  );
+
+  const filterCounts = useMemo(() => {
+    const overdueIds = new Set(
+      dueAlerts.filter((a) => a.status === "overdue").map((a) => a.recurring.id)
+    );
+    const upcomingIds = new Set(
+      dueAlerts.filter((a) => a.status === "upcoming").map((a) => a.recurring.id)
+    );
+
+    return {
+      all: recurring.length,
+      open: recurring.filter((rec) => {
+        const progress = getRecurringProgress(rec);
+        return !progress || progress.open > 0;
+      }).length,
+      paid: recurring.filter((rec) => {
+        const progress = getRecurringProgress(rec);
+        return progress !== null && progress.open === 0 && progress.total > 0;
+      }).length,
+      upcoming: recurring.filter((rec) => upcomingIds.has(rec.id)).length,
+      overdue: recurring.filter((rec) => overdueIds.has(rec.id)).length,
+    } satisfies Record<RecurringFilter, number>;
+  }, [recurring, dueAlerts]);
+
+  const filteredRecurring = useMemo(
+    () => filterRecurringList(recurring, activeFilter, dueAlerts),
+    [recurring, activeFilter, dueAlerts]
+  );
+
   async function editRecurring() {
     if (!selectedRecurring) return;
 
@@ -99,14 +149,17 @@ export default function Recurring() {
     }
   }
 
-  function handleEdit(recurring: Recurring) {
-    setSelectedRecurring(recurring);
+  function handleEdit(recurringItem: Recurring) {
+    setSelectedRecurring(recurringItem);
     setNewRecurring({
-      class_id: recurring.class.id,
-      value: recurring.value,
-      description: recurring.description,
-      frequency: recurring.frequency,
-      validity: recurring.validity,
+      class_id: recurringItem.class.id,
+      value: recurringItem.value,
+      description: recurringItem.description,
+      frequency: recurringItem.frequency,
+      validity: recurringItem.validity,
+      due_day: recurringItem.due_day,
+      installment_count: recurringItem.installment_count,
+      payment_start_date: recurringItem.payment_start_date,
       status: true,
     });
     setIsEditing(true);
@@ -151,6 +204,19 @@ export default function Recurring() {
             Gerencie receitas e despesas fixas do seu planejamento financeiro.
           </p>
         </div>
+
+        <div className={PAGE_HEADER_ACTIONS_CLASS}>
+          <RecurringFormDialog
+            open={open}
+            setOpen={setOpen}
+            newRecurring={newRecurring}
+            setNewRecurring={setNewRecurring}
+            createRecurring={isEditing ? editRecurring : handleCreateRecurring}
+            isEditing={isEditing}
+            onClose={handleCloseForm}
+            dimensions={dimensions}
+          />
+        </div>
       </section>
 
       <RecurringSummary
@@ -158,35 +224,32 @@ export default function Recurring() {
         totalFixesPay={totalFixesPay}
       />
 
-      <section>
-        <RecurringFormDialog
-          open={open}
-          setOpen={setOpen}
-          newRecurring={newRecurring}
-          setNewRecurring={setNewRecurring}
-          createRecurring={isEditing ? editRecurring : handleCreateRecurring}
-          isEditing={isEditing}
-          onClose={handleCloseForm}
-          dimensions={dimensions}
-        />
-      </section>
+      <RecurringDueAlerts alerts={dueAlerts} />
 
-      <section className="w-full min-w-0 overflow-x-auto rounded-xl border">
-        <RecurringTable
-          recurring={recurring}
-          confirmOpen={confirmOpen}
-          setConfirmOpen={setConfirmOpen}
-          confirmOpenSoft={confirmOpenSoft}
-          setConfirmOpenSoft={setConfirmOpenSoft}
-          confirmPaymentOpen={confirmPaymentOpen}
-          setConfirmPaymentOpen={setConfirmPaymentOpen}
-          selectedRecurring={selectedRecurring}
-          setSelectedRecurring={setSelectedRecurring}
-          selectedParcel={selectedParcel}
-          setSelectedParcel={setSelectedParcel}
-          reloadRecurring={reloadRecurring}
-          handleEditRecurring={handleEdit}
+      <section className="space-y-3">
+        <RecurringFilters
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          counts={filterCounts}
         />
+
+        <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
+          <RecurringTable
+            recurring={filteredRecurring}
+            confirmOpen={confirmOpen}
+            setConfirmOpen={setConfirmOpen}
+            confirmOpenSoft={confirmOpenSoft}
+            setConfirmOpenSoft={setConfirmOpenSoft}
+            confirmPaymentOpen={confirmPaymentOpen}
+            setConfirmPaymentOpen={setConfirmPaymentOpen}
+            selectedRecurring={selectedRecurring}
+            setSelectedRecurring={setSelectedRecurring}
+            selectedParcel={selectedParcel}
+            setSelectedParcel={setSelectedParcel}
+            reloadRecurring={reloadRecurring}
+            handleEditRecurring={handleEdit}
+          />
+        </div>
       </section>
     </main>
   );

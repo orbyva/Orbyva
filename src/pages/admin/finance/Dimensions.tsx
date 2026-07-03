@@ -34,14 +34,15 @@ export default function Dimensions() {
         overflow-x-hidden
       "
     >
-      {/* Header */}
-      <section className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Dimensões Financeiras
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Gerencie Tipos e Classes para organizar suas finanças.
-        </p>
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight">
+            Dimensões Financeiras
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Gerencie Tipos e Classes para organizar suas finanças.
+          </p>
+        </div>
       </section>
 
       {/* Conteúdo */}

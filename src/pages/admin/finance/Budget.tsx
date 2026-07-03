@@ -11,6 +11,7 @@ import {
 } from "@/api/finance";
 
 import { BudgetSummary } from "@/pages/admin/finance/components/BudgetSummary";
+import { BudgetAlerts } from "@/pages/admin/finance/components/BudgetAlerts";
 import { BudgetTable } from "@/pages/admin/finance/components/BudgetTable";
 import { BudgetFormDialog } from "@/pages/admin/finance/components/BudgetFormDialog";
 import { DuplicateBudgetDialog } from "@/pages/admin/finance/components/BudgetDuplicateFormDialog";
@@ -33,6 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 
 function getEmptyBudget(): MonthlyBudgetCreateRequest {
   return {
@@ -317,52 +319,73 @@ export default function Budget() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[240px]">
-          <Select
-            onValueChange={(value) => setSelectedMonth(Number(value))}
-            value={String(selectedMonth)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Mês" />
-            </SelectTrigger>
+        <div className={PAGE_HEADER_ACTIONS_CLASS}>
+          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[240px]">
+            <Select
+              onValueChange={(value) => setSelectedMonth(Number(value))}
+              value={String(selectedMonth)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Mês" />
+              </SelectTrigger>
 
-            <SelectContent>
-              {[...Array(12)].map((_, i) => {
-                const monthName = new Date(0, i).toLocaleString("pt-BR", {
-                  month: "long",
-                });
-                const monthLabel =
-                  monthName.charAt(0).toUpperCase() + monthName.slice(1);
+              <SelectContent>
+                {[...Array(12)].map((_, i) => {
+                  const monthName = new Date(0, i).toLocaleString("pt-BR", {
+                    month: "long",
+                  });
+                  const monthLabel =
+                    monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
-                return (
-                  <SelectItem key={i + 1} value={String(i + 1)}>
-                    {monthLabel}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+                  return (
+                    <SelectItem key={i + 1} value={String(i + 1)}>
+                      {monthLabel}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
 
-          <Select
-            onValueChange={(value) => setSelectedYear(Number(value))}
-            value={String(selectedYear)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Ano" />
-            </SelectTrigger>
+            <Select
+              onValueChange={(value) => setSelectedYear(Number(value))}
+              value={String(selectedYear)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Ano" />
+              </SelectTrigger>
 
-            <SelectContent>
-              {[...Array(currentYear - 2025 + 6)].map((_, i) => {
-                const year = 2025 + i;
+              <SelectContent>
+                {[...Array(currentYear - 2025 + 6)].map((_, i) => {
+                  const year = 2025 + i;
 
-                return (
-                  <SelectItem key={year} value={String(year)}>
-                    {year}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+                  return (
+                    <SelectItem key={year} value={String(year)}>
+                      {year}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <BudgetFormDialog
+            open={open}
+            setOpen={setOpen}
+            newBudget={newBudget}
+            setNewBudget={setNewBudget}
+            saveBudget={saveBudget}
+            dimensions={dimensions}
+            isEditing={isEditing}
+            onClose={resetForm}
+            defaultBudgetMonth={budgetMonth}
+          />
+
+          <DuplicateBudgetDialog
+            currentMonth={selectedMonth}
+            currentYear={selectedYear}
+            disabled={summary.length === 0}
+            onDuplicate={duplicateBudget}
+          />
         </div>
       </section>
 
@@ -374,68 +397,10 @@ export default function Budget() {
         projectedExpense={projectedExpense}
       />
 
-      {exceededAlerts.length > 0 && (
-        <section className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-          <h2 className="font-semibold text-red-500">
-            Atenção: orçamento estourado
-          </h2>
-
-          <div className="mt-2 space-y-2 text-sm">
-            {exceededAlerts.map(({ parent, mainCause }) => (
-              <div key={parent.id} className="text-red-400">
-                <p>
-                  {parent.type_name} estourou{" "}
-                  {Math.abs(Number(parent.remaining_value || 0)).toLocaleString(
-                    "pt-BR",
-                    {
-                      style: "currency",
-                      currency: "BRL",
-                    }
-                  )}
-                  .
-                </p>
-
-                {mainCause && (
-                  <p className="text-xs text-red-300">
-                    Principal causa: {mainCause.class_name} (
-                    {Math.abs(
-                      Number(mainCause.remaining_value || 0)
-                    ).toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    })}
-                    )
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {exceededIncomeBudgets.length > 0 && (
-        <section className="rounded-xl border border-green-500/30 bg-green-500/10 p-4">
-          <h2 className="font-semibold text-green-500">
-            Receita acima do previsto
-          </h2>
-
-          <div className="mt-2 space-y-1 text-sm">
-            {exceededIncomeBudgets.map((item) => (
-              <p key={item.id} className="text-green-400">
-                {item.type_name} superou o previsto em{" "}
-                {(
-                  Number(item.income_value || 0) -
-                  Number(item.planned_value || 0)
-                ).toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
-                .
-              </p>
-            ))}
-          </div>
-        </section>
-      )}
+      <BudgetAlerts
+        exceededExpenses={exceededAlerts}
+        exceededIncome={exceededIncomeBudgets}
+      />
 
       {filteredSuggestions.length > 0 && (
         <section className="rounded-xl border p-4">
@@ -498,27 +463,6 @@ export default function Budget() {
         </section>
       )}
 
-      <section className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <BudgetFormDialog
-          open={open}
-          setOpen={setOpen}
-          newBudget={newBudget}
-          setNewBudget={setNewBudget}
-          saveBudget={saveBudget}
-          dimensions={dimensions}
-          isEditing={isEditing}
-          onClose={resetForm}
-          defaultBudgetMonth={budgetMonth}
-        />
-
-        <DuplicateBudgetDialog
-          currentMonth={selectedMonth}
-          currentYear={selectedYear}
-          disabled={summary.length === 0}
-          onDuplicate={duplicateBudget}
-        />
-      </section>
-
       <Tabs defaultValue="despesa" className="w-full">
         <TabsList>
           <TabsTrigger value="despesa">
@@ -530,7 +474,7 @@ export default function Budget() {
         </TabsList>
 
         <TabsContent value="despesa" className="mt-4">
-          <section className="w-full min-w-0 overflow-x-auto rounded-xl border">
+          <section className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
             <BudgetTable
               budgets={expenseBudgets}
               loading={loading}
@@ -546,7 +490,7 @@ export default function Budget() {
         </TabsContent>
 
         <TabsContent value="receita" className="mt-4">
-          <section className="w-full min-w-0 overflow-x-auto rounded-xl border">
+          <section className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
             <BudgetTable
               budgets={incomeBudgets}
               loading={loading}

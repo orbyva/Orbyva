@@ -1,6 +1,6 @@
   "use client";
 
-  import { useCallback, useEffect, useState } from "react";
+  import { useCallback, useEffect, useMemo, useState } from "react";
   import {
     Card,
     CardContent,
@@ -27,6 +27,15 @@
     fetchValueByNatureYearMonth,
   } from "@/api/finance";
   import { Button } from "@/components/ui/button";
+  import {
+    calculateInstallments,
+    fetchRecurringTransactions,
+    getRecurringDueAlerts,
+    resolvePaymentStartDate,
+  } from "@/api/recurring";
+  import { RecurringDueAlerts } from "@/pages/admin/finance/components/RecurringDueAlerts";
+  import { Recurring } from "@/types/recurring";
+  import { formatBRL } from "@/lib/currency";
 
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
@@ -79,6 +88,12 @@
     const [transactions, setTransactions] = useState<Transaction[]>([]);
 
     const [selectedType, setSelectedType] = useState<string | null>(null);
+    const [recurring, setRecurring] = useState<Recurring[]>([]);
+
+    const dueAlerts = useMemo(
+      () => getRecurringDueAlerts(recurring),
+      [recurring]
+    );
 
     const kpiCardsData: KpiCardProps[] = [
       {
@@ -88,11 +103,7 @@
         description: null,
         isLoading: cardsLoading,
         trendText: null,
-        formatValue: (value: number) =>
-          value.toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-          }),
+        formatValue: (value: number) => formatBRL(value),
       },
       {
         title: "Despesa Total",
@@ -101,11 +112,7 @@
         description: null,
         isLoading: cardsLoading,
         trendText: null,
-        formatValue: (value: number) =>
-          value.toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-          }),
+        formatValue: (value: number) => formatBRL(value),
       },
       {
         title: "Saldo",
@@ -116,18 +123,7 @@
         trendText: null,
         formatValue: (value: number) => {
           const percent = receitaTotal ? (value / receitaTotal) * 100 : 0;
-          const formattedValue =
-            value > 0
-              ? value.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })
-              : (0).toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              });
-
-          return `${formattedValue} (${percent.toFixed(2)}%)`;
+          return `${formatBRL(value > 0 ? value : 0)} (${percent.toFixed(1)}%)`;
         },
       },
     ];
@@ -201,6 +197,29 @@
       getTransactions();
       getCardsData();
     }, [fetchCardsData, fetchTransactionsData]);
+
+    useEffect(() => {
+      async function loadRecurringDueAlerts() {
+        try {
+          const data = await fetchRecurringTransactions();
+          setRecurring(
+            data.map((rec) => ({
+              ...rec,
+              installments: calculateInstallments(
+                resolvePaymentStartDate(rec),
+                rec.due_day,
+                rec.installment_count,
+                rec.validity
+              ),
+            }))
+          );
+        } catch (error) {
+          console.error("Erro ao buscar avisos de vencimento:", error);
+        }
+      }
+
+      loadRecurringDueAlerts();
+    }, []);
 
     useEffect(() => {
       async function getChartData() {
@@ -291,6 +310,8 @@
             </Select>
           </div>
         </section>
+
+        <RecurringDueAlerts alerts={dueAlerts} />
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsContent value="overview" className="space-y-6">

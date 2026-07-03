@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { RefreshCw, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { RefreshCw, Loader2, Search } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
+import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import Pagination from "./components/Pagination";
 import { useSidebar } from "@/components/ui/sidebar";
 import {
@@ -19,6 +21,9 @@ import {
   fetchDimensions,
   updateTransactionApi,
 } from "@/api/finance";
+import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
+
+type NatureFilter = "all" | "Receita" | "Despesa";
 
 export default function Transactions() {
   const { toast } = useToast();
@@ -27,6 +32,9 @@ export default function Transactions() {
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [search, setSearch] = useState("");
+  const [natureFilter, setNatureFilter] = useState<NatureFilter>("all");
+
   const {
     transactions,
     setTransactions,
@@ -54,6 +62,29 @@ export default function Transactions() {
   useEffect(() => {
     fetchDimensions().then((dimensions) => setDimensions(dimensions));
   }, []);
+
+  const filteredTransactions = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return transactions.filter((t) => {
+      const nature = t.class?.type?.nature?.name;
+      if (natureFilter !== "all" && nature !== natureFilter) return false;
+
+      if (!term) return true;
+
+      const haystack = [
+        t.description,
+        t.class?.name,
+        t.class?.type?.name,
+        nature,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(term);
+    });
+  }, [transactions, search, natureFilter]);
 
   async function createTransaction() {
     try {
@@ -150,6 +181,12 @@ export default function Transactions() {
     setNewTransaction(new_transaction_default);
   }
 
+  const natureFilters: { id: NatureFilter; label: string }[] = [
+    { id: "all", label: "Todas" },
+    { id: "Receita", label: "Receitas" },
+    { id: "Despesa", label: "Despesas" },
+  ];
+
   return (
     <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-x-hidden">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -160,7 +197,7 @@ export default function Transactions() {
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className={PAGE_HEADER_ACTIONS_CLASS}>
           <Button
             onClick={refetchTransactions}
             variant="outline"
@@ -187,18 +224,51 @@ export default function Transactions() {
         </div>
       </section>
 
-      <section className="w-full min-w-0 overflow-x-auto rounded-xl border">
-        <TransactionsTable
-          transactions={transactions}
-          isMobile={isMobile}
-          confirmOpen={confirmOpen}
-          setConfirmOpen={setConfirmOpen}
-          selectedTransaction={selectedTransaction}
-          setSelectedTransaction={setSelectedTransaction}
-          deleteTransaction={deleteTransaction}
-          deleteLoading={deleteLoading}
-          handleEdit={handleEdit}
-        />
+      <section className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por descrição, tipo ou classe..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {natureFilters.map(({ id, label }) => (
+              <Button
+                key={id}
+                type="button"
+                size="sm"
+                variant={natureFilter === id ? "default" : "outline"}
+                className="h-8 rounded-full px-3 text-xs"
+                onClick={() => setNatureFilter(id)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
+          {loadingTransactions ? (
+            <TableLoadingSkeleton rows={6} columns={7} />
+          ) : (
+            <TransactionsTable
+              transactions={filteredTransactions}
+              isMobile={isMobile}
+              confirmOpen={confirmOpen}
+              setConfirmOpen={setConfirmOpen}
+              selectedTransaction={selectedTransaction}
+              setSelectedTransaction={setSelectedTransaction}
+              deleteTransaction={deleteTransaction}
+              deleteLoading={deleteLoading}
+              handleEdit={handleEdit}
+            />
+          )}
+        </div>
       </section>
 
       <Pagination

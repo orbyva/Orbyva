@@ -1,13 +1,23 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { fetchMovieByImdbId, searchMovies } from "@/lib/omdb";
 import { createMovie } from "@/api/movies";
 import { Movie, MovieCreateRequest, MovieStatus } from "@/types/movies";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
+import {
+  FormLabel,
+  FORM_DIALOG_CONTENT_CLASS,
+  FORM_FIELDS_CLASS,
+} from "@/components/FormLabel";
 
 interface MovieSearchModalProps {
   onMovieAdded: () => void;
@@ -22,12 +32,18 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [rating, setRating] = useState<number | "">("");
   const [watchedDate, setWatchedDate] = useState<Date>();
+  const [formError, setFormError] = useState("");
 
   const [status, setStatus] = useState<"watched" | "to_watch">("to_watch");
   const { toast } = useToast();
 
   async function handleSearch() {
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      setFormError("Digite o IMDb ID ou o título do filme.");
+      return;
+    }
+
+    setFormError("");
     setLoading(true);
 
     let results: Movie[] = [];
@@ -45,7 +61,6 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
   async function handleSelectMovie(movie: Movie) {
     setLoading(true);
     const fullMovie = await fetchMovieByImdbId(movie.imdb_id);
-
 
     if (!fullMovie) {
       setLoading(false);
@@ -67,14 +82,11 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
     if (!selectedMovie) return;
 
     if (status === "watched" && !watchedDate) {
-      toast({
-        title: "Erro",
-        description: "Por favor, informe a data em que assistiu o filme.",
-        variant: "destructive",
-        duration: 2000,
-      });
+      setFormError("Informe a data em que assistiu o filme.");
       return;
     }
+
+    setFormError("");
 
     const newMovie: MovieCreateRequest = {
       ...selectedMovie,
@@ -86,7 +98,11 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
     try {
       await createMovie(newMovie);
 
-      toast({ title: "Sucesso", description: "Filme adicionado com sucesso!", duration: 2000 });
+      toast({
+        title: "Sucesso",
+        description: "Filme adicionado com sucesso!",
+        duration: 2000,
+      });
 
       resetState();
       setIsOpen(false);
@@ -109,29 +125,32 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
     setRating("");
     setWatchedDate(undefined);
     setStatus("to_watch");
+    setFormError("");
   }
 
-
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      setIsOpen(open);
-      if (!open) resetState();
-    }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) resetState();
+      }}
+    >
       <DialogTrigger asChild>
         <Button className="w-full gap-2 sm:w-auto">
           <Plus className="h-4 w-4" />
-          Adicionar
+          Adicionar Filme
         </Button>
       </DialogTrigger>
 
-
-      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-lg">
+      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogTitle>
-          {step === "search" ? "Buscar Filme" : "Adicionar Detalhes"}
+          {step === "search" ? "Buscar Filme" : "Adicionar Filme"}
         </DialogTitle>
 
         {step === "search" ? (
-          <>
+          <div className={FORM_FIELDS_CLASS}>
+            <FormLabel required>Busca</FormLabel>
             <Input
               type="text"
               placeholder="Digite o IMDb ID ou o título..."
@@ -139,11 +158,8 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
               onChange={(e) => setQuery(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSearch()}
             />
-            <Button
-              onClick={handleSearch}
-              disabled={loading}
-              className="w-full"
-            >
+            {formError && <p className="text-sm text-red-500">{formError}</p>}
+            <Button onClick={handleSearch} disabled={loading} className="w-full">
               {loading ? "Buscando..." : "Buscar"}
             </Button>
 
@@ -172,8 +188,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
                 ))}
               </div>
             )}
-
-          </>
+          </div>
         ) : (
           <>
             <div className="flex items-start gap-3 sm:gap-4">
@@ -186,13 +201,17 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
                 <h3 className="truncate text-base font-medium sm:text-lg">
                   {selectedMovie?.title} ({selectedMovie?.year})
                 </h3>
-                <p className="truncate text-sm text-muted-foreground">{selectedMovie?.imdb_id}</p>
+                <p className="truncate text-sm text-muted-foreground">
+                  {selectedMovie?.imdb_id}
+                </p>
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className={FORM_FIELDS_CLASS}>
+              <FormLabel required>Status</FormLabel>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
+                  type="button"
                   variant={status === "to_watch" ? "default" : "outline"}
                   onClick={() => setStatus("to_watch")}
                   className="w-full sm:w-auto"
@@ -200,6 +219,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
                   Para Assistir
                 </Button>
                 <Button
+                  type="button"
                   variant={status === "watched" ? "default" : "outline"}
                   onClick={() => setStatus("watched")}
                   className="w-full sm:w-auto"
@@ -210,30 +230,39 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
 
               {status === "watched" && (
                 <>
+                  <FormLabel optional>Nota</FormLabel>
                   <Input
                     type="number"
-                    placeholder="Nota (0-10)"
+                    placeholder="Nota de 0 a 10"
                     min="0"
                     max="10"
                     value={rating}
-                    onChange={(e) => setRating(e.target.value ? Number(e.target.value) : "")}
+                    onChange={(e) =>
+                      setRating(e.target.value ? Number(e.target.value) : "")
+                    }
                   />
-                  <DatePicker
-                    date={watchedDate}
-                    onSelect={setWatchedDate}
-                  />
-                  {!watchedDate && (
-                    <p className="text-sm text-destructive">Por favor selecione uma data</p>
-                  )}
+
+                  <FormLabel required>Data assistida</FormLabel>
+                  <DatePicker date={watchedDate} onSelect={setWatchedDate} />
                 </>
               )}
 
+              {formError && <p className="text-sm text-red-500">{formError}</p>}
+
               <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                <Button variant="outline" className="w-full sm:flex-1" onClick={() => setStep("search")}>
+                <Button
+                  variant="outline"
+                  className="w-full sm:flex-1"
+                  onClick={() => setStep("search")}
+                >
                   Voltar
                 </Button>
-                <Button onClick={handleSaveMovie} disabled={loading} className="w-full sm:flex-1">
-                  {loading ? "Salvando..." : "Salvar Filme"}
+                <Button
+                  onClick={handleSaveMovie}
+                  disabled={loading}
+                  className="w-full sm:flex-1"
+                >
+                  {loading ? "Salvando..." : "Salvar"}
                 </Button>
               </div>
             </div>

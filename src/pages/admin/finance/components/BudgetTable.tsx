@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 
 import type { MonthlyBudgetSummary } from "@/types/finance";
+import { formatBRL } from "@/lib/currency";
 
 interface BudgetTableProps {
   budgets: MonthlyBudgetSummary[];
@@ -38,12 +39,6 @@ interface BudgetTableProps {
   deleteLoading: string | null;
   handleEdit: (budget: MonthlyBudgetSummary) => void;
 }
-
-const formatCurrency = (value: number) =>
-  Number(value || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
 
 function getRealizedValue(budget?: MonthlyBudgetSummary | null) {
   if (!budget) return 0;
@@ -274,7 +269,7 @@ function BudgetValueCell({
 }) {
   return (
     <div className={`flex flex-col ${className}`}>
-      <span>{formatCurrency(value)}</span>
+      <span>{formatBRL(value)}</span>
       <span className="text-xs font-normal text-muted-foreground">{label}</span>
     </div>
   );
@@ -364,7 +359,7 @@ export function BudgetTable({
                       </TableCell>
 
                       <TableCell className="text-right">
-                        {formatCurrency(parent.planned_value)}
+                        {formatBRL(parent.planned_value)}
                       </TableCell>
 
                       <TableCell className="text-right">
@@ -442,7 +437,7 @@ export function BudgetTable({
                         </TableCell>
 
                         <TableCell className="text-right font-medium">
-                          {formatCurrency(budget.planned_value)}
+                          {formatBRL(budget.planned_value)}
                         </TableCell>
 
                         <TableCell className="text-right">

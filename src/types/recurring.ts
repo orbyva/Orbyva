@@ -20,6 +20,7 @@ export interface Class {
 export interface Installment {
   label: string;
   number: number;
+  dueDate: string;
 }
 
 export type Installments = Installment[] | string;
@@ -31,10 +32,24 @@ export interface Recurring {
   description: string;
   frequency: string;
   validity: string | null;
+  due_day: number | null;
+  installment_count: number | null;
+  payment_start_date: string | null;
   status: boolean;
   created_at: string;
   paid_parcels: number[];
   installments?: Installments;
+}
+
+export type DueAlertStatus = "overdue" | "upcoming";
+
+export interface RecurringDueAlert {
+  recurring: Recurring;
+  status: DueAlertStatus;
+  installmentNumber: number;
+  dueDate: string;
+  daysUntilDue: number;
+  message: string;
 }
 
 // QueryTypes
@@ -47,6 +62,9 @@ export interface RecurringCreateRequest {
   description: string;
   frequency: string;
   validity: string | null;
+  due_day: number | null;
+  installment_count: number | null;
+  payment_start_date: string | null;
   status: boolean;
 }
 

@@ -12,7 +12,6 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 import {
   Select,
@@ -23,6 +22,9 @@ import {
 } from "@/components/ui/select";
 
 import { MonthYearPicker } from "@/components/MonthYearPicker";
+import { FormLabel } from "@/components/FormLabel";
+import { FormSection } from "@/components/FormSection";
+import { Separator } from "@/components/ui/separator";
 
 import type {
   Dimension,
@@ -74,7 +76,6 @@ export function BudgetFormDialog({
 
   const selectedNatureObj = dimensions.find((n) => n.id === selectedNature);
   const types = selectedNatureObj ? selectedNatureObj.types : [];
-
   const selectedTypeObj = types.find((t) => t.id === selectedType);
   const classes = selectedTypeObj ? selectedTypeObj.classes : [];
 
@@ -94,10 +95,10 @@ export function BudgetFormDialog({
       return;
     }
 
-if (!newBudget.budget_month && !defaultBudgetMonth) {
-  setFormError("Selecione o Mês/Ano.");
-  return;
-}
+    if (!newBudget.budget_month && !defaultBudgetMonth) {
+      setFormError("Selecione o Mês/Ano.");
+      return;
+    }
 
     setFormError("");
     saveBudget();
@@ -122,35 +123,34 @@ if (!newBudget.budget_month && !defaultBudgetMonth) {
       }}
     >
       {!isEditing && (
-<DialogTrigger asChild>
-  <Button
-    onClick={() => {
-      setNewBudget({
-        type_id: null,
-        class_id: null,
-        budget_month: defaultBudgetMonth,
-        planned_value: 0,
-      });
+        <DialogTrigger asChild>
+          <Button
+            onClick={() => {
+              setNewBudget({
+                type_id: null,
+                class_id: null,
+                budget_month: defaultBudgetMonth,
+                planned_value: 0,
+              });
 
-      clearInternalState();
-    }}
-  >
-    Adicionar Orçamento
-  </Button>
-</DialogTrigger>
+              clearInternalState();
+            }}
+          >
+            Adicionar Orçamento
+          </Button>
+        </DialogTrigger>
       )}
 
-      <DialogContent className="max-w-md sm:max-w-lg w-full p-4 sm:p-6">
+      <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-4 sm:max-w-xl sm:p-6">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Editar Orçamento" : "Novo Orçamento"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 gap-4">
-          <Label>
-            Natureza <span className="text-red-500">*</span>
-          </Label>
+        <div className="space-y-5 pt-2">
+          <FormSection title="Classificação">
+            <FormLabel required>Natureza</FormLabel>
 
           <Select
             value={selectedNature ? String(selectedNature) : ""}
@@ -179,9 +179,7 @@ if (!newBudget.budget_month && !defaultBudgetMonth) {
 
           {selectedNature && (
             <>
-              <Label>
-                Tipo <span className="text-red-500">*</span>
-              </Label>
+              <FormLabel required>Tipo</FormLabel>
 
               <Select
                 value={selectedType ? String(selectedType) : ""}
@@ -214,7 +212,7 @@ if (!newBudget.budget_month && !defaultBudgetMonth) {
 
           {selectedType && (
             <>
-              <Label>Classe</Label>
+              <FormLabel optional>Classe</FormLabel>
 
               <Select
                 value={newBudget.class_id ? String(newBudget.class_id) : "general"}
@@ -241,16 +239,18 @@ if (!newBudget.budget_month && !defaultBudgetMonth) {
               </Select>
             </>
           )}
+          </FormSection>
 
-          <Label>
-            Valor Planejado <span className="text-red-500">*</span>
-          </Label>
+          <Separator />
+
+          <FormSection title="Valores e período">
+          <FormLabel required>Valor planejado</FormLabel>
 
           <Input
             type="number"
             min="1"
             step="0.01"
-            required
+            placeholder="0,00"
             value={newBudget.planned_value || ""}
             onChange={(e) =>
               setNewBudget({
@@ -260,23 +260,22 @@ if (!newBudget.budget_month && !defaultBudgetMonth) {
             }
           />
 
-          <Label>
-            Mês/Ano <span className="text-red-500">*</span>
-          </Label>
+          <FormLabel required>Mês/Ano</FormLabel>
 
-<MonthYearPicker
-  value={newBudget.budget_month || defaultBudgetMonth}
-  onChange={(value) =>
-    setNewBudget({
-      ...newBudget,
-      budget_month: value,
-    })
-  }
-/>
+          <MonthYearPicker
+            value={newBudget.budget_month || defaultBudgetMonth}
+            onChange={(value) =>
+              setNewBudget({
+                ...newBudget,
+                budget_month: value,
+              })
+            }
+          />
+          </FormSection>
 
-          {formError && <p className="text-red-500 text-sm">{formError}</p>}
+          {formError && <p className="text-sm text-red-500">{formError}</p>}
 
-          <Button onClick={handleSubmit}>
+          <Button onClick={handleSubmit} className="w-full sm:w-auto">
             {isEditing ? "Salvar Alterações" : "Salvar"}
           </Button>
         </div>

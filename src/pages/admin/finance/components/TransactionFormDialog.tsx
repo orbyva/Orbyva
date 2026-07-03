@@ -7,7 +7,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -17,10 +16,11 @@ import {
 } from "@/components/ui/select";
 import { TransactionCreateRequest } from "@/types/finance";
 import { useState, useEffect } from "react";
-
 import { Dimension } from "@/types/finance";
 import { DatePicker } from "@/components/DatePicker";
-
+import { FormLabel } from "@/components/FormLabel";
+import { FormSection } from "@/components/FormSection";
+import { Separator } from "@/components/ui/separator";
 
 interface TransactionFormDialogProps {
   open: boolean;
@@ -43,9 +43,7 @@ export function TransactionFormDialog({
   isEditing,
   onClose,
 }: TransactionFormDialogProps) {
-
   const [formError, setFormError] = useState<string>("");
-
   const [selectedType, setSelectedType] = useState<number | null>(null);
   const [selectedNature, setSelectedNature] = useState<number | null>(null);
 
@@ -66,12 +64,8 @@ export function TransactionFormDialog({
     }
   }, [isEditing, newTransaction.class_id, dimensions]);
 
-  const selectedNatureObj = dimensions.find(
-    (n) => n.id == selectedNature
-  );
-
+  const selectedNatureObj = dimensions.find((n) => n.id == selectedNature);
   const types = selectedNatureObj ? selectedNatureObj.types : [];
-
   const selectedTypeObj = types.find((t) => t.id == selectedType);
   const classes = selectedTypeObj ? selectedTypeObj.classes : [];
 
@@ -125,151 +119,140 @@ export function TransactionFormDialog({
           <Button>Adicionar Transação</Button>
         </DialogTrigger>
       )}
-      <DialogContent className="max-w-md sm:max-w-lg w-full p-4 sm:p-6">
+      <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-4 sm:max-w-xl sm:p-6">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Editar Transação" : "Nova Transação"}
           </DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-1 gap-4">
-          {/* Nature Select */}
-          <Label>
-            Natureza <span className="text-red-500">*</span>
-          </Label>
-          <Select
-            value={String(selectedNature)}
-            onValueChange={(value) => {
-              setSelectedNature(parseInt(value));
-              setSelectedType(null);
-              setNewTransaction({ ...newTransaction, class_id: 0 });
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Selecione a Natureza" />
-            </SelectTrigger>
-            <SelectContent>
-              {dimensions.map((nature) => (
-                <SelectItem key={nature.id} value={String(nature.id)}>
-                  {nature.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
-          {/* Type Select */}
-          {selectedNature && (
-            <>
-              <Label>
-                Tipo <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={String(selectedType)}
-                onValueChange={(value) => {
-                  setSelectedType(parseInt(value));
-                  setNewTransaction({ ...newTransaction, class_id: 0 });
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione o Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {types.map((type) => (
-                    <SelectItem key={type.id} value={String(type.id)}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
+        <div className="space-y-5 pt-2">
+          <FormSection title="Classificação">
+            <FormLabel required>Natureza</FormLabel>
+            <Select
+              value={String(selectedNature)}
+              onValueChange={(value) => {
+                setSelectedNature(parseInt(value));
+                setSelectedType(null);
+                setNewTransaction({ ...newTransaction, class_id: 0 });
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione a Natureza" />
+              </SelectTrigger>
+              <SelectContent>
+                {dimensions.map((nature) => (
+                  <SelectItem key={nature.id} value={String(nature.id)}>
+                    {nature.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {/* Class Select */}
-          {selectedType && (
-            <>
-              <Label>
-                Classe <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={String(newTransaction.class_id)}
-                onValueChange={(value) =>
-                  setNewTransaction({
-                    ...newTransaction,
-                    class_id: Number(value),
-                  })
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione a Classe" />
-                </SelectTrigger>
-                <SelectContent>
-                  {classes.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
+            {selectedNature && (
+              <>
+                <FormLabel required>Tipo</FormLabel>
+                <Select
+                  value={String(selectedType)}
+                  onValueChange={(value) => {
+                    setSelectedType(parseInt(value));
+                    setNewTransaction({ ...newTransaction, class_id: 0 });
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione o Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {types.map((type) => (
+                      <SelectItem key={type.id} value={String(type.id)}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
 
-          {/* Valor */}
-          <Label>
-            Valor <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            type="number"
-            min="1"
-            step="0.01"
-            required
-            value={newTransaction.value || ""}
-            onChange={(e) =>
-              setNewTransaction({
-                ...newTransaction,
-                value: Number(e.target.value),
-              })
-            }
-          />
+            {selectedType && (
+              <>
+                <FormLabel required>Classe</FormLabel>
+                <Select
+                  value={String(newTransaction.class_id)}
+                  onValueChange={(value) =>
+                    setNewTransaction({
+                      ...newTransaction,
+                      class_id: Number(value),
+                    })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione a Classe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+          </FormSection>
 
-          {/* Descrição */}
-          <Label>
-            Descrição <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            type="text"
-            required
-            value={newTransaction.description}
-            onChange={(e) =>
-              setNewTransaction({
-                ...newTransaction,
-                description: e.target.value,
-              })
-            }
-          />
+          <Separator />
 
-          {/* Data */}
-          <Label>
-            Data <span className="text-red-500">*</span>
-          </Label>
-          <DatePicker
-            date={
-              newTransaction.transaction_at &&
-              !isNaN(new Date(newTransaction.transaction_at).getTime())
-                ? new Date(newTransaction.transaction_at)
-                : new Date()
-            }
-            onSelect={(date) =>
-              setNewTransaction({
-                ...newTransaction,
-                transaction_at: date
-                  ? date.toISOString()
-                  : new Date().toISOString(),
-              })
-            }
-          />
+          <FormSection title="Detalhes">
+            <FormLabel required>Valor</FormLabel>
+            <Input
+              type="number"
+              min="1"
+              step="0.01"
+              placeholder="0,00"
+              value={newTransaction.value || ""}
+              onChange={(e) =>
+                setNewTransaction({
+                  ...newTransaction,
+                  value: Number(e.target.value),
+                })
+              }
+            />
 
-          {formError && <p className="text-red-500 text-sm">{formError}</p>}
+            <FormLabel required>Descrição</FormLabel>
+            <Input
+              type="text"
+              placeholder="Ex: Supermercado, Salário..."
+              value={newTransaction.description}
+              onChange={(e) =>
+                setNewTransaction({
+                  ...newTransaction,
+                  description: e.target.value,
+                })
+              }
+            />
 
-          <Button onClick={handleSubmit}>
+            <FormLabel required>Data</FormLabel>
+            <DatePicker
+              date={
+                newTransaction.transaction_at &&
+                !isNaN(new Date(newTransaction.transaction_at).getTime())
+                  ? new Date(newTransaction.transaction_at)
+                  : new Date()
+              }
+              onSelect={(date) =>
+                setNewTransaction({
+                  ...newTransaction,
+                  transaction_at: date
+                    ? date.toISOString()
+                    : new Date().toISOString(),
+                })
+              }
+            />
+          </FormSection>
+
+          {formError && <p className="text-sm text-red-500">{formError}</p>}
+
+          <Button onClick={handleSubmit} className="w-full sm:w-auto">
             {isEditing ? "Salvar Alterações" : "Salvar"}
           </Button>
         </div>

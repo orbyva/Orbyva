@@ -1,4 +1,5 @@
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { formatBRL } from "@/lib/currency";
 
 interface BudgetSummaryProps {
   plannedExpense: number;
@@ -8,11 +9,7 @@ interface BudgetSummaryProps {
   projectedExpense: number;
 }
 
-const formatValue = (value: number) =>
-  `R$ ${Number(value || 0).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+const formatValue = (value: number) => formatBRL(Number(value || 0));
 
 export function BudgetSummary({
   plannedExpense,

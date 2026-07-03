@@ -20,11 +20,13 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { FormLabel } from "@/components/FormLabel";
 import {
   Select,
   SelectContent,
   SelectTrigger,
   SelectItem,
+  SelectValue,
 } from "@/components/ui/select";
 import { HexColorPicker } from "react-colorful";
 import { DynamicIcon, IconName } from "lucide-react/dynamic";
@@ -61,6 +63,7 @@ function TypeManager({
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [forDeletionType, setForDeletionType] = useState<number | null>(null);
+  const [formError, setFormError] = useState("");
 
   async function handleDelete(id: number) {
     setForDeletionType(id);
@@ -77,6 +80,16 @@ function TypeManager({
   }
 
   async function handleCreate() {
+    if (!newType.name.trim()) {
+      setFormError("Informe o nome do tipo.");
+      return;
+    }
+    if (!newType.nature_id) {
+      setFormError("Selecione a Natureza.");
+      return;
+    }
+
+    setFormError("");
     await createTypeApi(newType);
     refetchTypes();
     setNewType({ name: "", hex_color: null, lucide_icon: null, nature_id: 0 });
@@ -116,115 +129,104 @@ function TypeManager({
 
       <CardContent>
         {/* New Type Form */}
-        <div className="flex flex-col md:flex-row md:flex-wrap items-start md:items-center gap-4">
-          <Input
-            value={newType.name || ""}
-            onChange={(e) => setNewType({ ...newType, name: e.target.value })}
-            placeholder="Tipo"
-            className="w-full md:w-[60%]"
-          />
-
-          {/* Botão de cor com texto REALMENTE centralizado */}
-          <Button
-            type="button"
-            onClick={() => setShowNewColorPicker(!showNewColorPicker)}
-            className="
-              relative justify-center
-              w-full md:w-auto
-              h-9 md:h-10
-              px-8 md:px-10
-              text-[clamp(0.75rem,2.6vw,0.875rem)]
-              leading-none
-            "
-          >
-            {/* swatch não desloca o centro do texto */}
-            <span
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 rounded-full ring-1 ring-black/20"
-              style={{ backgroundColor: newType.hex_color ?? "#f59e0b" }}
-              aria-hidden
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2 sm:col-span-2">
+            <FormLabel required>Nome</FormLabel>
+            <Input
+              value={newType.name || ""}
+              onChange={(e) => setNewType({ ...newType, name: e.target.value })}
+              placeholder="Ex: Alimentação, Transporte..."
             />
-            <span>{newType.hex_color ? "Alterar Cor" : "Escolher Cor"}</span>
-          </Button>
+          </div>
 
-          {showNewColorPicker && (
-            <div className="mt-2 max-w-xs w-full sm:w-auto">
-              <HexColorPicker
-                color={newType.hex_color || "#000000"}
-                onChange={(color) => setNewType({ ...newType, hex_color: color })}
-              />
-              <Input
-                value={newType.hex_color || "#000000"}
-                onChange={(e) =>
-                  setNewType({ ...newType, hex_color: e.target.value })
-                }
-                placeholder="Type hex code"
-                className="mt-2"
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <FormLabel required>Natureza</FormLabel>
+            <Select
+              value={newType.nature_id ? String(newType.nature_id) : ""}
+              onValueChange={(value) =>
+                setNewType({ ...newType, nature_id: parseInt(value) })
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione a Natureza" />
+              </SelectTrigger>
+              <SelectContent>
+                {natures.map((nature) => (
+                  <SelectItem key={nature.id} value={String(nature.id)}>
+                    {nature.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select
-            value={String(newType.nature_id) || "Selecione"}
-            onValueChange={(value) =>
-              setNewType({ ...newType, nature_id: parseInt(value) })
-            }
-          >
-            <SelectTrigger className="w-full md:w-auto">
-              {newType.nature_id
-                ? natures.find((n) => n.id == newType.nature_id)?.name
-                : "Natureza"}
-            </SelectTrigger>
-            <SelectContent>
-              {natures.map((nature) => (
-                <SelectItem key={nature.id} value={String(nature.id)}>
-                  {nature.name}
+          <div className="space-y-2">
+            <FormLabel optional>Ícone</FormLabel>
+            <Select
+              value={newType.lucide_icon || ""}
+              onValueChange={(value) =>
+                setNewType({ ...newType, lucide_icon: value || null })
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione um ícone" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="null">
+                  <span>Nenhum</span>
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                {ICON_OPTIONS.map((icon) => (
+                  <SelectItem key={icon} value={icon || "null"}>
+                    <div className="flex items-center">
+                      <DynamicIcon name={icon as IconName} size={16} className="mr-2" />
+                      <span>{icon}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select
-            value={newType.lucide_icon || ""}
-            onValueChange={(value) =>
-              setNewType({ ...newType, lucide_icon: value || null })
-            }
-          >
-            <SelectTrigger className="w-full md:w-auto flex items-center">
-              {newType.lucide_icon ? (
-                <>
-                  <DynamicIcon
-                    name={newType.lucide_icon as IconName}
-                    size={16}
-                    className="mr-2"
-                  />
-                  <span>{newType.lucide_icon}</span>
-                </>
-              ) : (
-                <span>Ícone</span>
-              )}
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="null">
-                <span>Nenhum</span>
-              </SelectItem>
-              {ICON_OPTIONS.map((icon) => (
-                <SelectItem key={icon} value={icon || "null"}>
-                  <div className="flex items-center">
-                    <DynamicIcon name={icon as IconName} size={16} className="mr-2" />
-                    <span>{icon}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="space-y-2 sm:col-span-2">
+            <FormLabel optional>Cor</FormLabel>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowNewColorPicker(!showNewColorPicker)}
+              className="w-full sm:w-auto"
+            >
+              <span
+                className="mr-2 inline-block h-4 w-4 rounded-full ring-1 ring-black/20"
+                style={{ backgroundColor: newType.hex_color ?? "#f59e0b" }}
+                aria-hidden
+              />
+              {newType.hex_color ? "Alterar cor" : "Escolher cor"}
+            </Button>
 
-          <Button
-            onClick={handleCreate}
-            className="w-auto self-start flex-none"
-          >
-            Criar Tipo
-          </Button>
+            {showNewColorPicker && (
+              <div className="mt-2 max-w-xs">
+                <HexColorPicker
+                  color={newType.hex_color || "#000000"}
+                  onChange={(color) => setNewType({ ...newType, hex_color: color })}
+                />
+                <Input
+                  value={newType.hex_color || "#000000"}
+                  onChange={(e) =>
+                    setNewType({ ...newType, hex_color: e.target.value })
+                  }
+                  placeholder="#000000"
+                  className="mt-2"
+                />
+              </div>
+            )}
+          </div>
         </div>
+
+        {formError && <p className="mt-3 text-sm text-red-500">{formError}</p>}
+
+        <Button onClick={handleCreate} className="mt-4 w-full sm:w-auto">
+          Adicionar Tipo
+        </Button>
 
         {/* Divider between form and table */}
         <div className="mt-8 border-t border-gray-200 pt-4"></div>
@@ -291,7 +293,7 @@ function TypeManager({
                             onChange={(e) =>
                               setEditingType({ ...editingType, hex_color: e.target.value })
                             }
-                            placeholder="Type hex code"
+                            placeholder="#000000"
                             className="mt-2"
                           />
                         </div>
@@ -387,14 +389,14 @@ function TypeManager({
                             className="p-2 text-green-500 h-8 text-xs"
                             variant="ghost"
                           >
-                            Save
+                            Salvar
                           </Button>
                           <Button
                             onClick={cancelEditing}
                             className="p-2 text-gray-500 h-8 text-xs"
                             variant="ghost"
                           >
-                            Cancel
+                            Cancelar
                           </Button>
                         </>
                       ) : (

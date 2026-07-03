@@ -13,6 +13,7 @@ import { MovieSearchModal } from "./components/MovieSearchModal";
 import { MovieEditModal } from "./components/MovieEditModal";
 import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
+import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 
 export default function Movies() {
   const [movies, setMovies] = useState<Movie[]>([]);
@@ -72,7 +73,7 @@ export default function Movies() {
           </p>
         </div>
 
-        <div className="w-full sm:w-auto">
+        <div className={PAGE_HEADER_ACTIONS_CLASS}>
           <MovieSearchModal onMovieAdded={loadMovies} />
         </div>
       </section>

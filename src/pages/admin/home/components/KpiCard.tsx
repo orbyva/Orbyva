@@ -1,6 +1,13 @@
-import { Loader2, TrendingUp } from "lucide-react";
-
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { TrendingUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type KpiCardProps = {
   title: string;
@@ -12,29 +19,50 @@ export type KpiCardProps = {
   formatValue: (value: number) => string;
 };
 
-export function KpiCard({ title, value, color, description, isLoading, trendText, formatValue }: KpiCardProps) {
+export function KpiCard({
+  title,
+  value,
+  color,
+  description,
+  isLoading,
+  trendText,
+  formatValue,
+}: KpiCardProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className={`text-xl font-semibold border-b-4 pb-1 ${color}`}>{title}</CardTitle>
+    <Card className="rounded-lg border bg-card p-5 shadow-sm">
+      <CardHeader className="p-0 pb-3">
+        <CardTitle
+          className={cn(
+            "text-base font-semibold border-b-2 pb-1",
+            color
+          )}
+        >
+          {title}
+        </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         {isLoading ? (
-          <Loader2 className="animate-spin" />
+          <Skeleton className="h-8 w-32" />
         ) : (
-          <div className={`text-2xl font-bold ${color}`}>
+          <div className={cn("text-2xl font-bold tracking-tight tabular-nums", color)}>
             {formatValue(value)}
           </div>
         )}
       </CardContent>
-      {description || trendText &&
-        <CardFooter className="flex-col gap-2 text-sm">
-          {trendText && <div className="flex items-center gap-2 font-medium leading-none">
-            {trendText} <TrendingUp className="h-4 w-4" />
-          </div>}
-          {description && <div className="leading-none text-muted-foreground">{description}</div>}
+      {(description || trendText) && (
+        <CardFooter className="mt-3 flex-col items-start gap-1 p-0 text-sm">
+          {trendText && (
+            <div className="flex items-center gap-2 font-medium leading-none">
+              {trendText} <TrendingUp className="h-4 w-4" />
+            </div>
+          )}
+          {description && (
+            <div className="leading-none text-muted-foreground">
+              {description}
+            </div>
+          )}
         </CardFooter>
-      }
+      )}
     </Card>
   );
 }
