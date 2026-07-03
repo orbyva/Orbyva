@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Outlet, useLocation } from "react-router-dom"
 import { Toaster } from "@/components/ui/toaster"
+import { AgentChatWidget } from "@/components/agent/AgentChatWidget"
 
 export default function AdminLayout() {
   const location = useLocation();
@@ -66,6 +67,7 @@ export default function AdminLayout() {
           <Toaster />
           <Outlet />
         </main>
+        <AgentChatWidget />
       </SidebarInset>
     </SidebarProvider>
   );

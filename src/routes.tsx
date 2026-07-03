@@ -13,6 +13,7 @@ const Transactions = lazy(() => import("./pages/admin/finance/Transactions"));
 const Recurring = lazy(() => import("./pages/admin/finance/Recurring"));
 const Dimensions = lazy(() => import("./pages/admin/finance/Dimensions"));
 const Budget = lazy(() => import("./pages/admin/finance/Budget"));
+const Assistant = lazy(() => import("./pages/admin/finance/Assistant"));
 
 
 const withSuspense = (Component: React.ReactNode) => (
@@ -37,8 +38,7 @@ const router = createBrowserRouter([
               { path: "transactions", element: withSuspense(<Transactions />) },
               { path: "dimensions", element: withSuspense(<Dimensions />) },
               { path: "budget", element: withSuspense(<Budget />) },
-
-
+              { path: "assistant", element: withSuspense(<Assistant />) },
             ],
           },
 

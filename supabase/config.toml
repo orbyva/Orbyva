@@ -1,0 +1,5 @@
+[project]
+id = "fintrack"
+
+[functions.fintrack-agent]
+verify_jwt = true
