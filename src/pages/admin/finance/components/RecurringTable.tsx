@@ -35,6 +35,7 @@ import { Fragment, useState } from "react";
 import { Installment, Recurring } from "@/types/recurring";
 import { cn } from "@/lib/utils";
 import { ActionTooltip } from "@/components/ActionTooltip";
+import { toast } from "@/hooks/use-toast";
 
 interface RecurringTableProps {
   recurring: Recurring[];
@@ -468,7 +469,7 @@ export function RecurringTable({
             <p className="text-sm text-muted-foreground">
               {paymentAction === "mark"
                 ? "A transação correspondente será registrada automaticamente."
-                : "O status da parcela será revertido. A transação já criada não será excluída."}
+                : "O status da parcela será revertido e a transação vinculada será excluída automaticamente."}
             </p>
 
             <AlertDialogFooter>
@@ -486,11 +487,27 @@ export function RecurringTable({
                         )?.paid_parcels || []
                       );
                       await reloadRecurring();
+                      toast({
+                        title:
+                          paymentAction === "mark"
+                            ? "Parcela marcada como paga"
+                            : "Pagamento desfeito",
+                        description:
+                          paymentAction === "mark"
+                            ? "A transação foi registrada automaticamente."
+                            : "A parcela foi revertida e a transação vinculada foi excluída.",
+                      });
                     } catch (error) {
                       console.error(
                         "Erro ao atualizar pagamento da parcela:",
                         error
                       );
+                      toast({
+                        variant: "destructive",
+                        title: "Erro ao atualizar parcela",
+                        description:
+                          "Não foi possível concluir a operação. Tente novamente.",
+                      });
                     }
                   }
                   setConfirmPaymentOpen(false);

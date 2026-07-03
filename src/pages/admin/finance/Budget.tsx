@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useDimensions } from "@/hooks/useDimensions";
 import {
   fetchMonthlyBudgetSummary,
   createMonthlyBudgetApi,
@@ -7,7 +8,6 @@ import {
   deleteMonthlyBudgetApi,
   duplicateMonthlyBudgetApi,
   fetchMonthlyBudgetSuggestions,
-  fetchDimensions,
 } from "@/api/finance";
 
 import { BudgetSummary } from "@/pages/admin/finance/components/BudgetSummary";
@@ -17,7 +17,6 @@ import { BudgetFormDialog } from "@/pages/admin/finance/components/BudgetFormDia
 import { DuplicateBudgetDialog } from "@/pages/admin/finance/components/BudgetDuplicateFormDialog";
 
 import type {
-  Dimension,
   MonthlyBudgetCreateRequest,
   MonthlyBudgetSummary,
   MonthlyBudgetSuggestion,
@@ -47,6 +46,7 @@ function getEmptyBudget(): MonthlyBudgetCreateRequest {
 
 export default function Budget() {
   const { toast } = useToast();
+  const { dimensions } = useDimensions();
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
@@ -70,8 +70,6 @@ export default function Budget() {
     2,
     "0"
   )}-01`;
-
-  const [dimensions, setDimensions] = useState<Dimension[]>([]);
 
   const [open, setOpen] = useState(false);
   const [newBudget, setNewBudget] = useState<MonthlyBudgetCreateRequest>(
@@ -235,19 +233,10 @@ export default function Budget() {
     }
   }, [budgetMonth]);
 
-  async function loadDimensions() {
-    const data = await fetchDimensions();
-    setDimensions((data ?? []) as Dimension[]);
-  }
-
   useEffect(() => {
     loadBudgetData();
     loadSuggestions();
   }, [loadBudgetData, loadSuggestions]);
-
-  useEffect(() => {
-    loadDimensions();
-  }, []);
 
   function resetForm() {
     setNewBudget(getEmptyBudget());

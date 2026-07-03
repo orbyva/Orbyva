@@ -29,6 +29,7 @@
   import { Button } from "@/components/ui/button";
   import {
     calculateInstallments,
+    calculateCommittedThisMonth,
     fetchRecurringTransactions,
     getRecurringDueAlerts,
     resolvePaymentStartDate,
@@ -95,6 +96,11 @@
       [recurring]
     );
 
+    const committed = useMemo(
+      () => calculateCommittedThisMonth(recurring),
+      [recurring]
+    );
+
     const kpiCardsData: KpiCardProps[] = [
       {
         title: "Receita Total",
@@ -125,6 +131,15 @@
           const percent = receitaTotal ? (value / receitaTotal) * 100 : 0;
           return `${formatBRL(value > 0 ? value : 0)} (${percent.toFixed(1)}%)`;
         },
+      },
+      {
+        title: "Comprometido no mês",
+        value: committed.pay,
+        color: "text-orange-500 border-orange-500",
+        description: `A receber: ${formatBRL(committed.receive)}`,
+        isLoading: cardsLoading,
+        trendText: null,
+        formatValue: (value: number) => formatBRL(value),
       },
     ];
 
@@ -311,7 +326,7 @@
           </div>
         </section>
 
-        <RecurringDueAlerts alerts={dueAlerts} />
+        <RecurringDueAlerts alerts={dueAlerts} showRecurringLink />
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsContent value="overview" className="space-y-6">
@@ -367,7 +382,7 @@
                         <div>
                           <CardTitle>Transações Neste Mês</CardTitle>
                           <CardDescription>
-                            Você fez {despesaTransactions.length} transações de Receita em{" "}
+                            Você fez {receitaTransactions.length} transações de Receita em{" "}
                             {new Date(selectedYear, selectedMonth - 1).toLocaleString("pt-BR", {
                               month: "long",
                             })}

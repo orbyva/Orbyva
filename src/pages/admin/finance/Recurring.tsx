@@ -6,7 +6,6 @@ import {
   calculateInstallments,
   fetchRecurringTransactions,
   sumRecurringByNature,
-  fetchDimensions,
   updateRecurringApi,
   createRecurringApi,
   getRecurringDueAlerts,
@@ -15,13 +14,16 @@ import {
   getRecurringProgress,
   type RecurringFilter,
 } from "@/api/recurring";
+import { useDimensions } from "@/hooks/useDimensions";
 import { RecurringSummary } from "./components/RecurringSummary";
 import { RecurringDueAlerts } from "./components/RecurringDueAlerts";
-import type { Dimension, Recurring, RecurringCreateRequest } from "@/types/recurring";
+import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
 import { toast } from "@/hooks/use-toast";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function Recurring() {
+  const { dimensions } = useDimensions();
   const [recurring, setRecurring] = useState<Recurring[]>([]);
   const [activeFilter, setActiveFilter] = useState<RecurringFilter>("all");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -48,7 +50,6 @@ export default function Recurring() {
     useState<RecurringCreateRequest>(new_recurring_default);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [dimensions, setDimensions] = useState<Dimension[]>([]);
   const [selectedParcel, setSelectedParcel] = useState<{
     transactionId: string;
     installmentNumber: number;
@@ -74,21 +75,16 @@ export default function Recurring() {
       setTotalFixesReceivable(summary.totalFixesReceivable);
     } catch (err) {
       console.error("Erro ao buscar recorrências:", err);
-    }
-  };
-
-  const fetchAndSetDimensions = async () => {
-    try {
-      const dims = await fetchDimensions();
-      setDimensions(dims);
-    } catch (err) {
-      console.error("Erro ao buscar dimensões:", err);
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar recorrências",
+        description: getErrorMessage(err),
+      });
     }
   };
 
   useEffect(() => {
     reloadRecurring();
-    fetchAndSetDimensions();
   }, []);
 
   const dueAlerts = useMemo(

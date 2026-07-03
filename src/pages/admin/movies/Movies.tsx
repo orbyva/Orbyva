@@ -13,6 +13,8 @@ import { MovieSearchModal } from "./components/MovieSearchModal";
 import { MovieEditModal } from "./components/MovieEditModal";
 import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyState } from "@/components/EmptyState";
+import { getErrorMessage } from "@/lib/errors";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 
 export default function Movies() {
@@ -52,7 +54,7 @@ export default function Movies() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: `Falha ao excluir filme: ${error}`,
+        description: getErrorMessage(error, "Falha ao excluir filme."),
         variant: "destructive",
         duration: 2000,
       });
@@ -121,9 +123,14 @@ export default function Movies() {
             ))}
           </div>
         ) : (
-          <div className="flex min-h-[220px] items-center justify-center text-center text-sm text-muted-foreground">
-            Nenhum filme encontrado.
-          </div>
+          <EmptyState
+            title="Nenhum filme encontrado"
+            description={
+              searchTerm
+                ? "Tente outro termo de busca."
+                : "Adicione filmes usando o botão de busca."
+            }
+          />
         )}
       </section>
 

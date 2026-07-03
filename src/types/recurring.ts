@@ -1,21 +1,6 @@
-export interface Nature {
-  id: number;
-  name: string;
-}
+import type { Class } from "@/types/dimensions";
 
-export interface Type {
-  id: number;
-  name: string;
-  nature: Nature;
-  hex_color: string | null;
-  lucide_icon: string | null;
-}
-
-export interface Class {
-  id: number;
-  name: string;
-  type: Type;
-}
+export type { Dimension } from "@/types/dimensions";
 
 export interface Installment {
   label: string;
@@ -52,10 +37,6 @@ export interface RecurringDueAlert {
   message: string;
 }
 
-// QueryTypes
-
-// Recurring
-
 export interface RecurringCreateRequest {
   class_id: number;
   value: number;
@@ -70,18 +51,4 @@ export interface RecurringCreateRequest {
 
 export interface RecurringUpdateRequest extends Partial<RecurringCreateRequest> {
   id: string;
-}
-
-export interface Dimension {
-  id: number;
-  name: string;
-  types: {
-    id: number;
-    name: string;
-    classes: {
-      id: number;
-      name: string;
-    }[];
-  }[];
-
 }

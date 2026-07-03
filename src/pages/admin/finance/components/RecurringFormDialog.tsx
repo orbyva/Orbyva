@@ -1,4 +1,5 @@
-import { Dimension, RecurringCreateRequest } from "@/types/recurring";
+import type { Dimension } from "@/types/dimensions";
+import type { RecurringCreateRequest } from "@/types/recurring";
 import { useEffect, useState } from "react";
 import {
   Select,

@@ -1,70 +1,52 @@
-import { useState, useEffect } from "react";
-
-import { Nature, Type } from "@/types/finance";
-
+import { PageShell } from "@/components/PageShell";
+import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import TypeManager from "./components/TypeManager";
 import ClassManager from "../home/components/ClassManager";
-
 import { fetchNatures, fetchTypes } from "@/api/finance";
+import { useEffect, useState } from "react";
+import type { Nature, Type } from "@/types/finance";
 
 export default function Dimensions() {
   const [natures, setNatures] = useState<Nature[]>([]);
   const [types, setTypes] = useState<Type[]>([]);
-
-  function refreshNatures() {
-    fetchNatures().then(setNatures);
-  }
+  const [loading, setLoading] = useState(true);
 
   function refreshTypes() {
     fetchTypes().then(setTypes);
   }
 
   useEffect(() => {
-    refreshNatures();
-    refreshTypes();
+    setLoading(true);
+    Promise.all([fetchNatures(), fetchTypes()])
+      .then(([n, t]) => {
+        setNatures(n);
+        setTypes(t);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   return (
-    <main
-      className="
-        w-full max-w-7xl mx-auto
-        px-4 sm:px-6 lg:px-8
-        py-6
-        space-y-6
-        overflow-x-hidden
-      "
+    <PageShell
+      title="Dimensões Financeiras"
+      description="Gerencie Tipos e Classes para organizar suas finanças."
     >
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">
-            Dimensões Financeiras
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie Tipos e Classes para organizar suas finanças.
-          </p>
-        </div>
-      </section>
+      {loading ? (
+        <TableLoadingSkeleton rows={4} columns={3} />
+      ) : (
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-xl border p-4">
+            <TypeManager
+              natures={natures}
+              types={types}
+              refetchTypes={refreshTypes}
+            />
+          </div>
 
-      {/* Conteúdo */}
-      <section
-        className="
-          grid grid-cols-1
-          md:grid-cols-2
-          gap-4
-        "
-      >
-        <div className="rounded-xl border p-4">
-          <TypeManager
-            natures={natures}
-            types={types}
-            refetchTypes={refreshTypes}
-          />
-        </div>
-
-        <div className="rounded-xl border p-4">
-          <ClassManager types={types} />
-        </div>
-      </section>
-    </main>
+          <div className="rounded-xl border p-4">
+            <ClassManager types={types} />
+          </div>
+        </section>
+      )}
+    </PageShell>
   );
 }

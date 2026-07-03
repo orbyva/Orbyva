@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { RefreshCw, Loader2, Search } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
@@ -7,40 +7,53 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Pagination from "./components/Pagination";
 import { useSidebar } from "@/components/ui/sidebar";
-import {
-  Dimension,
-  Transaction,
-  TransactionCreateRequest,
-} from "@/types/finance";
+import { Transaction, TransactionCreateRequest } from "@/types/finance";
 import { TransactionsTable } from "./components/TransactionsTable";
 import { useTransactions } from "@/hooks/database/useTransactions";
 import { TransactionFormDialog } from "./components/TransactionFormDialog";
 import {
   createTransactionApi,
   deleteTransactionApi,
-  fetchDimensions,
   updateTransactionApi,
 } from "@/api/finance";
+import { useDimensions } from "@/hooks/useDimensions";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
+import { getErrorMessage } from "@/lib/errors";
 
 type NatureFilter = "all" | "Receita" | "Despesa";
 
 export default function Transactions() {
   const { toast } = useToast();
   const { isMobile } = useSidebar();
+  const { dimensions } = useDimensions();
 
-  const [dimensions, setDimensions] = useState<Dimension[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [natureFilter, setNatureFilter] = useState<NatureFilter>("all");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, natureFilter, pageSize]);
 
   const {
     transactions,
     setTransactions,
     loadingTransactions,
+    totalPages,
     refetchTransactions,
-  } = useTransactions(page, pageSize);
+  } = useTransactions({
+    page,
+    pageSize,
+    search: debouncedSearch,
+    nature: natureFilter === "all" ? null : natureFilter,
+  });
 
   const new_transaction_default: TransactionCreateRequest = {
     class_id: 0,
@@ -59,33 +72,6 @@ export default function Transactions() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  useEffect(() => {
-    fetchDimensions().then((dimensions) => setDimensions(dimensions));
-  }, []);
-
-  const filteredTransactions = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    return transactions.filter((t) => {
-      const nature = t.class?.type?.nature?.name;
-      if (natureFilter !== "all" && nature !== natureFilter) return false;
-
-      if (!term) return true;
-
-      const haystack = [
-        t.description,
-        t.class?.name,
-        t.class?.type?.name,
-        nature,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(term);
-    });
-  }, [transactions, search, natureFilter]);
-
   async function createTransaction() {
     try {
       await createTransactionApi(newTransaction);
@@ -101,7 +87,7 @@ export default function Transactions() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: `Falha ao adicionar transação: ${error}`,
+        description: getErrorMessage(error, "Falha ao adicionar transação."),
         variant: "destructive",
         duration: 2000,
       });
@@ -125,10 +111,11 @@ export default function Transactions() {
         description: "Transação removida com sucesso!",
         duration: 2000,
       });
+      refetchTransactions();
     } catch (error) {
       toast({
         title: "Erro",
-        description: `Falha ao excluir: ${error}`,
+        description: getErrorMessage(error, "Falha ao excluir transação."),
         variant: "destructive",
         duration: 2000,
       });
@@ -156,7 +143,7 @@ export default function Transactions() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: `Falha ao editar transação: ${error}`,
+        description: getErrorMessage(error, "Falha ao editar transação."),
         variant: "destructive",
         duration: 2000,
       });
@@ -257,7 +244,7 @@ export default function Transactions() {
             <TableLoadingSkeleton rows={6} columns={7} />
           ) : (
             <TransactionsTable
-              transactions={filteredTransactions}
+              transactions={transactions}
               isMobile={isMobile}
               confirmOpen={confirmOpen}
               setConfirmOpen={setConfirmOpen}
@@ -274,6 +261,7 @@ export default function Transactions() {
       <Pagination
         page={page}
         pageSize={pageSize}
+        totalPages={totalPages}
         onSetPage={setPage}
         onSetPageSize={setPageSize}
       />

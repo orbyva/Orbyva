@@ -1,21 +1,5 @@
-export interface Nature {
-  id: number;
-  name: string;
-}
-
-export interface Type {
-  id: number;
-  name: string;
-  nature: Nature;
-  hex_color: string | null;
-  lucide_icon: string | null;
-}
-
-export interface Class {
-  id: number;
-  name: string;
-  type: Type;
-}
+export type { Nature, Type, Class, Dimension } from "@/types/dimensions";
+import type { Class } from "@/types/dimensions";
 
 export interface Transaction {
   id: number;
@@ -23,19 +7,8 @@ export interface Transaction {
   description: string;
   transaction_at: string;
   class: Class;
-}
-export interface Dimension {
-  id: number;
-  name: string;
-  types: {
-    id: number;
-    name: string;
-    classes: {
-      id: number;
-      name: string;
-    }[];
-  }[];
-
+  recurring_transaction_id?: string | null;
+  installment_number?: number | null;
 }
 
 // QueryTypes
@@ -57,10 +30,12 @@ export interface TypeUpdateRequest extends Partial<TypeCreateRequest> {
 // Transaction
 
 export interface TransactionCreateRequest {
-  value: number
+  value: number;
   class_id: number;
   description: string;
   transaction_at: string;
+  recurring_transaction_id?: string | null;
+  installment_number?: number | null;
 }
 
 // Class

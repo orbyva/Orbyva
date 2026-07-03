@@ -15,6 +15,136 @@ import {
   MonthlyBudgetSuggestion,
   ValueByNatureYearMonth,
 } from "@/types/finance";
+import type { Dimension } from "@/types/dimensions";
+import type { PaginatedResult } from "@/types/pagination";
+
+export type { Dimension } from "@/types/dimensions";
+
+const TRANSACTION_SELECT =
+  "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, nature:nature_id(name)))";
+
+export interface TransactionQueryOptions {
+  page?: number;
+  pageSize?: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  search?: string;
+  nature?: "Receita" | "Despesa" | null;
+}
+
+async function getClassIdsForNature(
+  natureName: "Receita" | "Despesa"
+): Promise<number[]> {
+  const { data, error } = await supabase
+    .from("class")
+    .select("id, type:type_id(nature:nature_id(name))");
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? [])
+    .filter((item) => {
+      const type = item.type as { nature?: { name?: string } } | null;
+      return type?.nature?.name === natureName;
+    })
+    .map((item) => item.id);
+}
+
+async function getClassIdsForSearch(term: string): Promise<number[]> {
+  const { data, error } = await supabase
+    .from("class")
+    .select("id, name, type:type_id(name)");
+
+  if (error) throw new Error(error.message);
+
+  const lower = term.toLowerCase();
+  return (data ?? [])
+    .filter((item) => {
+      const type = item.type as { name?: string } | null;
+      return (
+        item.name.toLowerCase().includes(lower) ||
+        type?.name?.toLowerCase().includes(lower)
+      );
+    })
+    .map((item) => item.id);
+}
+
+export async function fetchTransactionsQuery(
+  options: TransactionQueryOptions = {}
+): Promise<PaginatedResult<Transaction>> {
+  const page = options.page ?? 1;
+  const pageSize = options.pageSize ?? 10;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let classIds: number[] | null = null;
+
+  if (options.nature) {
+    classIds = await getClassIdsForNature(options.nature);
+    if (classIds.length === 0) {
+      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+  }
+
+  let query = supabase
+    .from("transaction")
+    .select(TRANSACTION_SELECT, { count: "exact" })
+    .order("id", { ascending: false });
+
+  if (options.startDate) {
+    query = query.gte("transaction_at", options.startDate);
+  }
+  if (options.endDate) {
+    query = query.lte("transaction_at", options.endDate);
+  }
+  if (classIds) {
+    query = query.in("class_id", classIds);
+  }
+
+  const searchTerm = options.search?.trim();
+  if (searchTerm) {
+    const matchingClassIds = await getClassIdsForSearch(searchTerm);
+    const pattern = `%${searchTerm}%`;
+
+    if (matchingClassIds.length > 0) {
+      query = query.or(
+        `description.ilike.${pattern},class_id.in.(${matchingClassIds.join(",")})`
+      );
+    } else {
+      query = query.ilike("description", pattern);
+    }
+  }
+
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
+
+  if (error) throw error;
+
+  const total = count ?? 0;
+
+  return {
+    data: data || [],
+    total,
+    page,
+    pageSize,
+    totalPages: total > 0 ? Math.ceil(total / pageSize) : 0,
+  };
+}
+
+export async function fetchTransactions(
+  page: number = 1,
+  pageSize: number = 10,
+  startDateTZString: string | null = null,
+  endDateTZString: string | null = null
+): Promise<Transaction[]> {
+  const result = await fetchTransactionsQuery({
+    page,
+    pageSize,
+    startDate: startDateTZString,
+    endDate: endDateTZString,
+  });
+  return result.data;
+}
 
 export async function fetchNatures(): Promise<Nature[]> {
   const { data, error } = await supabase
@@ -134,7 +264,7 @@ export async function deleteNatureApi(natureId: number): Promise<void> {
 
 
 
-export async function fetchDimensions() {
+export async function fetchDimensions(): Promise<Dimension[]> {
   const { data, error } = await supabase
     .from("nature")
     .select(`
@@ -148,44 +278,13 @@ export async function fetchDimensions() {
           name
         )
       )
-    `)
+    `);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data;
-}
-
-export async function fetchTransactions(
-  page: number = 1,
-  pageSize: number = 10,
-  startDateTZString: string | null = null,
-  endDateTZString: string | null = null
-): Promise<Transaction[]> {
-  let query = supabase
-    .from("transaction")
-    .select(
-      "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, nature:nature_id(name)))"
-    )
-    .order("id", { ascending: false })
-    .range((page - 1) * pageSize, page * pageSize - 1);
-
-  // Apply date filters only if provided
-  if (startDateTZString) {
-    query = query.gte("transaction_at", startDateTZString);
-  }
-  if (endDateTZString) {
-    query = query.lte("transaction_at", endDateTZString);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw error;
-  }
-
-  return data || [];
+  return data ?? [];
 }
 
 export async function fetchValueByNatureYearMonth(): Promise<

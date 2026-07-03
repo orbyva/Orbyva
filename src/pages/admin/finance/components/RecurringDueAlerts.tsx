@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { RecurringDueAlert } from "@/types/recurring";
-import { groupDueAlertsByDate } from "@/api/recurring";
+import { groupDueAlertsByDate } from "@/domain/recurring";
 import { AlertTriangle, ChevronDown, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface RecurringDueAlertsProps {
   alerts: RecurringDueAlert[];
+  showRecurringLink?: boolean;
 }
 
 function CompactAlertSection({
@@ -53,10 +55,7 @@ function CompactAlertSection({
 
   return (
     <section
-      className={cn(
-        "rounded-lg border px-4 py-3",
-        toneStyles.container
-      )}
+      className={cn("rounded-lg border px-4 py-3", toneStyles.container)}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
@@ -93,10 +92,7 @@ function CompactAlertSection({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn(
-              "h-7 shrink-0 px-2 text-xs",
-              toneStyles.text
-            )}
+            className={cn("h-7 shrink-0 px-2 text-xs", toneStyles.text)}
             onClick={() => setExpanded((prev) => !prev)}
           >
             {expanded ? "Ocultar" : "Ver detalhes"}
@@ -113,7 +109,10 @@ function CompactAlertSection({
   );
 }
 
-export function RecurringDueAlerts({ alerts }: RecurringDueAlertsProps) {
+export function RecurringDueAlerts({
+  alerts,
+  showRecurringLink = false,
+}: RecurringDueAlertsProps) {
   if (alerts.length === 0) return null;
 
   const overdueAlerts = alerts.filter((alert) => alert.status === "overdue");
@@ -133,6 +132,16 @@ export function RecurringDueAlerts({ alerts }: RecurringDueAlertsProps) {
         alerts={upcomingAlerts}
         tone="warning"
       />
+      {showRecurringLink ? (
+        <div className="text-right">
+          <Link
+            to="/finance/recurring"
+            className="text-xs text-primary underline-offset-4 hover:underline"
+          >
+            Ver todas as recorrências →
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
