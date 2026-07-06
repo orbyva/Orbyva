@@ -114,15 +114,6 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  /* iOS Safari dá zoom ao focar campos com fonte < 16px */
-  @media screen and (max-width: 767px) {
-    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
-    select,
-    textarea {
-      font-size: 1rem;
-    }
-  }
-
   *, *::before, *::after {
     box-sizing: border-box;
   }
@@ -155,6 +146,9 @@
 
 html {
   scrollbar-gutter: stable both-edges;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -170,4 +164,15 @@ body,
 
 * {
   min-width: 0;
+}
+
+/*
+ * iOS Safari (e alguns Android) dão zoom automático ao focar campos com fonte < 16px.
+ * Regra fora de @layer + !important para vencer utilitários Tailwind (ex.: text-sm).
+ */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+select,
+textarea {
+  font-size: 16px !important;
+  touch-action: manipulation;
 }
