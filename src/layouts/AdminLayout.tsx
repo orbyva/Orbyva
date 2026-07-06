@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
   Breadcrumb,
@@ -12,10 +13,24 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Outlet, useLocation } from "react-router-dom"
 import { Toaster } from "@/components/ui/toaster"
 import { AgentChatWidget } from "@/components/agent/AgentChatWidget"
+
+function SidebarMobileCloser() {
+  const location = useLocation()
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+  }, [location.pathname, isMobile, setOpenMobile])
+
+  return null
+}
 
 export default function AdminLayout() {
   const location = useLocation();
@@ -26,6 +41,7 @@ export default function AdminLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
+      <SidebarMobileCloser />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
           <div className="flex min-w-0 flex-1 items-center gap-2 px-3 sm:px-4">
