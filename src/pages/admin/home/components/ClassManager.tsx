@@ -120,13 +120,13 @@ function ClassManager({ types }: { types: Type[] }) {
           </div>
         </div>
 
-        {formError && <p className="mt-3 text-sm text-red-500">{formError}</p>}
+        {formError && <p className="mt-3 text-sm text-destructive">{formError}</p>}
 
         <Button onClick={handleCreate} className="mt-4 w-full sm:w-auto">
           Adicionar Classe
         </Button>
 
-        <div className="mt-8 border-t border-gray-200 pt-4"></div>
+        <div className="mt-8 border-t border-border pt-4"></div>
 
         <div className="mt-4 max-h-none overflow-x-auto overflow-y-auto md:max-h-[460px] md:h-[460px]">
           <Table>
@@ -179,10 +179,10 @@ function ClassManager({ types }: { types: Type[] }) {
                   <TableCell className="flex space-x-2">
                     {editingClass && editingClass.id === cls.id ? (
                       <>
-                        <Button onClick={handleUpdate} className="p-2 text-green-500" variant="ghost">
+                        <Button onClick={handleUpdate} className="p-2 text-success" variant="ghost">
                           Salvar
                         </Button>
-                        <Button onClick={cancelEditing} className="p-2 text-gray-500" variant="ghost">
+                        <Button onClick={cancelEditing} className="p-2 text-muted-foreground" variant="ghost">
                           Cancelar
                         </Button>
                       </>
@@ -191,7 +191,7 @@ function ClassManager({ types }: { types: Type[] }) {
                         <Button variant="ghost" className="p-2 text-blue-500" onClick={() => startEditing(cls)}>
                           <Pen size={16} />
                         </Button>
-                        <Button variant="ghost" className="p-2 text-red-500" onClick={() => handleDelete(cls.id)}>
+                        <Button variant="ghost" className="p-2 text-destructive" onClick={() => handleDelete(cls.id)}>
                           <Trash size={16} />
                         </Button>
                       </>

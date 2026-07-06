@@ -108,7 +108,7 @@ export function MovieCard({ movie, onClick, onDelete }: MovieCardProps) {
             text-xs sm:text-sm
           "
         >
-          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+          <Star className="h-4 w-4 fill-warning text-warning" />
           <span className="font-medium">{score}</span>
         </div>
 

@@ -158,7 +158,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
               onChange={(e) => setQuery(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSearch()}
             />
-            {formError && <p className="text-sm text-red-500">{formError}</p>}
+            {formError && <p className="text-sm text-destructive">{formError}</p>}
             <Button onClick={handleSearch} disabled={loading} className="w-full">
               {loading ? "Buscando..." : "Buscar"}
             </Button>
@@ -247,7 +247,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
                 </>
               )}
 
-              {formError && <p className="text-sm text-red-500">{formError}</p>}
+              {formError && <p className="text-sm text-destructive">{formError}</p>}
 
               <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <Button

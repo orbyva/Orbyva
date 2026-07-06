@@ -41,16 +41,16 @@ function CompactAlertSection({
   const toneStyles =
     tone === "danger"
       ? {
-          container: "border-red-500/25 bg-red-500/5",
-          title: "text-red-400",
-          text: "text-red-300/90",
-          icon: "text-red-400",
+          container: "border-destructive/25 bg-destructive/5",
+          title: "text-destructive",
+          text: "text-destructive/90",
+          icon: "text-destructive",
         }
       : {
-          container: "border-yellow-500/25 bg-yellow-500/5",
-          title: "text-yellow-400",
-          text: "text-yellow-300/80",
-          icon: "text-yellow-400",
+          container: "border-warning/25 bg-warning/5",
+          title: "text-warning",
+          text: "text-warning/90",
+          icon: "text-warning",
         };
 
   return (

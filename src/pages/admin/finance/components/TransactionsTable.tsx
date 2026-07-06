@@ -58,8 +58,8 @@ function NatureBadge({ nature }: { nature: string }) {
       className={cn(
         "font-normal",
         isReceita
-          ? "border-green-500/30 text-green-400"
-          : "border-red-500/30 text-red-400"
+          ? "border-success/30 text-success"
+          : "border-destructive/30 text-destructive"
       )}
     >
       {nature}
@@ -113,7 +113,7 @@ function TransactionActions({
               aria-label="Excluir transação"
               onClick={() => setSelectedTransaction(transaction)}
             >
-              <Trash2 className="h-4 w-4 text-red-400" />
+              <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
           </AlertDialogTrigger>
         </ActionTooltip>
@@ -179,7 +179,7 @@ function TransactionsMobileList({
               <span
                 className={cn(
                   "shrink-0 text-base font-semibold tabular-nums",
-                  isReceita ? "text-green-400" : "text-red-400"
+                  isReceita ? "text-success" : "text-destructive"
                 )}
               >
                 {formatBRL(t.value)}
@@ -291,7 +291,7 @@ export function TransactionsTable({
                   <TableCell
                     className={cn(
                       "whitespace-nowrap font-medium tabular-nums",
-                      isReceita ? "text-green-400" : "text-red-400"
+                      isReceita ? "text-success" : "text-destructive"
                     )}
                   >
                     {formatBRL(t.value)}

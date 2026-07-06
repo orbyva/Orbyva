@@ -19,6 +19,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 
+import { chartColors } from "@/lib/design-tokens";
+
 const monthLabels = [
   "Jan",
   "Fev",
@@ -62,8 +64,8 @@ export function Overview({
   }));
 
   const chartConfig = {
-    Receita: { label: "Receita Total", color: "#4CAF50" },
-    Despesa: { label: "Despesa Total", color: "#F44336" },
+    Receita: { label: "Receita Total", color: chartColors.income },
+    Despesa: { label: "Despesa Total", color: chartColors.expense },
   };
 
   return (

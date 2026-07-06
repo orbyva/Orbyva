@@ -127,7 +127,7 @@ export function MovieEditModal({
             </>
           )}
 
-          {formError && <p className="text-sm text-red-500">{formError}</p>}
+          {formError && <p className="text-sm text-destructive">{formError}</p>}
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
             <Button

@@ -27,7 +27,7 @@ function Calendar({
 
         nav: "space-x-1 flex items-center",
 
-        chevron: "fill-[#8B5CF6]",
+        chevron: "fill-primary",
 
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",

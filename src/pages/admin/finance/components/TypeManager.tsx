@@ -216,14 +216,14 @@ function TypeManager({
           </div>
         </div>
 
-        {formError && <p className="mt-3 text-sm text-red-500">{formError}</p>}
+        {formError && <p className="mt-3 text-sm text-destructive">{formError}</p>}
 
         <Button onClick={handleCreate} className="mt-4 w-full sm:w-auto">
           Adicionar Tipo
         </Button>
 
         {/* Divider between form and table */}
-        <div className="mt-8 border-t border-gray-200 pt-4"></div>
+        <div className="mt-8 border-t border-border pt-4"></div>
 
         {/* Types Table */}
         <div className="mt-4 w-full overflow-x-auto">
@@ -383,14 +383,14 @@ function TypeManager({
                         <>
                           <Button
                             onClick={handleUpdate}
-                            className="p-2 text-green-500 h-8 text-xs"
+                            className="p-2 text-success h-8 text-xs"
                             variant="ghost"
                           >
                             Salvar
                           </Button>
                           <Button
                             onClick={cancelEditing}
-                            className="p-2 text-gray-500 h-8 text-xs"
+                            className="p-2 text-muted-foreground h-8 text-xs"
                             variant="ghost"
                           >
                             Cancelar
@@ -427,7 +427,7 @@ function TypeManager({
                             <AlertDialogTrigger asChild>
                               <Button
                                 variant="ghost"
-                                className="p-2 text-red-500 h-8"
+                                className="p-2 text-destructive h-8"
                                 onClick={() => handleDelete(type.id)}
                               >
                                 <Trash size={16} />

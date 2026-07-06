@@ -229,7 +229,7 @@ export function RecurringTable({
                           aria-label="Marcar recorrência como paga"
                           onClick={() => setSelectedRecurring(item)}
                         >
-                          <CheckCircle className="h-4 w-4 text-green-400" />
+                          <CheckCircle className="h-4 w-4 text-success" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -264,7 +264,7 @@ export function RecurringTable({
                           aria-label="Excluir recorrência"
                           onClick={() => setSelectedRecurring(item)}
                         >
-                          <Trash2 className="h-4 w-4 text-red-400" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -317,7 +317,7 @@ export function RecurringTable({
                                   className={cn(
                                     "font-normal",
                                     isPaid
-                                      ? "border-green-500/30 text-green-400"
+                                      ? "border-success/30 text-success"
                                       : "border-border text-muted-foreground"
                                   )}
                                 >
@@ -539,7 +539,7 @@ export function RecurringTable({
                                 aria-label="Marcar recorrência como paga"
                                 onClick={() => setSelectedRecurring(item)}
                               >
-                                <CheckCircle className="h-4 w-4 text-green-400" />
+                                <CheckCircle className="h-4 w-4 text-success" />
                               </Button>
                             </AlertDialogTrigger>
                           </ActionTooltip>
@@ -579,7 +579,7 @@ export function RecurringTable({
                                 aria-label="Excluir recorrência"
                                 onClick={() => setSelectedRecurring(item)}
                               >
-                                <Trash2 className="h-4 w-4 text-red-400" />
+                                <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </AlertDialogTrigger>
                           </ActionTooltip>
@@ -686,7 +686,7 @@ export function RecurringTable({
                                         className={cn(
                                           "font-normal",
                                           isPaid
-                                            ? "border-green-500/30 text-green-400"
+                                            ? "border-success/30 text-success"
                                             : "border-border text-muted-foreground"
                                         )}
                                       >

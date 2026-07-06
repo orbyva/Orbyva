@@ -14,33 +14,32 @@ export function RecurringSummary({
     {
       title: "Total a Receber",
       value: totalFixesReceivable,
-      color: "text-green-500",
-      borderColor: "border-green-500",
+      titleClass: "text-success border-success/50",
+      valueClass: "text-success",
     },
     {
       title: "Total a Pagar",
       value: totalFixesPay,
-      color: "text-red-500",
-      borderColor: "border-red-500",
+      titleClass: "text-destructive border-destructive/50",
+      valueClass: "text-destructive",
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2">
       {data.map((card) => (
-        <Card
-          key={card.title}
-          className="rounded-lg border bg-card p-5 text-white shadow-md"
-        >
+        <Card key={card.title} className="p-5">
           <CardHeader className="p-0 pb-3">
             <CardTitle
-              className={`text-base font-semibold ${card.color} border-b-2 pb-1 ${card.borderColor}`}
+              className={`text-sm font-semibold uppercase tracking-wide border-b-2 pb-1.5 ${card.titleClass}`}
             >
               {card.title}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className={`text-2xl font-bold tracking-tight ${card.color}`}>
+            <div
+              className={`text-2xl font-bold tracking-tight tabular-nums ${card.valueClass}`}
+            >
               {formatBRL(card.value)}
             </div>
           </CardContent>

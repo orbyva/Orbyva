@@ -37,6 +37,7 @@
   import { RecurringDueAlerts } from "@/pages/admin/finance/components/RecurringDueAlerts";
   import { Recurring } from "@/types/recurring";
   import { formatBRL } from "@/lib/currency";
+  import { chartColors } from "@/lib/design-tokens";
 
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
@@ -60,7 +61,7 @@
         groupedData[typeName] = {
           type: typeName,
           total_value: 0,
-          fill: typeColor || "#CCCCCC",
+          fill: typeColor || chartColors.fallback,
         };
       }
 
@@ -105,7 +106,7 @@
       {
         title: "Receita Total",
         value: receitaTotal,
-        color: "text-green-600 border-green-500",
+        variant: "income",
         description: null,
         isLoading: cardsLoading,
         trendText: null,
@@ -114,7 +115,7 @@
       {
         title: "Despesa Total",
         value: despesaTotal,
-        color: "text-red-600 border-red-500",
+        variant: "expense",
         description: null,
         isLoading: cardsLoading,
         trendText: null,
@@ -123,7 +124,7 @@
       {
         title: "Saldo",
         value: receitaTotal - despesaTotal,
-        color: "text-yellow-600 border-yellow-500",
+        variant: "primary",
         description: null,
         isLoading: cardsLoading,
         trendText: null,
@@ -135,7 +136,7 @@
       {
         title: "Comprometido no mês",
         value: committed.pay,
-        color: "text-orange-500 border-orange-500",
+        variant: "muted",
         description: `A receber: ${formatBRL(committed.receive)}`,
         isLoading: cardsLoading,
         trendText: null,

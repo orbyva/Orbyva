@@ -314,7 +314,7 @@ export function RecurringFormDialog({
             </div>
           </FormSection>
 
-          {formError && <p className="text-sm text-red-500">{formError}</p>}
+          {formError && <p className="text-sm text-destructive">{formError}</p>}
 
           <Button onClick={handleCreate} className="w-full sm:w-auto">
             {isEditing ? "Salvar Alterações" : "Salvar"}

@@ -35,14 +35,14 @@ function AlertBlock({
   const styles =
     tone === "danger"
       ? {
-          container: "border-red-500/25 bg-red-500/5",
-          title: "text-red-400",
-          text: "text-red-300/90",
+          container: "border-destructive/25 bg-destructive/5",
+          title: "text-destructive",
+          text: "text-destructive/90",
         }
       : {
-          container: "border-green-500/25 bg-green-500/5",
-          title: "text-green-400",
-          text: "text-green-300/80",
+          container: "border-success/25 bg-success/5",
+          title: "text-success",
+          text: "text-success/90",
         };
 
   return (

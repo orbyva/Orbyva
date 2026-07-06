@@ -19,90 +19,80 @@ export function BudgetSummary({
   projectedExpense,
 }: BudgetSummaryProps) {
   const net = income - expense;
-
   const safeProjectedExpense = Math.max(expense, projectedExpense);
-
   const expensePercentage =
     plannedExpense > 0
       ? Number(((expense / plannedExpense) * 100).toFixed(1))
       : 0;
-
   const incomePercentage =
     plannedIncome > 0
       ? Number(((income / plannedIncome) * 100).toFixed(1))
       : 0;
-
   const availableToSpend = plannedExpense - expense;
   const projectedResult = plannedIncome - safeProjectedExpense;
-
-  const expenseColor =
-    expense > plannedExpense ? "text-red-500" : "text-yellow-400";
-
-  const resultColor = net >= 0 ? "text-green-500" : "text-red-500";
-
-  const projectionColor =
-    safeProjectedExpense > plannedExpense
-      ? "text-red-500"
-      : "text-muted-foreground";
 
   const data = [
     {
       title: "Resultado",
       value: net,
-      color: resultColor,
-      borderColor: net >= 0 ? "border-green-500" : "border-red-500",
+      titleClass:
+        net >= 0
+          ? "text-primary border-primary/50"
+          : "text-destructive border-destructive/50",
+      valueClass: net >= 0 ? "text-primary" : "text-destructive",
       detail: net >= 0 ? "Saldo positivo" : "Saldo negativo",
-      extra: `Livre: ${formatValue(
-        availableToSpend
-      )} · Previsto: ${formatValue(projectedResult)}`,
-      extraColor: projectedResult >= 0 ? "text-green-500" : "text-red-500",
+      extra: `Livre: ${formatValue(availableToSpend)} · Previsto: ${formatValue(projectedResult)}`,
+      extraClass:
+        projectedResult >= 0 ? "text-success" : "text-destructive",
     },
     {
       title: "Gasto",
       value: expense,
-      color: expenseColor,
-      borderColor:
-        expense > plannedExpense ? "border-red-500" : "border-yellow-400",
+      titleClass:
+        expense > plannedExpense
+          ? "text-destructive border-destructive/50"
+          : "text-warning border-warning/50",
+      valueClass:
+        expense > plannedExpense ? "text-destructive" : "text-warning",
       detail: `${expensePercentage}% do orçamento`,
-      extra: `Orçado: ${formatValue(
-        plannedExpense
-      )} `,
-      extraColor: projectionColor,
+      extra: `Orçado: ${formatValue(plannedExpense)}`,
+      extraClass:
+        safeProjectedExpense > plannedExpense
+          ? "text-destructive"
+          : "text-muted-foreground",
     },
     {
       title: "Receita",
       value: income,
-      color: "text-blue-500",
-      borderColor: "border-blue-500",
+      titleClass: "text-success border-success/50",
+      valueClass: "text-success",
       detail: `${incomePercentage}% recebido`,
       extra: `Orçado: ${formatValue(plannedIncome)}`,
-      extraColor: "text-muted-foreground",
+      extraClass: "text-muted-foreground",
     },
   ];
 
   return (
-    <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
       {data.map((card) => (
-        <Card key={card.title} className="p-6 rounded-lg shadow-md">
-          <CardHeader>
+        <Card key={card.title} className="p-6">
+          <CardHeader className="p-0 pb-3">
             <CardTitle
-              className={`text-lg font-semibold border-b-4 pb-1 ${card.color} ${card.borderColor}`}
+              className={`text-sm font-semibold uppercase tracking-wide border-b-2 pb-1.5 ${card.titleClass}`}
             >
               {card.title}
             </CardTitle>
           </CardHeader>
 
-          <CardContent>
-            <div className={`text-3xl font-bold ${card.color}`}>
+          <CardContent className="p-0">
+            <div className={`text-3xl font-bold tabular-nums ${card.valueClass}`}>
               {formatValue(card.value)}
             </div>
 
-            <p className="mt-1 text-xs text-muted-foreground">
-              {card.detail}
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{card.detail}</p>
 
             {card.extra && (
-              <p className={`mt-1 text-xs font-medium ${card.extraColor}`}>
+              <p className={`mt-1 text-xs font-medium ${card.extraClass}`}>
                 {card.extra}
               </p>
             )}

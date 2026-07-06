@@ -15,6 +15,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
+import { moduleColors } from "@/lib/design-tokens"
 import { useAuth } from "@/hooks/useAuth"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -29,7 +30,7 @@ const data = {
   navMain: [
     {
       title: "Finanças",
-      color:"#8B5CF6",
+      color: moduleColors.finance,
       url: "#",
       icon: PiggyBank,
       isActive: true,
@@ -59,7 +60,7 @@ const data = {
     },
     {
       title: "Cinema",
-      color:"#8B5CF6",
+      color: moduleColors.cinema,
       icon: Clapperboard,
       url: "#",
       isActive: true,

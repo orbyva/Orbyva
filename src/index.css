@@ -1,42 +1,53 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 20 14.3% 4.1%;
+    --background: 60 6% 97%;
+    --foreground: 20 14% 4%;
     --card: 0 0% 100%;
-    --card-foreground: 20 14.3% 4.1%;
+    --card-foreground: 20 14% 4%;
     --popover: 0 0% 100%;
-    --popover-foreground: 20 14.3% 4.1%;
+    --popover-foreground: 20 14% 4%;
 
     --primary: 262 83% 58%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 60 4.8% 95.9%;
-    --secondary-foreground: 24 9.8% 10%;
-    --muted: 60 4.8% 95.9%;
-    --muted-foreground: 25 5.3% 44.7%;
+    --secondary: 60 5% 94%;
+    --secondary-foreground: 24 10% 10%;
+    --muted: 60 5% 94%;
+    --muted-foreground: 25 6% 42%;
     --accent: 262 83% 96%;
     --accent-foreground: 262 83% 28%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 60 9.1% 97.8%;
-    --border: 20 5.9% 90%;
-    --input: 20 5.9% 90%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 95% 44%;
+    --warning-foreground: 0 0% 100%;
+
+    --cinema: 221 83% 53%;
+    --cinema-foreground: 0 0% 100%;
+
+    --border: 20 6% 90%;
+    --input: 20 6% 90%;
     --ring: 262 83% 58%;
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
     --chart-1: 262 83% 58%;
     --chart-2: 221 83% 53%;
-    --chart-3: 142 71% 45%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 38 92% 50%;
+    --chart-3: 142 71% 42%;
+    --chart-4: 0 72% 51%;
+    --chart-5: 32 95% 44%;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 20 14.3% 4.1%;
-    --sidebar-border: 20 5.9% 90%;
+    --sidebar-foreground: 20 14% 4%;
+    --sidebar-border: 20 6% 90%;
     --sidebar-accent: 262 83% 96%;
     --sidebar-accent-foreground: 262 83% 28%;
     --sidebar-primary: 262 83% 58%;
@@ -47,12 +58,12 @@
   .dark {
     --background: 222 47% 6%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 8%;
+    --card: 222 47% 9%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 8%;
+    --popover: 222 47% 9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 263 70% 60%;
+    --primary: 263 70% 62%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 217 33% 14%;
@@ -62,26 +73,35 @@
     --accent: 263 70% 18%;
     --accent-foreground: 263 90% 82%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 210 40% 98%;
+
+    --success: 142 71% 48%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 100%;
+
+    --cinema: 217 91% 62%;
+    --cinema-foreground: 0 0% 100%;
+
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 263 70% 60%;
+    --ring: 263 70% 62%;
 
-    --chart-1: 263 70% 60%;
-    --chart-2: 217 91% 60%;
-    --chart-3: 142 71% 45%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 38 92% 50%;
+    --chart-1: 263 70% 62%;
+    --chart-2: 217 91% 62%;
+    --chart-3: 142 71% 48%;
+    --chart-4: 0 72% 55%;
+    --chart-5: 38 92% 55%;
 
     --sidebar-background: 222 47% 6%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 17%;
     --sidebar-accent: 263 70% 18%;
     --sidebar-accent-foreground: 263 90% 82%;
-    --sidebar-primary: 263 70% 60%;
+    --sidebar-primary: 263 70% 62%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-ring: 263 70% 60%;
+    --sidebar-ring: 263 70% 62%;
   }
 }
 
@@ -91,7 +111,16 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* iOS Safari dá zoom ao focar campos com fonte < 16px */
+  @media screen and (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+    select,
+    textarea {
+      font-size: 1rem;
+    }
   }
 
   *, *::before, *::after {
@@ -117,6 +146,10 @@
 
   .safe-px {
     padding-inline: clamp(0.75rem, 2vw, 1rem);
+  }
+
+  .surface-card {
+    @apply rounded-xl border border-border/60 bg-card shadow-sm ring-1 ring-border/40;
   }
 }
 

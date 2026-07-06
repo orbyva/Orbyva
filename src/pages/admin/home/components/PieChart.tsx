@@ -16,6 +16,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { useSidebar } from "@/components/ui/sidebar";
+import { chartColors } from "@/lib/design-tokens";
 
 export interface DonutChartData {
   type: string;
@@ -191,7 +192,7 @@ export function DonutChart({
       ...config,
       [item.type]: {
         label: item.type,
-        color: item.fill || "gray",
+        color: item.fill || chartColors.fallback,
       },
     }),
     {}

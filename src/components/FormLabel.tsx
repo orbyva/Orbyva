@@ -19,7 +19,7 @@ export function FormLabel({
   return (
     <Label htmlFor={htmlFor} className={cn(className)}>
       {children}
-      {required && <span className="text-red-500"> *</span>}
+      {required && <span className="text-destructive"> *</span>}
       {optional && (
         <span className="ml-1 text-xs font-normal text-muted-foreground">
           (opcional)

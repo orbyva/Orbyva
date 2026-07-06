@@ -27,6 +27,7 @@ import {
 
 import type { MonthlyBudgetSummary } from "@/types/finance";
 import { formatBRL } from "@/lib/currency";
+import { statusBadgeStyles, statusProgressStyles } from "@/lib/design-tokens";
 import { cn } from "@/lib/utils";
 
 interface BudgetTableProps {
@@ -65,14 +66,14 @@ function getRemainingClass(budget?: MonthlyBudgetSummary | null) {
   const planned = Number(budget.planned_value || 0);
 
   if (budget.nature_name === "Receita") {
-    if (remaining <= 0) return "text-green-500";
-    if (planned > 0 && remaining <= planned * 0.3) return "text-yellow-500";
-    return "text-red-500";
+    if (remaining <= 0) return "text-success";
+    if (planned > 0 && remaining <= planned * 0.3) return "text-warning";
+    return "text-destructive";
   }
 
-  if (remaining < 0) return "text-red-500";
-  if (planned > 0 && remaining <= planned * 0.3) return "text-yellow-500";
-  return "text-green-500";
+  if (remaining < 0) return "text-destructive";
+  if (planned > 0 && remaining <= planned * 0.3) return "text-warning";
+  return "text-success";
 }
 
 function getStatusFromPercentage(value: number, natureName?: string) {
@@ -128,21 +129,13 @@ function createGroupSummary(
 function ProgressBar({ value, status }: { value: number; status: string }) {
   const normalized = Math.min(Math.max(Number(value || 0), 0), 100);
 
-  const colorMap: Record<string, string> = {
-    OK: "bg-green-500",
-    ATENCAO: "bg-yellow-500",
-    ATENÇÃO: "bg-yellow-500",
-    CRITICO: "bg-orange-500",
-    CRÍTICO: "bg-orange-500",
-    QUASE: "bg-yellow-500",
-    ESTOUROU: "bg-red-500",
-  };
+  const colorMap: Record<string, string> = statusProgressStyles;
 
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
       <div
         className={`h-full rounded-full transition-all ${
-          colorMap[status] ?? "bg-blue-500"
+          colorMap[status] ?? "bg-primary"
         }`}
         style={{ width: `${normalized}%` }}
       />
@@ -151,23 +144,12 @@ function ProgressBar({ value, status }: { value: number; status: string }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    OK: "bg-green-500/15 text-green-500 border-green-500/30",
-    ATENCAO: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30",
-    ATENÇÃO: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30",
-    CRITICO: "bg-orange-500/15 text-orange-500 border-orange-500/30",
-    CRÍTICO: "bg-orange-500/15 text-orange-500 border-orange-500/30",
-    QUASE: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30",
-    ESTOUROU: "bg-red-500/15 text-red-500 border-red-500/30",
-  };
-
   return (
     <span
-      className={`
-        inline-flex items-center rounded-full border px-2.5 py-1
-        text-xs font-semibold
-        ${map[status] ?? "bg-muted text-muted-foreground"}
-      `}
+      className={cn(
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+        statusBadgeStyles[status] ?? "bg-muted text-muted-foreground"
+      )}
     >
       {status}
     </span>
@@ -221,7 +203,7 @@ function BudgetActions({
               setConfirmOpen(true);
             }}
           >
-            <Trash2 className="h-4 w-4 text-red-500" />
+            <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </AlertDialogTrigger>
 

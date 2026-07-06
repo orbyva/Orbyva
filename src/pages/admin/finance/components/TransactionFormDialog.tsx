@@ -250,7 +250,7 @@ export function TransactionFormDialog({
             />
           </FormSection>
 
-          {formError && <p className="text-sm text-red-500">{formError}</p>}
+          {formError && <p className="text-sm text-destructive">{formError}</p>}
 
           <Button onClick={handleSubmit} className="w-full sm:w-auto">
             {isEditing ? "Salvar Alterações" : "Salvar"}

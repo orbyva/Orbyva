@@ -123,7 +123,7 @@ export function AgentChatPanel({ variant = "page" }: AgentChatPanelProps) {
               onChange={(event) => setInput(event.target.value)}
               placeholder="Ex.: Qual foi meu saldo? Cadastre despesa de R$ 250..."
               disabled={loading}
-              className="min-w-0 flex-1 border-border/80 bg-background text-base sm:text-sm"
+              className="min-w-0 flex-1 border-border/80 bg-background"
             />
             <Button
               type="submit"
