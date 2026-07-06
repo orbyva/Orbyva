@@ -30,7 +30,7 @@ export function RecurringFilters({
           size="sm"
           variant={activeFilter === id ? "default" : "outline"}
           className={cn(
-            "h-8 rounded-full px-3 text-xs",
+            "h-10 rounded-full px-3 text-sm sm:h-8 sm:text-xs",
             activeFilter === id && "shadow-sm"
           )}
           onClick={() => onFilterChange(id)}
@@ -38,7 +38,7 @@ export function RecurringFilters({
           {label}
           <span
             className={cn(
-              "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+              "ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-medium sm:text-[10px]",
               activeFilter === id
                 ? "bg-primary-foreground/20 text-primary-foreground"
                 : "bg-muted text-muted-foreground"

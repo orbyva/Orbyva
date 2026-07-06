@@ -26,7 +26,7 @@ export function DatePicker({ date, onSelect, placeholder = "Selecione a Data" }:
         <Button
           variant="outline"
           className={cn(
-            "w-[240px] justify-start text-left font-normal",
+            "w-full justify-start text-left font-normal",
             !date && "text-muted-foreground"
           )}
         >

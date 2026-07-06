@@ -27,14 +27,14 @@ export default function AdminLayout() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-auto md:h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-auto md:h-12">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+          <div className="flex min-w-0 flex-1 items-center gap-2 px-3 sm:px-4">
+            <SidebarTrigger className="-ml-1 shrink-0" />
+            <Separator orientation="vertical" className="mr-1 hidden h-4 sm:block" />
 
             {/* Dynamic Breadcrumb */}
-            <Breadcrumb>
-              <BreadcrumbList>
+            <Breadcrumb className="min-w-0 overflow-hidden">
+              <BreadcrumbList className="flex-nowrap overflow-hidden">
                 <BreadcrumbItem>
                   <BreadcrumbLink href="/">Home</BreadcrumbLink>
                 </BreadcrumbItem>
@@ -49,9 +49,11 @@ export default function AdminLayout() {
                       <BreadcrumbSeparator />
                       <BreadcrumbItem>
                         {isLast ? (
-                          <BreadcrumbPage>{decodeURIComponent(segment)}</BreadcrumbPage>
+                          <BreadcrumbPage className="truncate max-w-[140px] sm:max-w-none">
+                            {decodeURIComponent(segment)}
+                          </BreadcrumbPage>
                         ) : (
-                          <BreadcrumbLink href={href}>
+                          <BreadcrumbLink href={href} className="truncate max-w-[100px] sm:max-w-none">
                             {decodeURIComponent(segment)}
                           </BreadcrumbLink>
                         )}
@@ -63,10 +65,10 @@ export default function AdminLayout() {
             </Breadcrumb>
           </div>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div className="flex flex-1 flex-col gap-2 pb-20 sm:gap-4 sm:pb-4 md:pb-6">
           <Toaster />
           <Outlet />
-        </main>
+        </div>
         <AgentChatWidget />
       </SidebarInset>
     </SidebarProvider>

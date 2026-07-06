@@ -27,9 +27,11 @@ import {
 
 import type { MonthlyBudgetSummary } from "@/types/finance";
 import { formatBRL } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 
 interface BudgetTableProps {
   budgets: MonthlyBudgetSummary[];
+  isMobile?: boolean;
   loading?: boolean;
   confirmOpen: boolean;
   setConfirmOpen: (open: boolean) => void;
@@ -192,11 +194,11 @@ function BudgetActions({
   handleEdit: (budget: MonthlyBudgetSummary) => void;
 }) {
   return (
-    <div className="flex justify-end gap-2">
+    <div className="flex justify-end gap-1">
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8"
+        className="h-10 w-10"
         onClick={() => handleEdit(budget)}
       >
         <Pen className="h-4 w-4 text-blue-500" />
@@ -213,7 +215,7 @@ function BudgetActions({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-10 w-10"
             onClick={() => {
               setSelectedBudget(budget);
               setConfirmOpen(true);
@@ -277,6 +279,7 @@ function BudgetValueCell({
 
 export function BudgetTable({
   budgets,
+  isMobile = false,
   loading = false,
   confirmOpen,
   setConfirmOpen,
@@ -309,6 +312,174 @@ export function BudgetTable({
       return indexA - indexB;
     }
   );
+
+  if (isMobile) {
+    if (loading) {
+      return (
+        <div className="p-8 text-center text-sm text-muted-foreground">
+          Carregando orçamento...
+        </div>
+      );
+    }
+
+    if (!budgets.length) {
+      return (
+        <div className="p-8 text-center text-sm text-muted-foreground">
+          Nenhum orçamento encontrado para este mês.
+        </div>
+      );
+    }
+
+    return (
+      <div className="divide-y divide-border/60">
+        {orderedGroups.map(([typeName, items]) => {
+          const parent =
+            items.find((budget) => budget.class_id === null) ??
+            createGroupSummary(typeName, items);
+          const children = items.filter((budget) => budget.class_id !== null);
+
+          return (
+            <div key={typeName} className="space-y-3 p-4">
+              <div className="space-y-2 rounded-lg bg-muted/40 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-bold">{typeName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {children.length} classe(s)
+                    </p>
+                  </div>
+                  <StatusBadge status={parent.status ?? "OK"} />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Orçado</p>
+                    <p className="font-medium tabular-nums">
+                      {formatBRL(parent.planned_value)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      {getRealizedLabel(parent)}
+                    </p>
+                    <p className="font-medium tabular-nums">
+                      {formatBRL(getRealizedValue(parent))}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      {getRemainingLabel(parent)}
+                    </p>
+                    <p
+                      className={cn(
+                        "font-semibold tabular-nums",
+                        getRemainingClass(parent)
+                      )}
+                    >
+                      {formatBRL(Number(parent.remaining_value || 0))}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">
+                      {Number(parent.percentage_used || 0).toFixed(0)}%
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {parent.nature_name === "Receita" ? "recebido" : "usado"}
+                    </span>
+                  </div>
+                  <ProgressBar
+                    value={Number(parent.percentage_used || 0)}
+                    status={parent.status ?? "OK"}
+                  />
+                </div>
+
+                {items.some((budget) => budget.class_id === null) && (
+                  <BudgetActions
+                    budget={parent}
+                    confirmOpen={confirmOpen}
+                    setConfirmOpen={setConfirmOpen}
+                    selectedBudget={selectedBudget}
+                    setSelectedBudget={setSelectedBudget}
+                    deleteBudget={deleteBudget}
+                    deleteLoading={deleteLoading}
+                    handleEdit={handleEdit}
+                  />
+                )}
+              </div>
+
+              {children.map((budget) => (
+                <div
+                  key={budget.id}
+                  className="ml-2 space-y-2 rounded-lg border border-border/50 p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium">{budget.class_name ?? "Sem classe"}</p>
+                    <StatusBadge status={budget.status} />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Orçado</p>
+                      <p className="font-medium tabular-nums">
+                        {formatBRL(budget.planned_value)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {getRealizedLabel(budget)}
+                      </p>
+                      <p className="font-medium tabular-nums">
+                        {formatBRL(getRealizedValue(budget))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {getRemainingLabel(budget)}
+                      </p>
+                      <p
+                        className={cn(
+                          "font-semibold tabular-nums",
+                          getRemainingClass(budget)
+                        )}
+                      >
+                        {formatBRL(Number(budget.remaining_value || 0))}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">
+                        {Number(budget.percentage_used || 0).toFixed(0)}%
+                      </span>
+                    </div>
+                    <ProgressBar
+                      value={Number(budget.percentage_used || 0)}
+                      status={budget.status}
+                    />
+                  </div>
+
+                  <BudgetActions
+                    budget={budget}
+                    confirmOpen={confirmOpen}
+                    setConfirmOpen={setConfirmOpen}
+                    selectedBudget={selectedBudget}
+                    setSelectedBudget={setSelectedBudget}
+                    deleteBudget={deleteBudget}
+                    deleteLoading={deleteLoading}
+                    handleEdit={handleEdit}
+                  />
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full overflow-hidden rounded-xl border bg-card shadow-sm">

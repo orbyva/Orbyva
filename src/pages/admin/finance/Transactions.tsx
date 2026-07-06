@@ -175,7 +175,7 @@ export default function Transactions() {
   ];
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-x-hidden">
+    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 overflow-x-hidden">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Transações</h1>
@@ -230,7 +230,7 @@ export default function Transactions() {
                 type="button"
                 size="sm"
                 variant={natureFilter === id ? "default" : "outline"}
-                className="h-8 rounded-full px-3 text-xs"
+                className="h-10 rounded-full px-3 text-sm sm:h-8 sm:text-xs"
                 onClick={() => setNatureFilter(id)}
               >
                 {label}

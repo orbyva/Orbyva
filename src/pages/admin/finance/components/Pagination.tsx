@@ -37,11 +37,11 @@ export default function Pagination({
   const { isMobile } = useSidebar();
 
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3">
-      <div className="flex items-center space-x-2">
-        <Label>Por página</Label>
+    <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center pt-3">
+      <div className="flex items-center gap-2 w-full sm:w-auto">
+        <Label className="shrink-0">Por página</Label>
         <Select value={String(pageSize)} onValueChange={(value) => onSetPageSize(Number(value))}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-24 sm:w-full sm:max-w-[120px]">
             <SelectValue placeholder="Selecionar" />
           </SelectTrigger>
           <SelectContent>

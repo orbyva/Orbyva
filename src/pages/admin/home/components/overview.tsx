@@ -73,7 +73,7 @@ export function Overview({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="pb-4">
-        <ChartContainer config={chartConfig} className="w-full md:h-auto md:h-[400px]">
+        <ChartContainer config={chartConfig} className="h-[280px] w-full md:h-[400px]">
           
             <LineChart
               data={transformedData}

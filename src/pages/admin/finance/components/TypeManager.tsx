@@ -116,7 +116,7 @@ function TypeManager({
   }
 
   return (
-    <Card className="max-h-auto md:h-[800px]">
+    <Card className="max-h-none md:h-[800px]">
       <CardHeader>
         <CardTitle>Gerenciamento de Tipos</CardTitle>
       </CardHeader>
@@ -227,7 +227,7 @@ function TypeManager({
 
         {/* Types Table */}
         <div className="mt-4 w-full overflow-x-auto">
-          <div className="max-h-auto md:h-[400px] overflow-y-auto">
+          <div className="max-h-none overflow-y-auto md:max-h-[400px] md:h-[400px]">
             <Table>
               <TableHeader>
                 <TableRow>

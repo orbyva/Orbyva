@@ -268,7 +268,7 @@
     });
 
     return (
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-x-hidden">
+      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 overflow-x-hidden">
         <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
@@ -328,9 +328,8 @@
 
         <RecurringDueAlerts alerts={dueAlerts} showRecurringLink />
 
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsContent value="overview" className="space-y-6">
-            <section className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+        <div className="space-y-6">
+          <section className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
               <KpiCardsGrid data={kpiCardsData} />
 
               <Tabs defaultValue="despesa" className="rounded-xl border p-4">
@@ -378,7 +377,7 @@
                 <TabsContent value="receita">
                   <Card>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <CardTitle>Transações Neste Mês</CardTitle>
                           <CardDescription>
@@ -411,7 +410,7 @@
                 <TabsContent value="despesa">
                   <Card>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <CardTitle>Transações Neste Mês</CardTitle>
                           <CardDescription>
@@ -442,8 +441,7 @@
                 </TabsContent>
               </Tabs>
             </section>
-          </TabsContent>
-        </Tabs>
+        </div>
       </main>
     );
   }

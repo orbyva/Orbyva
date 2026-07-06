@@ -27,12 +27,12 @@ const columns: ColumnDef<Transaction>[] = [
   {
     accessorKey: "class",
     header: "Classe",
-    cell: ({ row }) => <div className="text-xs">{row.original.class.name}</div>,
+    cell: ({ row }) => <div className="text-sm sm:text-xs">{row.original.class.name}</div>,
   },
   {
     accessorKey: "description",
     header: "Descrição",
-    cell: ({ row }) => <div className="text-xs">{row.getValue("description")}</div>,
+    cell: ({ row }) => <div className="text-sm sm:text-xs">{row.getValue("description")}</div>,
   },
   {
     accessorKey: "value",
@@ -46,7 +46,7 @@ const columns: ColumnDef<Transaction>[] = [
       </Button>
     ),
     cell: ({ row }) => (
-      <div className="text-right font-medium text-xs">
+      <div className="text-right font-medium text-sm sm:text-xs">
         R$ {(row.getValue("value") as number).toFixed(2)}
       </div>
     ),
@@ -63,7 +63,7 @@ const columns: ColumnDef<Transaction>[] = [
       </Button>
     ),
     cell: ({ row }) => (
-      <div className="text-right text-xs">
+      <div className="text-right text-sm sm:text-xs">
         {(row.getValue("transaction_at") as string).split('-').reverse().join('/')}
       </div>
     ),
@@ -85,7 +85,7 @@ export function TransactionsTable({ transactions }: { transactions: Transaction[
   });
 
   return (
-    <div className="overflow-y-auto h-auto max-h-auto md:h-[400px]">
+    <div className="overflow-x-auto overflow-y-auto h-auto max-h-none md:max-h-[400px] md:h-[400px]">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

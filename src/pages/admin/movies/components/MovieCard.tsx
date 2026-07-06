@@ -48,7 +48,7 @@ export function MovieCard({ movie, onClick, onDelete }: MovieCardProps) {
               size="icon"
               className="
                 absolute right-2 top-2 z-20
-                h-8 w-8 md:h-9 md:w-9
+                h-10 w-10 md:h-9 md:w-9
                 opacity-100 md:opacity-0
                 md:group-hover:opacity-100
                 transition-opacity

@@ -83,7 +83,7 @@ function ClassManager({ types }: { types: Type[] }) {
   }
 
   return (
-    <Card className="max-h-auto md:h-[800px]">
+    <Card className="max-h-none md:h-[800px]">
       <CardHeader>
         <CardTitle>Gerenciamento de Classes</CardTitle>
       </CardHeader>
@@ -128,7 +128,7 @@ function ClassManager({ types }: { types: Type[] }) {
 
         <div className="mt-8 border-t border-gray-200 pt-4"></div>
 
-        <div className="mt-4 max-h-auto md:h-[460px] overflow-y-auto">
+        <div className="mt-4 max-h-none overflow-x-auto overflow-y-auto md:max-h-[460px] md:h-[460px]">
           <Table>
             <TableHeader>
               <TableRow>

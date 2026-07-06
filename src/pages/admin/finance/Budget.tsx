@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { useSidebar } from "@/components/ui/sidebar";
 
 function getEmptyBudget(): MonthlyBudgetCreateRequest {
   return {
@@ -46,6 +47,7 @@ function getEmptyBudget(): MonthlyBudgetCreateRequest {
 
 export default function Budget() {
   const { toast } = useToast();
+  const { isMobile } = useSidebar();
   const { dimensions } = useDimensions();
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
@@ -297,7 +299,7 @@ export default function Budget() {
   }
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-x-hidden">
+    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 overflow-x-hidden">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">
@@ -393,7 +395,7 @@ export default function Budget() {
 
       {filteredSuggestions.length > 0 && (
         <section className="rounded-xl border p-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="font-semibold">Sugestões automáticas</h2>
               <p className="text-sm text-muted-foreground">
@@ -466,6 +468,7 @@ export default function Budget() {
           <section className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
             <BudgetTable
               budgets={expenseBudgets}
+              isMobile={isMobile}
               loading={loading}
               confirmOpen={confirmOpen}
               setConfirmOpen={setConfirmOpen}
@@ -482,6 +485,7 @@ export default function Budget() {
           <section className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
             <BudgetTable
               budgets={incomeBudgets}
+              isMobile={isMobile}
               loading={loading}
               confirmOpen={confirmOpen}
               setConfirmOpen={setConfirmOpen}
