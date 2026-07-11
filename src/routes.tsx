@@ -7,6 +7,7 @@ import LoadingFallback from "./components/LoadingFallback";
 
 const Login = lazy(() => import("./pages/admin/Login"));
 const Movies = lazy(() => import("./pages/admin/movies/Movies"));
+const Car = lazy(() => import("./pages/admin/car/Car"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Dashboard = lazy(() => import("./pages/admin/home/Dashboard"));
 const Transactions = lazy(() => import("./pages/admin/finance/Transactions"));
@@ -41,6 +42,7 @@ const router = createBrowserRouter([
           },
 
           { path: "movies", element: withSuspense(<Movies />) },
+          { path: "car", element: withSuspense(<Car />) },
         ],
       },
     ],

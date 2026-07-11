@@ -698,7 +698,7 @@ export async function executeAgentTool(
     }
 
     case "propose_create_recurring": {
-      const value = Number(args.value);
+      const totalValue = Number(args.value);
       const classId = Number(args.class_id);
       const description = String(args.description).trim();
       const installmentCount = Number(args.installment_count);
@@ -706,16 +706,18 @@ export async function executeAgentTool(
       const paymentStartDate =
         String(args.payment_start_date || new Date().toISOString().slice(0, 10));
 
-      if (!value || value <= 0) throw new Error("Valor inválido.");
+      if (!totalValue || totalValue <= 0) throw new Error("Valor inválido.");
       if (!description) throw new Error("Descrição obrigatória.");
       if (!classId) throw new Error("Categoria obrigatória.");
       if (!installmentCount || installmentCount < 2) {
         throw new Error("Número de parcelas deve ser >= 2.");
       }
 
+      const installmentValue = Math.round((totalValue / installmentCount) * 100) / 100;
+
       const payload = {
         class_id: classId,
-        value,
+        value: installmentValue,
         description,
         frequency: "Mensal",
         validity: null,
@@ -731,10 +733,9 @@ export async function executeAgentTool(
         .eq("id", classId)
         .maybeSingle();
 
-      const totalValue = value * installmentCount;
       const fields = [
-        { label: "Valor por parcela", value: formatBRL(value) },
-        { label: "Total", value: formatBRL(totalValue) },
+        { label: "Valor total", value: formatBRL(totalValue) },
+        { label: "Valor por parcela", value: formatBRL(installmentValue) },
         { label: "Parcelas", value: String(installmentCount) },
         { label: "Descrição", value: description },
         { label: "Categoria", value: (cls as { name?: string })?.name ?? String(classId) },

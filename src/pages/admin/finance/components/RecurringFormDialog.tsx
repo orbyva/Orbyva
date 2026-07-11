@@ -2,6 +2,11 @@ import type { Dimension } from "@/types/dimensions";
 import type { RecurringCreateRequest } from "@/types/recurring";
 import { useEffect, useState } from "react";
 import {
+  getTotalFromInstallments,
+  splitInstallmentValue,
+} from "@/domain/recurring";
+import { formatBRL } from "@/lib/currency";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,7 +32,7 @@ interface RecurringFormDialogProps {
   setOpen: (open: boolean) => void;
   newRecurring: RecurringCreateRequest;
   setNewRecurring: (recurring: RecurringCreateRequest) => void;
-  createRecurring: () => void;
+  createRecurring: (recurring?: RecurringCreateRequest) => void;
   isEditing: boolean;
   onClose: () => void;
   dimensions: Dimension[];
@@ -46,9 +51,33 @@ export function RecurringFormDialog({
   const [formError, setFormError] = useState<string>("");
   const [selectedType, setSelectedType] = useState<number | null>(null);
   const [selectedNature, setSelectedNature] = useState<number | null>(null);
+  const [totalValue, setTotalValue] = useState<number | "">("");
 
   const hasInstallments =
     !!newRecurring.installment_count && newRecurring.installment_count > 0;
+
+  const installmentValue =
+    hasInstallments &&
+    typeof totalValue === "number" &&
+    totalValue > 0 &&
+    newRecurring.installment_count
+      ? splitInstallmentValue(totalValue, newRecurring.installment_count)
+      : null;
+
+  useEffect(() => {
+    if (!open) return;
+
+    if (hasInstallments && newRecurring.value > 0 && newRecurring.installment_count) {
+      setTotalValue(
+        getTotalFromInstallments(
+          newRecurring.value,
+          newRecurring.installment_count
+        )
+      );
+    } else if (!hasInstallments) {
+      setTotalValue("");
+    }
+  }, [open, hasInstallments, newRecurring.value, newRecurring.installment_count]);
 
   useEffect(() => {
     if (isEditing && newRecurring.class_id && dimensions.length > 0) {
@@ -76,11 +105,20 @@ export function RecurringFormDialog({
     if (!selectedNature) return setFormError("Selecione a Natureza.");
     if (!selectedType) return setFormError("Selecione o Tipo.");
     if (!newRecurring.class_id) return setFormError("Selecione a Classe.");
-    if (!newRecurring.value || newRecurring.value <= 0)
-      return setFormError("Informe um Valor válido.");
     if (!newRecurring.description.trim())
       return setFormError("Informe a Descrição.");
     if (!newRecurring.frequency) return setFormError("Selecione a Frequência.");
+
+    if (hasInstallments) {
+      if (!newRecurring.installment_count || newRecurring.installment_count < 1) {
+        return setFormError("Informe o número de parcelas.");
+      }
+      if (typeof totalValue !== "number" || totalValue <= 0) {
+        return setFormError("Informe o valor total.");
+      }
+    } else if (!newRecurring.value || newRecurring.value <= 0) {
+      return setFormError("Informe um Valor válido.");
+    }
 
     if (hasInstallments) {
       if (!newRecurring.payment_start_date) {
@@ -96,7 +134,20 @@ export function RecurringFormDialog({
     }
 
     setFormError("");
-    createRecurring();
+
+    const payload =
+      hasInstallments && typeof totalValue === "number"
+        ? {
+            ...newRecurring,
+            value: splitInstallmentValue(
+              totalValue,
+              newRecurring.installment_count!
+            ),
+          }
+        : newRecurring;
+
+    setNewRecurring(payload);
+    createRecurring(payload);
   };
 
   return (
@@ -108,6 +159,7 @@ export function RecurringFormDialog({
           setSelectedNature(null);
           setSelectedType(null);
           setFormError("");
+          setTotalValue("");
           onClose();
         }
       }}
@@ -216,24 +268,43 @@ export function RecurringFormDialog({
           <FormSection title="Valores">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-3">
-                <FormLabel required>Valor da parcela</FormLabel>
-                <Input
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={newRecurring.value || ""}
-                  onChange={(e) =>
-                    setNewRecurring({
-                      ...newRecurring,
-                      value: Number(e.target.value),
-                    })
-                  }
-                />
+                <FormLabel required>
+                  {hasInstallments ? "Valor total" : "Valor"}
+                </FormLabel>
+                {hasInstallments ? (
+                  <Input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={totalValue}
+                    onChange={(e) =>
+                      setTotalValue(
+                        e.target.value ? Number(e.target.value) : ""
+                      )
+                    }
+                  />
+                ) : (
+                  <Input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={newRecurring.value || ""}
+                    onChange={(e) =>
+                      setNewRecurring({
+                        ...newRecurring,
+                        value: Number(e.target.value),
+                      })
+                    }
+                  />
+                )}
               </div>
 
               <div className="space-y-3">
-                <FormLabel optional>Número de parcelas</FormLabel>
+                <FormLabel optional={!hasInstallments} required={hasInstallments}>
+                  Número de parcelas
+                </FormLabel>
                 <Input
                   type="number"
                   min="1"
@@ -250,6 +321,15 @@ export function RecurringFormDialog({
                 />
               </div>
             </div>
+
+            {installmentValue != null && newRecurring.installment_count && (
+              <p className="text-sm text-muted-foreground">
+                {newRecurring.installment_count}x de{" "}
+                <span className="font-medium text-foreground">
+                  {formatBRL(installmentValue)}
+                </span>
+              </p>
+            )}
           </FormSection>
 
           <Separator />

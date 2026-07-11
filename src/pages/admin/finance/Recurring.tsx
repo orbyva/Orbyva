@@ -122,11 +122,12 @@ export default function Recurring() {
     [recurring, activeFilter, dueAlerts]
   );
 
-  async function editRecurring() {
+  async function editRecurring(payload?: RecurringCreateRequest) {
     if (!selectedRecurring) return;
+    const data = payload ?? newRecurring;
 
     try {
-      await updateRecurringApi(selectedRecurring.id, newRecurring);
+      await updateRecurringApi(selectedRecurring.id, data);
       toast({
         title: "Sucesso",
         description: "Recorrência atualizada com sucesso!",
@@ -164,9 +165,10 @@ export default function Recurring() {
     setOpen(true);
   }
 
-  async function handleCreateRecurring() {
+  async function handleCreateRecurring(payload?: RecurringCreateRequest) {
+    const data = payload ?? newRecurring;
     try {
-      await createRecurringApi(newRecurring);
+      await createRecurringApi(data);
       toast({
         title: "Sucesso",
         description: "Recorrência adicionada com sucesso!",

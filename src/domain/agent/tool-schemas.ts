@@ -185,7 +185,7 @@ export const AGENT_TOOL_DEFINITIONS = [
       parameters: {
         type: "object",
         properties: {
-          value: { type: "number", description: "Valor de cada parcela" },
+          value: { type: "number", description: "Valor total do produto/compra" },
           description: { type: "string" },
           class_id: { type: "number" },
           installment_count: { type: "number", description: "Número de parcelas" },

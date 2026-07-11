@@ -34,6 +34,9 @@
     --cinema: 221 83% 53%;
     --cinema-foreground: 0 0% 100%;
 
+    --car: 24 95% 53%;
+    --car-foreground: 0 0% 100%;
+
     --border: 20 6% 90%;
     --input: 20 6% 90%;
     --ring: 262 83% 58%;
@@ -83,6 +86,9 @@
 
     --cinema: 217 91% 62%;
     --cinema-foreground: 0 0% 100%;
+
+    --car: 24 95% 58%;
+    --car-foreground: 0 0% 100%;
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;

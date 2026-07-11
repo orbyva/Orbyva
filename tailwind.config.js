@@ -55,6 +55,10 @@ export default {
   				DEFAULT: 'hsl(var(--cinema))',
   				foreground: 'hsl(var(--cinema-foreground))'
   			},
+  			car: {
+  				DEFAULT: 'hsl(var(--car))',
+  				foreground: 'hsl(var(--car-foreground))'
+  			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

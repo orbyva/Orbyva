@@ -8,6 +8,7 @@ export const chartColors = {
 export const moduleColors = {
   finance: "hsl(var(--primary))",
   cinema: "hsl(var(--cinema))",
+  car: "hsl(var(--car))",
 } as const;
 
 export const statusBadgeStyles: Record<string, string> = {

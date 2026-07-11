@@ -1,5 +1,6 @@
 import * as React from "react"
 import {
+  Car,
   Clapperboard,
   PiggyBank
 } from "lucide-react"
@@ -68,6 +69,19 @@ const data = {
         {
           title: "Filmes",
           url: "/movies",
+        }
+      ],
+    },
+    {
+      title: "Carro",
+      color: moduleColors.car,
+      icon: Car,
+      url: "#",
+      isActive: true,
+      items: [
+        {
+          title: "Meu Carro",
+          url: "/car",
         }
       ],
     },
