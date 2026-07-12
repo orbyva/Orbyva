@@ -1,0 +1,213 @@
+import { useCallback, useEffect, useState } from "react";
+import { Target, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { DatePicker } from "@/components/DatePicker";
+import { EmptyState } from "@/components/EmptyState";
+import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { createGoal, deleteGoal, fetchGoals, updateGoal } from "@/api/goals";
+import { GOAL_CATEGORY_LABELS, getGoalProgress, formatGoalProgress } from "@/domain/goals";
+import type { GoalCategory, PersonalGoal, PersonalGoalCreateRequest } from "@/types/goals";
+import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
+import { formatDateBR } from "@/lib/currency";
+import { cn } from "@/lib/utils";
+
+const emptyGoal = (): PersonalGoalCreateRequest => ({
+  title: "",
+  description: "",
+  category: "other",
+  target_value: 0,
+  current_value: 0,
+  unit: "",
+  deadline: null,
+  status: "active",
+});
+
+export default function Goals() {
+  const [goals, setGoals] = useState<PersonalGoal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<PersonalGoal | null>(null);
+  const [form, setForm] = useState(emptyGoal());
+  const { toast } = useToast();
+
+  const load = useCallback(async () => {
+    try {
+      setGoals(await fetchGoals());
+    } catch (error) {
+      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  function openEdit(goal: PersonalGoal) {
+    setEditing(goal);
+    setForm({ ...goal });
+    setOpen(true);
+  }
+
+  function openCreate() {
+    setEditing(null);
+    setForm(emptyGoal());
+    setOpen(true);
+  }
+
+  async function handleSave() {
+    if (!form.title.trim()) return;
+    try {
+      if (editing) await updateGoal({ id: editing.id, ...form });
+      else await createGoal(form);
+      toast({ title: "Meta salva!", duration: 2000 });
+      setOpen(false);
+      load();
+    } catch (error) {
+      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteGoal(id);
+      toast({ title: "Meta excluída", duration: 2000 });
+      load();
+    } catch (error) {
+      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+    }
+  }
+
+  const activeGoals = goals.filter((g) => g.status === "active");
+
+  return (
+    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Metas Pessoais</h1>
+          <p className="text-sm text-muted-foreground">Acompanhe seu progresso em objetivos de vida.</p>
+        </div>
+        <div className={PAGE_HEADER_ACTIONS_CLASS}>
+          <Button onClick={openCreate}>Nova meta</Button>
+        </div>
+      </section>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Carregando...</p>
+      ) : activeGoals.length === 0 ? (
+        <EmptyState icon={Target} title="Nenhuma meta ativa" description="Crie sua primeira meta pessoal." />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {activeGoals.map((goal) => {
+            const progress = getGoalProgress(goal);
+            return (
+              <article key={goal.id} className="rounded-xl border bg-card p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <Badge variant="outline" className="mb-2 text-[10px]">
+                      {GOAL_CATEGORY_LABELS[goal.category]}
+                    </Badge>
+                    <h3 className="font-semibold">{goal.title}</h3>
+                    {goal.description && (
+                      <p className="mt-1 text-xs text-muted-foreground">{goal.description}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(goal)}>
+                      <Target className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(goal.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>{formatGoalProgress(goal)}</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className={cn("h-full rounded-full bg-primary transition-all")} style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+                {goal.deadline && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Prazo: {formatDateBR(goal.deadline)}
+                  </p>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
+          <DialogHeader>
+            <DialogTitle>{editing ? "Editar meta" : "Nova meta"}</DialogTitle>
+          </DialogHeader>
+          <div className={FORM_FIELDS_CLASS}>
+            <div>
+              <FormLabel required>Título</FormLabel>
+              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div>
+              <FormLabel optional>Descrição</FormLabel>
+              <Input value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </div>
+            <div>
+              <FormLabel required>Categoria</FormLabel>
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as GoalCategory })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(GOAL_CATEGORY_LABELS).map(([k, l]) => (
+                    <SelectItem key={k} value={k}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FormLabel required>Valor atual</FormLabel>
+                <Input type="number" value={form.current_value || ""} onChange={(e) => setForm({ ...form, current_value: Number(e.target.value) || 0 })} />
+              </div>
+              <div>
+                <FormLabel required>Meta</FormLabel>
+                <Input type="number" value={form.target_value || ""} onChange={(e) => setForm({ ...form, target_value: Number(e.target.value) || 0 })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FormLabel optional>Unidade</FormLabel>
+                <Input placeholder="R$, km, livros..." value={form.unit ?? ""} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+              </div>
+              <div>
+                <FormLabel optional>Prazo</FormLabel>
+                <DatePicker
+                  date={form.deadline ? new Date(`${form.deadline}T12:00:00`) : undefined}
+                  onSelect={(d) => setForm({ ...form, deadline: d ? d.toISOString().split("T")[0] : null })}
+                />
+              </div>
+            </div>
+            <Button onClick={handleSave} className="w-full">Salvar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </main>
+  );
+}

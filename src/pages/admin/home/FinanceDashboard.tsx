@@ -71,7 +71,7 @@
     return Object.values(groupedData);
   }
 
-  export default function Dashboard() {
+  export default function FinanceDashboard() {
     const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
     const [selectedYear, setSelectedYear] = useState<number>(currentYear);
     const [tableTab, setTableTab] = useState<"receita" | "despesa">("despesa");
@@ -272,9 +272,9 @@
       <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 overflow-x-hidden">
         <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Finanças</h1>
             <p className="text-sm text-muted-foreground">
-              Visão geral das receitas, despesas e saldo do período.
+              Visão detalhada das receitas, despesas e saldo do período.
             </p>
           </div>
 

@@ -2,7 +2,9 @@ import * as React from "react"
 import {
   Car,
   Clapperboard,
-  PiggyBank
+  LayoutDashboard,
+  PiggyBank,
+  Target,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -30,33 +32,42 @@ const data = {
   },
   navMain: [
     {
+      title: "Início",
+      color: moduleColors.finance,
+      url: "#",
+      icon: LayoutDashboard,
+      isActive: true,
+      items: [
+        { title: "Dashboard", url: "/" },
+        { title: "Timeline", url: "/timeline" },
+      ],
+    },
+    {
       title: "Finanças",
       color: moduleColors.finance,
       url: "#",
       icon: PiggyBank,
       isActive: true,
       items: [
-        {
-          title: "Dashboard",
-          url: "/",
-        },
-        {
-          title: "Dimensões",
-          url: "/finance/dimensions",
-        },
-        {
-          title: "Orçamento",
-          url: "/finance/budget",
-        },
-        {
-          title: "Parcelas",
-          url: "/finance/recurring",
-        },
-        {
-          title: "Transações",
-          url: "/finance/transactions",
-        },
-
+        { title: "Dashboard", url: "/finance/dashboard" },
+        { title: "Dimensões", url: "/finance/dimensions" },
+        { title: "Orçamento", url: "/finance/budget" },
+        { title: "Parcelas", url: "/finance/recurring" },
+        { title: "Transações", url: "/finance/transactions" },
+      ],
+    },
+    {
+      title: "Vida",
+      color: moduleColors.life,
+      url: "#",
+      icon: Target,
+      isActive: true,
+      items: [
+        { title: "Metas", url: "/goals" },
+        { title: "Hábitos", url: "/habits" },
+        { title: "Lugares", url: "/places" },
+        { title: "Casa", url: "/home" },
+        { title: "Viagens", url: "/travel" },
       ],
     },
     {
@@ -66,10 +77,7 @@ const data = {
       url: "#",
       isActive: true,
       items: [
-        {
-          title: "Filmes",
-          url: "/movies",
-        }
+        { title: "Filmes", url: "/movies" },
       ],
     },
     {
@@ -79,10 +87,7 @@ const data = {
       url: "#",
       isActive: true,
       items: [
-        {
-          title: "Meu Carro",
-          url: "/car",
-        }
+        { title: "Meu Carro", url: "/car" },
       ],
     },
   ],
@@ -96,7 +101,6 @@ const data = {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        {/* <NavProjects projects={data.projects} /> */}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />

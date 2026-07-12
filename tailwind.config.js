@@ -59,6 +59,10 @@ export default {
   				DEFAULT: 'hsl(var(--car))',
   				foreground: 'hsl(var(--car-foreground))'
   			},
+  			life: {
+  				DEFAULT: 'hsl(var(--life))',
+  				foreground: 'hsl(var(--life-foreground))'
+  			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

@@ -7,6 +7,7 @@ export const chartColors = {
 
 export const moduleColors = {
   finance: "hsl(var(--primary))",
+  life: "hsl(var(--life))",
   cinema: "hsl(var(--cinema))",
   car: "hsl(var(--car))",
 } as const;

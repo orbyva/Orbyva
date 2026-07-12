@@ -37,6 +37,9 @@
     --car: 24 95% 53%;
     --car-foreground: 0 0% 100%;
 
+    --life: 160 84% 39%;
+    --life-foreground: 0 0% 100%;
+
     --border: 20 6% 90%;
     --input: 20 6% 90%;
     --ring: 262 83% 58%;
@@ -89,6 +92,9 @@
 
     --car: 24 95% 58%;
     --car-foreground: 0 0% 100%;
+
+    --life: 160 70% 45%;
+    --life-foreground: 0 0% 100%;
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
