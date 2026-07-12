@@ -1,3 +1,15 @@
+# Dependencies
+node_modules
+
+# Build
+dist
+dist-ssr
+
+# Environment (nunca commitar)
+.env
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log
@@ -7,19 +19,24 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Lockfile alternativo (projeto usa npm)
+yarn.lock
 
-# Editor directories and files
+# Supabase CLI (cache local)
+supabase/.temp/
+supabase/.branches/
+
+# OS / editor
+.DS_Store
+*.local
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-.env
+
+# Artefatos de desenvolvimento
+*.patch
