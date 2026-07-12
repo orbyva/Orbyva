@@ -188,12 +188,13 @@ export default function LifeDashboard() {
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
-          { label: "Metas", href: "/goals" },
-          { label: "Hábitos", href: "/habits" },
           { label: "Casa", href: "/home" },
+          { label: "Filmes", href: "/movies" },
+          { label: "Hábitos", href: "/habits" },
           { label: "Lugares", href: "/places" },
-          { label: "Viagens", href: "/travel" },
+          { label: "Metas", href: "/goals" },
           { label: "Carro", href: "/car" },
+          { label: "Viagens", href: "/travel" },
           { label: "Finanças", href: "/finance/dashboard" },
         ].map((link) => (
           <Button key={link.href} variant="outline" className="justify-start" asChild>

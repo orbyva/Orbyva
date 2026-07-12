@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapPin } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { PlaceCard } from "@/components/PlaceCard";
 import { PlaceFormDialog } from "@/components/PlaceFormDialog";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
@@ -106,14 +107,20 @@ export default function Places() {
                     place={place}
                     onClick={() => { setEditing(place); setEditOpen(true); }}
                   />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-destructive text-xs h-7"
-                    onClick={() => handleDelete(place.id)}
+                  <ConfirmDeleteDialog
+                    title="Excluir este lugar?"
+                    description={`A avaliação de "${place.name}" será removida.`}
+                    onConfirm={() => handleDelete(place.id)}
                   >
-                    Excluir
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-destructive text-xs h-7"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Excluir
+                    </Button>
+                  </ConfirmDeleteDialog>
                 </div>
               ))}
             </div>

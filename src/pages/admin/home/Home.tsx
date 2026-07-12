@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/DatePicker";
 import { EmptyState } from "@/components/EmptyState";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import {
   createHomeMaintenance,
@@ -175,9 +176,14 @@ export default function Home() {
                   <p className="font-medium text-sm">{getHomeMaintenanceTypeLabel(m.type, m.custom_type)}</p>
                   <p className="text-xs text-muted-foreground">{formatDateBR(m.service_date)}{m.cost != null ? ` · ${formatBRL(m.cost)}` : ""}</p>
                 </div>
-                <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => handleDeleteMaint(m.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <ConfirmDeleteDialog
+                  title="Excluir esta manutenção?"
+                  onConfirm={() => handleDeleteMaint(m.id)}
+                >
+                  <Button variant="ghost" size="icon" className="text-destructive h-8 w-8">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </ConfirmDeleteDialog>
               </div>
             ))}
           </div>

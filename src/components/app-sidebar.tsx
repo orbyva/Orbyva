@@ -1,7 +1,5 @@
 import * as React from "react"
 import {
-  Car,
-  Clapperboard,
   LayoutDashboard,
   PiggyBank,
   Target,
@@ -63,31 +61,13 @@ const data = {
       icon: Target,
       isActive: true,
       items: [
-        { title: "Metas", url: "/goals" },
+        { title: "Casa", url: "/home" },
+        { title: "Filmes", url: "/movies" },
         { title: "Hábitos", url: "/habits" },
         { title: "Lugares", url: "/places" },
-        { title: "Casa", url: "/home" },
-        { title: "Viagens", url: "/travel" },
-      ],
-    },
-    {
-      title: "Cinema",
-      color: moduleColors.cinema,
-      icon: Clapperboard,
-      url: "#",
-      isActive: true,
-      items: [
-        { title: "Filmes", url: "/movies" },
-      ],
-    },
-    {
-      title: "Carro",
-      color: moduleColors.car,
-      icon: Car,
-      url: "#",
-      isActive: true,
-      items: [
+        { title: "Metas", url: "/goals" },
         { title: "Meu Carro", url: "/car" },
+        { title: "Viagens", url: "/travel" },
       ],
     },
   ],

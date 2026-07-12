@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/DatePicker";
 import { EmptyState } from "@/components/EmptyState";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { createGoal, deleteGoal, fetchGoals, updateGoal } from "@/api/goals";
 import { GOAL_CATEGORY_LABELS, getGoalProgress, formatGoalProgress } from "@/domain/goals";
@@ -131,9 +132,15 @@ export default function Goals() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(goal)}>
                       <Target className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(goal.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <ConfirmDeleteDialog
+                      title="Excluir esta meta?"
+                      description="O progresso registrado será perdido."
+                      onConfirm={() => handleDelete(goal.id)}
+                    >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </ConfirmDeleteDialog>
                   </div>
                 </div>
                 <div className="mt-4">

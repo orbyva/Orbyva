@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/EmptyState";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { createHabit, deleteHabit, fetchAllHabitLogs, fetchHabits, toggleHabitLog } from "@/api/habits";
 import { calculateStreak, getTodayIso, getWeekProgress, isCompletedToday } from "@/domain/habits";
@@ -139,9 +140,15 @@ export default function Habits() {
                     <div className="h-full bg-primary rounded-full" style={{ width: `${weekPct}%` }} />
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => handleDelete(habit.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <ConfirmDeleteDialog
+                  title="Excluir este hábito?"
+                  description="O histórico de registros também será removido."
+                  onConfirm={() => handleDelete(habit.id)}
+                >
+                  <Button variant="ghost" size="icon" className="text-destructive h-8 w-8">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </ConfirmDeleteDialog>
               </article>
             );
           })}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Check,
@@ -22,6 +22,7 @@ import { DatePicker } from "@/components/DatePicker";
 import { FormLabel } from "@/components/FormLabel";
 import { PlaceCard } from "@/components/PlaceCard";
 import { PlaceFormDialog } from "@/components/PlaceFormDialog";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
   createChecklistItem,
@@ -54,6 +55,7 @@ import { cn } from "@/lib/utils";
 
 export default function TripDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [trip, setTrip] = useState<TripFull | null>(null);
   const [places, setPlaces] = useState<PlaceVisit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,6 +191,16 @@ export default function TripDetail() {
     }
   }
 
+  async function handleDeleteTrip() {
+    try {
+      await deleteTrip(trip!.id);
+      toast({ title: "Viagem excluída", duration: 2000 });
+      navigate("/travel");
+    } catch (error) {
+      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+    }
+  }
+
   return (
     <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6">
       <div className="flex items-center gap-3">
@@ -215,12 +227,15 @@ export default function TripDetail() {
             <p className="text-[10px] text-muted-foreground">dias</p>
           </div>
         )}
-        <Button variant="ghost" size="icon" className="text-destructive" onClick={async () => {
-          await deleteTrip(trip.id);
-          window.location.href = "/travel";
-        }}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <ConfirmDeleteDialog
+          title="Excluir esta viagem?"
+          description="Checklist, roteiro, gastos e lugares vinculados serão removidos."
+          onConfirm={handleDeleteTrip}
+        >
+          <Button variant="ghost" size="icon" className="text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </ConfirmDeleteDialog>
       </div>
 
       <p className="text-sm text-muted-foreground">
@@ -294,9 +309,14 @@ export default function TripDetail() {
                         {item.done && <Check className="h-3 w-3" />}
                       </button>
                       <span className={cn("text-sm flex-1", item.done && "line-through text-muted-foreground")}>{item.title}</span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteChecklistItem(item.id).then(load)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <ConfirmDeleteDialog
+                        title="Excluir este item?"
+                        onConfirm={() => deleteChecklistItem(item.id).then(load)}
+                      >
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </ConfirmDeleteDialog>
                     </li>
                   ))}
                 </ul>
@@ -320,9 +340,14 @@ export default function TripDetail() {
                   <li key={act.id} className="flex items-center gap-2 text-sm">
                     {act.activity_time && <span className="text-xs text-muted-foreground w-12">{act.activity_time}</span>}
                     <span className="flex-1">{act.title}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteItineraryActivity(act.id).then(load)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <ConfirmDeleteDialog
+                      title="Excluir esta atividade?"
+                      onConfirm={() => deleteItineraryActivity(act.id).then(load)}
+                    >
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </ConfirmDeleteDialog>
                   </li>
                 ))}
               </ul>
@@ -386,9 +411,14 @@ export default function TripDetail() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{formatBRL(exp.amount)}</span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteTripExpense(exp.id, trip.id).then(load)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <ConfirmDeleteDialog
+                    title="Excluir este gasto?"
+                    onConfirm={() => deleteTripExpense(exp.id, trip.id).then(load)}
+                  >
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </ConfirmDeleteDialog>
                 </div>
               </li>
             ))}
@@ -426,9 +456,14 @@ export default function TripDetail() {
                   <p className={cn("text-sm font-medium", m.done && "line-through text-muted-foreground")}>{m.title}</p>
                   <p className="text-xs text-muted-foreground">{formatDateBR(m.due_date)}</p>
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteTripMilestone(m.id).then(load)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <ConfirmDeleteDialog
+                  title="Excluir este prazo?"
+                  onConfirm={() => deleteTripMilestone(m.id).then(load)}
+                >
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </ConfirmDeleteDialog>
               </li>
             ))}
           </ul>
