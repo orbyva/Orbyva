@@ -15,6 +15,7 @@ import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import {
   PLACE_TYPE_EMOJI,
   PLACE_TYPE_LABELS,
+  formatRating,
   getRatingLabel,
 } from "@/domain/places";
 import type { PlaceVisit } from "@/types/places";
@@ -80,7 +81,7 @@ export function PlaceDetailDialog({
               <div className="flex items-center gap-2">
                 <StarRating value={place.rating} readonly />
                 <span className="text-muted-foreground">
-                  {getRatingLabel(place.rating)}
+                  {formatRating(place.rating)} · {getRatingLabel(place.rating)}
                 </span>
               </div>
             </DetailRow>

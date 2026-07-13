@@ -33,11 +33,17 @@ export function getAverageRating(
   return Math.round((sum / rated.length) * 10) / 10;
 }
 
+export function formatRating(rating: number): string {
+  return Number.isInteger(rating)
+    ? String(rating)
+    : rating.toFixed(1).replace(".", ",");
+}
+
 export function getRatingLabel(rating: number): string {
-  if (rating >= 5) return "Excelente";
-  if (rating >= 4) return "Muito bom";
-  if (rating >= 3) return "Bom";
-  if (rating >= 2) return "Regular";
+  if (rating >= 4.5) return "Excelente";
+  if (rating >= 3.5) return "Muito bom";
+  if (rating >= 2.5) return "Bom";
+  if (rating >= 1.5) return "Regular";
   return "Ruim";
 }
 

@@ -22,7 +22,7 @@ import {
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
 import { StarRating } from "@/components/StarRating";
-import { PLACE_TYPE_LABELS } from "@/domain/places";
+import { PLACE_TYPE_LABELS, formatRating } from "@/domain/places";
 import { createPlace, updatePlace } from "@/api/places";
 import { fetchTrips } from "@/api/travel";
 import type { PlaceType, PlaceVisit, PlaceVisitCreateRequest } from "@/types/places";
@@ -152,10 +152,18 @@ export function PlaceFormDialog({
           </div>
           <div>
             <FormLabel optional>Nota</FormLabel>
-            <StarRating
-              value={form.rating ?? 0}
-              onChange={(r) => setForm({ ...form, rating: r })}
-            />
+            <div className="space-y-2">
+              <StarRating
+                value={form.rating ?? 0}
+                onChange={(r) => setForm({ ...form, rating: r })}
+                allowHalf
+              />
+              {form.rating != null && form.rating > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {formatRating(form.rating)} estrelas — clique na metade esquerda da estrela para meia nota
+                </p>
+              )}
+            </div>
           </div>
           <div>
             <FormLabel required>Data da visita</FormLabel>
