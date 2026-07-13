@@ -1,7 +1,7 @@
 "use client"
 
 import { ChevronRight, type LucideIcon } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 
 import {
   Collapsible,
@@ -18,6 +18,15 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
+
+function isNavItemActive(pathname: string, url: string): boolean {
+  if (url === "/") return pathname === "/"
+  if (url === "/travel") {
+    return pathname === "/travel" || pathname.startsWith("/travel/")
+  }
+  return pathname === url || pathname.startsWith(`${url}/`)
+}
 
 export function NavMain({
   items,
@@ -34,50 +43,75 @@ export function NavMain({
     }[]
   }[]
 }) {
+  const { pathname } = useLocation()
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Acesso Rápido</SidebarGroupLabel>
       <SidebarMenu>
-        {items.map((item) => (
-          <Collapsible
-            key={item.title}
-            asChild
-            defaultOpen={item.isActive}
-            className="group/collapsible"
-          >
-            <SidebarMenuItem>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuButton tooltip={item.title}>
-                  {item.icon && (
-                    <item.icon
-                      className="h-4 w-4"
-                      style={item.color ? { color: item.color } : undefined}
-                    />
-                  )}
-                  <span
-                    style={item.color ? { color: item.color } : undefined}
+        {items.map((item) => {
+          const groupActive =
+            item.items?.some((subItem) => isNavItemActive(pathname, subItem.url)) ??
+            false
+
+          return (
+            <Collapsible
+              key={item.title}
+              asChild
+              defaultOpen={item.isActive ?? groupActive}
+              className="group/collapsible"
+            >
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton
+                    tooltip={item.title}
+                    isActive={groupActive}
+                    className={cn(groupActive && "font-medium")}
                   >
-                    {item.title}
-                  </span>
-                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                </SidebarMenuButton>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarMenuSub>
-                  {item.items?.map((subItem) => (
-                    <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton asChild>
-                        <Link to={subItem.url}>
-                          <span>{subItem.title}</span>
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </SidebarMenuItem>
-          </Collapsible>
-        ))}
+                    {item.icon && (
+                      <item.icon
+                        className="h-4 w-4"
+                        style={item.color ? { color: item.color } : undefined}
+                      />
+                    )}
+                    <span style={item.color ? { color: item.color } : undefined}>
+                      {item.title}
+                    </span>
+                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {item.items?.map((subItem) => {
+                      const active = isNavItemActive(pathname, subItem.url)
+
+                      return (
+                        <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={active}
+                            className={cn(
+                              active && "font-semibold border-l-2 border-current"
+                            )}
+                            style={
+                              active && item.color
+                                ? { color: item.color, borderColor: item.color }
+                                : undefined
+                            }
+                          >
+                            <Link to={subItem.url}>
+                              <span>{subItem.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          )
+        })}
       </SidebarMenu>
     </SidebarGroup>
   )

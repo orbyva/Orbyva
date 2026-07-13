@@ -40,6 +40,9 @@
     --life: 160 84% 39%;
     --life-foreground: 0 0% 100%;
 
+    --hub: 199 89% 48%;
+    --hub-foreground: 0 0% 100%;
+
     --border: 20 6% 90%;
     --input: 20 6% 90%;
     --ring: 262 83% 58%;
@@ -95,6 +98,9 @@
 
     --life: 160 70% 45%;
     --life-foreground: 0 0% 100%;
+
+    --hub: 199 89% 55%;
+    --hub-foreground: 0 0% 100%;
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;

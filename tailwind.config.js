@@ -63,6 +63,10 @@ export default {
   				DEFAULT: 'hsl(var(--life))',
   				foreground: 'hsl(var(--life-foreground))'
   			},
+  			hub: {
+  				DEFAULT: 'hsl(var(--hub))',
+  				foreground: 'hsl(var(--hub-foreground))'
+  			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

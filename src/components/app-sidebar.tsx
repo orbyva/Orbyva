@@ -31,7 +31,7 @@ const data = {
   navMain: [
     {
       title: "Início",
-      color: moduleColors.finance,
+      color: moduleColors.hub,
       url: "#",
       icon: LayoutDashboard,
       isActive: true,

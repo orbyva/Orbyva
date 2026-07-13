@@ -1,19 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MapPin } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MapPin, Search } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmptyState } from "@/components/EmptyState";
-import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { PlaceCard } from "@/components/PlaceCard";
+import { PlaceDetailDialog } from "@/components/PlaceDetailDialog";
 import { PlaceFormDialog } from "@/components/PlaceFormDialog";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { deletePlace, fetchPlaces } from "@/api/places";
-import { getAverageRating } from "@/domain/places";
+import {
+  filterPlaces,
+  getAverageRating,
+  type PlaceRatingFilter,
+  type PlaceRecommendFilter,
+} from "@/domain/places";
 import type { PlaceFilter, PlaceVisit } from "@/types/places";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
-import { Button } from "@/components/ui/button";
 
-const FILTERS: { id: PlaceFilter; label: string }[] = [
+const CATEGORY_FILTERS: { id: PlaceFilter; label: string }[] = [
   { id: "all", label: "Todos" },
   { id: "local", label: "Locais" },
   { id: "trip", label: "Em viagens" },
@@ -21,12 +33,23 @@ const FILTERS: { id: PlaceFilter; label: string }[] = [
   { id: "cafe", label: "Cafés" },
   { id: "bar", label: "Bares" },
   { id: "attraction", label: "Passeios" },
+  { id: "hotel", label: "Hotéis" },
+  { id: "park", label: "Parques" },
+  { id: "museum", label: "Museus" },
+  { id: "shop", label: "Lojas" },
+  { id: "other", label: "Outros" },
 ];
 
 export default function Places() {
   const [places, setPlaces] = useState<PlaceVisit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<PlaceFilter>("all");
+  const [category, setCategory] = useState<PlaceFilter>("all");
+  const [search, setSearch] = useState("");
+  const [ratingFilter, setRatingFilter] = useState<PlaceRatingFilter>("all");
+  const [recommendFilter, setRecommendFilter] =
+    useState<PlaceRecommendFilter>("all");
+  const [selected, setSelected] = useState<PlaceVisit | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [editing, setEditing] = useState<PlaceVisit | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const { toast } = useToast();
@@ -43,16 +66,23 @@ export default function Places() {
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(() => {
-    return places.filter((p) => {
-      if (filter === "all") return true;
-      if (filter === "local") return !p.trip_id;
-      if (filter === "trip") return !!p.trip_id;
-      return p.type === filter;
-    });
-  }, [places, filter]);
+  const filtered = useMemo(
+    () =>
+      filterPlaces(places, {
+        category,
+        search,
+        rating: ratingFilter,
+        recommend: recommendFilter,
+      }),
+    [places, category, search, ratingFilter, recommendFilter]
+  );
 
   const avgRating = getAverageRating(places);
+  const hasActiveFilters =
+    category !== "all" ||
+    search.trim().length > 0 ||
+    ratingFilter !== "all" ||
+    recommendFilter !== "all";
 
   async function handleDelete(id: string) {
     try {
@@ -62,6 +92,13 @@ export default function Places() {
     } catch (error) {
       toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
     }
+  }
+
+  function clearFilters() {
+    setCategory("all");
+    setSearch("");
+    setRatingFilter("all");
+    setRecommendFilter("all");
   }
 
   return (
@@ -83,50 +120,115 @@ export default function Places() {
         </div>
       </section>
 
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as PlaceFilter)}>
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
-          {FILTERS.map((f) => (
-            <TabsTrigger key={f.id} value={f.id}>{f.label}</TabsTrigger>
-          ))}
-        </TabsList>
+      <section className="space-y-3 rounded-xl border bg-card p-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nome, endereço ou comentário..."
+            className="pl-9"
+          />
+        </div>
 
-        <TabsContent value={filter} className="mt-4">
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Carregando...</p>
-          ) : filtered.length === 0 ? (
-            <EmptyState
-              icon={MapPin}
-              title="Nenhum lugar registrado"
-              description="Avalie um restaurante, café ou passeio que você visitou."
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Select
+            value={ratingFilter}
+            onValueChange={(v) => setRatingFilter(v as PlaceRatingFilter)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Nota mínima" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Qualquer nota</SelectItem>
+              <SelectItem value="3">3★ ou mais</SelectItem>
+              <SelectItem value="4">4★ ou mais</SelectItem>
+              <SelectItem value="5">5★ apenas</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={recommendFilter}
+            onValueChange={(v) => setRecommendFilter(v as PlaceRecommendFilter)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Recomendação" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="yes">Recomendaria</SelectItem>
+              <SelectItem value="no">Não recomendaria</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Tabs value={category} onValueChange={(v) => setCategory(v as PlaceFilter)}>
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
+            {CATEGORY_FILTERS.map((f) => (
+              <TabsTrigger key={f.id} value={f.id}>
+                {f.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        {hasActiveFilters && (
+          <p className="text-xs text-muted-foreground">
+            {filtered.length} de {places.length} lugares
+            {" · "}
+            <button
+              type="button"
+              className="text-primary hover:underline"
+              onClick={clearFilters}
+            >
+              Limpar filtros
+            </button>
+          </p>
+        )}
+      </section>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Carregando...</p>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={MapPin}
+          title={hasActiveFilters ? "Nenhum lugar encontrado" : "Nenhum lugar registrado"}
+          description={
+            hasActiveFilters
+              ? "Tente outro termo ou remova alguns filtros."
+              : "Avalie um restaurante, café ou passeio que você visitou."
+          }
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((place) => (
+            <PlaceCard
+              key={place.id}
+              place={place}
+              onClick={() => {
+                setSelected(place);
+                setDetailOpen(true);
+              }}
+              onDelete={() => handleDelete(place.id)}
             />
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((place) => (
-                <div key={place.id} className="relative group">
-                  <PlaceCard
-                    place={place}
-                    onClick={() => { setEditing(place); setEditOpen(true); }}
-                  />
-                  <ConfirmDeleteDialog
-                    title="Excluir este lugar?"
-                    description={`A avaliação de "${place.name}" será removida.`}
-                    onConfirm={() => handleDelete(place.id)}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-destructive text-xs h-7"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Excluir
-                    </Button>
-                  </ConfirmDeleteDialog>
-                </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          ))}
+        </div>
+      )}
+
+      <PlaceDetailDialog
+        place={selected}
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) setSelected(null);
+        }}
+        onEdit={() => {
+          if (!selected) return;
+          setEditing(selected);
+          setEditOpen(true);
+        }}
+        onDelete={() => selected && handleDelete(selected.id)}
+      />
 
       {editing && (
         <PlaceFormDialog
