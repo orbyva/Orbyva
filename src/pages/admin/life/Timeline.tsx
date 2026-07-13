@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 const ALL_MODULES: TimelineModule[] = [
   "finance",
   "car",
-  "home",
   "travel",
   "goals",
   "habits",

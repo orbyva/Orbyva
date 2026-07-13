@@ -1,7 +1,6 @@
 export type TimelineModule =
   | "finance"
   | "car"
-  | "home"
   | "travel"
   | "goals"
   | "habits"

@@ -61,7 +61,6 @@ const data = {
       icon: Target,
       isActive: true,
       items: [
-        { title: "Casa", url: "/home" },
         { title: "Filmes", url: "/movies" },
         { title: "Hábitos", url: "/habits" },
         { title: "Lugares", url: "/places" },

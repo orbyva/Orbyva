@@ -7,11 +7,9 @@ import {
 import { fetchVehicles, fetchAllMaintenances, fetchDocuments } from "@/api/car";
 import { fetchGoals } from "@/api/goals";
 import { fetchHabits, fetchAllHabitLogs } from "@/api/habits";
-import { fetchHomeProfiles, fetchHomeMaintenances } from "@/api/home";
 import { fetchPlaces } from "@/api/places";
 import { fetchTrips, fetchTripMilestones } from "@/api/travel";
 import { getMaintenanceAlerts, getDocumentAlerts } from "@/domain/car";
-import { getHomeMaintenanceSchedule } from "@/domain/home";
 import { isCompletedToday } from "@/domain/habits";
 import { getDaysUntil } from "@/domain/travel";
 import { GOAL_CATEGORY_LABELS } from "@/domain/goals";
@@ -21,7 +19,6 @@ import { fetchValueByNatureForMonth } from "@/api/finance";
 const MODULE_LABELS: Record<string, string> = {
   finance: "Finanças",
   car: "Carro",
-  home: "Casa",
   travel: "Viagens",
   goals: "Metas",
   habits: "Hábitos",
@@ -121,28 +118,6 @@ export async function fetchTimelineItems(
           title: alert.message,
           status: alert.status === "overdue" ? "overdue" : resolveStatus(date, todayIso),
           link: "/car",
-        });
-      }
-    }
-  } catch { /* ignore */ }
-
-  // Home
-  try {
-    const homes = await fetchHomeProfiles();
-    for (const home of homes) {
-      const maintenances = await fetchHomeMaintenances(home.id);
-      const schedule = getHomeMaintenanceSchedule(maintenances);
-      for (const item of schedule) {
-        if (!item.nextDate || !inRange(item.nextDate)) continue;
-        if (item.status === "ok" || item.status === "none") continue;
-        items.push({
-          id: `home-${home.id}-${item.type}`,
-          date: item.nextDate,
-          module: "home",
-          title: item.label,
-          subtitle: home.name,
-          status: item.status === "overdue" ? "overdue" : resolveStatus(item.nextDate, todayIso),
-          link: "/home",
         });
       }
     }

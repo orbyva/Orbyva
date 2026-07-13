@@ -27,7 +27,6 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 - **Metas** (`/goals`) — progresso, categorias e prazos
 - **Hábitos** (`/habits`) — streak e progresso semanal
 - **Lugares** (`/places`) — avaliar restaurantes, cafés, passeios etc.
-- **Casa** (`/home`) — manutenções com alertas de vencimento
 - **Viagens** (`/travel`) — checklist, roteiro, gastos, lugares e prazos (`/travel/:id`)
 
 ### Cinema
@@ -99,7 +98,6 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 | `/goals` | Metas |
 | `/habits` | Hábitos |
 | `/places` | Lugares |
-| `/home` | Casa |
 | `/travel` | Viagens |
 | `/travel/:id` | Detalhe da viagem |
 | `/finance/dashboard` | Dashboard financeiro |

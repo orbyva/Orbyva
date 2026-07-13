@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 const moduleStyles: Record<TimelineModule, string> = {
   finance: "border-primary/30 text-primary bg-primary/5",
   car: "border-car/30 text-car bg-car/5",
-  home: "border-warning/30 text-warning bg-warning/5",
   travel: "border-cinema/30 text-cinema bg-cinema/5",
   goals: "border-success/30 text-success bg-success/5",
   habits: "border-primary/30 text-primary bg-primary/10",

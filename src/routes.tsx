@@ -14,7 +14,6 @@ const Timeline = lazy(() => import("./pages/admin/life/Timeline"));
 const FinanceDashboard = lazy(() => import("./pages/admin/home/FinanceDashboard"));
 const Goals = lazy(() => import("./pages/admin/goals/Goals"));
 const Habits = lazy(() => import("./pages/admin/habits/Habits"));
-const Home = lazy(() => import("./pages/admin/home/Home"));
 const Travel = lazy(() => import("./pages/admin/travel/Travel"));
 const TripDetail = lazy(() => import("./pages/admin/travel/TripDetail"));
 const Places = lazy(() => import("./pages/admin/places/Places"));
@@ -41,7 +40,6 @@ const router = createBrowserRouter([
 
           { path: "goals", element: withSuspense(<Goals />) },
           { path: "habits", element: withSuspense(<Habits />) },
-          { path: "home", element: withSuspense(<Home />) },
           { path: "travel", element: withSuspense(<Travel />) },
           { path: "travel/:id", element: withSuspense(<TripDetail />) },
           { path: "places", element: withSuspense(<Places />) },
