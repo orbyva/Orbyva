@@ -1,7 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { TransactionCreateRequest } from "@/types/finance";
 import {
-  DEFAULT_CHECKLIST_TEMPLATE,
   generateItineraryDays,
 } from "@/domain/travel";
 import { countPlacesByTrip } from "@/api/places";
@@ -88,15 +87,6 @@ export async function createTrip(trip: TripCreateRequest): Promise<Trip> {
 }
 
 async function seedTripDefaults(trip: Trip): Promise<void> {
-  const checklistItems = DEFAULT_CHECKLIST_TEMPLATE.map((item, i) => ({
-    trip_id: trip.id,
-    title: item.title,
-    category: item.category,
-    done: false,
-    sort_order: i + 1,
-  }));
-  await supabase.from("trip_checklist_item").insert(checklistItems);
-
   const days = generateItineraryDays(trip.id, trip.start_date, trip.end_date);
   if (days.length > 0) {
     await supabase.from("trip_itinerary_day").insert(days);

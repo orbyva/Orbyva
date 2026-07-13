@@ -49,6 +49,7 @@ export function getRatingLabel(rating: number): string {
 
 export type PlaceRecommendFilter = "all" | "yes" | "no";
 export type PlaceRatingFilter = "all" | "3" | "4" | "5";
+export type PlaceTripFilter = "all" | "local" | string;
 
 export function filterPlaces<
   T extends {
@@ -67,6 +68,7 @@ export function filterPlaces<
     search?: string;
     rating?: PlaceRatingFilter;
     recommend?: PlaceRecommendFilter;
+    trip?: PlaceTripFilter;
   }
 ): T[] {
   const query = options.search?.trim().toLowerCase() ?? "";
@@ -80,6 +82,14 @@ export function filterPlaces<
         options.category !== "trip" &&
         place.type !== options.category
       ) {
+        return false;
+      }
+    }
+
+    if (options.trip && options.trip !== "all") {
+      if (options.trip === "local") {
+        if (place.trip_id) return false;
+      } else if (place.trip_id !== options.trip) {
         return false;
       }
     }

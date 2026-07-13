@@ -15,13 +15,16 @@ import { PlaceDetailDialog } from "@/components/PlaceDetailDialog";
 import { PlaceFormDialog } from "@/components/PlaceFormDialog";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { deletePlace, fetchPlaces } from "@/api/places";
+import { fetchTrips } from "@/api/travel";
 import {
   filterPlaces,
   getAverageRating,
   type PlaceRatingFilter,
   type PlaceRecommendFilter,
+  type PlaceTripFilter,
 } from "@/domain/places";
 import type { PlaceFilter, PlaceVisit } from "@/types/places";
+import type { Trip } from "@/types/travel";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -48,6 +51,8 @@ export default function Places() {
   const [ratingFilter, setRatingFilter] = useState<PlaceRatingFilter>("all");
   const [recommendFilter, setRecommendFilter] =
     useState<PlaceRecommendFilter>("all");
+  const [tripFilter, setTripFilter] = useState<PlaceTripFilter>("all");
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [selected, setSelected] = useState<PlaceVisit | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editing, setEditing] = useState<PlaceVisit | null>(null);
@@ -56,7 +61,12 @@ export default function Places() {
 
   const load = useCallback(async () => {
     try {
-      setPlaces(await fetchPlaces());
+      const [placesData, tripsData] = await Promise.all([
+        fetchPlaces(),
+        fetchTrips(),
+      ]);
+      setPlaces(placesData);
+      setTrips(tripsData);
     } catch (error) {
       toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
     } finally {
@@ -73,16 +83,27 @@ export default function Places() {
         search,
         rating: ratingFilter,
         recommend: recommendFilter,
+        trip: tripFilter,
       }),
-    [places, category, search, ratingFilter, recommendFilter]
+    [places, category, search, ratingFilter, recommendFilter, tripFilter]
   );
+
+  const tripsWithPlaces = useMemo(() => {
+    const ids = new Set(
+      places.map((p) => p.trip_id).filter((id): id is string => !!id)
+    );
+    return trips
+      .filter((t) => ids.has(t.id))
+      .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+  }, [places, trips]);
 
   const avgRating = getAverageRating(places);
   const hasActiveFilters =
     category !== "all" ||
     search.trim().length > 0 ||
     ratingFilter !== "all" ||
-    recommendFilter !== "all";
+    recommendFilter !== "all" ||
+    tripFilter !== "all";
 
   async function handleDelete(id: string) {
     try {
@@ -99,6 +120,7 @@ export default function Places() {
     setSearch("");
     setRatingFilter("all");
     setRecommendFilter("all");
+    setTripFilter("all");
   }
 
   return (
@@ -131,7 +153,7 @@ export default function Places() {
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Select
             value={ratingFilter}
             onValueChange={(v) => setRatingFilter(v as PlaceRatingFilter)}
@@ -158,6 +180,25 @@ export default function Places() {
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="yes">Recomendaria</SelectItem>
               <SelectItem value="no">Não recomendaria</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={tripFilter}
+            onValueChange={(v) => setTripFilter(v as PlaceTripFilter)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Viagem" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as viagens</SelectItem>
+              <SelectItem value="local">Passeio local</SelectItem>
+              {tripsWithPlaces.map((trip) => (
+                <SelectItem key={trip.id} value={trip.id}>
+                  {trip.title}
+                  {trip.destination ? ` · ${trip.destination}` : ""}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

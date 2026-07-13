@@ -14,7 +14,7 @@ import {
 import { DatePicker } from "@/components/DatePicker";
 import { EmptyState } from "@/components/EmptyState";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
-import { createTrip, enrichTrip, fetchTrips, fetchTripChecklist } from "@/api/travel";
+import { createTrip, enrichTrip, fetchTrips } from "@/api/travel";
 import { TRIP_STATUS_LABELS } from "@/domain/travel";
 import type { TripCreateRequest, TripWithChecklist } from "@/types/travel";
 import { useToast } from "@/hooks/use-toast";
@@ -68,18 +68,6 @@ function TripCard({ trip }: { trip: TripWithChecklist }) {
             {trip.spent != null && trip.spent > 0 && ` · Gasto: ${formatBRL(trip.spent)}`}
           </p>
         )}
-        <div className="mt-3">
-          <div className="flex justify-between text-xs text-muted-foreground mb-1">
-            <span>Checklist</span>
-            <span>{trip.checklistProgress}%</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full"
-              style={{ width: `${trip.checklistProgress}%` }}
-            />
-          </div>
-        </div>
       </article>
     </Link>
   );
@@ -95,9 +83,7 @@ export default function Travel() {
   const load = useCallback(async () => {
     try {
       const raw = await fetchTrips();
-      const enriched = await Promise.all(
-        raw.map(async (t) => enrichTrip(t, await fetchTripChecklist(t.id)))
-      );
+      const enriched = raw.map((t) => enrichTrip(t, []));
       setTrips(enriched);
     } catch (error) {
       toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
@@ -114,7 +100,7 @@ export default function Travel() {
       await createTrip(form);
       toast({
         title: "Viagem criada!",
-        description: "Checklist e roteiro gerados automaticamente.",
+        description: "Roteiro dia a dia gerado automaticamente.",
         duration: 3000,
       });
       setOpen(false);
@@ -186,7 +172,7 @@ export default function Travel() {
               <div><FormLabel required>Fim</FormLabel><DatePicker date={new Date(`${form.end_date}T12:00:00`)} onSelect={(d) => setForm({ ...form, end_date: d ? d.toISOString().split("T")[0] : form.end_date })} /></div>
             </div>
             <div><FormLabel optional>Orçamento (R$)</FormLabel><Input type="number" value={form.budget ?? ""} onChange={(e) => setForm({ ...form, budget: e.target.value ? Number(e.target.value) : null })} /></div>
-            <p className="text-xs text-muted-foreground">Ao criar, um checklist padrão e roteiro dia a dia serão gerados automaticamente.</p>
+            <p className="text-xs text-muted-foreground">Ao criar, um roteiro dia a dia será gerado automaticamente.</p>
             <Button onClick={handleSaveTrip} className="w-full">Criar viagem</Button>
           </div>
         </DialogContent>

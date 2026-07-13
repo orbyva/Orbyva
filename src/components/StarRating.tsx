@@ -21,24 +21,44 @@ function StarIcon({
   size,
 }: {
   fill: "empty" | "half" | "full";
-  size: string;
+  size: "sm" | "md";
 }) {
-  if (fill === "full") {
-    return <Star className={cn(size, "fill-warning text-warning")} />;
-  }
+  const box = size === "sm" ? "h-3.5 w-3.5" : "h-5 w-5";
+  const stroke = size === "sm" ? 1.75 : 2;
 
-  if (fill === "half") {
+  if (fill === "full") {
     return (
-      <span className="relative inline-flex">
-        <Star className={cn(size, "text-muted-foreground/30")} />
-        <span className="absolute inset-0 w-1/2 overflow-hidden">
-          <Star className={cn(size, "fill-warning text-warning")} />
-        </span>
-      </span>
+      <Star
+        className={cn(box, "fill-warning text-warning")}
+        strokeWidth={stroke}
+      />
     );
   }
 
-  return <Star className={cn(size, "text-muted-foreground/30")} />;
+  return (
+    <span className={cn("relative inline-flex shrink-0", box)}>
+      {/* Contorno completo — metade direita fica vazia */}
+      <Star
+        className={cn(
+          box,
+          "fill-transparent text-muted-foreground/35"
+        )}
+        strokeWidth={stroke}
+      />
+      {fill === "half" && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 w-1/2 overflow-hidden"
+        >
+          {/* Mesma estrela inteira, recortada na metade esquerda */}
+          <Star
+            className={cn(box, "fill-warning text-warning")}
+            strokeWidth={stroke}
+          />
+        </span>
+      )}
+    </span>
+  );
 }
 
 export function StarRating({
@@ -48,8 +68,6 @@ export function StarRating({
   readonly = false,
   allowHalf = true,
 }: StarRatingProps) {
-  const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-5 w-5";
-
   function handleStarClick(star: number, event: MouseEvent<HTMLButtonElement>) {
     if (readonly || !onChange) return;
 
@@ -71,7 +89,7 @@ export function StarRating({
         if (readonly || !onChange) {
           return (
             <span key={star} className="inline-flex">
-              <StarIcon fill={fill} size={iconSize} />
+              <StarIcon fill={fill} size={size} />
             </span>
           );
         }
@@ -84,7 +102,7 @@ export function StarRating({
             className="inline-flex transition-transform hover:scale-110"
             aria-label={`${star} estrelas`}
           >
-            <StarIcon fill={fill} size={iconSize} />
+            <StarIcon fill={fill} size={size} />
           </button>
         );
       })}
