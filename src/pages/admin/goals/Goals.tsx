@@ -19,7 +19,7 @@ import {
 import { DatePicker } from "@/components/DatePicker";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, ICON_EDIT_BUTTON_CLASS, PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { createGoal, deleteGoal, fetchGoals, updateGoal } from "@/api/goals";
 import { GOAL_CATEGORY_LABELS, getGoalProgress, formatGoalProgress } from "@/domain/goals";
 import type { GoalCategory, PersonalGoal, PersonalGoalCreateRequest } from "@/types/goals";
@@ -129,7 +129,12 @@ export default function Goals() {
                     )}
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(goal)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
+                      onClick={() => openEdit(goal)}
+                    >
                       <Target className="h-3.5 w-3.5" />
                     </Button>
                     <ConfirmDeleteDialog

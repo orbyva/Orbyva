@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FormLabel } from "@/components/FormLabel";
+import { FormLabel, ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -400,7 +401,7 @@ function TypeManager({
                         <>
                           <Button
                             variant="ghost"
-                            className="p-2 text-blue-500 h-8"
+                            className={cn("p-2 h-8", ICON_EDIT_BUTTON_CLASS)}
                             onClick={() => startEditing(type)}
                           >
                             <Pen size={16} />

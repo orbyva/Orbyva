@@ -28,6 +28,7 @@ import {
 import type { MonthlyBudgetSummary } from "@/types/finance";
 import { formatBRL } from "@/lib/currency";
 import { statusBadgeStyles, statusProgressStyles } from "@/lib/design-tokens";
+import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { cn } from "@/lib/utils";
 
 interface BudgetTableProps {
@@ -180,10 +181,10 @@ function BudgetActions({
       <Button
         variant="ghost"
         size="icon"
-        className="h-10 w-10"
+        className={cn("h-10 w-10", ICON_EDIT_BUTTON_CLASS)}
         onClick={() => handleEdit(budget)}
       >
-        <Pen className="h-4 w-4 text-blue-500" />
+        <Pen className="h-4 w-4" />
       </Button>
 
       <AlertDialog

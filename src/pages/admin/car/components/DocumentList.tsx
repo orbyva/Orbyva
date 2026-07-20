@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/EmptyState";
+import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import type { VehicleDocument } from "@/types/car";
 import { DOCUMENT_TYPE_LABELS } from "@/domain/car";
 import { formatBRL, formatDateBR } from "@/lib/currency";
@@ -97,6 +98,7 @@ export function DocumentList({
               <Button
                 variant="ghost"
                 size="sm"
+                className={ICON_EDIT_BUTTON_CLASS}
                 onClick={() => onEdit(doc)}
               >
                 <Pen className="mr-1 h-3.5 w-3.5" />

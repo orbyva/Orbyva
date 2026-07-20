@@ -14,7 +14,8 @@ import { Trash, Pen } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { fetchClasses, deleteClassApi, createClassApi, updateClassApi } from "@/api/finance";
 import { Class, ClassCreateRequest, ClassUpdateRequest, Type } from "@/types/finance";
-import { FormLabel } from "@/components/FormLabel";
+import { FormLabel, ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import { cn } from "@/lib/utils";
 
 function ClassManager({ types }: { types: Type[] }) {
   const [newClass, setNewClass] = useState<ClassCreateRequest>({
@@ -188,7 +189,11 @@ function ClassManager({ types }: { types: Type[] }) {
                       </>
                     ) : (
                       <>
-                        <Button variant="ghost" className="p-2 text-blue-500" onClick={() => startEditing(cls)}>
+                        <Button
+                          variant="ghost"
+                          className={cn("p-2", ICON_EDIT_BUTTON_CLASS)}
+                          onClick={() => startEditing(cls)}
+                        >
                           <Pen size={16} />
                         </Button>
                         <Button variant="ghost" className="p-2 text-destructive" onClick={() => handleDelete(cls.id)}>

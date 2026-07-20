@@ -30,6 +30,7 @@ import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
   FORM_FIELDS_CLASS,
+  ICON_EDIT_BUTTON_CLASS,
 } from "@/components/FormLabel";
 import { PlaceCard } from "@/components/PlaceCard";
 import { PlaceDetailDialog } from "@/components/PlaceDetailDialog";
@@ -447,6 +448,7 @@ export default function TripDetail() {
         <Button
           variant="ghost"
           size="icon"
+          className={ICON_EDIT_BUTTON_CLASS}
           onClick={() => setEditTripOpen(true)}
           aria-label="Editar viagem"
         >
@@ -563,7 +565,7 @@ export default function TripDetail() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 shrink-0"
+                  className={cn("h-7 w-7 shrink-0", ICON_EDIT_BUTTON_CLASS)}
                   onClick={() => openDayEdit(day)}
                   aria-label="Editar dia"
                 >
@@ -592,7 +594,7 @@ export default function TripDetail() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 shrink-0"
+                      className={cn("h-6 w-6 shrink-0", ICON_EDIT_BUTTON_CLASS)}
                       onClick={() => openActivityEdit(act)}
                       aria-label="Editar atividade"
                     >
@@ -686,7 +688,7 @@ export default function TripDetail() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className={cn("h-7 w-7", ICON_EDIT_BUTTON_CLASS)}
                       onClick={() => openExpenseEdit(exp)}
                       aria-label="Editar gasto"
                     >
@@ -803,7 +805,7 @@ export default function TripDetail() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 shrink-0"
+                    className={cn("h-7 w-7 shrink-0", ICON_EDIT_BUTTON_CLASS)}
                     onClick={() => openMilestoneEdit(m)}
                     aria-label="Editar prazo"
                   >

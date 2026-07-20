@@ -18,9 +18,11 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
+import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import type { Maintenance } from "@/types/car";
 import { getMaintenanceTypeLabel } from "@/domain/car";
 import { formatBRL, formatDateBR } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 
 interface MaintenanceTableProps {
   maintenances: Maintenance[];
@@ -84,7 +86,7 @@ export function MaintenanceTable({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
                     onClick={() => onEdit(item)}
                   >
                     <Pen className="h-3.5 w-3.5" />

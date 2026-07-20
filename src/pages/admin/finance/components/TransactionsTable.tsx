@@ -26,6 +26,7 @@ import { TypeIcon } from "@/components/TypeIcon";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { ActionTooltip } from "@/components/ActionTooltip";
 import { EmptyState } from "@/components/EmptyState";
+import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { cn } from "@/lib/utils";
 
 interface TransactionsTableProps {
@@ -92,11 +93,11 @@ function TransactionActions({
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10"
+          className={cn("h-10 w-10", ICON_EDIT_BUTTON_CLASS)}
           aria-label="Editar transação"
           onClick={() => handleEdit(transaction)}
         >
-          <Pen className="h-4 w-4 text-blue-400" />
+          <Pen className="h-4 w-4" />
         </Button>
       </ActionTooltip>
 

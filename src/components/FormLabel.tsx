@@ -36,3 +36,7 @@ export const FORM_FIELDS_CLASS = "grid grid-cols-1 gap-4";
 
 export const PAGE_HEADER_ACTIONS_CLASS =
   "flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap";
+
+/** Icon-only edit action — muted in light/dark; pair with text-destructive on delete. */
+export const ICON_EDIT_BUTTON_CLASS =
+  "text-muted-foreground hover:text-foreground";

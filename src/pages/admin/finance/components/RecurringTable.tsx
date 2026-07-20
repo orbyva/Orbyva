@@ -35,6 +35,7 @@ import { Fragment, useState } from "react";
 import { Installment, Recurring } from "@/types/recurring";
 import { cn } from "@/lib/utils";
 import { ActionTooltip } from "@/components/ActionTooltip";
+import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { toast } from "@/hooks/use-toast";
 
 interface RecurringTableProps {
@@ -207,14 +208,14 @@ export function RecurringTable({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-10 w-10"
+                      className={cn("h-10 w-10", ICON_EDIT_BUTTON_CLASS)}
                       aria-label="Editar recorrência"
                       onClick={() => {
                         setSelectedRecurring(item);
                         handleEditRecurring(item);
                       }}
                     >
-                      <Pen className="h-4 w-4 text-blue-400" />
+                      <Pen className="h-4 w-4" />
                     </Button>
 
                     <AlertDialog
@@ -513,14 +514,17 @@ export function RecurringTable({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 focus-visible:ring-primary"
+                            className={cn(
+                              "h-8 w-8 focus-visible:ring-primary",
+                              ICON_EDIT_BUTTON_CLASS
+                            )}
                             aria-label="Editar recorrência"
                             onClick={() => {
                               setSelectedRecurring(item);
                               handleEditRecurring(item);
                             }}
                           >
-                            <Pen className="h-4 w-4 text-blue-400" />
+                            <Pen className="h-4 w-4" />
                           </Button>
                         </ActionTooltip>
 
