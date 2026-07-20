@@ -120,6 +120,10 @@ export type TripChecklistUpdateRequest = Partial<TripChecklistCreateRequest> & {
 
 export type TripExpenseCreateRequest = Omit<TripExpense, "id" | "created_at">;
 
+export type TripExpenseUpdateRequest = Partial<TripExpenseCreateRequest> & {
+  id: string;
+};
+
 export type TripMilestoneCreateRequest = Omit<TripMilestone, "id" | "created_at">;
 
 export type TripMilestoneUpdateRequest = Partial<TripMilestoneCreateRequest> & {
@@ -129,3 +133,7 @@ export type TripMilestoneUpdateRequest = Partial<TripMilestoneCreateRequest> & {
 export type TripItineraryDayCreateRequest = Omit<TripItineraryDay, "id" | "activities">;
 
 export type TripItineraryActivityCreateRequest = Omit<TripItineraryActivity, "id">;
+
+export type TripItineraryActivityUpdateRequest = Partial<
+  TripItineraryActivityCreateRequest
+> & { id: string };

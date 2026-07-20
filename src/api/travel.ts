@@ -12,9 +12,11 @@ import type {
   TripCreateRequest,
   TripExpense,
   TripExpenseCreateRequest,
+  TripExpenseUpdateRequest,
   TripFull,
   TripItineraryActivity,
   TripItineraryActivityCreateRequest,
+  TripItineraryActivityUpdateRequest,
   TripItineraryDay,
   TripMilestone,
   TripMilestoneCreateRequest,
@@ -195,6 +197,28 @@ export async function createTripExpense(
   return data;
 }
 
+export async function updateTripExpense(
+  data: TripExpenseUpdateRequest
+): Promise<void> {
+  const { id, ...fields } = data;
+  const { error } = await supabase
+    .from("trip_expense")
+    .update(fields)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  if (fields.trip_id) {
+    await syncTripSpent(fields.trip_id);
+  } else {
+    const { data: expense } = await supabase
+      .from("trip_expense")
+      .select("trip_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (expense?.trip_id) await syncTripSpent(expense.trip_id);
+  }
+}
+
 export async function deleteTripExpense(
   id: string,
   tripId: string
@@ -241,6 +265,17 @@ export async function createItineraryActivity(
   return data;
 }
 
+export async function updateItineraryActivity(
+  data: TripItineraryActivityUpdateRequest
+): Promise<void> {
+  const { id, ...fields } = data;
+  const { error } = await supabase
+    .from("trip_itinerary_activity")
+    .update(fields)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteItineraryActivity(id: string): Promise<void> {
   const { error } = await supabase
     .from("trip_itinerary_activity")
@@ -256,7 +291,7 @@ export async function updateItineraryDayNotes(
 ): Promise<void> {
   const { error } = await supabase
     .from("trip_itinerary_day")
-    .update({ notes, ...(title != null ? { title } : {}) })
+    .update({ notes, ...(title !== undefined ? { title } : {}) })
     .eq("id", id);
   if (error) throw new Error(error.message);
 }

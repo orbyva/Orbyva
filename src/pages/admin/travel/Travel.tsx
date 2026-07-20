@@ -2,36 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plane } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { DatePicker } from "@/components/DatePicker";
 import { EmptyState } from "@/components/EmptyState";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
-import { createTrip, enrichTrip, fetchTrips } from "@/api/travel";
+import { TripFormDialog } from "@/components/TripFormDialog";
+import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { enrichTrip, fetchTrips } from "@/api/travel";
 import { TRIP_STATUS_LABELS } from "@/domain/travel";
-import type { TripCreateRequest, TripWithChecklist } from "@/types/travel";
+import type { TripWithChecklist } from "@/types/travel";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
-
-const emptyTrip = (): TripCreateRequest => ({
-  title: "",
-  destination: "",
-  start_date: new Date().toISOString().split("T")[0],
-  end_date: new Date().toISOString().split("T")[0],
-  budget: null,
-  spent: 0,
-  notes: "",
-  status: "planning",
-});
 
 function TripCard({ trip }: { trip: TripWithChecklist }) {
   return (
@@ -77,7 +59,6 @@ export default function Travel() {
   const [trips, setTrips] = useState<TripWithChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(emptyTrip());
   const { toast } = useToast();
 
   const load = useCallback(async () => {
@@ -93,23 +74,6 @@ export default function Travel() {
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);
-
-  async function handleSaveTrip() {
-    if (!form.title.trim()) return;
-    try {
-      await createTrip(form);
-      toast({
-        title: "Viagem criada!",
-        description: "Roteiro dia a dia gerado automaticamente.",
-        duration: 3000,
-      });
-      setOpen(false);
-      setForm(emptyTrip());
-      load();
-    } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
-    }
-  }
 
   const activeTrips = trips.filter(
     (t) => t.status !== "completed" && t.status !== "cancelled"
@@ -161,22 +125,7 @@ export default function Travel() {
         </Tabs>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader><DialogTitle>Nova viagem</DialogTitle></DialogHeader>
-          <div className={FORM_FIELDS_CLASS}>
-            <div><FormLabel required>Título</FormLabel><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex: Gramado 2026" /></div>
-            <div><FormLabel optional>Destino</FormLabel><Input value={form.destination ?? ""} onChange={(e) => setForm({ ...form, destination: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><FormLabel required>Início</FormLabel><DatePicker date={new Date(`${form.start_date}T12:00:00`)} onSelect={(d) => setForm({ ...form, start_date: d ? d.toISOString().split("T")[0] : form.start_date })} /></div>
-              <div><FormLabel required>Fim</FormLabel><DatePicker date={new Date(`${form.end_date}T12:00:00`)} onSelect={(d) => setForm({ ...form, end_date: d ? d.toISOString().split("T")[0] : form.end_date })} /></div>
-            </div>
-            <div><FormLabel optional>Orçamento (R$)</FormLabel><Input type="number" value={form.budget ?? ""} onChange={(e) => setForm({ ...form, budget: e.target.value ? Number(e.target.value) : null })} /></div>
-            <p className="text-xs text-muted-foreground">Ao criar, um roteiro dia a dia será gerado automaticamente.</p>
-            <Button onClick={handleSaveTrip} className="w-full">Criar viagem</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <TripFormDialog open={open} onOpenChange={setOpen} onSaved={load} />
     </main>
   );
 }
