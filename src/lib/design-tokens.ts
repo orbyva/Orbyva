@@ -10,6 +10,7 @@ export const moduleColors = {
   finance: "hsl(var(--primary))",
   life: "hsl(var(--life))",
   cinema: "hsl(var(--cinema))",
+  travel: "hsl(var(--travel))",
   car: "hsl(var(--car))",
 } as const;
 

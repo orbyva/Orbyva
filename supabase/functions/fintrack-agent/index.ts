@@ -32,6 +32,53 @@ Deno.serve(async (req) => {
     const user = await getAuthenticatedUser(supabase);
     const body = await req.json();
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("plan, subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const forcePro = Deno.env.get("BILLING_FORCE_PRO") === "true";
+    const isPro =
+      forcePro ||
+      profile?.plan === "pro" ||
+      profile?.subscription_status === "active" ||
+      profile?.subscription_status === "trialing";
+
+    if (!isPro) {
+      return jsonResponse(
+        {
+          error: "Assistente IA disponível no plano Pro.",
+          code: "PRO_REQUIRED",
+        },
+        403
+      );
+    }
+
+    // Limite diário Pro (evita abuso)
+    try {
+      const dayStart = new Date();
+      dayStart.setUTCHours(0, 0, 0, 0);
+      const { count } = await supabase
+        .from("agent_audit_log")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("created_at", dayStart.toISOString());
+
+      const dailyLimit = Number(Deno.env.get("AGENT_DAILY_LIMIT") ?? "80");
+      if ((count ?? 0) >= dailyLimit) {
+        return jsonResponse(
+          {
+            error: `Limite diário do assistente (${dailyLimit}) atingido. Tente amanhã.`,
+            code: "RATE_LIMIT",
+          },
+          429
+        );
+      }
+    } catch (rateError) {
+      console.error("Rate limit check failed:", rateError);
+    }
+
     if (body.confirmActionId) {
       const result = await confirmPendingAction(
         supabase,

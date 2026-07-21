@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { getCurrentUserId } from "@/lib/auth-user";
 import {
   Class, ClassCreateRequest,
   ClassUpdateRequest,
@@ -23,6 +24,12 @@ export type { Dimension } from "@/types/dimensions";
 const TRANSACTION_SELECT =
   "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, nature:nature_id(name)))";
 
+/** PostgREST às vezes devolve relação many-to-one como objeto ou como array. */
+function asOne<T>(value: T | T[] | null | undefined): T | null {
+  if (value == null) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
 export interface TransactionQueryOptions {
   page?: number;
   pageSize?: number;
@@ -35,9 +42,11 @@ export interface TransactionQueryOptions {
 async function getClassIdsForNature(
   natureName: "Receita" | "Despesa"
 ): Promise<number[]> {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("class")
-    .select("id, type:type_id(nature:nature_id(name))");
+    .select("id, type:type_id(nature:nature_id(name))")
+    .eq("user_id", userId);
 
   if (error) throw new Error(error.message);
 
@@ -50,9 +59,11 @@ async function getClassIdsForNature(
 }
 
 async function getClassIdsForSearch(term: string): Promise<number[]> {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("class")
-    .select("id, name, type:type_id(name)");
+    .select("id, name, type:type_id(name)")
+    .eq("user_id", userId);
 
   if (error) throw new Error(error.message);
 
@@ -71,6 +82,7 @@ async function getClassIdsForSearch(term: string): Promise<number[]> {
 export async function fetchTransactionsQuery(
   options: TransactionQueryOptions = {}
 ): Promise<PaginatedResult<Transaction>> {
+  const userId = await getCurrentUserId();
   const page = options.page ?? 1;
   const pageSize = options.pageSize ?? 10;
   const from = (page - 1) * pageSize;
@@ -88,6 +100,7 @@ export async function fetchTransactionsQuery(
   let query = supabase
     .from("transaction")
     .select(TRANSACTION_SELECT, { count: "exact" })
+    .eq("user_id", userId)
     .order("id", { ascending: false });
 
   if (options.startDate) {
@@ -157,25 +170,30 @@ export async function fetchNatures(): Promise<Nature[]> {
 // Type
 
 export async function fetchTypes(): Promise<Type[]> {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
-    .from('type')
+    .from("type")
     .select(`
       *,
       nature:nature_id(name)
     `)
-
+    .eq("user_id", userId)
+    .order("order", { ascending: true });
 
   if (error) throw new Error(error.message);
 
-  return data || []
+  return data || [];
 }
 
 export async function createTypeApi(newType: TypeCreateRequest): Promise<void> {
+  const userId = await getCurrentUserId();
+
   if (!newType.order) {
     const { data, error: fetchError } = await supabase
-      .from('type')
-      .select('order')
-      .order('order', { ascending: false })
+      .from("type")
+      .select("order")
+      .eq("user_id", userId)
+      .order("order", { ascending: false })
       .limit(1);
 
     if (fetchError) throw fetchError;
@@ -185,70 +203,127 @@ export async function createTypeApi(newType: TypeCreateRequest): Promise<void> {
   }
 
   const { error } = await supabase
-    .from('type')
-    .insert([newType])
+    .from("type")
+    .insert([{ ...newType, user_id: userId }]);
 
   if (error) throw error;
 }
 
 export async function updateTypeApi(updateData: TypeUpdateRequest): Promise<void> {
+  const userId = await getCurrentUserId();
   const { id, ...updateFields } = updateData;
 
   const { error } = await supabase
-    .from('type')
+    .from("type")
     .update(updateFields)
-    .eq('id', id)
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) throw error;
 }
 
 export async function deleteTypeApi(typeId: number): Promise<void> {
+  const userId = await getCurrentUserId();
   const { error } = await supabase
     .from("type")
     .delete()
-    .match({ id: typeId });
+    .eq("id", typeId)
+    .eq("user_id", userId);
   if (error) throw error;
 }
 
 // Class
 
 export async function fetchClasses(): Promise<Class[]> {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("class")
     .select(`
-      *,
-      type:type_id(name, nature:nature_id(name))
+      id,
+      name,
+      type_id,
+      user_id,
+      type:type_id(
+        id,
+        name,
+        hex_color,
+        lucide_icon,
+        nature:nature_id(id, name)
+      )
     `)
+    .eq("user_id", userId)
+    .order("name", { ascending: true });
 
   if (error) throw new Error(error.message);
 
-  return data || [];
+  return (data ?? []).map((row) => {
+    const typeRow = asOne(
+      row.type as
+        | {
+            id: number;
+            name: string;
+            hex_color: string | null;
+            lucide_icon: string | null;
+            nature: Nature | Nature[] | null;
+          }
+        | {
+            id: number;
+            name: string;
+            hex_color: string | null;
+            lucide_icon: string | null;
+            nature: Nature | Nature[] | null;
+          }[]
+        | null
+    );
+    const nature = typeRow ? asOne(typeRow.nature) : null;
+
+    return {
+      id: row.id,
+      name: row.name,
+      type_id: row.type_id,
+      user_id: row.user_id,
+      type: typeRow
+        ? {
+            id: typeRow.id,
+            name: typeRow.name,
+            hex_color: typeRow.hex_color,
+            lucide_icon: typeRow.lucide_icon,
+            nature: nature ?? { id: 0, name: "" },
+          }
+        : null,
+    } satisfies Class;
+  });
 }
 
-
 export async function createClassApi(newClass: ClassCreateRequest): Promise<void> {
+  const userId = await getCurrentUserId();
   const { error } = await supabase
-    .from('class')
-    .insert([newClass])
+    .from("class")
+    .insert([{ ...newClass, user_id: userId }]);
 
   if (error) throw error;
 }
 
 export async function updateClassApi(updateData: ClassUpdateRequest): Promise<void> {
+  const userId = await getCurrentUserId();
   const { id, ...updateFields } = updateData;
 
   const { error } = await supabase
-    .from('class')
+    .from("class")
     .update(updateFields)
-    .eq('id', id)
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) throw error;
 }
+
 export async function deleteClassApi(classId: number): Promise<void> {
+  const userId = await getCurrentUserId();
   const { error } = await supabase
     .from("class")
     .delete()
-    .match({ id: classId });
+    .eq("id", classId)
+    .eq("user_id", userId);
   if (error) throw error;
 }
 
@@ -265,6 +340,7 @@ export async function deleteNatureApi(natureId: number): Promise<void> {
 
 
 export async function fetchDimensions(): Promise<Dimension[]> {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("nature")
     .select(`
@@ -273,9 +349,11 @@ export async function fetchDimensions(): Promise<Dimension[]> {
       types: type!nature_id (
         id,
         name,
+        user_id,
         classes: class!type_id (
           id,
-          name
+          name,
+          user_id
         )
       )
     `);
@@ -284,7 +362,22 @@ export async function fetchDimensions(): Promise<Dimension[]> {
     throw new Error(error.message);
   }
 
-  return data ?? [];
+  return (data ?? []).map((nature) => ({
+    id: nature.id,
+    name: nature.name,
+    types: ((nature.types as Array<{
+      id: number;
+      name: string;
+      user_id?: string | null;
+      classes?: Array<{ id: number; name: string; user_id?: string | null }>;
+    }> | null) ?? [])
+      .filter((t) => t.user_id === userId)
+      .map((t) => ({
+        id: t.id,
+        name: t.name,
+        classes: (t.classes ?? []).filter((c) => c.user_id === userId),
+      })),
+  }));
 }
 
 export async function fetchValueByNatureYearMonth(): Promise<
@@ -315,16 +408,40 @@ export async function fetchValueByNatureForMonth(
   return data;
 }
 
-export async function createTransactionApi(newTransaction: TransactionCreateRequest) {
-  const { error } = await supabase.from("transaction").insert([newTransaction]);
+export async function insertTransaction(
+  newTransaction: TransactionCreateRequest
+): Promise<number> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("transaction")
+    .insert([{ ...newTransaction, user_id: userId }])
+    .select("id")
+    .single();
+
   if (error) throw error;
+  return data.id as number;
+}
+
+export async function createTransactionApi(newTransaction: TransactionCreateRequest) {
+  await insertTransaction(newTransaction);
+  try {
+    const { markFirstTxDone } = await import("@/lib/onboarding");
+    const { track } = await import("@/lib/analytics");
+    const userId = await getCurrentUserId();
+    markFirstTxDone(userId);
+    track("first_transaction", { source: "create" });
+  } catch {
+    /* ignore onboarding side-effects */
+  }
 }
 
 export async function deleteTransactionApi(transactionId: number) {
+  const userId = await getCurrentUserId();
   const { error } = await supabase
     .from("transaction")
     .delete()
-    .match({ id: transactionId });
+    .eq("id", transactionId)
+    .eq("user_id", userId);
   if (error) throw error;
 }
 
@@ -332,6 +449,7 @@ export async function updateTransactionApi(
   transactionId: string,
   updatedTransaction: TransactionCreateRequest
 ) {
+  const userId = await getCurrentUserId();
   const transactionPayload = {
     ...updatedTransaction,
     value:
@@ -343,7 +461,8 @@ export async function updateTransactionApi(
   const { error } = await supabase
     .from("transaction")
     .update(transactionPayload)
-    .match({ id: transactionId });
+    .eq("id", transactionId)
+    .eq("user_id", userId);
 
   if (error) {
     throw error;
@@ -353,8 +472,9 @@ export async function updateTransactionApi(
 // Monthly Budget
 export async function fetchMonthlyBudgets(
   budgetMonth: string,
-  userId: string
+  userId?: string
 ): Promise<MonthlyBudget[]> {
+  const uid = userId ?? (await getCurrentUserId());
   const { data, error } = await supabase
     .from("monthly_budget")
     .select(`
@@ -362,7 +482,7 @@ export async function fetchMonthlyBudgets(
       type:type_id(id, name, hex_color, lucide_icon),
       class:class_id(id, name)
     `)
-    .eq("user_id", userId)
+    .eq("user_id", uid)
     .eq("budget_month", budgetMonth)
     .order("id", { ascending: false });
 
@@ -374,10 +494,13 @@ export async function fetchMonthlyBudgets(
 export async function createMonthlyBudgetApi(
   newBudget: MonthlyBudgetCreateRequest
 ): Promise<void> {
+  const userId = await getCurrentUserId();
+
   if (newBudget.type_id && !newBudget.class_id) {
   const { data: existingParents, error: parentError } = await supabase
     .from("monthly_budget")
     .select("id, planned_value")
+    .eq("user_id", userId)
     .eq("type_id", newBudget.type_id)
     .eq("budget_month", newBudget.budget_month)
     .is("class_id", null)
@@ -396,7 +519,8 @@ export async function createMonthlyBudgetApi(
     const { error } = await supabase
       .from("monthly_budget")
       .update({ planned_value: newPlannedValue })
-      .eq("id", existingParent.id);
+      .eq("id", existingParent.id)
+      .eq("user_id", userId);
 
     if (error) throw error;
 
@@ -406,7 +530,7 @@ export async function createMonthlyBudgetApi(
 
   const { error } = await supabase
     .from("monthly_budget")
-    .insert([newBudget]);
+    .insert([{ ...newBudget, user_id: userId }]);
 
   if (error) throw error;
 
@@ -421,12 +545,14 @@ export async function createMonthlyBudgetApi(
 export async function updateMonthlyBudgetApi(
   updateData: MonthlyBudgetUpdateRequest
 ): Promise<void> {
+  const userId = await getCurrentUserId();
   const { id, ...updateFields } = updateData;
 
   const { data: oldBudget, error: oldError } = await supabase
     .from("monthly_budget")
     .select("type_id, class_id, budget_month")
     .eq("id", id)
+    .eq("user_id", userId)
     .single();
 
   if (oldError) throw oldError;
@@ -434,7 +560,8 @@ export async function updateMonthlyBudgetApi(
   const { error } = await supabase
     .from("monthly_budget")
     .update(updateFields)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) throw error;
 
@@ -448,10 +575,12 @@ export async function updateMonthlyBudgetApi(
 }
 
 export async function deleteMonthlyBudgetApi(budgetId: number): Promise<void> {
+  const userId = await getCurrentUserId();
   const { data: oldBudget, error: oldError } = await supabase
     .from("monthly_budget")
     .select("id, type_id, class_id, budget_month")
     .eq("id", budgetId)
+    .eq("user_id", userId)
     .single();
 
   if (oldError) throw oldError;
@@ -461,6 +590,7 @@ export async function deleteMonthlyBudgetApi(budgetId: number): Promise<void> {
     const { error } = await supabase
       .from("monthly_budget")
       .delete()
+      .eq("user_id", userId)
       .eq("type_id", oldBudget.type_id)
       .eq("budget_month", oldBudget.budget_month);
 
@@ -472,7 +602,8 @@ export async function deleteMonthlyBudgetApi(budgetId: number): Promise<void> {
   const { error } = await supabase
     .from("monthly_budget")
     .delete()
-    .eq("id", budgetId);
+    .eq("id", budgetId)
+    .eq("user_id", userId);
 
   if (error) throw error;
 
@@ -502,9 +633,11 @@ async function syncParentMonthlyBudget(
   typeId: number,
   budgetMonth: string
 ): Promise<void> {
+  const userId = await getCurrentUserId();
   const { data: children, error: childrenError } = await supabase
     .from("monthly_budget")
     .select("planned_value")
+    .eq("user_id", userId)
     .eq("type_id", typeId)
     .eq("budget_month", budgetMonth)
     .not("class_id", "is", null);
@@ -519,6 +652,7 @@ async function syncParentMonthlyBudget(
   const { data: parents, error: parentError } = await supabase
     .from("monthly_budget")
     .select("id, planned_value")
+    .eq("user_id", userId)
     .eq("type_id", typeId)
     .eq("budget_month", budgetMonth)
     .is("class_id", null)
@@ -532,6 +666,7 @@ async function syncParentMonthlyBudget(
   if (!parent && childrenTotal > 0) {
     const { error } = await supabase.from("monthly_budget").insert([
       {
+        user_id: userId,
         type_id: typeId,
         class_id: null,
         budget_month: budgetMonth,
@@ -549,7 +684,8 @@ async function syncParentMonthlyBudget(
     const { error } = await supabase
       .from("monthly_budget")
       .update({ planned_value: childrenTotal })
-      .eq("id", parent.id);
+      .eq("id", parent.id)
+      .eq("user_id", userId);
 
     if (error) throw error;
   }
@@ -562,9 +698,11 @@ export async function duplicateMonthlyBudgetApi(
   toBudgetMonths: string[],
   mode: DuplicateBudgetMode
 ): Promise<void> {
+  const userId = await getCurrentUserId();
   const { data: sourceBudgets, error: fetchError } = await supabase
     .from("monthly_budget")
     .select("type_id, class_id, planned_value")
+    .eq("user_id", userId)
     .eq("budget_month", fromBudgetMonth);
 
   if (fetchError) throw fetchError;
@@ -578,6 +716,7 @@ export async function duplicateMonthlyBudgetApi(
       const { error: deleteError } = await supabase
         .from("monthly_budget")
         .delete()
+        .eq("user_id", userId)
         .eq("budget_month", toBudgetMonth);
 
       if (deleteError) throw deleteError;
@@ -587,6 +726,7 @@ export async function duplicateMonthlyBudgetApi(
       const { data: existingBudgets, error: existingError } = await supabase
         .from("monthly_budget")
         .select("type_id, class_id")
+        .eq("user_id", userId)
         .eq("budget_month", toBudgetMonth);
 
       if (existingError) throw existingError;
@@ -603,6 +743,7 @@ export async function duplicateMonthlyBudgetApi(
             !existingKeys.has(`${budget.type_id}-${budget.class_id ?? "null"}`)
         )
         .map((budget) => ({
+          user_id: userId,
           type_id: budget.type_id,
           class_id: budget.class_id,
           budget_month: toBudgetMonth,
@@ -621,6 +762,7 @@ export async function duplicateMonthlyBudgetApi(
     }
 
     const payload = sourceBudgets.map((budget) => ({
+      user_id: userId,
       type_id: budget.type_id,
       class_id: budget.class_id,
       budget_month: toBudgetMonth,

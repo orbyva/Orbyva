@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Target,
@@ -8,11 +8,17 @@ import {
   AlertTriangle,
   Wallet,
   CalendarDays,
+  Clapperboard,
+  Share2,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { TimelineList } from "@/components/TimelineList";
+import { FirstTxChecklist } from "@/components/FirstTxChecklist";
+import { ShareImageDialog } from "@/components/ShareImageDialog";
 import {
   fetchLifeDashboardSummary,
   fetchTimelineItems,
@@ -22,6 +28,30 @@ import type { LifeDashboardSummary, TimelineItem } from "@/types/timeline";
 import { formatBRL } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { BRAND } from "@/lib/brand";
+import { track } from "@/lib/analytics";
+import {
+  dismissMonthShareNudge,
+  isMonthShareNudgeDismissed,
+} from "@/lib/monthShareNudge";
+import {
+  generateMonthSpendShareImage,
+  monthLabel,
+  shareMonthSpendNative,
+} from "@/lib/monthSpendShare";
+import {
+  isNavigatorOffline,
+  loadOfflineSnapshot,
+  saveOfflineSnapshot,
+} from "@/lib/offlineCache";
+
+type HubCache = {
+  summary: LifeDashboardSummary;
+  upcoming: TimelineItem[];
+};
+
+const HUB_CACHE_KEY = "life_hub";
 
 function SummaryCard({
   title,
@@ -60,7 +90,15 @@ export default function LifeDashboard() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<LifeDashboardSummary | null>(null);
   const [upcoming, setUpcoming] = useState<TimelineItem[]>([]);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [showNudge, setShowNudge] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
 
   useEffect(() => {
     async function load() {
@@ -70,14 +108,39 @@ export default function LifeDashboard() {
           fetchLifeDashboardSummary(),
           fetchTimelineItems(30, 7),
         ]);
-        setSummary(sum);
-        setUpcoming(getUpcomingTimeline(timeline, 7));
-      } catch (error) {
-        toast({
-          title: "Erro",
-          description: getErrorMessage(error, "Falha ao carregar dashboard."),
-          variant: "destructive",
+        const upcomingItems = getUpcomingTimeline(timeline, 7);
+        const withAlerts: LifeDashboardSummary = {
+          ...sum,
+          overdueAlerts: timeline.filter((t) => t.status === "overdue").length,
+          upcomingAlerts: timeline.filter(
+            (t) => t.status === "upcoming" || t.status === "today"
+          ).length,
+        };
+        setSummary(withAlerts);
+        setUpcoming(upcomingItems);
+        setFromCache(false);
+        saveOfflineSnapshot<HubCache>(HUB_CACHE_KEY, {
+          summary: withAlerts,
+          upcoming: upcomingItems,
         });
+      } catch (error) {
+        const cached = loadOfflineSnapshot<HubCache>(HUB_CACHE_KEY);
+        if (cached && isNavigatorOffline()) {
+          setSummary(cached.data.summary);
+          setUpcoming(cached.data.upcoming);
+          setFromCache(true);
+          toast({
+            title: "Modo offline",
+            description: "Exibindo o último hub salvo neste dispositivo.",
+            duration: 3000,
+          });
+        } else {
+          toast({
+            title: "Erro",
+            description: getErrorMessage(error, "Falha ao carregar dashboard."),
+            variant: "destructive",
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -85,32 +148,60 @@ export default function LifeDashboard() {
     load();
   }, [toast]);
 
+  useEffect(() => {
+    if (!user?.id || !summary) return;
+    const hasFinance =
+      summary.balance != null && summary.expenseTotal != null;
+    setShowNudge(
+      hasFinance && !isMonthShareNudgeDismissed(user.id)
+    );
+  }, [user?.id, summary]);
+
+  const openShare = useCallback(() => {
+    track("share_month_open", { source: "home" });
+    setShareOpen(true);
+  }, []);
+
+  const dismissNudge = useCallback(() => {
+    if (user?.id) dismissMonthShareNudge(user.id);
+    setShowNudge(false);
+  }, [user?.id]);
+
   if (loading) {
     return (
-      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+      <PageShell title="Início" description={BRAND.tagline}>
         <TableLoadingSkeleton rows={6} />
-      </main>
+      </PageShell>
     );
   }
 
   const s = summary!;
+  const receita =
+    s.balance != null && s.expenseTotal != null
+      ? s.balance + s.expenseTotal
+      : null;
+  const despesa = s.expenseTotal ?? null;
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Início</h1>
-          <p className="text-sm text-muted-foreground">
-            Visão geral da sua vida — finanças, metas, hábitos e mais.
-          </p>
-        </div>
+    <PageShell
+      title="Início"
+      description={BRAND.shortDescription}
+      actions={
         <Button variant="outline" asChild>
           <Link to="/timeline">
             <CalendarDays className="mr-2 h-4 w-4" />
             Ver timeline completa
           </Link>
         </Button>
-      </section>
+      }
+    >
+      <FirstTxChecklist />
+
+      {fromCache ? (
+        <p className="text-xs text-muted-foreground">
+          Dados do último acesso offline neste dispositivo.
+        </p>
+      ) : null}
 
       {(s.overdueAlerts > 0 || s.upcomingAlerts > 0) && (
         <section className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
@@ -132,7 +223,35 @@ export default function LifeDashboard() {
         </section>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {showNudge && receita != null && despesa != null ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold">
+              Resumo de {monthLabel(year, month)}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Saldo {formatBRL(s.balance ?? 0)} · compartilhe o mês no life OS
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={openShare}>
+              <Share2 className="mr-2 h-4 w-4" />
+              Compartilhar
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              aria-label="Dispensar"
+              onClick={dismissNudge}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard
           title="Metas ativas"
           value={String(s.activeGoals)}
@@ -149,6 +268,13 @@ export default function LifeDashboard() {
           }
           icon={Flame}
           href="/habits"
+        />
+        <SummaryCard
+          title="Para assistir"
+          value={String(s.moviesToWatch)}
+          subtitle="Fila do cinema"
+          icon={Clapperboard}
+          href="/movies"
         />
         <SummaryCard
           title="Lugares visitados"
@@ -201,6 +327,34 @@ export default function LifeDashboard() {
           </Button>
         ))}
       </section>
-    </main>
+
+      {receita != null && despesa != null ? (
+        <ShareImageDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          title={`Compartilhar ${monthLabel(year, month)}`}
+          generateImage={() =>
+            generateMonthSpendShareImage({
+              year,
+              month,
+              receita,
+              despesa,
+            })
+          }
+          share={async (blob) => {
+            const result = await shareMonthSpendNative(
+              { year, month, receita, despesa },
+              blob
+            );
+            if (result !== "cancelled") {
+              track("share_month_done", { result, source: "home" });
+              if (user?.id) dismissMonthShareNudge(user.id);
+              setShowNudge(false);
+            }
+            return result;
+          }}
+        />
+      ) : null}
+    </PageShell>
   );
 }

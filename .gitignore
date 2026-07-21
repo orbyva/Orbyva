@@ -40,3 +40,9 @@ supabase/.branches/
 
 # Artefatos de desenvolvimento
 *.patch
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

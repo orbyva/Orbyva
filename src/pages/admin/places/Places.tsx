@@ -13,7 +13,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { PlaceCard } from "@/components/PlaceCard";
 import { PlaceDetailDialog } from "@/components/PlaceDetailDialog";
 import { PlaceFormDialog } from "@/components/PlaceFormDialog";
-import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { PageShell } from "@/components/PageShell";
+import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { deletePlace, fetchPlaces } from "@/api/places";
 import { fetchTrips } from "@/api/travel";
 import {
@@ -124,24 +125,15 @@ export default function Places() {
   }
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Lugares</h1>
-          <p className="text-sm text-muted-foreground">
-            Avalie restaurantes, cafés e passeios — na cidade ou em viagens.
-            {avgRating != null && (
-              <span className="ml-1 font-medium text-foreground">
-                Média: {avgRating}★
-              </span>
-            )}
-          </p>
-        </div>
-        <div className={PAGE_HEADER_ACTIONS_CLASS}>
-          <PlaceFormDialog onSaved={load} />
-        </div>
-      </section>
-
+    <PageShell
+      title="Lugares"
+      description={
+        avgRating != null
+          ? `Avalie restaurantes, cafés e passeios — na cidade ou em viagens. Média: ${avgRating}★`
+          : "Avalie restaurantes, cafés e passeios — na cidade ou em viagens."
+      }
+      actions={<PlaceFormDialog onSaved={load} />}
+    >
       <section className="space-y-3 rounded-xl border bg-card p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -229,7 +221,7 @@ export default function Places() {
       </section>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Carregando...</p>
+        <TableLoadingSkeleton rows={6} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={MapPin}
@@ -239,6 +231,7 @@ export default function Places() {
               ? "Tente outro termo ou remova alguns filtros."
               : "Avalie um restaurante, café ou passeio que você visitou."
           }
+          action={hasActiveFilters ? undefined : <PlaceFormDialog onSaved={load} />}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -279,6 +272,6 @@ export default function Places() {
           onSaved={() => { setEditing(null); setEditOpen(false); load(); }}
         />
       )}
-    </main>
+    </PageShell>
   );
 }

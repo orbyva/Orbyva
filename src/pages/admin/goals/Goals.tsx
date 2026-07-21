@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Target, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Target, Trash2, Wallet, Pen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,14 +19,18 @@ import {
 import { DatePicker } from "@/components/DatePicker";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, ICON_EDIT_BUTTON_CLASS, PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import { PageShell } from "@/components/PageShell";
+import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { createGoal, deleteGoal, fetchGoals, updateGoal } from "@/api/goals";
 import { GOAL_CATEGORY_LABELS, getGoalProgress, formatGoalProgress } from "@/domain/goals";
+import { getFinancialGoalInsight } from "@/domain/goals/finance";
 import type { GoalCategory, PersonalGoal, PersonalGoalCreateRequest } from "@/types/goals";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { formatDateBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import { useCallback, useEffect, useState } from "react";
 
 const emptyGoal = (): PersonalGoalCreateRequest => ({
   title: "",
@@ -97,25 +101,25 @@ export default function Goals() {
   const activeGoals = goals.filter((g) => g.status === "active");
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Metas Pessoais</h1>
-          <p className="text-sm text-muted-foreground">Acompanhe seu progresso em objetivos de vida.</p>
-        </div>
-        <div className={PAGE_HEADER_ACTIONS_CLASS}>
-          <Button onClick={openCreate}>Nova meta</Button>
-        </div>
-      </section>
-
+    <PageShell
+      title="Metas Pessoais"
+      description="Acompanhe seu progresso em objetivos de vida."
+      actions={<Button onClick={openCreate}>Nova meta</Button>}
+    >
       {loading ? (
-        <p className="text-sm text-muted-foreground">Carregando...</p>
+        <TableLoadingSkeleton rows={6} />
       ) : activeGoals.length === 0 ? (
-        <EmptyState icon={Target} title="Nenhuma meta ativa" description="Crie sua primeira meta pessoal." />
+        <EmptyState
+          icon={Target}
+          title="Nenhuma meta ativa"
+          description="Crie sua primeira meta pessoal."
+          action={<Button onClick={openCreate}>Nova meta</Button>}
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {activeGoals.map((goal) => {
             const progress = getGoalProgress(goal);
+            const financeInsight = getFinancialGoalInsight(goal);
             return (
               <article key={goal.id} className="rounded-xl border bg-card p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
@@ -135,7 +139,7 @@ export default function Goals() {
                       className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
                       onClick={() => openEdit(goal)}
                     >
-                      <Target className="h-3.5 w-3.5" />
+                      <Pen className="h-3.5 w-3.5" />
                     </Button>
                     <ConfirmDeleteDialog
                       title="Excluir esta meta?"
@@ -162,6 +166,24 @@ export default function Goals() {
                     Prazo: {formatDateBR(goal.deadline)}
                   </p>
                 )}
+                {financeInsight ? (
+                  <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+                    <p className="flex items-center gap-1.5 text-xs font-medium">
+                      <Wallet className="h-3.5 w-3.5" />
+                      Meta ↔ Finanças
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {financeInsight.suggestion}
+                    </p>
+                    <Button
+                      variant="link"
+                      className="mt-1 h-auto p-0 text-xs"
+                      asChild
+                    >
+                      <Link to="/finance/transactions">Abrir transações</Link>
+                    </Button>
+                  </div>
+                ) : null}
               </article>
             );
           })}
@@ -195,12 +217,32 @@ export default function Goals() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FormLabel required>Valor atual</FormLabel>
-                <Input type="number" value={form.current_value || ""} onChange={(e) => setForm({ ...form, current_value: Number(e.target.value) || 0 })} />
+                <FormLabel required>Progresso atual</FormLabel>
+                <Input
+                  type="number"
+                  value={form.current_value || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      current_value: Number(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="Quanto já avançou"
+                />
               </div>
               <div>
-                <FormLabel required>Meta</FormLabel>
-                <Input type="number" value={form.target_value || ""} onChange={(e) => setForm({ ...form, target_value: Number(e.target.value) || 0 })} />
+                <FormLabel required>Valor da meta</FormLabel>
+                <Input
+                  type="number"
+                  value={form.target_value || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      target_value: Number(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="Objetivo final"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -220,6 +262,6 @@ export default function Goals() {
           </div>
         </DialogContent>
       </Dialog>
-    </main>
+    </PageShell>
   );
 }

@@ -1,5 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { normalizeVehicleKind } from "@/domain/car";
+import { getCurrentUserId } from "@/lib/auth-user";
+import { insertTransaction } from "@/api/finance";
 import type { TransactionCreateRequest } from "@/types/finance";
 import type {
   FuelLog,
@@ -16,15 +18,6 @@ import type {
   VehicleUpdateRequest,
 } from "@/types/car";
 
-async function getCurrentUserId(): Promise<string> {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (error || !user) throw new Error("Usuário não autenticado.");
-  return user.id;
-}
-
 function normalizeVehicle(row: Vehicle): Vehicle {
   return {
     ...row,
@@ -32,12 +25,26 @@ function normalizeVehicle(row: Vehicle): Vehicle {
   };
 }
 
+async function assertVehicleOwned(vehicleId: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("vehicle")
+    .select("id")
+    .eq("id", vehicleId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Veículo não encontrado.");
+}
+
 // ── Vehicle ──────────────────────────────────────────────────────────
 
 export async function fetchVehicles(): Promise<Vehicle[]> {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("vehicle")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: true });
 
   if (error) throw new Error(error.message);
@@ -67,16 +74,20 @@ export async function createVehicle(
 export async function updateVehicle(
   updateData: VehicleUpdateRequest
 ): Promise<void> {
+  const userId = await getCurrentUserId();
   const { id, ...fields } = updateData;
   const { error } = await supabase
     .from("vehicle")
     .update({ ...fields, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) throw new Error(error.message);
 }
 
 export async function deleteVehicle(id: string): Promise<void> {
+  await assertVehicleOwned(id);
+
   const [{ data: maintenances }, { data: fuelLogs }] = await Promise.all([
     supabase
       .from("vehicle_maintenance")
@@ -113,7 +124,12 @@ export async function deleteVehicle(id: string): Promise<void> {
     if (txError) throw new Error(txError.message);
   }
 
-  const { error } = await supabase.from("vehicle").delete().eq("id", id);
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("vehicle")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
   if (error) throw new Error(error.message);
 }
 
@@ -124,6 +140,7 @@ export async function fetchMaintenances(
   page = 1,
   pageSize = 20
 ): Promise<{ data: Maintenance[]; total: number }> {
+  await assertVehicleOwned(vehicleId);
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
@@ -141,6 +158,7 @@ export async function fetchMaintenances(
 export async function fetchAllMaintenances(
   vehicleId: string
 ): Promise<Maintenance[]> {
+  await assertVehicleOwned(vehicleId);
   const { data, error } = await supabase
     .from("vehicle_maintenance")
     .select("*")
@@ -155,17 +173,11 @@ export async function createMaintenance(
   maintenance: MaintenanceCreateRequest,
   transaction?: TransactionCreateRequest | null
 ): Promise<Maintenance> {
+  await assertVehicleOwned(maintenance.vehicle_id);
   let transactionId: number | null = null;
 
   if (transaction && transaction.class_id > 0 && transaction.value > 0) {
-    const { data: txData, error: txError } = await supabase
-      .from("transaction")
-      .insert([transaction])
-      .select("id")
-      .single();
-
-    if (txError) throw new Error(txError.message);
-    transactionId = txData?.id ?? null;
+    transactionId = await insertTransaction(transaction);
   }
 
   const { data, error } = await supabase
@@ -198,10 +210,11 @@ export async function updateMaintenance(
 
   const { data: existing, error: fetchError } = await supabase
     .from("vehicle_maintenance")
-    .select("transaction_id")
+    .select("transaction_id, vehicle_id")
     .eq("id", id)
     .single();
   if (fetchError) throw new Error(fetchError.message);
+  await assertVehicleOwned(existing.vehicle_id);
 
   const { error } = await supabase
     .from("vehicle_maintenance")
@@ -212,6 +225,7 @@ export async function updateMaintenance(
 
   const transactionId = existing?.transaction_id as number | null | undefined;
   if (transactionId && options?.syncTransaction) {
+    const userId = await getCurrentUserId();
     const payload: Record<string, unknown> = {
       value: options.syncTransaction.value,
       description: options.syncTransaction.description,
@@ -223,7 +237,8 @@ export async function updateMaintenance(
     const { error: txError } = await supabase
       .from("transaction")
       .update(payload)
-      .eq("id", transactionId);
+      .eq("id", transactionId)
+      .eq("user_id", userId);
     if (txError) throw new Error(txError.message);
   }
 }
@@ -231,10 +246,11 @@ export async function updateMaintenance(
 export async function deleteMaintenance(id: string): Promise<void> {
   const { data: existing, error: fetchError } = await supabase
     .from("vehicle_maintenance")
-    .select("transaction_id")
+    .select("transaction_id, vehicle_id")
     .eq("id", id)
     .single();
   if (fetchError) throw new Error(fetchError.message);
+  await assertVehicleOwned(existing.vehicle_id);
 
   const { error } = await supabase
     .from("vehicle_maintenance")
@@ -245,10 +261,12 @@ export async function deleteMaintenance(id: string): Promise<void> {
 
   const transactionId = existing?.transaction_id as number | null | undefined;
   if (transactionId) {
+    const userId = await getCurrentUserId();
     const { error: txError } = await supabase
       .from("transaction")
       .delete()
-      .eq("id", transactionId);
+      .eq("id", transactionId)
+      .eq("user_id", userId);
     if (txError) throw new Error(txError.message);
   }
 }
@@ -260,6 +278,7 @@ export async function fetchFuelLogs(
   page = 1,
   pageSize = 20
 ): Promise<{ data: FuelLog[]; total: number }> {
+  await assertVehicleOwned(vehicleId);
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
@@ -275,6 +294,7 @@ export async function fetchFuelLogs(
 }
 
 export async function fetchAllFuelLogs(vehicleId: string): Promise<FuelLog[]> {
+  await assertVehicleOwned(vehicleId);
   const { data, error } = await supabase
     .from("vehicle_fuel_log")
     .select("*")
@@ -292,6 +312,7 @@ export async function createFuelLog(
     updateVehicleKm?: boolean;
   }
 ): Promise<FuelLog> {
+  await assertVehicleOwned(fuelLog.vehicle_id);
   let transactionId: number | null = fuelLog.transaction_id ?? null;
 
   if (
@@ -299,13 +320,7 @@ export async function createFuelLog(
     options.transaction.class_id > 0 &&
     options.transaction.value > 0
   ) {
-    const { data: txData, error: txError } = await supabase
-      .from("transaction")
-      .insert([options.transaction])
-      .select("id")
-      .single();
-    if (txError) throw new Error(txError.message);
-    transactionId = txData?.id ?? null;
+    transactionId = await insertTransaction(options.transaction);
   }
 
   const { data, error } = await supabase
@@ -345,6 +360,7 @@ export async function updateFuelLog(
     .single();
 
   if (fetchError) throw new Error(fetchError.message);
+  await assertVehicleOwned(existing.vehicle_id);
 
   const { error } = await supabase
     .from("vehicle_fuel_log")
@@ -363,6 +379,7 @@ export async function updateFuelLog(
 
   const transactionId = existing?.transaction_id as number | null | undefined;
   if (transactionId && options?.syncTransaction) {
+    const userId = await getCurrentUserId();
     const payload: Record<string, unknown> = {
       value: options.syncTransaction.value,
       description: options.syncTransaction.description,
@@ -374,7 +391,8 @@ export async function updateFuelLog(
     const { error: txError } = await supabase
       .from("transaction")
       .update(payload)
-      .eq("id", transactionId);
+      .eq("id", transactionId)
+      .eq("user_id", userId);
     if (txError) throw new Error(txError.message);
   }
 }
@@ -397,21 +415,24 @@ async function bumpVehicleKm(vehicleId: string, km: number): Promise<void> {
 export async function deleteFuelLog(id: string): Promise<void> {
   const { data: existing, error: fetchError } = await supabase
     .from("vehicle_fuel_log")
-    .select("transaction_id")
+    .select("transaction_id, vehicle_id")
     .eq("id", id)
     .single();
 
   if (fetchError) throw new Error(fetchError.message);
+  await assertVehicleOwned(existing.vehicle_id);
 
   const { error } = await supabase.from("vehicle_fuel_log").delete().eq("id", id);
   if (error) throw new Error(error.message);
 
   const transactionId = existing?.transaction_id as number | null | undefined;
   if (transactionId) {
+    const userId = await getCurrentUserId();
     const { error: txError } = await supabase
       .from("transaction")
       .delete()
-      .eq("id", transactionId);
+      .eq("id", transactionId)
+      .eq("user_id", userId);
     if (txError) throw new Error(txError.message);
   }
 }
@@ -419,6 +440,7 @@ export async function deleteFuelLog(id: string): Promise<void> {
 // ── Documents ──────────────────────────────────────────────────────
 
 export async function fetchDocuments(vehicleId: string): Promise<VehicleDocument[]> {
+  await assertVehicleOwned(vehicleId);
   const { data, error } = await supabase
     .from("vehicle_document")
     .select("*")
@@ -432,6 +454,7 @@ export async function fetchDocuments(vehicleId: string): Promise<VehicleDocument
 export async function createDocument(
   document: VehicleDocumentCreateRequest
 ): Promise<VehicleDocument> {
+  await assertVehicleOwned(document.vehicle_id);
   const { data, error } = await supabase
     .from("vehicle_document")
     .insert([document])
@@ -446,6 +469,15 @@ export async function updateDocument(
   updateData: VehicleDocumentUpdateRequest
 ): Promise<void> {
   const { id, ...fields } = updateData;
+  const { data: existing, error: fetchError } = await supabase
+    .from("vehicle_document")
+    .select("vehicle_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (fetchError) throw new Error(fetchError.message);
+  if (!existing) throw new Error("Documento não encontrado.");
+  await assertVehicleOwned(existing.vehicle_id);
+
   const { error } = await supabase
     .from("vehicle_document")
     .update(fields)
@@ -455,6 +487,15 @@ export async function updateDocument(
 }
 
 export async function deleteDocument(id: string): Promise<void> {
+  const { data: existing, error: fetchError } = await supabase
+    .from("vehicle_document")
+    .select("vehicle_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (fetchError) throw new Error(fetchError.message);
+  if (!existing) throw new Error("Documento não encontrado.");
+  await assertVehicleOwned(existing.vehicle_id);
+
   const { error } = await supabase.from("vehicle_document").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }

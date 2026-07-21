@@ -10,12 +10,26 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash, Pen } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Trash, Pen, Tags } from "lucide-react";
 import { fetchClasses, deleteClassApi, createClassApi, updateClassApi } from "@/api/finance";
 import { Class, ClassCreateRequest, ClassUpdateRequest, Type } from "@/types/finance";
 import { FormLabel, ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { EmptyState } from "@/components/EmptyState";
+import { repairOrphanClasses } from "@/domain/onboarding/defaults";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
+function resolveTypeId(cls: Class): number | null {
+  return cls.type?.id ?? cls.type_id ?? null;
+}
+
+function resolveTypeName(cls: Class, types: Type[]): string | null {
+  const typeId = resolveTypeId(cls);
+  const fromList =
+    typeId != null ? types.find((t) => t.id === typeId) : undefined;
+  return fromList?.name ?? cls.type?.name ?? null;
+}
 
 function ClassManager({ types }: { types: Type[] }) {
   const [newClass, setNewClass] = useState<ClassCreateRequest>({
@@ -24,31 +38,42 @@ function ClassManager({ types }: { types: Type[] }) {
   });
   const [classes, setClasses] = useState<Class[]>([]);
   const [editingClass, setEditingClass] = useState<ClassUpdateRequest | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [forDeletionClass, setForDeletionClass] = useState<number | null>(null);
   const [formError, setFormError] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchClasses().then(setClasses);
-  }, []);
+    let cancelled = false;
 
-  function handleDelete(id: number) {
-    setForDeletionClass(id);
-    setConfirmOpen(true);
-  }
-
-  async function confirmDelete() {
-    if (forDeletionClass) {
-      await deleteClassApi(forDeletionClass);
-      fetchClasses().then(setClasses);
-      setConfirmOpen(false);
-      setForDeletionClass(null);
+    async function load() {
+      if (types.length > 0) {
+        const repaired = await repairOrphanClasses(types);
+        if (repaired > 0 && !cancelled) {
+          toast({
+            title: "Classes religadas",
+            description: `${repaired} classe(s) órfã(s) foram associadas a um tipo válido.`,
+            duration: 3500,
+          });
+        }
+      }
+      const list = await fetchClasses();
+      if (!cancelled) setClasses(list);
     }
-  }
 
-  function cancelDelete() {
-    setConfirmOpen(false);
-    setForDeletionClass(null);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [types, toast]);
+
+  async function confirmDelete(id: number) {
+    setDeletingId(id);
+    try {
+      await deleteClassApi(id);
+      setClasses(await fetchClasses());
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function handleCreate() {
@@ -63,33 +88,48 @@ function ClassManager({ types }: { types: Type[] }) {
 
     setFormError("");
     await createClassApi(newClass);
-    fetchClasses().then(setClasses);
+    setClasses(await fetchClasses());
     setNewClass({ name: "", type_id: 0 });
   }
 
   async function handleUpdate() {
     if (editingClass && editingClass.id != null) {
       await updateClassApi(editingClass);
-      fetchClasses().then(setClasses);
+      setClasses(await fetchClasses());
       setEditingClass(null);
     }
   }
 
   function startEditing(cls: Class) {
-    setEditingClass({ id: cls.id, name: cls.name, type_id: cls.type.id });
+    const typeId = resolveTypeId(cls);
+    setEditingClass({
+      id: cls.id,
+      name: cls.name,
+      type_id: typeId ?? 0,
+    });
   }
 
   function cancelEditing() {
     setEditingClass(null);
   }
 
+  const typesByNature = [...types].sort((a, b) => {
+    const na = a.nature?.name ?? "";
+    const nb = b.nature?.name ?? "";
+    if (na !== nb) return na.localeCompare(nb, "pt-BR");
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+
   return (
-    <Card className="max-h-none md:h-[800px]">
-      <CardHeader>
-        <CardTitle>Gerenciamento de Classes</CardTitle>
+    <Card className="flex h-full min-h-0 flex-col border-0 shadow-none">
+      <CardHeader className="shrink-0 px-0 pt-0">
+        <CardTitle className="text-base">Classes</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Detalham o gasto ou receita (ex.: Supermercado, Uber).
+        </p>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <CardContent className="flex min-h-0 flex-1 flex-col px-0 pb-0">
+        <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <FormLabel required>Nome</FormLabel>
             <Input
@@ -111,9 +151,10 @@ function ClassManager({ types }: { types: Type[] }) {
                 <SelectValue placeholder="Selecione o Tipo" />
               </SelectTrigger>
               <SelectContent>
-                {types.map((type) => (
+                {typesByNature.map((type) => (
                   <SelectItem key={type.id} value={String(type.id)}>
                     {type.name}
+                    {type.nature?.name ? ` (${type.nature.name})` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -121,108 +162,154 @@ function ClassManager({ types }: { types: Type[] }) {
           </div>
         </div>
 
-        {formError && <p className="mt-3 text-sm text-destructive">{formError}</p>}
+        {formError ? (
+          <p className="mt-3 shrink-0 text-sm text-destructive">{formError}</p>
+        ) : null}
 
-        <Button onClick={handleCreate} className="mt-4 w-full sm:w-auto">
-          Adicionar Classe
+        <Button
+          onClick={() => void handleCreate()}
+          className="mt-4 w-full shrink-0 sm:w-auto"
+        >
+          Adicionar classe
         </Button>
 
-        <div className="mt-8 border-t border-border pt-4"></div>
-
-        <div className="mt-4 max-h-none overflow-x-auto overflow-y-auto md:max-h-[460px] md:h-[460px]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableCell>Nome</TableCell>
-                <TableCell>Tipo</TableCell>
-                <TableCell>Ações</TableCell>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {classes.map((cls) => (
-                <TableRow key={cls.id}>
-                  <TableCell>
-                    {editingClass && editingClass.id === cls.id ? (
-                      <Input
-                        value={editingClass.name}
-                        onChange={(e) =>
-                          setEditingClass({ ...editingClass, name: e.target.value })
-                        }
-                        placeholder="Nome da classe"
-                      />
-                    ) : (
-                      cls.name
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingClass && editingClass.id === cls.id ? (
-                      <Select
-                        value={String(editingClass.type_id) || ""}
-                        onValueChange={(value) =>
-                          setEditingClass({ ...editingClass, type_id: parseInt(value) })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o Tipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {types.map((type) => (
-                            <SelectItem key={type.id} value={String(type.id)}>
-                              {type.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      cls.type?.name
-                    )}
-                  </TableCell>
-                  <TableCell className="flex space-x-2">
-                    {editingClass && editingClass.id === cls.id ? (
-                      <>
-                        <Button onClick={handleUpdate} className="p-2 text-success" variant="ghost">
-                          Salvar
-                        </Button>
-                        <Button onClick={cancelEditing} className="p-2 text-muted-foreground" variant="ghost">
-                          Cancelar
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button
-                          variant="ghost"
-                          className={cn("p-2", ICON_EDIT_BUTTON_CLASS)}
-                          onClick={() => startEditing(cls)}
-                        >
-                          <Pen size={16} />
-                        </Button>
-                        <Button variant="ghost" className="p-2 text-destructive" onClick={() => handleDelete(cls.id)}>
-                          <Trash size={16} />
-                        </Button>
-                      </>
-                    )}
-                  </TableCell>
+        <div className="mt-6 flex min-h-0 flex-1 flex-col border-t pt-4">
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableCell>Nome</TableCell>
+                  <TableCell>Tipo</TableCell>
+                  <TableCell className="w-[100px]">Ações</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {classes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="p-0">
+                      <EmptyState
+                        icon={Tags}
+                        title="Nenhuma classe ainda"
+                        description={
+                          types.length === 0
+                            ? "Crie um tipo primeiro; depois adicione classes (ex.: Mercado, Uber)."
+                            : "Crie a primeira classe acima para classificar suas transações."
+                        }
+                        className="py-10"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  classes.map((cls) => {
+                    const typeName = resolveTypeName(cls, types);
+                    return (
+                      <TableRow key={cls.id}>
+                        <TableCell>
+                          {editingClass && editingClass.id === cls.id ? (
+                            <Input
+                              value={editingClass.name ?? ""}
+                              onChange={(e) =>
+                                setEditingClass({
+                                  ...editingClass,
+                                  name: e.target.value,
+                                })
+                              }
+                              placeholder="Nome da classe"
+                            />
+                          ) : (
+                            cls.name
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingClass && editingClass.id === cls.id ? (
+                            <Select
+                              value={
+                                editingClass.type_id
+                                  ? String(editingClass.type_id)
+                                  : ""
+                              }
+                              onValueChange={(value) =>
+                                setEditingClass({
+                                  ...editingClass,
+                                  type_id: parseInt(value),
+                                })
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o Tipo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {typesByNature.map((type) => (
+                                  <SelectItem
+                                    key={type.id}
+                                    value={String(type.id)}
+                                  >
+                                    {type.name}
+                                    {type.nature?.name
+                                      ? ` (${type.nature.name})`
+                                      : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : typeName ? (
+                            typeName
+                          ) : (
+                            <span className="text-muted-foreground">Sem tipo</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingClass && editingClass.id === cls.id ? (
+                            <div className="flex gap-1">
+                              <Button
+                                onClick={() => void handleUpdate()}
+                                className="h-8 px-2 text-xs text-success"
+                                variant="ghost"
+                              >
+                                Salvar
+                              </Button>
+                              <Button
+                                onClick={cancelEditing}
+                                className="h-8 px-2 text-xs"
+                                variant="ghost"
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                className={cn("h-8 p-2", ICON_EDIT_BUTTON_CLASS)}
+                                onClick={() => startEditing(cls)}
+                              >
+                                <Pen size={16} />
+                              </Button>
+                              <ConfirmDeleteDialog
+                                title="Excluir esta classe?"
+                                description={`"${cls.name}" será removida. Transações antigas podem ficar sem essa classificação.`}
+                                loading={deletingId === cls.id}
+                                onConfirm={() => confirmDelete(cls.id)}
+                              >
+                                <Button
+                                  variant="ghost"
+                                  className="h-8 p-2 text-destructive"
+                                >
+                                  <Trash size={16} />
+                                </Button>
+                              </ConfirmDeleteDialog>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </CardContent>
-
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogTitle>Confirmar Exclusão</DialogTitle>
-          <p>Tem certeza que deseja excluir esta classe? Essa ação não pode ser desfeita.</p>
-          <DialogFooter>
-            <Button variant="ghost" onClick={cancelDelete}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              Confirmar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

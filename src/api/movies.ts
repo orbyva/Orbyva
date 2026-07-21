@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { getCurrentUserId } from "@/lib/auth-user";
 import { normalizeMovie } from "@/domain/movies";
 import {
   Movie,
@@ -6,18 +7,16 @@ import {
   MovieUpdateRequest,
 } from "@/types/movies";
 
-/**
- * Supabase Functions for `movie` Table
- */
-
 export async function fetchMovies(
   status: "to_watch" | "watched",
   page: number,
   pageSize: number
 ): Promise<{ data: Movie[]; total: number }> {
+  const userId = await getCurrentUserId();
   const { data, error, count } = await supabase
     .from("movie")
     .select("*", { count: "exact" })
+    .eq("user_id", userId)
     .eq("status", status)
     .order(status === "watched" ? "watched_dates" : "year", {
       ascending: false,
@@ -32,20 +31,24 @@ export async function fetchMovies(
 }
 
 export async function fetchMovieById(imdbId: string): Promise<Movie | null> {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("movie")
     .select("*")
+    .eq("user_id", userId)
     .eq("imdb_id", imdbId)
-    .single();
+    .maybeSingle();
 
   if (error) return null;
-  return normalizeMovie(data as Movie);
+  return data ? normalizeMovie(data as Movie) : null;
 }
 
 export async function createMovie(movie: MovieCreateRequest): Promise<void> {
+  const userId = await getCurrentUserId();
   const { error } = await supabase.from("movie").insert([
     {
       ...movie,
+      user_id: userId,
       notes: movie.notes ?? null,
       would_recommend: movie.would_recommend ?? true,
     },
@@ -57,18 +60,21 @@ export async function createMovie(movie: MovieCreateRequest): Promise<void> {
 export async function updateMovie(
   updateData: MovieUpdateRequest
 ): Promise<void> {
+  const userId = await getCurrentUserId();
   const { imdb_id, ...updateFields } = updateData;
 
   const { error } = await supabase
     .from("movie")
     .update(updateFields)
+    .eq("user_id", userId)
     .eq("imdb_id", imdb_id);
 
   if (error) throw new Error(error.message);
 }
 
-/** Insert or merge opinion/watch data when importing. */
-export async function upsertMovie(movie: MovieCreateRequest): Promise<"created" | "updated"> {
+export async function upsertMovie(
+  movie: MovieCreateRequest
+): Promise<"created" | "updated"> {
   const existing = await fetchMovieById(movie.imdb_id);
   if (!existing) {
     await createMovie(movie);
@@ -94,7 +100,12 @@ export async function upsertMovie(movie: MovieCreateRequest): Promise<"created" 
 }
 
 export async function deleteMovie(imdbId: string): Promise<void> {
-  const { error } = await supabase.from("movie").delete().eq("imdb_id", imdbId);
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("movie")
+    .delete()
+    .eq("user_id", userId)
+    .eq("imdb_id", imdbId);
 
   if (error) throw new Error(error.message);
 }

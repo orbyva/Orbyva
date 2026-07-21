@@ -19,7 +19,7 @@ import { RecurringSummary } from "./components/RecurringSummary";
 import { RecurringDueAlerts } from "./components/RecurringDueAlerts";
 import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
 import { toast } from "@/hooks/use-toast";
-import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { PageShell } from "@/components/PageShell";
 import { getErrorMessage } from "@/lib/errors";
 import { useSidebar } from "@/components/ui/sidebar";
 
@@ -196,29 +196,22 @@ export default function Recurring() {
   }
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 overflow-x-hidden">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Recorrências</h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie receitas e despesas fixas do seu planejamento financeiro.
-          </p>
-        </div>
-
-        <div className={PAGE_HEADER_ACTIONS_CLASS}>
-          <RecurringFormDialog
-            open={open}
-            setOpen={setOpen}
-            newRecurring={newRecurring}
-            setNewRecurring={setNewRecurring}
-            createRecurring={isEditing ? editRecurring : handleCreateRecurring}
-            isEditing={isEditing}
-            onClose={handleCloseForm}
-            dimensions={dimensions}
-          />
-        </div>
-      </section>
-
+    <PageShell
+      title="Recorrências"
+      description="Gerencie receitas e despesas fixas do seu planejamento financeiro."
+      actions={
+        <RecurringFormDialog
+          open={open}
+          setOpen={setOpen}
+          newRecurring={newRecurring}
+          setNewRecurring={setNewRecurring}
+          createRecurring={isEditing ? editRecurring : handleCreateRecurring}
+          isEditing={isEditing}
+          onClose={handleCloseForm}
+          dimensions={dimensions}
+        />
+      }
+    >
       <RecurringSummary
         totalFixesReceivable={totalFixesReceivable}
         totalFixesPay={totalFixesPay}
@@ -252,6 +245,6 @@ export default function Recurring() {
           />
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }

@@ -1,4 +1,4 @@
-import type { PlaceType, PlaceFilter } from "@/types/places";
+import type { PlaceType, PlaceFilter, PlaceOpinionSummary } from "@/types/places";
 
 export const PLACE_TYPE_LABELS: Record<PlaceType, string> = {
   restaurant: "Restaurante",
@@ -31,6 +31,31 @@ export function getAverageRating(
   if (rated.length === 0) return null;
   const sum = rated.reduce((acc, p) => acc + (p.rating ?? 0), 0);
   return Math.round((sum / rated.length) * 10) / 10;
+}
+
+/** Agrega opiniões de vários membros sobre um lugar. */
+export function summarizePlaceOpinions(
+  opinions: {
+    rating?: number | null;
+    would_recommend?: boolean;
+  }[]
+): PlaceOpinionSummary {
+  const rated = opinions.filter((o) => o.rating != null && o.rating > 0);
+  const avgRating =
+    rated.length > 0
+      ? Math.round(
+          (rated.reduce((s, o) => s + (o.rating ?? 0), 0) / rated.length) * 10
+        ) / 10
+      : null;
+  const recommendYes = opinions.filter((o) => o.would_recommend !== false).length;
+  const recommendNo = opinions.filter((o) => o.would_recommend === false).length;
+  return {
+    avgRating,
+    ratedCount: rated.length,
+    recommendYes,
+    recommendNo,
+    totalOpinions: opinions.length,
+  };
 }
 
 export function formatRating(rating: number): string {

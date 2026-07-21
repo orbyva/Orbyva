@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { TimelineList } from "@/components/TimelineList";
 import {
@@ -58,21 +59,20 @@ export default function Timeline() {
 
   if (loading) {
     return (
-      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+      <PageShell
+        title="Timeline"
+        description="Tudo que importa — parcelas, manutenções, metas, viagens e hábitos."
+      >
         <TableLoadingSkeleton rows={8} />
-      </main>
+      </PageShell>
     );
   }
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6">
-      <section>
-        <h1 className="text-2xl font-bold tracking-tight">Timeline</h1>
-        <p className="text-sm text-muted-foreground">
-          Tudo que importa — parcelas, manutenções, metas, viagens e hábitos.
-        </p>
-      </section>
-
+    <PageShell
+      title="Timeline"
+      description="Tudo que importa — parcelas, manutenções, metas, viagens e hábitos."
+    >
       <Tabs value={filter} onValueChange={(v) => setFilter(v as TimelineModule | "all")}>
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="all">Todos</TabsTrigger>
@@ -100,6 +100,6 @@ export default function Timeline() {
           )}
         </TabsContent>
       </Tabs>
-    </main>
+    </PageShell>
   );
 }

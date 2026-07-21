@@ -1,3 +1,5 @@
+import { BRAND } from "@/lib/brand";
+
 export default function LoadingFallback() {
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-background gap-4">
@@ -8,7 +10,7 @@ export default function LoadingFallback() {
       </div>
 
       <span className="text-lg font-semibold text-primary tracking-wide">
-        FinTrack
+        {BRAND.name}
       </span>
 
       <p className="text-sm text-muted-foreground">

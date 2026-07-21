@@ -1,26 +1,25 @@
 import { supabase } from "@/lib/supabase";
+import { getCurrentUserId } from "@/lib/auth-user";
 import type {
   PersonalGoal,
   PersonalGoalCreateRequest,
   PersonalGoalUpdateRequest,
 } from "@/types/goals";
 
-async function getCurrentUserId(): Promise<string> {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) throw new Error("Usuário não autenticado.");
-  return user.id;
-}
-
 export async function fetchGoals(): Promise<PersonalGoal[]> {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("personal_goal")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
 }
 
-export async function createGoal(goal: PersonalGoalCreateRequest): Promise<PersonalGoal> {
+export async function createGoal(
+  goal: PersonalGoalCreateRequest
+): Promise<PersonalGoal> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("personal_goal")
@@ -32,15 +31,22 @@ export async function createGoal(goal: PersonalGoalCreateRequest): Promise<Perso
 }
 
 export async function updateGoal(data: PersonalGoalUpdateRequest): Promise<void> {
+  const userId = await getCurrentUserId();
   const { id, ...fields } = data;
   const { error } = await supabase
     .from("personal_goal")
     .update({ ...fields, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
   if (error) throw new Error(error.message);
 }
 
 export async function deleteGoal(id: string): Promise<void> {
-  const { error } = await supabase.from("personal_goal").delete().eq("id", id);
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("personal_goal")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
   if (error) throw new Error(error.message);
 }

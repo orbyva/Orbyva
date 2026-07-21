@@ -27,14 +27,14 @@ export default function Dimensions() {
 
   return (
     <PageShell
-      title="Dimensões Financeiras"
-      description="Gerencie Tipos e Classes para organizar suas finanças."
+      title="Dimensões"
+      description="Tipos e classes são só seus — organize receitas e despesas do seu jeito."
     >
       {loading ? (
         <TableLoadingSkeleton rows={4} columns={3} />
       ) : (
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-xl border p-4">
+        <section className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 md:gap-6 md:h-[min(720px,calc(100dvh-12rem))]">
+          <div className="flex min-h-[420px] flex-col overflow-hidden rounded-xl border bg-card p-4 sm:p-5 md:min-h-0">
             <TypeManager
               natures={natures}
               types={types}
@@ -42,7 +42,7 @@ export default function Dimensions() {
             />
           </div>
 
-          <div className="rounded-xl border p-4">
+          <div className="flex min-h-[420px] flex-col overflow-hidden rounded-xl border bg-card p-4 sm:p-5 md:min-h-0">
             <ClassManager types={types} />
           </div>
         </section>

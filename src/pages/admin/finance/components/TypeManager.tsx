@@ -1,17 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import {
   Table,
   TableHeader,
   TableBody,
@@ -21,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FormLabel, ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -31,14 +21,14 @@ import {
 } from "@/components/ui/select";
 import { HexColorPicker } from "react-colorful";
 import { TYPE_ICON_OPTIONS, TypeIcon } from "@/components/TypeIcon";
-import { Trash, Pen } from "lucide-react";
+import { Trash, Pen, Layers } from "lucide-react";
 import {
   deleteTypeApi,
   createTypeApi,
   updateTypeApi,
 } from "@/api/finance";
 import { Type, Nature, TypeCreateRequest, TypeUpdateRequest } from "@/types/finance";
-
+import { EmptyState } from "@/components/EmptyState";
 
 function TypeManager({
   natures,
@@ -55,22 +45,16 @@ function TypeManager({
 
   const [showEditColorPicker, setShowEditColorPicker] = useState(false);
   const [editingType, setEditingType] = useState<TypeUpdateRequest | null>(null);
-
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [forDeletionType, setForDeletionType] = useState<number | null>(null);
   const [formError, setFormError] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  async function handleDelete(id: number) {
-    setForDeletionType(id);
-    setConfirmOpen(true);
-  }
-
-  async function confirmDelete() {
-    if (forDeletionType) {
-      await deleteTypeApi(forDeletionType);
+  async function confirmDelete(id: number) {
+    setDeletingId(id);
+    try {
+      await deleteTypeApi(id);
       refetchTypes();
-      setConfirmOpen(false);
-      setForDeletionType(null);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -117,20 +101,21 @@ function TypeManager({
   }
 
   return (
-    <Card className="max-h-none md:h-[800px]">
-      <CardHeader>
-        <CardTitle>Gerenciamento de Tipos</CardTitle>
+    <Card className="flex h-full min-h-0 flex-col border-0 shadow-none">
+      <CardHeader className="shrink-0 px-0 pt-0">
+        <CardTitle className="text-base">Tipos</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Agrupam suas classes (ex.: Alimentação, Transporte).
+        </p>
       </CardHeader>
-
-      <CardContent>
-        {/* New Type Form */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2 sm:col-span-2">
+      <CardContent className="flex min-h-0 flex-1 flex-col px-0 pb-0">
+        <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
             <FormLabel required>Nome</FormLabel>
             <Input
-              value={newType.name || ""}
+              value={newType.name}
               onChange={(e) => setNewType({ ...newType, name: e.target.value })}
-              placeholder="Ex: Alimentação, Transporte..."
+              placeholder="Ex: Alimentação"
             />
           </div>
 
@@ -143,7 +128,7 @@ function TypeManager({
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione a Natureza" />
+                <SelectValue placeholder="Receita ou Despesa" />
               </SelectTrigger>
               <SelectContent>
                 {natures.map((nature) => (
@@ -156,290 +141,263 @@ function TypeManager({
           </div>
 
           <div className="space-y-2">
+            <FormLabel optional>Cor</FormLabel>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="h-9 w-9 rounded-md border"
+                style={{ backgroundColor: newType.hex_color || "#94a3b8" }}
+                onClick={() => setShowNewColorPicker((v) => !v)}
+                aria-label="Escolher cor"
+              />
+              <Input
+                value={newType.hex_color ?? ""}
+                onChange={(e) =>
+                  setNewType({ ...newType, hex_color: e.target.value || null })
+                }
+                placeholder="#hex"
+              />
+            </div>
+            {showNewColorPicker ? (
+              <HexColorPicker
+                color={newType.hex_color || "#94a3b8"}
+                onChange={(color) => setNewType({ ...newType, hex_color: color })}
+              />
+            ) : null}
+          </div>
+
+          <div className="space-y-2">
             <FormLabel optional>Ícone</FormLabel>
             <Select
-              value={newType.lucide_icon || ""}
+              value={newType.lucide_icon ?? ""}
               onValueChange={(value) =>
-                setNewType({ ...newType, lucide_icon: value || null })
+                setNewType({
+                  ...newType,
+                  lucide_icon: value === "none" ? null : value,
+                })
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione um ícone" />
+                <SelectValue placeholder="Ícone" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="null">
+                <SelectItem value="none">
                   <span>Nenhum</span>
                 </SelectItem>
                 {TYPE_ICON_OPTIONS.map((icon) => (
-                  <SelectItem key={icon} value={icon || "null"}>
-                    <div className="flex items-center">
-                      <TypeIcon name={icon} size={16} className="mr-2" />
-                      <span>{icon}</span>
-                    </div>
+                  <SelectItem key={icon} value={icon}>
+                    <span className="flex items-center gap-2">
+                      <TypeIcon name={icon} className="h-4 w-4" />
+                      {icon}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <FormLabel optional>Cor</FormLabel>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowNewColorPicker(!showNewColorPicker)}
-              className="w-full sm:w-auto"
-            >
-              <span
-                className="mr-2 inline-block h-4 w-4 rounded-full ring-1 ring-black/20"
-                style={{ backgroundColor: newType.hex_color ?? "#f59e0b" }}
-                aria-hidden
-              />
-              {newType.hex_color ? "Alterar cor" : "Escolher cor"}
-            </Button>
-
-            {showNewColorPicker && (
-              <div className="mt-2 max-w-xs">
-                <HexColorPicker
-                  color={newType.hex_color || "#000000"}
-                  onChange={(color) => setNewType({ ...newType, hex_color: color })}
-                />
-                <Input
-                  value={newType.hex_color || "#000000"}
-                  onChange={(e) =>
-                    setNewType({ ...newType, hex_color: e.target.value })
-                  }
-                  placeholder="#000000"
-                  className="mt-2"
-                />
-              </div>
-            )}
-          </div>
         </div>
 
-        {formError && <p className="mt-3 text-sm text-destructive">{formError}</p>}
+        {formError ? (
+          <p className="mt-3 shrink-0 text-sm text-destructive">{formError}</p>
+        ) : null}
 
-        <Button onClick={handleCreate} className="mt-4 w-full sm:w-auto">
-          Adicionar Tipo
+        <Button
+          onClick={() => void handleCreate()}
+          className="mt-4 w-full shrink-0 sm:w-auto"
+        >
+          Adicionar tipo
         </Button>
 
-        {/* Divider between form and table */}
-        <div className="mt-8 border-t border-border pt-4"></div>
-
-        {/* Types Table */}
-        <div className="mt-4 w-full overflow-x-auto">
-          <div className="max-h-none overflow-y-auto md:max-h-[400px] md:h-[400px]">
+        <div className="mt-6 flex min-h-0 flex-1 flex-col border-t pt-4">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableCell>Cor</TableCell>
-                  <TableCell>Ícone</TableCell>
-                  <TableCell>Tipo</TableCell>
+                  <TableCell>Nome</TableCell>
                   <TableCell>Natureza</TableCell>
-                  <TableCell>Ações</TableCell>
+                  <TableCell className="w-[100px]">Ações</TableCell>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {types.map((type) => (
-                  <TableRow key={type.id}>
-                    <TableCell>
-                      {editingType && editingType.id === type.id ? (
-                        <div className="flex items-center gap-2">
-                          <div
-                            style={{
-                              backgroundColor: editingType.hex_color || "transparent",
-                              width: "20px",
-                              height: "20px",
-                              borderRadius: "50%",
-                              border: "1px solid #ccc",
-                            }}
-                          />
-                          {/* Botão de alterar cor (compacto) */}
-                          <Button
-                            onClick={() => setShowEditColorPicker(!showEditColorPicker)}
-                            variant="ghost"
-                            className="h-8 px-2 text-xs"
-                          >
-                            {editingType.hex_color ? "Alterar Cor" : "Escolher Cor"}
-                          </Button>
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            backgroundColor: type.hex_color || "transparent",
-                            width: "20px",
-                            height: "20px",
-                            borderRadius: "50%",
-                            border: "1px solid #ccc",
-                          }}
-                        />
-                      )}
-
-                      {editingType && editingType.id === type.id && showEditColorPicker && (
-                        <div className="mt-2 max-w-xs">
-                          <HexColorPicker
-                            color={editingType.hex_color || "#000000"}
-                            onChange={(color) =>
-                              setEditingType({ ...editingType, hex_color: color })
+                {types.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="p-0">
+                      <EmptyState
+                        icon={Layers}
+                        title="Nenhum tipo ainda"
+                        description={
+                          natures.length === 0
+                            ? "Rode scripts/seed_natures.sql no Supabase e recarregue, ou use o tour de onboarding."
+                            : "Crie o primeiro tipo acima (ex.: Alimentação, Transporte)."
+                        }
+                        className="py-10"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  types.map((type) => (
+                    <TableRow key={type.id}>
+                      <TableCell>
+                        {editingType && editingType.id === type.id ? (
+                          <div className="space-y-2">
+                            <Input
+                              value={editingType.name ?? ""}
+                              onChange={(e) =>
+                                setEditingType({
+                                  ...editingType,
+                                  name: e.target.value,
+                                })
+                              }
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="h-8 w-8 rounded-md border"
+                                style={{
+                                  backgroundColor:
+                                    editingType.hex_color || "#94a3b8",
+                                }}
+                                onClick={() =>
+                                  setShowEditColorPicker((v) => !v)
+                                }
+                              />
+                              <Select
+                                value={editingType.lucide_icon ?? "none"}
+                                onValueChange={(value) =>
+                                  setEditingType({
+                                    ...editingType,
+                                    lucide_icon:
+                                      value === "none" ? null : value,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Ícone" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Nenhum</SelectItem>
+                                  {TYPE_ICON_OPTIONS.map((icon) => (
+                                    <SelectItem key={icon} value={icon}>
+                                      <span className="flex items-center gap-2">
+                                        <TypeIcon
+                                          name={icon}
+                                          className="h-4 w-4"
+                                        />
+                                        {icon}
+                                      </span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {showEditColorPicker ? (
+                              <HexColorPicker
+                                color={editingType.hex_color || "#94a3b8"}
+                                onChange={(color) =>
+                                  setEditingType({
+                                    ...editingType,
+                                    hex_color: color,
+                                  })
+                                }
+                              />
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md"
+                              style={{
+                                backgroundColor: type.hex_color || undefined,
+                              }}
+                            >
+                              <TypeIcon
+                                name={type.lucide_icon}
+                                className="h-3.5 w-3.5"
+                              />
+                            </span>
+                            <span className="font-medium">{type.name}</span>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingType && editingType.id === type.id ? (
+                          <Select
+                            value={
+                              editingType.nature_id
+                                ? String(editingType.nature_id)
+                                : ""
                             }
-                          />
-                          <Input
-                            value={editingType.hex_color || "#000000"}
-                            onChange={(e) =>
-                              setEditingType({ ...editingType, hex_color: e.target.value })
+                            onValueChange={(value) =>
+                              setEditingType({
+                                ...editingType,
+                                nature_id: parseInt(value),
+                              })
                             }
-                            placeholder="#000000"
-                            className="mt-2"
-                          />
-                        </div>
-                      )}
-                    </TableCell>
-
-                    <TableCell>
-                      {editingType && editingType.id === type.id ? (
-                        <Select
-                          value={editingType.lucide_icon || ""}
-                          onValueChange={(value) =>
-                            setEditingType({ ...editingType, lucide_icon: value || null })
-                          }
-                        >
-                          <SelectTrigger className="flex items-center w-full md:w-auto">
-                            {editingType.lucide_icon ? (
-                              <>
-                                <TypeIcon
-                                  name={editingType.lucide_icon}
-                                  size={16}
-                                  className="mr-2"
-                                />
-                                <span>{editingType.lucide_icon}</span>
-                              </>
-                            ) : (
-                              <span>Select Icon</span>
-                            )}
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="null">
-                              <span>Nenhum</span>
-                            </SelectItem>
-                            {TYPE_ICON_OPTIONS.map((icon) => (
-                              <SelectItem key={icon} value={icon}>
-                                <div className="flex items-center gap-2">
-                                  <TypeIcon name={icon} size={16} />
-                                  {icon}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : editingType?.id !== type.id && type.lucide_icon ? (
-                        <TypeIcon name={type.lucide_icon} size={16} />
-                      ) : (
-                        <span>None</span>
-                      )}
-                    </TableCell>
-
-                    <TableCell>
-                      {editingType && editingType.id === type.id ? (
-                        <Input
-                          value={editingType.name || ""}
-                          onChange={(e) =>
-                            setEditingType({ ...editingType, name: e.target.value })
-                          }
-                          className="w-full"
-                        />
-                      ) : (
-                        type.name
-                      )}
-                    </TableCell>
-
-                    <TableCell>
-                      {editingType && editingType.id === type.id ? (
-                        <Select
-                          value={String(editingType.nature_id) || ""}
-                          onValueChange={(value) =>
-                            setEditingType({ ...editingType, nature_id: parseInt(value) })
-                          }
-                        >
-                          <SelectTrigger className="w-full md:w-auto">
-                            {editingType.nature_id
-                              ? natures.find((n) => n.id == editingType.nature_id)?.name
-                              : "Select Nature"}
-                          </SelectTrigger>
-                          <SelectContent>
-                            {natures.map((nature) => (
-                              <SelectItem key={nature.id} value={String(nature.id)}>
-                                {nature.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        type.nature?.name ||
-                        natures.find((n) => n.id === type.nature?.id)?.name
-                      )}
-                    </TableCell>
-
-                    <TableCell className="flex gap-1">
-                      {editingType && editingType.id === type.id ? (
-                        <>
-                          <Button
-                            onClick={handleUpdate}
-                            className="p-2 text-success h-8 text-xs"
-                            variant="ghost"
                           >
-                            Salvar
-                          </Button>
-                          <Button
-                            onClick={cancelEditing}
-                            className="p-2 text-muted-foreground h-8 text-xs"
-                            variant="ghost"
-                          >
-                            Cancelar
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            variant="ghost"
-                            className={cn("p-2 h-8", ICON_EDIT_BUTTON_CLASS)}
-                            onClick={() => startEditing(type)}
-                          >
-                            <Pen size={16} />
-                          </Button>
-
-                          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta ação não pode ser desfeita.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={confirmDelete}>
-                                  Continuar
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {natures.map((nature) => (
+                                <SelectItem
+                                  key={nature.id}
+                                  value={String(nature.id)}
+                                >
+                                  {nature.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          type.nature?.name
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingType && editingType.id === type.id ? (
+                          <div className="flex gap-1">
+                            <Button
+                              onClick={() => void handleUpdate()}
+                              className="h-8 px-2 text-xs text-success"
+                              variant="ghost"
+                            >
+                              Salvar
+                            </Button>
+                            <Button
+                              onClick={cancelEditing}
+                              className="h-8 px-2 text-xs"
+                              variant="ghost"
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              className={cn("h-8 p-2", ICON_EDIT_BUTTON_CLASS)}
+                              onClick={() => startEditing(type)}
+                            >
+                              <Pen size={16} />
+                            </Button>
+                            <ConfirmDeleteDialog
+                              title="Excluir este tipo?"
+                              description={`"${type.name}" e o vínculo com classes podem ser afetados. Essa ação não pode ser desfeita.`}
+                              loading={deletingId === type.id}
+                              onConfirm={() => confirmDelete(type.id)}
+                            >
                               <Button
                                 variant="ghost"
-                                className="p-2 text-destructive h-8"
-                                onClick={() => handleDelete(type.id)}
+                                className="h-8 p-2 text-destructive"
                               >
                                 <Trash size={16} />
                               </Button>
-                            </AlertDialogTrigger>
-                          </AlertDialog>
-                        </>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                            </ConfirmDeleteDialog>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

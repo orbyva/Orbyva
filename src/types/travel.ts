@@ -60,7 +60,22 @@ export interface TripExpense {
   category: TripExpenseCategory;
   expense_date: string;
   transaction_id?: number | null;
+  visibility?: TripExpenseVisibility;
+  created_by_user_id?: string | null;
+  paid_by_user_id?: string | null;
   created_at?: string;
+  splits?: TripExpenseSplit[];
+}
+
+export type TripExpenseVisibility = "personal" | "shared";
+
+export interface TripExpenseSplit {
+  id?: string;
+  expense_id?: string;
+  user_id: string;
+  amount: number;
+  transaction_id?: number | null;
+  display_name?: string | null;
 }
 
 export interface TripItineraryDay {
@@ -81,6 +96,9 @@ export interface TripItineraryActivity {
   notes?: string | null;
   place_visit_id?: string | null;
   sort_order: number;
+  created_by_user_id?: string | null;
+  created_by_name?: string | null;
+  created_by_avatar?: string | null;
 }
 
 export interface TripMilestone {
@@ -106,6 +124,9 @@ export interface TripFull extends TripWithChecklist {
   placesCount: number;
   expenseTotal: number;
   budgetRemaining: number | null;
+  /** Papel do usuário atual nesta viagem. */
+  myRole?: "owner" | "editor" | null;
+  isShared?: boolean;
 }
 
 export type TripCreateRequest = Omit<Trip, "id" | "user_id" | "created_at" | "updated_at">;
@@ -118,10 +139,16 @@ export type TripChecklistUpdateRequest = Partial<TripChecklistCreateRequest> & {
   id: string;
 };
 
-export type TripExpenseCreateRequest = Omit<TripExpense, "id" | "created_at">;
+export type TripExpenseCreateRequest = Omit<
+  TripExpense,
+  "id" | "created_at" | "splits" | "transaction_id"
+> & {
+  splits?: { user_id: string; amount: number }[];
+};
 
 export type TripExpenseUpdateRequest = Partial<TripExpenseCreateRequest> & {
   id: string;
+  splits?: { user_id: string; amount: number }[];
 };
 
 export type TripMilestoneCreateRequest = Omit<TripMilestone, "id" | "created_at">;
@@ -132,7 +159,10 @@ export type TripMilestoneUpdateRequest = Partial<TripMilestoneCreateRequest> & {
 
 export type TripItineraryDayCreateRequest = Omit<TripItineraryDay, "id" | "activities">;
 
-export type TripItineraryActivityCreateRequest = Omit<TripItineraryActivity, "id">;
+export type TripItineraryActivityCreateRequest = Omit<
+  TripItineraryActivity,
+  "id" | "created_by_user_id" | "created_by_name" | "created_by_avatar"
+>;
 
 export type TripItineraryActivityUpdateRequest = Partial<
   TripItineraryActivityCreateRequest

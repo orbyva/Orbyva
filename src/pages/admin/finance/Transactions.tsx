@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { RefreshCw, Loader2, Search } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
-import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Pagination from "./components/Pagination";
@@ -11,6 +11,7 @@ import { Transaction, TransactionCreateRequest } from "@/types/finance";
 import { TransactionsTable } from "./components/TransactionsTable";
 import { useTransactions } from "@/hooks/database/useTransactions";
 import { TransactionFormDialog } from "./components/TransactionFormDialog";
+import { FinanceImportDialog } from "./components/FinanceImportDialog";
 import {
   createTransactionApi,
   deleteTransactionApi,
@@ -175,16 +176,11 @@ export default function Transactions() {
   ];
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 overflow-x-hidden">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Transações</h1>
-          <p className="text-sm text-muted-foreground">
-            Registre, edite e acompanhe suas movimentações financeiras.
-          </p>
-        </div>
-
-        <div className={PAGE_HEADER_ACTIONS_CLASS}>
+    <PageShell
+      title="Transações"
+      description="Registre, edite e acompanhe suas movimentações financeiras."
+      actions={
+        <>
           <Button
             onClick={refetchTransactions}
             variant="outline"
@@ -198,6 +194,8 @@ export default function Transactions() {
             Atualizar
           </Button>
 
+          <FinanceImportDialog onImported={refetchTransactions} />
+
           <TransactionFormDialog
             open={formOpen}
             setOpen={setOpen}
@@ -208,9 +206,9 @@ export default function Transactions() {
             isEditing={isEditing}
             onClose={handleCloseForm}
           />
-        </div>
-      </section>
-
+        </>
+      }
+    >
       <section className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
@@ -265,6 +263,6 @@ export default function Transactions() {
         onSetPage={setPage}
         onSetPageSize={setPageSize}
       />
-    </main>
+    </PageShell>
   );
 }

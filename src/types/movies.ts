@@ -7,6 +7,7 @@ export type MovieMediaType = "movie" | "series";
 
 export interface Movie {
   imdb_id: string;
+  user_id?: string;
   title: string;
   year: number;
   poster?: string | null;
@@ -27,8 +28,10 @@ export interface Movie {
   created_at?: string;
 }
 
-export type MovieCreateRequest = Omit<Movie, "created_at">;
-export type MovieUpdateRequest = Partial<Movie> & { imdb_id: string };
+export type MovieCreateRequest = Omit<Movie, "created_at" | "user_id">;
+export type MovieUpdateRequest = Partial<Omit<Movie, "user_id">> & {
+  imdb_id: string;
+};
 
 export type MovieListFilter = "to_watch" | "watched";
 export type MovieTypeFilter = "all" | MovieMediaType;

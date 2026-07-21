@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   PiggyBank,
   Target,
+  type LucideIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -19,59 +20,70 @@ import {
 import { moduleColors } from "@/lib/design-tokens"
 import { useAuth } from "@/hooks/useAuth"
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user } = useAuth();
-
-const data = {
-  user: {
-    name: user?.user_metadata?.full_name || "Usuário Anônimo",
-    email: user?.email || "sem-email@example.com",
-    avatar: user?.user_metadata?.avatar_url || "/default-avatar.png",
-  },
-  navMain: [
-    {
-      title: "Início",
-      color: moduleColors.hub,
-      url: "#",
-      icon: LayoutDashboard,
-      isActive: true,
-      items: [
-        { title: "Dashboard", url: "/" },
-        { title: "Timeline", url: "/timeline" },
-      ],
-    },
-    {
-      title: "Finanças",
-      color: moduleColors.finance,
-      url: "#",
-      icon: PiggyBank,
-      isActive: true,
-      items: [
-        { title: "Dashboard", url: "/finance/dashboard" },
-        { title: "Dimensões", url: "/finance/dimensions" },
-        { title: "Orçamento", url: "/finance/budget" },
-        { title: "Parcelas", url: "/finance/recurring" },
-        { title: "Transações", url: "/finance/transactions" },
-      ],
-    },
-    {
-      title: "Vida",
-      color: moduleColors.life,
-      url: "#",
-      icon: Target,
-      isActive: true,
-      items: [
-        { title: "Cinema", url: "/movies" },
-        { title: "Hábitos", url: "/habits" },
-        { title: "Lugares", url: "/places" },
-        { title: "Metas", url: "/goals" },
-        { title: "Veículos", url: "/car" },
-        { title: "Viagens", url: "/travel" },
-      ],
-    },
-  ],
+type NavItem = {
+  title: string
+  url: string
+  icon?: LucideIcon
+  color?: string
+  items?: { title: string; url: string }[]
 }
 
+/** Estático — não recria a cada render do sidebar. */
+const NAV_MAIN: NavItem[] = [
+  {
+    title: "Início",
+    color: moduleColors.hub,
+    url: "#",
+    icon: LayoutDashboard,
+    items: [
+      { title: "Dashboard", url: "/home" },
+      { title: "Timeline", url: "/timeline" },
+    ],
+  },
+  {
+    title: "Finanças",
+    color: moduleColors.finance,
+    url: "#",
+    icon: PiggyBank,
+    items: [
+      { title: "Dashboard", url: "/finance/dashboard" },
+      { title: "Dimensões", url: "/finance/dimensions" },
+      { title: "Orçamento", url: "/finance/budget" },
+      { title: "Parcelas", url: "/finance/recurring" },
+      { title: "Transações", url: "/finance/transactions" },
+    ],
+  },
+  {
+    title: "Vida",
+    color: moduleColors.life,
+    url: "#",
+    icon: Target,
+    items: [
+      { title: "Cinema", url: "/movies" },
+      { title: "Hábitos", url: "/habits" },
+      { title: "Lugares", url: "/places" },
+      { title: "Metas", url: "/goals" },
+      { title: "Veículos", url: "/car" },
+      { title: "Viagens", url: "/travel" },
+    ],
+  },
+]
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user } = useAuth()
+
+  const navUser = React.useMemo(
+    () => ({
+      name:
+        (user?.user_metadata?.full_name as string | undefined) ||
+        "Usuário Anônimo",
+      email: user?.email || "sem-email@example.com",
+      avatar:
+        (user?.user_metadata?.avatar_url as string | undefined) ||
+        "/default-avatar.png",
+    }),
+    [user?.email, user?.user_metadata?.avatar_url, user?.user_metadata?.full_name]
+  )
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -79,10 +91,10 @@ const data = {
         <TeamSwitcher />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={NAV_MAIN} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={navUser} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

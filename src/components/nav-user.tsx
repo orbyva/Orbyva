@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { BadgeCheck, ChevronsUpDown, LogOut, Sun, Moon } from "lucide-react";
 
 import {
@@ -50,7 +51,7 @@ export function NavUser({
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    window.location.href = "/";
   }
 
   function toggleTheme() {
@@ -96,9 +97,11 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck />
-                Conta
+              <DropdownMenuItem asChild>
+                <Link to="/account" className="cursor-pointer">
+                  <BadgeCheck />
+                  Conta
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer" onClick={toggleTheme}>
                 {theme === "dark" ? <Sun /> : <Moon />}

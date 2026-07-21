@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { ChevronRight, type LucideIcon } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
 
@@ -28,21 +29,18 @@ function isNavItemActive(pathname: string, url: string): boolean {
   return pathname === url || pathname.startsWith(`${url}/`)
 }
 
-export function NavMain({
-  items,
-}: {
-  items: {
+type NavMainItem = {
+  title: string
+  url: string
+  icon?: LucideIcon
+  color?: string
+  items?: {
     title: string
     url: string
-    icon?: LucideIcon
-    isActive?: boolean
-    color?: string
-    items?: {
-      title: string
-      url: string
-    }[]
   }[]
-}) {
+}
+
+function NavMainComponent({ items }: { items: NavMainItem[] }) {
   const { pathname } = useLocation()
 
   return (
@@ -51,14 +49,15 @@ export function NavMain({
       <SidebarMenu>
         {items.map((item) => {
           const groupActive =
-            item.items?.some((subItem) => isNavItemActive(pathname, subItem.url)) ??
-            false
+            item.items?.some((subItem) =>
+              isNavItemActive(pathname, subItem.url)
+            ) ?? false
 
           return (
             <Collapsible
               key={item.title}
               asChild
-              defaultOpen={item.isActive ?? groupActive}
+              defaultOpen={groupActive}
               className="group/collapsible"
             >
               <SidebarMenuItem>
@@ -67,6 +66,13 @@ export function NavMain({
                     tooltip={item.title}
                     isActive={groupActive}
                     className={cn(groupActive && "font-medium")}
+                    style={
+                      groupActive && item.color
+                        ? {
+                            backgroundColor: `color-mix(in srgb, ${item.color} 18%, transparent)`,
+                          }
+                        : undefined
+                    }
                   >
                     {item.icon && (
                       <item.icon
@@ -74,7 +80,9 @@ export function NavMain({
                         style={item.color ? { color: item.color } : undefined}
                       />
                     )}
-                    <span style={item.color ? { color: item.color } : undefined}>
+                    <span
+                      style={item.color ? { color: item.color } : undefined}
+                    >
                       {item.title}
                     </span>
                     <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -95,8 +103,13 @@ export function NavMain({
                             )}
                             style={
                               active && item.color
-                                ? { color: item.color, borderColor: item.color }
-                                : undefined
+                                ? {
+                                    color: item.color,
+                                    borderColor: item.color,
+                                  }
+                                : item.color
+                                  ? { color: item.color }
+                                  : undefined
                             }
                           >
                             <Link to={subItem.url}>
@@ -116,3 +129,5 @@ export function NavMain({
     </SidebarGroup>
   )
 }
+
+export const NavMain = memo(NavMainComponent)

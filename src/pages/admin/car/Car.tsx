@@ -10,8 +10,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { EmptyState } from "@/components/EmptyState";
+import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
@@ -285,44 +285,37 @@ export default function Car() {
 
   if (loading && !vehicle) {
     return (
-      <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <PageShell
+        title="Veículos"
+        description="Controle manutenções, abastecimentos e documentos do carro ou da moto."
+      >
         <TableLoadingSkeleton rows={6} />
-      </main>
+      </PageShell>
     );
   }
 
   if (!vehicle) {
     return (
-      <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-        <section className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight">Veículos</h1>
-          <p className="text-sm text-muted-foreground">
-            Controle manutenções, abastecimentos e documentos do carro ou da
-            moto.
-          </p>
-        </section>
+      <PageShell
+        title="Veículos"
+        description="Controle manutenções, abastecimentos e documentos do carro ou da moto."
+      >
         <EmptyState
           icon={CarIcon}
           title="Nenhum veículo cadastrado"
           description="Cadastre um carro ou uma moto para começar a registrar manutenções e receber alertas."
+          action={<VehicleFormDialog onSaved={reloadAll} />}
         />
-        <div className="mt-6 flex justify-center">
-          <VehicleFormDialog onSaved={reloadAll} />
-        </div>
-      </main>
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Veículos</h1>
-          <p className="text-sm text-muted-foreground">
-            Manutenções, abastecimentos e documentos do carro ou da moto.
-          </p>
-        </div>
-        <div className={PAGE_HEADER_ACTIONS_CLASS}>
+    <PageShell
+      title="Veículos"
+      description="Manutenções, abastecimentos e documentos do carro ou da moto."
+      actions={
+        <>
           <VehicleFormDialog
             onSaved={reloadAll}
             trigger={
@@ -337,9 +330,9 @@ export default function Car() {
             dimensions={dimensions}
             onSaved={() => vehicle && loadMaintenances(vehicle.id)}
           />
-        </div>
-      </section>
-
+        </>
+      }
+    >
       {vehicles.length > 1 && (
         <Select
           value={vehicle.id}
@@ -524,6 +517,6 @@ export default function Car() {
           )}
         </TabsContent>
       </Tabs>
-    </main>
+    </PageShell>
   );
 }

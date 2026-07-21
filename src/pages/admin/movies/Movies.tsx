@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
@@ -17,8 +15,8 @@ import { MovieImportDialog } from "./components/MovieImportDialog";
 import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
+import { PageShell } from "@/components/PageShell";
 import { getErrorMessage } from "@/lib/errors";
-import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { filterMoviesByType } from "@/domain/movies";
 
 export default function Movies() {
@@ -97,21 +95,16 @@ export default function Movies() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Cinema</h1>
-          <p className="text-sm text-muted-foreground">
-            Watchlist, opiniões e histórico.
-          </p>
-        </div>
-
-        <div className={PAGE_HEADER_ACTIONS_CLASS}>
+    <PageShell
+      title="Cinema"
+      description="Watchlist, opiniões e histórico."
+      actions={
+        <>
           <MovieImportDialog onImported={loadMovies} />
           <MovieSearchModal onMovieAdded={loadMovies} />
-        </div>
-      </section>
-
+        </>
+      }
+    >
       <section className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-md">
@@ -173,6 +166,14 @@ export default function Movies() {
                 ? "Tente outro termo de busca."
                 : "Adicione títulos ou importe do Letterboxd / TV Time."
             }
+            action={
+              searchTerm ? undefined : (
+                <div className="flex flex-wrap justify-center gap-2">
+                  <MovieSearchModal onMovieAdded={loadMovies} />
+                  <MovieImportDialog onImported={loadMovies} />
+                </div>
+              )
+            }
           />
         )}
       </section>
@@ -211,6 +212,6 @@ export default function Movies() {
         onSetPage={setPage}
         onSetPageSize={setPageSize}
       />
-    </main>
+    </PageShell>
   );
 }

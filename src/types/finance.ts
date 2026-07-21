@@ -52,7 +52,7 @@ export interface ClassUpdateRequest extends Partial<ClassCreateRequest> {
 // Budget
 export interface MonthlyBudget {
   id: number;
-  user_id: number;
+  user_id: string;
   type_id: number;
   class_id: number | null;
   budget_month: string;
@@ -77,6 +77,7 @@ export interface MonthlyBudgetUpdateRequest {
 
 export interface MonthlyBudgetSummary {
   id: number;
+  user_id?: string;
   type_id: number;
   type_name: string;
   class_id: number | null;

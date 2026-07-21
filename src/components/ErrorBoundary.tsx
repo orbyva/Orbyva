@@ -18,6 +18,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("Erro não tratado na aplicação:", error, info);
+    void import("@/lib/sentry").then(({ Sentry }) => {
+      Sentry.captureException(error, {
+        extra: { componentStack: info.componentStack },
+      });
+    });
   }
 
   render() {

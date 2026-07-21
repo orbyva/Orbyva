@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
-import { deleteTransactionApi } from "@/api/finance";
+import { deleteTransactionApi, insertTransaction } from "@/api/finance";
+import { getCurrentUserId } from "@/lib/auth-user";
 import {
   Recurring,
   RecurringCreateRequest,
@@ -11,11 +12,13 @@ export async function fetchRecurringTransactions(
   startDateTZString: string | null = null,
   endDateTZString: string | null = null
 ): Promise<Recurring[]> {
+  const userId = await getCurrentUserId();
   let query = supabase
     .from("recurring_transaction")
     .select(
       "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, nature:nature_id(name)))"
     )
+    .eq("user_id", userId)
     .eq("status", true)
     .order("id", { ascending: false });
 
@@ -35,9 +38,10 @@ export async function fetchRecurringTransactions(
 export async function createRecurringApi(
   newRecurring: RecurringCreateRequest
 ): Promise<void> {
+  const userId = await getCurrentUserId();
   const { error } = await supabase
     .from("recurring_transaction")
-    .insert([newRecurring]);
+    .insert([{ ...newRecurring, user_id: userId }]);
 
   if (error) throw error;
 }
@@ -46,6 +50,7 @@ export async function updateRecurringApi(
   id: string,
   data: RecurringCreateRequest
 ): Promise<void> {
+  const userId = await getCurrentUserId();
   const payload = {
     class_id: data.class_id,
     value: data.value,
@@ -61,25 +66,30 @@ export async function updateRecurringApi(
   const { error } = await supabase
     .from("recurring_transaction")
     .update(payload)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) throw error;
 }
 
 export async function softDeleteRecurring(id: string): Promise<void> {
+  const userId = await getCurrentUserId();
   const { error } = await supabase
     .from("recurring_transaction")
     .update({ status: false })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) throw error;
 }
 
 export async function deleteRecurringApi(recurringId: string): Promise<void> {
+  const userId = await getCurrentUserId();
   const { error } = await supabase
     .from("recurring_transaction")
     .delete()
-    .match({ id: recurringId });
+    .eq("id", recurringId)
+    .eq("user_id", userId);
 
   if (error) throw error;
 }
@@ -89,6 +99,7 @@ export async function updateRecurringParcelPayment(
   installmentNumber: number,
   currentPaidParcels: number[]
 ): Promise<number[]> {
+  const userId = await getCurrentUserId();
   const isUndo = currentPaidParcels.includes(installmentNumber);
 
   if (isUndo) {
@@ -101,7 +112,8 @@ export async function updateRecurringParcelPayment(
     const { error } = await supabase
       .from("recurring_transaction")
       .update({ paid_parcels: updatedParcels })
-      .eq("id", recurringId);
+      .eq("id", recurringId)
+      .eq("user_id", userId);
 
     if (error) throw error;
 
@@ -118,7 +130,8 @@ export async function updateRecurringParcelPayment(
   const { error } = await supabase
     .from("recurring_transaction")
     .update({ paid_parcels: updatedParcels })
-    .eq("id", recurringId);
+    .eq("id", recurringId)
+    .eq("user_id", userId);
 
   if (error) {
     await deleteTransactionApi(transactionId).catch(() => undefined);
@@ -132,12 +145,14 @@ async function registerParcelTransaction(
   recurringId: string,
   installmentNumber: number
 ): Promise<number> {
+  const userId = await getCurrentUserId();
   const transactionAt = new Date().toISOString().slice(0, 10);
 
   const { data: recurring, error: fetchError } = await supabase
     .from("recurring_transaction")
     .select("class_id, description, value")
     .eq("id", recurringId)
+    .eq("user_id", userId)
     .single();
 
   if (fetchError || !recurring) {
@@ -146,35 +161,25 @@ async function registerParcelTransaction(
     );
   }
 
-  const newTransaction = {
+  return insertTransaction({
     class_id: recurring.class_id,
     description: recurring.description,
     value: recurring.value,
     transaction_at: transactionAt,
     recurring_transaction_id: recurringId,
     installment_number: installmentNumber,
-  };
-
-  const { data, error: insertError } = await supabase
-    .from("transaction")
-    .insert([newTransaction])
-    .select("id")
-    .single();
-
-  if (insertError || !data) {
-    throw new Error(insertError?.message || "Erro ao registrar a transação.");
-  }
-
-  return data.id;
+  });
 }
 
 async function removeParcelTransaction(
   recurringId: string,
   installmentNumber: number
 ): Promise<void> {
+  const userId = await getCurrentUserId();
   const { data: linkedTransaction, error: linkedError } = await supabase
     .from("transaction")
     .select("id")
+    .eq("user_id", userId)
     .eq("recurring_transaction_id", recurringId)
     .eq("installment_number", installmentNumber)
     .maybeSingle();
@@ -192,10 +197,12 @@ async function removeParcelTransaction(
 async function removeLegacyParcelTransaction(
   recurringId: string
 ): Promise<void> {
+  const userId = await getCurrentUserId();
   const { data: recurring, error: fetchError } = await supabase
     .from("recurring_transaction")
     .select("class_id, description, value")
     .eq("id", recurringId)
+    .eq("user_id", userId)
     .single();
 
   if (fetchError || !recurring) {
@@ -207,6 +214,7 @@ async function removeLegacyParcelTransaction(
   const { data: candidates, error: queryError } = await supabase
     .from("transaction")
     .select("id")
+    .eq("user_id", userId)
     .eq("class_id", recurring.class_id)
     .eq("description", recurring.description)
     .eq("value", recurring.value)

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Flame, Trash2, Check } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Flame, Trash2, Check, Pen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,9 +10,29 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
-import { createHabit, deleteHabit, fetchAllHabitLogs, fetchHabits, toggleHabitLog } from "@/api/habits";
-import { calculateStreak, getTodayIso, getWeekProgress, isCompletedToday } from "@/domain/habits";
+import {
+  FormLabel,
+  FORM_DIALOG_CONTENT_CLASS,
+  FORM_FIELDS_CLASS,
+  ICON_EDIT_BUTTON_CLASS,
+} from "@/components/FormLabel";
+import { PageShell } from "@/components/PageShell";
+import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
+import {
+  createHabit,
+  deleteHabit,
+  fetchAllHabitLogs,
+  fetchHabits,
+  toggleHabitLog,
+  updateHabit,
+} from "@/api/habits";
+import {
+  calculateStreak,
+  getTodayIso,
+  getWeekProgress,
+  isCompletedToday,
+} from "@/domain/habits";
+import { getHabitInsights } from "@/domain/habits/insights";
 import type { Habit, HabitCreateRequest } from "@/types/habits";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -28,12 +48,16 @@ const emptyHabit = (): HabitCreateRequest => ({
 
 export default function Habits() {
   const [habits, setHabits] = useState<Habit[]>([]);
-  const [logs, setLogs] = useState<Awaited<ReturnType<typeof fetchAllHabitLogs>>>([]);
+  const [logs, setLogs] = useState<
+    Awaited<ReturnType<typeof fetchAllHabitLogs>>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyHabit());
   const today = getTodayIso();
   const { toast } = useToast();
+  const insights = useMemo(() => getHabitInsights(habits, logs), [habits, logs]);
 
   const load = useCallback(async () => {
     try {
@@ -41,35 +65,73 @@ export default function Habits() {
       setHabits(h);
       setLogs(l);
     } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   }, [toast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  function openCreate() {
+    setEditingId(null);
+    setForm(emptyHabit());
+    setOpen(true);
+  }
+
+  function openEdit(habit: Habit) {
+    setEditingId(habit.id);
+    setForm({
+      name: habit.name,
+      description: habit.description ?? "",
+      frequency: habit.frequency,
+      target_per_week: habit.target_per_week,
+      color: habit.color ?? null,
+    });
+    setOpen(true);
+  }
 
   async function handleToggle(habitId: string) {
     const habitLogs = logs.filter((l) => l.habit_id === habitId);
     const done = isCompletedToday(habitLogs);
     try {
       await toggleHabitLog(habitId, today, !done);
-      load();
+      await load();
     } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     }
   }
 
   async function handleSave() {
     if (!form.name.trim()) return;
     try {
-      await createHabit(form);
-      toast({ title: "Hábito criado!", duration: 2000 });
+      if (editingId) {
+        await updateHabit({ id: editingId, ...form });
+        toast({ title: "Hábito atualizado", duration: 2000 });
+      } else {
+        await createHabit(form);
+        toast({ title: "Hábito criado", duration: 2000 });
+      }
       setOpen(false);
+      setEditingId(null);
       setForm(emptyHabit());
-      load();
+      await load();
     } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     }
   }
 
@@ -77,9 +139,13 @@ export default function Habits() {
     try {
       await deleteHabit(id);
       toast({ title: "Hábito excluído", duration: 2000 });
-      load();
+      await load();
     } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     }
   }
 
@@ -88,89 +154,158 @@ export default function Habits() {
   ).length;
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Hábitos</h1>
-          <p className="text-sm text-muted-foreground">
-            Hoje: {doneCount}/{habits.length} concluídos
-          </p>
-        </div>
-        <div className={PAGE_HEADER_ACTIONS_CLASS}>
-          <Button onClick={() => setOpen(true)}>Novo hábito</Button>
-        </div>
-      </section>
-
+    <PageShell
+      title="Hábitos"
+      description={`Hoje: ${doneCount}/${habits.length} concluídos`}
+      actions={<Button onClick={openCreate}>Novo hábito</Button>}
+    >
       {loading ? (
-        <p className="text-sm text-muted-foreground">Carregando...</p>
+        <TableLoadingSkeleton rows={6} />
       ) : habits.length === 0 ? (
-        <EmptyState icon={Flame} title="Nenhum hábito" description="Crie hábitos para acompanhar sua rotina diária." />
+        <EmptyState
+          icon={Flame}
+          title="Nenhum hábito"
+          description="Crie hábitos para acompanhar sua rotina diária."
+          action={<Button onClick={openCreate}>Novo hábito</Button>}
+        />
       ) : (
-        <div className="space-y-3">
-          {habits.map((habit) => {
-            const habitLogs = logs.filter((l) => l.habit_id === habit.id);
-            const done = isCompletedToday(habitLogs);
-            const streak = calculateStreak(habitLogs);
-            const weekPct = getWeekProgress(habit, habitLogs);
-
-            return (
-              <article
-                key={habit.id}
-                className={cn(
-                  "flex items-center gap-4 rounded-xl border bg-card p-4",
-                  done && "border-success/30 bg-success/5"
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleToggle(habit.id)}
+        <>
+          {insights.length > 0 ? (
+            <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {insights.map((insight) => (
+                <div
+                  key={insight.id}
                   className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                    done ? "border-success bg-success text-success-foreground" : "border-muted-foreground/30 hover:border-primary"
+                    "rounded-lg border px-3 py-2",
+                    insight.tone === "success" &&
+                      "border-success/30 bg-success/5",
+                    insight.tone === "warning" &&
+                      "border-warning/30 bg-warning/5",
+                    insight.tone === "info" && "bg-muted/40"
                   )}
                 >
-                  {done && <Check className="h-5 w-5" />}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold">{habit.name}</h3>
+                  <p className="text-xs font-semibold">{insight.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    🔥 {streak} dias · Semana: {weekPct}%
+                    {insight.detail}
                   </p>
-                  <div className="mt-1.5 h-1 w-full max-w-[120px] rounded-full bg-muted overflow-hidden">
-                    <div className="h-full bg-primary rounded-full" style={{ width: `${weekPct}%` }} />
-                  </div>
                 </div>
-                <ConfirmDeleteDialog
-                  title="Excluir este hábito?"
-                  description="O histórico de registros também será removido."
-                  onConfirm={() => handleDelete(habit.id)}
+              ))}
+            </section>
+          ) : null}
+          <div className="space-y-3">
+            {habits.map((habit) => {
+              const habitLogs = logs.filter((l) => l.habit_id === habit.id);
+              const done = isCompletedToday(habitLogs);
+              const streak = calculateStreak(habitLogs);
+              const weekPct = getWeekProgress(habit, habitLogs);
+
+              return (
+                <article
+                  key={habit.id}
+                  className={cn(
+                    "flex items-center gap-4 rounded-xl border bg-card p-4",
+                    done && "border-success/30 bg-success/5"
+                  )}
                 >
-                  <Button variant="ghost" size="icon" className="text-destructive h-8 w-8">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </ConfirmDeleteDialog>
-              </article>
-            );
-          })}
-        </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleToggle(habit.id)}
+                    className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                      done
+                        ? "border-success bg-success text-success-foreground"
+                        : "border-muted-foreground/30 hover:border-primary"
+                    )}
+                  >
+                    {done ? <Check className="h-5 w-5" /> : null}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold">{habit.name}</h3>
+                    {habit.description ? (
+                      <p className="truncate text-xs text-muted-foreground">
+                        {habit.description}
+                      </p>
+                    ) : null}
+                    <p className="text-xs text-muted-foreground">
+                      Sequência: {streak} dias · Semana: {weekPct}%
+                    </p>
+                    <div className="mt-1.5 h-1 w-full max-w-[120px] overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${weekPct}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
+                      onClick={() => openEdit(habit)}
+                    >
+                      <Pen className="h-3.5 w-3.5" />
+                    </Button>
+                    <ConfirmDeleteDialog
+                      title="Excluir este hábito?"
+                      description="O histórico de registros também será removido."
+                      onConfirm={() => handleDelete(habit.id)}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </ConfirmDeleteDialog>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) {
+            setEditingId(null);
+            setForm(emptyHabit());
+          }
+        }}
+      >
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader><DialogTitle>Novo hábito</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              {editingId ? "Editar hábito" : "Novo hábito"}
+            </DialogTitle>
+          </DialogHeader>
           <div className={FORM_FIELDS_CLASS}>
             <div>
               <FormLabel required>Nome</FormLabel>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Beber 2L de água" />
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Ex: Beber 2L de água"
+              />
             </div>
             <div>
               <FormLabel optional>Descrição</FormLabel>
-              <Input value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <Input
+                value={form.description ?? ""}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+              />
             </div>
-            <Button onClick={handleSave} className="w-full">Salvar</Button>
+            <Button onClick={() => void handleSave()} className="w-full">
+              {editingId ? "Salvar alterações" : "Criar hábito"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
-    </main>
+    </PageShell>
   );
 }

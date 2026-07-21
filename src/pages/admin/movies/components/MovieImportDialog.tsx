@@ -212,7 +212,7 @@ export function MovieImportDialog({ onImported }: MovieImportDialogProps) {
             disabled={!rows.length || importing}
             className="w-full"
           >
-            {importing ? "Importando..." : "Importar para FinTrack"}
+            {importing ? "Importando..." : "Importar"}
           </Button>
         </div>
       </DialogContent>

@@ -30,6 +30,16 @@ interface PlaceCardProps {
 export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  const summary = place.opinionSummary;
+  const multi = (summary?.totalOpinions ?? 0) > 1;
+  const displayRating = multi
+    ? summary?.avgRating
+    : place.rating != null && place.rating > 0
+      ? place.rating
+      : summary?.avgRating;
+  const starValue =
+    displayRating != null ? Math.round(displayRating * 2) / 2 : null;
+
   return (
     <article
       className={cn(
@@ -60,6 +70,11 @@ export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
               <Badge variant="outline" className="text-[10px]">
                 {PLACE_TYPE_LABELS[place.type]}
               </Badge>
+              {multi ? (
+                <Badge variant="secondary" className="text-[10px]">
+                  {summary!.totalOpinions} opiniões
+                </Badge>
+              ) : null}
             </div>
             <h3 className="font-semibold truncate">{place.name}</h3>
             {place.address && (
@@ -69,27 +84,42 @@ export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
               </p>
             )}
           </div>
-          {place.would_recommend ? (
+
+          {multi && summary ? (
+            <div className="flex shrink-0 items-center gap-2 text-[11px] font-medium">
+              <span className="inline-flex items-center gap-1 text-success">
+                <ThumbsUp className="h-3.5 w-3.5" />
+                {summary.recommendYes}
+              </span>
+              <span className="inline-flex items-center gap-1 text-destructive">
+                <ThumbsDown className="h-3.5 w-3.5" />
+                {summary.recommendNo}
+              </span>
+            </div>
+          ) : place.would_recommend ? (
             <ThumbsUp className="h-4 w-4 shrink-0 text-success" />
           ) : (
             <ThumbsDown className="h-4 w-4 shrink-0 text-destructive" />
           )}
         </div>
 
-        {place.rating != null && place.rating > 0 && (
+        {starValue != null && displayRating != null && displayRating > 0 ? (
           <div className="mt-2 flex items-center gap-2">
-            <StarRating value={place.rating} readonly size="sm" />
+            <StarRating value={starValue} readonly size="sm" />
             <span className="text-xs text-muted-foreground">
-              {formatRating(place.rating)} · {getRatingLabel(place.rating)}
+              {formatRating(displayRating)}
+              {multi
+                ? ` · média · ${getRatingLabel(displayRating)}`
+                : ` · ${getRatingLabel(displayRating)}`}
             </span>
           </div>
-        )}
+        ) : null}
 
-        {place.notes && (
+        {place.notes && !multi ? (
           <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
             {place.notes}
           </p>
-        )}
+        ) : null}
 
         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
           <span>{formatDateBR(place.visited_date)}</span>

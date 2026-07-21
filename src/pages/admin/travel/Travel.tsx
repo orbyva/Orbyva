@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
 import { TripFormDialog } from "@/components/TripFormDialog";
-import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { PageShell } from "@/components/PageShell";
+import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { enrichTrip, fetchTrips } from "@/api/travel";
 import { TRIP_STATUS_LABELS } from "@/domain/travel";
 import type { TripWithChecklist } from "@/types/travel";
@@ -81,23 +82,15 @@ export default function Travel() {
   const completedTrips = trips.filter((t) => t.status === "completed");
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Viagens</h1>
-          <p className="text-sm text-muted-foreground">
-            Planeje, acompanhe gastos, roteiro e avalie lugares visitados.
-          </p>
-        </div>
-        <div className={PAGE_HEADER_ACTIONS_CLASS}>
-          <Button onClick={() => setOpen(true)}>Nova viagem</Button>
-        </div>
-      </section>
-
+    <PageShell
+      title="Viagens"
+      description="Planeje, acompanhe gastos, roteiro e avalie lugares visitados."
+      actions={<Button onClick={() => setOpen(true)}>Nova viagem</Button>}
+    >
       {loading ? (
-        <p className="text-sm text-muted-foreground">Carregando...</p>
+        <TableLoadingSkeleton rows={6} />
       ) : trips.length === 0 ? (
-        <EmptyState icon={Plane} title="Nenhuma viagem" description="Planeje sua próxima viagem." />
+        <EmptyState icon={Plane} title="Nenhuma viagem" description="Planeje sua próxima viagem." action={<Button onClick={() => setOpen(true)}>Nova viagem</Button>} />
       ) : (
         <Tabs defaultValue="active">
           <TabsList>
@@ -126,6 +119,6 @@ export default function Travel() {
       )}
 
       <TripFormDialog open={open} onOpenChange={setOpen} onSaved={load} />
-    </main>
+    </PageShell>
   );
 }

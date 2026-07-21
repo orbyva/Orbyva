@@ -113,14 +113,16 @@ export function PlaceFormDialog({
     }
   }
 
+  const isControlled = controlledOpen !== undefined;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      {!trigger && !isEditing && (
+      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
+      {!trigger && !isEditing && !isControlled ? (
         <DialogTrigger asChild>
           <Button>Avaliar lugar</Button>
         </DialogTrigger>
-      )}
+      ) : null}
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogHeader>
           <DialogTitle>

@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-
+import { BRAND } from "@/lib/brand";
 import { supabase } from "@/lib/supabase";
 
 export function LoginForm({
@@ -13,6 +13,9 @@ export function LoginForm({
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/home`,
+      },
     });
 
     if (error) {
@@ -26,9 +29,12 @@ export function LoginForm({
         <CardContent className="grid p-0 md:grid-cols-2">
           <div className="flex flex-col gap-6 p-6 md:p-8">
             <div className="flex flex-col items-center text-center">
+              <p className="mb-1 text-sm font-medium text-muted-foreground">
+                {BRAND.name}
+              </p>
               <h1 className="text-2xl font-bold">Bem-vindo de volta</h1>
               <p className="text-balance text-muted-foreground">
-                Entre com sua conta Google para acessar o FinTrack.
+                {BRAND.tagline}. Entre com Google para continuar.
               </p>
             </div>
 
@@ -50,12 +56,24 @@ export function LoginForm({
               </svg>
               Continuar com Google
             </Button>
+
+            <p className="text-center text-xs text-muted-foreground">
+              Ao continuar, você aceita os{" "}
+              <a href="/terms" className="underline underline-offset-2">
+                Termos
+              </a>{" "}
+              e a{" "}
+              <a href="/privacy" className="underline underline-offset-2">
+                Privacidade
+              </a>
+              .
+            </p>
           </div>
 
           <div className="relative hidden bg-muted md:block">
             <img
               src="/logo.webp"
-              alt="FinTrack"
+              alt={BRAND.name}
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
             />
           </div>

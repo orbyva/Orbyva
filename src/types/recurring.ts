@@ -12,6 +12,7 @@ export type Installments = Installment[] | string;
 
 export interface Recurring {
   id: string;
+  user_id?: string;
   class: Class;
   value: number;
   description: string;

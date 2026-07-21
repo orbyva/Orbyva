@@ -33,7 +33,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { PageShell } from "@/components/PageShell";
 import { useSidebar } from "@/components/ui/sidebar";
 
 function getEmptyBudget(): MonthlyBudgetCreateRequest {
@@ -299,18 +299,11 @@ export default function Budget() {
   }
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 overflow-x-hidden">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">
-            Orçamento mensal
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Acompanhe o planejado, gasto e restante por categoria.
-          </p>
-        </div>
-
-        <div className={PAGE_HEADER_ACTIONS_CLASS}>
+    <PageShell
+      title="Orçamento mensal"
+      description="Acompanhe o planejado, gasto e restante por categoria."
+      actions={
+        <>
           <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[240px]">
             <Select
               onValueChange={(value) => setSelectedMonth(Number(value))}
@@ -377,9 +370,9 @@ export default function Budget() {
             disabled={summary.length === 0}
             onDuplicate={duplicateBudget}
           />
-        </div>
-      </section>
-
+        </>
+      }
+    >
       <BudgetSummary
         plannedExpense={totals.plannedExpense}
         plannedIncome={totals.plannedIncome}
@@ -498,6 +491,6 @@ export default function Budget() {
           </section>
         </TabsContent>
       </Tabs>
-    </main>
+    </PageShell>
   );
 }

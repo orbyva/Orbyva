@@ -1,6 +1,6 @@
 # FinTrack
 
-Gerenciador pessoal com **finanças**, **metas**, **hábitos**, **casa**, **viagens**, **lugares**, **carro**, **filmes** e **assistente IA**.
+**Seu life OS pessoal** — finanças, metas, hábitos, viagens, lugares, veículos e cinema num só lugar.
 
 Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts**, **Framer Motion** e **Supabase** (auth, banco e Edge Functions).
 
@@ -13,7 +13,8 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 ## Módulos
 
 ### Início
-- **Dashboard geral** (`/`) — resumo de metas, hábitos, viagens, saldo e alertas
+- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro), waitlist
+- **Dashboard geral** (`/home`) — resumo de metas, hábitos, viagens, saldo e alertas
 - **Timeline** (`/timeline`) — eventos agregados de todos os módulos
 
 ### Finanças
@@ -35,10 +36,6 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 ### Carro / Moto
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
 
-### Assistente IA
-- Chat integrado (Edge Function `fintrack-agent`) com Groq ou Gemini
-- Propostas de transação/parcela com confirmação do usuário
-
 ---
 
 ## Stack
@@ -49,7 +46,6 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 | Estilos/UX | Tailwind CSS, shadcn/ui (Radix), Lucide Icons, Framer Motion |
 | Gráficos | Recharts |
 | Dados/Auth | Supabase (`@supabase/supabase-js`) |
-| Assistente | Supabase Edge Functions (Deno) |
 | Tabelas | TanStack Table |
 | Roteamento | React Router v7 (rotas protegidas + lazy loading) |
 | Testes | Vitest |
@@ -64,11 +60,12 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 /public
   └─ logo.webp, placeholder.svg
 
-/scripts                    # SQL para rodar no Supabase (ver seção abaixo)
-  ├─ agent_tables.sql
-  ├─ car_tables.sql
-  ├─ life_tables.sql
-  ├─ places_travel_expand.sql
+/scripts                    # SQL para rodar no Supabase (ver scripts/README.md)
+  ├─ README.md               # ordem de execução
+  ├─ tenancy_rls.sql         # P0: user_id + RLS + excluir conta
+  ├─ dimensions_tenancy.sql  # tipos/classes por usuário
+  ├─ billing.sql             # teste 7d / Pro + waitlist
+  ├─ seed_natures.sql
   ├─ movies_opinion.sql
   ├─ vehicle_kind.sql
   └─ fuel_log_transaction.sql
@@ -76,7 +73,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 /src
   ├─ api/                   # I/O Supabase por domínio
   ├─ domain/                # Regras de negócio puras (testáveis)
-  ├─ components/            # UI compartilhada + agent/
+  ├─ components/            # UI compartilhada
   ├─ hooks/
   ├─ layouts/
   ├─ lib/
@@ -87,7 +84,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 /supabase
   ├─ config.toml
-  └─ functions/fintrack-agent/   # Edge Function do assistente
+  └─ functions/             # stripe-* (billing); fintrack-agent arquivado
 ```
 
 ---
@@ -96,7 +93,8 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 | Rota | Tela |
 |------|------|
-| `/` | Dashboard geral |
+| `/` | Landing (life OS + planos + waitlist) |
+| `/home` | Dashboard geral (app) |
 | `/timeline` | Timeline unificada |
 | `/goals` | Metas |
 | `/habits` | Hábitos |
@@ -110,25 +108,33 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 | `/finance/dimensions` | Dimensões |
 | `/movies` | Filmes |
 | `/car` | Veículos (carro / moto) |
+| `/account` | Conta (plano, export, sair, excluir) |
+| `/terms` | Termos de uso |
+| `/privacy` | Privacidade / LGPD |
 | `/login` | Login (Google OAuth) |
+
+Atalhos: **⌘K** busca global · sino no header para alertas · PWA instalável após `npm run build`.
+
 
 ---
 
 ## Scripts SQL (Supabase)
 
-Execute **um por vez** no **SQL Editor** do Supabase, nesta ordem:
+Execute **um por vez** no **SQL Editor** do Supabase (detalhe em `scripts/README.md`):
 
-| Script | Descrição |
-|--------|-----------|
-| `agent_tables.sql` | Tabelas do assistente IA (auditoria e ações pendentes) |
-| `car_tables.sql` | Veículo, manutenções, abastecimentos e documentos |
-| `life_tables.sql` | Metas, hábitos, casa e viagens (básico) |
-| `places_travel_expand.sql` | Lugares, gastos, roteiro e prazos de viagem |
-| `movies_opinion.sql` | Colunas de opinião em `movie` (`notes`, `would_recommend`) |
-| `vehicle_kind.sql` | Coluna `kind` em `vehicle` (carro / moto) |
-| `fuel_log_transaction.sql` | Coluna `transaction_id` em `vehicle_fuel_log` |
+| Ordem | Script | Descrição |
+|-------|--------|-----------|
+| 1 | `tenancy_rls.sql` | **Obrigatório** — `user_id` + RLS + RPC excluir conta |
+| 2 | `dimensions_tenancy.sql` | Tipos/classes por usuário |
+| 3 | `billing.sql` | `profiles` (teste 7 dias → Pro) + `waitlist` |
+| 4 | `seed_natures.sql` | Naturezas Receita/Despesa (onboarding) |
+| 5 | `movies_opinion.sql` | Colunas de opinião em `movie` |
+| 6 | `vehicle_kind.sql` | Coluna `kind` em `vehicle` |
+| 7 | `fuel_log_transaction.sql` | `transaction_id` em `vehicle_fuel_log` |
+| 8 | `shared_trips.sql` | Viagem compartilhada (membros, convites, opiniões, splits) |
 
-> O schema financeiro e de filmes já deve existir no seu projeto Supabase. Os scripts acima criam os módulos novos / expansões.
+> Rode `tenancy_rls.sql` antes de convidar outro usuário. Sem isso, o app filtra no cliente, mas o banco ainda pode vazar dados. Depois teste com **2 contas Google**.
+> Para planejar viagem juntos, rode também `shared_trips.sql`.
 
 ---
 
@@ -139,7 +145,6 @@ Execute **um por vez** no **SQL Editor** do Supabase, nesta ordem:
 - **Node.js 20+**
 - Conta no **Supabase** (URL + Anon Key)
 - Chave **OMDb** (opcional — módulo Filmes)
-- Chave **Groq** ou **Gemini** (opcional — assistente IA, configurada na Edge Function)
 
 ### Variáveis de ambiente
 
@@ -155,7 +160,18 @@ VITE_SUPABASE_ANON_KEY=sua_anon_key
 VITE_OMDB_API_KEY=sua_chave_omdb   # opcional
 ```
 
-As variáveis do assistente (`GROQ_API_KEY`, `GEMINI_API_KEY`, etc.) ficam nos **secrets da Edge Function** no Supabase, não no front-end.
+### Billing (opcional — Stripe depois)
+
+1. Rode `scripts/billing.sql`
+2. Crie um Price recorrente no Stripe e anote o `price_...`
+3. Deploy: `stripe-checkout`, `stripe-portal`, `stripe-webhook`
+4. Secrets: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_PRO`, `STRIPE_WEBHOOK_SECRET`, `SITE_URL`
+5. Front: `VITE_STRIPE_PUBLISHABLE_KEY`
+6. Dev / bypass do teste: `VITE_BILLING_FORCE_PRO=true`
+
+Sentry: `VITE_SENTRY_DSN` (opcional).
+
+> Assistente IA: código legado em `supabase/functions/fintrack-agent` — **fora do produto** por enquanto (não documentar como feature).
 
 ### Instalar e rodar
 
@@ -193,7 +209,7 @@ npm run start         # serve /dist em produção local
    - `VITE_SUPABASE_ANON_KEY`
    - `VITE_OMDB_API_KEY` (se usar Filmes)
 3. **Build Command:** `npm run build` · **Output:** `dist`
-4. Deploy da Edge Function: `supabase functions deploy fintrack-agent`
+4. Deploy das Edge Functions Stripe quando for cobrar (opcional)
 
 > Use apenas a **Anon Key** no front-end. Nunca exponha a service role key.
 
@@ -202,7 +218,7 @@ npm run start         # serve /dist em produção local
 ## Segurança
 
 - `.env` está no `.gitignore` — use sempre `.env.example` como referência
-- Se alguma chave foi exposta no git, **rotacione** no Supabase/OMDb/Groq/Gemini
+- Se alguma chave foi exposta no git, **rotacione** no Supabase/OMDb/Stripe
 - `supabase/.temp/` (cache local do CLI) também é ignorado
 
 ---

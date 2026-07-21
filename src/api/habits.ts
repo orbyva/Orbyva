@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { getCurrentUserId } from "@/lib/auth-user";
 import type {
   Habit,
   HabitCreateRequest,
@@ -6,22 +7,31 @@ import type {
   HabitUpdateRequest,
 } from "@/types/habits";
 
-async function getCurrentUserId(): Promise<string> {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) throw new Error("Usuário não autenticado.");
-  return user.id;
+async function assertHabitOwned(habitId: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("habit")
+    .select("id")
+    .eq("id", habitId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Hábito não encontrado.");
 }
 
 export async function fetchHabits(): Promise<Habit[]> {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("habit")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return data ?? [];
 }
 
 export async function fetchHabitLogs(habitId: string): Promise<HabitLog[]> {
+  await assertHabitOwned(habitId);
   const { data, error } = await supabase
     .from("habit_log")
     .select("*")
@@ -56,13 +66,23 @@ export async function createHabit(habit: HabitCreateRequest): Promise<Habit> {
 }
 
 export async function updateHabit(data: HabitUpdateRequest): Promise<void> {
+  const userId = await getCurrentUserId();
   const { id, ...fields } = data;
-  const { error } = await supabase.from("habit").update(fields).eq("id", id);
+  const { error } = await supabase
+    .from("habit")
+    .update(fields)
+    .eq("id", id)
+    .eq("user_id", userId);
   if (error) throw new Error(error.message);
 }
 
 export async function deleteHabit(id: string): Promise<void> {
-  const { error } = await supabase.from("habit").delete().eq("id", id);
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("habit")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
   if (error) throw new Error(error.message);
 }
 
@@ -71,6 +91,8 @@ export async function toggleHabitLog(
   date: string,
   completed: boolean
 ): Promise<void> {
+  await assertHabitOwned(habitId);
+
   const { data: existing } = await supabase
     .from("habit_log")
     .select("id")

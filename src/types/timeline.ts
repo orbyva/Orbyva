@@ -30,6 +30,7 @@ export interface LifeDashboardSummary {
   habitsTodayDone: number;
   upcomingTrips: number;
   totalPlaces: number;
+  moviesToWatch: number;
   overdueAlerts: number;
   upcomingAlerts: number;
   balance?: number;

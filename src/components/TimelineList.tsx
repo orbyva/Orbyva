@@ -7,10 +7,10 @@ import { cn } from "@/lib/utils";
 const moduleStyles: Record<TimelineModule, string> = {
   finance: "border-primary/30 text-primary bg-primary/5",
   car: "border-car/30 text-car bg-car/5",
-  travel: "border-cinema/30 text-cinema bg-cinema/5",
+  travel: "border-travel/30 text-travel bg-travel/5",
   goals: "border-success/30 text-success bg-success/5",
-  habits: "border-primary/30 text-primary bg-primary/10",
-  places: "border-life/30 text-life bg-life/5",
+  habits: "border-life/30 text-life bg-life/5",
+  places: "border-life/30 text-life bg-life/10",
   cinema: "border-cinema/30 text-cinema bg-cinema/5",
 };
 

@@ -5,6 +5,7 @@ export interface Nature {
 
 export interface Type {
   id: number;
+  user_id?: string;
   name: string;
   nature: Nature;
   hex_color: string | null;
@@ -13,8 +14,10 @@ export interface Type {
 
 export interface Class {
   id: number;
+  user_id?: string;
   name: string;
-  type: Type;
+  type_id?: number;
+  type?: Type | null;
 }
 
 export interface Dimension {

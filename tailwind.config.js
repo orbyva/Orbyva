@@ -55,6 +55,10 @@ export default {
   				DEFAULT: 'hsl(var(--cinema))',
   				foreground: 'hsl(var(--cinema-foreground))'
   			},
+  			travel: {
+  				DEFAULT: 'hsl(var(--travel))',
+  				foreground: 'hsl(var(--travel-foreground))'
+  			},
   			car: {
   				DEFAULT: 'hsl(var(--car))',
   				foreground: 'hsl(var(--car-foreground))'
@@ -75,7 +79,8 @@ export default {
   				'2': 'hsl(var(--chart-2))',
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
-  				'5': 'hsl(var(--chart-5))'
+  				'5': 'hsl(var(--chart-5))',
+  				'6': 'hsl(var(--chart-6))'
   			},
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',

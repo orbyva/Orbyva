@@ -1,5 +1,3 @@
-  "use client";
-
   import { useCallback, useEffect, useMemo, useState } from "react";
   import {
     Card,
@@ -27,6 +25,13 @@
     fetchValueByNatureYearMonth,
   } from "@/api/finance";
   import { Button } from "@/components/ui/button";
+  import { Share2 } from "lucide-react";
+  import { PageShell } from "@/components/PageShell";
+  import { ShareImageDialog } from "@/components/ShareImageDialog";
+  import {
+    generateMonthSpendShareImage,
+    shareMonthSpendNative,
+  } from "@/lib/monthSpendShare";
   import {
     calculateInstallments,
     calculateCommittedThisMonth,
@@ -56,6 +61,7 @@
       const value = transaction.value;
 
       if (!natureName || natureName !== nature) return;
+      if (!typeName) return;
 
       if (!groupedData[typeName]) {
         groupedData[typeName] = {
@@ -91,6 +97,7 @@
 
     const [selectedType, setSelectedType] = useState<string | null>(null);
     const [recurring, setRecurring] = useState<Recurring[]>([]);
+    const [shareOpen, setShareOpen] = useState(false);
 
     const dueAlerts = useMemo(
       () => getRecurringDueAlerts(recurring),
@@ -269,65 +276,95 @@
     });
 
     return (
-      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 overflow-x-hidden">
-        <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight">Finanças</h1>
-            <p className="text-sm text-muted-foreground">
-              Visão detalhada das receitas, despesas e saldo do período.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[240px]">
-            <Select
-              onValueChange={(value) => setSelectedMonth(Number(value))}
-              value={String(selectedMonth)}
+      <PageShell
+        title="Finanças"
+        description="Visão detalhada das receitas, despesas e saldo do período."
+        actions={
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[240px]">
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => setShareOpen(true)}
             >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Mês" />
-              </SelectTrigger>
+              <Share2 className="h-4 w-4" />
+              Compartilhar mês
+            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                onValueChange={(value) => setSelectedMonth(Number(value))}
+                value={String(selectedMonth)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Mês" />
+                </SelectTrigger>
 
-              <SelectContent>
-                {[...Array(12)].map((_, i) => {
-                  const monthName = new Date(0, i).toLocaleString("pt-BR", {
-                    month: "long",
-                  });
-                  const monthLabel =
-                    monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                <SelectContent>
+                  {[...Array(12)].map((_, i) => {
+                    const monthName = new Date(0, i).toLocaleString("pt-BR", {
+                      month: "long",
+                    });
+                    const monthLabel =
+                      monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
-                  return (
-                    <SelectItem key={i + 1} value={String(i + 1)}>
-                      {monthLabel}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+                    return (
+                      <SelectItem key={i + 1} value={String(i + 1)}>
+                        {monthLabel}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
 
-            <Select
-              onValueChange={(value) => setSelectedYear(Number(value))}
-              value={String(selectedYear)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Ano" />
-              </SelectTrigger>
+              <Select
+                onValueChange={(value) => setSelectedYear(Number(value))}
+                value={String(selectedYear)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Ano" />
+                </SelectTrigger>
 
-              <SelectContent>
-                {[...Array(currentYear - 2025 + 1)].map((_, i) => {
-                  const year = 2025 + i;
+                <SelectContent>
+                  {[...Array(currentYear - 2025 + 1)].map((_, i) => {
+                    const year = 2025 + i;
 
-                  return (
-                    <SelectItem key={year} value={String(year)}>
-                      {year}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+                    return (
+                      <SelectItem key={year} value={String(year)}>
+                        {year}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </section>
-
+        }
+      >
         <RecurringDueAlerts alerts={dueAlerts} showRecurringLink />
+
+        <ShareImageDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          title="Compartilhar gasto do mês"
+          generateImage={() =>
+            generateMonthSpendShareImage({
+              year: selectedYear,
+              month: selectedMonth,
+              receita: receitaTotal,
+              despesa: despesaTotal,
+            })
+          }
+          share={(blob) =>
+            shareMonthSpendNative(
+              {
+                year: selectedYear,
+                month: selectedMonth,
+                receita: receitaTotal,
+                despesa: despesaTotal,
+              },
+              blob
+            )
+          }
+        />
 
         <div className="space-y-6">
           <section className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
@@ -443,6 +480,6 @@
               </Tabs>
             </section>
         </div>
-      </main>
+      </PageShell>
     );
   }

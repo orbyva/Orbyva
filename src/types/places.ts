@@ -22,11 +22,21 @@ export interface PlaceVisit {
   would_recommend: boolean;
   created_at?: string;
   trip?: { id: string; title: string; destination?: string | null } | null;
+  /** Agregado de opiniões do grupo (viagem compartilhada). */
+  opinionSummary?: PlaceOpinionSummary | null;
 }
+
+export type PlaceOpinionSummary = {
+  avgRating: number | null;
+  ratedCount: number;
+  recommendYes: number;
+  recommendNo: number;
+  totalOpinions: number;
+};
 
 export type PlaceVisitCreateRequest = Omit<
   PlaceVisit,
-  "id" | "user_id" | "created_at" | "trip"
+  "id" | "user_id" | "created_at" | "trip" | "opinionSummary"
 >;
 
 export type PlaceVisitUpdateRequest = Partial<PlaceVisitCreateRequest> & {
