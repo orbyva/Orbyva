@@ -42,7 +42,7 @@ export function MaintenanceTable({
       <EmptyState
         icon={Wrench}
         title="Nenhuma manutenção registrada"
-        description="Registre trocas de óleo, pneus, freios e outras manutenções para receber alertas."
+        description="Registre óleo, pneus, freios, corrente e outras manutenções para receber alertas."
       />
     );
   }

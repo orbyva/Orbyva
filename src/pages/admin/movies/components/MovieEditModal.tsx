@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { updateMovie } from "@/api/movies";
 import { Movie, MovieStatus, MovieUpdateRequest } from "@/types/movies";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
+import { ScoreRating } from "@/components/ScoreRating";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
+import { formatMovieRating, getMovieRatingLabel, normalizeWatchedDates } from "@/domain/movies";
+import { getErrorMessage } from "@/lib/errors";
 
 interface MovieEditModalProps {
   movie: Movie;
@@ -27,15 +29,30 @@ export function MovieEditModal({
   onOpenChange,
   onMovieUpdated,
 }: MovieEditModalProps) {
-  const [rating, setRating] = useState<number | "">(movie.rating ?? "");
+  const [rating, setRating] = useState<number | null>(movie.rating ?? null);
+  const [notes, setNotes] = useState(movie.notes ?? "");
+  const [wouldRecommend, setWouldRecommend] = useState(
+    movie.would_recommend !== false
+  );
   const [watchedDate, setWatchedDate] = useState<Date | undefined>();
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
   const { toast } = useToast();
 
+  const isToWatch = movie.status === MovieStatus.TO_WATCH;
+
+  useEffect(() => {
+    if (!open) return;
+    setRating(movie.rating ?? null);
+    setNotes(movie.notes ?? "");
+    setWouldRecommend(movie.would_recommend !== false);
+    setWatchedDate(undefined);
+    setFormError("");
+  }, [open, movie]);
+
   async function handleSave() {
-    if (movie.status === MovieStatus.TO_WATCH && !watchedDate) {
-      setFormError("Informe a data em que assistiu o filme.");
+    if (isToWatch && !watchedDate) {
+      setFormError("Informe a data em que assistiu.");
       return;
     }
 
@@ -45,19 +62,28 @@ export function MovieEditModal({
       setLoading(true);
 
       const updateData: MovieUpdateRequest = {
-        ...movie,
-        rating: rating !== "" ? Number(rating) : null,
-        ...(watchedDate && {
-          watched_dates: [...movie.watched_dates, watchedDate],
-          status: MovieStatus.WATCHED,
-        }),
+        imdb_id: movie.imdb_id,
+        rating,
+        notes: notes.trim() || null,
+        would_recommend: wouldRecommend,
       };
+
+      if (watchedDate) {
+        const nextDate = watchedDate.toISOString().split("T")[0];
+        updateData.watched_dates = [
+          ...normalizeWatchedDates(movie.watched_dates),
+          nextDate,
+        ];
+        updateData.status = MovieStatus.WATCHED;
+      }
 
       await updateMovie(updateData);
 
       toast({
         title: "Sucesso",
-        description: "Filme atualizado com sucesso!",
+        description: isToWatch
+          ? "Opinião registrada!"
+          : "Opinião atualizada!",
         duration: 2000,
       });
 
@@ -66,7 +92,7 @@ export function MovieEditModal({
     } catch (error) {
       toast({
         title: "Erro",
-        description: `Falha ao atualizar filme: ${error}`,
+        description: getErrorMessage(error, "Falha ao atualizar filme."),
         variant: "destructive",
         duration: 2000,
       });
@@ -78,7 +104,9 @@ export function MovieEditModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogTitle>Editar Filme</DialogTitle>
+        <DialogTitle>
+          {isToWatch ? "Avaliar título" : "Editar opinião"}
+        </DialogTitle>
 
         <div className="flex items-start gap-3 sm:gap-4">
           <img
@@ -90,42 +118,56 @@ export function MovieEditModal({
             <h3 className="truncate text-base font-medium sm:text-lg">
               {movie.title} ({movie.year})
             </h3>
-            <p className="truncate text-sm text-muted-foreground">{movie.imdb_id}</p>
+            <p className="truncate text-sm text-muted-foreground">
+              {movie.imdb_id}
+            </p>
           </div>
         </div>
 
         <div className={FORM_FIELDS_CLASS}>
-          {movie.status === MovieStatus.TO_WATCH ? (
-            <>
-              <FormLabel optional>Nota</FormLabel>
-              <Input
-                type="number"
-                placeholder="Nota de 0 a 10"
-                min="0"
-                max="10"
-                value={rating}
-                onChange={(e) =>
-                  setRating(e.target.value ? Number(e.target.value) : "")
-                }
-              />
+          <div>
+            <FormLabel optional>Nota</FormLabel>
+            <div className="space-y-2">
+              <ScoreRating value={rating} onChange={setRating} />
+              {rating != null && rating > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {formatMovieRating(rating)}/10 — {getMovieRatingLabel(rating)}{" "}
+                  · clique na metade esquerda para meia nota
+                </p>
+              )}
+            </div>
+          </div>
 
-              <FormLabel required>Data assistida</FormLabel>
-              <DatePicker
-                date={watchedDate}
-                onSelect={setWatchedDate}
-                placeholder="Selecione a data"
-              />
-            </>
-          ) : (
-            <>
-              <FormLabel optional>Nova data assistida</FormLabel>
-              <DatePicker
-                date={watchedDate}
-                onSelect={setWatchedDate}
-                placeholder="Selecione a data"
-              />
-            </>
-          )}
+          <div>
+            <FormLabel required={isToWatch} optional={!isToWatch}>
+              {isToWatch ? "Data assistida" : "Nova data assistida"}
+            </FormLabel>
+            <DatePicker
+              date={watchedDate}
+              onSelect={setWatchedDate}
+              placeholder="Selecione a data"
+            />
+          </div>
+
+          <div>
+            <FormLabel optional>O que achou?</FormLabel>
+            <textarea
+              className="flex min-h-[88px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              placeholder="Final, atuação, vibe, spoilers livres..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={wouldRecommend}
+              onChange={(e) => setWouldRecommend(e.target.checked)}
+              className="rounded"
+            />
+            Recomendaria
+          </label>
 
           {formError && <p className="text-sm text-destructive">{formError}</p>}
 
@@ -137,8 +179,12 @@ export function MovieEditModal({
             >
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={loading} className="w-full sm:flex-1">
-              {loading ? "Salvando..." : "Salvar Alterações"}
+            <Button
+              onClick={handleSave}
+              disabled={loading}
+              className="w-full sm:flex-1"
+            >
+              {loading ? "Salvando..." : "Salvar"}
             </Button>
           </div>
         </div>

@@ -11,7 +11,8 @@ import {
   DATE_WARNING_DAYS,
   KM_WARNING,
   MAINTENANCE_TYPE_LABELS,
-  TRACKED_MAINTENANCE_TYPES,
+  getTrackedMaintenanceTypes,
+  normalizeVehicleKind,
 } from "./constants";
 import { formatDateBR } from "@/lib/currency";
 
@@ -78,8 +79,10 @@ export function getMaintenanceSchedule(
 ): MaintenanceScheduleItem[] {
   const latestByType = getLatestMaintenanceByType(maintenances);
   const today = startOfToday();
+  const kind = normalizeVehicleKind(vehicle.kind);
+  const tracked = getTrackedMaintenanceTypes(kind);
 
-  return TRACKED_MAINTENANCE_TYPES.map((type) => {
+  return tracked.map((type) => {
     const label = MAINTENANCE_TYPE_LABELS[type];
     const latest = latestByType.get(type);
 
@@ -227,11 +230,40 @@ export function calculateFuelConsumption(
 ): number | null {
   if (logs.length < 2) return null;
 
-  const sorted = [...logs].sort((a, b) => a.km - b.km);
+  // Usa os dois últimos por quilometragem (tanque cheio → próximo cheio).
+  const sorted = [...logs].sort((a, b) => {
+    if (a.km !== b.km) return a.km - b.km;
+    return a.date.localeCompare(b.date);
+  });
   const latest = sorted[sorted.length - 1];
   const previous = sorted[sorted.length - 2];
   const kmDiff = latest.km - previous.km;
 
   if (kmDiff <= 0 || latest.liters <= 0) return null;
   return kmDiff / latest.liters;
+}
+
+/**
+ * Consumo estimado ao registrar um novo abastecimento,
+ * com base no km do último registro e nos litros atuais.
+ */
+export function estimateConsumptionFromPrevious(
+  previousKm: number | null | undefined,
+  currentKm: number,
+  liters: number
+): number | null {
+  if (previousKm == null || previousKm <= 0) return null;
+  if (currentKm <= previousKm || liters <= 0) return null;
+  return (currentKm - previousKm) / liters;
+}
+
+export function getLatestFuelLogKm(
+  logs: { km: number; date: string }[]
+): number | null {
+  if (!logs.length) return null;
+  const sorted = [...logs].sort((a, b) => {
+    if (a.km !== b.km) return a.km - b.km;
+    return a.date.localeCompare(b.date);
+  });
+  return sorted[sorted.length - 1]?.km ?? null;
 }

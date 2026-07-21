@@ -30,10 +30,10 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 - **Viagens** (`/travel`) — checklist, roteiro, gastos, lugares e prazos (`/travel/:id`)
 
 ### Cinema
-- **Filmes** (`/movies`) — watchlist com busca via OMDb API
+- **Cinema** (`/movies`) — watchlist, opinião (nota 0–10 + comentário + recomendação), compartilhar card e import CSV (Letterboxd / TV Time)
 
-### Carro
-- **Meu Carro** (`/car`) — manutenções, abastecimentos, documentos e alertas
+### Carro / Moto
+- **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
 
 ### Assistente IA
 - Chat integrado (Edge Function `fintrack-agent`) com Groq ou Gemini
@@ -68,7 +68,10 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
   ├─ agent_tables.sql
   ├─ car_tables.sql
   ├─ life_tables.sql
-  └─ places_travel_expand.sql
+  ├─ places_travel_expand.sql
+  ├─ movies_opinion.sql
+  ├─ vehicle_kind.sql
+  └─ fuel_log_transaction.sql
 
 /src
   ├─ api/                   # I/O Supabase por domínio
@@ -106,7 +109,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 | `/finance/budget` | Orçamento |
 | `/finance/dimensions` | Dimensões |
 | `/movies` | Filmes |
-| `/car` | Carro |
+| `/car` | Veículos (carro / moto) |
 | `/login` | Login (Google OAuth) |
 
 ---
@@ -121,8 +124,11 @@ Execute **um por vez** no **SQL Editor** do Supabase, nesta ordem:
 | `car_tables.sql` | Veículo, manutenções, abastecimentos e documentos |
 | `life_tables.sql` | Metas, hábitos, casa e viagens (básico) |
 | `places_travel_expand.sql` | Lugares, gastos, roteiro e prazos de viagem |
+| `movies_opinion.sql` | Colunas de opinião em `movie` (`notes`, `would_recommend`) |
+| `vehicle_kind.sql` | Coluna `kind` em `vehicle` (carro / moto) |
+| `fuel_log_transaction.sql` | Coluna `transaction_id` em `vehicle_fuel_log` |
 
-> O schema financeiro e de filmes já deve existir no seu projeto Supabase. Os scripts acima criam os módulos novos.
+> O schema financeiro e de filmes já deve existir no seu projeto Supabase. Os scripts acima criam os módulos novos / expansões.
 
 ---
 

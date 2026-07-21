@@ -61,11 +61,11 @@ const data = {
       icon: Target,
       isActive: true,
       items: [
-        { title: "Filmes", url: "/movies" },
+        { title: "Cinema", url: "/movies" },
         { title: "Hábitos", url: "/habits" },
         { title: "Lugares", url: "/places" },
         { title: "Metas", url: "/goals" },
-        { title: "Meu Carro", url: "/car" },
+        { title: "Veículos", url: "/car" },
         { title: "Viagens", url: "/travel" },
       ],
     },

@@ -1,32 +1,39 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { deleteMovie, fetchMovies } from "@/api/movies";
-import { Movie } from "@/types/movies";
+import { Movie, MovieTypeFilter } from "@/types/movies";
 import { MovieCard } from "./components/MovieCard";
 import { MovieSearchModal } from "./components/MovieSearchModal";
 import { MovieEditModal } from "./components/MovieEditModal";
+import { MovieDetailDialog } from "./components/MovieDetailDialog";
+import { MovieShareDialog } from "./components/MovieShareDialog";
+import { MovieImportDialog } from "./components/MovieImportDialog";
 import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { getErrorMessage } from "@/lib/errors";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { filterMoviesByType } from "@/domain/movies";
 
 export default function Movies() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<"to_watch" | "watched">("to_watch");
+  const [typeFilter, setTypeFilter] = useState<MovieTypeFilter>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(36);
   const [totalPages, setTotalPages] = useState(0);
 
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -34,10 +41,14 @@ export default function Movies() {
     const { data, total } = await fetchMovies(filter, page, pageSize);
     setMovies(data);
     setTotalPages(Math.ceil(total / pageSize));
+    setSelectedMovie((current) => {
+      if (!current) return current;
+      return data.find((m) => m.imdb_id === current.imdb_id) ?? current;
+    });
   }, [filter, page, pageSize]);
 
   useEffect(() => {
-    loadMovies();
+    void loadMovies();
   }, [loadMovies]);
 
   async function handleDeleteMovie(imdbId: string) {
@@ -46,7 +57,7 @@ export default function Movies() {
 
       toast({
         title: "Sucesso",
-        description: "Filme excluído com sucesso!",
+        description: "Título excluído com sucesso!",
         duration: 2000,
       });
 
@@ -54,55 +65,90 @@ export default function Movies() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error, "Falha ao excluir filme."),
+        description: getErrorMessage(error, "Falha ao excluir."),
         variant: "destructive",
         duration: 2000,
       });
     }
   }
 
-  const filteredMovies = movies.filter((movie) =>
-    movie.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMovies = useMemo(() => {
+    const byType = filterMoviesByType(movies, typeFilter);
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return byType;
+    return byType.filter((movie) => {
+      const haystack = [
+        movie.title,
+        movie.notes,
+        movie.director,
+        ...(movie.genre ?? []),
+        ...(movie.actors ?? []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [movies, searchTerm, typeFilter]);
+
+  function openDetail(movie: Movie) {
+    setSelectedMovie(movie);
+    setIsDetailOpen(true);
+  }
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 overflow-x-hidden">
+    <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Filmes</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Cinema</h1>
           <p className="text-sm text-muted-foreground">
-            Organize seus filmes para assistir e os que já foram assistidos.
+            Watchlist, opiniões e histórico.
           </p>
         </div>
 
         <div className={PAGE_HEADER_ACTIONS_CLASS}>
+          <MovieImportDialog onImported={loadMovies} />
           <MovieSearchModal onMovieAdded={loadMovies} />
         </div>
       </section>
 
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar filmes..."
-            className="pl-9"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Buscar título, gênero, elenco, opinião..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <Tabs
+            value={filter}
+            onValueChange={(val) => {
+              setFilter(val as "to_watch" | "watched");
+              setPage(1);
+            }}
+            className="w-full sm:w-auto"
+          >
+            <TabsList className="grid w-full grid-cols-2 sm:w-auto">
+              <TabsTrigger value="to_watch">Para Assistir</TabsTrigger>
+              <TabsTrigger value="watched">Assistidos</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         <Tabs
-          value={filter}
-          onValueChange={(val) => {
-            setFilter(val as "to_watch" | "watched");
-            setPage(1);
-          }}
+          value={typeFilter}
+          onValueChange={(val) => setTypeFilter(val as MovieTypeFilter)}
           className="w-full sm:w-auto"
         >
-          <TabsList className="grid w-full grid-cols-2 sm:w-auto">
-            <TabsTrigger value="to_watch">Para Assistir</TabsTrigger>
-            <TabsTrigger value="watched">Assistidos</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 sm:w-auto">
+            <TabsTrigger value="all">Todos</TabsTrigger>
+            <TabsTrigger value="movie">Filmes</TabsTrigger>
+            <TabsTrigger value="series">Séries</TabsTrigger>
           </TabsList>
         </Tabs>
       </section>
@@ -114,33 +160,47 @@ export default function Movies() {
               <MovieCard
                 key={movie.imdb_id}
                 movie={movie}
-                onClick={() => {
-                  setSelectedMovie(movie);
-                  setIsEditModalOpen(true);
-                }}
+                onClick={() => openDetail(movie)}
                 onDelete={handleDeleteMovie}
               />
             ))}
           </div>
         ) : (
           <EmptyState
-            title="Nenhum filme encontrado"
+            title="Nenhum título encontrado"
             description={
               searchTerm
                 ? "Tente outro termo de busca."
-                : "Adicione filmes usando o botão de busca."
+                : "Adicione títulos ou importe do Letterboxd / TV Time."
             }
           />
         )}
       </section>
 
       {selectedMovie && (
-        <MovieEditModal
-          movie={selectedMovie}
-          open={isEditModalOpen}
-          onOpenChange={setIsEditModalOpen}
-          onMovieUpdated={loadMovies}
-        />
+        <>
+          <MovieDetailDialog
+            movie={selectedMovie}
+            open={isDetailOpen}
+            onOpenChange={setIsDetailOpen}
+            onEdit={() => setIsEditOpen(true)}
+            onShare={() => setIsShareOpen(true)}
+            onDelete={() => void handleDeleteMovie(selectedMovie.imdb_id)}
+          />
+          <MovieEditModal
+            movie={selectedMovie}
+            open={isEditOpen}
+            onOpenChange={setIsEditOpen}
+            onMovieUpdated={async () => {
+              await loadMovies();
+            }}
+          />
+          <MovieShareDialog
+            movie={selectedMovie}
+            open={isShareOpen}
+            onOpenChange={setIsShareOpen}
+          />
+        </>
       )}
 
       <Pagination

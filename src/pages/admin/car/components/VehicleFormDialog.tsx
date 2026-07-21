@@ -21,13 +21,24 @@ import {
   FORM_DIALOG_CONTENT_CLASS,
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
-import type { FuelType, Vehicle, VehicleCreateRequest } from "@/types/car";
-import { FUEL_TYPE_LABELS } from "@/domain/car";
+import type {
+  FuelType,
+  Vehicle,
+  VehicleCreateRequest,
+  VehicleKind,
+} from "@/types/car";
+import {
+  FUEL_TYPE_LABELS,
+  VEHICLE_KIND_LABELS,
+  getFuelTypesForKind,
+  normalizeVehicleKind,
+} from "@/domain/car";
 import { createVehicle, updateVehicle } from "@/api/car";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 
 const emptyVehicle = (): VehicleCreateRequest => ({
+  kind: "car",
   brand: "",
   model: "",
   year: null,
@@ -39,6 +50,22 @@ const emptyVehicle = (): VehicleCreateRequest => ({
   purchase_value: null,
   notes: "",
 });
+
+function toForm(vehicle: Vehicle): VehicleCreateRequest {
+  return {
+    kind: normalizeVehicleKind(vehicle.kind),
+    brand: vehicle.brand,
+    model: vehicle.model,
+    year: vehicle.year,
+    plate: vehicle.plate,
+    color: vehicle.color,
+    current_km: vehicle.current_km,
+    fuel_type: vehicle.fuel_type,
+    purchase_date: vehicle.purchase_date,
+    purchase_value: vehicle.purchase_value,
+    notes: vehicle.notes,
+  };
+}
 
 interface VehicleFormDialogProps {
   vehicle?: Vehicle | null;
@@ -60,20 +87,7 @@ export function VehicleFormDialog({
   const setOpen = onOpenChange ?? setInternalOpen;
 
   const [form, setForm] = useState<VehicleCreateRequest>(
-    vehicle
-      ? {
-          brand: vehicle.brand,
-          model: vehicle.model,
-          year: vehicle.year,
-          plate: vehicle.plate,
-          color: vehicle.color,
-          current_km: vehicle.current_km,
-          fuel_type: vehicle.fuel_type,
-          purchase_date: vehicle.purchase_date,
-          purchase_value: vehicle.purchase_value,
-          notes: vehicle.notes,
-        }
-      : emptyVehicle()
+    vehicle ? toForm(vehicle) : emptyVehicle()
   );
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -83,18 +97,10 @@ export function VehicleFormDialog({
   function handleOpenChange(value: boolean) {
     setOpen(value);
     if (value && vehicle) {
-      setForm({
-        brand: vehicle.brand,
-        model: vehicle.model,
-        year: vehicle.year,
-        plate: vehicle.plate,
-        color: vehicle.color,
-        current_km: vehicle.current_km,
-        fuel_type: vehicle.fuel_type,
-        purchase_date: vehicle.purchase_date,
-        purchase_value: vehicle.purchase_value,
-        notes: vehicle.notes,
-      });
+      setForm(toForm(vehicle));
+    }
+    if (value && !vehicle) {
+      setForm(emptyVehicle());
     }
     if (!value) setFormError("");
   }
@@ -108,10 +114,14 @@ export function VehicleFormDialog({
     setLoading(true);
 
     try {
+      const payload = {
+        ...form,
+        kind: normalizeVehicleKind(form.kind),
+      };
       if (isEditing && vehicle) {
-        await updateVehicle({ id: vehicle.id, ...form });
+        await updateVehicle({ id: vehicle.id, ...payload });
       } else {
-        await createVehicle(form);
+        await createVehicle(payload);
       }
 
       toast({
@@ -136,10 +146,12 @@ export function VehicleFormDialog({
     }
   }
 
+  const fuelOptions = getFuelTypesForKind(normalizeVehicleKind(form.kind));
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      {!trigger && !isEditing && (
+      {!trigger && !isEditing && controlledOpen === undefined && (
         <DialogTrigger asChild>
           <Button>Cadastrar veículo</Button>
         </DialogTrigger>
@@ -152,6 +164,35 @@ export function VehicleFormDialog({
         </DialogHeader>
 
         <div className={FORM_FIELDS_CLASS}>
+          <div>
+            <FormLabel required>Tipo</FormLabel>
+            <Select
+              value={normalizeVehicleKind(form.kind)}
+              onValueChange={(v) => {
+                const kind = v as VehicleKind;
+                const allowed = getFuelTypesForKind(kind);
+                setForm({
+                  ...form,
+                  kind,
+                  fuel_type:
+                    form.fuel_type && allowed.includes(form.fuel_type)
+                      ? form.fuel_type
+                      : null,
+                });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(VEHICLE_KIND_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             <FormLabel required>Marca</FormLabel>
             <Input
@@ -225,9 +266,9 @@ export function VehicleFormDialog({
                 <SelectValue placeholder="Selecionar" />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(FUEL_TYPE_LABELS).map(([key, label]) => (
+                {fuelOptions.map((key) => (
                   <SelectItem key={key} value={key}>
-                    {label}
+                    {FUEL_TYPE_LABELS[key]}
                   </SelectItem>
                 ))}
               </SelectContent>

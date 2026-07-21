@@ -13,11 +13,14 @@ import { Movie, MovieCreateRequest, MovieStatus } from "@/types/movies";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
+import { ScoreRating } from "@/components/ScoreRating";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
+import { formatMovieRating, getMovieRatingLabel } from "@/domain/movies";
+import { getErrorMessage } from "@/lib/errors";
 
 interface MovieSearchModalProps {
   onMovieAdded: () => void;
@@ -30,16 +33,17 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
   const [searchResults, setSearchResults] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const [rating, setRating] = useState<number | "">("");
+  const [rating, setRating] = useState<number | null>(null);
+  const [notes, setNotes] = useState("");
+  const [wouldRecommend, setWouldRecommend] = useState(true);
   const [watchedDate, setWatchedDate] = useState<Date>();
   const [formError, setFormError] = useState("");
-
   const [status, setStatus] = useState<"watched" | "to_watch">("to_watch");
   const { toast } = useToast();
 
   async function handleSearch() {
     if (!query.trim()) {
-      setFormError("Digite o IMDb ID ou o título do filme.");
+      setFormError("Digite o IMDb ID ou o título.");
       return;
     }
 
@@ -47,11 +51,11 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
     setLoading(true);
 
     let results: Movie[] = [];
-    if (/^tt\d+$/.test(query)) {
-      const movie = await fetchMovieByImdbId(query);
+    if (/^tt\d+$/.test(query.trim())) {
+      const movie = await fetchMovieByImdbId(query.trim());
       if (movie) results = [movie];
     } else {
-      results = await searchMovies(query);
+      results = await searchMovies(query.trim());
     }
 
     setSearchResults(results);
@@ -66,7 +70,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
       setLoading(false);
       toast({
         title: "Erro",
-        description: "Falha ao buscar detalhes do filme.",
+        description: "Falha ao buscar detalhes do título.",
         variant: "destructive",
         duration: 2000,
       });
@@ -82,7 +86,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
     if (!selectedMovie) return;
 
     if (status === "watched" && !watchedDate) {
-      setFormError("Informe a data em que assistiu o filme.");
+      setFormError("Informe a data em que assistiu.");
       return;
     }
 
@@ -91,7 +95,9 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
     const newMovie: MovieCreateRequest = {
       ...selectedMovie,
       status: status === "watched" ? MovieStatus.WATCHED : MovieStatus.TO_WATCH,
-      rating: status === "watched" ? (rating !== "" ? Number(rating) : null) : null,
+      rating: status === "watched" ? rating : null,
+      notes: status === "watched" ? notes.trim() || null : null,
+      would_recommend: status === "watched" ? wouldRecommend : true,
       watched_dates: status === "watched" && watchedDate ? [watchedDate] : [],
     };
 
@@ -100,7 +106,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
 
       toast({
         title: "Sucesso",
-        description: "Filme adicionado com sucesso!",
+        description: "Adicionado com sucesso!",
         duration: 2000,
       });
 
@@ -110,7 +116,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
     } catch (error) {
       toast({
         title: "Erro",
-        description: `Falha ao adicionar filme: ${error}`,
+        description: getErrorMessage(error, "Falha ao adicionar."),
         variant: "destructive",
         duration: 2000,
       });
@@ -122,7 +128,9 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
     setQuery("");
     setSearchResults([]);
     setSelectedMovie(null);
-    setRating("");
+    setRating(null);
+    setNotes("");
+    setWouldRecommend(true);
     setWatchedDate(undefined);
     setStatus("to_watch");
     setFormError("");
@@ -139,13 +147,13 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
       <DialogTrigger asChild>
         <Button className="w-full gap-2 sm:w-auto">
           <Plus className="h-4 w-4" />
-          Adicionar Filme
+          Adicionar
         </Button>
       </DialogTrigger>
 
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogTitle>
-          {step === "search" ? "Buscar Filme" : "Adicionar Filme"}
+          {step === "search" ? "Buscar título" : "Adicionar à lista"}
         </DialogTitle>
 
         {step === "search" ? (
@@ -153,10 +161,10 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
             <FormLabel required>Busca</FormLabel>
             <Input
               type="text"
-              placeholder="Digite o IMDb ID ou o título..."
+              placeholder="IMDb ID ou título..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
             {formError && <p className="text-sm text-destructive">{formError}</p>}
             <Button onClick={handleSearch} disabled={loading} className="w-full">
@@ -164,11 +172,11 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
             </Button>
 
             {searchResults.length > 0 && (
-              <div className="max-h-[55vh] overflow-y-auto space-y-2 sm:max-h-[300px]">
+              <div className="max-h-[55vh] space-y-2 overflow-y-auto sm:max-h-[300px]">
                 {searchResults.map((movie) => (
                   <div
                     key={movie.imdb_id}
-                    className="flex items-center gap-3 rounded-md p-2 hover:bg-muted/50 cursor-pointer"
+                    className="flex cursor-pointer items-center gap-3 rounded-md p-2 hover:bg-muted/50"
                     onClick={() => handleSelectMovie(movie)}
                   >
                     <img
@@ -181,7 +189,8 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
                         {movie.title} ({movie.year})
                       </p>
                       <p className="truncate text-sm text-muted-foreground">
-                        IMDB ID: {movie.imdb_id}
+                        {movie.type === "series" ? "Série" : "Filme"} ·{" "}
+                        {movie.imdb_id}
                       </p>
                     </div>
                   </div>
@@ -230,24 +239,47 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
 
               {status === "watched" && (
                 <>
-                  <FormLabel optional>Nota</FormLabel>
-                  <Input
-                    type="number"
-                    placeholder="Nota de 0 a 10"
-                    min="0"
-                    max="10"
-                    value={rating}
-                    onChange={(e) =>
-                      setRating(e.target.value ? Number(e.target.value) : "")
-                    }
-                  />
+                  <div>
+                    <FormLabel optional>Nota</FormLabel>
+                    <div className="space-y-2">
+                      <ScoreRating value={rating} onChange={setRating} />
+                      {rating != null && rating > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {formatMovieRating(rating)}/10 —{" "}
+                          {getMovieRatingLabel(rating)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
                   <FormLabel required>Data assistida</FormLabel>
                   <DatePicker date={watchedDate} onSelect={setWatchedDate} />
+
+                  <div>
+                    <FormLabel optional>O que achou?</FormLabel>
+                    <textarea
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      placeholder="Sua opinião..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                    />
+                  </div>
+
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={wouldRecommend}
+                      onChange={(e) => setWouldRecommend(e.target.checked)}
+                      className="rounded"
+                    />
+                    Recomendaria
+                  </label>
                 </>
               )}
 
-              {formError && <p className="text-sm text-destructive">{formError}</p>}
+              {formError && (
+                <p className="text-sm text-destructive">{formError}</p>
+              )}
 
               <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <Button

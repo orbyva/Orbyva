@@ -18,7 +18,7 @@ import { fetchValueByNatureForMonth } from "@/api/finance";
 
 const MODULE_LABELS: Record<string, string> = {
   finance: "Finanças",
-  car: "Carro",
+  car: "Veículos",
   travel: "Viagens",
   goals: "Metas",
   habits: "Hábitos",

@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Car as CarIcon } from "lucide-react";
+import { Car as CarIcon, Plus } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { EmptyState } from "@/components/EmptyState";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
@@ -10,15 +18,18 @@ import { useToast } from "@/hooks/use-toast";
 import { useDimensions } from "@/hooks/useDimensions";
 import { getErrorMessage } from "@/lib/errors";
 import {
+  VEHICLE_KIND_LABELS,
   calculateFuelConsumption,
   getDocumentAlerts,
   getMaintenanceAlerts,
   getMaintenanceSchedule,
+  normalizeVehicleKind,
 } from "@/domain/car";
 import {
   deleteDocument,
   deleteFuelLog,
   deleteMaintenance,
+  deleteVehicle,
   fetchAllFuelLogs,
   fetchAllMaintenances,
   fetchDocuments,
@@ -49,7 +60,8 @@ export default function Car() {
   const { dimensions } = useDimensions();
 
   const [loading, setLoading] = useState(true);
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [allMaintenances, setAllMaintenances] = useState<Maintenance[]>([]);
   const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
@@ -75,10 +87,19 @@ export default function Car() {
   const [documentFormOpen, setDocumentFormOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
-  const loadVehicle = useCallback(async () => {
-    const vehicles = await fetchVehicles();
-    setVehicle(vehicles[0] ?? null);
-    return vehicles[0] ?? null;
+  const vehicle = useMemo(
+    () => vehicles.find((v) => v.id === selectedId) ?? vehicles[0] ?? null,
+    [vehicles, selectedId]
+  );
+
+  const loadVehicles = useCallback(async () => {
+    const list = await fetchVehicles();
+    setVehicles(list);
+    setSelectedId((current) => {
+      if (current && list.some((v) => v.id === current)) return current;
+      return list[0]?.id ?? null;
+    });
+    return list;
   }, []);
 
   const loadMaintenances = useCallback(
@@ -115,50 +136,62 @@ export default function Car() {
   const reloadAll = useCallback(async () => {
     try {
       setLoading(true);
-      const v = await loadVehicle();
-      if (v) {
+      const list = await loadVehicles();
+      const selected = list.find((v) => v.id === selectedId) ?? list[0] ?? null;
+      if (selected) {
         await Promise.all([
-          loadMaintenances(v.id),
-          loadFuelLogs(v.id),
-          loadDocuments(v.id),
+          loadMaintenances(selected.id),
+          loadFuelLogs(selected.id),
+          loadDocuments(selected.id),
         ]);
+      } else {
+        setMaintenances([]);
+        setAllMaintenances([]);
+        setFuelLogs([]);
+        setAllFuelLogs([]);
+        setDocuments([]);
       }
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error, "Falha ao carregar dados do carro."),
+        description: getErrorMessage(
+          error,
+          "Falha ao carregar dados do veículo."
+        ),
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  }, [loadVehicle, loadMaintenances, loadFuelLogs, loadDocuments, toast]);
+  }, [
+    loadVehicles,
+    loadMaintenances,
+    loadFuelLogs,
+    loadDocuments,
+    selectedId,
+    toast,
+  ]);
 
   useEffect(() => {
-    reloadAll();
+    void reloadAll();
   }, [reloadAll]);
 
   useEffect(() => {
-    if (vehicle) loadMaintenances(vehicle.id);
-  }, [vehicle, loadMaintenances]);
-
-  useEffect(() => {
-    if (vehicle) loadFuelLogs(vehicle.id);
-  }, [vehicle, loadFuelLogs]);
+    if (!vehicle) return;
+    void Promise.all([
+      loadMaintenances(vehicle.id),
+      loadFuelLogs(vehicle.id),
+      loadDocuments(vehicle.id),
+    ]);
+  }, [vehicle?.id, loadMaintenances, loadFuelLogs, loadDocuments]);
 
   const schedule = useMemo(
-    () =>
-      vehicle
-        ? getMaintenanceSchedule(vehicle, allMaintenances)
-        : [],
+    () => (vehicle ? getMaintenanceSchedule(vehicle, allMaintenances) : []),
     [vehicle, allMaintenances]
   );
 
   const maintenanceAlerts = useMemo(
-    () =>
-      vehicle
-        ? getMaintenanceAlerts(vehicle, allMaintenances)
-        : [],
+    () => (vehicle ? getMaintenanceAlerts(vehicle, allMaintenances) : []),
     [vehicle, allMaintenances]
   );
 
@@ -172,14 +205,35 @@ export default function Car() {
     [allFuelLogs]
   );
 
+  async function handleDeleteVehicle() {
+    if (!vehicle) return;
+    setDeleteLoading(vehicle.id);
+    try {
+      await deleteVehicle(vehicle.id);
+      toast({ title: "Veículo excluído", duration: 2000 });
+      setSelectedId(null);
+      await reloadAll();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Falha ao excluir veículo."),
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(null);
+    }
+  }
+
   async function handleDeleteMaintenance(id: string) {
     setDeleteLoading(id);
     try {
       await deleteMaintenance(id);
-      toast({ title: "Manutenção excluída", duration: 2000 });
-      if (vehicle) {
-        await loadMaintenances(vehicle.id);
-      }
+      toast({
+        title: "Manutenção excluída",
+        description: "A despesa vinculada em Finanças também foi removida, se havia.",
+        duration: 2500,
+      });
+      if (vehicle) await loadMaintenances(vehicle.id);
     } catch (error) {
       toast({
         title: "Erro",
@@ -195,7 +249,11 @@ export default function Car() {
     setDeleteLoading(id);
     try {
       await deleteFuelLog(id);
-      toast({ title: "Abastecimento excluído", duration: 2000 });
+      toast({
+        title: "Abastecimento excluído",
+        description: "A despesa vinculada em Finanças também foi removida, se havia.",
+        duration: 2500,
+      });
       if (vehicle) await loadFuelLogs(vehicle.id);
     } catch (error) {
       toast({
@@ -225,9 +283,9 @@ export default function Car() {
     }
   }
 
-  if (loading) {
+  if (loading && !vehicle) {
     return (
-      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+      <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
         <TableLoadingSkeleton rows={6} />
       </main>
     );
@@ -235,17 +293,18 @@ export default function Car() {
 
   if (!vehicle) {
     return (
-      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+      <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
         <section className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight">Carro</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Veículos</h1>
           <p className="text-sm text-muted-foreground">
-            Controle manutenções, abastecimentos e documentos do seu veículo.
+            Controle manutenções, abastecimentos e documentos do carro ou da
+            moto.
           </p>
         </section>
         <EmptyState
           icon={CarIcon}
           title="Nenhum veículo cadastrado"
-          description="Cadastre seu carro para começar a registrar manutenções e receber alertas de troca."
+          description="Cadastre um carro ou uma moto para começar a registrar manutenções e receber alertas."
         />
         <div className="mt-6 flex justify-center">
           <VehicleFormDialog onSaved={reloadAll} />
@@ -255,15 +314,24 @@ export default function Car() {
   }
 
   return (
-    <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 overflow-x-hidden">
+    <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Carro</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Veículos</h1>
           <p className="text-sm text-muted-foreground">
-            Controle quando trocar óleo, pneus, freios e outros itens.
+            Manutenções, abastecimentos e documentos do carro ou da moto.
           </p>
         </div>
         <div className={PAGE_HEADER_ACTIONS_CLASS}>
+          <VehicleFormDialog
+            onSaved={reloadAll}
+            trigger={
+              <Button variant="outline" className="w-full gap-2 sm:w-auto">
+                <Plus className="h-4 w-4" />
+                Novo veículo
+              </Button>
+            }
+          />
           <MaintenanceFormDialog
             vehicle={vehicle}
             dimensions={dimensions}
@@ -271,6 +339,32 @@ export default function Car() {
           />
         </div>
       </section>
+
+      {vehicles.length > 1 && (
+        <Select
+          value={vehicle.id}
+          onValueChange={(id) => {
+            setSelectedId(id);
+            setMaintPage(1);
+            setFuelPage(1);
+          }}
+        >
+          <SelectTrigger className="w-full sm:max-w-md">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {vehicles.map((v) => {
+              const kind = normalizeVehicleKind(v.kind);
+              return (
+                <SelectItem key={v.id} value={v.id}>
+                  {VEHICLE_KIND_LABELS[kind]} · {v.brand} {v.model}
+                  {v.plate ? ` (${v.plate})` : ""}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      )}
 
       <CarAlerts
         maintenanceAlerts={maintenanceAlerts}
@@ -281,6 +375,8 @@ export default function Car() {
         vehicle={vehicle}
         onUpdated={reloadAll}
         onEdit={() => setVehicleFormOpen(true)}
+        onDelete={handleDeleteVehicle}
+        deleteLoading={deleteLoading === vehicle.id}
       />
 
       <VehicleFormDialog
@@ -300,7 +396,10 @@ export default function Car() {
 
         <TabsContent value="schedule" className="mt-4 space-y-4">
           <p className="text-sm text-muted-foreground">
-            Status de cada item de manutenção com base no último registro.
+            Status de cada item de manutenção com base no último registro
+            {normalizeVehicleKind(vehicle.kind) === "motorcycle"
+              ? " (itens típicos de moto)."
+              : "."}
           </p>
           <MaintenanceScheduleGrid items={schedule} />
         </TabsContent>
@@ -328,7 +427,7 @@ export default function Car() {
               onSaved={() => {
                 setEditingMaintenance(null);
                 setMaintenanceFormOpen(false);
-                loadMaintenances(vehicle.id);
+                void loadMaintenances(vehicle.id);
               }}
             />
           )}
@@ -345,7 +444,12 @@ export default function Car() {
           <div className="flex justify-end">
             <FuelLogFormDialog
               vehicle={vehicle}
-              onSaved={() => loadFuelLogs(vehicle.id)}
+              existingLogs={allFuelLogs}
+              dimensions={dimensions}
+              onSaved={() => {
+                void loadFuelLogs(vehicle.id);
+                void reloadAll();
+              }}
             />
           </div>
           <FuelLogTable
@@ -362,6 +466,8 @@ export default function Car() {
             <FuelLogFormDialog
               vehicle={vehicle}
               fuelLog={editingFuelLog}
+              existingLogs={allFuelLogs}
+              dimensions={dimensions}
               open={fuelFormOpen}
               onOpenChange={(open) => {
                 setFuelFormOpen(open);
@@ -370,7 +476,8 @@ export default function Car() {
               onSaved={() => {
                 setEditingFuelLog(null);
                 setFuelFormOpen(false);
-                loadFuelLogs(vehicle.id);
+                void loadFuelLogs(vehicle.id);
+                void reloadAll();
               }}
             />
           )}
@@ -387,7 +494,7 @@ export default function Car() {
           <div className="flex justify-end">
             <DocumentFormDialog
               vehicle={vehicle}
-              onSaved={() => loadDocuments(vehicle.id)}
+              onSaved={() => void loadDocuments(vehicle.id)}
             />
           </div>
           <DocumentList
@@ -411,7 +518,7 @@ export default function Car() {
               onSaved={() => {
                 setEditingDocument(null);
                 setDocumentFormOpen(false);
-                loadDocuments(vehicle.id);
+                void loadDocuments(vehicle.id);
               }}
             />
           )}

@@ -192,7 +192,7 @@ export default function LifeDashboard() {
           { label: "Hábitos", href: "/habits" },
           { label: "Lugares", href: "/places" },
           { label: "Metas", href: "/goals" },
-          { label: "Carro", href: "/car" },
+          { label: "Veículos", href: "/car" },
           { label: "Viagens", href: "/travel" },
           { label: "Finanças", href: "/finance/dashboard" },
         ].map((link) => (

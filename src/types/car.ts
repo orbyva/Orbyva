@@ -1,3 +1,5 @@
+export type VehicleKind = "car" | "motorcycle";
+
 export type FuelType =
   | "gasoline"
   | "ethanol"
@@ -18,6 +20,10 @@ export type MaintenanceType =
   | "spark_plugs"
   | "coolant"
   | "transmission_oil"
+  | "chain"
+  | "drive_belt"
+  | "sprockets"
+  | "fork_oil"
   | "general_service"
   | "other";
 
@@ -28,6 +34,7 @@ export type MaintenanceAlertStatus = "ok" | "upcoming" | "overdue" | "none";
 export interface Vehicle {
   id: string;
   user_id?: string;
+  kind: VehicleKind;
   brand: string;
   model: string;
   year?: number | null;
@@ -67,6 +74,7 @@ export interface FuelLog {
   km: number;
   station?: string | null;
   notes?: string | null;
+  transaction_id?: number | null;
   created_at?: string;
 }
 

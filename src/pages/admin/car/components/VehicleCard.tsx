@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { Car, Gauge, Pencil } from "lucide-react";
+import { Bike, Car, Gauge, Pencil, Trash2 } from "lucide-react";
 import type { Vehicle } from "@/types/car";
-import { FUEL_TYPE_LABELS } from "@/domain/car";
+import {
+  FUEL_TYPE_LABELS,
+  VEHICLE_KIND_LABELS,
+  normalizeVehicleKind,
+} from "@/domain/car";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { updateVehicle } from "@/api/car";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -13,9 +18,17 @@ interface VehicleCardProps {
   vehicle: Vehicle;
   onUpdated: () => void;
   onEdit: () => void;
+  onDelete: () => Promise<void>;
+  deleteLoading?: boolean;
 }
 
-export function VehicleCard({ vehicle, onUpdated, onEdit }: VehicleCardProps) {
+export function VehicleCard({
+  vehicle,
+  onUpdated,
+  onEdit,
+  onDelete,
+  deleteLoading = false,
+}: VehicleCardProps) {
   const [editingKm, setEditingKm] = useState(false);
   const [kmValue, setKmValue] = useState(String(vehicle.current_km));
   const [saving, setSaving] = useState(false);
@@ -49,29 +62,31 @@ export function VehicleCard({ vehicle, onUpdated, onEdit }: VehicleCardProps) {
     }
   }
 
+  const kind = normalizeVehicleKind(vehicle.kind);
+  const Icon = kind === "motorcycle" ? Bike : Car;
   const fuelLabel = vehicle.fuel_type
     ? FUEL_TYPE_LABELS[vehicle.fuel_type]
     : null;
+  const label = `${vehicle.brand} ${vehicle.model}`.trim();
 
   return (
     <section className="rounded-xl border bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-car/10 p-2.5">
-            <Car className="h-5 w-5 text-car" />
+            <Icon className="h-5 w-5 text-car" />
           </div>
           <div>
             <h2 className="text-lg font-bold">
-              {vehicle.brand} {vehicle.model}
+              {label}
               {vehicle.year ? ` · ${vehicle.year}` : ""}
             </h2>
             <div className="mt-1 flex flex-wrap gap-2">
+              <Badge variant="outline">{VEHICLE_KIND_LABELS[kind]}</Badge>
               {vehicle.plate && (
                 <Badge variant="secondary">{vehicle.plate}</Badge>
               )}
-              {fuelLabel && (
-                <Badge variant="outline">{fuelLabel}</Badge>
-              )}
+              {fuelLabel && <Badge variant="outline">{fuelLabel}</Badge>}
               {vehicle.color && (
                 <Badge variant="outline">{vehicle.color}</Badge>
               )}
@@ -79,10 +94,28 @@ export function VehicleCard({ vehicle, onUpdated, onEdit }: VehicleCardProps) {
           </div>
         </div>
 
-        <Button variant="outline" size="sm" onClick={onEdit}>
-          <Pencil className="mr-1 h-3.5 w-3.5" />
-          Editar
-        </Button>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          <Button variant="outline" size="sm" onClick={onEdit}>
+            <Pencil className="mr-1 h-3.5 w-3.5" />
+            Editar
+          </Button>
+          <ConfirmDeleteDialog
+            title="Excluir este veículo?"
+            description={`"${label}" e todos os registros de manutenção, abastecimento e documentos vinculados serão removidos.`}
+            onConfirm={onDelete}
+            loading={deleteLoading}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={deleteLoading}
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" />
+              Excluir
+            </Button>
+          </ConfirmDeleteDialog>
+        </div>
       </div>
 
       <div className="mt-4 flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">

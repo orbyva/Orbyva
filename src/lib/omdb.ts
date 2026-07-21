@@ -57,14 +57,16 @@ export async function searchMovies(query: string): Promise<Movie[]> {
       title: result.Title,
       year: parseInt(result.Year, 10),
       poster: result.Poster !== "N/A" ? result.Poster : null,
-      genre: [], // Search API does not return genre
-      director: null, // Search API does not return director
-      actors: [], // Search API does not return actors
-      plot: null, // Search API does not return plot
+      genre: [],
+      director: null,
+      actors: [],
+      plot: null,
       type: result.Type as "movie" | "series",
-      rating: null, // Search API does not return IMDb rating
-      score_imdb: null, // Search API does not return IMDb rating
+      rating: null,
+      score_imdb: null,
       watched_dates: [],
+      notes: null,
+      would_recommend: true,
       status: MovieStatus.TO_WATCH,
     }));
   } catch (error) {
@@ -95,5 +97,32 @@ function formatMovie(movie: OmdbMovieResponse): Movie {
       : null,
     status: MovieStatus.TO_WATCH,
     watched_dates: [],
+    notes: null,
+    would_recommend: true,
   };
+}
+
+/** Pick best OMDb search hit for a title (+ optional year). */
+export async function findMovieByTitleYear(
+  title: string,
+  year?: number | null
+): Promise<Movie | null> {
+  const results = await searchMovies(title);
+  if (!results.length) return null;
+
+  const normalized = title.trim().toLowerCase();
+  const exact = results.find(
+    (r) =>
+      r.title.toLowerCase() === normalized &&
+      (year == null || r.year === year)
+  );
+  if (exact) {
+    return (await fetchMovieByImdbId(exact.imdb_id)) ?? exact;
+  }
+
+  const yearMatch = year
+    ? results.find((r) => r.year === year)
+    : undefined;
+  const pick = yearMatch ?? results[0];
+  return (await fetchMovieByImdbId(pick.imdb_id)) ?? pick;
 }

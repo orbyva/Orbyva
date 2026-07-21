@@ -4,11 +4,13 @@ import {
   getMaintenanceSchedule,
   getDocumentAlerts,
   calculateFuelConsumption,
+  estimateConsumptionFromPrevious,
 } from "@/domain/car";
 import type { Maintenance, Vehicle, VehicleDocument } from "@/types/car";
 
 const vehicle: Vehicle = {
   id: "v1",
+  kind: "car",
   brand: "Toyota",
   model: "Corolla",
   current_km: 45_000,
@@ -49,6 +51,13 @@ describe("getMaintenanceSchedule", () => {
     const tires = schedule.find((s) => s.type === "tires");
     expect(tires?.status).toBe("none");
   });
+
+  it("uses motorcycle schedule items for motos", () => {
+    const moto: Vehicle = { ...vehicle, kind: "motorcycle" };
+    const schedule = getMaintenanceSchedule(moto, []);
+    expect(schedule.some((s) => s.type === "chain")).toBe(true);
+    expect(schedule.some((s) => s.type === "timing_belt")).toBe(false);
+  });
 });
 
 describe("getMaintenanceAlerts", () => {
@@ -88,5 +97,18 @@ describe("calculateFuelConsumption", () => {
     expect(
       calculateFuelConsumption([{ date: "2025-01-01", km: 10_000, liters: 40 }])
     ).toBeNull();
+  });
+});
+
+describe("estimateConsumptionFromPrevious", () => {
+  it("estimates km/l from previous odometer", () => {
+    expect(estimateConsumptionFromPrevious(10_000, 10_450, 40)).toBeCloseTo(
+      11.25,
+      2
+    );
+  });
+
+  it("returns null when km did not increase", () => {
+    expect(estimateConsumptionFromPrevious(10_000, 9_900, 40)).toBeNull();
   });
 });

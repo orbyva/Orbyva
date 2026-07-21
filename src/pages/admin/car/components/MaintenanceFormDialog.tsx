@@ -29,11 +29,14 @@ import type {
   Vehicle,
 } from "@/types/car";
 import {
-  MAINTENANCE_DEFAULT_KM_INTERVAL,
+  getMaintenanceDefaultKmInterval,
+  getMaintenanceTypesForKind,
   MAINTENANCE_TYPE_LABELS,
   getMaintenanceTypeLabel,
+  normalizeVehicleKind,
 } from "@/domain/car";
 import { createMaintenance, updateMaintenance } from "@/api/car";
+import { ExpenseCategoryPicker } from "./ExpenseCategoryPicker";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -81,7 +84,6 @@ export function MaintenanceFormDialog({
       : emptyMaintenance(vehicle.id)
   );
   const [registerExpense, setRegisterExpense] = useState(false);
-  const [selectedNature, setSelectedNature] = useState<number | null>(null);
   const [selectedType, setSelectedType] = useState<number | null>(null);
   const [classId, setClassId] = useState(0);
   const [formError, setFormError] = useState("");
@@ -97,17 +99,15 @@ export function MaintenanceFormDialog({
         ...emptyMaintenance(vehicle.id),
         km_at_service: vehicle.current_km,
       });
+      setRegisterExpense(false);
+      setSelectedType(null);
+      setClassId(0);
     }
   }, [open, maintenance, vehicle.id, vehicle.current_km]);
 
-  const expenseNatures = dimensions.filter((n) => n.name === "Despesa");
-  const selectedNatureObj = expenseNatures.find((n) => n.id === selectedNature);
-  const types = selectedNatureObj?.types ?? [];
-  const selectedTypeObj = types.find((t) => t.id === selectedType);
-  const classes = selectedTypeObj?.classes ?? [];
-
   function suggestNextKm(type: MaintenanceType, kmAtService: number) {
-    const interval = MAINTENANCE_DEFAULT_KM_INTERVAL[type];
+    const kind = normalizeVehicleKind(vehicle.kind);
+    const interval = getMaintenanceDefaultKmInterval(kind)[type];
     if (!interval) return null;
     return kmAtService + interval;
   }
@@ -149,7 +149,22 @@ export function MaintenanceFormDialog({
 
     try {
       if (isEditing && maintenance) {
-        await updateMaintenance({ id: maintenance.id, ...form });
+        const label = getMaintenanceTypeLabel(form.type, form.custom_type);
+        await updateMaintenance(
+          { id: maintenance.id, ...form },
+          {
+            syncTransaction:
+              maintenance.transaction_id && form.cost != null && form.cost > 0
+                ? {
+                    value: form.cost,
+                    description: `Manutenção: ${label}`,
+                    transaction_at: new Date(
+                      `${form.service_date}T12:00:00`
+                    ).toISOString(),
+                  }
+                : null,
+          }
+        );
       } else {
         const label = getMaintenanceTypeLabel(form.type, form.custom_type);
         const transaction =
@@ -170,14 +185,17 @@ export function MaintenanceFormDialog({
       toast({
         title: "Sucesso",
         description: isEditing
-          ? "Manutenção atualizada!"
-          : "Manutenção registrada!",
+          ? maintenance?.transaction_id
+            ? "Manutenção e despesa atualizadas!"
+            : "Manutenção atualizada!"
+          : registerExpense
+            ? "Manutenção e despesa registradas!"
+            : "Manutenção registrada!",
         duration: 2000,
       });
 
       setOpen(false);
       setRegisterExpense(false);
-      setSelectedNature(null);
       setSelectedType(null);
       setClassId(0);
       onSaved();
@@ -217,9 +235,11 @@ export function MaintenanceFormDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(MAINTENANCE_TYPE_LABELS).map(([key, label]) => (
+                {getMaintenanceTypesForKind(
+                  normalizeVehicleKind(vehicle.kind)
+                ).map((key) => (
                   <SelectItem key={key} value={key}>
-                    {label}
+                    {MAINTENANCE_TYPE_LABELS[key]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -348,73 +368,13 @@ export function MaintenanceFormDialog({
               </label>
 
               {registerExpense && (
-                <div className="space-y-3">
-                  <div>
-                    <FormLabel required>Natureza</FormLabel>
-                    <Select
-                      value={selectedNature ? String(selectedNature) : ""}
-                      onValueChange={(v) => {
-                        setSelectedNature(Number(v));
-                        setSelectedType(null);
-                        setClassId(0);
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Despesa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {expenseNatures.map((n) => (
-                          <SelectItem key={n.id} value={String(n.id)}>
-                            {n.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {selectedNature && (
-                    <div>
-                      <FormLabel required>Tipo</FormLabel>
-                      <Select
-                        value={selectedType ? String(selectedType) : ""}
-                        onValueChange={(v) => {
-                          setSelectedType(Number(v));
-                          setClassId(0);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {types.map((t) => (
-                            <SelectItem key={t.id} value={String(t.id)}>
-                              {t.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  {selectedType && (
-                    <div>
-                      <FormLabel required>Categoria</FormLabel>
-                      <Select
-                        value={classId ? String(classId) : ""}
-                        onValueChange={(v) => setClassId(Number(v))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {classes.map((c) => (
-                            <SelectItem key={c.id} value={String(c.id)}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
+                <ExpenseCategoryPicker
+                  dimensions={dimensions}
+                  selectedType={selectedType}
+                  classId={classId}
+                  onTypeChange={setSelectedType}
+                  onClassChange={setClassId}
+                />
               )}
             </div>
           )}

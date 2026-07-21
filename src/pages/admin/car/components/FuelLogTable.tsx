@@ -52,7 +52,7 @@ export function FuelLogTable({
     <div className="space-y-3">
       {avgConsumption != null && (
         <p className="text-sm text-muted-foreground">
-          Consumo médio (último abastecimento):{" "}
+          Consumo (último trecho, pela quilometragem registrada):{" "}
           <span className="font-semibold text-foreground">
             {avgConsumption.toFixed(1)} km/l
           </span>
