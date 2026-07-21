@@ -271,7 +271,7 @@ export function PlaceDetailDialog({
 
                 <div className="space-y-3 rounded-lg border p-3">
                   <p className="text-sm font-medium">Sua opinião</p>
-                  <StarRating value={myRating} onChange={setMyRating} />
+                  <StarRating value={myRating ?? 0} onChange={setMyRating} />
                   <textarea
                     value={myNotes}
                     onChange={(e) => setMyNotes(e.target.value)}
