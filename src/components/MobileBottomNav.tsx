@@ -93,7 +93,7 @@ export function MobileBottomNav() {
             >
               <Plus className="h-5 w-5" />
             </span>
-            Nova
+            Nova Transação
           </Link>
 
           <button
