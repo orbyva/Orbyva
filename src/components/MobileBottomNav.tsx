@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Bell, Flame, Home, Plus } from "lucide-react";
+import { Bell, Home, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -18,6 +18,10 @@ function severityDot(severity: AppAlert["severity"]) {
   return "bg-muted-foreground";
 }
 
+/**
+ * Barra mobile: Início · Nova tx · Alertas.
+ * Hábitos ficam no hub — aqui só o atalho diário de ledger + atenção.
+ */
 export function MobileBottomNav() {
   const location = useLocation();
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -50,7 +54,6 @@ export function MobileBottomNav() {
 
   const isHome =
     location.pathname === "/home" || location.pathname === "/";
-  const isHabits = location.pathname.startsWith("/habits");
   const isTx = location.pathname.startsWith("/finance/transactions");
 
   return (
@@ -58,13 +61,17 @@ export function MobileBottomNav() {
       <nav
         aria-label="Atalhos do dia"
         className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        style={{
+          // Safari iOS: safe-area + folga extra (barra do browser sobrescreve o inset às vezes)
+          paddingBottom:
+            "max(12px, env(safe-area-inset-bottom, 0px))",
+        }}
       >
-        <div className="mx-auto grid h-14 max-w-lg grid-cols-4 items-end px-1">
+        <div className="mx-auto grid h-14 max-w-lg grid-cols-3 items-center px-2">
           <Link
             to="/home"
             className={cn(
-              "flex flex-col items-center justify-center gap-0.5 pb-2 pt-1.5 text-[10px] font-medium",
+              "flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium",
               isHome ? "text-primary" : "text-muted-foreground"
             )}
           >
@@ -73,25 +80,15 @@ export function MobileBottomNav() {
           </Link>
 
           <Link
-            to="/habits"
-            className={cn(
-              "flex flex-col items-center justify-center gap-0.5 pb-2 pt-1.5 text-[10px] font-medium",
-              isHabits ? "text-primary" : "text-muted-foreground"
-            )}
-          >
-            <Flame className="h-5 w-5" />
-            Hábitos
-          </Link>
-
-          <Link
             to="/finance/transactions?new=1"
-            className="flex flex-col items-center justify-center gap-0.5 pb-1.5 text-[10px] font-medium text-muted-foreground"
+            className="flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium text-muted-foreground"
             aria-label="Nova transação"
           >
             <span
               className={cn(
-                "mb-0.5 flex h-11 w-11 -translate-y-3 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md",
-                isTx && "ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
+                "flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground",
+                isTx &&
+                  "ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
               )}
             >
               <Plus className="h-5 w-5" />
@@ -102,7 +99,7 @@ export function MobileBottomNav() {
           <button
             type="button"
             onClick={() => setAlertsOpen(true)}
-            className="relative flex flex-col items-center justify-center gap-0.5 pb-2 pt-1.5 text-[10px] font-medium text-muted-foreground"
+            className="relative flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium text-muted-foreground"
           >
             <span className="relative">
               <Bell className="h-5 w-5" />
@@ -118,11 +115,17 @@ export function MobileBottomNav() {
       </nav>
 
       <Sheet open={alertsOpen} onOpenChange={setAlertsOpen}>
-        <SheetContent side="bottom" className="max-h-[75vh] rounded-t-2xl md:hidden">
+        <SheetContent
+          side="bottom"
+          className="max-h-[75vh] rounded-t-2xl md:hidden"
+          style={{
+            paddingBottom: "max(24px, env(safe-area-inset-bottom, 0px))",
+          }}
+        >
           <SheetHeader>
             <SheetTitle>Alertas</SheetTitle>
           </SheetHeader>
-          <div className="mt-4 space-y-2 overflow-y-auto pb-6">
+          <div className="mt-4 space-y-2 overflow-y-auto pb-2">
             {loadingAlerts ? (
               <p className="text-sm text-muted-foreground">Carregando...</p>
             ) : visibleAlerts.length === 0 ? (
