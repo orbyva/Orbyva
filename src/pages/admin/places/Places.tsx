@@ -256,6 +256,7 @@ export default function Places() {
           setDetailOpen(open);
           if (!open) setSelected(null);
         }}
+        isSharedTrip={(selected?.opinionSummary?.totalOpinions ?? 0) > 1}
         onEdit={() => {
           if (!selected) return;
           setEditing(selected);

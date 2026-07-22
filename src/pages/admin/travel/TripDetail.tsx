@@ -1483,6 +1483,7 @@ export default function TripDetail() {
         open={placeDetailOpen}
         onOpenChange={setPlaceDetailOpen}
         onOpinionSaved={load}
+        isSharedTrip={Boolean(trip.isShared)}
         onEdit={() => {
           if (!selectedPlace) return;
           setEditingPlace(selectedPlace);

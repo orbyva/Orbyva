@@ -337,19 +337,35 @@ export function ShareImageDialog({
                     ) : null}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                     {photos.map((p) => {
                       const isBackdrop = p.id === backdropId;
                       return (
                         <div
                           key={p.id}
-                          className={`relative overflow-hidden rounded-lg border bg-muted ${
+                          className={`relative overflow-hidden rounded-md border bg-muted sm:rounded-lg ${
                             isBackdrop
-                              ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                              ? "ring-2 ring-primary ring-offset-1 ring-offset-background sm:ring-offset-2"
                               : ""
                           }`}
                         >
-                          <div className="relative aspect-square">
+                          <div
+                            className="relative aspect-square max-h-16 w-full cursor-pointer sm:max-h-none"
+                            onClick={() => setBackdropId(p.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setBackdropId(p.id);
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            title={
+                              isBackdrop
+                                ? "Foto de fundo"
+                                : "Usar como fundo"
+                            }
+                          >
                             <img
                               src={p.previewUrl}
                               alt={p.name}
@@ -357,21 +373,21 @@ export function ShareImageDialog({
                             />
                             <button
                               type="button"
-                              className="absolute right-1 top-1 rounded-full bg-background/90 p-0.5 shadow"
+                              className="absolute right-0.5 top-0.5 rounded-full bg-background/90 p-0.5 shadow sm:right-1 sm:top-1"
                               onClick={() => removePhoto(p.id)}
                               title={`Remover ${p.name}`}
                             >
-                              <X className="h-3 w-3" />
+                              <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             </button>
                             {isBackdrop ? (
-                              <span className="absolute bottom-1 left-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                              <span className="absolute bottom-0.5 left-0.5 rounded bg-primary px-1 py-0.5 text-[8px] font-semibold text-primary-foreground sm:bottom-1 sm:left-1 sm:px-1.5 sm:text-[10px]">
                                 Fundo
                               </span>
                             ) : null}
                           </div>
                           <button
                             type="button"
-                            className={`w-full px-1.5 py-1.5 text-[10px] font-medium leading-tight transition-colors ${
+                            className={`hidden w-full px-1.5 py-1.5 text-[10px] font-medium leading-tight transition-colors sm:block ${
                               isBackdrop
                                 ? "bg-primary/15 text-primary"
                                 : "bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -389,11 +405,11 @@ export function ShareImageDialog({
                     {canAddMore ? (
                       <button
                         type="button"
-                        className="flex aspect-square flex-col items-center justify-center gap-1 self-start rounded-lg border border-dashed text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                        className="flex aspect-square max-h-16 w-full flex-col items-center justify-center gap-0.5 self-start rounded-md border border-dashed text-muted-foreground transition-colors hover:border-primary hover:text-primary sm:max-h-none sm:rounded-lg sm:gap-1"
                         onClick={openFilePicker}
                       >
-                        <ImagePlus className="h-5 w-5" />
-                        <span className="text-[10px] font-medium">
+                        <ImagePlus className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="text-[9px] font-medium sm:text-[10px]">
                           {photos.length === 0 ? "Fotos" : "Mais"}
                         </span>
                       </button>
@@ -477,7 +493,7 @@ export function ShareImageDialog({
             <img
               src={previewUrl}
               alt="Preview do card"
-              className="max-h-[50vh] w-auto rounded-lg border object-contain"
+              className="max-h-[28vh] w-auto rounded-lg border object-contain sm:max-h-[50vh]"
             />
           ) : (
             <p className="text-sm text-muted-foreground">

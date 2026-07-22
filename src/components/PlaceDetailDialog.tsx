@@ -35,6 +35,8 @@ interface PlaceDetailDialogProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onOpinionSaved?: () => void;
+  /** Viagem compartilhada — mostra médias/opiniões do grupo. */
+  isSharedTrip?: boolean;
 }
 
 function DetailRow({
@@ -59,6 +61,7 @@ export function PlaceDetailDialog({
   onEdit,
   onDelete,
   onOpinionSaved,
+  isSharedTrip,
 }: PlaceDetailDialogProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const [opinions, setOpinions] = useState<TripPlaceOpinion[]>([]);
@@ -124,8 +127,14 @@ export function PlaceDetailDialog({
   if (!place) return null;
 
   const ratedOpinions = opinions.filter((o) => o.rating != null && o.rating > 0);
+  const uniqueAuthors = new Set(opinions.map((o) => o.user_id).filter(Boolean));
+  const showGroupOpinions =
+    isSharedTrip === true ||
+    (isSharedTrip !== false &&
+      (uniqueAuthors.size > 1 ||
+        (place.opinionSummary?.totalOpinions ?? 0) > 1));
   const groupAvg =
-    ratedOpinions.length > 0
+    showGroupOpinions && ratedOpinions.length > 0
       ? ratedOpinions.reduce((s, o) => s + (o.rating ?? 0), 0) /
         ratedOpinions.length
       : null;
@@ -178,7 +187,7 @@ export function PlaceDetailDialog({
           </DialogHeader>
 
           <div className="space-y-4">
-            {groupAvg != null ? (
+            {showGroupOpinions && groupAvg != null ? (
               <DetailRow label="Média do grupo">
                 <div className="flex items-center gap-2">
                   <StarRating value={Math.round(groupAvg * 2) / 2} readonly />
@@ -228,7 +237,7 @@ export function PlaceDetailDialog({
               <DetailRow label="Contexto">Passeio local</DetailRow>
             )}
 
-            {isTripPlace ? (
+            {isTripPlace && showGroupOpinions ? (
               <>
                 <DetailRow label="Opiniões do grupo">
                   <ul className="space-y-2">
@@ -297,6 +306,34 @@ export function PlaceDetailDialog({
                   </Button>
                 </div>
               </>
+            ) : isTripPlace ? (
+              <div className="space-y-3 rounded-lg border p-3">
+                <p className="text-sm font-medium">Sua avaliação</p>
+                <StarRating value={myRating ?? 0} onChange={setMyRating} />
+                <textarea
+                  value={myNotes}
+                  onChange={(e) => setMyNotes(e.target.value)}
+                  placeholder="O que achou?"
+                  rows={3}
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={myRecommend}
+                    onChange={(e) => setMyRecommend(e.target.checked)}
+                    className="rounded"
+                  />
+                  Recomendaria
+                </label>
+                <Button
+                  size="sm"
+                  disabled={savingOpinion}
+                  onClick={() => void handleSaveOpinion()}
+                >
+                  {savingOpinion ? "Salvando…" : "Salvar avaliação"}
+                </Button>
+              </div>
             ) : (
               <>
                 {place.notes && (
