@@ -166,7 +166,7 @@ export function RecurringFormDialog({
     >
       {!isEditing && (
         <DialogTrigger asChild>
-          <Button>Adicionar Recorrência</Button>
+          <Button className="w-full sm:w-auto">Adicionar Recorrência</Button>
         </DialogTrigger>
       )}
       <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-4 sm:max-w-xl sm:p-6">

@@ -192,7 +192,9 @@ export function FuelLogFormDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       {!isEditing && (
         <DialogTrigger asChild>
-          <Button variant="outline">Registrar abastecimento</Button>
+          <Button variant="outline" className="w-full sm:w-auto">
+            Registrar abastecimento
+          </Button>
         </DialogTrigger>
       )}
       <DialogContent

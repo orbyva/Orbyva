@@ -116,7 +116,7 @@ export function TransactionFormDialog({
     >
       {!isEditing && (
         <DialogTrigger asChild>
-          <Button>Adicionar Transação</Button>
+          <Button className="w-full sm:w-auto">Adicionar Transação</Button>
         </DialogTrigger>
       )}
       <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-4 sm:max-w-xl sm:p-6">

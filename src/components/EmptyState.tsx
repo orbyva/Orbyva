@@ -35,7 +35,11 @@ export function EmptyState({
           {description}
         </p>
       )}
-      {action ? <div className="mt-4">{action}</div> : null}
+      {action ? (
+        <div className="mt-4 flex w-full max-w-sm flex-col [&_button]:w-full sm:[&_button]:w-auto">
+          {action}
+        </div>
+      ) : null}
     </div>
   );
 }

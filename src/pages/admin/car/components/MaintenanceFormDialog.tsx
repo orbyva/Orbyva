@@ -214,7 +214,7 @@ export function MaintenanceFormDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       {!isEditing && (
         <DialogTrigger asChild>
-          <Button>Registrar manutenção</Button>
+          <Button className="w-full sm:w-auto">Registrar manutenção</Button>
         </DialogTrigger>
       )}
       <DialogContent className={`${FORM_DIALOG_CONTENT_CLASS} max-h-[90vh] overflow-y-auto`}>

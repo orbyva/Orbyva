@@ -120,7 +120,7 @@ export function PlaceFormDialog({
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
       {!trigger && !isEditing && !isControlled ? (
         <DialogTrigger asChild>
-          <Button>Avaliar lugar</Button>
+          <Button className="w-full sm:w-auto">Avaliar lugar</Button>
         </DialogTrigger>
       ) : null}
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>

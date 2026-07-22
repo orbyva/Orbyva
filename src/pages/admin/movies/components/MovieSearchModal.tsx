@@ -258,7 +258,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
                   <div>
                     <FormLabel optional>O que achou?</FormLabel>
                     <textarea
-                      className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       placeholder="Sua opinião..."
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}

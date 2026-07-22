@@ -277,7 +277,7 @@ export function PlaceDetailDialog({
                     onChange={(e) => setMyNotes(e.target.value)}
                     placeholder="O que achou?"
                     rows={3}
-                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   <label className="flex items-center gap-2 text-sm">
                     <input

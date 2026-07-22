@@ -434,7 +434,7 @@ export default function Car() {
         </TabsContent>
 
         <TabsContent value="fuel" className="mt-4 space-y-4">
-          <div className="flex justify-end">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
             <FuelLogFormDialog
               vehicle={vehicle}
               existingLogs={allFuelLogs}
@@ -484,7 +484,7 @@ export default function Car() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-4 space-y-4">
-          <div className="flex justify-end">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
             <DocumentFormDialog
               vehicle={vehicle}
               onSaved={() => void loadDocuments(vehicle.id)}

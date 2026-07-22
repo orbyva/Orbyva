@@ -110,7 +110,7 @@ export function GlobalSearch() {
                 value={query}
                 onValueChange={runSearch}
                 placeholder="Metas, hábitos, finanças, cinema..."
-                className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                className="flex h-11 w-full rounded-md bg-transparent py-3 text-base outline-none placeholder:text-muted-foreground"
               />
             </div>
             <Command.List className="max-h-80 overflow-y-auto p-2">

@@ -116,7 +116,9 @@ export function DocumentFormDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       {!isEditing && (
         <DialogTrigger asChild>
-          <Button variant="outline">Adicionar documento</Button>
+          <Button variant="outline" className="w-full sm:w-auto">
+            Adicionar documento
+          </Button>
         </DialogTrigger>
       )}
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>

@@ -777,7 +777,7 @@ export default function TripDetail() {
                   onKeyDown={(e) =>
                     e.key === "Enter" && handleAddActivity(day.id)
                   }
-                  className="h-8 text-sm"
+                  className="h-10"
                 />
                 <Button size="sm" onClick={() => handleAddActivity(day.id)}>
                   <Plus className="h-3.5 w-3.5" />
@@ -789,7 +789,7 @@ export default function TripDetail() {
 
         {/* Expenses */}
         <TabsContent value="expenses" className="mt-4 space-y-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               Total:{" "}
               <span className="font-semibold text-foreground">
@@ -805,7 +805,7 @@ export default function TripDetail() {
                 </>
               )}
             </p>
-            <Button onClick={openExpenseCreate}>
+            <Button onClick={openExpenseCreate} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Adicionar gasto
             </Button>
@@ -895,12 +895,12 @@ export default function TripDetail() {
 
         {/* Places */}
         <TabsContent value="places" className="mt-4 space-y-4">
-          <div className="flex justify-end">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
             <PlaceFormDialog
               tripId={trip.id}
               onSaved={load}
               trigger={
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
                   Avaliar lugar visitado
                 </Button>
@@ -930,8 +930,8 @@ export default function TripDetail() {
 
         {/* Milestones */}
         <TabsContent value="milestones" className="mt-4 space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={openMilestoneCreate}>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button onClick={openMilestoneCreate} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Adicionar prazo
             </Button>

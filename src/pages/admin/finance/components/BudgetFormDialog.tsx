@@ -125,6 +125,7 @@ export function BudgetFormDialog({
       {!isEditing && (
         <DialogTrigger asChild>
           <Button
+            className="w-full sm:w-auto"
             onClick={() => {
               setNewBudget({
                 type_id: null,
