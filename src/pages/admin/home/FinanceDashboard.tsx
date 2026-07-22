@@ -18,15 +18,17 @@
   import { TransactionsTable } from "./components/TransactionsTable";
   import { Transaction, ValueByNatureYearMonth } from "@/types/finance";
   import { KpiCardProps, KpiCardsGrid } from "./components/KpiCard";
-  import { DonutChart, DonutChartData } from "./components/PieChart";
+  import { MemoDonutChart, DonutChartData } from "./components/PieChart";
   import {
     fetchTransactions,
     fetchValueByNatureForMonth,
     fetchValueByNatureYearMonth,
   } from "@/api/finance";
   import { Button } from "@/components/ui/button";
-  import { Share2 } from "lucide-react";
+  import { Link } from "react-router-dom";
+  import { Share2, Wallet } from "lucide-react";
   import { PageShell } from "@/components/PageShell";
+  import { EmptyState } from "@/components/EmptyState";
   import { ShareImageDialog } from "@/components/ShareImageDialog";
   import {
     generateMonthSpendShareImage,
@@ -109,47 +111,50 @@
       [recurring]
     );
 
-    const kpiCardsData: KpiCardProps[] = [
-      {
-        title: "Receita Total",
-        value: receitaTotal,
-        variant: "income",
-        description: null,
-        isLoading: cardsLoading,
-        trendText: null,
-        formatValue: (value: number) => formatBRL(value),
-      },
-      {
-        title: "Despesa Total",
-        value: despesaTotal,
-        variant: "expense",
-        description: null,
-        isLoading: cardsLoading,
-        trendText: null,
-        formatValue: (value: number) => formatBRL(value),
-      },
-      {
-        title: "Saldo",
-        value: receitaTotal - despesaTotal,
-        variant: "primary",
-        description: null,
-        isLoading: cardsLoading,
-        trendText: null,
-        formatValue: (value: number) => {
-          const percent = receitaTotal ? (value / receitaTotal) * 100 : 0;
-          return `${formatBRL(value > 0 ? value : 0)} (${percent.toFixed(1)}%)`;
+    const kpiCardsData: KpiCardProps[] = useMemo(
+      () => [
+        {
+          title: "Receita Total",
+          value: receitaTotal,
+          variant: "income",
+          description: null,
+          isLoading: cardsLoading,
+          trendText: null,
+          formatValue: (value: number) => formatBRL(value),
         },
-      },
-      {
-        title: "Comprometido no mês",
-        value: committed.pay,
-        variant: "muted",
-        description: `A receber: ${formatBRL(committed.receive)}`,
-        isLoading: cardsLoading,
-        trendText: null,
-        formatValue: (value: number) => formatBRL(value),
-      },
-    ];
+        {
+          title: "Despesa Total",
+          value: despesaTotal,
+          variant: "expense",
+          description: null,
+          isLoading: cardsLoading,
+          trendText: null,
+          formatValue: (value: number) => formatBRL(value),
+        },
+        {
+          title: "Saldo",
+          value: receitaTotal - despesaTotal,
+          variant: "primary",
+          description: null,
+          isLoading: cardsLoading,
+          trendText: null,
+          formatValue: (value: number) => {
+            const percent = receitaTotal ? (value / receitaTotal) * 100 : 0;
+            return `${formatBRL(value > 0 ? value : 0)} (${percent.toFixed(1)}%)`;
+          },
+        },
+        {
+          title: "Comprometido no mês",
+          value: committed.pay,
+          variant: "muted",
+          description: `A receber: ${formatBRL(committed.receive)}`,
+          isLoading: cardsLoading,
+          trendText: null,
+          formatValue: (value: number) => formatBRL(value),
+        },
+      ],
+      [receitaTotal, despesaTotal, cardsLoading, committed.pay, committed.receive]
+    );
 
     const fetchChartData = useCallback(async (): Promise<ValueByNatureYearMonth[]> => {
       try {
@@ -246,34 +251,36 @@
 
     useEffect(() => {
       async function getChartData() {
-        setCardsLoading(true);
-        const datasets = await fetchChartData();
-        setDatasets(datasets);
-        setCardsLoading(false);
+        const next = await fetchChartData();
+        setDatasets(next);
       }
 
-      getChartData();
+      void getChartData();
     }, [fetchChartData]);
 
-    const receitaTransactions = transactions.filter((transaction) => {
-      const isReceita = transaction.class?.type?.nature?.name === "Receita";
+    const receitaTransactions = useMemo(
+      () =>
+        transactions.filter((transaction) => {
+          const isReceita =
+            transaction.class?.type?.nature?.name === "Receita";
+          const matchesType =
+            !selectedType || transaction.class?.type?.name === selectedType;
+          return isReceita && matchesType;
+        }),
+      [transactions, selectedType]
+    );
 
-      const matchesType =
-        !selectedType || transaction.class?.type?.name === selectedType;
-
-      return isReceita && matchesType;
-    });
-
-    const despesaTransactions = transactions.filter((transaction) => {
-      const isDespesa =
-        transaction.class?.type?.nature?.name === "Despesa";
-
-      const matchesType =
-        !selectedType ||
-        transaction.class?.type?.name === selectedType;
-
-      return isDespesa && matchesType;
-    });
+    const despesaTransactions = useMemo(
+      () =>
+        transactions.filter((transaction) => {
+          const isDespesa =
+            transaction.class?.type?.nature?.name === "Despesa";
+          const matchesType =
+            !selectedType || transaction.class?.type?.name === selectedType;
+          return isDespesa && matchesType;
+        }),
+      [transactions, selectedType]
+    );
 
     return (
       <PageShell
@@ -366,6 +373,21 @@
           }
         />
 
+        {!cardsLoading &&
+        transactions.length === 0 &&
+        receitaTotal === 0 &&
+        despesaTotal === 0 ? (
+          <EmptyState
+            icon={Wallet}
+            title="Ledger ainda vazio neste mês"
+            description="Registre a primeira receita ou despesa para o dashboard acompanhar o life OS — o mesmo passo do onboarding."
+            action={
+              <Button asChild>
+                <Link to="/finance/transactions?new=1">Nova transação</Link>
+              </Button>
+            }
+          />
+        ) : (
         <div className="space-y-6">
           <section className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
               <KpiCardsGrid data={kpiCardsData} />
@@ -377,24 +399,24 @@
                 </TabsList>
 
                 <TabsContent value="receita">
-                  <DonutChart
-    data={donutChartDataReceita}
-    onSliceClick={(type) => {
-      setSelectedType((prev) => (prev === type ? null : type));
-      setTableTab("receita");
-    }}
-  />            
-  </TabsContent>
+                  <MemoDonutChart
+                    data={donutChartDataReceita}
+                    onSliceClick={(type) => {
+                      setSelectedType((prev) => (prev === type ? null : type));
+                      setTableTab("receita");
+                    }}
+                  />
+                </TabsContent>
 
                 <TabsContent value="despesa">
-                  <DonutChart
+                  <MemoDonutChart
                     data={donutChartDataDespesa}
                     onSliceClick={(type) => {
                       setSelectedType((prev) => (prev === type ? null : type));
                       setTableTab("despesa");
                     }}
                   />
-                  </TabsContent>
+                </TabsContent>
               </Tabs>
             </section>
 
@@ -480,6 +502,7 @@
               </Tabs>
             </section>
         </div>
+        )}
       </PageShell>
     );
   }

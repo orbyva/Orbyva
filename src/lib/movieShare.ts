@@ -364,7 +364,7 @@ export async function generateMovieShareImage(
     cursorY = pillY + pillH + 48;
   }
 
-  // Recomendação — chip + ícone outline (estilo produto)
+  // Recomendação — chip + ícone, conteúdo centrado no chip
   if (movie.status === "watched") {
     const recommend = movie.would_recommend !== false;
     const rec = recommend ? "Recomendaria" : "Não recomendaria";
@@ -373,6 +373,7 @@ export async function generateMovieShareImage(
     const chipH = 68;
     const chipX = (STORY_W - chipW) / 2;
     const chipY = cursorY - 8;
+    const chipCy = chipY + chipH / 2;
 
     roundRect(ctx, chipX, chipY, chipW, chipH, 999);
     ctx.fillStyle = recommend
@@ -386,13 +387,21 @@ export async function generateMovieShareImage(
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    drawRecommendBadge(ctx, chipX + 42, chipY + chipH / 2, recommend);
+    ctx.font = `600 27px ${BRAND.font}`;
+    const textW = ctx.measureText(rec).width;
+    const iconR = 20;
+    const gap = 14;
+    const contentW = iconR * 2 + gap + textW;
+    const contentLeft = chipX + (chipW - contentW) / 2;
+    const iconCx = contentLeft + iconR;
+    const textX = contentLeft + iconR * 2 + gap;
+
+    drawRecommendBadge(ctx, iconCx, chipCy, recommend);
 
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillStyle = accent;
-    ctx.font = `600 27px ${BRAND.font}`;
-    ctx.fillText(rec, chipX + 78, chipY + chipH / 2 + 1);
+    ctx.fillText(rec, textX, chipCy + 1);
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
 

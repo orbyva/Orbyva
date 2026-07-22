@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { TripFormDialog } from "@/components/TripFormDialog";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import { enrichTrip, fetchTrips } from "@/api/travel";
+import { enrichTrip, fetchChecklistsForTrips, fetchTrips } from "@/api/travel";
 import { TRIP_STATUS_LABELS } from "@/domain/travel";
 import type { TripWithChecklist } from "@/types/travel";
 import { useToast } from "@/hooks/use-toast";
@@ -17,11 +17,14 @@ import { formatBRL, formatDateBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 function TripCard({ trip }: { trip: TripWithChecklist }) {
+  const checklistDone = trip.checklist.filter((c) => c.done).length;
+  const checklistTotal = trip.checklist.length;
+
   return (
     <Link to={`/travel/${trip.id}`}>
       <article
         className={cn(
-          "rounded-xl border bg-card p-5 hover:border-primary/30 transition-colors h-full",
+          "h-full rounded-xl border bg-card p-5 transition-colors hover:border-primary/30",
           trip.status === "ongoing" && "border-success/40 bg-success/5"
         )}
       >
@@ -31,26 +34,50 @@ function TripCard({ trip }: { trip: TripWithChecklist }) {
               {TRIP_STATUS_LABELS[trip.status]}
             </Badge>
             <h3 className="font-semibold">{trip.title}</h3>
-            {trip.destination && (
+            {trip.destination ? (
               <p className="text-sm text-muted-foreground">{trip.destination}</p>
-            )}
+            ) : null}
           </div>
-          {trip.daysUntilStart != null && trip.daysUntilStart >= 0 && (
-            <div className="text-right shrink-0">
-              <p className="text-2xl font-bold text-primary">{trip.daysUntilStart}</p>
+          {trip.daysUntilStart != null && trip.daysUntilStart >= 0 ? (
+            <div className="shrink-0 text-right">
+              <p className="text-2xl font-bold text-primary">
+                {trip.daysUntilStart}
+              </p>
               <p className="text-[10px] text-muted-foreground">dias</p>
             </div>
-          )}
+          ) : null}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           {formatDateBR(trip.start_date)} → {formatDateBR(trip.end_date)}
         </p>
-        {trip.budget != null && (
-          <p className="mt-1 text-xs">
-            Orçamento: {formatBRL(trip.budget)}
-            {trip.spent != null && trip.spent > 0 && ` · Gasto: ${formatBRL(trip.spent)}`}
-          </p>
-        )}
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {trip.budget != null ? (
+            <span>
+              Orçamento {formatBRL(trip.budget)}
+              {trip.spent != null && trip.spent > 0
+                ? ` · Gasto ${formatBRL(trip.spent)}`
+                : ""}
+            </span>
+          ) : trip.spent != null && trip.spent > 0 ? (
+            <span>Gasto {formatBRL(trip.spent)}</span>
+          ) : null}
+          {checklistTotal > 0 ? (
+            <span>
+              Checklist {checklistDone}/{checklistTotal}
+              {trip.checklistProgress != null
+                ? ` · ${trip.checklistProgress}%`
+                : ""}
+            </span>
+          ) : null}
+        </div>
+        {checklistTotal > 0 ? (
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary/80"
+              style={{ width: `${trip.checklistProgress ?? 0}%` }}
+            />
+          </div>
+        ) : null}
       </article>
     </Link>
   );
@@ -65,16 +92,28 @@ export default function Travel() {
   const load = useCallback(async () => {
     try {
       const raw = await fetchTrips();
-      const enriched = raw.map((t) => enrichTrip(t, []));
+      const items = await fetchChecklistsForTrips(raw.map((t) => t.id));
+      const enriched = raw.map((t) =>
+        enrichTrip(
+          t,
+          items.filter((i) => i.trip_id === t.id)
+        )
+      );
       setTrips(enriched);
     } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   }, [toast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const activeTrips = trips.filter(
     (t) => t.status !== "completed" && t.status !== "cancelled"
@@ -90,28 +129,47 @@ export default function Travel() {
       {loading ? (
         <TableLoadingSkeleton rows={6} />
       ) : trips.length === 0 ? (
-        <EmptyState icon={Plane} title="Nenhuma viagem" description="Planeje sua próxima viagem." action={<Button onClick={() => setOpen(true)}>Nova viagem</Button>} />
+        <EmptyState
+          icon={Plane}
+          title="Nenhuma viagem"
+          description="Planeje sua próxima viagem."
+          action={
+            <Button onClick={() => setOpen(true)}>Nova viagem</Button>
+          }
+        />
       ) : (
         <Tabs defaultValue="active">
           <TabsList>
-            <TabsTrigger value="active">Ativas ({activeTrips.length})</TabsTrigger>
-            <TabsTrigger value="completed">Concluídas ({completedTrips.length})</TabsTrigger>
+            <TabsTrigger value="active">
+              Ativas ({activeTrips.length})
+            </TabsTrigger>
+            <TabsTrigger value="completed">
+              Concluídas ({completedTrips.length})
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="active" className="mt-4">
             {activeTrips.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma viagem ativa.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Nenhuma viagem ativa.
+              </p>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
-                {activeTrips.map((trip) => <TripCard key={trip.id} trip={trip} />)}
+                {activeTrips.map((trip) => (
+                  <TripCard key={trip.id} trip={trip} />
+                ))}
               </div>
             )}
           </TabsContent>
           <TabsContent value="completed" className="mt-4">
             {completedTrips.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma viagem concluída.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Nenhuma viagem concluída.
+              </p>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
-                {completedTrips.map((trip) => <TripCard key={trip.id} trip={trip} />)}
+                {completedTrips.map((trip) => (
+                  <TripCard key={trip.id} trip={trip} />
+                ))}
               </div>
             )}
           </TabsContent>

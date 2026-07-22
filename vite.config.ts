@@ -3,12 +3,14 @@ import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { viteSafariHmrNoReload } from "./vite.safari-hmr";
 
 export default defineConfig({
   plugins: [
+    viteSafariHmrNoReload(),
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       minify: false,
       includeAssets: ["logo.webp", "placeholder.svg", "pwa-192.png", "pwa-512.png"],
       manifest: {

@@ -20,8 +20,11 @@ import { RecurringDueAlerts } from "./components/RecurringDueAlerts";
 import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
 import { toast } from "@/hooks/use-toast";
 import { PageShell } from "@/components/PageShell";
+import { EmptyState } from "@/components/EmptyState";
+import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/errors";
 import { useSidebar } from "@/components/ui/sidebar";
+import { Repeat } from "lucide-react";
 
 export default function Recurring() {
   const { isMobile } = useSidebar();
@@ -219,32 +222,52 @@ export default function Recurring() {
 
       <RecurringDueAlerts alerts={dueAlerts} />
 
-      <section className="space-y-3">
-        <RecurringFilters
-          activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
-          counts={filterCounts}
+      {recurring.length === 0 ? (
+        <EmptyState
+          icon={Repeat}
+          title="Nenhuma parcela ou recorrência"
+          description="Cadastre receitas e despesas fixas para o ledger avisar vencimentos — continua o onboarding do life OS."
+          action={
+            <Button
+              onClick={() => {
+                setIsEditing(false);
+                setSelectedRecurring(null);
+                setNewRecurring(new_recurring_default);
+                setOpen(true);
+              }}
+            >
+              Nova recorrência
+            </Button>
+          }
         />
-
-        <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
-          <RecurringTable
-            recurring={filteredRecurring}
-            isMobile={isMobile}
-            confirmOpen={confirmOpen}
-            setConfirmOpen={setConfirmOpen}
-            confirmOpenSoft={confirmOpenSoft}
-            setConfirmOpenSoft={setConfirmOpenSoft}
-            confirmPaymentOpen={confirmPaymentOpen}
-            setConfirmPaymentOpen={setConfirmPaymentOpen}
-            selectedRecurring={selectedRecurring}
-            setSelectedRecurring={setSelectedRecurring}
-            selectedParcel={selectedParcel}
-            setSelectedParcel={setSelectedParcel}
-            reloadRecurring={reloadRecurring}
-            handleEditRecurring={handleEdit}
+      ) : (
+        <section className="space-y-3">
+          <RecurringFilters
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            counts={filterCounts}
           />
-        </div>
-      </section>
+
+          <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
+            <RecurringTable
+              recurring={filteredRecurring}
+              isMobile={isMobile}
+              confirmOpen={confirmOpen}
+              setConfirmOpen={setConfirmOpen}
+              confirmOpenSoft={confirmOpenSoft}
+              setConfirmOpenSoft={setConfirmOpenSoft}
+              confirmPaymentOpen={confirmPaymentOpen}
+              setConfirmPaymentOpen={setConfirmPaymentOpen}
+              selectedRecurring={selectedRecurring}
+              setSelectedRecurring={setSelectedRecurring}
+              selectedParcel={selectedParcel}
+              setSelectedParcel={setSelectedParcel}
+              reloadRecurring={reloadRecurring}
+              handleEditRecurring={handleEdit}
+            />
+          </div>
+        </section>
+      )}
     </PageShell>
   );
 }

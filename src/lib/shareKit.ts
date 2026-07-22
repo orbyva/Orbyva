@@ -392,7 +392,7 @@ function drawRecommendBadge(
   }
 }
 
-/** Chip de recomendação — ícone à esquerda + texto (padrão cinema). */
+/** Chip de recomendação — ícone + texto centrados no chip (e no card). */
 export function drawRecommendChip(
   ctx: CanvasRenderingContext2D,
   recommend: boolean,
@@ -404,6 +404,7 @@ export function drawRecommendChip(
   const chipH = 68;
   const chipX = (SHARE_W - chipW) / 2;
   const chipY = topY - 8;
+  const chipCy = chipY + chipH / 2;
 
   roundSharePath(ctx, chipX, chipY, chipW, chipH, 999);
   ctx.fillStyle = recommend
@@ -417,13 +418,21 @@ export function drawRecommendChip(
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  drawRecommendBadge(ctx, chipX + 42, chipY + chipH / 2, recommend);
+  ctx.font = `600 27px ${SHARE_BRAND.font}`;
+  const textW = ctx.measureText(label).width;
+  const iconR = 20;
+  const gap = 14;
+  const contentW = iconR * 2 + gap + textW;
+  const contentLeft = chipX + (chipW - contentW) / 2;
+  const iconCx = contentLeft + iconR;
+  const textX = contentLeft + iconR * 2 + gap;
+
+  drawRecommendBadge(ctx, iconCx, chipCy, recommend);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillStyle = accent;
-  ctx.font = `600 27px ${SHARE_BRAND.font}`;
-  ctx.fillText(label, chipX + 78, chipY + chipH / 2 + 1);
+  ctx.fillText(label, textX, chipCy + 1);
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
 

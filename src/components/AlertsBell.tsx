@@ -42,8 +42,8 @@ export function AlertsBell() {
   const [dismissed, setDismissed] = useState<Set<string>>(() => readDismissed());
   const [kindTick, setKindTick] = useState(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { soft?: boolean }) => {
+    if (!opts?.soft) setLoading(true);
     try {
       const data = await fetchAppAlerts();
       setAlerts(data);
@@ -59,7 +59,8 @@ export function AlertsBell() {
 
   useEffect(() => {
     void load();
-    const id = window.setInterval(() => void load(), 5 * 60 * 1000);
+    // Cache TTL ~90s; poll menos agressivo
+    const id = window.setInterval(() => void load({ soft: true }), 3 * 60 * 1000);
     const syncPrefs = () => {
       setKindTick((t) => t + 1);
       setNotifyOn(isBrowserNotifyEnabled());

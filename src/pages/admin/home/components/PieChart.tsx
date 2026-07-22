@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Pie, PieChart, Sector, ResponsiveContainer } from "recharts";
+import { memo, useMemo, useState } from "react";
+import { Pie, PieChart, Sector } from "recharts";
 import {
   Card,
   CardContent,
@@ -15,7 +15,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { useSidebar } from "@/components/ui/sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { chartColors } from "@/lib/design-tokens";
 
 export interface DonutChartData {
@@ -164,7 +164,7 @@ export function DonutChart({
   onSliceClick,
 }: DonutChartProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const { isMobile } = useSidebar();
+  const isMobile = useIsMobile();
 
   const chartSize = useMemo(
     () =>
@@ -183,20 +183,24 @@ export function DonutChart({
     setActiveIndex(index);
   };
 
+  const chartConfig: ChartConfig = useMemo(
+    () =>
+      data.reduce(
+        (config, item) => ({
+          ...config,
+          [item.type]: {
+            label: item.type,
+            color: item.fill || chartColors.fallback,
+          },
+        }),
+        {} as ChartConfig
+      ),
+    [data]
+  );
+
   if (!data || data.length === 0) {
     return null;
   }
-
-  const chartConfig: ChartConfig = data.reduce(
-    (config, item) => ({
-      ...config,
-      [item.type]: {
-        label: item.type,
-        color: item.fill || chartColors.fallback,
-      },
-    }),
-    {}
-  );
 
   return (
     <Card className="flex flex-col w-full min-w-0 overflow-hidden">
@@ -210,35 +214,39 @@ export function DonutChart({
       </CardHeader>
 
       <CardContent className="flex-1 p-0 sm:p-2 overflow-hidden">
-        <ChartContainer config={chartConfig} className="w-full min-w-0">
-          <ResponsiveContainer width="100%" height={chartSize.height}>
-            <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel />}
-              />
+        <ChartContainer
+          config={chartConfig}
+          className="w-full min-w-0"
+          style={{ height: chartSize.height }}
+        >
+          <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideLabel />}
+            />
 
-              <Pie
-                activeIndex={activeIndex}
-                activeShape={activeShape}
-                data={data}
-                dataKey="total_value"
-                nameKey="type"
-                cx="50%"
-                cy="50%"
-                innerRadius={chartSize.innerRadius}
-                outerRadius={chartSize.outerRadius}
-                paddingAngle={2}
-                onMouseEnter={onPieEnter}
-                onClick={(_, index) => {
-                  const item = data[index];
-                  onSliceClick?.(item.type);
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+            <Pie
+              activeIndex={activeIndex}
+              activeShape={activeShape}
+              data={data}
+              dataKey="total_value"
+              nameKey="type"
+              cx="50%"
+              cy="50%"
+              innerRadius={chartSize.innerRadius}
+              outerRadius={chartSize.outerRadius}
+              paddingAngle={2}
+              onMouseEnter={onPieEnter}
+              onClick={(_, index) => {
+                const item = data[index];
+                onSliceClick?.(item.type);
+              }}
+            />
+          </PieChart>
         </ChartContainer>
       </CardContent>
     </Card>
   );
-} 
+}
+
+export const MemoDonutChart = memo(DonutChart); 

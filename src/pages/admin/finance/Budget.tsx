@@ -34,7 +34,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { PageShell } from "@/components/PageShell";
+import { EmptyState } from "@/components/EmptyState";
 import { useSidebar } from "@/components/ui/sidebar";
+import { PiggyBank } from "lucide-react";
 
 function getEmptyBudget(): MonthlyBudgetCreateRequest {
   return {
@@ -386,111 +388,132 @@ export default function Budget() {
         exceededIncome={exceededIncomeBudgets}
       />
 
-      {filteredSuggestions.length > 0 && (
-        <section className="rounded-xl border p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="font-semibold">Sugestões automáticas</h2>
-              <p className="text-sm text-muted-foreground">
-                {filteredSuggestions.length} sugestão(ões) pela média dos
-                últimos 3 meses.
-              </p>
-            </div>
-
+      {!loading && summary.length === 0 ? (
+        <EmptyState
+          icon={PiggyBank}
+          title="Nenhum orçamento neste mês"
+          description="Defina limites por categoria para o ledger acompanhar o planejado vs. realizado — o mesmo fluxo do onboarding."
+          action={
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowSuggestions((prev) => !prev)}
+              onClick={() => {
+                setIsEditing(false);
+                setEditingBudgetId(null);
+                setNewBudget({
+                  ...getEmptyBudget(),
+                  budget_month: budgetMonth,
+                });
+                setOpen(true);
+              }}
             >
-              {showSuggestions ? "Ocultar" : "Ver"}
+              Criar orçamento
             </Button>
-          </div>
-
-          {showSuggestions && (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredSuggestions.slice(0, 6).map((item) => (
-                <div
-                  key={`${item.type_id}-${item.class_id}`}
-                  className="rounded-lg border p-3 space-y-3"
-                >
-                  <div>
-                    <div className="text-sm font-semibold">
-                      {item.type_name} / {item.class_name}
-                    </div>
-
-                    <div className="mt-1 text-lg font-bold text-primary">
-                      {Number(item.suggested_value || 0).toLocaleString(
-                        "pt-BR",
-                        {
-                          style: "currency",
-                          currency: "BRL",
-                        }
-                      )}
-                    </div>
-
-                    <p className="hidden sm:block text-xs text-muted-foreground">
-                      Média dos últimos 3 meses
-                    </p>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                    onClick={() => applySuggestion(item)}
-                  >
-                    Usar sugestão
-                  </Button>
+          }
+        />
+      ) : (
+        <>
+          {filteredSuggestions.length > 0 && (
+            <section className="rounded-xl border p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="font-semibold">Sugestões automáticas</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {filteredSuggestions.length} sugestão(ões) pela média dos
+                    últimos 3 meses.
+                  </p>
                 </div>
-              ))}
-            </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSuggestions((prev) => !prev)}
+                >
+                  {showSuggestions ? "Ocultar" : "Ver"}
+                </Button>
+              </div>
+
+              {showSuggestions && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredSuggestions.slice(0, 6).map((item) => (
+                    <div
+                      key={`${item.type_id}-${item.class_id}`}
+                      className="rounded-lg border p-3 space-y-3"
+                    >
+                      <div>
+                        <div className="text-sm font-semibold">
+                          {item.type_name} / {item.class_name}
+                        </div>
+
+                        <div className="mt-1 text-lg font-bold text-primary">
+                          {Number(item.suggested_value || 0).toLocaleString(
+                            "pt-BR",
+                            {
+                              style: "currency",
+                              currency: "BRL",
+                            }
+                          )}
+                        </div>
+
+                        <p className="hidden sm:block text-xs text-muted-foreground">
+                          Média dos últimos 3 meses
+                        </p>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                        onClick={() => applySuggestion(item)}
+                      >
+                        Usar sugestão
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           )}
-        </section>
+
+          <Tabs defaultValue="despesa" className="w-full">
+            <TabsList>
+              <TabsTrigger value="despesa">Despesas</TabsTrigger>
+              <TabsTrigger value="receita">Receitas</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="despesa" className="mt-4">
+              <section className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
+                <BudgetTable
+                  budgets={expenseBudgets}
+                  isMobile={isMobile}
+                  loading={loading}
+                  confirmOpen={confirmOpen}
+                  setConfirmOpen={setConfirmOpen}
+                  selectedBudget={selectedBudget}
+                  setSelectedBudget={setSelectedBudget}
+                  deleteBudget={deleteBudget}
+                  deleteLoading={deleteLoading}
+                  handleEdit={handleEdit}
+                />
+              </section>
+            </TabsContent>
+
+            <TabsContent value="receita" className="mt-4">
+              <section className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
+                <BudgetTable
+                  budgets={incomeBudgets}
+                  isMobile={isMobile}
+                  loading={loading}
+                  confirmOpen={confirmOpen}
+                  setConfirmOpen={setConfirmOpen}
+                  selectedBudget={selectedBudget}
+                  setSelectedBudget={setSelectedBudget}
+                  deleteBudget={deleteBudget}
+                  deleteLoading={deleteLoading}
+                  handleEdit={handleEdit}
+                />
+              </section>
+            </TabsContent>
+          </Tabs>
+        </>
       )}
-
-      <Tabs defaultValue="despesa" className="w-full">
-        <TabsList>
-          <TabsTrigger value="despesa">
-            Despesas
-          </TabsTrigger>
-          <TabsTrigger value="receita">
-            Receitas
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="despesa" className="mt-4">
-          <section className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
-            <BudgetTable
-              budgets={expenseBudgets}
-              isMobile={isMobile}
-              loading={loading}
-              confirmOpen={confirmOpen}
-              setConfirmOpen={setConfirmOpen}
-              selectedBudget={selectedBudget}
-              setSelectedBudget={setSelectedBudget}
-              deleteBudget={deleteBudget}
-              deleteLoading={deleteLoading}
-              handleEdit={handleEdit}
-            />
-          </section>
-        </TabsContent>
-
-        <TabsContent value="receita" className="mt-4">
-          <section className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
-            <BudgetTable
-              budgets={incomeBudgets}
-              isMobile={isMobile}
-              loading={loading}
-              confirmOpen={confirmOpen}
-              setConfirmOpen={setConfirmOpen}
-              selectedBudget={selectedBudget}
-              setSelectedBudget={setSelectedBudget}
-              deleteBudget={deleteBudget}
-              deleteLoading={deleteLoading}
-              handleEdit={handleEdit}
-            />
-          </section>
-        </TabsContent>
-      </Tabs>
     </PageShell>
   );
 }

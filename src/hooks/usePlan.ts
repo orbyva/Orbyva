@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ensureProfile, type UserProfile } from "@/api/billing";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -11,39 +11,51 @@ import {
 
 export function usePlan() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasProfileRef = useRef(false);
 
-  const refresh = useCallback(async () => {
-    if (!user) {
+  const refresh = useCallback(async (opts?: { soft?: boolean }) => {
+    if (!userId) {
+      hasProfileRef.current = false;
       setProfile(null);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    // Soft refresh (volta de aba / token) — não desmonta o shell/modais
+    if (!opts?.soft || !hasProfileRef.current) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const next = await ensureProfile();
       setProfile(next);
+      hasProfileRef.current = true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao carregar plano");
-      setProfile({
-        id: user.id,
-        plan: "free",
-        stripe_customer_id: null,
-        stripe_subscription_id: null,
-        subscription_status: null,
-        current_period_end: null,
-        created_at: new Date().toISOString(),
+      // Não resetar trial com now() — usa created_at do auth se já houver perfil em memória
+      setProfile((prev) => {
+        if (prev) return prev;
+        return {
+          id: userId,
+          plan: "free",
+          stripe_customer_id: null,
+          stripe_subscription_id: null,
+          subscription_status: null,
+          current_period_end: null,
+          created_at: user?.created_at ?? "1970-01-01T00:00:00.000Z",
+        };
       });
+      hasProfileRef.current = true;
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId, user?.created_at]);
 
   useEffect(() => {
-    void refresh();
+    void refresh({ soft: hasProfileRef.current });
   }, [refresh]);
 
   const plan: PlanId = profile?.plan ?? "free";
@@ -63,7 +75,7 @@ export function usePlan() {
       hasAccess: canUseApp,
       loading,
       error,
-      refresh,
+      refresh: () => refresh({ soft: false }),
     }),
     [
       profile,

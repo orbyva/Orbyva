@@ -44,4 +44,11 @@ describe("plan", () => {
     expect(isTrialActive(old.toISOString())).toBe(false);
     expect(trialDaysRemaining(old.toISOString())).toBe(0);
   });
+
+  it("nega trial sem created_at (fail-closed)", () => {
+    expect(isTrialActive(null)).toBe(false);
+    expect(isTrialActive(undefined)).toBe(false);
+    expect(hasAppAccess({ plan: "free", createdAt: null })).toBe(false);
+    expect(trialDaysRemaining(null)).toBe(0);
+  });
 });

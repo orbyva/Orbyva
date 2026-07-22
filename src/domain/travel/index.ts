@@ -8,6 +8,7 @@ import type {
   TripMilestone,
   TripWithChecklist,
 } from "@/types/travel";
+import { sumTripSpent } from "@/domain/travel/spent";
 
 export const TRIP_STATUS_LABELS: Record<string, string> = {
   planning: "Planejando",
@@ -124,10 +125,11 @@ export function enrichTripFull(
   expenses: TripExpense[],
   itinerary: TripItineraryDay[],
   milestones: TripMilestone[],
-  placesCount: number
+  placesCount: number,
+  sharedTrip = false
 ): TripFull {
   const base = enrichTrip(trip, checklist);
-  const expenseTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const expenseTotal = sumTripSpent(expenses, sharedTrip);
   const budgetRemaining =
     trip.budget != null ? trip.budget - expenseTotal : null;
 

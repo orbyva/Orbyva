@@ -16,38 +16,29 @@ export interface UserProfile {
 const PROFILE_SELECT =
   "id, plan, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, created_at";
 
+/** Só em builds locais explícitos — nunca confiar em prod sem flag de servidor. */
 function forceProFromEnv(): boolean {
-  return import.meta.env.VITE_BILLING_FORCE_PRO === "true";
+  return (
+    import.meta.env.DEV === true &&
+    import.meta.env.VITE_BILLING_FORCE_PRO === "true"
+  );
 }
 
-function trialStartStorageKey(userId: string) {
-  return `fintrack_trial_start_v1:${userId}`;
+function isMissingProfilesTable(error: {
+  code?: string;
+  message?: string;
+}): boolean {
+  return (
+    error.code === "42P01" ||
+    error.code === "PGRST205" ||
+    (error.message ?? "").toLowerCase().includes("could not find the table")
+  );
 }
 
 /**
- * Quando `profiles` ainda não existe no banco, NÃO usar `now()` a cada load
- * (isso resetava o teste de 7 dias). Persistimos o início em localStorage
- * (e preferimos auth.users.created_at quando disponível).
+ * Fallback só se a tabela profiles não existir.
+ * Usa auth.users.created_at — sem localStorage (não resetável pelo usuário).
  */
-export function resolveFallbackTrialStart(
-  userId: string,
-  authCreatedAt?: string | null
-): string {
-  if (typeof localStorage !== "undefined") {
-    try {
-      const stored = localStorage.getItem(trialStartStorageKey(userId));
-      if (stored) return stored;
-
-      const start = authCreatedAt || new Date().toISOString();
-      localStorage.setItem(trialStartStorageKey(userId), start);
-      return start;
-    } catch {
-      // ignore quota / private mode
-    }
-  }
-  return authCreatedAt || new Date().toISOString();
-}
-
 function fallbackProfile(
   userId: string,
   authCreatedAt?: string | null
@@ -59,19 +50,8 @@ function fallbackProfile(
     stripe_subscription_id: null,
     subscription_status: null,
     current_period_end: null,
-    created_at: resolveFallbackTrialStart(userId, authCreatedAt),
+    created_at: authCreatedAt || "1970-01-01T00:00:00.000Z",
   };
-}
-
-function isMissingProfilesTable(error: {
-  code?: string;
-  message?: string;
-}): boolean {
-  return (
-    error.code === "42P01" ||
-    error.code === "PGRST205" ||
-    (error.message ?? "").toLowerCase().includes("profiles")
-  );
 }
 
 export async function ensureProfile(): Promise<UserProfile> {
@@ -107,6 +87,13 @@ export async function ensureProfile(): Promise<UserProfile> {
     if (isMissingProfilesTable(insertError)) {
       return fallbackProfile(userId, authUser?.created_at);
     }
+    // Corrida com trigger de signup — tenta ler de novo
+    const retry = await supabase
+      .from("profiles")
+      .select(PROFILE_SELECT)
+      .eq("id", userId)
+      .maybeSingle();
+    if (retry.data) return normalizeProfile(retry.data as UserProfile);
     throw new Error(insertError.message);
   }
 
@@ -125,7 +112,7 @@ function normalizeProfile(profile: UserProfile): UserProfile {
   return {
     ...profile,
     plan: active ? "pro" : "free",
-    created_at: profile.created_at || new Date().toISOString(),
+    created_at: profile.created_at,
   };
 }
 
@@ -140,11 +127,9 @@ export async function fetchIsPro(): Promise<boolean> {
 }
 
 export async function createCheckoutSession(): Promise<{ url: string }> {
+  // URLs de retorno ficam no edge (SITE_URL) — não envia origin do cliente
   const { data, error } = await supabase.functions.invoke("stripe-checkout", {
-    body: {
-      successUrl: `${window.location.origin}/account?checkout=success`,
-      cancelUrl: `${window.location.origin}/account?checkout=cancel`,
-    },
+    body: {},
   });
 
   if (error) throw new Error(error.message);
@@ -154,9 +139,7 @@ export async function createCheckoutSession(): Promise<{ url: string }> {
 
 export async function createPortalSession(): Promise<{ url: string }> {
   const { data, error } = await supabase.functions.invoke("stripe-portal", {
-    body: {
-      returnUrl: `${window.location.origin}/account`,
-    },
+    body: {},
   });
 
   if (error) throw new Error(error.message);

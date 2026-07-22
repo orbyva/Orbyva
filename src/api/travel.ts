@@ -93,24 +93,27 @@ export async function fetchTripFull(id: string): Promise<TripFull | null> {
       countPlacesByTrip(id),
     ]);
 
+  const { count: memberCount } = await supabase
+    .from("trip_member")
+    .select("*", { count: "exact", head: true })
+    .eq("trip_id", id);
+
+  const isShared = (memberCount ?? 0) > 1 || access.role === "editor";
+
   const full = enrichTripFull(
     trip,
     checklist,
     expenses,
     itinerary,
     milestones,
-    placesCount
+    placesCount,
+    isShared
   );
-
-  const { count: memberCount } = await supabase
-    .from("trip_member")
-    .select("*", { count: "exact", head: true })
-    .eq("trip_id", id);
 
   return {
     ...full,
     myRole: access.role,
-    isShared: (memberCount ?? 0) > 1 || access.role === "editor",
+    isShared,
   };
 }
 
@@ -168,6 +171,20 @@ export async function fetchTripChecklist(tripId: string): Promise<TripChecklistI
     .from("trip_checklist_item")
     .select("*")
     .eq("trip_id", tripId)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** Checklist de várias viagens em uma query (lista / cards). */
+export async function fetchChecklistsForTrips(
+  tripIds: string[]
+): Promise<TripChecklistItem[]> {
+  if (tripIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("trip_checklist_item")
+    .select("*")
+    .in("trip_id", tripIds)
     .order("sort_order", { ascending: true });
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -237,7 +254,7 @@ export async function fetchTripExpenses(tripId: string): Promise<TripExpense[]> 
   const rows = (data ?? []).filter((e) => {
     const visibility = e.visibility ?? "personal";
     if (visibility === "shared") return true;
-    if (!e.created_by_user_id) return true;
+    if (!e.created_by_user_id) return false;
     return e.created_by_user_id === access.userId;
   });
 
@@ -258,14 +275,22 @@ export async function fetchTripExpenses(tripId: string): Promise<TripExpense[]> 
   }));
 }
 
+import { sumTripSpent } from "@/domain/travel/spent";
+
 async function syncTripSpent(tripId: string): Promise<void> {
-  // Total da viagem = soma de todas as despesas (shared conta o valor cheio uma vez)
-  const { data, error } = await supabase
-    .from("trip_expense")
-    .select("amount")
-    .eq("trip_id", tripId);
+  const [{ data, error }, { count: memberCount }] = await Promise.all([
+    supabase
+      .from("trip_expense")
+      .select("amount, visibility")
+      .eq("trip_id", tripId),
+    supabase
+      .from("trip_member")
+      .select("*", { count: "exact", head: true })
+      .eq("trip_id", tripId),
+  ]);
   if (error) throw new Error(error.message);
-  const total = (data ?? []).reduce((sum, e) => sum + Number(e.amount), 0);
+  const sharedTrip = (memberCount ?? 0) > 1;
+  const total = sumTripSpent(data ?? [], sharedTrip);
   await supabase.from("trip").update({ spent: total }).eq("id", tripId);
 }
 

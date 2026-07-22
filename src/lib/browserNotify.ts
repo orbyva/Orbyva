@@ -34,6 +34,16 @@ export const ALERT_KIND_OPTIONS: Array<{
     label: "Documentos",
     description: "IPVA, seguro e afins",
   },
+  {
+    kind: "goal_due",
+    label: "Metas próximas",
+    description: "Prazos nos próximos 7 dias",
+  },
+  {
+    kind: "goal_overdue",
+    label: "Metas atrasadas",
+    description: "Prazos já vencidos",
+  },
 ];
 
 const ALL_KINDS: AppAlertKind[] = ALERT_KIND_OPTIONS.map((o) => o.kind);

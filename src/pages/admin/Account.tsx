@@ -367,7 +367,7 @@ export default function Account() {
             {!isBillingConfigured() ? (
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button size="sm" asChild>
-                  <Link to="/#planos" onClick={() => track("paywall_waitlist_cta")}>
+                  <Link to="/#waitlist" onClick={() => track("paywall_waitlist_cta")}>
                     Entrar na waitlist
                   </Link>
                 </Button>
@@ -409,7 +409,7 @@ export default function Account() {
             </Button>
           ) : (
             <Button asChild>
-              <Link to="/#planos" onClick={() => track("paywall_waitlist_cta")}>
+              <Link to="/#waitlist" onClick={() => track("paywall_waitlist_cta")}>
                 <Sparkles className="mr-2 h-4 w-4" />
                 Lista de espera · {PLANS.pro.priceLabel}
               </Link>
@@ -429,7 +429,7 @@ export default function Account() {
               waitlist
             </Link>{" "}
             ou use <code className="text-[11px]">VITE_BILLING_FORCE_PRO=true</code>{" "}
-            para bypass local.
+            apenas em <code className="text-[11px]">npm run dev</code>.
           </p>
         ) : null}
       </section>

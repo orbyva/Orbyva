@@ -20,6 +20,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { OnboardingDialog } from "@/components/OnboardingDialog"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { AlertsBell } from "@/components/AlertsBell"
+import { MobileBottomNav } from "@/components/MobileBottomNav"
 import { OfflineBanner } from "@/components/OfflineBanner"
 import { BREADCRUMB_LABELS } from "@/lib/brand"
 import { usePlan } from "@/hooks/usePlan"
@@ -95,12 +96,18 @@ function AdminBreadcrumb() {
 
 export default function AdminLayout() {
   const location = useLocation()
-  const { hasAccess, isTrialActive, trialDaysLeft, loading: planLoading } =
-    usePlan()
+  const {
+    hasAccess,
+    isTrialActive,
+    trialDaysLeft,
+    loading: planLoading,
+    profile,
+  } = usePlan()
 
   const onAccount = location.pathname.startsWith("/account")
 
-  if (planLoading) {
+  // Só bloqueia no carregamento inicial — refresh de plano não desmonta modais
+  if (planLoading && !profile) {
     return <LoadingFallback />
   }
 
@@ -134,15 +141,18 @@ export default function AdminLayout() {
                   </Link>
                 ) : null}
                 <GlobalSearch />
-                <AlertsBell />
+                <div className="hidden md:block">
+                  <AlertsBell />
+                </div>
               </div>
             </div>
           </header>
-          <div className="flex flex-1 flex-col gap-2 pb-4 sm:gap-4 md:pb-6">
+          <div className="flex flex-1 flex-col gap-2 pb-20 sm:gap-4 md:pb-6">
             <Toaster />
             {hasAccess ? <OnboardingDialog /> : null}
             <Outlet />
           </div>
+          {hasAccess ? <MobileBottomNav /> : null}
         </SidebarInset>
       </BreadcrumbTitleProvider>
     </SidebarProvider>

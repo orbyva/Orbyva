@@ -8,6 +8,7 @@ import {
 } from "react";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import { invalidateAppAlertsCache } from "@/api/alerts";
 
 type AuthState = {
   user: User | null;
@@ -15,6 +16,32 @@ type AuthState = {
 };
 
 const AuthContext = createContext<AuthState | null>(null);
+
+function sameUser(a: User | null, b: User | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.id === b.id &&
+    a.email === b.email &&
+    JSON.stringify(a.user_metadata ?? {}) ===
+      JSON.stringify(b.user_metadata ?? {})
+  );
+}
+
+function clearUserScopedCaches() {
+  invalidateAppAlertsCache();
+  if (typeof localStorage === "undefined") return;
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith("fintrack_offline_v1:")) keys.push(k);
+    }
+    for (const k of keys) localStorage.removeItem(k);
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Uma única sessão auth para o app — evita N× getUser/onAuthStateChange. */
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -31,9 +58,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         if (cancelled) return;
-        setUser(session?.user ?? null);
+        const next = session?.user ?? null;
+        setUser((prev) => {
+          if (event === "SIGNED_OUT" || (prev && next && prev.id !== next.id)) {
+            clearUserScopedCaches();
+          }
+          if (event === "SIGNED_OUT") return null;
+          return sameUser(prev, next) ? prev : next;
+        });
         setLoading(false);
       }
     );

@@ -68,7 +68,10 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
   ├─ seed_natures.sql
   ├─ movies_opinion.sql
   ├─ vehicle_kind.sql
-  └─ fuel_log_transaction.sql
+  ├─ fuel_log_transaction.sql
+  ├─ shared_trips.sql
+  ├─ shared_trips_invite_fix.sql
+  └─ trip_activity_author.sql
 
 /src
   ├─ api/                   # I/O Supabase por domínio
@@ -93,7 +96,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 | Rota | Tela |
 |------|------|
-| `/` | Landing (life OS + planos + waitlist) |
+| `/` | Landing (life OS + planos; trial→Pro se Stripe, senão waitlist) |
 | `/home` | Dashboard geral (app) |
 | `/timeline` | Timeline unificada |
 | `/goals` | Metas |
@@ -132,9 +135,15 @@ Execute **um por vez** no **SQL Editor** do Supabase (detalhe em `scripts/README
 | 6 | `vehicle_kind.sql` | Coluna `kind` em `vehicle` |
 | 7 | `fuel_log_transaction.sql` | `transaction_id` em `vehicle_fuel_log` |
 | 8 | `shared_trips.sql` | Viagem compartilhada (membros, convites, opiniões, splits) |
+| 9 | `shared_trips_invite_fix.sql` | Aceite de convite + policies |
+| 10 | `trip_activity_author.sql` | Autor da atividade no itinerário |
+| 11 | **`security_hardening.sql`** | **Obrigatório** — trava Pro no profiles, convites, roles, despesas |
 
 > Rode `tenancy_rls.sql` antes de convidar outro usuário. Sem isso, o app filtra no cliente, mas o banco ainda pode vazar dados. Depois teste com **2 contas Google**.
-> Para planejar viagem juntos, rode também `shared_trips.sql`.
+> Para planejar viagem juntos, rode também `shared_trips.sql` → `shared_trips_invite_fix.sql`.
+> Se você já rodou 1–10 antes, rode **`security_hardening.sql`** agora — fecha bypass de Pro e leaks de convite.
+
+**Funil de conversão:** com `VITE_STRIPE_PUBLISHABLE_KEY` a landing vende **7 dias → Assinar Pro**; sem a chave, vende só **waitlist** (sem misturar as duas histórias).
 
 ---
 

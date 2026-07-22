@@ -1,8 +1,14 @@
 import { fetchRecurringTransactions } from "@/api/recurring";
-import { fetchVehicles, fetchAllMaintenances, fetchDocuments } from "@/api/car";
+import {
+  fetchVehicles,
+  fetchMaintenancesForVehicles,
+  fetchDocumentsForVehicles,
+} from "@/api/car";
 import { fetchMonthlyBudgetSummary } from "@/api/finance";
+import { fetchGoals } from "@/api/goals";
 import { getRecurringDueAlerts } from "@/domain/recurring";
 import { getDocumentAlerts, getMaintenanceAlerts } from "@/domain/car";
+import { getCurrentUserId } from "@/lib/auth-user";
 import type { RecurringDueAlert } from "@/types/recurring";
 
 export type AppAlertKind =
@@ -10,7 +16,9 @@ export type AppAlertKind =
   | "recurring_upcoming"
   | "maintenance"
   | "document"
-  | "budget";
+  | "budget"
+  | "goal_due"
+  | "goal_overdue";
 
 export type AppAlert = {
   id: string;
@@ -21,34 +29,64 @@ export type AppAlert = {
   href: string;
 };
 
+const ALERTS_TTL_MS = 90_000;
+
+let alertsCache: { userId: string; at: number; data: AppAlert[] } | null =
+  null;
+let alertsInflight: { userId: string; promise: Promise<AppAlert[]> } | null =
+  null;
+
 function budgetMonthIso(d = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   return `${y}-${m}-01`;
 }
 
-export async function fetchAppAlerts(): Promise<AppAlert[]> {
+function daysUntil(isoDate: string, now = new Date()): number {
+  const target = new Date(`${isoDate}T12:00:00`);
+  const start = new Date(now);
+  start.setHours(12, 0, 0, 0);
+  return Math.ceil(
+    (target.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+  );
+}
+
+export function invalidateAppAlertsCache() {
+  alertsCache = null;
+  alertsInflight = null;
+}
+
+async function loadAppAlertsFresh(): Promise<AppAlert[]> {
   const alerts: AppAlert[] = [];
 
-  try {
-    const recurring = await fetchRecurringTransactions();
-    const due = getRecurringDueAlerts(recurring);
-    for (const a of due) {
+  const [recurringResult, vehiclesResult, budgetResult, goalsResult] =
+    await Promise.allSettled([
+      fetchRecurringTransactions(),
+      fetchVehicles(),
+      fetchMonthlyBudgetSummary(budgetMonthIso()),
+      fetchGoals(),
+    ]);
+
+  if (recurringResult.status === "fulfilled") {
+    for (const a of getRecurringDueAlerts(recurringResult.value)) {
       alerts.push(mapRecurringAlert(a));
     }
-  } catch {
-    /* ignore */
   }
 
-  try {
-    const vehicles = await fetchVehicles();
+  if (vehiclesResult.status === "fulfilled") {
+    const vehicles = vehiclesResult.value;
+    const vehicleIds = vehicles.map((v) => v.id);
+    const [maintenances, documents] = await Promise.all([
+      fetchMaintenancesForVehicles(vehicleIds),
+      fetchDocumentsForVehicles(vehicleIds),
+    ]);
+
     for (const v of vehicles) {
-      const [maintenances, documents] = await Promise.all([
-        fetchAllMaintenances(v.id),
-        fetchDocuments(v.id),
-      ]);
       const label = `${v.brand} ${v.model}`.trim();
-      for (const m of getMaintenanceAlerts(v, maintenances)) {
+      const vehicleMaint = maintenances.filter((m) => m.vehicle_id === v.id);
+      const vehicleDocs = documents.filter((d) => d.vehicle_id === v.id);
+
+      for (const m of getMaintenanceAlerts(v, vehicleMaint)) {
         alerts.push({
           id: `maint-${v.id}-${m.type}`,
           kind: "maintenance",
@@ -58,7 +96,7 @@ export async function fetchAppAlerts(): Promise<AppAlert[]> {
           href: "/car",
         });
       }
-      for (const d of getDocumentAlerts(documents)) {
+      for (const d of getDocumentAlerts(vehicleDocs)) {
         alerts.push({
           id: `doc-${d.document.id}`,
           kind: "document",
@@ -69,13 +107,10 @@ export async function fetchAppAlerts(): Promise<AppAlert[]> {
         });
       }
     }
-  } catch {
-    /* ignore */
   }
 
-  try {
-    const summary = await fetchMonthlyBudgetSummary(budgetMonthIso());
-    for (const row of summary) {
+  if (budgetResult.status === "fulfilled") {
+    for (const row of budgetResult.value) {
       if (Number(row.remaining_value) >= 0) continue;
       const name = row.class_name
         ? `${row.type_name} / ${row.class_name}`
@@ -89,12 +124,77 @@ export async function fetchAppAlerts(): Promise<AppAlert[]> {
         href: "/finance/budget",
       });
     }
-  } catch {
-    /* ignore */
+  }
+
+  if (goalsResult.status === "fulfilled") {
+    for (const goal of goalsResult.value) {
+      if (goal.status !== "active" || !goal.deadline) continue;
+      const d = daysUntil(goal.deadline);
+      if (d < 0) {
+        alerts.push({
+          id: `goal-overdue-${goal.id}`,
+          kind: "goal_overdue",
+          severity: "danger",
+          title: goal.title,
+          message: `Meta atrasada (${Math.abs(d)} dia${Math.abs(d) === 1 ? "" : "s"}).`,
+          href: "/goals",
+        });
+      } else if (d <= 7) {
+        alerts.push({
+          id: `goal-due-${goal.id}`,
+          kind: "goal_due",
+          severity: d <= 2 ? "warning" : "info",
+          title: goal.title,
+          message:
+            d === 0
+              ? "Prazo da meta é hoje."
+              : `Prazo em ${d} dia${d === 1 ? "" : "s"}.`,
+          href: "/goals",
+        });
+      }
+    }
   }
 
   const order = { danger: 0, warning: 1, info: 2 };
   return alerts.sort((a, b) => order[a.severity] - order[b.severity]);
+}
+
+export async function fetchAppAlerts(opts?: {
+  force?: boolean;
+}): Promise<AppAlert[]> {
+  const userId = await getCurrentUserId();
+  const now = Date.now();
+
+  if (
+    !opts?.force &&
+    alertsCache &&
+    alertsCache.userId === userId &&
+    now - alertsCache.at < ALERTS_TTL_MS
+  ) {
+    return alertsCache.data;
+  }
+
+  if (
+    !opts?.force &&
+    alertsInflight &&
+    alertsInflight.userId === userId
+  ) {
+    return alertsInflight.promise;
+  }
+
+  const promise = loadAppAlertsFresh()
+    .then((data) => {
+      alertsCache = { userId, at: Date.now(), data };
+      return data;
+    })
+    .finally(() => {
+      if (alertsInflight?.promise === promise) {
+        alertsInflight = null;
+      }
+    });
+
+  alertsInflight = { userId, promise };
+  return promise;
 }
 
 function mapRecurringAlert(a: RecurringDueAlert): AppAlert {

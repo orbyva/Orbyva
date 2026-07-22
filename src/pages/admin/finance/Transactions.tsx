@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { RefreshCw, Loader2, Search } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +28,7 @@ export default function Transactions() {
   const { toast } = useToast();
   const { isMobile } = useSidebar();
   const { dimensions } = useDimensions();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -72,6 +74,22 @@ export default function Transactions() {
     useState<Transaction | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setIsEditing(false);
+    setSelectedTransaction(null);
+    setNewTransaction({
+      class_id: 0,
+      value: 0,
+      description: "",
+      transaction_at: new Date().toISOString(),
+    });
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   async function createTransaction() {
     try {

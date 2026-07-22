@@ -14,6 +14,26 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** Só aceita URLs no mesmo origin de SITE_URL (anti open-redirect). */
+function allowedSiteUrl(candidate: unknown, fallbackPath: string): string {
+  const siteRaw = (Deno.env.get("SITE_URL") ?? "").trim().replace(/\/$/, "");
+  const fallback = siteRaw
+    ? `${siteRaw}${fallbackPath.startsWith("/") ? fallbackPath : `/${fallbackPath}`}`
+    : fallbackPath;
+
+  if (typeof candidate !== "string" || !candidate.trim()) return fallback;
+  if (!siteRaw) return fallback;
+
+  try {
+    const site = new URL(siteRaw);
+    const url = new URL(candidate);
+    if (url.origin !== site.origin) return fallback;
+    return url.toString();
+  } catch {
+    return fallback;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -52,10 +72,9 @@ Deno.serve(async (req) => {
     });
 
     const body = await req.json().catch(() => ({}));
-    const successUrl =
-      body.successUrl ?? `${Deno.env.get("SITE_URL") ?? ""}/account?checkout=success`;
-    const cancelUrl =
-      body.cancelUrl ?? `${Deno.env.get("SITE_URL") ?? ""}/account?checkout=cancel`;
+    void body; // ignore client URLs — só SITE_URL
+    const successUrl = allowedSiteUrl(undefined, "/account?checkout=success");
+    const cancelUrl = allowedSiteUrl(undefined, "/account?checkout=cancel");
 
     const { data: profile } = await admin
       .from("profiles")

@@ -225,7 +225,7 @@ export function TransactionsTable({
       <EmptyState
         icon={Receipt}
         title="Nenhuma transação encontrada"
-        description="Adicione uma transação ou ajuste os filtros de busca."
+        description="Adicione uma transação ou ajuste os filtros de busca — o ledger é o centro do life OS."
       />
     );
   }

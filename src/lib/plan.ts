@@ -47,7 +47,8 @@ export function isTrialActive(
   createdAt: string | null | undefined,
   now: Date = new Date()
 ): boolean {
-  if (!createdAt) return true;
+  // Fail-closed: sem data de início conhecida, não libera acesso
+  if (!createdAt) return false;
   return now.getTime() < getTrialEndsAt(createdAt).getTime();
 }
 
@@ -55,7 +56,7 @@ export function trialDaysRemaining(
   createdAt: string | null | undefined,
   now: Date = new Date()
 ): number {
-  if (!createdAt) return TRIAL_DAYS;
+  if (!createdAt) return 0;
   const ms = getTrialEndsAt(createdAt).getTime() - now.getTime();
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 }

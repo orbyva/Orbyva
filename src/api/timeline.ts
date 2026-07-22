@@ -4,7 +4,7 @@ import {
   getRecurringDueAlerts,
   resolvePaymentStartDate,
 } from "@/api/recurring";
-import { fetchVehicles, fetchAllMaintenances, fetchDocuments } from "@/api/car";
+import { fetchVehicles, fetchMaintenancesForVehicles, fetchDocumentsForVehicles } from "@/api/car";
 import { fetchGoals } from "@/api/goals";
 import { fetchHabits, fetchAllHabitLogs } from "@/api/habits";
 import { fetchPlaces } from "@/api/places";
@@ -129,50 +129,53 @@ async function collectCarTimeline(
 ): Promise<TimelineItem[]> {
   try {
     const vehicles = await fetchVehicles();
-    const perVehicle = await Promise.all(
-      vehicles.map(async (vehicle) => {
-        const [maintenances, documents] = await Promise.all([
-          fetchAllMaintenances(vehicle.id),
-          fetchDocuments(vehicle.id),
-        ]);
-        const maintAlerts = getMaintenanceAlerts(vehicle, maintenances);
-        const docAlerts = getDocumentAlerts(documents);
-        const items: TimelineItem[] = [];
-        for (const alert of maintAlerts) {
-          const date = alert.nextDate ?? todayIso;
-          if (!inRange(date)) continue;
-          items.push({
-            id: `car-maint-${vehicle.id}-${alert.type}`,
-            date,
-            module: "car",
-            title: alert.label,
-            subtitle: vehicle.plate ?? `${vehicle.brand} ${vehicle.model}`,
-            status:
-              alert.status === "overdue"
-                ? "overdue"
-                : resolveStatus(date, todayIso),
-            link: "/car",
-          });
-        }
-        for (const alert of docAlerts) {
-          const date = alert.document.due_date;
-          if (!inRange(date)) continue;
-          items.push({
-            id: `car-doc-${alert.document.id}`,
-            date,
-            module: "car",
-            title: alert.message,
-            status:
-              alert.status === "overdue"
-                ? "overdue"
-                : resolveStatus(date, todayIso),
-            link: "/car",
-          });
-        }
-        return items;
-      })
-    );
-    return perVehicle.flat();
+    if (vehicles.length === 0) return [];
+    const vehicleIds = vehicles.map((v) => v.id);
+    const [maintenances, documents] = await Promise.all([
+      fetchMaintenancesForVehicles(vehicleIds),
+      fetchDocumentsForVehicles(vehicleIds),
+    ]);
+
+    const items: TimelineItem[] = [];
+    for (const vehicle of vehicles) {
+      const vehicleMaint = maintenances.filter((m) => m.vehicle_id === vehicle.id);
+      const vehicleDocs = documents.filter((d) => d.vehicle_id === vehicle.id);
+      const maintAlerts = getMaintenanceAlerts(vehicle, vehicleMaint);
+      const docAlerts = getDocumentAlerts(vehicleDocs);
+
+      for (const alert of maintAlerts) {
+        const date = alert.nextDate ?? todayIso;
+        if (!inRange(date)) continue;
+        items.push({
+          id: `car-maint-${vehicle.id}-${alert.type}`,
+          date,
+          module: "car",
+          title: alert.label,
+          subtitle: vehicle.plate ?? `${vehicle.brand} ${vehicle.model}`,
+          status:
+            alert.status === "overdue"
+              ? "overdue"
+              : resolveStatus(date, todayIso),
+          link: "/car",
+        });
+      }
+      for (const alert of docAlerts) {
+        const date = alert.document.due_date;
+        if (!inRange(date)) continue;
+        items.push({
+          id: `car-doc-${alert.document.id}`,
+          date,
+          module: "car",
+          title: alert.message,
+          status:
+            alert.status === "overdue"
+              ? "overdue"
+              : resolveStatus(date, todayIso),
+          link: "/car",
+        });
+      }
+    }
+    return items;
   } catch {
     return [];
   }

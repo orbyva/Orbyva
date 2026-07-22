@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
 import { joinWaitlist } from "@/api/waitlist";
+import { isBillingConfigured } from "@/api/billing";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -64,6 +65,7 @@ function HubPreview() {
 
 export default function Landing() {
   const { user, loading } = useAuth();
+  const billingLive = isBillingConfigured();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">(
     "idle"
@@ -71,8 +73,8 @@ export default function Landing() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    track("landing_view");
-  }, []);
+    track("landing_view", { billing_live: billingLive });
+  }, [billingLive]);
 
   async function handleWaitlist(e: React.FormEvent) {
     e.preventDefault();
@@ -82,7 +84,11 @@ export default function Landing() {
       await joinWaitlist(email, "landing");
       track("waitlist_join", { source: "landing" });
       setStatus("ok");
-      setMessage("Você entrou na lista. Avisamos quando o Pro abrir.");
+      setMessage(
+        billingLive
+          ? "Você entrou na lista."
+          : "Você entrou na lista. Avisamos quando o Pro abrir."
+      );
       setEmail("");
     } catch (err) {
       setStatus("error");
@@ -91,7 +97,14 @@ export default function Landing() {
   }
 
   const ctaTo = !loading && user ? "/home" : "/login";
-  const ctaLabel = !loading && user ? "Abrir app" : "Começar grátis";
+  const ctaLabel = !loading && user
+    ? "Abrir app"
+    : billingLive
+      ? "Começar grátis"
+      : "Entrar na lista";
+  const heroSub = billingLive
+    ? `7 dias grátis · depois Pro · ${BRAND.wedge}`
+    : `Lista de espera do Pro · ${BRAND.wedge}`;
 
   return (
     <div className="relative min-h-svh overflow-hidden bg-[#0c1222] text-zinc-100">
@@ -128,18 +141,28 @@ export default function Landing() {
               {BRAND.heroSupport}
             </p>
             <div className="mt-8">
-              <Button size="lg" asChild>
-                <Link
-                  to={ctaTo}
-                  onClick={() => track("landing_cta_login")}
+              {billingLive || (!loading && user) ? (
+                <Button size="lg" asChild>
+                  <Link
+                    to={ctaTo}
+                    onClick={() => track("landing_cta_login")}
+                  >
+                    {ctaLabel}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  asChild
                 >
-                  {ctaLabel}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <p className="mt-3 text-xs text-zinc-500">
-                7 dias grátis · depois Pro · {BRAND.wedge}
-              </p>
+                  <a href="#waitlist" onClick={() => track("landing_cta_waitlist")}>
+                    {ctaLabel}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </a>
+                </Button>
+              )}
+              <p className="mt-3 text-xs text-zinc-500">{heroSub}</p>
             </div>
           </motion.div>
 
@@ -201,44 +224,73 @@ export default function Landing() {
           ))}
         </motion.section>
 
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.45 }}
-          className="mt-12 rounded-2xl border border-white/10 bg-gradient-to-br from-sky-500/10 to-emerald-500/5 p-6 sm:p-8"
-        >
-          <h2 className="text-xl font-semibold">Lista de espera do Pro</h2>
-          <p className="mt-2 max-w-xl text-sm text-zinc-400">
-            Comece com 7 dias grátis. Quando o preço do Pro fechar, avisamos —
-            ou entre agora e use o período de teste.
-          </p>
-          <form
-            onSubmit={(e) => void handleWaitlist(e)}
-            className="mt-5 flex max-w-md flex-col gap-2 sm:flex-row"
+        {billingLive ? (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-40px" }}
+            transition={{ duration: 0.45 }}
+            className="mt-12 rounded-2xl border border-white/10 bg-gradient-to-br from-sky-500/10 to-emerald-500/5 p-6 sm:p-8"
           >
-            <Input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu@email.com"
-              className="border-white/15 bg-black/30 text-zinc-100 placeholder:text-zinc-500"
-            />
-            <Button type="submit" disabled={status === "loading"}>
-              {status === "loading" ? "Enviando..." : "Quero o Pro"}
-            </Button>
-          </form>
-          {message ? (
-            <p
-              className={`mt-3 text-sm ${
-                status === "error" ? "text-red-300" : "text-emerald-300"
-              }`}
-            >
-              {message}
+            <h2 className="text-xl font-semibold">Pronto para começar</h2>
+            <p className="mt-2 max-w-xl text-sm text-zinc-400">
+              7 dias grátis com acesso completo. Depois, Pro por{" "}
+              {PLANS.pro.priceLabel} — assine na Conta quando o teste acabar.
             </p>
-          ) : null}
-        </motion.section>
+            <Button className="mt-5" size="lg" asChild>
+              <Link to={ctaTo} onClick={() => track("landing_cta_trial")}>
+                {ctaLabel}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </motion.section>
+        ) : (
+          <motion.section
+            id="waitlist"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-40px" }}
+            transition={{ duration: 0.45 }}
+            className="mt-12 rounded-2xl border border-white/10 bg-gradient-to-br from-sky-500/10 to-emerald-500/5 p-6 sm:p-8"
+          >
+            <h2 className="text-xl font-semibold">Lista de espera do Pro</h2>
+            <p className="mt-2 max-w-xl text-sm text-zinc-400">
+              O checkout ainda não está aberto. Deixe seu e-mail e avisamos
+              quando o Pro ({PLANS.pro.priceLabel}) liberar.
+            </p>
+            <form
+              onSubmit={(e) => void handleWaitlist(e)}
+              className="mt-5 flex max-w-md flex-col gap-2 sm:flex-row"
+            >
+              <Input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                className="border-white/15 bg-black/30 text-zinc-100 placeholder:text-zinc-500"
+              />
+              <Button type="submit" disabled={status === "loading"}>
+                {status === "loading" ? "Enviando..." : "Quero o Pro"}
+              </Button>
+            </form>
+            {message ? (
+              <p
+                className={`mt-3 text-sm ${
+                  status === "error" ? "text-red-300" : "text-emerald-300"
+                }`}
+              >
+                {message}
+              </p>
+            ) : null}
+            <p className="mt-4 text-xs text-zinc-500">
+              Já tem conta?{" "}
+              <Link to="/login" className="underline hover:text-zinc-300">
+                Entrar
+              </Link>
+            </p>
+          </motion.section>
+        )}
       </main>
 
       <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 border-t border-white/10 px-5 py-6 text-sm text-zinc-500 sm:px-8">

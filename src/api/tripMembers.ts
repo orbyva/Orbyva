@@ -146,81 +146,45 @@ export async function revokeTripInvite(inviteId: string): Promise<void> {
 export async function fetchInviteByToken(
   token: string
 ): Promise<(TripInvite & { trip_title?: string }) | null> {
-  const { data, error } = await supabase
-    .from("trip_invite")
-    .select("*, trip:trip_id(title)")
-    .eq("token", token)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
+  const { data, error } = await supabase.rpc("get_trip_invite_by_token", {
+    p_token: token,
+  });
+
+  if (error) {
+    // RPC ainda não aplicada — fail closed (não vazar pending via SELECT)
+    if (
+      error.code === "PGRST202" ||
+      error.message.includes("get_trip_invite_by_token")
+    ) {
+      throw new Error(
+        "Convites endurecidos: rode scripts/security_hardening.sql no Supabase."
+      );
+    }
+    throw new Error(error.message);
+  }
+
   if (!data) return null;
-  const trip = data.trip as { title?: string } | null;
-  return {
-    ...data,
-    trip: undefined,
-    trip_title: trip?.title,
-  } as TripInvite & { trip_title?: string };
+  const row = data as TripInvite & { trip_title?: string };
+  return row;
 }
 
 export async function acceptTripInvite(token: string): Promise<string> {
-  // Prefer RPC (security definer) — evita RLS no upsert do cliente
   const { data: rpcTripId, error: rpcError } = await supabase.rpc(
     "accept_trip_invite",
     { p_token: token }
   );
 
-  if (!rpcError && rpcTripId) {
-    return rpcTripId as string;
+  if (rpcError) {
+    throw new Error(
+      rpcError.message.includes("accept_trip_invite") ||
+        rpcError.code === "PGRST202"
+        ? "Rode scripts/security_hardening.sql (accept_trip_invite) no Supabase."
+        : rpcError.message
+    );
   }
 
-  // Fallback se a RPC ainda não foi aplicada
-  if (
-    rpcError &&
-    !rpcError.message.includes("accept_trip_invite") &&
-    rpcError.code !== "PGRST202"
-  ) {
-    throw new Error(rpcError.message);
-  }
-
-  const userId = await getCurrentUserId();
-  const invite = await fetchInviteByToken(token);
-  if (!invite) throw new Error("Convite inválido.");
-  if (invite.status !== "pending") {
-    throw new Error("Este convite não está mais disponível.");
-  }
-  if (new Date(invite.expires_at).getTime() < Date.now()) {
-    await supabase
-      .from("trip_invite")
-      .update({ status: "expired" })
-      .eq("id", invite.id);
-    throw new Error("Este convite expirou.");
-  }
-
-  const [name, avatar] = await Promise.all([
-    currentDisplayName(),
-    currentAvatarUrl(),
-  ]);
-  // insert (não upsert) — upsert exige política UPDATE mesmo sem conflito
-  const { error: memberError } = await supabase.from("trip_member").insert({
-    trip_id: invite.trip_id,
-    user_id: userId,
-    role: "editor",
-    display_name: name,
-    avatar_url: avatar,
-  });
-  if (memberError) {
-    // Já membro: segue para marcar convite
-    if (!memberError.message.toLowerCase().includes("duplicate")) {
-      throw new Error(memberError.message);
-    }
-  }
-
-  const { error: inviteError } = await supabase
-    .from("trip_invite")
-    .update({ status: "accepted", accepted_by: userId })
-    .eq("id", invite.id);
-  if (inviteError) throw new Error(inviteError.message);
-
-  return invite.trip_id;
+  if (!rpcTripId) throw new Error("Convite inválido.");
+  return rpcTripId as string;
 }
 
 export async function removeTripMember(

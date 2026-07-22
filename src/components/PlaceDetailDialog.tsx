@@ -23,10 +23,8 @@ import type { PlaceVisit } from "@/types/places";
 import type { TripPlaceOpinion } from "@/types/tripSharing";
 import { formatDateBR } from "@/lib/currency";
 import { generatePlaceShareImage, sharePlaceNative } from "@/lib/placeShare";
-import { fetchPlaceOpinions, upsertPlaceOpinion } from "@/api/places";
+import { fetchPlaceOpinions } from "@/api/places";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { getErrorMessage } from "@/lib/errors";
 
 interface PlaceDetailDialogProps {
   place: PlaceVisit | null;
@@ -60,17 +58,11 @@ export function PlaceDetailDialog({
   onOpenChange,
   onEdit,
   onDelete,
-  onOpinionSaved,
   isSharedTrip,
 }: PlaceDetailDialogProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const [opinions, setOpinions] = useState<TripPlaceOpinion[]>([]);
-  const [myRating, setMyRating] = useState<number | null>(null);
-  const [myNotes, setMyNotes] = useState("");
-  const [myRecommend, setMyRecommend] = useState(true);
-  const [savingOpinion, setSavingOpinion] = useState(false);
   const { user } = useAuth();
-  const { toast } = useToast();
 
   const isTripPlace = Boolean(place?.trip_id || place?.trip?.id);
 
@@ -80,15 +72,9 @@ export function PlaceDetailDialog({
       return;
     }
     void fetchPlaceOpinions(place.id)
-      .then((list) => {
-        setOpinions(list);
-        const mine = list.find((o) => o.user_id === user?.id);
-        setMyRating(mine?.rating ?? place.rating ?? null);
-        setMyNotes(mine?.notes ?? "");
-        setMyRecommend(mine?.would_recommend ?? true);
-      })
+      .then(setOpinions)
       .catch(() => setOpinions([]));
-  }, [open, place, isTripPlace, user?.id]);
+  }, [open, place, isTripPlace]);
 
   const generateImage = useCallback(
     async (options: {
@@ -139,29 +125,17 @@ export function PlaceDetailDialog({
         ratedOpinions.length
       : null;
 
-  async function handleSaveOpinion() {
-    if (!place) return;
-    setSavingOpinion(true);
-    try {
-      await upsertPlaceOpinion(place.id, {
-        rating: myRating,
-        notes: myNotes.trim() || null,
-        would_recommend: myRecommend,
-      });
-      toast({ title: "Sua opinião foi salva", duration: 2000 });
-      const list = await fetchPlaceOpinions(place.id);
-      setOpinions(list);
-      onOpinionSaved?.();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error),
-        variant: "destructive",
-      });
-    } finally {
-      setSavingOpinion(false);
-    }
-  }
+  const myOpinion = opinions.find((o) => o.user_id === user?.id);
+  const displayNotes = (myOpinion?.notes ?? place.notes)?.trim() || null;
+  const displayRecommend =
+    myOpinion?.would_recommend ?? place.would_recommend;
+  const displayRating =
+    myOpinion?.rating != null && myOpinion.rating > 0
+      ? myOpinion.rating
+      : place.rating != null && place.rating > 0
+        ? place.rating
+        : null;
+  const shareNotes = Boolean(displayNotes);
 
   return (
     <>
@@ -178,7 +152,7 @@ export function PlaceDetailDialog({
                   {PLACE_TYPE_LABELS[place.type]}
                 </Badge>
               </div>
-              {place.would_recommend ? (
+              {displayRecommend ? (
                 <ThumbsUp className="h-5 w-5 shrink-0 text-success" />
               ) : (
                 <ThumbsDown className="h-5 w-5 shrink-0 text-destructive" />
@@ -197,12 +171,13 @@ export function PlaceDetailDialog({
                   </span>
                 </div>
               </DetailRow>
-            ) : place.rating != null && place.rating > 0 ? (
+            ) : displayRating != null ? (
               <DetailRow label="Avaliação">
                 <div className="flex items-center gap-2">
-                  <StarRating value={place.rating} readonly />
+                  <StarRating value={displayRating} readonly />
                   <span className="text-muted-foreground">
-                    {formatRating(place.rating)} · {getRatingLabel(place.rating)}
+                    {formatRating(displayRating)} ·{" "}
+                    {getRatingLabel(displayRating)}
                   </span>
                 </div>
               </DetailRow>
@@ -237,114 +212,55 @@ export function PlaceDetailDialog({
               <DetailRow label="Contexto">Passeio local</DetailRow>
             )}
 
-            {isTripPlace && showGroupOpinions ? (
-              <>
-                <DetailRow label="Opiniões do grupo">
-                  <ul className="space-y-2">
-                    {opinions.map((o) => (
-                      <li
-                        key={o.id}
-                        className="rounded-lg border px-3 py-2 text-sm"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium">
-                            {o.display_name ||
-                              (o.user_id === user?.id ? "Você" : "Viajante")}
-                          </span>
-                          {o.would_recommend ? (
-                            <ThumbsUp className="h-3.5 w-3.5 text-success" />
-                          ) : (
-                            <ThumbsDown className="h-3.5 w-3.5 text-destructive" />
-                          )}
-                        </div>
-                        {o.rating != null && o.rating > 0 ? (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatRating(o.rating)}/5 ·{" "}
-                            {getRatingLabel(o.rating)}
-                          </p>
-                        ) : null}
-                        {o.notes?.trim() ? (
-                          <p className="mt-1 text-muted-foreground whitespace-pre-wrap">
-                            {o.notes}
-                          </p>
-                        ) : null}
-                      </li>
-                    ))}
-                    {opinions.length === 0 ? (
-                      <p className="text-muted-foreground">
-                        Nenhuma opinião ainda.
-                      </p>
-                    ) : null}
-                  </ul>
-                </DetailRow>
-
-                <div className="space-y-3 rounded-lg border p-3">
-                  <p className="text-sm font-medium">Sua opinião</p>
-                  <StarRating value={myRating ?? 0} onChange={setMyRating} />
-                  <textarea
-                    value={myNotes}
-                    onChange={(e) => setMyNotes(e.target.value)}
-                    placeholder="O que achou?"
-                    rows={3}
-                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={myRecommend}
-                      onChange={(e) => setMyRecommend(e.target.checked)}
-                      className="rounded"
-                    />
-                    Recomendaria
-                  </label>
-                  <Button
-                    size="sm"
-                    disabled={savingOpinion}
-                    onClick={() => void handleSaveOpinion()}
-                  >
-                    {savingOpinion ? "Salvando…" : "Salvar minha opinião"}
-                  </Button>
-                </div>
-              </>
-            ) : isTripPlace ? (
-              <div className="space-y-3 rounded-lg border p-3">
-                <p className="text-sm font-medium">Sua avaliação</p>
-                <StarRating value={myRating ?? 0} onChange={setMyRating} />
-                <textarea
-                  value={myNotes}
-                  onChange={(e) => setMyNotes(e.target.value)}
-                  placeholder="O que achou?"
-                  rows={3}
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={myRecommend}
-                    onChange={(e) => setMyRecommend(e.target.checked)}
-                    className="rounded"
-                  />
-                  Recomendaria
-                </label>
-                <Button
-                  size="sm"
-                  disabled={savingOpinion}
-                  onClick={() => void handleSaveOpinion()}
-                >
-                  {savingOpinion ? "Salvando…" : "Salvar avaliação"}
-                </Button>
-              </div>
+            {showGroupOpinions ? (
+              <DetailRow label="Opiniões do grupo">
+                <ul className="space-y-2">
+                  {opinions.map((o) => (
+                    <li
+                      key={o.id}
+                      className="rounded-lg border px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium">
+                          {o.display_name ||
+                            (o.user_id === user?.id ? "Você" : "Viajante")}
+                        </span>
+                        {o.would_recommend ? (
+                          <ThumbsUp className="h-3.5 w-3.5 text-success" />
+                        ) : (
+                          <ThumbsDown className="h-3.5 w-3.5 text-destructive" />
+                        )}
+                      </div>
+                      {o.rating != null && o.rating > 0 ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatRating(o.rating)}/5 · {getRatingLabel(o.rating)}
+                        </p>
+                      ) : null}
+                      {o.notes?.trim() ? (
+                        <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
+                          {o.notes}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                  {opinions.length === 0 ? (
+                    <p className="text-muted-foreground">
+                      Nenhuma opinião ainda.
+                    </p>
+                  ) : null}
+                </ul>
+              </DetailRow>
             ) : (
               <>
-                {place.notes && (
+                {displayNotes ? (
                   <DetailRow label="Comentário">
                     <p className="whitespace-pre-wrap text-muted-foreground">
-                      {place.notes}
+                      {displayNotes}
                     </p>
                   </DetailRow>
-                )}
+                ) : null}
                 <DetailRow label="Recomendação">
-                  {place.would_recommend ? "Recomendaria" : "Não recomendaria"}
+                  {displayRecommend ? "Recomendaria" : "Não recomendaria"}
                 </DetailRow>
               </>
             )}
@@ -396,7 +312,7 @@ export function PlaceDetailDialog({
         share={share}
         allowPhoto
         maxPhotos={4}
-        allowNotes={Boolean(place.notes?.trim())}
+        allowNotes={shareNotes}
       />
     </>
   );

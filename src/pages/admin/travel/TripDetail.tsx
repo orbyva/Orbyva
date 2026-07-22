@@ -101,20 +101,59 @@ const emptyMilestoneForm = () => ({
   notes: "",
 });
 
+function ActivityQuickAdd({
+  onAdd,
+}: {
+  onAdd: (title: string) => void | Promise<void>;
+}) {
+  const [value, setValue] = useState("");
+
+  async function submit() {
+    const title = value.trim();
+    if (!title) return;
+    await onAdd(title);
+    setValue("");
+  }
+
+  return (
+    <div className="flex gap-2">
+      <Input
+        placeholder="Adicionar atividade..."
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void submit();
+        }}
+        className="h-10"
+      />
+      <Button size="sm" onClick={() => void submit()}>
+        <Plus className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 export default function TripDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [trip, setTrip] = useState<TripFull | null>(null);
   const [places, setPlaces] = useState<PlaceVisit[]>([]);
   const [loading, setLoading] = useState(true);
-  const { dimensions } = useDimensions();
+  const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [registerExpense, setRegisterExpense] = useState(false);
+  const [financeTypeId, setFinanceTypeId] = useState(0);
+  const [classId, setClassId] = useState(0);
+  const [splitRegisterExpense, setSplitRegisterExpense] =
+    useState<TripExpense | null>(null);
+
+  const needDimensions = expenseDialogOpen || registerExpense || !!splitRegisterExpense;
+  const { dimensions } = useDimensions({ enabled: needDimensions });
   const { toast } = useToast();
   useBreadcrumbTitle(trip?.title);
 
   const [editTripOpen, setEditTripOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
-  const [newActivity, setNewActivity] = useState<Record<string, string>>({});
   const [editingDay, setEditingDay] = useState<TripItineraryDay | null>(null);
   const [dayForm, setDayForm] = useState({ title: "", notes: "" });
   const [editingActivity, setEditingActivity] =
@@ -127,12 +166,6 @@ export default function TripDetail() {
 
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm());
   const [editingExpense, setEditingExpense] = useState<TripExpense | null>(null);
-  const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
-  const [registerExpense, setRegisterExpense] = useState(false);
-  const [financeTypeId, setFinanceTypeId] = useState(0);
-  const [classId, setClassId] = useState(0);
-  const [splitRegisterExpense, setSplitRegisterExpense] =
-    useState<TripExpense | null>(null);
 
   const [selectedPlace, setSelectedPlace] = useState<PlaceVisit | null>(null);
   const [placeDetailOpen, setPlaceDetailOpen] = useState(false);
@@ -372,9 +405,8 @@ export default function TripDetail() {
     }
   }
 
-  async function handleAddActivity(dayId: string) {
-    const title = newActivity[dayId];
-    if (!title?.trim()) return;
+  async function handleAddActivity(dayId: string, title: string) {
+    if (!title.trim()) return;
     try {
       const day = trip!.itinerary.find((d) => d.id === dayId);
       await createItineraryActivity({
@@ -382,7 +414,6 @@ export default function TripDetail() {
         title,
         sort_order: (day?.activities?.length ?? 0) + 1,
       });
-      setNewActivity({ ...newActivity, [dayId]: "" });
       load();
     } catch (error) {
       toast({
@@ -563,7 +594,9 @@ export default function TripDetail() {
             </p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Gasto total</p>
+            <p className="text-xs text-muted-foreground">
+              {trip.isShared ? "Gasto do grupo" : "Gasto total"}
+            </p>
             <p className="font-bold text-destructive">
               {formatBRL(trip.expenseTotal)}
             </p>
@@ -764,25 +797,9 @@ export default function TripDetail() {
                   );
                 })}
               </ul>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Adicionar atividade..."
-                  value={newActivity[day.id] ?? ""}
-                  onChange={(e) =>
-                    setNewActivity({
-                      ...newActivity,
-                      [day.id]: e.target.value,
-                    })
-                  }
-                  onKeyDown={(e) =>
-                    e.key === "Enter" && handleAddActivity(day.id)
-                  }
-                  className="h-10"
-                />
-                <Button size="sm" onClick={() => handleAddActivity(day.id)}>
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              <ActivityQuickAdd
+                onAdd={(title) => handleAddActivity(day.id, title)}
+              />
             </article>
           ))}
         </TabsContent>
