@@ -1,7 +1,7 @@
-/** Identidade do produto — FinTrack reafirmado; wedge = life OS com ledger. */
+/** Identidade do produto — Orbyva (life OS). */
 export const BRAND = {
-  name: "FinTrack",
-  tagline: "Seu life OS pessoal",
+  name: "Orbyva",
+  tagline: "Tudo da sua vida em uma só órbita",
   /** Cunha de diferenciação (landing / marketing). */
   wedge: "Life OS com ledger",
   shortDescription:
@@ -9,11 +9,15 @@ export const BRAND = {
   /** Uma linha para o hero — prova + proposta. */
   heroSupport:
     "O hub da sua vida com o livro-caixa no centro: saldo, alertas e o que importa hoje.",
+  /** Assets em /public */
+  logo: "/logo.webp",
+  logoMark: "/logo-mark.webp",
+  email: "hello@orbyva.app",
 } as const;
 
 /** Hex de marca — canvas/shares/PWA (espelha --primary / --cinema). */
 export const BRAND_COLORS = {
-  /** Sky-500 — primary */
+  /** Sky accent — primary (logo Orbyva) */
   primary: "#0EA5E9",
   /** Sky-600 — gradientes / punch */
   primaryDeep: "#0284C7",

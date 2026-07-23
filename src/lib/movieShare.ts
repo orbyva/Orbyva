@@ -20,10 +20,65 @@ const BRAND = {
   font: '"Plus Jakarta Sans", system-ui, -apple-system, sans-serif',
 } as const;
 
-function loadImage(src: string): Promise<HTMLImageElement | null> {
+function isTmdbImageHost(hostname: string): boolean {
+  return (
+    hostname === "image.tmdb.org" ||
+    hostname === "www.themoviedb.org" ||
+    hostname.endsWith(".tmdb.org")
+  );
+}
+
+/**
+ * TMDB (e alguns CDNs) quebram canvas com CORS/`crossOrigin`.
+ * Preferimos same-origin proxy + blob URL (não tainta o canvas).
+ */
+function toShareableImageUrl(src: string): string {
+  try {
+    const u = new URL(src, window.location.origin);
+    if (isTmdbImageHost(u.hostname)) {
+      // w500 → w780 no share (capa mais nítida)
+      const path = u.pathname.replace(/\/t\/p\/w\d+\//, "/t/p/w780/");
+      return `/tmdb-media${path}${u.search}`;
+    }
+  } catch {
+    /* ignore */
+  }
+  return src;
+}
+
+async function loadImage(src: string): Promise<HTMLImageElement | null> {
+  const candidates = [toShareableImageUrl(src)];
+  if (candidates[0] !== src) candidates.push(src);
+
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, {
+        mode: "cors",
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
+      });
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      if (!blob.type.startsWith("image/")) continue;
+      const objectUrl = URL.createObjectURL(blob);
+      const img = await new Promise<HTMLImageElement | null>((resolve) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => resolve(null);
+        el.src = objectUrl;
+      });
+      URL.revokeObjectURL(objectUrl);
+      if (img) return img;
+    } catch {
+      /* tenta próximo */
+    }
+  }
+
+  // Último recurso: <img crossOrigin> (OMDB / hosts com ACAO)
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
+    img.referrerPolicy = "no-referrer";
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
     img.src = src;
@@ -177,23 +232,33 @@ function drawBrandMark(
   cy: number,
   size: number
 ) {
-  // Marca geométrica: losango em sky
+  const r = size * 0.42;
+  const stroke = Math.max(3, size * 0.18);
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(Math.PI / 4);
-
-  const half = size / 2;
+  ctx.strokeStyle = BRAND.primary;
   ctx.fillStyle = BRAND.primary;
-  ctx.fillRect(-half, -half, size, size);
+  ctx.lineCap = "round";
 
-  ctx.fillStyle = BRAND.primaryDeep;
-  ctx.globalAlpha = 0.9;
-  ctx.fillRect(-half * 0.45, -half * 0.45, size * 0.9, size * 0.9);
-  ctx.globalAlpha = 1;
-
-  ctx.fillStyle = BRAND.paper;
   ctx.beginPath();
-  ctx.arc(0, 0, size * 0.18, 0, Math.PI * 2);
+  ctx.ellipse(
+    cx + size * 0.04,
+    cy,
+    size * 0.52,
+    size * 0.18,
+    -Math.PI / 5,
+    0,
+    Math.PI * 2
+  );
+  ctx.lineWidth = Math.max(2, size * 0.06);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx - size * 0.04, cy + size * 0.02, r, 0, Math.PI * 2);
+  ctx.lineWidth = stroke;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.85, cy - r * 0.85, size * 0.12, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }

@@ -30,7 +30,7 @@ export function normalizeMovie(raw: Movie): Movie {
   };
 }
 
-/** Converte nota Letterboxd (0–5) para escala FinTrack (0–10). */
+/** Converte nota Letterboxd (0–5) para escala Orbyva (0–10). */
 export function letterboxdToTen(rating: number): number {
   return Math.round(rating * 2 * 10) / 10;
 }

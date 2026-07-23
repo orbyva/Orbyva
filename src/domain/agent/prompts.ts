@@ -1,4 +1,4 @@
-export const AGENT_SYSTEM_PROMPT = `Consultor financeiro FinTrack — ver Edge Function para prompt completo.`;
+export const AGENT_SYSTEM_PROMPT = `Consultor financeiro Orbyva — ver Edge Function para prompt completo.`;
 
 export const SUGGESTED_QUESTIONS = [
   "Qual foi meu saldo no mês?",
@@ -10,7 +10,7 @@ export const SUGGESTED_QUESTIONS = [
 ] as const;
 
 export const AGENT_WELCOME_MESSAGE =
-  "Olá! Sou seu consultor financeiro no FinTrack.\n\n" +
+  "Olá! Sou seu consultor financeiro no Orbyva.\n\n" +
   "Analiso seus dados reais — receitas, despesas, orçamento e parcelas — sempre com natureza, tipo e classe quando aplicável.\n\n" +
   "Cada resposta traz **Resumo**, **Detalhamento**, **Ponto de atenção** e **Recomendação**. " +
   "Para cadastrar, descreva valor, descrição e categoria — eu confirmo antes de gravar.\n\n" +

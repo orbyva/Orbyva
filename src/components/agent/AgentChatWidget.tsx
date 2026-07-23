@@ -27,7 +27,7 @@ export function AgentChatWidget() {
           "right-[max(1rem,env(safe-area-inset-right))]",
           "md:bottom-6 md:right-6"
         )}
-        aria-label="Abrir consultor FinTrack"
+        aria-label="Abrir consultor Orbyva"
       >
         <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
       </Button>
@@ -42,7 +42,7 @@ export function AgentChatWidget() {
             )}
           >
             <SheetHeader className="sr-only">
-              <SheetTitle>Consultor FinTrack</SheetTitle>
+              <SheetTitle>Consultor Orbyva</SheetTitle>
             </SheetHeader>
             <div className="relative flex min-h-0 flex-1 flex-col">
               <SheetClose asChild>

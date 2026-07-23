@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BrandLogo } from "@/components/BrandLogo";
 import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
 import { joinWaitlist } from "@/api/waitlist";
@@ -118,8 +119,12 @@ export default function Landing() {
       />
 
       <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-        <Link to="/" className="text-lg font-semibold tracking-tight">
-          {BRAND.name}
+        <Link to="/" aria-label={BRAND.name} className="inline-flex">
+          <BrandLogo
+            variant="mark"
+            className="size-10 rounded-xl bg-white"
+            alt={BRAND.name}
+          />
         </Link>
         <Button variant="ghost" className="text-zinc-200 hover:text-white" asChild>
           <Link to="/login">Entrar</Link>
@@ -133,8 +138,11 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <p className="text-sm font-medium text-sky-300/90">{BRAND.name}</p>
-            <h1 className="mt-3 font-sans text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
+            <BrandLogo
+              variant="full"
+              className="mb-6 h-auto w-full max-w-[280px] rounded-2xl bg-white p-4 sm:max-w-[320px]"
+            />
+            <h1 className="font-sans text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
               {BRAND.tagline}
             </h1>
             <p className="mt-5 max-w-md text-base text-zinc-400 sm:text-lg">
@@ -298,6 +306,9 @@ export default function Landing() {
           © {new Date().getFullYear()} {BRAND.name} · {BRAND.wedge}
         </span>
         <div className="flex gap-4">
+          <Link to="/about" className="hover:text-zinc-300">
+            Sobre
+          </Link>
           <Link to="/terms" className="hover:text-zinc-300">
             Termos
           </Link>

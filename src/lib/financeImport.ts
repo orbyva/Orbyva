@@ -75,7 +75,7 @@ export function parseFinanceDate(raw: string): string | null {
   return null;
 }
 
-/** Parse CSV no formato FinTrack (mesmo de exportFinanceCsv). */
+/** Parse CSV no formato Orbyva (mesmo de exportFinanceCsv). */
 export function parseFinanceImportCsv(csvText: string): ParseFinanceImportResult {
   const { headers, rows } = parseCsv(csvText);
   if (!headers.length) {
@@ -93,7 +93,7 @@ export function parseFinanceImportCsv(csvText: string): ParseFinanceImportResult
     return {
       rows: [],
       errors: [
-        "Cabeçalho inválido. Use o modelo FinTrack: data, descricao, valor, classe (tipo e natureza opcionais).",
+        "Cabeçalho inválido. Use o modelo Orbyva: data, descricao, valor, classe (tipo e natureza opcionais).",
       ],
     };
   }
@@ -220,5 +220,5 @@ export function downloadFinanceImportTemplate(): void {
       "Despesa",
     ],
   ]);
-  downloadCsv(stampFilename("fintrack-financas-modelo"), csv);
+  downloadCsv(stampFilename("orbyva-financas-modelo"), csv);
 }

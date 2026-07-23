@@ -45,7 +45,7 @@ export function paintShareBackground(
 }
 
 /**
- * Marca geométrica (losango) — mesmo do cinema.
+ * Marca Orbyva — O + órbita + satélite (canvas shares).
  * `cx`/`cy` são o centro do mark.
  */
 export function drawBrandMark(
@@ -54,22 +54,28 @@ export function drawBrandMark(
   cy: number,
   size: number
 ) {
+  const r = size * 0.42;
+  const stroke = Math.max(3, size * 0.18);
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(Math.PI / 4);
-
-  const half = size / 2;
+  ctx.strokeStyle = SHARE_BRAND.primary;
   ctx.fillStyle = SHARE_BRAND.primary;
-  ctx.fillRect(-half, -half, size, size);
+  ctx.lineCap = "round";
 
-  ctx.fillStyle = SHARE_BRAND.primaryDeep;
-  ctx.globalAlpha = 0.9;
-  ctx.fillRect(-half * 0.45, -half * 0.45, size * 0.9, size * 0.9);
-  ctx.globalAlpha = 1;
-
-  ctx.fillStyle = SHARE_BRAND.paper;
+  // Órbita diagonal
   ctx.beginPath();
-  ctx.arc(0, 0, size * 0.18, 0, Math.PI * 2);
+  ctx.ellipse(cx + size * 0.04, cy, size * 0.52, size * 0.18, -Math.PI / 5, 0, Math.PI * 2);
+  ctx.lineWidth = Math.max(2, size * 0.06);
+  ctx.stroke();
+
+  // Anel O
+  ctx.beginPath();
+  ctx.arc(cx - size * 0.04, cy + size * 0.02, r, 0, Math.PI * 2);
+  ctx.lineWidth = stroke;
+  ctx.stroke();
+
+  // Satélite
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.85, cy - r * 0.85, size * 0.12, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }

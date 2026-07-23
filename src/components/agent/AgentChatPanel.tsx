@@ -66,7 +66,7 @@ export function AgentChatPanel({ variant = "page" }: AgentChatPanelProps) {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold tracking-tight sm:text-lg">
-                Consultor FinTrack
+                Consultor Orbyva
               </h2>
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary sm:text-xs">
                 <Sparkles className="h-3 w-3" />

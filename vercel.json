@@ -2,6 +2,10 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
   "rewrites": [
+    {
+      "source": "/tmdb-media/:path*",
+      "destination": "https://image.tmdb.org/:path*"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

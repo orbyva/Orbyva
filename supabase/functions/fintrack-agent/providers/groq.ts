@@ -5,7 +5,7 @@ import {
   AGENT_RESPONSE_STRUCTURE,
 } from "../prompts/response-format.ts";
 
-const AGENT_SYSTEM_PROMPT = `Você é um consultor financeiro de negócios do FinTrack — assistente profissional para tomada de decisão.
+const AGENT_SYSTEM_PROMPT = `Você é um consultor financeiro de negócios do Orbyva — assistente profissional para tomada de decisão.
 
 ${AGENT_DIMENSION_RULES}
 
@@ -69,7 +69,7 @@ function formatGroqHttpError(status: number, body: string): Error {
   return new Error(`Erro na API Groq (${status}).`);
 }
 
-const NARRATOR_BASE = `Você é consultor financeiro de negócios do FinTrack.
+const NARRATOR_BASE = `Você é consultor financeiro de negócios do Orbyva.
 
 ${AGENT_DIMENSION_RULES}
 
@@ -133,7 +133,7 @@ export async function runGroqNarrator(
           content:
             `Pergunta do usuário: ${userMessage}\n\n` +
             `Contexto da consulta: ${prefetch.intent}\n\n` +
-            `Dados reais do FinTrack (use somente isto):\n` +
+            `Dados reais do Orbyva (use somente isto):\n` +
             `${JSON.stringify(prefetch.data)}`,
         },
       ],

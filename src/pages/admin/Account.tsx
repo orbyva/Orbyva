@@ -372,7 +372,9 @@ export default function Account() {
                   </Link>
                 </Button>
                 <Button size="sm" variant="outline" asChild>
-                  <a href="mailto:hello@fintrack.app?subject=FinTrack%20Pro">
+                  <a
+                    href={`mailto:${BRAND.email}?subject=${encodeURIComponent(`${BRAND.name} Pro`)}`}
+                  >
                     Falar conosco
                   </a>
                 </Button>
@@ -415,6 +417,9 @@ export default function Account() {
               </Link>
             </Button>
           )}
+          <Button variant="ghost" asChild>
+            <Link to="/about">Sobre</Link>
+          </Button>
           <Button variant="ghost" asChild>
             <Link to="/terms">Termos</Link>
           </Button>

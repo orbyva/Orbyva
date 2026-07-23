@@ -1,6 +1,6 @@
 import { FUNCTION_DECLARATIONS } from "../tools/definitions.ts";
 
-const AGENT_SYSTEM_PROMPT = `Você é o assistente financeiro do FinTrack, um app de controle financeiro pessoal.
+const AGENT_SYSTEM_PROMPT = `Você é o assistente financeiro do Orbyva, um app de controle financeiro pessoal.
 
 REGRAS OBRIGATÓRIAS:
 1. NUNCA invente números. Use SOMENTE dados das ferramentas.

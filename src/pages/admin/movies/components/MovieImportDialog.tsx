@@ -14,7 +14,7 @@ import {
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
 import { upsertMovie } from "@/api/movies";
-import { findMovieByTitleYear } from "@/lib/omdb";
+import { findCinemaByTitleYear } from "@/lib/cinema";
 import {
   parseMovieImportCsv,
   type ImportedWatch,
@@ -79,7 +79,7 @@ export function MovieImportDialog({ onImported }: MovieImportDialogProps) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
-        const found = await findMovieByTitleYear(row.title, row.year);
+        const found = await findCinemaByTitleYear(row.title, row.year);
         if (!found) {
           failed++;
         } else {

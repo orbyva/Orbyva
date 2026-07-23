@@ -3,9 +3,9 @@ import { expect, test } from "@playwright/test";
 test.describe("smoke público", () => {
   test("landing carrega com marca e CTA", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("link", { name: "FinTrack" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Orbyva" }).first()).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: /life OS/i }).first()
+      page.getByRole("heading", { name: /órbita/i }).first()
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: /Começar grátis|Abrir app/i }).first()

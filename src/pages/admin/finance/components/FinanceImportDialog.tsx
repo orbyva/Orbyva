@@ -137,7 +137,7 @@ export function FinanceImportDialog({ onImported }: FinanceImportDialogProps) {
 
         <div className={FORM_FIELDS_CLASS}>
           <p className="text-sm text-muted-foreground">
-            Use o modelo FinTrack (mesmo formato do export): data, descricao,
+            Use o modelo Orbyva (mesmo formato do export): data, descricao,
             valor, classe. Tipo e natureza ajudam se houver classes com o mesmo
             nome.
           </p>

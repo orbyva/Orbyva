@@ -12,12 +12,18 @@ export default defineConfig({
     VitePWA({
       registerType: "prompt",
       minify: false,
-      includeAssets: ["logo.webp", "placeholder.svg", "pwa-192.png", "pwa-512.png"],
+      includeAssets: [
+        "logo.webp",
+        "logo-mark.webp",
+        "placeholder.svg",
+        "pwa-192.png",
+        "pwa-512.png",
+      ],
       manifest: {
-        name: "FinTrack",
-        short_name: "FinTrack",
+        name: "Orbyva",
+        short_name: "Orbyva",
         description:
-          "Seu life OS pessoal — finanças, hábitos, metas, viagens e mais.",
+          "Tudo da sua vida em uma só órbita — finanças, hábitos, metas, viagens e mais.",
         theme_color: "#0EA5E9",
         background_color: "#0B0F1A",
         display: "standalone",
@@ -48,7 +54,19 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,webp,svg,woff2,png}"],
         navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/tmdb-media/],
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/tmdb-media"),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "tmdb-posters",
+              expiration: {
+                maxEntries: 128,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
             handler: "NetworkFirst",
@@ -79,6 +97,15 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  server: {
+    proxy: {
+      "/tmdb-media": {
+        target: "https://image.tmdb.org",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/tmdb-media/, ""),
+      },
     },
   },
   test: {

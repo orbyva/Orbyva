@@ -1,11 +1,11 @@
-# FinTrack
+# Orbyva
 
-**Seu life OS pessoal** — finanças, metas, hábitos, viagens, lugares, veículos e cinema num só lugar.
+**Tudo da sua vida em uma só órbita** — finanças, metas, hábitos, viagens, lugares, veículos e cinema num só lugar.
 
 Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts**, **Framer Motion** e **Supabase** (auth, banco e Edge Functions).
 
 <p align="center">
-  <img alt="FinTrack" src="public/logo.webp" width="120" />
+  <img alt="Orbyva" src="public/logo.webp" width="120" />
 </p>
 
 ---
@@ -166,8 +166,11 @@ cp .env.example .env
 ```bash
 VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 VITE_SUPABASE_ANON_KEY=sua_anon_key
-VITE_OMDB_API_KEY=sua_chave_omdb   # opcional
+VITE_TMDB_API_KEY=sua_chave_tmdb   # Cinema em pt-BR (recomendado)
+VITE_OMDB_API_KEY=sua_chave_omdb   # fallback opcional
 ```
+
+Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) (API Key v3).
 
 ### Billing (opcional — Stripe depois)
 
@@ -216,7 +219,8 @@ npm run start         # serve /dist em produção local
 2. **Environment Variables:**
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-   - `VITE_OMDB_API_KEY` (se usar Filmes)
+   - `VITE_TMDB_API_KEY` (Cinema em pt-BR)
+   - `VITE_OMDB_API_KEY` (fallback opcional)
 3. **Build Command:** `npm run build` · **Output:** `dist`
 4. Deploy das Edge Functions Stripe quando for cobrar (opcional)
 

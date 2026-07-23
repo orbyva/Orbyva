@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { BrandLogo } from "@/components/BrandLogo";
 import { BRAND } from "@/lib/brand";
 import { supabase } from "@/lib/supabase";
 
@@ -70,11 +71,10 @@ export function LoginForm({
             </p>
           </div>
 
-          <div className="relative hidden bg-muted md:block">
-            <img
-              src="/logo.webp"
-              alt={BRAND.name}
-              className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+          <div className="relative hidden items-center justify-center bg-white md:flex">
+            <BrandLogo
+              variant="full"
+              className="max-h-[80%] max-w-[80%] p-8"
             />
           </div>
         </CardContent>

@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     if (messages.length === 0) {
       return jsonResponse({
         message:
-          "Olá! Sou seu consultor financeiro no FinTrack. Analiso seus dados reais com natureza, tipo e classe. Cada resposta inclui resumo, detalhamento, ponto de atenção e recomendação. Cadastros exigem sua confirmação.",
+          "Olá! Sou seu consultor financeiro no Orbyva. Analiso seus dados reais com natureza, tipo e classe. Cada resposta inclui resumo, detalhamento, ponto de atenção e recomendação. Cadastros exigem sua confirmação.",
         suggestedQuestions: SUGGESTED_QUESTIONS,
       });
     }

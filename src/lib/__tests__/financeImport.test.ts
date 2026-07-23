@@ -15,7 +15,7 @@ describe("financeImport", () => {
     expect(parseFinanceDate("15/01/2026")).toBe("2026-01-15");
   });
 
-  it("parses FinTrack export headers", () => {
+  it("parses Orbyva export headers", () => {
     const csv = [
       "id,data,descricao,valor,classe,tipo,natureza",
       ",2026-02-01,Café,12.5,Café,Alimentação,Despesa",

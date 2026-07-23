@@ -22,7 +22,7 @@ Uma sugestão prática e acionável para o usuário.
 `.trim();
 
 export const AGENT_DIMENSION_RULES = `
-HIERARQUIA DE DADOS (FinTrack):
+HIERARQUIA DE DADOS (Orbyva):
 Natureza → Tipo → Classe → Lançamento
 
 Ao explicar qualquer registro ou agrupamento, cite natureza, tipo e classe quando existirem nos dados.

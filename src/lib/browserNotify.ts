@@ -109,12 +109,12 @@ export function maybeNotifyCriticalAlerts(count: number): void {
   if (localStorage.getItem(NOTIFY_SENT_KEY) === today) return;
 
   localStorage.setItem(NOTIFY_SENT_KEY, today);
-  new Notification("FinTrack", {
+  new Notification("Orbyva", {
     body:
       count === 1
         ? "Você tem 1 alerta urgente."
         : `Você tem ${count} alertas urgentes.`,
-    icon: "/logo.webp",
+    icon: "/logo-mark.webp",
     tag: "fintrack-daily-alerts",
   });
 }

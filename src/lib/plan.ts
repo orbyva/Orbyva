@@ -22,7 +22,7 @@ export const PLANS = {
     id: "pro" as const,
     name: "Pro",
     priceLabel: "R$ 19,90/mês",
-    blurb: "Continue no FinTrack depois do teste — sem limite de tempo.",
+    blurb: "Continue no Orbyva depois do teste — sem limite de tempo.",
     features: [
       "Tudo do período de teste",
       "Acesso contínuo ao life OS",

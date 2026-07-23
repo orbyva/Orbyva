@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, Suspense } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
   Breadcrumb,
@@ -150,7 +150,9 @@ export default function AdminLayout() {
           <div className="flex flex-1 flex-col gap-2 pb-24 sm:gap-4 md:pb-6">
             <Toaster />
             {hasAccess ? <OnboardingDialog /> : null}
-            <Outlet />
+            <Suspense fallback={<LoadingFallback cover="viewport" />}>
+              <Outlet />
+            </Suspense>
           </div>
           {hasAccess ? <MobileBottomNav /> : null}
         </SidebarInset>

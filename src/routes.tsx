@@ -52,6 +52,7 @@ const TermsPage = lazy(() =>
 const PrivacyPage = lazy(() =>
   import("./pages/legal/LegalPages").then((m) => ({ default: m.PrivacyPage }))
 );
+const AboutPage = lazy(() => import("./pages/About"));
 
 const router = createBrowserRouter([
   {
@@ -61,6 +62,10 @@ const router = createBrowserRouter([
   {
     path: "/login",
     element: <LoginEntry />,
+  },
+  {
+    path: "/about",
+    element: withSuspense(<AboutPage />),
   },
   {
     path: "/terms",
@@ -76,33 +81,33 @@ const router = createBrowserRouter([
       {
         element: <AdminLayout />,
         children: [
-          { path: "home", element: withSuspense(<LifeDashboard />) },
-          { path: "timeline", element: withSuspense(<Timeline />) },
-          { path: "account", element: withSuspense(<Account />) },
+          { path: "home", element: <LifeDashboard /> },
+          { path: "timeline", element: <Timeline /> },
+          { path: "account", element: <Account /> },
 
-          { path: "goals", element: withSuspense(<Goals />) },
-          { path: "habits", element: withSuspense(<Habits />) },
-          { path: "travel", element: withSuspense(<Travel />) },
+          { path: "goals", element: <Goals /> },
+          { path: "habits", element: <Habits /> },
+          { path: "travel", element: <Travel /> },
           {
             path: "travel/invite/:token",
-            element: withSuspense(<TripInviteAccept />),
+            element: <TripInviteAccept />,
           },
-          { path: "travel/:id", element: withSuspense(<TripDetail />) },
-          { path: "places", element: withSuspense(<Places />) },
+          { path: "travel/:id", element: <TripDetail /> },
+          { path: "places", element: <Places /> },
 
           {
             path: "finance",
             children: [
-              { path: "dashboard", element: withSuspense(<FinanceDashboard />) },
-              { path: "recurring", element: withSuspense(<Recurring />) },
-              { path: "transactions", element: withSuspense(<Transactions />) },
-              { path: "dimensions", element: withSuspense(<Dimensions />) },
-              { path: "budget", element: withSuspense(<Budget />) },
+              { path: "dashboard", element: <FinanceDashboard /> },
+              { path: "recurring", element: <Recurring /> },
+              { path: "transactions", element: <Transactions /> },
+              { path: "dimensions", element: <Dimensions /> },
+              { path: "budget", element: <Budget /> },
             ],
           },
 
-          { path: "movies", element: withSuspense(<Movies />) },
-          { path: "car", element: withSuspense(<Car />) },
+          { path: "movies", element: <Movies /> },
+          { path: "car", element: <Car /> },
         ],
       },
     ],

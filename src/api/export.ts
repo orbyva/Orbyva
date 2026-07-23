@@ -41,7 +41,7 @@ export async function exportFinanceCsv(): Promise<void> {
     ],
     rows
   );
-  downloadCsv(stampFilename("fintrack-financas"), csv);
+  downloadCsv(stampFilename("orbyva-financas"), csv);
 }
 
 export async function exportMoviesCsv(): Promise<void> {
@@ -91,7 +91,7 @@ export async function exportMoviesCsv(): Promise<void> {
     ],
     rows
   );
-  downloadCsv(stampFilename("fintrack-cinema"), csv);
+  downloadCsv(stampFilename("orbyva-cinema"), csv);
 }
 
 export async function exportVehiclesCsv(): Promise<void> {
@@ -144,21 +144,21 @@ export async function exportVehiclesCsv(): Promise<void> {
   // Um arquivo “resumo” de veículos + abas via múltiplos downloads seria confuso;
   // exportamos três CSVs em sequência.
   downloadCsv(
-    stampFilename("fintrack-veiculos"),
+    stampFilename("orbyva-veiculos"),
     rowsToCsv(
       ["id", "tipo", "nome", "marca", "modelo", "ano", "placa", "km_atual"],
       vehicleRows
     )
   );
   downloadCsv(
-    stampFilename("fintrack-manutencoes"),
+    stampFilename("orbyva-manutencoes"),
     rowsToCsv(
       ["id", "veiculo", "servico", "data", "km", "custo", "notas"],
       maintenanceRows
     )
   );
   downloadCsv(
-    stampFilename("fintrack-abastecimentos"),
+    stampFilename("orbyva-abastecimentos"),
     rowsToCsv(
       ["id", "veiculo", "data", "km", "litros", "custo", "posto", "notas"],
       fuelRows
@@ -192,13 +192,13 @@ export async function exportGoalsCsv(): Promise<void> {
       g.status,
     ])
   );
-  downloadCsv(stampFilename("fintrack-metas"), csv);
+  downloadCsv(stampFilename("orbyva-metas"), csv);
 }
 
 export async function exportHabitsCsv(): Promise<void> {
   const [habits, logs] = await Promise.all([fetchHabits(), fetchAllHabitLogs()]);
   downloadCsv(
-    stampFilename("fintrack-habitos"),
+    stampFilename("orbyva-habitos"),
     rowsToCsv(
       ["id", "nome", "descricao", "frequencia", "meta_semana", "cor"],
       habits.map((h) => [
@@ -212,7 +212,7 @@ export async function exportHabitsCsv(): Promise<void> {
     )
   );
   downloadCsv(
-    stampFilename("fintrack-habitos-logs"),
+    stampFilename("orbyva-habitos-logs"),
     rowsToCsv(
       ["id", "habit_id", "data", "concluido"],
       logs.map((l) => [l.id, l.habit_id, l.date, l.completed])
@@ -246,7 +246,7 @@ export async function exportPlacesCsv(): Promise<void> {
       p.notes ?? "",
     ])
   );
-  downloadCsv(stampFilename("fintrack-lugares"), csv);
+  downloadCsv(stampFilename("orbyva-lugares"), csv);
 }
 
 export async function exportTripsCsv(): Promise<void> {
@@ -275,5 +275,5 @@ export async function exportTripsCsv(): Promise<void> {
       t.notes ?? "",
     ])
   );
-  downloadCsv(stampFilename("fintrack-viagens"), csv);
+  downloadCsv(stampFilename("orbyva-viagens"), csv);
 }

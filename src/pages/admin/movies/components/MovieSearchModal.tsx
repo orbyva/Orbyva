@@ -7,7 +7,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { fetchMovieByImdbId, searchMovies } from "@/lib/omdb";
+import {
+  fetchCinemaByImdbId,
+  fetchCinemaDetails,
+  isTmdbConfigured,
+  searchCinema,
+  type CinemaSearchHit,
+} from "@/lib/cinema";
 import { createMovie } from "@/api/movies";
 import { Movie, MovieCreateRequest, MovieStatus } from "@/types/movies";
 import { Plus } from "lucide-react";
@@ -30,7 +36,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<"search" | "details">("search");
   const [query, setQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Movie[]>([]);
+  const [searchResults, setSearchResults] = useState<CinemaSearchHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [rating, setRating] = useState<number | null>(null);
@@ -50,36 +56,69 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
     setFormError("");
     setLoading(true);
 
-    let results: Movie[] = [];
-    if (/^tt\d+$/.test(query.trim())) {
-      const movie = await fetchMovieByImdbId(query.trim());
-      if (movie) results = [movie];
-    } else {
-      results = await searchMovies(query.trim());
-    }
+    try {
+      let results: CinemaSearchHit[] = [];
+      if (/^tt\d+$/.test(query.trim())) {
+        const movie = await fetchCinemaByImdbId(query.trim());
+        if (movie) {
+          results = [
+            {
+              tmdb_id: 0,
+              media_type: movie.type === "series" ? "tv" : "movie",
+              title: movie.title,
+              year: movie.year,
+              poster: movie.poster ?? null,
+              overview: movie.plot,
+              imdb_id: movie.imdb_id,
+            },
+          ];
+          // Já temos detalhe completo — pula para details
+          setSelectedMovie(movie);
+          setSearchResults(results);
+          setStep("details");
+          return;
+        }
+      } else {
+        results = await searchCinema(query.trim());
+      }
 
-    setSearchResults(results);
-    setLoading(false);
+      setSearchResults(results);
+      if (results.length === 0) {
+        setFormError(
+          isTmdbConfigured()
+            ? "Nenhum título encontrado. Tente outro nome."
+            : "Nenhum título encontrado. Configure VITE_TMDB_API_KEY para busca em português."
+        );
+      }
+    } catch (error) {
+      setFormError(getErrorMessage(error, "Falha na busca."));
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function handleSelectMovie(movie: Movie) {
+  async function handleSelectMovie(hit: CinemaSearchHit) {
     setLoading(true);
-    const fullMovie = await fetchMovieByImdbId(movie.imdb_id);
+    try {
+      const fullMovie = hit.imdb_id && hit.tmdb_id === 0
+        ? await fetchCinemaByImdbId(hit.imdb_id)
+        : await fetchCinemaDetails(hit);
 
-    if (!fullMovie) {
+      if (!fullMovie) {
+        toast({
+          title: "Erro",
+          description: "Falha ao buscar detalhes do título.",
+          variant: "destructive",
+          duration: 2000,
+        });
+        return;
+      }
+
+      setSelectedMovie(fullMovie);
+      setStep("details");
+    } finally {
       setLoading(false);
-      toast({
-        title: "Erro",
-        description: "Falha ao buscar detalhes do título.",
-        variant: "destructive",
-        duration: 2000,
-      });
-      return;
     }
-
-    setSelectedMovie(fullMovie);
-    setStep("details");
-    setLoading(false);
   }
 
   async function handleSaveMovie() {
@@ -161,7 +200,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
             <FormLabel required>Busca</FormLabel>
             <Input
               type="text"
-              placeholder="IMDb ID ou título..."
+              placeholder="Título em português ou IMDb ID..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -173,24 +212,29 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
 
             {searchResults.length > 0 && (
               <div className="max-h-[55vh] space-y-2 overflow-y-auto sm:max-h-[300px]">
-                {searchResults.map((movie) => (
+                {searchResults.map((hit) => (
                   <div
-                    key={movie.imdb_id}
+                    key={
+                      hit.tmdb_id > 0
+                        ? `${hit.media_type}-${hit.tmdb_id}`
+                        : hit.imdb_id || `${hit.title}-${hit.year}`
+                    }
                     className="flex cursor-pointer items-center gap-3 rounded-md p-2 hover:bg-muted/50"
-                    onClick={() => handleSelectMovie(movie)}
+                    onClick={() => handleSelectMovie(hit)}
                   >
                     <img
-                      src={movie.poster || "/placeholder.svg"}
-                      alt={movie.title}
+                      src={hit.poster || "/placeholder.svg"}
+                      alt={hit.title}
                       className="h-16 w-12 flex-none rounded object-cover sm:h-14 sm:w-10"
                     />
                     <div className="min-w-0">
                       <p className="truncate font-medium">
-                        {movie.title} ({movie.year})
+                        {hit.title}
+                        {hit.year ? ` (${hit.year})` : ""}
                       </p>
                       <p className="truncate text-sm text-muted-foreground">
-                        {movie.type === "series" ? "Série" : "Filme"} ·{" "}
-                        {movie.imdb_id}
+                        {hit.media_type === "tv" ? "Série" : "Filme"}
+                        {hit.overview ? ` · ${hit.overview}` : ""}
                       </p>
                     </div>
                   </div>
@@ -211,8 +255,16 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
                   {selectedMovie?.title} ({selectedMovie?.year})
                 </h3>
                 <p className="truncate text-sm text-muted-foreground">
-                  {selectedMovie?.imdb_id}
+                  {selectedMovie?.type === "series" ? "Série" : "Filme"}
+                  {selectedMovie?.genre?.length
+                    ? ` · ${selectedMovie.genre.slice(0, 3).join(", ")}`
+                    : ""}
                 </p>
+                {selectedMovie?.plot && (
+                  <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">
+                    {selectedMovie.plot}
+                  </p>
+                )}
               </div>
             </div>
 

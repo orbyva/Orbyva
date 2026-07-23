@@ -3,6 +3,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { BrandLogo } from "@/components/BrandLogo";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { BRAND } from "@/lib/brand";
 
 export function TeamSwitcher() {
@@ -12,19 +14,17 @@ export function TeamSwitcher() {
         <SidebarMenuButton
           size="lg"
           className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+          aria-label={BRAND.name}
           onClick={() => {
             window.location.href = "/home";
           }}
         >
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <img src="/logo.webp" alt="" />
-          </div>
-          <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">{BRAND.name}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {BRAND.tagline}
-            </span>
-          </div>
+          <BrandLogo
+            variant="mark"
+            className="size-10 shrink-0 rounded-xl bg-white"
+            alt=""
+          />
+          <BrandWordmark className="grid flex-1" showSubtitle />
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>

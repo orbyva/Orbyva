@@ -182,7 +182,7 @@ export function TripMembersDialog({
             <div className="space-y-3">
               <FormLabel>Convidar por link</FormLabel>
               <p className="text-xs text-muted-foreground">
-                A pessoa precisa ter conta FinTrack. O link vale 14 dias.
+                A pessoa precisa ter conta Orbyva. O link vale 14 dias.
               </p>
               <Input
                 type="email"

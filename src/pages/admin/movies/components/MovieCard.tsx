@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Movie, MovieStatus } from "@/types/movies";
 import { getDisplayScore } from "@/domain/movies";
 
@@ -19,6 +19,8 @@ interface MovieCardProps {
 export function MovieCard({ movie, onClick, onDelete }: MovieCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  /** Evita que o clique de fechar a modal (fora) abra os detalhes. */
+  const suppressCardClickRef = useRef(false);
 
   const handleDelete = async () => {
     try {
@@ -30,16 +32,32 @@ export function MovieCard({ movie, onClick, onDelete }: MovieCardProps) {
     }
   };
 
+  function handleDeleteOpenChange(open: boolean) {
+    setIsDeleteDialogOpen(open);
+    if (!open) {
+      suppressCardClickRef.current = true;
+      window.setTimeout(() => {
+        suppressCardClickRef.current = false;
+      }, 300);
+    }
+  }
+
   const score = getDisplayScore(movie);
   const watched = movie.status === MovieStatus.WATCHED;
 
   return (
     <div
       className="group relative cursor-pointer rounded-xl focus-within:ring-2 focus-within:ring-ring"
-      onClick={onClick}
+      onClick={() => {
+        if (suppressCardClickRef.current || isDeleteDialogOpen) return;
+        onClick();
+      }}
     >
       <div className="relative overflow-hidden rounded-xl bg-muted">
-        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <Dialog
+          open={isDeleteDialogOpen}
+          onOpenChange={handleDeleteOpenChange}
+        >
           <DialogTrigger asChild>
             <Button
               variant="destructive"
@@ -62,7 +80,11 @@ export function MovieCard({ movie, onClick, onDelete }: MovieCardProps) {
             </Button>
           </DialogTrigger>
 
-          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md">
+          <DialogContent
+            className="w-[calc(100%-2rem)] sm:max-w-md"
+            onClick={(e) => e.stopPropagation()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
             <DialogTitle>Confirmar Exclusão</DialogTitle>
             <p className="text-sm text-muted-foreground">
               Tem certeza que deseja excluir{" "}
@@ -75,7 +97,7 @@ export function MovieCard({ movie, onClick, onDelete }: MovieCardProps) {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setIsDeleteDialogOpen(false);
+                  handleDeleteOpenChange(false);
                 }}
                 className="w-full sm:w-auto"
               >
