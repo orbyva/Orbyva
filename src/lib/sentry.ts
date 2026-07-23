@@ -4,8 +4,25 @@ const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
 
 let initialized = false;
 
+declare global {
+  interface Window {
+    /** No console: `__orbyvaSentryTest()` — envia um ping ao Sentry. */
+    __orbyvaSentryTest?: () => boolean;
+  }
+}
+
 export function initSentry() {
-  if (initialized || !dsn) return;
+  if (initialized) return;
+
+  if (!dsn) {
+    if (import.meta.env.DEV) {
+      console.info(
+        "[sentry] VITE_SENTRY_DSN ausente — erros não serão enviados."
+      );
+    }
+    return;
+  }
+
   Sentry.init({
     dsn,
     environment: import.meta.env.MODE,
@@ -14,6 +31,24 @@ export function initSentry() {
     sendDefaultPii: false,
   });
   initialized = true;
+
+  if (typeof window !== "undefined") {
+    window.__orbyvaSentryTest = () => {
+      if (!initialized) {
+        console.warn("[sentry] Não inicializado.");
+        return false;
+      }
+      Sentry.captureMessage("orbyva sentry ping", "info");
+      console.info(
+        "[sentry] Ping enviado. Veja Issues / Discover no Sentry em ~1 min."
+      );
+      return true;
+    };
+  }
+
+  if (import.meta.env.DEV) {
+    console.info("[sentry] Inicializado. Teste: __orbyvaSentryTest()");
+  }
 }
 
 export function addAnalyticsBreadcrumb(
