@@ -3,6 +3,8 @@ import { getCurrentUserId } from "@/lib/auth-user";
 import type { PlanId } from "@/lib/plan";
 import { isProPlan } from "@/lib/plan";
 
+export { isBillingConfigured } from "@/lib/billing-config";
+
 export interface UserProfile {
   id: string;
   plan: PlanId;
@@ -145,8 +147,4 @@ export async function createPortalSession(): Promise<{ url: string }> {
   if (error) throw new Error(error.message);
   if (!data?.url) throw new Error(data?.error ?? "Portal indisponível");
   return { url: String(data.url) };
-}
-
-export function isBillingConfigured(): boolean {
-  return Boolean(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 }
