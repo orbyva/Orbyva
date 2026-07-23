@@ -1346,6 +1346,18 @@ export default function TripDetail() {
                     : "grid grid-cols-1 gap-3"
                 }
               >
+                <div>
+                  <FormLabel required>Tipo</FormLabel>
+                  <Select
+                    value={financeTypeId ? String(financeTypeId) : ""}
+                    onValueChange={(v) => {
+                      setFinanceTypeId(Number(v));
+                      setClassId(0);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
                     <SelectContent>
                       {expenseTypes.map((type) => (
                         <SelectItem key={type.id} value={String(type.id)}>
