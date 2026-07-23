@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +15,7 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -48,12 +50,12 @@ export function LoginForm({
           password,
         });
         if (signError) throw signError;
-        window.location.assign("/home");
+        navigate("/home", { replace: true });
         return;
       }
 
       track("signup_email_submit");
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -61,6 +63,10 @@ export function LoginForm({
         },
       });
       if (signUpError) throw signUpError;
+      if (data.session) {
+        navigate("/home", { replace: true });
+        return;
+      }
       setMessage(
         "Conta criada. Se o Supabase exigir confirmação, verifique seu e-mail."
       );
