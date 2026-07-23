@@ -1,5 +1,5 @@
 -- =============================================================================
--- FinTrack — Dimensões por usuário (type / class)
+-- Orbyva — Dimensões por usuário (type / class)
 -- Corrige vazamento: tipos e classes eram catálogo compartilhado.
 -- Nature (Receita/Despesa) continua global.
 -- =============================================================================

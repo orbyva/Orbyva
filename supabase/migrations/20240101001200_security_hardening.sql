@@ -1,5 +1,5 @@
 -- =============================================================================
--- FinTrack — Security hardening (rode DEPOIS dos scripts base)
+-- Orbyva — Security hardening (rode DEPOIS dos scripts base)
 -- Corrige: bypass Pro em profiles, leak de convites, join sem token,
 -- escalação editor→owner, despesas pessoais legadas.
 -- Idempotente — pode reexecutar no SQL Editor.

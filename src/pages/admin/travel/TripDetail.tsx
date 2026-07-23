@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import {
-  ArrowLeft,
-  Check,
-  Pencil,
-  Plus,
-  Share2,
-  Trash2,
-} from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Pencil, Share2, Trash2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -33,15 +26,12 @@ import {
   ICON_EDIT_BUTTON_CLASS,
 } from "@/components/FormLabel";
 import { MoneyInput } from "@/components/MoneyInput";
-import { PlaceCard } from "@/components/PlaceCard";
 import { PlaceDetailDialog } from "@/components/PlaceDetailDialog";
 import { PlaceFormDialog } from "@/components/PlaceFormDialog";
 import { TripFormDialog } from "@/components/TripFormDialog";
 import { TripMembersDialog } from "@/components/TripMembersDialog";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ShareImageDialog } from "@/components/ShareImageDialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { normalizeAvatarUrl, avatarFromUserMeta, googleAvatarColor, googleAvatarInitial } from "@/lib/avatar";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { PageShell } from "@/components/PageShell";
 import { generateTripShareImage, shareTripNative } from "@/lib/tripShare";
@@ -49,10 +39,7 @@ import {
   createItineraryActivity,
   createTripExpense,
   createTripMilestone,
-  deleteItineraryActivity,
   deleteTrip,
-  deleteTripExpense,
-  deleteTripMilestone,
   fetchTripFull,
   registerMyExpenseSplit,
   updateItineraryActivity,
@@ -85,7 +72,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
 import { formatBRL, formatDateBR } from "@/lib/currency";
-import { cn, sortByNamePt } from "@/lib/utils";
+import { sortByNamePt } from "@/lib/utils";
+import { TripBudgetSummary } from "./components/TripBudgetSummary";
+import { TripItineraryTab } from "./components/TripItineraryTab";
+import { TripExpensesTab } from "./components/TripExpensesTab";
+import { TripPlacesTab } from "./components/TripPlacesTab";
+import { TripMilestonesTab } from "./components/TripMilestonesTab";
 
 const emptyExpenseForm = () => ({
   description: "",
@@ -101,38 +93,6 @@ const emptyMilestoneForm = () => ({
   due_date: new Date().toISOString().split("T")[0],
   notes: "",
 });
-
-function ActivityQuickAdd({
-  onAdd,
-}: {
-  onAdd: (title: string) => void | Promise<void>;
-}) {
-  const [value, setValue] = useState("");
-
-  async function submit() {
-    const title = value.trim();
-    if (!title) return;
-    await onAdd(title);
-    setValue("");
-  }
-
-  return (
-    <div className="flex gap-2">
-      <Input
-        placeholder="Adicionar atividade..."
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") void submit();
-        }}
-        className="h-10"
-      />
-      <Button size="sm" onClick={() => void submit()}>
-        <Plus className="h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
-}
 
 export default function TripDetail() {
   const { id } = useParams<{ id: string }>();
@@ -585,72 +545,12 @@ export default function TripDetail() {
         <p className="text-sm text-muted-foreground">{trip.notes}</p>
       )}
 
-      {/* Budget vs spent */}
-      <section className="rounded-lg border bg-card p-4 space-y-3">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-xs text-muted-foreground">Orçamento</p>
-            <p className="font-bold">
-              {hasBudget ? formatBRL(trip.budget as number) : "—"}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {trip.isShared ? "Gasto do grupo" : "Gasto total"}
-            </p>
-            <p className="font-bold text-destructive">
-              {formatBRL(trip.expenseTotal)}
-            </p>
-          </div>
-          <div className="col-span-2 sm:col-span-1">
-            <p className="text-xs text-muted-foreground">
-              {hasBudget ? "Restante" : "Gastos"}
-            </p>
-            <p
-              className={cn(
-                "font-bold",
-                hasBudget
-                  ? overBudget
-                    ? "text-destructive"
-                    : "text-success"
-                  : "text-foreground"
-              )}
-            >
-              {hasBudget && trip.budgetRemaining != null
-                ? formatBRL(trip.budgetRemaining)
-                : `${trip.expenses.length} lançamento${trip.expenses.length === 1 ? "" : "s"}`}
-            </p>
-          </div>
-        </div>
-        {hasBudget && (
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>
-                {budgetProgress.toFixed(0)}% do orçamento utilizado
-              </span>
-              {overBudget && (
-                <span className="text-destructive font-medium">
-                  Acima do orçamento
-                </span>
-              )}
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all",
-                  overBudget ? "bg-destructive" : "bg-primary"
-                )}
-                style={{ width: `${Math.min(100, budgetProgress)}%` }}
-              />
-            </div>
-          </div>
-        )}
-        {!hasBudget && (
-          <p className="text-xs text-muted-foreground text-center">
-            Defina um orçamento editando a viagem para acompanhar o comparativo.
-          </p>
-        )}
-      </section>
+      <TripBudgetSummary
+        trip={trip}
+        hasBudget={hasBudget}
+        budgetProgress={budgetProgress}
+        overBudget={overBudget}
+      />
 
       <Tabs defaultValue="itinerary">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
@@ -664,368 +564,46 @@ export default function TripDetail() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Itinerary */}
-        <TabsContent value="itinerary" className="mt-4 space-y-4">
-          {trip.itinerary.map((day) => (
-            <article key={day.id} className="rounded-lg border p-4">
-              <div className="flex items-center justify-between mb-2 gap-2">
-                <h3 className="font-semibold">
-                  {day.title ?? `Dia ${day.day_number}`}
-                  {day.date && (
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      {formatDateBR(day.date)}
-                    </span>
-                  )}
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn("h-7 w-7 shrink-0", ICON_EDIT_BUTTON_CLASS)}
-                  onClick={() => openDayEdit(day)}
-                  aria-label="Editar dia"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              {day.notes && (
-                <p className="text-xs text-muted-foreground mb-2">{day.notes}</p>
-              )}
-              <ul className="space-y-1.5 mb-2">
-                {(day.activities ?? []).map((act) => {
-                  const member = members.find(
-                    (m) => m.user_id === act.created_by_user_id
-                  );
-                  const isMine =
-                    !!user?.id &&
-                    (act.created_by_user_id === user.id ||
-                      (!act.created_by_user_id && members.length <= 1));
-                  const myName =
-                    (user?.user_metadata?.full_name as string | undefined) ||
-                    (user?.user_metadata?.name as string | undefined) ||
-                    user?.email?.split("@")[0] ||
-                    null;
-                  const myAvatar = avatarFromUserMeta(
-                    user?.user_metadata as Record<string, unknown> | undefined
-                  );
-                  const authorName =
-                    act.created_by_name ||
-                    member?.display_name ||
-                    (isMine ? myName : null);
-                  const authorAvatar =
-                    (isMine ? myAvatar : undefined) ||
-                    normalizeAvatarUrl(act.created_by_avatar) ||
-                    normalizeAvatarUrl(member?.avatar_url) ||
-                    (isMine ? myAvatar : undefined);
-                  const initial = googleAvatarInitial(authorName);
-                  const fallbackColor = googleAvatarColor(
-                    act.created_by_user_id || authorName || user?.id || "user"
-                  );
-                  const showAuthor =
-                    !!act.created_by_user_id ||
-                    !!authorName ||
-                    !!authorAvatar ||
-                    isMine;
+        <TripItineraryTab
+          itinerary={trip.itinerary}
+          members={members}
+          user={user}
+          onEditDay={openDayEdit}
+          onEditActivity={openActivityEdit}
+          onAddActivity={handleAddActivity}
+          onReload={load}
+        />
 
-                  return (
-                    <li
-                      key={act.id}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      {act.activity_time && (
-                        <span className="text-xs text-muted-foreground w-12 shrink-0">
-                          {act.activity_time}
-                        </span>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <span>{act.title}</span>
-                        {act.notes && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {act.notes}
-                          </p>
-                        )}
-                      </div>
-                      {showAuthor ? (
-                        <Avatar
-                          className="h-6 w-6 shrink-0"
-                          title={
-                            authorName
-                              ? `Adicionado por ${authorName}`
-                              : "Quem adicionou"
-                          }
-                        >
-                          {authorAvatar ? (
-                            <AvatarImage
-                              src={authorAvatar}
-                              alt={authorName ?? ""}
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : null}
-                          <AvatarFallback
-                            className="text-[11px] font-medium text-white"
-                            style={{ backgroundColor: fallbackColor }}
-                          >
-                            {initial}
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : null}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          "h-6 w-6 shrink-0",
-                          ICON_EDIT_BUTTON_CLASS
-                        )}
-                        onClick={() => openActivityEdit(act)}
-                        aria-label="Editar atividade"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <ConfirmDeleteDialog
-                        title="Excluir esta atividade?"
-                        onConfirm={() =>
-                          deleteItineraryActivity(act.id).then(load)
-                        }
-                      >
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-destructive shrink-0"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </ConfirmDeleteDialog>
-                    </li>
-                  );
-                })}
-              </ul>
-              <ActivityQuickAdd
-                onAdd={(title) => handleAddActivity(day.id, title)}
-              />
-            </article>
-          ))}
-        </TabsContent>
+        <TripExpensesTab
+          trip={trip}
+          hasBudget={hasBudget}
+          user={user}
+          onCreate={openExpenseCreate}
+          onEdit={openExpenseEdit}
+          onRegisterSplit={(exp) => {
+            setSplitRegisterExpense(exp);
+            setFinanceTypeId(0);
+            setClassId(0);
+          }}
+          onReload={load}
+        />
 
-        {/* Expenses */}
-        <TabsContent value="expenses" className="mt-4 space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Total:{" "}
-              <span className="font-semibold text-foreground">
-                {formatBRL(trip.expenseTotal)}
-              </span>
-              {hasBudget && (
-                <>
-                  {" "}
-                  de{" "}
-                  <span className="font-semibold text-foreground">
-                    {formatBRL(trip.budget as number)}
-                  </span>
-                </>
-              )}
-            </p>
-            <Button onClick={openExpenseCreate} className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar gasto
-            </Button>
-          </div>
-          {trip.expenses.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Nenhum gasto registrado ainda.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {trip.expenses.map((exp) => (
-                <li
-                  key={exp.id}
-                  className="flex justify-between items-center rounded-lg border p-3 text-sm gap-2"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{exp.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {EXPENSE_CATEGORY_LABELS[exp.category]} ·{" "}
-                      {formatDateBR(exp.expense_date)}
-                      {(exp.visibility ?? "personal") === "shared"
-                        ? " · Conjunta"
-                        : " · Pessoal"}
-                    </p>
-                    {(exp.visibility ?? "personal") === "shared" &&
-                    exp.splits?.length ? (
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Sua fatia:{" "}
-                        {formatBRL(
-                          exp.splits.find((s) => s.user_id === user?.id)
-                            ?.amount ?? 0
-                        )}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span className="font-semibold mr-1">
-                      {formatBRL(exp.amount)}
-                    </span>
-                    {(exp.visibility ?? "personal") === "shared" &&
-                    user?.id &&
-                    exp.splits?.some(
-                      (s) => s.user_id === user.id && !s.transaction_id
-                    ) ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[10px] px-2"
-                        onClick={() => {
-                          setSplitRegisterExpense(exp);
-                          setFinanceTypeId(0);
-                          setClassId(0);
-                        }}
-                      >
-                        Registrar Despesa
-                      </Button>
-                    ) : null}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn("h-7 w-7", ICON_EDIT_BUTTON_CLASS)}
-                      onClick={() => openExpenseEdit(exp)}
-                      aria-label="Editar gasto"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <ConfirmDeleteDialog
-                      title="Excluir este gasto?"
-                      onConfirm={() =>
-                        deleteTripExpense(exp.id, trip.id).then(load)
-                      }
-                    >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </ConfirmDeleteDialog>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </TabsContent>
+        <TripPlacesTab
+          tripId={trip.id}
+          places={places}
+          onReload={load}
+          onSelectPlace={(p) => {
+            setSelectedPlace(p);
+            setPlaceDetailOpen(true);
+          }}
+        />
 
-        {/* Places */}
-        <TabsContent value="places" className="mt-4 space-y-4">
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-            <PlaceFormDialog
-              tripId={trip.id}
-              onSaved={load}
-              trigger={
-                <Button className="w-full sm:w-auto">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Avaliar lugar visitado
-                </Button>
-              }
-            />
-          </div>
-          {places.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Nenhum lugar avaliado nesta viagem ainda. Registre restaurantes,
-              passeios e mais!
-            </p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {places.map((p) => (
-                <PlaceCard
-                  key={p.id}
-                  place={p}
-                  onClick={() => {
-                    setSelectedPlace(p);
-                    setPlaceDetailOpen(true);
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Milestones */}
-        <TabsContent value="milestones" className="mt-4 space-y-4">
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button onClick={openMilestoneCreate} className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar prazo
-            </Button>
-          </div>
-          {trip.milestones.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Nenhum prazo cadastrado. Adicione check-ins, reservas e documentos.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {trip.milestones.map((m) => (
-                <li
-                  key={m.id}
-                  className="flex items-center gap-3 rounded-lg border p-3"
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateTripMilestone({ id: m.id, done: !m.done }).then(
-                        load
-                      )
-                    }
-                    className={cn(
-                      "flex h-5 w-5 items-center justify-center rounded border shrink-0",
-                      m.done
-                        ? "bg-success border-success text-success-foreground"
-                        : "border-muted-foreground/30"
-                    )}
-                  >
-                    {m.done && <Check className="h-3 w-3" />}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={cn(
-                        "text-sm font-medium",
-                        m.done && "line-through text-muted-foreground"
-                      )}
-                    >
-                      {m.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {MILESTONE_TYPE_LABELS[m.type]} ·{" "}
-                      {formatDateBR(m.due_date)}
-                    </p>
-                    {m.notes && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {m.notes}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn("h-7 w-7 shrink-0", ICON_EDIT_BUTTON_CLASS)}
-                    onClick={() => openMilestoneEdit(m)}
-                    aria-label="Editar prazo"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <ConfirmDeleteDialog
-                    title="Excluir este prazo?"
-                    onConfirm={() => deleteTripMilestone(m.id).then(load)}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive shrink-0"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </ConfirmDeleteDialog>
-                </li>
-              ))}
-            </ul>
-          )}
-        </TabsContent>
+        <TripMilestonesTab
+          milestones={trip.milestones}
+          onCreate={openMilestoneCreate}
+          onEdit={openMilestoneEdit}
+          onReload={load}
+        />
       </Tabs>
 
       {/* Edit trip */}

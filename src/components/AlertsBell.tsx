@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/popover";
 import { fetchAppAlerts, type AppAlert } from "@/api/alerts";
 import {
+  ALERT_PREFS_EVENT,
+  LEGACY_ALERT_PREFS_EVENT,
   getEnabledAlertKinds,
   isBrowserNotifyEnabled,
   maybeNotifyCriticalAlerts,
@@ -17,9 +19,24 @@ import {
 } from "@/lib/browserNotify";
 import { cn } from "@/lib/utils";
 
-const DISMISS_KEY = "fintrack.alerts.dismissed";
+const LEGACY_DISMISS_KEY = "fintrack.alerts.dismissed";
+const DISMISS_KEY = "orbyva.alerts.dismissed";
+
+function migrateDismissKey() {
+  try {
+    if (localStorage.getItem(DISMISS_KEY) != null) return;
+    const legacy = localStorage.getItem(LEGACY_DISMISS_KEY);
+    if (legacy != null) {
+      localStorage.setItem(DISMISS_KEY, legacy);
+      localStorage.removeItem(LEGACY_DISMISS_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 function readDismissed(): Set<string> {
+  migrateDismissKey();
   try {
     const raw = localStorage.getItem(DISMISS_KEY);
     if (!raw) return new Set();
@@ -65,11 +82,13 @@ export function AlertsBell() {
       setKindTick((t) => t + 1);
       setNotifyOn(isBrowserNotifyEnabled());
     };
-    window.addEventListener("fintrack-alert-prefs", syncPrefs);
+    window.addEventListener(ALERT_PREFS_EVENT, syncPrefs);
+    window.addEventListener(LEGACY_ALERT_PREFS_EVENT, syncPrefs);
     window.addEventListener("storage", syncPrefs);
     return () => {
       window.clearInterval(id);
-      window.removeEventListener("fintrack-alert-prefs", syncPrefs);
+      window.removeEventListener(ALERT_PREFS_EVENT, syncPrefs);
+      window.removeEventListener(LEGACY_ALERT_PREFS_EVENT, syncPrefs);
       window.removeEventListener("storage", syncPrefs);
     };
   }, [load]);

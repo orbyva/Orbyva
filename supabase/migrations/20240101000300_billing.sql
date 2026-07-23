@@ -1,5 +1,5 @@
 -- =============================================================================
--- FinTrack — Billing / profiles / waitlist (W0–W4)
+-- Orbyva — Billing / profiles / waitlist (W0–W4)
 -- Rode no SQL Editor do Supabase DEPOIS de tenancy_rls.sql.
 -- Idempotente.
 -- =============================================================================

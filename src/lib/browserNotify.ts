@@ -1,8 +1,35 @@
 import type { AppAlertKind } from "@/api/alerts";
 
-const NOTIFY_KEY = "fintrack_browser_notify";
-const NOTIFY_SENT_KEY = "fintrack_browser_notify_sent";
+const LEGACY_NOTIFY_KEY = "fintrack_browser_notify";
+const LEGACY_NOTIFY_SENT_KEY = "fintrack_browser_notify_sent";
+const NOTIFY_KEY = "orbyva_browser_notify";
+const NOTIFY_SENT_KEY = "orbyva_browser_notify_sent";
 const ALERT_KINDS_KEY = "orbyva_alert_kinds_v1";
+const PREFS_EVENT = "orbyva-alert-prefs";
+
+function migrateKey(legacy: string, next: string) {
+  try {
+    if (localStorage.getItem(next) != null) return;
+    const old = localStorage.getItem(legacy);
+    if (old != null) {
+      localStorage.setItem(next, old);
+      localStorage.removeItem(legacy);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function ensureNotifyKeysMigrated() {
+  migrateKey(LEGACY_NOTIFY_KEY, NOTIFY_KEY);
+  migrateKey(LEGACY_NOTIFY_SENT_KEY, NOTIFY_SENT_KEY);
+}
+
+function dispatchPrefsChanged() {
+  window.dispatchEvent(new Event(PREFS_EVENT));
+  // Compat com listeners antigos ainda em tabs abertas
+  window.dispatchEvent(new Event("fintrack-alert-prefs"));
+}
 
 export const ALERT_KIND_OPTIONS: Array<{
   kind: AppAlertKind;
@@ -54,12 +81,14 @@ export const ALERT_KIND_OPTIONS: Array<{
 const ALL_KINDS: AppAlertKind[] = ALERT_KIND_OPTIONS.map((o) => o.kind);
 
 export function isBrowserNotifyEnabled(): boolean {
+  ensureNotifyKeysMigrated();
   return localStorage.getItem(NOTIFY_KEY) === "1";
 }
 
 export function setBrowserNotifyEnabled(enabled: boolean): void {
+  ensureNotifyKeysMigrated();
   localStorage.setItem(NOTIFY_KEY, enabled ? "1" : "0");
-  window.dispatchEvent(new Event("fintrack-alert-prefs"));
+  dispatchPrefsChanged();
 }
 
 export function getEnabledAlertKinds(): Set<AppAlertKind> {
@@ -85,14 +114,13 @@ export function setAlertKindEnabled(kind: AppAlertKind, enabled: boolean): void 
   const next = getEnabledAlertKinds();
   if (enabled) next.add(kind);
   else next.delete(kind);
-  // Evita lista vazia (sempre pelo menos um tipo) — se zerar, restaura todos.
   if (next.size === 0) {
     localStorage.setItem(ALERT_KINDS_KEY, JSON.stringify(ALL_KINDS));
-    window.dispatchEvent(new Event("fintrack-alert-prefs"));
+    dispatchPrefsChanged();
     return;
   }
   localStorage.setItem(ALERT_KINDS_KEY, JSON.stringify([...next]));
-  window.dispatchEvent(new Event("fintrack-alert-prefs"));
+  dispatchPrefsChanged();
 }
 
 export async function requestBrowserNotifyPermission(): Promise<NotificationPermission> {
@@ -110,6 +138,7 @@ export function maybeNotifyCriticalAlerts(count: number): void {
     return;
   }
 
+  ensureNotifyKeysMigrated();
   const today = new Date().toISOString().slice(0, 10);
   if (localStorage.getItem(NOTIFY_SENT_KEY) === today) return;
 
@@ -120,6 +149,10 @@ export function maybeNotifyCriticalAlerts(count: number): void {
         ? "Você tem 1 alerta urgente."
         : `Você tem ${count} alertas urgentes.`,
     icon: "/logo-mark.webp",
-    tag: "fintrack-daily-alerts",
+    tag: "orbyva-daily-alerts",
   });
 }
+
+/** Nome do evento de preferências de alerta (para AlertsBell). */
+export const ALERT_PREFS_EVENT = PREFS_EVENT;
+export const LEGACY_ALERT_PREFS_EVENT = "fintrack-alert-prefs";

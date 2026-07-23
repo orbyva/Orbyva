@@ -1,5 +1,5 @@
 -- =============================================================================
--- FinTrack — Tenancy + RLS (P0)
+-- Orbyva — Tenancy + RLS (P0)
 -- Rode no SQL Editor do Supabase DEPOIS de backup.
 -- Idempotente: pode reexecutar se a tentativa anterior parou no meio.
 -- =============================================================================
