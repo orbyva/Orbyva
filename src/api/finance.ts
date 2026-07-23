@@ -224,12 +224,32 @@ export async function updateTypeApi(updateData: TypeUpdateRequest): Promise<void
 
 export async function deleteTypeApi(typeId: number): Promise<void> {
   const userId = await getCurrentUserId();
+
+  const { count: classCount, error: classCountError } = await supabase
+    .from("class")
+    .select("id", { count: "exact", head: true })
+    .eq("type_id", typeId)
+    .eq("user_id", userId);
+  if (classCountError) throw classCountError;
+  if ((classCount ?? 0) > 0) {
+    throw new Error(
+      "Este tipo tem classes vinculadas. Remova ou reassocie as classes antes de excluir o tipo."
+    );
+  }
+
   const { error } = await supabase
     .from("type")
     .delete()
     .eq("id", typeId)
     .eq("user_id", userId);
-  if (error) throw error;
+  if (error) {
+    if (error.code === "23503") {
+      throw new Error(
+        "Não é possível excluir: ainda há registros vinculados a este tipo."
+      );
+    }
+    throw error;
+  }
 }
 
 // Class
@@ -319,12 +339,56 @@ export async function updateClassApi(updateData: ClassUpdateRequest): Promise<vo
 
 export async function deleteClassApi(classId: number): Promise<void> {
   const userId = await getCurrentUserId();
+
+  const { count: txCount, error: txCountError } = await supabase
+    .from("transaction")
+    .select("id", { count: "exact", head: true })
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+  if (txCountError) throw txCountError;
+  if ((txCount ?? 0) > 0) {
+    throw new Error(
+      "Esta classe está em uso em transações. Altere ou exclua essas transações antes."
+    );
+  }
+
+  const { count: recurringCount, error: recurringError } = await supabase
+    .from("recurring_transaction")
+    .select("id", { count: "exact", head: true })
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+  if (recurringError) throw recurringError;
+  if ((recurringCount ?? 0) > 0) {
+    throw new Error(
+      "Esta classe está em uso em recorrentes/parcelas. Altere ou exclua esses lançamentos antes."
+    );
+  }
+
+  const { count: budgetCount, error: budgetError } = await supabase
+    .from("monthly_budget")
+    .select("id", { count: "exact", head: true })
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+  if (budgetError) throw budgetError;
+  if ((budgetCount ?? 0) > 0) {
+    throw new Error(
+      "Esta classe está em uso no orçamento. Remova ou altere esses orçamentos antes."
+    );
+  }
+
   const { error } = await supabase
     .from("class")
     .delete()
     .eq("id", classId)
     .eq("user_id", userId);
-  if (error) throw error;
+  if (error) {
+    if (error.code === "23503") {
+      throw new Error(
+        "Não é possível excluir: ainda há registros vinculados a esta classe."
+      );
+    }
+    throw error;
+  }
 }
 
 // Nature

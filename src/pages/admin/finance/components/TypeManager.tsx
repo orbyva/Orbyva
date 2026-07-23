@@ -33,6 +33,8 @@ import {
 } from "@/api/finance";
 import { Type, Nature, TypeCreateRequest, TypeUpdateRequest } from "@/types/finance";
 import { EmptyState } from "@/components/EmptyState";
+import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 
 function resolveNatureId(type: Type): number | null {
   return type.nature_id ?? type.nature?.id ?? null;
@@ -50,6 +52,7 @@ function TypeManager({
   types,
   refetchTypes,
 }: { natures: Nature[]; types: Type[]; refetchTypes: () => void }) {
+  const { toast } = useToast();
   const [newType, setNewType] = useState<TypeCreateRequest>({
     name: "",
     hex_color: null,
@@ -68,6 +71,16 @@ function TypeManager({
     try {
       await deleteTypeApi(id);
       refetchTypes();
+      toast({
+        title: "Tipo excluído",
+        duration: 2000,
+      });
+    } catch (error) {
+      toast({
+        title: "Não foi possível excluir o tipo",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     } finally {
       setDeletingId(null);
     }

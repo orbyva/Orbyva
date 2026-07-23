@@ -18,6 +18,7 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { repairOrphanClasses } from "@/domain/onboarding/defaults";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 import { cn, sortByNamePt } from "@/lib/utils";
 
 function resolveTypeId(cls: Class): number | null {
@@ -71,6 +72,16 @@ function ClassManager({ types }: { types: Type[] }) {
     try {
       await deleteClassApi(id);
       setClasses(await fetchClasses());
+      toast({
+        title: "Classe excluída",
+        duration: 2000,
+      });
+    } catch (error) {
+      toast({
+        title: "Não foi possível excluir a classe",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     } finally {
       setDeletingId(null);
     }
