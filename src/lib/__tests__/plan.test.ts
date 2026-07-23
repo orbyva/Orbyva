@@ -35,6 +35,13 @@ describe("plan", () => {
       hasAppAccess({ plan: "free", createdAt: created.toISOString() })
     ).toBe(true);
     expect(hasAppAccess({ plan: "pro", createdAt: "2020-01-01" })).toBe(true);
+    expect(
+      hasAppAccess({
+        plan: "free",
+        createdAt: "2020-01-01",
+        subscriptionStatus: "trialing",
+      })
+    ).toBe(true);
 
     const old = new Date();
     old.setDate(old.getDate() - 10);

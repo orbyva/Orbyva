@@ -1,26 +1,73 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BRAND } from "@/lib/brand";
 import { supabase } from "@/lib/supabase";
+import { track } from "@/lib/analytics";
+import { getErrorMessage } from "@/lib/errors";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   async function handleGoogleLogin(event: React.FormEvent | React.MouseEvent) {
     event.preventDefault();
-
-    const { error } = await supabase.auth.signInWithOAuth({
+    track("login_google_click");
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/home`,
       },
     });
+    if (oauthError) {
+      setError(oauthError.message);
+    }
+  }
 
-    if (error) {
-      console.error("Google Login Error:", error.message);
+  async function handleEmailAuth(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      if (mode === "login") {
+        track("login_email_submit");
+        const { error: signError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (signError) throw signError;
+        window.location.assign("/home");
+        return;
+      }
+
+      track("signup_email_submit");
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/home`,
+        },
+      });
+      if (signUpError) throw signUpError;
+      setMessage(
+        "Conta criada. Se o Supabase exigir confirmação, verifique seu e-mail."
+      );
+    } catch (err) {
+      setError(getErrorMessage(err, "Não foi possível entrar."));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -35,7 +82,7 @@ export function LoginForm({
               </p>
               <h1 className="text-2xl font-bold">Bem-vindo de volta</h1>
               <p className="text-balance text-muted-foreground">
-                {BRAND.tagline}. Entre com Google para continuar.
+                {BRAND.tagline}. Entre para continuar.
               </p>
             </div>
 
@@ -57,6 +104,68 @@ export function LoginForm({
               </svg>
               Continuar com Google
             </Button>
+
+            <div className="relative text-center text-xs text-muted-foreground">
+              <span className="bg-card relative z-10 px-2">ou e-mail</span>
+              <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+            </div>
+
+            <form className="grid gap-3" onSubmit={(e) => void handleEmailAuth(e)}>
+              <div className="grid gap-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="voce@email.com"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              {error ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              {message ? (
+                <p className="text-sm text-muted-foreground">{message}</p>
+              ) : null}
+              <Button type="submit" variant="secondary" disabled={busy}>
+                {busy
+                  ? "Aguarde…"
+                  : mode === "login"
+                    ? "Entrar com e-mail"
+                    : "Criar conta"}
+              </Button>
+              <button
+                type="button"
+                className="text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
+                onClick={() => {
+                  setMode((m) => (m === "login" ? "signup" : "login"));
+                  setError(null);
+                  setMessage(null);
+                }}
+              >
+                {mode === "login"
+                  ? "Não tem conta? Criar com e-mail"
+                  : "Já tem conta? Entrar"}
+              </button>
+            </form>
 
             <p className="text-center text-xs text-muted-foreground">
               Ao continuar, você aceita os{" "}

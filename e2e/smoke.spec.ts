@@ -32,10 +32,13 @@ test.describe("smoke público", () => {
     ).toBeVisible();
   });
 
-  test("login mostra Continuar com Google", async ({ page }) => {
+  test("login mostra Google e e-mail", async ({ page }) => {
     await page.goto("/login");
     await expect(
       page.getByRole("button", { name: /Continuar com Google/i })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Entrar com e-mail/i })
     ).toBeVisible();
   });
 });

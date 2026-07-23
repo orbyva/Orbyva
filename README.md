@@ -174,14 +174,18 @@ Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/ap
 
 ### Billing (opcional — Stripe depois)
 
-1. Rode `scripts/billing.sql`
-2. Crie um Price recorrente no Stripe e anote o `price_...`
-3. Deploy: `stripe-checkout`, `stripe-portal`, `stripe-webhook`
-4. Secrets: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_PRO`, `STRIPE_WEBHOOK_SECRET`, `SITE_URL`
-5. Front: `VITE_STRIPE_PUBLISHABLE_KEY`
-6. Dev / bypass do teste: `VITE_BILLING_FORCE_PRO=true`
+1. Rode `scripts/billing.sql` (ou migrations)
+2. **P0 acesso:** rode `scripts/app_access_enforce.sql` (bloqueia escrita sem trial/Pro)
+3. Crie um Price recorrente no Stripe e anote o `price_...`
+4. Deploy: `stripe-checkout`, `stripe-portal`, `stripe-webhook`
+5. Secrets: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_PRO`, `STRIPE_WEBHOOK_SECRET`, `SITE_URL`
+6. Front: `VITE_STRIPE_PUBLISHABLE_KEY`
+7. Dev / bypass do teste: `VITE_BILLING_FORCE_PRO=true`
 
+Analytics: `VITE_POSTHOG_KEY` (+ opcional `VITE_POSTHOG_HOST`).  
 Sentry: `VITE_SENTRY_DSN` (opcional).
+
+Migrations versionadas: ver `supabase/migrations/` e `scripts/README.md`.
 
 > Assistente IA: código legado em `supabase/functions/fintrack-agent` — **fora do produto** por enquanto (não documentar como feature).
 

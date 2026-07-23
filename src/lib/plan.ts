@@ -1,4 +1,4 @@
-/** Planos e acesso (teste 7 dias → Pro). IA fica fora do produto por enquanto. */
+/** Planos e acesso (teste → Pro). IA fica fora do produto por enquanto. */
 
 export type PlanId = "free" | "pro";
 
@@ -8,10 +8,10 @@ export const PLANS = {
   free: {
     id: "free" as const,
     name: "Teste",
-    priceLabel: "7 dias grátis",
+    priceLabel: `${TRIAL_DAYS} dias grátis`,
     blurb: "Acesso completo ao life OS durante o período de teste.",
     features: [
-      "7 dias para explorar tudo",
+      `${TRIAL_DAYS} dias para explorar tudo`,
       "Finanças, orçamento e parcelas",
       "Metas, hábitos, viagens e lugares",
       "Cinema, veículos, PWA e alertas",
@@ -61,11 +61,18 @@ export function trialDaysRemaining(
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 }
 
-/** Pode usar o app: Pro ativo ou ainda no teste de 7 dias. */
+/** Pode usar o app: Pro ativo ou ainda no teste. */
 export function hasAppAccess(input: {
   plan: PlanId | string | null | undefined;
   createdAt?: string | null;
+  subscriptionStatus?: string | null;
 }): boolean {
   if (isProPlan(input.plan)) return true;
+  if (
+    input.subscriptionStatus === "active" ||
+    input.subscriptionStatus === "trialing"
+  ) {
+    return true;
+  }
   return isTrialActive(input.createdAt);
 }

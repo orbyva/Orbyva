@@ -1,23 +1,58 @@
 import { BRAND } from "@/lib/brand";
 
-const LEGACY_KEY = "fintrack_onboarding_v1";
+const LEGACY_V1 = "fintrack_onboarding_v1";
+const LEGACY_V2_PREFIX = "fintrack_onboarding_v2:";
+const KEY_PREFIX = "orbyva_onboarding_v1:";
 
 export type OnboardingState = {
   tourDone: boolean;
   firstTxDone: boolean;
+  firstBudgetDone: boolean;
 };
 
 function storageKey(userId: string): string {
-  return `fintrack_onboarding_v2:${userId}`;
+  return `${KEY_PREFIX}${userId}`;
 }
 
 function defaultState(): OnboardingState {
-  return { tourDone: false, firstTxDone: false };
+  return { tourDone: false, firstTxDone: false, firstBudgetDone: false };
+}
+
+function migrateLegacy(userId: string): OnboardingState | null {
+  const legacyV2 = localStorage.getItem(`${LEGACY_V2_PREFIX}${userId}`);
+  if (legacyV2) {
+    try {
+      const parsed = JSON.parse(legacyV2) as Partial<OnboardingState>;
+      const migrated: OnboardingState = {
+        tourDone: Boolean(parsed.tourDone),
+        firstTxDone: Boolean(parsed.firstTxDone),
+        firstBudgetDone: Boolean(parsed.firstBudgetDone),
+      };
+      writeState(userId, migrated);
+      localStorage.removeItem(`${LEGACY_V2_PREFIX}${userId}`);
+      return migrated;
+    } catch {
+      localStorage.removeItem(`${LEGACY_V2_PREFIX}${userId}`);
+    }
+  }
+
+  if (localStorage.getItem(LEGACY_V1) === "done") {
+    const migrated = {
+      tourDone: true,
+      firstTxDone: false,
+      firstBudgetDone: false,
+    };
+    writeState(userId, migrated);
+    localStorage.removeItem(LEGACY_V1);
+    return migrated;
+  }
+
+  return null;
 }
 
 function readRaw(userId: string): OnboardingState {
   if (typeof window === "undefined") {
-    return { tourDone: true, firstTxDone: true };
+    return { tourDone: true, firstTxDone: true, firstBudgetDone: true };
   }
 
   try {
@@ -27,19 +62,15 @@ function readRaw(userId: string): OnboardingState {
       return {
         tourDone: Boolean(parsed.tourDone),
         firstTxDone: Boolean(parsed.firstTxDone),
+        firstBudgetDone: Boolean(parsed.firstBudgetDone),
       };
     }
   } catch {
     /* ignore */
   }
 
-  // Migração: tour antigo (device) → marca tourDone neste user.
-  if (localStorage.getItem(LEGACY_KEY) === "done") {
-    const migrated = { tourDone: true, firstTxDone: false };
-    writeState(userId, migrated);
-    localStorage.removeItem(LEGACY_KEY);
-    return migrated;
-  }
+  const migrated = migrateLegacy(userId);
+  if (migrated) return migrated;
 
   return defaultState();
 }
@@ -69,10 +100,19 @@ export function isFirstTxDone(userId: string): boolean {
   return readRaw(userId).firstTxDone;
 }
 
-/** Tour + 1ª transação — onboarding “completo”. */
-export function isOnboardingFullyDone(userId: string): boolean {
+export function isFirstBudgetDone(userId: string): boolean {
+  return readRaw(userId).firstBudgetDone;
+}
+
+/** Tour + 1ª transação — ativação finance-first. */
+export function isActivationDone(userId: string): boolean {
   const s = readRaw(userId);
   return s.tourDone && s.firstTxDone;
+}
+
+/** @deprecated Use isActivationDone */
+export function isOnboardingFullyDone(userId: string): boolean {
+  return isActivationDone(userId);
 }
 
 export function markTourDone(userId: string): void {
@@ -83,52 +123,62 @@ export function markFirstTxDone(userId: string): void {
   patchOnboardingState(userId, { firstTxDone: true });
 }
 
+export function markFirstBudgetDone(userId: string): void {
+  patchOnboardingState(userId, { firstBudgetDone: true });
+}
+
 export function resetOnboarding(userId?: string | null): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(LEGACY_KEY);
+  localStorage.removeItem(LEGACY_V1);
   if (userId) {
     localStorage.removeItem(storageKey(userId));
+    localStorage.removeItem(`${LEGACY_V2_PREFIX}${userId}`);
     return;
   }
-  // Sem user: limpa chaves v2 conhecidas + legacy (Account offline edge).
   const toRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i += 1) {
     const k = localStorage.key(i);
-    if (k?.startsWith("fintrack_onboarding_v2:")) toRemove.push(k);
+    if (
+      k?.startsWith(KEY_PREFIX) ||
+      k?.startsWith(LEGACY_V2_PREFIX)
+    ) {
+      toRemove.push(k);
+    }
   }
   for (const k of toRemove) localStorage.removeItem(k);
 }
 
-/** @deprecated Use isTourDone(userId) — mantido para imports antigos sem user. */
+/** @deprecated Use isTourDone(userId) */
 export function isOnboardingDone(): boolean {
   if (typeof window === "undefined") return true;
-  return localStorage.getItem(LEGACY_KEY) === "done";
+  return localStorage.getItem(LEGACY_V1) === "done";
 }
 
 /** @deprecated Use markTourDone(userId) */
 export function markOnboardingDone(): void {
-  localStorage.setItem(LEGACY_KEY, "done");
+  localStorage.setItem(LEGACY_V1, "done");
 }
 
+/** Finance-first: bem-vindo → categorias → 1ª tx → orçamento (opcional). */
 export const ONBOARDING_STEPS = [
   {
     id: "welcome",
     title: `Bem-vindo ao ${BRAND.name}`,
-    body: `${BRAND.shortDescription} ${BRAND.wedge}: vida organizada com o livro-caixa no centro.`,
+    body: `${BRAND.wedge} Começamos pelo livro-caixa — o resto do life OS vem depois.`,
   },
   {
     id: "dimensions",
     title: "Categorias prontas",
-    body: "Vamos criar tipos e classes iniciais (ex.: Alimentação → Mercado, Restaurante) só na sua conta, para registrar a primeira despesa sem fricção.",
+    body: "Criamos tipos e classes iniciais (ex.: Alimentação → Mercado) só na sua conta, para registrar a primeira despesa sem fricção.",
   },
   {
     id: "first-tx",
     title: "Primeira transação",
-    body: "Registre um gasto ou receita — é o coração do ledger. O checklist no Início só some quando a 1ª transação existir.",
+    body: "Registre um gasto ou receita agora. Sem isso o hub fica vazio — é o único passo obrigatório da ativação.",
   },
   {
-    id: "explore",
-    title: "Explore o resto",
-    body: "Metas, hábitos, lugares, cinema e veículos vivem no menu. O Início reúne alertas e o que importa hoje.",
+    id: "budget",
+    title: "Orçamento do mês (opcional)",
+    body: "Defina um teto de despesa ou meta de receita. Pode pular e fazer depois em Finanças → Orçamento.",
   },
 ] as const;

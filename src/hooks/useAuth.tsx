@@ -9,6 +9,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import { invalidateAppAlertsCache } from "@/api/alerts";
+import { identifyAnalytics } from "@/lib/analytics";
 
 type AuthState = {
   user: User | null;
@@ -35,7 +36,12 @@ function clearUserScopedCaches() {
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k?.startsWith("fintrack_offline_v1:")) keys.push(k);
+      if (
+        k?.startsWith("fintrack_offline_v1:") ||
+        k?.startsWith("orbyva_offline_v1:")
+      ) {
+        keys.push(k);
+      }
     }
     for (const k of keys) localStorage.removeItem(k);
   } catch {
@@ -54,6 +60,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void supabase.auth.getUser().then(({ data }) => {
       if (cancelled) return;
       setUser(data.user);
+      if (data.user) {
+        identifyAnalytics(data.user.id);
+      }
       setLoading(false);
     });
 
@@ -68,6 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (event === "SIGNED_OUT") return null;
           return sameUser(prev, next) ? prev : next;
         });
+        if (next && (event === "SIGNED_IN" || event === "USER_UPDATED")) {
+          identifyAnalytics(next.id);
+        }
         setLoading(false);
       }
     );

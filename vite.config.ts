@@ -52,6 +52,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Evita crash intermitente do terser no generateSW (workbox-build).
+        mode: "development",
         globPatterns: ["**/*.{js,css,html,ico,webp,svg,woff2,png}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/tmdb-media/],

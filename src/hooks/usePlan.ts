@@ -63,7 +63,11 @@ export function usePlan() {
   const isPro = isProPlan(plan);
   const trialActive = !isPro && isTrialActive(createdAt);
   const daysLeft = isPro ? 0 : trialDaysRemaining(createdAt);
-  const canUseApp = hasAppAccess({ plan, createdAt });
+  const canUseApp = hasAppAccess({
+    plan,
+    createdAt,
+    subscriptionStatus: profile?.subscription_status,
+  });
 
   return useMemo(
     () => ({
