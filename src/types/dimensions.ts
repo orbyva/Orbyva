@@ -7,6 +7,7 @@ export interface Type {
   id: number;
   user_id?: string;
   name: string;
+  nature_id?: number;
   nature: Nature;
   hex_color: string | null;
   lucide_icon: string | null;

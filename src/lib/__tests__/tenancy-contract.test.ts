@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
  */
 const OWNER_SCOPED_TABLES = [
   "movie",
+  "movie_episode",
   "transaction",
   "recurring_transaction",
   "monthly_budget",
@@ -44,9 +45,11 @@ describe("tenancy contract", () => {
   it("lista tabelas filhas com ownership via pai", () => {
     expect(PARENT_SCOPED_TABLES).toContain("habit_log");
     expect(PARENT_SCOPED_TABLES).toContain("vehicle_fuel_log");
+    expect(OWNER_SCOPED_TABLES).toContain("movie_episode");
     expect(PARENT_SCOPED_TABLES).toContain("trip_member");
     expect(PARENT_SCOPED_TABLES).toContain("trip_expense_split");
     expect(PARENT_SCOPED_TABLES).not.toContain("movie");
+    expect(PARENT_SCOPED_TABLES).not.toContain("movie_episode");
   });
 
   it("não mistura catálogo compartilhado com dados pessoais", () => {

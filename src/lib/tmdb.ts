@@ -179,7 +179,129 @@ function formatDetail(
     watched_dates: [],
     notes: null,
     would_recommend: true,
+    tmdb_tv_id: media === "tv" ? detail.id : null,
+    following: true,
+    notify_new_episodes: false,
   };
+}
+
+/** Extrai tmdb tv id de `tmdb_tv_123` ou retorna null. */
+export function parseTmdbTvId(
+  imdbId: string,
+  tmdbTvId?: number | null
+): number | null {
+  if (tmdbTvId != null && Number.isFinite(tmdbTvId) && tmdbTvId > 0) {
+    return tmdbTvId;
+  }
+  const m = /^tmdb_tv_(\d+)$/i.exec(imdbId.trim());
+  return m ? Number(m[1]) : null;
+}
+
+export type TmdbSeasonSummary = {
+  season_number: number;
+  name: string;
+  episode_count: number;
+  air_date?: string | null;
+};
+
+export type TmdbEpisode = {
+  id: number;
+  season_number: number;
+  episode_number: number;
+  name: string;
+  overview?: string | null;
+  air_date?: string | null;
+  runtime?: number | null;
+  still_path?: string | null;
+};
+
+export type TmdbAirEpisode = {
+  season_number: number;
+  episode_number: number;
+  name?: string;
+  air_date?: string | null;
+};
+
+export type TmdbTvMeta = {
+  tmdb_tv_id: number;
+  number_of_seasons: number;
+  seasons: TmdbSeasonSummary[];
+  next_episode_to_air?: TmdbAirEpisode | null;
+  last_episode_to_air?: TmdbAirEpisode | null;
+};
+
+/** Metadados da série + lista de temporadas (sem especiais se count=0). */
+export async function fetchTvMetaTmdb(tmdbTvId: number): Promise<TmdbTvMeta | null> {
+  try {
+    type TvDetail = {
+      id: number;
+      number_of_seasons?: number;
+      seasons?: {
+        season_number: number;
+        name?: string;
+        episode_count?: number;
+        air_date?: string | null;
+      }[];
+      next_episode_to_air?: TmdbAirEpisode | null;
+      last_episode_to_air?: TmdbAirEpisode | null;
+    };
+    const detail = await tmdbGet<TvDetail>(`/tv/${tmdbTvId}`);
+    const seasons = (detail.seasons ?? [])
+      .filter((s) => s.season_number > 0 && (s.episode_count ?? 0) > 0)
+      .map((s) => ({
+        season_number: s.season_number,
+        name: s.name?.trim() || `Temporada ${s.season_number}`,
+        episode_count: s.episode_count ?? 0,
+        air_date: s.air_date ?? null,
+      }));
+    return {
+      tmdb_tv_id: detail.id,
+      number_of_seasons: detail.number_of_seasons ?? seasons.length,
+      seasons,
+      next_episode_to_air: detail.next_episode_to_air ?? null,
+      last_episode_to_air: detail.last_episode_to_air ?? null,
+    };
+  } catch (error) {
+    console.error("TMDB tv meta error:", error);
+    return null;
+  }
+}
+
+/** Episódios de uma temporada em pt-BR. */
+export async function fetchTvSeasonEpisodesTmdb(
+  tmdbTvId: number,
+  seasonNumber: number
+): Promise<TmdbEpisode[]> {
+  try {
+    type SeasonDetail = {
+      episodes?: {
+        id: number;
+        season_number: number;
+        episode_number: number;
+        name?: string;
+        overview?: string | null;
+        air_date?: string | null;
+        runtime?: number | null;
+        still_path?: string | null;
+      }[];
+    };
+    const data = await tmdbGet<SeasonDetail>(
+      `/tv/${tmdbTvId}/season/${seasonNumber}`
+    );
+    return (data.episodes ?? []).map((ep) => ({
+      id: ep.id,
+      season_number: ep.season_number,
+      episode_number: ep.episode_number,
+      name: ep.name?.trim() || `Episódio ${ep.episode_number}`,
+      overview: ep.overview ?? null,
+      air_date: ep.air_date ?? null,
+      runtime: ep.runtime ?? null,
+      still_path: ep.still_path ?? null,
+    }));
+  } catch (error) {
+    console.error("TMDB season error:", error);
+    return [];
+  }
 }
 
 /** Detalhe em pt-BR + imdb_id (ou id sintético tmdb_*). */

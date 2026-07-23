@@ -110,6 +110,20 @@ export async function deleteMovie(imdbId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/** Séries com aviso de episódio novo ligado (para o sino de alertas). */
+export async function fetchSeriesWithEpisodeNotify(): Promise<Movie[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("movie")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("type", "series")
+    .eq("notify_new_episodes", true);
+
+  if (error) throw new Error(error.message);
+  return (data || []).map((row) => normalizeMovie(row as Movie));
+}
+
 function normalizeDates(dates: Movie["watched_dates"] | undefined): string[] {
   if (!dates?.length) return [];
   return dates.map((d) =>

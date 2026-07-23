@@ -2,7 +2,7 @@ import type { AppAlertKind } from "@/api/alerts";
 
 const NOTIFY_KEY = "fintrack_browser_notify";
 const NOTIFY_SENT_KEY = "fintrack_browser_notify_sent";
-const ALERT_KINDS_KEY = "fintrack_alert_kinds_v1";
+const ALERT_KINDS_KEY = "orbyva_alert_kinds_v1";
 
 export const ALERT_KIND_OPTIONS: Array<{
   kind: AppAlertKind;
@@ -22,7 +22,7 @@ export const ALERT_KIND_OPTIONS: Array<{
   {
     kind: "budget",
     label: "Orçamento",
-    description: "Categorias estouradas no mês",
+    description: "Despesas estouradas e receitas acima da meta",
   },
   {
     kind: "maintenance",
@@ -43,6 +43,11 @@ export const ALERT_KIND_OPTIONS: Array<{
     kind: "goal_overdue",
     label: "Metas atrasadas",
     description: "Prazos já vencidos",
+  },
+  {
+    kind: "series_episode",
+    label: "Episódios novos",
+    description: "Séries com aviso ligado (últimos 14 dias)",
   },
 ];
 

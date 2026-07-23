@@ -18,7 +18,7 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { repairOrphanClasses } from "@/domain/onboarding/defaults";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, sortByNamePt } from "@/lib/utils";
 
 function resolveTypeId(cls: Class): number | null {
   return cls.type?.id ?? cls.type_id ?? null;
@@ -113,12 +113,7 @@ function ClassManager({ types }: { types: Type[] }) {
     setEditingClass(null);
   }
 
-  const typesByNature = [...types].sort((a, b) => {
-    const na = a.nature?.name ?? "";
-    const nb = b.nature?.name ?? "";
-    if (na !== nb) return na.localeCompare(nb, "pt-BR");
-    return a.name.localeCompare(b.name, "pt-BR");
-  });
+  const typesByNature = sortByNamePt(types);
 
   return (
     <Card className="flex h-full min-h-0 flex-col border-0 shadow-none">

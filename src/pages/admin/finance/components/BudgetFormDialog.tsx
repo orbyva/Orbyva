@@ -1,6 +1,4 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Dialog,
@@ -25,22 +23,32 @@ import { MonthYearPicker } from "@/components/MonthYearPicker";
 import { FormLabel } from "@/components/FormLabel";
 import { FormSection } from "@/components/FormSection";
 import { Separator } from "@/components/ui/separator";
+import { sortByNamePt } from "@/lib/utils";
 
 import type {
   Dimension,
   MonthlyBudgetCreateRequest,
 } from "@/types/finance";
 
+export type BudgetSaveOptions = {
+  applyAllMonths: boolean;
+};
+
 interface BudgetFormDialogProps {
   open: boolean;
   setOpen: (open: boolean) => void;
   newBudget: MonthlyBudgetCreateRequest;
   setNewBudget: (budget: MonthlyBudgetCreateRequest) => void;
-  saveBudget: () => void;
+  saveBudget: (options?: BudgetSaveOptions) => void | Promise<void>;
   dimensions: Dimension[];
   isEditing: boolean;
   defaultBudgetMonth: string;
   onClose: () => void;
+}
+
+function yearFromMonth(iso: string): number {
+  const y = Number(iso.slice(0, 4));
+  return Number.isFinite(y) ? y : new Date().getFullYear();
 }
 
 export function BudgetFormDialog({
@@ -57,6 +65,15 @@ export function BudgetFormDialog({
   const [formError, setFormError] = useState("");
   const [selectedNature, setSelectedNature] = useState<number | null>(null);
   const [selectedType, setSelectedType] = useState<number | null>(null);
+  const [applyAllMonths, setApplyAllMonths] = useState(false);
+
+  const monthValue = newBudget.budget_month || defaultBudgetMonth;
+  const selectedYear = yearFromMonth(monthValue);
+
+  useEffect(() => {
+    if (!open) return;
+    setApplyAllMonths(false);
+  }, [open]);
 
   useEffect(() => {
     if (isEditing && newBudget.type_id && dimensions.length > 0) {
@@ -74,10 +91,17 @@ export function BudgetFormDialog({
     }
   }, [isEditing, newBudget.type_id, dimensions]);
 
+  const naturesSorted = useMemo(() => sortByNamePt(dimensions), [dimensions]);
   const selectedNatureObj = dimensions.find((n) => n.id === selectedNature);
-  const types = selectedNatureObj ? selectedNatureObj.types : [];
+  const types = useMemo(
+    () => sortByNamePt(selectedNatureObj?.types ?? []),
+    [selectedNatureObj]
+  );
   const selectedTypeObj = types.find((t) => t.id === selectedType);
-  const classes = selectedTypeObj ? selectedTypeObj.classes : [];
+  const classes = useMemo(
+    () => sortByNamePt(selectedTypeObj?.classes ?? []),
+    [selectedTypeObj]
+  );
 
   function handleSubmit() {
     if (!selectedNature) {
@@ -101,13 +125,16 @@ export function BudgetFormDialog({
     }
 
     setFormError("");
-    saveBudget();
+    void saveBudget({
+      applyAllMonths: !isEditing && applyAllMonths,
+    });
   }
 
   function clearInternalState() {
     setSelectedNature(null);
     setSelectedType(null);
     setFormError("");
+    setApplyAllMonths(false);
   }
 
   return (
@@ -153,131 +180,172 @@ export function BudgetFormDialog({
           <FormSection title="Classificação">
             <FormLabel required>Natureza</FormLabel>
 
-          <Select
-            value={selectedNature ? String(selectedNature) : ""}
-            onValueChange={(value) => {
-              setSelectedNature(Number(value));
-              setSelectedType(null);
-              setNewBudget({
-                ...newBudget,
-                type_id: null,
-                class_id: null,
-              });
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Selecione a Natureza" />
-            </SelectTrigger>
+            <Select
+              value={selectedNature ? String(selectedNature) : ""}
+              onValueChange={(value) => {
+                setSelectedNature(Number(value));
+                setSelectedType(null);
+                setNewBudget({
+                  ...newBudget,
+                  type_id: null,
+                  class_id: null,
+                });
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione a Natureza" />
+              </SelectTrigger>
 
-            <SelectContent>
-              {dimensions.map((nature) => (
-                <SelectItem key={nature.id} value={String(nature.id)}>
-                  {nature.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectContent>
+                {naturesSorted.map((nature) => (
+                  <SelectItem key={nature.id} value={String(nature.id)}>
+                    {nature.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {selectedNature && (
-            <>
-              <FormLabel required>Tipo</FormLabel>
-
-              <Select
-                value={selectedType ? String(selectedType) : ""}
-                onValueChange={(value) => {
-                  const typeId = Number(value);
-
-                  setSelectedType(typeId);
-
-                  setNewBudget({
-                    ...newBudget,
-                    type_id: typeId,
-                    class_id: null,
-                  });
-                }}
+            {selectedNature && (
+              <div
+                className={
+                  selectedType
+                    ? "grid grid-cols-2 gap-3"
+                    : "grid grid-cols-1 gap-3"
+                }
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione o Tipo" />
-                </SelectTrigger>
+                <div className="space-y-3">
+                  <FormLabel required>Tipo</FormLabel>
 
-                <SelectContent>
-                  {types.map((type) => (
-                    <SelectItem key={type.id} value={String(type.id)}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
+                  <Select
+                    value={selectedType ? String(selectedType) : ""}
+                    onValueChange={(value) => {
+                      const typeId = Number(value);
 
-          {selectedType && (
-            <>
-              <FormLabel optional>Classe</FormLabel>
+                      setSelectedType(typeId);
 
-              <Select
-                value={newBudget.class_id ? String(newBudget.class_id) : "general"}
-                onValueChange={(value) => {
-                  setNewBudget({
-                    ...newBudget,
-                    class_id: value === "general" ? null : Number(value),
-                  });
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione a Classe" />
-                </SelectTrigger>
+                      setNewBudget({
+                        ...newBudget,
+                        type_id: typeId,
+                        class_id: null,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione o Tipo" />
+                    </SelectTrigger>
 
-                <SelectContent>
-                  <SelectItem value="general">Geral do Tipo</SelectItem>
+                    <SelectContent>
+                      {types.map((type) => (
+                        <SelectItem key={type.id} value={String(type.id)}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                  {classes.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
+                {selectedType ? (
+                  <div className="space-y-3">
+                    <FormLabel optional>Classe</FormLabel>
+
+                    <Select
+                      value={
+                        newBudget.class_id
+                          ? String(newBudget.class_id)
+                          : "general"
+                      }
+                      onValueChange={(value) => {
+                        setNewBudget({
+                          ...newBudget,
+                          class_id: value === "general" ? null : Number(value),
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione a Classe" />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        <SelectItem value="general">Geral do Tipo</SelectItem>
+
+                        {classes.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </FormSection>
 
           <Separator />
 
           <FormSection title="Valores e período">
-          <FormLabel required>Valor planejado</FormLabel>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-3">
+                <FormLabel required>Valor planejado</FormLabel>
+                <Input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={newBudget.planned_value || ""}
+                  onChange={(e) =>
+                    setNewBudget({
+                      ...newBudget,
+                      planned_value: Number(e.target.value),
+                    })
+                  }
+                />
+              </div>
+            </div>
 
-          <Input
-            type="number"
-            min="1"
-            step="0.01"
-            placeholder="0,00"
-            value={newBudget.planned_value || ""}
-            onChange={(e) =>
-              setNewBudget({
-                ...newBudget,
-                planned_value: Number(e.target.value),
-              })
-            }
-          />
-
-          <FormLabel required>Mês/Ano</FormLabel>
-
-          <MonthYearPicker
-            value={newBudget.budget_month || defaultBudgetMonth}
-            onChange={(value) =>
-              setNewBudget({
-                ...newBudget,
-                budget_month: value,
-              })
-            }
-          />
+            <div className="space-y-2">
+              <FormLabel required>
+                {applyAllMonths ? `Ano ${selectedYear}` : "Mês / Ano"}
+              </FormLabel>
+              <MonthYearPicker
+                value={monthValue}
+                allMonthsSelected={applyAllMonths}
+                onChange={(value) =>
+                  setNewBudget({
+                    ...newBudget,
+                    budget_month: value,
+                  })
+                }
+              />
+              {!isEditing ? (
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-md border px-3 py-2.5 text-sm transition hover:bg-muted/40">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 accent-primary"
+                    checked={applyAllMonths}
+                    onChange={(e) => setApplyAllMonths(e.target.checked)}
+                  />
+                  <span>
+                    <span className="font-medium">
+                      Usar em todos os meses de {selectedYear}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      Cria o mesmo valor nos 12 meses deste ano.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
+            </div>
           </FormSection>
 
           {formError && <p className="text-sm text-destructive">{formError}</p>}
 
           <Button onClick={handleSubmit} className="w-full sm:w-auto">
-            {isEditing ? "Salvar Alterações" : "Salvar"}
+            {isEditing
+              ? "Salvar Alterações"
+              : applyAllMonths
+                ? `Salvar nos 12 meses de ${selectedYear}`
+                : "Salvar"}
           </Button>
         </div>
       </DialogContent>

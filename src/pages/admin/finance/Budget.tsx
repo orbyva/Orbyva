@@ -248,16 +248,30 @@ export default function Budget() {
     setEditingBudgetId(null);
   }
 
-  async function saveBudget() {
+  async function saveBudget(options?: { applyAllMonths?: boolean }) {
+    const baseMonth = newBudget.budget_month || budgetMonth;
     const payload = {
       ...newBudget,
-      budget_month: newBudget.budget_month || budgetMonth,
+      budget_month: baseMonth,
     };
 
     if (isEditing && editingBudgetId) {
       await updateMonthlyBudgetApi({
         id: editingBudgetId,
         ...payload,
+      });
+    } else if (options?.applyAllMonths) {
+      const year = baseMonth.slice(0, 4);
+      for (let month = 1; month <= 12; month++) {
+        await createMonthlyBudgetApi({
+          ...payload,
+          budget_month: `${year}-${String(month).padStart(2, "0")}-01`,
+        });
+      }
+      toast({
+        title: "Orçamento criado",
+        description: `Valor aplicado nos 12 meses de ${year}.`,
+        duration: 2500,
       });
     } else {
       await createMonthlyBudgetApi(payload);
@@ -354,6 +368,13 @@ export default function Budget() {
             </Select>
           </div>
 
+          <DuplicateBudgetDialog
+            currentMonth={selectedMonth}
+            currentYear={selectedYear}
+            disabled={summary.length === 0}
+            onDuplicate={duplicateBudget}
+          />
+
           <BudgetFormDialog
             open={open}
             setOpen={setOpen}
@@ -364,13 +385,6 @@ export default function Budget() {
             isEditing={isEditing}
             onClose={resetForm}
             defaultBudgetMonth={budgetMonth}
-          />
-
-          <DuplicateBudgetDialog
-            currentMonth={selectedMonth}
-            currentYear={selectedYear}
-            disabled={summary.length === 0}
-            onDuplicate={duplicateBudget}
           />
         </>
       }

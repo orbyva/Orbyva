@@ -1,11 +1,12 @@
 import type { Dimension } from "@/types/dimensions";
 import type { RecurringCreateRequest } from "@/types/recurring";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getTotalFromInstallments,
   splitInstallmentValue,
 } from "@/domain/recurring";
 import { formatBRL } from "@/lib/currency";
+import { cn, sortByNamePt } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -24,8 +25,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormLabel } from "@/components/FormLabel";
-import { FormSection } from "@/components/FormSection";
-import { Separator } from "@/components/ui/separator";
 
 interface RecurringFormDialogProps {
   open: boolean;
@@ -96,10 +95,17 @@ export function RecurringFormDialog({
     }
   }, [isEditing, newRecurring.class_id, dimensions]);
 
+  const naturesSorted = useMemo(() => sortByNamePt(dimensions), [dimensions]);
   const selectedNatureObj = dimensions.find((n) => n.id === selectedNature);
-  const types = selectedNatureObj ? selectedNatureObj.types : [];
+  const types = useMemo(
+    () => sortByNamePt(selectedNatureObj?.types ?? []),
+    [selectedNatureObj]
+  );
   const selectedTypeObj = types.find((t) => t.id === selectedType);
-  const classes = selectedTypeObj ? selectedTypeObj.classes : [];
+  const classes = useMemo(
+    () => sortByNamePt(selectedTypeObj?.classes ?? []),
+    [selectedTypeObj]
+  );
 
   const handleCreate = () => {
     if (!selectedNature) return setFormError("Selecione a Natureza.");
@@ -169,15 +175,15 @@ export function RecurringFormDialog({
           <Button className="w-full sm:w-auto">Adicionar Recorrência</Button>
         </DialogTrigger>
       )}
-      <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-4 sm:max-w-xl sm:p-6">
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] max-w-md gap-0 overflow-y-auto p-4 sm:max-w-xl sm:p-6">
+        <DialogHeader className="pb-3">
           <DialogTitle>
             {isEditing ? "Editar Recorrência" : "Nova Recorrência"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5 pt-2">
-          <FormSection title="Dados principais">
+        <div className="grid gap-3">
+          <div className="space-y-1.5">
             <FormLabel required>Natureza</FormLabel>
             <Select
               value={String(selectedNature)}
@@ -188,19 +194,26 @@ export function RecurringFormDialog({
               }}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione a Natureza" />
+                <SelectValue placeholder="Natureza" />
               </SelectTrigger>
               <SelectContent>
-                {dimensions.map((nature) => (
+                {naturesSorted.map((nature) => (
                   <SelectItem key={nature.id} value={String(nature.id)}>
                     {nature.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
 
-            {selectedNature && (
-              <>
+          {selectedNature ? (
+            <div
+              className={cn(
+                "grid gap-3",
+                selectedType ? "grid-cols-2" : "grid-cols-1"
+              )}
+            >
+              <div className="space-y-1.5">
                 <FormLabel required>Tipo</FormLabel>
                 <Select
                   value={String(selectedType)}
@@ -210,7 +223,7 @@ export function RecurringFormDialog({
                   }}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione o Tipo" />
+                    <SelectValue placeholder="Tipo" />
                   </SelectTrigger>
                   <SelectContent>
                     {types.map((type) => (
@@ -220,35 +233,37 @@ export function RecurringFormDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </>
-            )}
+              </div>
 
-            {selectedType && (
-              <>
-                <FormLabel required>Classe</FormLabel>
-                <Select
-                  value={String(newRecurring.class_id)}
-                  onValueChange={(value) =>
-                    setNewRecurring({
-                      ...newRecurring,
-                      class_id: Number(value),
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione a Classe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </>
-            )}
+              {selectedType ? (
+                <div className="space-y-1.5">
+                  <FormLabel required>Classe</FormLabel>
+                  <Select
+                    value={String(newRecurring.class_id)}
+                    onValueChange={(value) =>
+                      setNewRecurring({
+                        ...newRecurring,
+                        class_id: Number(value),
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Classe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classes.map((c) => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
+          <div className="space-y-1.5">
             <FormLabel required>Descrição</FormLabel>
             <Input
               type="text"
@@ -261,101 +276,93 @@ export function RecurringFormDialog({
                 })
               }
             />
-          </FormSection>
+          </div>
 
-          <Separator />
-
-          <FormSection title="Valores">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-3">
-                <FormLabel required>
-                  {hasInstallments ? "Valor total" : "Valor"}
-                </FormLabel>
-                {hasInstallments ? (
-                  <Input
-                    type="number"
-                    min="1"
-                    step="0.01"
-                    placeholder="0,00"
-                    value={totalValue}
-                    onChange={(e) =>
-                      setTotalValue(
-                        e.target.value ? Number(e.target.value) : ""
-                      )
-                    }
-                  />
-                ) : (
-                  <Input
-                    type="number"
-                    min="1"
-                    step="0.01"
-                    placeholder="0,00"
-                    value={newRecurring.value || ""}
-                    onChange={(e) =>
-                      setNewRecurring({
-                        ...newRecurring,
-                        value: Number(e.target.value),
-                      })
-                    }
-                  />
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <FormLabel optional={!hasInstallments} required={hasInstallments}>
-                  Número de parcelas
-                </FormLabel>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <FormLabel required>
+                {hasInstallments ? "Valor total" : "Valor"}
+              </FormLabel>
+              {hasInstallments ? (
                 <Input
                   type="number"
                   min="1"
-                  placeholder="Ex: 12"
-                  value={newRecurring.installment_count ?? ""}
+                  step="0.01"
+                  placeholder="0,00"
+                  value={totalValue}
+                  onChange={(e) =>
+                    setTotalValue(
+                      e.target.value ? Number(e.target.value) : ""
+                    )
+                  }
+                />
+              ) : (
+                <Input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={newRecurring.value || ""}
                   onChange={(e) =>
                     setNewRecurring({
                       ...newRecurring,
-                      installment_count: e.target.value
-                        ? Number(e.target.value)
-                        : null,
+                      value: Number(e.target.value),
                     })
                   }
                 />
-              </div>
+              )}
             </div>
 
-            {installmentValue != null && newRecurring.installment_count && (
-              <p className="text-sm text-muted-foreground">
-                {newRecurring.installment_count}x de{" "}
-                <span className="font-medium text-foreground">
-                  {formatBRL(installmentValue)}
-                </span>
-              </p>
-            )}
-          </FormSection>
+            <div className="space-y-1.5">
+              <FormLabel optional>Parcelas</FormLabel>
+              <Input
+                type="number"
+                min="1"
+                placeholder="Ex: 12"
+                value={newRecurring.installment_count ?? ""}
+                onChange={(e) =>
+                  setNewRecurring({
+                    ...newRecurring,
+                    installment_count: e.target.value
+                      ? Number(e.target.value)
+                      : null,
+                  })
+                }
+              />
+            </div>
 
-          <Separator />
+            <div className="space-y-1.5">
+              <FormLabel required>Frequência</FormLabel>
+              <Select
+                onValueChange={(value: string) =>
+                  setNewRecurring({ ...newRecurring, frequency: value })
+                }
+                value={newRecurring.frequency}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Frequência" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Anual">Anual</SelectItem>
+                  <SelectItem value="Mensal">Mensal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-          <FormSection title="Recorrência">
-            <FormLabel required>Frequência</FormLabel>
-            <Select
-              onValueChange={(value: string) =>
-                setNewRecurring({ ...newRecurring, frequency: value })
-              }
-              value={newRecurring.frequency}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione a Frequência" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Anual">Anual</SelectItem>
-                <SelectItem value="Mensal">Mensal</SelectItem>
-              </SelectContent>
-            </Select>
+          {installmentValue != null && newRecurring.installment_count ? (
+            <p className="-mt-1 text-sm text-muted-foreground">
+              {newRecurring.installment_count}x de{" "}
+              <span className="font-medium text-foreground">
+                {formatBRL(installmentValue)}
+              </span>
+            </p>
+          ) : null}
 
+          {hasInstallments ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-3">
-                <FormLabel optional={!hasInstallments} required={hasInstallments}>
-                  Início do pagamento
-                </FormLabel>
+              <div className="space-y-1.5">
+                <FormLabel required>Início do pagamento</FormLabel>
                 <DatePicker
                   date={
                     newRecurring.payment_start_date
@@ -373,10 +380,8 @@ export function RecurringFormDialog({
                 />
               </div>
 
-              <div className="space-y-3">
-                <FormLabel optional={!hasInstallments} required={hasInstallments}>
-                  Dia de vencimento
-                </FormLabel>
+              <div className="space-y-1.5">
+                <FormLabel required>Dia de vencimento</FormLabel>
                 <Input
                   type="number"
                   min="1"
@@ -392,11 +397,13 @@ export function RecurringFormDialog({
                 />
               </div>
             </div>
-          </FormSection>
+          ) : null}
 
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
+          {formError ? (
+            <p className="text-sm text-destructive">{formError}</p>
+          ) : null}
 
-          <Button onClick={handleCreate} className="w-full sm:w-auto">
+          <Button onClick={handleCreate} className="w-full sm:w-auto sm:justify-self-start">
             {isEditing ? "Salvar Alterações" : "Salvar"}
           </Button>
         </div>

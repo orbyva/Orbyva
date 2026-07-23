@@ -175,7 +175,7 @@ export async function fetchTypes(): Promise<Type[]> {
     .from("type")
     .select(`
       *,
-      nature:nature_id(name)
+      nature:nature_id(id, name)
     `)
     .eq("user_id", userId)
     .order("order", { ascending: true });

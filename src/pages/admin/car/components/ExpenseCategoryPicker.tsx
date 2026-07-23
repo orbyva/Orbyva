@@ -6,6 +6,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormLabel } from "@/components/FormLabel";
+import { sortByNamePt } from "@/lib/utils";
 import type { Dimension } from "@/types/dimensions";
 
 interface ExpenseCategoryPickerProps {
@@ -26,9 +27,9 @@ export function ExpenseCategoryPicker({
 }: ExpenseCategoryPickerProps) {
   const expenseNature =
     dimensions.find((n) => n.name.toLowerCase() === "despesa") ?? null;
-  const types = expenseNature?.types ?? [];
+  const types = sortByNamePt(expenseNature?.types ?? []);
   const selectedTypeObj = types.find((t) => t.id === selectedType);
-  const classes = selectedTypeObj?.classes ?? [];
+  const classes = sortByNamePt(selectedTypeObj?.classes ?? []);
 
   if (!expenseNature) {
     return (
@@ -39,7 +40,13 @@ export function ExpenseCategoryPicker({
   }
 
   return (
-    <div className="space-y-3">
+    <div
+      className={
+        selectedType != null
+          ? "grid grid-cols-2 gap-3"
+          : "grid grid-cols-1 gap-3"
+      }
+    >
       <div>
         <FormLabel required>Tipo</FormLabel>
         <Select

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FormLabel, ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { cn } from "@/lib/utils";
+import { cn, sortByNamePt } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -20,7 +20,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { HexColorPicker } from "react-colorful";
-import { TYPE_ICON_OPTIONS, TypeIcon } from "@/components/TypeIcon";
+import {
+  TYPE_ICONS,
+  TypeIcon,
+  normalizeHexColor,
+} from "@/components/TypeIcon";
 import { Trash, Pen, Layers } from "lucide-react";
 import {
   deleteTypeApi,
@@ -29,6 +33,17 @@ import {
 } from "@/api/finance";
 import { Type, Nature, TypeCreateRequest, TypeUpdateRequest } from "@/types/finance";
 import { EmptyState } from "@/components/EmptyState";
+
+function resolveNatureId(type: Type): number | null {
+  return type.nature_id ?? type.nature?.id ?? null;
+}
+
+function resolveNatureName(type: Type, natures: Nature[]): string | null {
+  const natureId = resolveNatureId(type);
+  const fromList =
+    natureId != null ? natures.find((n) => n.id === natureId) : undefined;
+  return fromList?.name ?? type.nature?.name ?? null;
+}
 
 function TypeManager({
   natures,
@@ -69,7 +84,10 @@ function TypeManager({
     }
 
     setFormError("");
-    await createTypeApi(newType);
+    await createTypeApi({
+      ...newType,
+      hex_color: normalizeHexColor(newType.hex_color ?? "") ?? null,
+    });
     refetchTypes();
     setNewType({ name: "", hex_color: null, lucide_icon: null, nature_id: 0 });
     setShowNewColorPicker(false);
@@ -77,7 +95,13 @@ function TypeManager({
 
   async function handleUpdate() {
     if (editingType && editingType.id != null) {
-      await updateTypeApi(editingType);
+      await updateTypeApi({
+        ...editingType,
+        hex_color:
+          editingType.hex_color != null
+            ? normalizeHexColor(editingType.hex_color) ?? editingType.hex_color
+            : null,
+      });
       refetchTypes();
       setEditingType(null);
       setShowEditColorPicker(false);
@@ -85,12 +109,13 @@ function TypeManager({
   }
 
   function startEditing(type: Type) {
+    const natureId = resolveNatureId(type);
     setEditingType({
       id: type.id,
       name: type.name,
       hex_color: type.hex_color,
       lucide_icon: type.lucide_icon,
-      nature_id: type.nature.id,
+      nature_id: natureId ?? 0,
     });
     setShowEditColorPicker(false);
   }
@@ -99,6 +124,8 @@ function TypeManager({
     setEditingType(null);
     setShowEditColorPicker(false);
   }
+
+  const naturesSorted = sortByNamePt(natures);
 
   return (
     <Card className="flex h-full min-h-0 flex-col border-0 shadow-none">
@@ -131,7 +158,7 @@ function TypeManager({
                 <SelectValue placeholder="Receita ou Despesa" />
               </SelectTrigger>
               <SelectContent>
-                {natures.map((nature) => (
+                {naturesSorted.map((nature) => (
                   <SelectItem key={nature.id} value={String(nature.id)}>
                     {nature.name}
                   </SelectItem>
@@ -145,7 +172,7 @@ function TypeManager({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="h-9 w-9 rounded-md border"
+                className="h-9 w-9 shrink-0 rounded-md border"
                 style={{ backgroundColor: newType.hex_color || "#94a3b8" }}
                 onClick={() => setShowNewColorPicker((v) => !v)}
                 aria-label="Escolher cor"
@@ -155,7 +182,12 @@ function TypeManager({
                 onChange={(e) =>
                   setNewType({ ...newType, hex_color: e.target.value || null })
                 }
-                placeholder="#hex"
+                onBlur={() => {
+                  const n = normalizeHexColor(newType.hex_color ?? "");
+                  if (n) setNewType({ ...newType, hex_color: n });
+                }}
+                placeholder="#0ea5e9"
+                className="font-mono uppercase"
               />
             </div>
             {showNewColorPicker ? (
@@ -180,15 +212,15 @@ function TypeManager({
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Ícone" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-72">
                 <SelectItem value="none">
                   <span>Nenhum</span>
                 </SelectItem>
-                {TYPE_ICON_OPTIONS.map((icon) => (
-                  <SelectItem key={icon} value={icon}>
+                {TYPE_ICONS.map((icon) => (
+                  <SelectItem key={icon.id} value={icon.id}>
                     <span className="flex items-center gap-2">
-                      <TypeIcon name={icon} className="h-4 w-4" />
-                      {icon}
+                      <TypeIcon name={icon.id} className="h-4 w-4" />
+                      {icon.label}
                     </span>
                   </SelectItem>
                 ))}
@@ -239,7 +271,7 @@ function TypeManager({
                     <TableRow key={type.id}>
                       <TableCell>
                         {editingType && editingType.id === type.id ? (
-                          <div className="space-y-2">
+                          <div className="space-y-2 py-1">
                             <Input
                               value={editingType.name ?? ""}
                               onChange={(e) =>
@@ -248,11 +280,12 @@ function TypeManager({
                                   name: e.target.value,
                                 })
                               }
+                              placeholder="Nome do tipo"
                             />
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
-                                className="h-8 w-8 rounded-md border"
+                                className="h-8 w-8 shrink-0 rounded-md border"
                                 style={{
                                   backgroundColor:
                                     editingType.hex_color || "#94a3b8",
@@ -260,6 +293,29 @@ function TypeManager({
                                 onClick={() =>
                                   setShowEditColorPicker((v) => !v)
                                 }
+                                aria-label="Escolher cor"
+                              />
+                              <Input
+                                value={editingType.hex_color ?? ""}
+                                onChange={(e) =>
+                                  setEditingType({
+                                    ...editingType,
+                                    hex_color: e.target.value || null,
+                                  })
+                                }
+                                onBlur={() => {
+                                  const n = normalizeHexColor(
+                                    editingType.hex_color ?? ""
+                                  );
+                                  if (n) {
+                                    setEditingType({
+                                      ...editingType,
+                                      hex_color: n,
+                                    });
+                                  }
+                                }}
+                                placeholder="#hex"
+                                className="h-8 w-[7.5rem] font-mono uppercase"
                               />
                               <Select
                                 value={editingType.lucide_icon ?? "none"}
@@ -271,19 +327,19 @@ function TypeManager({
                                   })
                                 }
                               >
-                                <SelectTrigger className="h-8">
+                                <SelectTrigger className="h-8 min-w-[9rem] flex-1">
                                   <SelectValue placeholder="Ícone" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="max-h-72">
                                   <SelectItem value="none">Nenhum</SelectItem>
-                                  {TYPE_ICON_OPTIONS.map((icon) => (
-                                    <SelectItem key={icon} value={icon}>
+                                  {TYPE_ICONS.map((icon) => (
+                                    <SelectItem key={icon.id} value={icon.id}>
                                       <span className="flex items-center gap-2">
                                         <TypeIcon
-                                          name={icon}
+                                          name={icon.id}
                                           className="h-4 w-4"
                                         />
-                                        {icon}
+                                        {icon.label}
                                       </span>
                                     </SelectItem>
                                   ))}
@@ -335,10 +391,10 @@ function TypeManager({
                             }
                           >
                             <SelectTrigger>
-                              <SelectValue />
+                              <SelectValue placeholder="Natureza" />
                             </SelectTrigger>
                             <SelectContent>
-                              {natures.map((nature) => (
+                              {naturesSorted.map((nature) => (
                                 <SelectItem
                                   key={nature.id}
                                   value={String(nature.id)}
@@ -349,7 +405,7 @@ function TypeManager({
                             </SelectContent>
                           </Select>
                         ) : (
-                          type.nature?.name
+                          resolveNatureName(type, natures)
                         )}
                       </TableCell>
                       <TableCell>

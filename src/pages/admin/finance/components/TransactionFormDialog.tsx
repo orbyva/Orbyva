@@ -15,12 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TransactionCreateRequest } from "@/types/finance";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dimension } from "@/types/finance";
 import { DatePicker } from "@/components/DatePicker";
 import { FormLabel } from "@/components/FormLabel";
 import { FormSection } from "@/components/FormSection";
 import { Separator } from "@/components/ui/separator";
+import { sortByNamePt } from "@/lib/utils";
 
 interface TransactionFormDialogProps {
   open: boolean;
@@ -64,10 +65,17 @@ export function TransactionFormDialog({
     }
   }, [isEditing, newTransaction.class_id, dimensions]);
 
+  const naturesSorted = useMemo(() => sortByNamePt(dimensions), [dimensions]);
   const selectedNatureObj = dimensions.find((n) => n.id == selectedNature);
-  const types = selectedNatureObj ? selectedNatureObj.types : [];
+  const types = useMemo(
+    () => sortByNamePt(selectedNatureObj?.types ?? []),
+    [selectedNatureObj]
+  );
   const selectedTypeObj = types.find((t) => t.id == selectedType);
-  const classes = selectedTypeObj ? selectedTypeObj.classes : [];
+  const classes = useMemo(
+    () => sortByNamePt(selectedTypeObj?.classes ?? []),
+    [selectedTypeObj]
+  );
 
   const handleSubmit = () => {
     if (!selectedNature) {
@@ -141,7 +149,7 @@ export function TransactionFormDialog({
                 <SelectValue placeholder="Selecione a Natureza" />
               </SelectTrigger>
               <SelectContent>
-                {dimensions.map((nature) => (
+                {naturesSorted.map((nature) => (
                   <SelectItem key={nature.id} value={String(nature.id)}>
                     {nature.name}
                   </SelectItem>
@@ -150,53 +158,61 @@ export function TransactionFormDialog({
             </Select>
 
             {selectedNature && (
-              <>
-                <FormLabel required>Tipo</FormLabel>
-                <Select
-                  value={String(selectedType)}
-                  onValueChange={(value) => {
-                    setSelectedType(parseInt(value));
-                    setNewTransaction({ ...newTransaction, class_id: 0 });
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione o Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {types.map((type) => (
-                      <SelectItem key={type.id} value={String(type.id)}>
-                        {type.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </>
-            )}
+              <div
+                className={
+                  selectedType
+                    ? "grid grid-cols-2 gap-3"
+                    : "grid grid-cols-1 gap-3"
+                }
+              >
+                <div className="space-y-3">
+                  <FormLabel required>Tipo</FormLabel>
+                  <Select
+                    value={String(selectedType)}
+                    onValueChange={(value) => {
+                      setSelectedType(parseInt(value));
+                      setNewTransaction({ ...newTransaction, class_id: 0 });
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione o Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {types.map((type) => (
+                        <SelectItem key={type.id} value={String(type.id)}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {selectedType && (
-              <>
-                <FormLabel required>Classe</FormLabel>
-                <Select
-                  value={String(newTransaction.class_id)}
-                  onValueChange={(value) =>
-                    setNewTransaction({
-                      ...newTransaction,
-                      class_id: Number(value),
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione a Classe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </>
+                {selectedType ? (
+                  <div className="space-y-3">
+                    <FormLabel required>Classe</FormLabel>
+                    <Select
+                      value={String(newTransaction.class_id)}
+                      onValueChange={(value) =>
+                        setNewTransaction({
+                          ...newTransaction,
+                          class_id: Number(value),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione a Classe" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+              </div>
             )}
           </FormSection>
 

@@ -84,7 +84,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
 import { formatBRL, formatDateBR } from "@/lib/currency";
-import { cn } from "@/lib/utils";
+import { cn, sortByNamePt } from "@/lib/utils";
 
 const emptyExpenseForm = () => ({
   description: "",
@@ -214,9 +214,9 @@ export default function TripDetail() {
   }, [load]);
 
   const expenseNature = dimensions.find((n) => n.name === "Despesa");
-  const expenseTypes = expenseNature?.types ?? [];
+  const expenseTypes = sortByNamePt(expenseNature?.types ?? []);
   const selectedExpenseType = expenseTypes.find((t) => t.id === financeTypeId);
-  const expenseClasses = selectedExpenseType?.classes ?? [];
+  const expenseClasses = sortByNamePt(selectedExpenseType?.classes ?? []);
 
   if (loading) {
     return (
@@ -1262,7 +1262,13 @@ export default function TripDetail() {
                   Registrar em Finanças
                 </label>
                 {registerExpense && (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div
+                    className={
+                      financeTypeId
+                        ? "grid grid-cols-2 gap-3"
+                        : "grid grid-cols-1 gap-3"
+                    }
+                  >
                     <div>
                       <FormLabel required>Tipo</FormLabel>
                       <Select
@@ -1284,31 +1290,26 @@ export default function TripDetail() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <FormLabel required>Classe</FormLabel>
-                      <Select
-                        value={classId ? String(classId) : ""}
-                        onValueChange={(v) => setClassId(Number(v))}
-                        disabled={!financeTypeId}
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              financeTypeId
-                                ? "Selecione a classe"
-                                : "Escolha o tipo primeiro"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {expenseClasses.map((cls) => (
-                            <SelectItem key={cls.id} value={String(cls.id)}>
-                              {cls.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {financeTypeId ? (
+                      <div>
+                        <FormLabel required>Classe</FormLabel>
+                        <Select
+                          value={classId ? String(classId) : ""}
+                          onValueChange={(v) => setClassId(Number(v))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a classe" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {expenseClasses.map((cls) => (
+                              <SelectItem key={cls.id} value={String(cls.id)}>
+                                {cls.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </>
@@ -1338,19 +1339,13 @@ export default function TripDetail() {
                   )?.amount ?? 0
                 )}
               </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <FormLabel required>Tipo</FormLabel>
-                  <Select
-                    value={financeTypeId ? String(financeTypeId) : ""}
-                    onValueChange={(v) => {
-                      setFinanceTypeId(Number(v));
-                      setClassId(0);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tipo" />
-                    </SelectTrigger>
+              <div
+                className={
+                  financeTypeId
+                    ? "grid grid-cols-2 gap-3"
+                    : "grid grid-cols-1 gap-3"
+                }
+              >
                     <SelectContent>
                       {expenseTypes.map((type) => (
                         <SelectItem key={type.id} value={String(type.id)}>
@@ -1360,25 +1355,26 @@ export default function TripDetail() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <FormLabel required>Classe</FormLabel>
-                  <Select
-                    value={classId ? String(classId) : ""}
-                    onValueChange={(v) => setClassId(Number(v))}
-                    disabled={!financeTypeId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Classe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {expenseClasses.map((cls) => (
-                        <SelectItem key={cls.id} value={String(cls.id)}>
-                          {cls.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {financeTypeId ? (
+                  <div>
+                    <FormLabel required>Classe</FormLabel>
+                    <Select
+                      value={classId ? String(classId) : ""}
+                      onValueChange={(v) => setClassId(Number(v))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Classe" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {expenseClasses.map((cls) => (
+                          <SelectItem key={cls.id} value={String(cls.id)}>
+                            {cls.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
               </div>
               <Button
                 className="w-full"

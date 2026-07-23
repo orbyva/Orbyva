@@ -6,9 +6,17 @@ import {
 } from "@/api/car";
 import { fetchMonthlyBudgetSummary } from "@/api/finance";
 import { fetchGoals } from "@/api/goals";
+import { fetchSeriesWithEpisodeNotify } from "@/api/movies";
+import { fetchEpisodesForSeries } from "@/api/movieEpisodes";
 import { getRecurringDueAlerts } from "@/domain/recurring";
 import { getDocumentAlerts, getMaintenanceAlerts } from "@/domain/car";
 import { getCurrentUserId } from "@/lib/auth-user";
+import {
+  fetchTvMetaTmdb,
+  isTmdbConfigured,
+  parseTmdbTvId,
+  type TmdbAirEpisode,
+} from "@/lib/tmdb";
 import type { RecurringDueAlert } from "@/types/recurring";
 
 export type AppAlertKind =
@@ -18,18 +26,22 @@ export type AppAlertKind =
   | "document"
   | "budget"
   | "goal_due"
-  | "goal_overdue";
+  | "goal_overdue"
+  | "series_episode";
 
 export type AppAlert = {
   id: string;
   kind: AppAlertKind;
-  severity: "danger" | "warning" | "info";
+  severity: "danger" | "warning" | "info" | "success";
   title: string;
   message: string;
   href: string;
 };
 
 const ALERTS_TTL_MS = 90_000;
+/** Só alerta episódios que estrearam há no máx. N dias (ou saem hoje). */
+const SERIES_ALERT_LOOKBACK_DAYS = 14;
+const SERIES_ALERT_MAX = 8;
 
 let alertsCache: { userId: string; at: number; data: AppAlert[] } | null =
   null;
@@ -51,20 +63,99 @@ function daysUntil(isoDate: string, now = new Date()): number {
   );
 }
 
+function pickEpisodeForAlert(
+  meta: {
+    last_episode_to_air?: TmdbAirEpisode | null;
+    next_episode_to_air?: TmdbAirEpisode | null;
+  }
+): TmdbAirEpisode | null {
+  const last = meta.last_episode_to_air;
+  const next = meta.next_episode_to_air;
+  if (next?.air_date) {
+    const d = daysUntil(next.air_date.slice(0, 10));
+    if (d <= 0 && d >= -SERIES_ALERT_LOOKBACK_DAYS) return next;
+  }
+  if (last?.air_date) {
+    const d = daysUntil(last.air_date.slice(0, 10));
+    if (d <= 0 && d >= -SERIES_ALERT_LOOKBACK_DAYS) return last;
+  }
+  return null;
+}
+
 export function invalidateAppAlertsCache() {
   alertsCache = null;
   alertsInflight = null;
 }
 
+async function loadSeriesEpisodeAlerts(): Promise<AppAlert[]> {
+  if (!isTmdbConfigured()) return [];
+
+  try {
+    const series = await fetchSeriesWithEpisodeNotify();
+    if (series.length === 0) return [];
+
+    const limited = series.slice(0, SERIES_ALERT_MAX);
+    const alerts: AppAlert[] = [];
+
+    await Promise.all(
+      limited.map(async (movie) => {
+        const tmdbId = parseTmdbTvId(movie.imdb_id, movie.tmdb_tv_id);
+        if (!tmdbId) return;
+
+        const [meta, progress] = await Promise.all([
+          fetchTvMetaTmdb(tmdbId),
+          fetchEpisodesForSeries(movie.imdb_id),
+        ]);
+        if (!meta) return;
+
+        const ep = pickEpisodeForAlert(meta);
+        if (!ep?.air_date) return;
+
+        const watched = progress.some(
+          (p) =>
+            p.season_number === ep.season_number &&
+            p.episode_number === ep.episode_number &&
+            p.status === "watched"
+        );
+        if (watched) return;
+
+        const air = ep.air_date.slice(0, 10);
+        const d = daysUntil(air);
+        const label = `T${ep.season_number}E${ep.episode_number}`;
+        const epName = ep.name?.trim();
+
+        alerts.push({
+          id: `series-${movie.imdb_id}-${ep.season_number}-${ep.episode_number}`,
+          kind: "series_episode",
+          severity: d === 0 ? "warning" : "info",
+          title: movie.title,
+          message:
+            d === 0
+              ? `${label}${epName ? ` · ${epName}` : ""} sai hoje.`
+              : d < 0
+                ? `${label}${epName ? ` · ${epName}` : ""} disponível (${Math.abs(d)} dia${Math.abs(d) === 1 ? "" : "s"}).`
+                : `${label} em breve.`,
+          href: "/movies",
+        });
+      })
+    );
+
+    return alerts;
+  } catch {
+    return [];
+  }
+}
+
 async function loadAppAlertsFresh(): Promise<AppAlert[]> {
   const alerts: AppAlert[] = [];
 
-  const [recurringResult, vehiclesResult, budgetResult, goalsResult] =
+  const [recurringResult, vehiclesResult, budgetResult, goalsResult, seriesResult] =
     await Promise.allSettled([
       fetchRecurringTransactions(),
       fetchVehicles(),
       fetchMonthlyBudgetSummary(budgetMonthIso()),
       fetchGoals(),
+      loadSeriesEpisodeAlerts(),
     ]);
 
   if (recurringResult.status === "fulfilled") {
@@ -115,12 +206,17 @@ async function loadAppAlertsFresh(): Promise<AppAlert[]> {
       const name = row.class_name
         ? `${row.type_name} / ${row.class_name}`
         : row.type_name;
+      const isIncome = row.nature_name === "Receita";
       alerts.push({
         id: `budget-${row.id}`,
         kind: "budget",
-        severity: "danger",
-        title: "Orçamento estourado",
-        message: `${name} passou do planejado.`,
+        severity: isIncome ? "success" : "danger",
+        title: isIncome
+          ? "Receita acima do previsto"
+          : "Orçamento estourado",
+        message: isIncome
+          ? `${name} superou a meta — ótimo sinal.`
+          : `${name} passou do planejado.`,
         href: "/finance/budget",
       });
     }
@@ -155,7 +251,11 @@ async function loadAppAlertsFresh(): Promise<AppAlert[]> {
     }
   }
 
-  const order = { danger: 0, warning: 1, info: 2 };
+  if (seriesResult.status === "fulfilled") {
+    alerts.push(...seriesResult.value);
+  }
+
+  const order = { danger: 0, warning: 1, info: 2, success: 3 };
   return alerts.sort((a, b) => order[a.severity] - order[b.severity]);
 }
 

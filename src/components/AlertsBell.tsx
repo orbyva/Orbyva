@@ -173,7 +173,8 @@ export function AlertsBell() {
                       className={cn(
                         "text-sm font-medium",
                         alert.severity === "danger" && "text-destructive",
-                        alert.severity === "warning" && "text-warning"
+                        alert.severity === "warning" && "text-warning",
+                        alert.severity === "success" && "text-success"
                       )}
                     >
                       {alert.title}

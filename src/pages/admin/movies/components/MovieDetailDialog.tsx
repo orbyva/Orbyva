@@ -28,6 +28,7 @@ import {
 import type { Movie } from "@/types/movies";
 import { MovieStatus } from "@/types/movies";
 import { formatDateBR } from "@/lib/currency";
+import { SeriesEpisodesPanel } from "./SeriesEpisodesPanel";
 
 interface MovieDetailDialogProps {
   movie: Movie | null;
@@ -36,6 +37,7 @@ interface MovieDetailDialogProps {
   onEdit?: () => void;
   onShare?: () => void;
   onDelete?: () => void;
+  onMoviePatch?: (patch: Partial<Movie>) => void;
 }
 
 function DetailRow({
@@ -60,6 +62,7 @@ export function MovieDetailDialog({
   onEdit,
   onShare,
   onDelete,
+  onMoviePatch,
 }: MovieDetailDialogProps) {
   if (!movie) return null;
 
@@ -67,10 +70,13 @@ export function MovieDetailDialog({
   const actors = asStringList(movie.actors);
   const latest = getLatestWatchedDate(movie.watched_dates);
   const recommend = movie.would_recommend !== false;
+  const isSeries = movie.type === "series";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${FORM_DIALOG_CONTENT_CLASS} sm:max-w-xl`}>
+      <DialogContent
+        className={`${FORM_DIALOG_CONTENT_CLASS} ${isSeries ? "sm:max-w-2xl" : "sm:max-w-xl"}`}
+      >
         <DialogHeader>
           <div className="flex items-start gap-3 pr-6">
             <img
@@ -167,6 +173,15 @@ export function MovieDetailDialog({
             <DetailRow label="Recomendação">
               {recommend ? "Recomendaria" : "Não recomendaria"}
             </DetailRow>
+          )}
+
+          {isSeries && open && (
+            <div className="border-t pt-4">
+              <SeriesEpisodesPanel
+                movie={movie}
+                onMoviePatch={onMoviePatch}
+              />
+            </div>
           )}
         </div>
 

@@ -187,6 +187,9 @@ export default function Movies() {
             onEdit={() => setIsEditOpen(true)}
             onShare={() => setIsShareOpen(true)}
             onDelete={() => void handleDeleteMovie(selectedMovie.imdb_id)}
+            onMoviePatch={(patch) =>
+              setSelectedMovie((prev) => (prev ? { ...prev, ...patch } : prev))
+            }
           />
           <MovieEditModal
             movie={selectedMovie}

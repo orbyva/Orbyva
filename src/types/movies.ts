@@ -25,8 +25,46 @@ export interface Movie {
   notes?: string | null;
   /** Se recomendaria — mesmo papel de place_visit.would_recommend. */
   would_recommend?: boolean;
+  /** ID TMDB da série (quando type === series). */
+  tmdb_tv_id?: number | null;
+  /** Acompanhar a série. */
+  following?: boolean;
+  /** Avisar episódios novos. */
+  notify_new_episodes?: boolean;
   created_at?: string;
 }
+
+export type MovieEpisodeStatus = "unwatched" | "watched" | "skipped";
+
+export interface MovieEpisode {
+  user_id?: string;
+  imdb_id: string;
+  season_number: number;
+  episode_number: number;
+  tmdb_episode_id?: number | null;
+  episode_name?: string | null;
+  air_date?: string | null;
+  status: MovieEpisodeStatus;
+  watched_at?: string | null;
+  rating?: number | null;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type MovieEpisodeUpsert = Pick<
+  MovieEpisode,
+  | "imdb_id"
+  | "season_number"
+  | "episode_number"
+  | "tmdb_episode_id"
+  | "episode_name"
+  | "air_date"
+  | "status"
+  | "watched_at"
+  | "rating"
+  | "notes"
+>;
 
 export type MovieCreateRequest = Omit<Movie, "created_at" | "user_id">;
 export type MovieUpdateRequest = Partial<Omit<Movie, "user_id">> & {
