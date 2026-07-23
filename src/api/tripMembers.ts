@@ -60,7 +60,8 @@ export async function ensureTripOwnerMember(
 
   // Coluna avatar_url ainda não existe — tenta sem ela
   if (error.message.includes("avatar_url") || error.code === "PGRST204") {
-    const { avatar_url: _a, ...withoutAvatar } = payload;
+    const withoutAvatar = { ...payload };
+    delete withoutAvatar.avatar_url;
     const retry = await supabase
       .from("trip_member")
       .upsert(withoutAvatar, { onConflict: "trip_id,user_id" });

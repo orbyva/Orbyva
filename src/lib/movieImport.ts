@@ -90,7 +90,7 @@ function mapRow(
   const yearRaw = get("Year", "Release Year");
   const year = yearRaw ? parseInt(yearRaw, 10) : null;
 
-  let ratingRaw = get("Rating", "Score", "My Rating", "Stars");
+  const ratingRaw = get("Rating", "Score", "My Rating", "Stars");
   let rating: number | null = null;
   if (ratingRaw) {
     const n = parseFloat(ratingRaw.replace(",", "."));
