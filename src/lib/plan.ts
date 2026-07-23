@@ -1,4 +1,4 @@
-/** Planos e acesso (teste → Pro). IA fica fora do produto por enquanto. */
+/** Planos e acesso (teste → Pro). */
 
 export type PlanId = "free" | "pro";
 

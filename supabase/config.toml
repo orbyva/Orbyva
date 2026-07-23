@@ -1,5 +1,2 @@
 [project]
 id = "orbyva"
-
-[functions.fintrack-agent]
-verify_jwt = true

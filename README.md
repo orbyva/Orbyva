@@ -87,7 +87,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 /supabase
   ├─ config.toml
-  └─ functions/             # stripe-* (billing); fintrack-agent arquivado
+  └─ functions/             # stripe-* (billing)
 ```
 
 ---
@@ -186,8 +186,6 @@ Analytics: `VITE_POSTHOG_KEY` (+ opcional `VITE_POSTHOG_HOST`).
 Sentry: `VITE_SENTRY_DSN` (opcional).
 
 Migrations versionadas: ver `supabase/migrations/` e `scripts/README.md`.
-
-> Assistente IA: código legado em `supabase/functions/fintrack-agent` — **fora do produto** por enquanto (não documentar como feature).
 
 ### Instalar e rodar
 
