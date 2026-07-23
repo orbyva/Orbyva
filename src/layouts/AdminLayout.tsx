@@ -18,6 +18,7 @@ import {
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom"
 import { Toaster } from "@/components/ui/toaster"
 import { OnboardingDialog } from "@/components/OnboardingDialog"
+import { QuickAddExpenseFab } from "@/components/QuickAddExpenseFab"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { AlertsBell } from "@/components/AlertsBell"
 import { MobileBottomNav } from "@/components/MobileBottomNav"
@@ -150,6 +151,7 @@ export default function AdminLayout() {
           <div className="flex flex-1 flex-col gap-2 pb-24 sm:gap-4 md:pb-6">
             <Toaster />
             {hasAccess ? <OnboardingDialog /> : null}
+            {hasAccess ? <QuickAddExpenseFab /> : null}
             <Suspense fallback={<LoadingFallback cover="viewport" />}>
               <Outlet />
             </Suspense>

@@ -19,6 +19,7 @@ import {
 
 import { moduleColors } from "@/lib/design-tokens"
 import { useAuth } from "@/hooks/useAuth"
+import { isActivationDone } from "@/lib/onboarding"
 
 type NavItem = {
   title: string
@@ -28,49 +29,55 @@ type NavItem = {
   items?: { title: string; url: string }[]
 }
 
-/** Estático — não recria a cada render do sidebar. */
-const NAV_MAIN: NavItem[] = [
-  {
-    title: "Início",
-    color: moduleColors.hub,
-    url: "#",
-    icon: LayoutDashboard,
-    items: [
-      { title: "Dashboard", url: "/home" },
-      { title: "Timeline", url: "/timeline" },
-    ],
-  },
-  {
-    title: "Finanças",
-    color: moduleColors.finance,
-    url: "#",
-    icon: PiggyBank,
-    items: [
-      { title: "Dashboard", url: "/finance/dashboard" },
-      { title: "Dimensões", url: "/finance/dimensions" },
-      { title: "Orçamento", url: "/finance/budget" },
-      { title: "Parcelas", url: "/finance/recurring" },
-      { title: "Transações", url: "/finance/transactions" },
-    ],
-  },
-  {
-    title: "Vida",
-    color: moduleColors.life,
-    url: "#",
-    icon: Target,
-    items: [
-      { title: "Cinema", url: "/movies" },
-      { title: "Hábitos", url: "/habits" },
-      { title: "Lugares", url: "/places" },
-      { title: "Metas", url: "/goals" },
-      { title: "Veículos", url: "/car" },
-      { title: "Viagens", url: "/travel" },
-    ],
-  },
-]
+const NAV_INICIO: NavItem = {
+  title: "Início",
+  color: moduleColors.hub,
+  url: "#",
+  icon: LayoutDashboard,
+  items: [
+    { title: "Dashboard", url: "/home" },
+    { title: "Timeline", url: "/timeline" },
+  ],
+}
+
+const NAV_FINANCE: NavItem = {
+  title: "Finanças",
+  color: moduleColors.finance,
+  url: "#",
+  icon: PiggyBank,
+  items: [
+    { title: "Dashboard", url: "/finance/dashboard" },
+    { title: "Dimensões", url: "/finance/dimensions" },
+    { title: "Orçamento", url: "/finance/budget" },
+    { title: "Parcelas", url: "/finance/recurring" },
+    { title: "Transações", url: "/finance/transactions" },
+  ],
+}
+
+const NAV_VIDA: NavItem = {
+  title: "Vida",
+  color: moduleColors.life,
+  url: "#",
+  icon: Target,
+  items: [
+    { title: "Cinema", url: "/movies" },
+    { title: "Hábitos", url: "/habits" },
+    { title: "Lugares", url: "/places" },
+    { title: "Metas", url: "/goals" },
+    { title: "Veículos", url: "/car" },
+    { title: "Viagens", url: "/travel" },
+  ],
+}
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
+  const activated = Boolean(user?.id && isActivationDone(user.id))
+
+  const navItems = React.useMemo(() => {
+    // Até o ledger ativar, Finanças sobe e Vida fica fora do menu.
+    if (!activated) return [NAV_INICIO, NAV_FINANCE]
+    return [NAV_INICIO, NAV_FINANCE, NAV_VIDA]
+  }, [activated])
 
   const navUser = React.useMemo(
     () => ({
@@ -91,7 +98,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <TeamSwitcher />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={NAV_MAIN} />
+        <NavMain items={navItems} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={navUser} />

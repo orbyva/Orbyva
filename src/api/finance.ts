@@ -144,6 +144,20 @@ export async function fetchTransactionsQuery(
   };
 }
 
+/** Data da última transação (para nudge de retenção). */
+export async function fetchLatestTransactionAt(): Promise<string | null> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("transaction")
+    .select("transaction_at")
+    .eq("user_id", userId)
+    .order("transaction_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.transaction_at ?? null;
+}
+
 export async function fetchTransactions(
   page: number = 1,
   pageSize: number = 10,

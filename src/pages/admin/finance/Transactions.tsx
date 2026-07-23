@@ -21,6 +21,7 @@ import {
 import { useDimensions } from "@/hooks/useDimensions";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { getErrorMessage } from "@/lib/errors";
+import { track } from "@/lib/analytics";
 
 type NatureFilter = "all" | "Receita" | "Despesa";
 
@@ -94,6 +95,7 @@ export default function Transactions() {
   async function createTransaction() {
     try {
       await createTransactionApi(newTransaction);
+      track("quick_add_done", { source: isEditing ? "edit" : "create" });
       toast({
         title: "Sucesso",
         description: "Transação adicionada com sucesso!",

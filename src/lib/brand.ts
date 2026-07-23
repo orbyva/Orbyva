@@ -1,14 +1,14 @@
-/** Identidade do produto — Orbyva (life OS). */
+/** Identidade do produto — Orbyva (life OS · porta = ledger). */
 export const BRAND = {
   name: "Orbyva",
-  tagline: "Tudo da sua vida em uma só órbita",
+  tagline: "Comece pelo livro-caixa. Organize o resto da vida.",
   /** Cunha de diferenciação (landing / marketing). */
   wedge: "Life OS com ledger",
   shortDescription:
-    "Organize finanças, hábitos, metas, viagens, cinema e veículos num só lugar.",
+    "Finanças no centro — hábitos, metas, viagens, cinema e veículos na mesma órbita.",
   /** Uma linha para o hero — prova + proposta. */
   heroSupport:
-    "O hub da sua vida com o livro-caixa no centro: saldo, alertas e o que importa hoje.",
+    "Registre gastos, acompanhe o mês e o orçamento. O life OS cresce depois que o ledger gruda.",
   /** Assets em /public */
   logo: "/logo.webp",
   logoMark: "/logo-mark.webp",

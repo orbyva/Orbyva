@@ -196,9 +196,9 @@ export default function Landing() {
             Não é mais um app de hábitos. Não é só uma planilha.
           </h2>
           <p className="mt-3 text-zinc-400">
-            {BRAND.name} une o dia a dia (metas, cinema, viagens, carro) ao
-            livro-caixa real — o mesmo hub onde você vê o saldo do mês e o que
-            vence amanhã.
+            {BRAND.name} começa pelo livro-caixa — saldo, gastos e orçamento.
+            Metas, cinema, viagens e o resto da vida entram na mesma órbita
+            depois que o ledger gruda.
           </p>
         </motion.section>
 

@@ -81,6 +81,11 @@ export function MobileBottomNav() {
 
           <Link
             to="/finance/transactions?new=1"
+            onClick={() => {
+              void import("@/lib/analytics").then(({ track }) =>
+                track("quick_add_open", { source: "mobile_nav" })
+              );
+            }}
             className="flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium text-muted-foreground"
             aria-label="Nova transação"
           >
