@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/MoneyInput";
 import {
   Select,
   SelectContent,
@@ -183,14 +184,12 @@ export function DocumentFormDialog({
 
           <div>
             <FormLabel optional>Valor (R$)</FormLabel>
-            <Input
-              type="number"
-              step="0.01"
+            <MoneyInput
               value={form.cost ?? ""}
-              onChange={(e) =>
+              onChange={(value) =>
                 setForm({
                   ...form,
-                  cost: e.target.value ? Number(e.target.value) : null,
+                  cost: value === "" ? null : value,
                 })
               }
             />

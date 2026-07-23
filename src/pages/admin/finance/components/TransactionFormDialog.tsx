@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MoneyInput } from "@/components/MoneyInput";
 import { TransactionCreateRequest } from "@/types/finance";
 import { useState, useEffect, useMemo } from "react";
 import { Dimension } from "@/types/finance";
@@ -220,16 +221,13 @@ export function TransactionFormDialog({
 
           <FormSection title="Detalhes">
             <FormLabel required>Valor</FormLabel>
-            <Input
-              type="number"
-              min="1"
-              step="0.01"
+            <MoneyInput
               placeholder="0,00"
               value={newTransaction.value || ""}
-              onChange={(e) =>
+              onChange={(value) =>
                 setNewTransaction({
                   ...newTransaction,
-                  value: Number(e.target.value),
+                  value: value === "" ? 0 : value,
                 })
               }
             />

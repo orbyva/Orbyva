@@ -32,6 +32,7 @@ import {
   FORM_FIELDS_CLASS,
   ICON_EDIT_BUTTON_CLASS,
 } from "@/components/FormLabel";
+import { MoneyInput } from "@/components/MoneyInput";
 import { PlaceCard } from "@/components/PlaceCard";
 import { PlaceDetailDialog } from "@/components/PlaceDetailDialog";
 import { PlaceFormDialog } from "@/components/PlaceFormDialog";
@@ -1166,13 +1167,12 @@ export default function TripDetail() {
             </div>
             <div>
               <FormLabel required>Valor</FormLabel>
-              <Input
-                type="number"
+              <MoneyInput
                 value={expenseForm.amount || ""}
-                onChange={(e) =>
+                onChange={(value) =>
                   setExpenseForm({
                     ...expenseForm,
-                    amount: Number(e.target.value) || 0,
+                    amount: value === "" ? 0 : value,
                   })
                 }
               />

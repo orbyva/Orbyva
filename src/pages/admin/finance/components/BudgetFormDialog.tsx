@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/MoneyInput";
 
 import {
   Select,
@@ -287,16 +287,13 @@ export function BudgetFormDialog({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-3">
                 <FormLabel required>Valor planejado</FormLabel>
-                <Input
-                  type="number"
-                  min="1"
-                  step="0.01"
+                <MoneyInput
                   placeholder="0,00"
                   value={newBudget.planned_value || ""}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setNewBudget({
                       ...newBudget,
-                      planned_value: Number(e.target.value),
+                      planned_value: value === "" ? 0 : value,
                     })
                   }
                 />

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/MoneyInput";
 import { FormLabel } from "@/components/FormLabel";
 
 interface RecurringFormDialogProps {
@@ -284,29 +285,19 @@ export function RecurringFormDialog({
                 {hasInstallments ? "Valor total" : "Valor"}
               </FormLabel>
               {hasInstallments ? (
-                <Input
-                  type="number"
-                  min="1"
-                  step="0.01"
+                <MoneyInput
                   placeholder="0,00"
                   value={totalValue}
-                  onChange={(e) =>
-                    setTotalValue(
-                      e.target.value ? Number(e.target.value) : ""
-                    )
-                  }
+                  onChange={(value) => setTotalValue(value === "" ? "" : value)}
                 />
               ) : (
-                <Input
-                  type="number"
-                  min="1"
-                  step="0.01"
+                <MoneyInput
                   placeholder="0,00"
                   value={newRecurring.value || ""}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setNewRecurring({
                       ...newRecurring,
-                      value: Number(e.target.value),
+                      value: value === "" ? 0 : value,
                     })
                   }
                 />

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/MoneyInput";
 import {
   Select,
   SelectContent,
@@ -184,13 +185,12 @@ export function TripFormDialog({
           </div>
           <div>
             <FormLabel optional>Orçamento (R$)</FormLabel>
-            <Input
-              type="number"
+            <MoneyInput
               value={form.budget ?? ""}
-              onChange={(e) =>
+              onChange={(value) =>
                 setForm({
                   ...form,
-                  budget: e.target.value ? Number(e.target.value) : null,
+                  budget: value === "" ? null : value,
                 })
               }
             />

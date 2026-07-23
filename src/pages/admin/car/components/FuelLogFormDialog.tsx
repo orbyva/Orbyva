@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/MoneyInput";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
@@ -235,14 +236,12 @@ export function FuelLogFormDialog({
             </div>
             <div>
               <FormLabel required>Valor total (R$)</FormLabel>
-              <Input
-                type="number"
-                step="0.01"
+              <MoneyInput
                 value={form.total_cost || ""}
-                onChange={(e) =>
+                onChange={(value) =>
                   setForm({
                     ...form,
-                    total_cost: Number(e.target.value) || 0,
+                    total_cost: value === "" ? 0 : value,
                   })
                 }
               />
