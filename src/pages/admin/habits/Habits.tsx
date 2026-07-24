@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/EmptyState";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import {
   FormLabel,
@@ -157,8 +158,14 @@ export default function Habits() {
     <PageShell
       title="Hábitos"
       description={`Hoje: ${doneCount}/${habits.length} concluídos`}
-      actions={<Button onClick={openCreate}>Novo hábito</Button>}
+      actions={
+        <>
+          <ModuleGuideButton moduleId="habits" />
+          <Button onClick={openCreate}>Novo hábito</Button>
+        </>
+      }
     >
+      <ModuleGuide moduleId="habits" />
       {loading ? (
         <TableLoadingSkeleton rows={6} />
       ) : habits.length === 0 ? (

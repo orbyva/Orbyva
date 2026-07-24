@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/DatePicker";
 import { EmptyState } from "@/components/EmptyState";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
@@ -104,8 +105,14 @@ export default function Goals() {
     <PageShell
       title="Metas Pessoais"
       description="Acompanhe seu progresso em objetivos de vida."
-      actions={<Button onClick={openCreate}>Nova meta</Button>}
+      actions={
+        <>
+          <ModuleGuideButton moduleId="goals" />
+          <Button onClick={openCreate}>Nova meta</Button>
+        </>
+      }
     >
+      <ModuleGuide moduleId="goals" />
       {loading ? (
         <TableLoadingSkeleton rows={6} />
       ) : activeGoals.length === 0 ? (

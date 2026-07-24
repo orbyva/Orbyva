@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { TripFormDialog } from "@/components/TripFormDialog";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
@@ -124,8 +125,14 @@ export default function Travel() {
     <PageShell
       title="Viagens"
       description="Planeje, acompanhe gastos, roteiro e avalie lugares visitados."
-      actions={<Button onClick={() => setOpen(true)}>Nova viagem</Button>}
+      actions={
+        <>
+          <ModuleGuideButton moduleId="travel" />
+          <Button onClick={() => setOpen(true)}>Nova viagem</Button>
+        </>
+      }
     >
+      <ModuleGuide moduleId="travel" />
       {loading ? (
         <TableLoadingSkeleton rows={6} />
       ) : trips.length === 0 ? (

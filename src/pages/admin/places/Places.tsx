@@ -14,6 +14,7 @@ import { PlaceCard } from "@/components/PlaceCard";
 import { PlaceDetailDialog } from "@/components/PlaceDetailDialog";
 import { PlaceFormDialog } from "@/components/PlaceFormDialog";
 import { PageShell } from "@/components/PageShell";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { deletePlace, fetchPlaces } from "@/api/places";
 import { fetchTrips } from "@/api/travel";
@@ -132,8 +133,14 @@ export default function Places() {
           ? `Avalie restaurantes, cafés e passeios — na cidade ou em viagens. Média: ${avgRating}★`
           : "Avalie restaurantes, cafés e passeios — na cidade ou em viagens."
       }
-      actions={<PlaceFormDialog onSaved={load} />}
+      actions={
+        <>
+          <ModuleGuideButton moduleId="places" />
+          <PlaceFormDialog onSaved={load} />
+        </>
+      }
     >
+      <ModuleGuide moduleId="places" />
       <section className="space-y-3 rounded-xl border bg-card p-3 sm:p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

@@ -16,6 +16,7 @@ import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { getErrorMessage } from "@/lib/errors";
 import { filterMoviesByType } from "@/domain/movies";
 
@@ -100,11 +101,13 @@ export default function Movies() {
       description="Watchlist, opiniões e histórico."
       actions={
         <>
+          <ModuleGuideButton moduleId="movies" />
           <MovieImportDialog onImported={loadMovies} />
           <MovieSearchModal onMovieAdded={loadMovies} />
         </>
       }
     >
+      <ModuleGuide moduleId="movies" />
       <section className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-md">

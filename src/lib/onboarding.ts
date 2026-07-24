@@ -8,6 +8,8 @@ export type OnboardingState = {
   tourDone: boolean;
   firstTxDone: boolean;
   firstBudgetDone: boolean;
+  /** Guias contextuais por módulo já vistos/dispensados (ex.: "travel"). */
+  moduleGuidesSeen: string[];
 };
 
 function storageKey(userId: string): string {
@@ -15,7 +17,17 @@ function storageKey(userId: string): string {
 }
 
 function defaultState(): OnboardingState {
-  return { tourDone: false, firstTxDone: false, firstBudgetDone: false };
+  return {
+    tourDone: false,
+    firstTxDone: false,
+    firstBudgetDone: false,
+    moduleGuidesSeen: [],
+  };
+}
+
+function normalizeModuleGuides(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string");
 }
 
 function migrateLegacy(userId: string): OnboardingState | null {
@@ -27,6 +39,7 @@ function migrateLegacy(userId: string): OnboardingState | null {
         tourDone: Boolean(parsed.tourDone),
         firstTxDone: Boolean(parsed.firstTxDone),
         firstBudgetDone: Boolean(parsed.firstBudgetDone),
+        moduleGuidesSeen: normalizeModuleGuides(parsed.moduleGuidesSeen),
       };
       writeState(userId, migrated);
       localStorage.removeItem(`${LEGACY_V2_PREFIX}${userId}`);
@@ -41,6 +54,7 @@ function migrateLegacy(userId: string): OnboardingState | null {
       tourDone: true,
       firstTxDone: false,
       firstBudgetDone: false,
+      moduleGuidesSeen: [],
     };
     writeState(userId, migrated);
     localStorage.removeItem(LEGACY_V1);
@@ -52,7 +66,12 @@ function migrateLegacy(userId: string): OnboardingState | null {
 
 function readRaw(userId: string): OnboardingState {
   if (typeof window === "undefined") {
-    return { tourDone: true, firstTxDone: true, firstBudgetDone: true };
+    return {
+      tourDone: true,
+      firstTxDone: true,
+      firstBudgetDone: true,
+      moduleGuidesSeen: [],
+    };
   }
 
   try {
@@ -63,6 +82,7 @@ function readRaw(userId: string): OnboardingState {
         tourDone: Boolean(parsed.tourDone),
         firstTxDone: Boolean(parsed.firstTxDone),
         firstBudgetDone: Boolean(parsed.firstBudgetDone),
+        moduleGuidesSeen: normalizeModuleGuides(parsed.moduleGuidesSeen),
       };
     }
   } catch {
@@ -125,6 +145,24 @@ export function markFirstTxDone(userId: string): void {
 
 export function markFirstBudgetDone(userId: string): void {
   patchOnboardingState(userId, { firstBudgetDone: true });
+}
+
+/** Guia contextual do módulo já foi visto/dispensado? */
+export function isModuleGuideSeen(userId: string, moduleId: string): boolean {
+  return readRaw(userId).moduleGuidesSeen.includes(moduleId);
+}
+
+export function markModuleGuideSeen(userId: string, moduleId: string): void {
+  const seen = readRaw(userId).moduleGuidesSeen;
+  if (seen.includes(moduleId)) return;
+  patchOnboardingState(userId, { moduleGuidesSeen: [...seen, moduleId] });
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("orbyva:module-guide-seen", {
+        detail: { userId, moduleId },
+      })
+    );
+  }
 }
 
 export function resetOnboarding(userId?: string | null): void {

@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
@@ -299,7 +300,9 @@ export default function Car() {
       <PageShell
         title="Veículos"
         description="Controle manutenções, abastecimentos e documentos do carro ou da moto."
+        actions={<ModuleGuideButton moduleId="car" />}
       >
+        <ModuleGuide moduleId="car" className="mb-4" />
         <EmptyState
           icon={CarIcon}
           title="Nenhum veículo cadastrado"
@@ -316,6 +319,7 @@ export default function Car() {
       description="Manutenções, abastecimentos e documentos do carro ou da moto."
       actions={
         <>
+          <ModuleGuideButton moduleId="car" />
           <VehicleFormDialog
             onSaved={reloadAll}
             trigger={
@@ -333,6 +337,7 @@ export default function Car() {
         </>
       }
     >
+      <ModuleGuide moduleId="car" />
       {vehicles.length > 1 && (
         <Select
           value={vehicle.id}

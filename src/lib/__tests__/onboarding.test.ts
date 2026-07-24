@@ -3,8 +3,10 @@ import {
   getOnboardingState,
   isActivationDone,
   isFirstTxDone,
+  isModuleGuideSeen,
   isTourDone,
   markFirstTxDone,
+  markModuleGuideSeen,
   markTourDone,
   ONBOARDING_STEPS,
   resetOnboarding,
@@ -60,5 +62,24 @@ describe("onboarding finance-first", () => {
     const ids = ONBOARDING_STEPS.map((s) => s.id);
     expect(ids).toEqual(["welcome", "dimensions", "first-tx", "budget"]);
     expect(ids).not.toContain("explore");
+  });
+
+  it("guias de módulo começam não vistos e podem ser marcados", () => {
+    expect(isModuleGuideSeen(userId, "travel")).toBe(false);
+    expect(getOnboardingState(userId).moduleGuidesSeen).toEqual([]);
+
+    markModuleGuideSeen(userId, "travel");
+    expect(isModuleGuideSeen(userId, "travel")).toBe(true);
+    expect(isModuleGuideSeen(userId, "habits")).toBe(false);
+  });
+
+  it("marcar o mesmo guia não duplica e preserva os demais", () => {
+    markModuleGuideSeen(userId, "travel");
+    markModuleGuideSeen(userId, "travel");
+    markModuleGuideSeen(userId, "car");
+    expect(getOnboardingState(userId).moduleGuidesSeen).toEqual([
+      "travel",
+      "car",
+    ]);
   });
 });
