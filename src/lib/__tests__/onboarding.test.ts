@@ -29,8 +29,20 @@ function mockBrowserStorage() {
       },
       key: (i: number) => [...store.keys()][i] ?? null,
     },
+    dispatchEvent: () => true,
   });
   vi.stubGlobal("localStorage", window.localStorage);
+  vi.stubGlobal(
+    "CustomEvent",
+    class CustomEvent {
+      type: string;
+      detail: unknown;
+      constructor(type: string, init?: { detail?: unknown }) {
+        this.type = type;
+        this.detail = init?.detail;
+      }
+    }
+  );
 }
 
 describe("onboarding finance-first", () => {

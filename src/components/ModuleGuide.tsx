@@ -109,7 +109,8 @@ export function ModuleGuide({ moduleId, className }: ModuleGuideProps) {
 
   useEffect(() => {
     if (!user?.id) return;
-    if (isModuleGuideSeen(user.id, moduleId)) {
+    const userId = user.id;
+    if (isModuleGuideSeen(userId, moduleId)) {
       setVisible(false);
       return;
     }
@@ -122,7 +123,7 @@ export function ModuleGuide({ moduleId, className }: ModuleGuideProps) {
     function onSeen(event: Event) {
       const detail = (event as CustomEvent<{ userId: string; moduleId: string }>)
         .detail;
-      if (detail?.userId === user.id && detail.moduleId === moduleId) {
+      if (detail?.userId === userId && detail.moduleId === moduleId) {
         setVisible(false);
       }
     }

@@ -156,7 +156,10 @@ export function markModuleGuideSeen(userId: string, moduleId: string): void {
   const seen = readRaw(userId).moduleGuidesSeen;
   if (seen.includes(moduleId)) return;
   patchOnboardingState(userId, { moduleGuidesSeen: [...seen, moduleId] });
-  if (typeof window !== "undefined") {
+  if (
+    typeof window !== "undefined" &&
+    typeof window.dispatchEvent === "function"
+  ) {
     window.dispatchEvent(
       new CustomEvent("orbyva:module-guide-seen", {
         detail: { userId, moduleId },
