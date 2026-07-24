@@ -76,7 +76,7 @@ export function PageShell({
           {actions ? (
             <div
               className={cn(
-                "flex w-full flex-row flex-wrap items-center gap-2 sm:w-auto sm:justify-end",
+                "flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end [&_button]:w-full sm:[&_button]:w-auto",
                 actionsClassName
               )}
             >
