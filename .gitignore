@@ -25,7 +25,6 @@ yarn.lock
 # Supabase CLI (cache local)
 supabase/.temp/
 supabase/.branches/
-scripts/
 
 # OS / editor
 .DS_Store
