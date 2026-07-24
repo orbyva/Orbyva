@@ -14,23 +14,28 @@ function json(body: unknown, status = 200) {
   });
 }
 
-/** Só aceita URLs no mesmo origin de SITE_URL (anti open-redirect). */
-function allowedSiteUrl(candidate: unknown, fallbackPath: string): string {
+function requireSiteOrigin(): string | Response {
   const siteRaw = (Deno.env.get("SITE_URL") ?? "").trim().replace(/\/$/, "");
-  const fallback = siteRaw
-    ? `${siteRaw}${fallbackPath.startsWith("/") ? fallbackPath : `/${fallbackPath}`}`
-    : fallbackPath;
-
-  if (typeof candidate !== "string" || !candidate.trim()) return fallback;
-  if (!siteRaw) return fallback;
-
+  if (!siteRaw) {
+    return json(
+      {
+        error:
+          "SITE_URL não configurada. Defina o secret https://orbyva.app (ou seu domínio).",
+      },
+      503
+    );
+  }
   try {
     const site = new URL(siteRaw);
-    const url = new URL(candidate);
-    if (url.origin !== site.origin) return fallback;
-    return url.toString();
+    if (site.protocol !== "http:" && site.protocol !== "https:") {
+      return json({ error: "SITE_URL deve começar com https://" }, 503);
+    }
+    return site.origin;
   } catch {
-    return fallback;
+    return json(
+      { error: "SITE_URL inválida. Use https://orbyva.app sem barra no final." },
+      503
+    );
   }
 }
 
@@ -48,6 +53,9 @@ Deno.serve(async (req) => {
     if (!stripeKey) {
       return json({ error: "Stripe não configurado." }, 503);
     }
+
+    const siteOrigin = requireSiteOrigin();
+    if (siteOrigin instanceof Response) return siteOrigin;
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Não autenticado" }, 401);
@@ -77,9 +85,8 @@ Deno.serve(async (req) => {
       httpClient: Stripe.createFetchHttpClient(),
     });
 
-    const body = await req.json().catch(() => ({}));
-    void body;
-    const returnUrl = allowedSiteUrl(undefined, "/account");
+    await req.json().catch(() => ({}));
+    const returnUrl = `${siteOrigin}/account`;
 
     const session = await stripe.billingPortal.sessions.create({
       customer: profile.stripe_customer_id,

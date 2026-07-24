@@ -14,23 +14,29 @@ function json(body: unknown, status = 200) {
   });
 }
 
-/** Só aceita URLs no mesmo origin de SITE_URL (anti open-redirect). */
-function allowedSiteUrl(candidate: unknown, fallbackPath: string): string {
+/** SITE_URL absoluta (https) — Stripe rejeita success/cancel relativos. */
+function requireSiteOrigin(): string | Response {
   const siteRaw = (Deno.env.get("SITE_URL") ?? "").trim().replace(/\/$/, "");
-  const fallback = siteRaw
-    ? `${siteRaw}${fallbackPath.startsWith("/") ? fallbackPath : `/${fallbackPath}`}`
-    : fallbackPath;
-
-  if (typeof candidate !== "string" || !candidate.trim()) return fallback;
-  if (!siteRaw) return fallback;
-
+  if (!siteRaw) {
+    return json(
+      {
+        error:
+          "SITE_URL não configurada. Defina o secret https://orbyva.app (ou seu domínio).",
+      },
+      503
+    );
+  }
   try {
     const site = new URL(siteRaw);
-    const url = new URL(candidate);
-    if (url.origin !== site.origin) return fallback;
-    return url.toString();
+    if (site.protocol !== "http:" && site.protocol !== "https:") {
+      return json({ error: "SITE_URL deve começar com https://" }, 503);
+    }
+    return site.origin;
   } catch {
-    return fallback;
+    return json(
+      { error: "SITE_URL inválida. Use https://orbyva.app sem barra no final." },
+      503
+    );
   }
 }
 
@@ -41,17 +47,32 @@ Deno.serve(async (req) => {
 
   try {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    const priceId = Deno.env.get("STRIPE_PRICE_ID_PRO");
+    const priceId = (Deno.env.get("STRIPE_PRICE_ID_PRO") ?? "").trim();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     if (!stripeKey || !priceId) {
       return json(
-        { error: "Stripe não configurado (STRIPE_SECRET_KEY / STRIPE_PRICE_ID_PRO)." },
+        {
+          error:
+            "Stripe não configurado (STRIPE_SECRET_KEY / STRIPE_PRICE_ID_PRO).",
+        },
         503
       );
     }
+    if (!priceId.startsWith("price_")) {
+      return json(
+        {
+          error:
+            "STRIPE_PRICE_ID_PRO deve ser um Price (price_...), não Product (prod_...).",
+        },
+        503
+      );
+    }
+
+    const siteOrigin = requireSiteOrigin();
+    if (siteOrigin instanceof Response) return siteOrigin;
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Não autenticado" }, 401);
@@ -71,16 +92,24 @@ Deno.serve(async (req) => {
       httpClient: Stripe.createFetchHttpClient(),
     });
 
-    const body = await req.json().catch(() => ({}));
-    void body; // ignore client URLs — só SITE_URL
-    const successUrl = allowedSiteUrl(undefined, "/account?checkout=success");
-    const cancelUrl = allowedSiteUrl(undefined, "/account?checkout=cancel");
+    await req.json().catch(() => ({}));
+    const successUrl = `${siteOrigin}/account?checkout=success`;
+    const cancelUrl = `${siteOrigin}/account?checkout=cancel`;
 
-    const { data: profile } = await admin
+    const { data: profile, error: profileError } = await admin
       .from("profiles")
       .select("stripe_customer_id")
       .eq("id", user.id)
       .maybeSingle();
+
+    if (profileError) {
+      return json(
+        {
+          error: `Tabela profiles inacessível: ${profileError.message}. Rode supabase/migrations/20240101000300_billing.sql.`,
+        },
+        500
+      );
+    }
 
     let customerId = profile?.stripe_customer_id as string | null | undefined;
 
@@ -90,12 +119,20 @@ Deno.serve(async (req) => {
         metadata: { supabase_user_id: user.id },
       });
       customerId = customer.id;
-      await admin.from("profiles").upsert({
+      const { error: upsertError } = await admin.from("profiles").upsert({
         id: user.id,
         plan: "free",
         stripe_customer_id: customerId,
         updated_at: new Date().toISOString(),
       });
+      if (upsertError) {
+        return json(
+          {
+            error: `Falha ao salvar stripe_customer_id: ${upsertError.message}`,
+          },
+          500
+        );
+      }
     }
 
     const session = await stripe.checkout.sessions.create({

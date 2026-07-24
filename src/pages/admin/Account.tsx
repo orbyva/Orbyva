@@ -183,7 +183,7 @@ export default function Account() {
     } catch (error) {
       toast({
         title: "Checkout indisponível",
-        description: `${getErrorMessage(error)} Configure Stripe + rode scripts/billing.sql.`,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
       setBillingBusy(false);

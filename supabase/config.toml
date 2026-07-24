@@ -1,2 +1,6 @@
 [project]
 id = "orbyva"
+
+# Stripe envia o webhook sem JWT do Supabase — desligar verificação no gateway.
+[functions.stripe-webhook]
+verify_jwt = false

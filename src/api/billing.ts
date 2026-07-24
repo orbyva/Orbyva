@@ -128,23 +128,43 @@ export async function fetchIsPro(): Promise<boolean> {
   }
 }
 
-export async function createCheckoutSession(): Promise<{ url: string }> {
-  // URLs de retorno ficam no edge (SITE_URL) — não envia origin do cliente
-  const { data, error } = await supabase.functions.invoke("stripe-checkout", {
-    body: {},
-  });
+async function invokeBillingUrl(
+  fn: "stripe-checkout" | "stripe-portal",
+  fallback: string
+): Promise<{ url: string }> {
+  const { data, error } = await supabase.functions.invoke(fn, { body: {} });
 
-  if (error) throw new Error(error.message);
-  if (!data?.url) throw new Error(data?.error ?? "Checkout indisponível");
+  if (error) {
+    let detail = error.message;
+    const ctx = (error as { context?: Response }).context;
+    if (ctx) {
+      try {
+        const body = (await ctx.clone().json()) as { error?: string };
+        if (body?.error) detail = body.error;
+      } catch {
+        /* ignore parse errors */
+      }
+    }
+    if (
+      data &&
+      typeof data === "object" &&
+      "error" in data &&
+      (data as { error?: unknown }).error
+    ) {
+      detail = String((data as { error: unknown }).error);
+    }
+    throw new Error(detail);
+  }
+
+  if (!data?.url) throw new Error(data?.error ?? fallback);
   return { url: String(data.url) };
 }
 
-export async function createPortalSession(): Promise<{ url: string }> {
-  const { data, error } = await supabase.functions.invoke("stripe-portal", {
-    body: {},
-  });
+export async function createCheckoutSession(): Promise<{ url: string }> {
+  // URLs de retorno ficam no edge (SITE_URL) — não envia origin do cliente
+  return invokeBillingUrl("stripe-checkout", "Checkout indisponível");
+}
 
-  if (error) throw new Error(error.message);
-  if (!data?.url) throw new Error(data?.error ?? "Portal indisponível");
-  return { url: String(data.url) };
+export async function createPortalSession(): Promise<{ url: string }> {
+  return invokeBillingUrl("stripe-portal", "Portal indisponível");
 }
