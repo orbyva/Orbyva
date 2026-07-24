@@ -24,7 +24,7 @@ function TripCard({ trip }: { trip: TripWithChecklist }) {
     <Link to={`/travel/${trip.id}`}>
       <article
         className={cn(
-          "h-full rounded-xl border bg-card p-5 transition-colors hover:border-primary/30",
+          "h-full rounded-xl border bg-card p-3.5 transition-colors hover:border-primary/30 sm:p-5",
           trip.status === "ongoing" && "border-success/40 bg-success/5"
         )}
       >
@@ -40,7 +40,7 @@ function TripCard({ trip }: { trip: TripWithChecklist }) {
           </div>
           {trip.daysUntilStart != null && trip.daysUntilStart >= 0 ? (
             <div className="shrink-0 text-right">
-              <p className="text-2xl font-bold text-primary">
+              <p className="text-xl font-bold text-primary sm:text-2xl">
                 {trip.daysUntilStart}
               </p>
               <p className="text-[10px] text-muted-foreground">dias</p>

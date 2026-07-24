@@ -34,6 +34,8 @@ type TripMembersDialogProps = {
   myRole?: "owner" | "editor" | null;
   isShared?: boolean;
   onChanged?: () => void;
+  /** Gatilho só com ícone — para toolbars densas. */
+  compact?: boolean;
 };
 
 export function TripMembersDialog({
@@ -41,6 +43,7 @@ export function TripMembersDialog({
   myRole,
   isShared,
   onChanged,
+  compact = false,
 }: TripMembersDialogProps) {
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<TripMember[]>([]);
@@ -110,10 +113,21 @@ export function TripMembersDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Users className="h-4 w-4" />
-          {isShared ? "Membros" : "Compartilhar viagem"}
-        </Button>
+        {compact ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            aria-label={isShared ? "Membros" : "Compartilhar viagem"}
+          >
+            <Users className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" className="gap-2">
+            <Users className="h-4 w-4" />
+            {isShared ? "Membros" : "Compartilhar viagem"}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogHeader>

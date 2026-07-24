@@ -121,7 +121,7 @@ export default function Goals() {
             const progress = getGoalProgress(goal);
             const financeInsight = getFinancialGoalInsight(goal);
             return (
-              <article key={goal.id} className="rounded-xl border bg-card p-5 shadow-sm">
+              <article key={goal.id} className="rounded-xl border bg-card p-3.5 shadow-sm sm:p-5">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <Badge variant="outline" className="mb-2 text-[10px]">

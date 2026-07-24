@@ -218,14 +218,14 @@ export default function Account() {
     >
       <section className="rounded-xl border bg-card p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <Avatar className="h-14 w-14 rounded-xl">
+          <Avatar className="h-12 w-12 rounded-xl sm:h-14 sm:w-14">
             <AvatarImage src={avatar} alt={name} />
-            <AvatarFallback className="rounded-xl text-lg">
+            <AvatarFallback className="rounded-xl text-base sm:text-lg">
               {name.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <p className="truncate text-lg font-semibold">{name}</p>
+            <p className="truncate text-base font-semibold sm:text-lg">{name}</p>
             <p className="truncate text-sm text-muted-foreground">{email}</p>
             {user?.id ? (
               <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">

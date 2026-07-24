@@ -134,7 +134,7 @@ export default function Places() {
       }
       actions={<PlaceFormDialog onSaved={load} />}
     >
-      <section className="space-y-3 rounded-xl border bg-card p-4">
+      <section className="space-y-3 rounded-xl border bg-card p-3 sm:p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

@@ -52,11 +52,11 @@ export function KpiCard({
   const styles = variantStyles[variant];
 
   return (
-    <Card className="p-5">
-      <CardHeader className="p-0 pb-3">
+    <Card className="p-4 sm:p-5">
+      <CardHeader className="p-0 pb-2 sm:pb-3">
         <CardTitle
           className={cn(
-            "text-sm font-semibold uppercase tracking-wide border-b-2 pb-1.5",
+            "text-xs font-semibold uppercase tracking-wide border-b-2 pb-1.5 sm:text-sm",
             styles.title
           )}
         >
@@ -65,11 +65,11 @@ export function KpiCard({
       </CardHeader>
       <CardContent className="p-0">
         {isLoading ? (
-          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-7 w-28 sm:h-8 sm:w-32" />
         ) : (
           <div
             className={cn(
-              "text-2xl font-bold tracking-tight tabular-nums",
+              "text-xl font-bold tracking-tight tabular-nums sm:text-2xl",
               styles.value
             )}
           >
@@ -78,7 +78,7 @@ export function KpiCard({
         )}
       </CardContent>
       {(description || trendText) && (
-        <CardFooter className="mt-3 flex-col items-start gap-1 p-0 text-sm">
+        <CardFooter className="mt-2 flex-col items-start gap-1 p-0 text-sm sm:mt-3">
           {trendText && (
             <div className="flex items-center gap-2 font-medium leading-none text-foreground">
               {trendText} <TrendingUp className="h-4 w-4 text-muted-foreground" />

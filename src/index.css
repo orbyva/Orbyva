@@ -187,6 +187,13 @@ html {
   text-size-adjust: 100%;
 }
 
+/* Mobile: tipografia um pouco mais contida — menos “tudo grande” */
+@media (max-width: 639px) {
+  html {
+    font-size: 15px;
+  }
+}
+
 body {
   overflow-y: scroll;
 }

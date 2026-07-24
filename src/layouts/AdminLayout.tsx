@@ -123,8 +123,8 @@ export default function AdminLayout() {
       <BreadcrumbTitleProvider>
         <SidebarInset>
           <OfflineBanner />
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-            <div className="flex min-w-0 flex-1 items-center gap-2 px-3 sm:px-4">
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border/40 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 sm:h-14">
+            <div className="flex min-w-0 flex-1 items-center gap-2 px-2.5 sm:px-4">
               <SidebarTrigger className="-ml-1 shrink-0" />
               <Separator
                 orientation="vertical"
@@ -132,7 +132,7 @@ export default function AdminLayout() {
               />
 
               <AdminBreadcrumb />
-              <div className="ml-auto flex shrink-0 items-center gap-1">
+              <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
                 {isTrialActive ? (
                   <Link
                     to="/account"
@@ -148,7 +148,7 @@ export default function AdminLayout() {
               </div>
             </div>
           </header>
-          <div className="flex flex-1 flex-col gap-2 pb-24 sm:gap-4 md:pb-6">
+          <div className="flex flex-1 flex-col gap-1.5 pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] sm:gap-4 md:pb-6">
             <Toaster />
             {hasAccess ? <OnboardingDialog /> : null}
             {hasAccess ? <QuickAddExpenseFab /> : null}

@@ -34,7 +34,7 @@ export default function Dimensions() {
         <TableLoadingSkeleton rows={4} columns={3} />
       ) : (
         <section className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 md:gap-6 md:h-[min(720px,calc(100dvh-12rem))]">
-          <div className="flex min-h-[420px] flex-col overflow-hidden rounded-xl border bg-card p-4 sm:p-5 md:min-h-0">
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card p-3 sm:p-5 md:min-h-0">
             <TypeManager
               natures={natures}
               types={types}
@@ -42,7 +42,7 @@ export default function Dimensions() {
             />
           </div>
 
-          <div className="flex min-h-[420px] flex-col overflow-hidden rounded-xl border bg-card p-4 sm:p-5 md:min-h-0">
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card p-3 sm:p-5 md:min-h-0">
             <ClassManager types={types} />
           </div>
         </section>

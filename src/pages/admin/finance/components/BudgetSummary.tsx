@@ -75,17 +75,17 @@ export function BudgetSummary({
   return (
     <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
       {data.map((card) => (
-        <Card key={card.title} className="p-6">
-          <CardHeader className="p-0 pb-3">
+        <Card key={card.title} className="p-4 sm:p-6">
+          <CardHeader className="p-0 pb-2 sm:pb-3">
             <CardTitle
-              className={`text-sm font-semibold uppercase tracking-wide border-b-2 pb-1.5 ${card.titleClass}`}
+              className={`text-xs font-semibold uppercase tracking-wide border-b-2 pb-1.5 sm:text-sm ${card.titleClass}`}
             >
               {card.title}
             </CardTitle>
           </CardHeader>
 
           <CardContent className="p-0">
-            <div className={`text-3xl font-bold tabular-nums ${card.valueClass}`}>
+            <div className={`text-2xl font-bold tabular-nums sm:text-3xl ${card.valueClass}`}>
               {formatValue(card.value)}
             </div>
 

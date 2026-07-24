@@ -83,9 +83,9 @@ export default function Timeline() {
           ))}
         </TabsList>
 
-        <TabsContent value={filter} className="mt-4 space-y-6">
+        <TabsContent value={filter} className="mt-4 space-y-4 sm:space-y-6">
           {grouped.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-12">
+            <p className="text-sm text-muted-foreground text-center py-8 sm:py-12">
               Nenhum evento encontrado.
             </p>
           ) : (

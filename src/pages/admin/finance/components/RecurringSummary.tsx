@@ -28,17 +28,17 @@ export function RecurringSummary({
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {data.map((card) => (
-        <Card key={card.title} className="p-5">
-          <CardHeader className="p-0 pb-3">
+        <Card key={card.title} className="p-4 sm:p-5">
+          <CardHeader className="p-0 pb-2 sm:pb-3">
             <CardTitle
-              className={`text-sm font-semibold uppercase tracking-wide border-b-2 pb-1.5 ${card.titleClass}`}
+              className={`text-xs font-semibold uppercase tracking-wide border-b-2 pb-1.5 sm:text-sm ${card.titleClass}`}
             >
               {card.title}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div
-              className={`text-2xl font-bold tracking-tight tabular-nums ${card.valueClass}`}
+              className={`text-xl font-bold tracking-tight tabular-nums sm:text-2xl ${card.valueClass}`}
             >
               {formatBRL(card.value)}
             </div>

@@ -146,9 +146,9 @@ export default function Movies() {
         </Tabs>
       </section>
 
-      <section className="rounded-xl border p-4">
+      <section className="rounded-xl border p-3 sm:p-4">
         {filteredMovies.length ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-6">
             {filteredMovies.map((movie) => (
               <MovieCard
                 key={movie.imdb_id}

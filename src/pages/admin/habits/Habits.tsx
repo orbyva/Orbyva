@@ -203,7 +203,7 @@ export default function Habits() {
                 <article
                   key={habit.id}
                   className={cn(
-                    "flex items-center gap-4 rounded-xl border bg-card p-4",
+                    "flex items-center gap-3 rounded-xl border bg-card p-3 sm:gap-4 sm:p-4",
                     done && "border-success/30 bg-success/5"
                   )}
                 >
@@ -211,13 +211,13 @@ export default function Habits() {
                     type="button"
                     onClick={() => void handleToggle(habit.id)}
                     className={cn(
-                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors sm:h-10 sm:w-10",
                       done
                         ? "border-success bg-success text-success-foreground"
                         : "border-muted-foreground/30 hover:border-primary"
                     )}
                   >
-                    {done ? <Check className="h-5 w-5" /> : null}
+                    {done ? <Check className="h-4 w-4 sm:h-5 sm:w-5" /> : null}
                   </button>
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold">{habit.name}</h3>

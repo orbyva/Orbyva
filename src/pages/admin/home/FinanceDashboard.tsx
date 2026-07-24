@@ -388,11 +388,11 @@
             }
           />
         ) : (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <section className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
               <KpiCardsGrid data={kpiCardsData} />
 
-              <Tabs defaultValue="despesa" className="rounded-xl border p-4">
+              <Tabs defaultValue="despesa" className="rounded-xl border p-3 sm:p-4">
                 <TabsList>
                   <TabsTrigger value="receita">Receitas</TabsTrigger>
                   <TabsTrigger value="despesa">Despesas</TabsTrigger>

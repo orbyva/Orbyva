@@ -72,7 +72,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
 import { formatBRL, formatDateBR } from "@/lib/currency";
-import { sortByNamePt } from "@/lib/utils";
+import { cn, sortByNamePt } from "@/lib/utils";
 import { TripBudgetSummary } from "./components/TripBudgetSummary";
 import { TripItineraryTab } from "./components/TripItineraryTab";
 import { TripExpensesTab } from "./components/TripExpensesTab";
@@ -477,10 +477,22 @@ export default function TripDetail() {
     <PageShell
       title={trip.title}
       description={trip.destination ?? undefined}
+      eyebrow="Viagens"
       actions={
-        <>
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/travel">
+        trip.daysUntilStart != null && trip.daysUntilStart >= 0 ? (
+          <div className="text-right">
+            <p className="text-xl font-bold tabular-nums leading-none text-primary sm:text-3xl">
+              {trip.daysUntilStart}
+            </p>
+            <p className="text-[10px] text-muted-foreground">dias</p>
+          </div>
+        ) : null
+      }
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card/60 px-3 py-2.5 sm:px-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
+            <Link to="/travel" aria-label="Voltar">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -488,28 +500,28 @@ export default function TripDetail() {
           {trip.isShared ? (
             <Badge variant="secondary">Compartilhada</Badge>
           ) : null}
-          {isOngoing && (
+          {isOngoing ? (
             <Badge className="bg-success text-success-foreground">
               Em viagem agora
             </Badge>
-          )}
-          {trip.daysUntilStart != null && trip.daysUntilStart >= 0 && (
-            <div className="text-center shrink-0 px-1">
-              <p className="text-3xl font-bold text-primary leading-none">
-                {trip.daysUntilStart}
-              </p>
-              <p className="text-[10px] text-muted-foreground">dias</p>
-            </div>
-          )}
+          ) : null}
+          <span className="text-xs text-muted-foreground sm:text-sm">
+            {formatDateBR(trip.start_date)} → {formatDateBR(trip.end_date)}
+          </span>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-0.5 rounded-lg border bg-background p-0.5 sm:gap-1">
           <TripMembersDialog
             tripId={trip.id}
             myRole={trip.myRole}
             isShared={trip.isShared}
             onChanged={load}
+            compact
           />
           <Button
             variant="ghost"
             size="icon"
+            className="h-8 w-8"
             onClick={() => setShareOpen(true)}
             aria-label="Compartilhar viagem"
           >
@@ -518,7 +530,7 @@ export default function TripDetail() {
           <Button
             variant="ghost"
             size="icon"
-            className={ICON_EDIT_BUTTON_CLASS}
+            className={cn(ICON_EDIT_BUTTON_CLASS, "h-8 w-8")}
             onClick={() => setEditTripOpen(true)}
             aria-label="Editar viagem"
           >
@@ -530,20 +542,22 @@ export default function TripDetail() {
               description="Roteiro, gastos e lugares vinculados serão removidos."
               onConfirm={handleDeleteTrip}
             >
-              <Button variant="ghost" size="icon" className="text-destructive">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive"
+                aria-label="Excluir viagem"
+              >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </ConfirmDeleteDialog>
           ) : null}
-        </>
-      }
-    >
-      <p className="text-sm text-muted-foreground">
-        {formatDateBR(trip.start_date)} → {formatDateBR(trip.end_date)}
-      </p>
-      {trip.notes && (
+        </div>
+      </div>
+
+      {trip.notes ? (
         <p className="text-sm text-muted-foreground">{trip.notes}</p>
-      )}
+      ) : null}
 
       <TripBudgetSummary
         trip={trip}

@@ -64,18 +64,18 @@ export function MobileBottomNav() {
         style={{
           // Safari iOS: safe-area + folga extra (barra do browser sobrescreve o inset às vezes)
           paddingBottom:
-            "max(12px, env(safe-area-inset-bottom, 0px))",
+            "max(8px, env(safe-area-inset-bottom, 0px))",
         }}
       >
-        <div className="mx-auto grid h-14 max-w-lg grid-cols-3 items-center px-2">
+        <div className="mx-auto grid h-12 max-w-lg grid-cols-3 items-center px-1">
           <Link
             to="/home"
             className={cn(
-              "flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium",
+              "flex flex-col items-center justify-center gap-0.5 py-0.5 text-[10px] font-medium",
               isHome ? "text-primary" : "text-muted-foreground"
             )}
           >
-            <Home className="h-5 w-5" />
+            <Home className="h-4 w-4" />
             Início
           </Link>
 
@@ -86,30 +86,30 @@ export function MobileBottomNav() {
                 track("quick_add_open", { source: "mobile_nav" })
               );
             }}
-            className="flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium text-muted-foreground"
+            className="flex flex-col items-center justify-center gap-0.5 py-0.5 text-[10px] font-medium text-muted-foreground"
             aria-label="Nova transação"
           >
             <span
               className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground",
+                "flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground",
                 isTx &&
                   "ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
               )}
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-4 w-4" />
             </span>
-            Nova Transação
+            Nova
           </Link>
 
           <button
             type="button"
             onClick={() => setAlertsOpen(true)}
-            className="relative flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium text-muted-foreground"
+            className="relative flex flex-col items-center justify-center gap-0.5 py-0.5 text-[10px] font-medium text-muted-foreground"
           >
             <span className="relative">
-              <Bell className="h-5 w-5" />
+              <Bell className="h-4 w-4" />
               {unread > 0 ? (
-                <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-0.5 text-[9px] font-semibold text-destructive-foreground">
+                <span className="absolute -right-1.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[8px] font-semibold text-destructive-foreground">
                   {unread > 9 ? "9+" : unread}
                 </span>
               ) : null}
