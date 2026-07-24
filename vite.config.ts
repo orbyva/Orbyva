@@ -11,7 +11,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "prompt",
-      minify: false,
+      minify: true,
       includeAssets: [
         "logo.webp",
         "logo-mark.webp",
@@ -99,6 +99,28 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("recharts") || id.includes("/d3-")) return "recharts";
+          if (id.includes("framer-motion")) return "motion";
+          if (id.includes("@sentry")) return "sentry";
+          if (id.includes("@supabase")) return "supabase";
+          if (id.includes("@radix-ui")) return "radix";
+          if (
+            id.includes("react-dom") ||
+            id.includes("react-router") ||
+            /node_modules\/react\//.test(id)
+          ) {
+            return "react-vendor";
+          }
+        },
+      },
     },
   },
   server: {

@@ -3,29 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Pencil, Share2, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { DatePicker } from "@/components/DatePicker";
-import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-  ICON_EDIT_BUTTON_CLASS,
-} from "@/components/FormLabel";
-import { MoneyInput } from "@/components/MoneyInput";
+import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { PlaceDetailDialog } from "@/components/PlaceDetailDialog";
 import { PlaceFormDialog } from "@/components/PlaceFormDialog";
 import { TripFormDialog } from "@/components/TripFormDialog";
@@ -53,11 +32,7 @@ import { useDimensions } from "@/hooks/useDimensions";
 import { useAuth } from "@/hooks/useAuth";
 import type { TripMember } from "@/types/tripSharing";
 import type { TripExpenseVisibility } from "@/types/travel";
-import {
-  EXPENSE_CATEGORY_LABELS,
-  MILESTONE_TYPE_LABELS,
-  TRIP_STATUS_LABELS,
-} from "@/domain/travel";
+import { TRIP_STATUS_LABELS } from "@/domain/travel";
 import type {
   TripExpense,
   TripExpenseCategory,
@@ -71,13 +46,18 @@ import type { PlaceVisit } from "@/types/places";
 import { useToast } from "@/hooks/use-toast";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
-import { formatBRL, formatDateBR } from "@/lib/currency";
+import { formatDateBR } from "@/lib/currency";
 import { cn, sortByNamePt } from "@/lib/utils";
 import { TripBudgetSummary } from "./components/TripBudgetSummary";
 import { TripItineraryTab } from "./components/TripItineraryTab";
 import { TripExpensesTab } from "./components/TripExpensesTab";
 import { TripPlacesTab } from "./components/TripPlacesTab";
 import { TripMilestonesTab } from "./components/TripMilestonesTab";
+import { TripEditDayDialog } from "./components/TripEditDayDialog";
+import { TripEditActivityDialog } from "./components/TripEditActivityDialog";
+import { TripExpenseFormDialog } from "./components/TripExpenseFormDialog";
+import { TripSplitRegisterDialog } from "./components/TripSplitRegisterDialog";
+import { TripMilestoneFormDialog } from "./components/TripMilestoneFormDialog";
 
 const emptyExpenseForm = () => ({
   description: "",
@@ -652,447 +632,102 @@ export default function TripDetail() {
         onSaved={load}
       />
 
-      {/* Edit day */}
-      <Dialog
+      <TripEditDayDialog
         open={!!editingDay}
-        onOpenChange={(open) => !open && setEditingDay(null)}
-      >
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>Editar dia do roteiro</DialogTitle>
-          </DialogHeader>
-          <div className={FORM_FIELDS_CLASS}>
-            <div>
-              <FormLabel>Título</FormLabel>
-              <Input
-                value={dayForm.title}
-                onChange={(e) =>
-                  setDayForm({ ...dayForm, title: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <FormLabel optional>Notas</FormLabel>
-              <Input
-                value={dayForm.notes}
-                onChange={(e) =>
-                  setDayForm({ ...dayForm, notes: e.target.value })
-                }
-                placeholder="Observações do dia"
-              />
-            </div>
-            <Button onClick={handleSaveDay} className="w-full">
-              Salvar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={(open) => {
+          if (!open) setEditingDay(null);
+        }}
+        form={dayForm}
+        onChange={setDayForm}
+        onSave={() => void handleSaveDay()}
+      />
 
-      {/* Edit activity */}
-      <Dialog
+      <TripEditActivityDialog
         open={!!editingActivity}
-        onOpenChange={(open) => !open && setEditingActivity(null)}
-      >
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>Editar atividade</DialogTitle>
-          </DialogHeader>
-          <div className={FORM_FIELDS_CLASS}>
-            <div>
-              <FormLabel required>Título</FormLabel>
-              <Input
-                value={activityForm.title}
-                onChange={(e) =>
-                  setActivityForm({ ...activityForm, title: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <FormLabel optional>Horário</FormLabel>
-              <Input
-                value={activityForm.activity_time}
-                onChange={(e) =>
-                  setActivityForm({
-                    ...activityForm,
-                    activity_time: e.target.value,
-                  })
-                }
-                placeholder="Ex: 09:30"
-              />
-            </div>
-            <div>
-              <FormLabel optional>Notas</FormLabel>
-              <Input
-                value={activityForm.notes}
-                onChange={(e) =>
-                  setActivityForm({ ...activityForm, notes: e.target.value })
-                }
-              />
-            </div>
-            <Button onClick={handleSaveActivity} className="w-full">
-              Salvar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={(open) => {
+          if (!open) setEditingActivity(null);
+        }}
+        form={activityForm}
+        onChange={setActivityForm}
+        onSave={() => void handleSaveActivity()}
+      />
 
-      {/* Create / edit expense */}
-      <Dialog open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen}>
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>
-              {editingExpense ? "Editar gasto" : "Adicionar gasto"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className={FORM_FIELDS_CLASS}>
-            <div>
-              <FormLabel required>Descrição</FormLabel>
-              <Input
-                value={expenseForm.description}
-                onChange={(e) =>
-                  setExpenseForm({
-                    ...expenseForm,
-                    description: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div>
-              <FormLabel required>Valor</FormLabel>
-              <MoneyInput
-                value={expenseForm.amount || ""}
-                onChange={(value) =>
-                  setExpenseForm({
-                    ...expenseForm,
-                    amount: value === "" ? 0 : value,
-                  })
-                }
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <FormLabel>Categoria</FormLabel>
-                <Select
-                  value={expenseForm.category}
-                  onValueChange={(v) =>
-                    setExpenseForm({
-                      ...expenseForm,
-                      category: v as TripExpenseCategory,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(EXPENSE_CATEGORY_LABELS).map(([k, l]) => (
-                      <SelectItem key={k} value={k}>
-                        {l}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <FormLabel>Data</FormLabel>
-                <DatePicker
-                  date={new Date(`${expenseForm.expense_date}T12:00:00`)}
-                  onSelect={(d) =>
-                    setExpenseForm({
-                      ...expenseForm,
-                      expense_date: d
-                        ? d.toISOString().split("T")[0]
-                        : expenseForm.expense_date,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <FormLabel>Tipo do gasto</FormLabel>
-              <Select
-                value={expenseForm.visibility}
-                onValueChange={(v) =>
-                  setExpenseForm({
-                    ...expenseForm,
-                    visibility: v as TripExpenseVisibility,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="personal">Pessoal (só você vê)</SelectItem>
-                  <SelectItem value="shared">
-                    Conjunta (divide entre membros)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {expenseForm.visibility === "shared" ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Divide igual entre {Math.max(members.length, 1)} membro(s).
-                  Ex.: casa alugada.
-                </p>
-              ) : null}
-            </div>
-            {!editingExpense && (
-              <>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={registerExpense}
-                    onChange={(e) => {
-                      setRegisterExpense(e.target.checked);
-                      if (!e.target.checked) {
-                        setFinanceTypeId(0);
-                        setClassId(0);
-                      }
-                    }}
-                    className="rounded"
-                  />
-                  Registrar em Finanças
-                </label>
-                {registerExpense && (
-                  <div
-                    className={
-                      financeTypeId
-                        ? "grid grid-cols-2 gap-3"
-                        : "grid grid-cols-1 gap-3"
-                    }
-                  >
-                    <div>
-                      <FormLabel required>Tipo</FormLabel>
-                      <Select
-                        value={financeTypeId ? String(financeTypeId) : ""}
-                        onValueChange={(v) => {
-                          setFinanceTypeId(Number(v));
-                          setClassId(0);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {expenseTypes.map((type) => (
-                            <SelectItem key={type.id} value={String(type.id)}>
-                              {type.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {financeTypeId ? (
-                      <div>
-                        <FormLabel required>Classe</FormLabel>
-                        <Select
-                          value={classId ? String(classId) : ""}
-                          onValueChange={(v) => setClassId(Number(v))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a classe" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {expenseClasses.map((cls) => (
-                              <SelectItem key={cls.id} value={String(cls.id)}>
-                                {cls.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-              </>
-            )}
-            <Button onClick={handleSaveExpense} className="w-full">
-              {editingExpense ? "Salvar alterações" : "Adicionar gasto"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <TripExpenseFormDialog
+        open={expenseDialogOpen}
+        onOpenChange={setExpenseDialogOpen}
+        editing={!!editingExpense}
+        form={expenseForm}
+        onChange={setExpenseForm}
+        memberCount={members.length}
+        registerExpense={registerExpense}
+        onRegisterExpenseChange={(checked) => {
+          setRegisterExpense(checked);
+          if (!checked) {
+            setFinanceTypeId(0);
+            setClassId(0);
+          }
+        }}
+        financeTypeId={financeTypeId}
+        classId={classId}
+        onFinanceTypeIdChange={(id) => {
+          setFinanceTypeId(id);
+          setClassId(0);
+        }}
+        onClassIdChange={setClassId}
+        expenseTypes={expenseTypes}
+        expenseClasses={expenseClasses}
+        onSave={() => void handleSaveExpense()}
+      />
 
-      <Dialog
-        open={!!splitRegisterExpense}
-        onOpenChange={(open) => !open && setSplitRegisterExpense(null)}
-      >
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>Registrar Despesa</DialogTitle>
-          </DialogHeader>
-          {splitRegisterExpense ? (
-            <div className={FORM_FIELDS_CLASS}>
-              <p className="text-sm text-muted-foreground">
-                {splitRegisterExpense.description} — sua fatia{" "}
-                {formatBRL(
-                  splitRegisterExpense.splits?.find(
-                    (s) => s.user_id === user?.id
-                  )?.amount ?? 0
-                )}
-              </p>
-              <div
-                className={
-                  financeTypeId
-                    ? "grid grid-cols-2 gap-3"
-                    : "grid grid-cols-1 gap-3"
-                }
-              >
-                <div>
-                  <FormLabel required>Tipo</FormLabel>
-                  <Select
-                    value={financeTypeId ? String(financeTypeId) : ""}
-                    onValueChange={(v) => {
-                      setFinanceTypeId(Number(v));
-                      setClassId(0);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {expenseTypes.map((type) => (
-                        <SelectItem key={type.id} value={String(type.id)}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {financeTypeId ? (
-                  <div>
-                    <FormLabel required>Classe</FormLabel>
-                    <Select
-                      value={classId ? String(classId) : ""}
-                      onValueChange={(v) => setClassId(Number(v))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Classe" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {expenseClasses.map((cls) => (
-                          <SelectItem key={cls.id} value={String(cls.id)}>
-                            {cls.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-              </div>
-              <Button
-                className="w-full"
-                disabled={!classId}
-                onClick={() =>
-                  void (async () => {
-                    try {
-                      await registerMyExpenseSplit(splitRegisterExpense.id, {
-                        class_id: classId,
-                        value: 0,
-                        description: `Viagem ${trip.title}: ${splitRegisterExpense.description}`,
-                        transaction_at: new Date(
-                          `${splitRegisterExpense.expense_date}T12:00:00`
-                        ).toISOString(),
-                      });
-                      toast({ title: "Fatia registrada no extrato" });
-                      setSplitRegisterExpense(null);
-                      load();
-                    } catch (error) {
-                      toast({
-                        title: "Erro",
-                        description: getErrorMessage(error),
-                        variant: "destructive",
-                      });
-                    }
-                  })()
-                }
-              >
-                Confirmar
-              </Button>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      <TripSplitRegisterDialog
+        expense={splitRegisterExpense}
+        onOpenChange={(open) => {
+          if (!open) setSplitRegisterExpense(null);
+        }}
+        userId={user?.id}
+        financeTypeId={financeTypeId}
+        classId={classId}
+        onFinanceTypeIdChange={(id) => {
+          setFinanceTypeId(id);
+          setClassId(0);
+        }}
+        onClassIdChange={setClassId}
+        expenseTypes={expenseTypes}
+        expenseClasses={expenseClasses}
+        onConfirm={() =>
+          void (async () => {
+            if (!splitRegisterExpense) return;
+            try {
+              await registerMyExpenseSplit(splitRegisterExpense.id, {
+                class_id: classId,
+                value: 0,
+                description: `Viagem ${trip.title}: ${splitRegisterExpense.description}`,
+                transaction_at: new Date(
+                  `${splitRegisterExpense.expense_date}T12:00:00`
+                ).toISOString(),
+              });
+              toast({ title: "Fatia registrada no extrato" });
+              setSplitRegisterExpense(null);
+              load();
+            } catch (error) {
+              toast({
+                title: "Erro",
+                description: getErrorMessage(error),
+                variant: "destructive",
+              });
+            }
+          })()
+        }
+      />
 
-      {/* Create / edit milestone */}
-      <Dialog open={milestoneDialogOpen} onOpenChange={setMilestoneDialogOpen}>
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>
-              {editingMilestone ? "Editar prazo" : "Adicionar prazo"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className={FORM_FIELDS_CLASS}>
-            <div>
-              <FormLabel required>Título</FormLabel>
-              <Input
-                value={milestoneForm.title}
-                onChange={(e) =>
-                  setMilestoneForm({
-                    ...milestoneForm,
-                    title: e.target.value,
-                  })
-                }
-                placeholder="Ex: Check-in voo, Reserva hotel..."
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <FormLabel>Tipo</FormLabel>
-                <Select
-                  value={milestoneForm.type}
-                  onValueChange={(v) =>
-                    setMilestoneForm({
-                      ...milestoneForm,
-                      type: v as TripMilestoneType,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(MILESTONE_TYPE_LABELS).map(([k, l]) => (
-                      <SelectItem key={k} value={k}>
-                        {l}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <FormLabel>Data limite</FormLabel>
-                <DatePicker
-                  date={new Date(`${milestoneForm.due_date}T12:00:00`)}
-                  onSelect={(d) =>
-                    setMilestoneForm({
-                      ...milestoneForm,
-                      due_date: d
-                        ? d.toISOString().split("T")[0]
-                        : milestoneForm.due_date,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <FormLabel optional>Notas</FormLabel>
-              <Input
-                value={milestoneForm.notes}
-                onChange={(e) =>
-                  setMilestoneForm({
-                    ...milestoneForm,
-                    notes: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <Button onClick={handleSaveMilestone} className="w-full">
-              {editingMilestone ? "Salvar alterações" : "Adicionar prazo"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <TripMilestoneFormDialog
+        open={milestoneDialogOpen}
+        onOpenChange={setMilestoneDialogOpen}
+        editing={!!editingMilestone}
+        form={milestoneForm}
+        onChange={setMilestoneForm}
+        onSave={() => void handleSaveMilestone()}
+      />
 
       {/* Place detail + edit */}
       <PlaceDetailDialog

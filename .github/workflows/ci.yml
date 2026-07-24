@@ -36,6 +36,9 @@ jobs:
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
 
+      - name: Bundle budget
+        run: npm run check:bundle
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 

@@ -1,4 +1,4 @@
-  import { useCallback, useEffect, useMemo, useState } from "react";
+  import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
   import {
     Card,
     CardContent,
@@ -7,7 +7,6 @@
     CardTitle,
   } from "@/components/ui/card";
   import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-  import { Overview } from "./components/overview";
   import {
     Select,
     SelectContent,
@@ -18,7 +17,7 @@
   import { TransactionsTable } from "./components/TransactionsTable";
   import { Transaction, ValueByNatureYearMonth } from "@/types/finance";
   import { KpiCardProps, KpiCardsGrid } from "./components/KpiCard";
-  import { MemoDonutChart, DonutChartData } from "./components/PieChart";
+  import type { DonutChartData } from "./components/PieChart";
   import {
     fetchTransactions,
     fetchValueByNatureForMonth,
@@ -45,6 +44,18 @@
   import { Recurring } from "@/types/recurring";
   import { formatBRL } from "@/lib/currency";
   import { chartColors } from "@/lib/design-tokens";
+  import {
+    buildMomTrends,
+    previousYearMonth,
+  } from "@/domain/finance/insights";
+  import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
+
+  const Overview = lazy(() =>
+    import("./components/overview").then((m) => ({ default: m.Overview }))
+  );
+  const MemoDonutChart = lazy(() =>
+    import("./components/PieChart").then((m) => ({ default: m.MemoDonutChart }))
+  );
 
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
@@ -86,6 +97,8 @@
 
     const [receitaTotal, setReceitaTotal] = useState<number>(0);
     const [despesaTotal, setDespesaTotal] = useState<number>(0);
+    const [prevReceitaTotal, setPrevReceitaTotal] = useState<number | null>(null);
+    const [prevDespesaTotal, setPrevDespesaTotal] = useState<number | null>(null);
     const [cardsLoading, setCardsLoading] = useState(true);
     const [donutChartDataReceita, setDonutChartDataReceita] = useState<
       DonutChartData[]
@@ -111,6 +124,24 @@
       [recurring]
     );
 
+    const mom = useMemo(() => {
+      const prev = previousYearMonth(selectedYear, selectedMonth);
+      return buildMomTrends(
+        { receita: receitaTotal, despesa: despesaTotal },
+        prevReceitaTotal == null || prevDespesaTotal == null
+          ? null
+          : { receita: prevReceitaTotal, despesa: prevDespesaTotal },
+        prev.month
+      );
+    }, [
+      selectedYear,
+      selectedMonth,
+      receitaTotal,
+      despesaTotal,
+      prevReceitaTotal,
+      prevDespesaTotal,
+    ]);
+
     const kpiCardsData: KpiCardProps[] = useMemo(
       () => [
         {
@@ -119,7 +150,7 @@
           variant: "income",
           description: null,
           isLoading: cardsLoading,
-          trendText: null,
+          trendText: mom.receita,
           formatValue: (value: number) => formatBRL(value),
         },
         {
@@ -128,7 +159,7 @@
           variant: "expense",
           description: null,
           isLoading: cardsLoading,
-          trendText: null,
+          trendText: mom.despesa,
           formatValue: (value: number) => formatBRL(value),
         },
         {
@@ -137,7 +168,7 @@
           variant: "primary",
           description: null,
           isLoading: cardsLoading,
-          trendText: null,
+          trendText: mom.saldo,
           formatValue: (value: number) => {
             const percent = receitaTotal ? (value / receitaTotal) * 100 : 0;
             return `${formatBRL(value > 0 ? value : 0)} (${percent.toFixed(1)}%)`;
@@ -153,7 +184,16 @@
           formatValue: (value: number) => formatBRL(value),
         },
       ],
-      [receitaTotal, despesaTotal, cardsLoading, committed.pay, committed.receive]
+      [
+        receitaTotal,
+        despesaTotal,
+        cardsLoading,
+        committed.pay,
+        committed.receive,
+        mom.receita,
+        mom.despesa,
+        mom.saldo,
+      ]
     );
 
     const fetchChartData = useCallback(async (): Promise<ValueByNatureYearMonth[]> => {
@@ -198,7 +238,11 @@
     useEffect(() => {
       async function getCardsData() {
         setCardsLoading(true);
-        const data = await fetchCardsData();
+        const prev = previousYearMonth(selectedYear, selectedMonth);
+        const [data, prevData] = await Promise.all([
+          fetchCardsData(),
+          fetchValueByNatureForMonth(prev.year, prev.month).catch(() => null),
+        ]);
 
         if (data) {
           setReceitaTotal(data.receita_total);
@@ -206,6 +250,14 @@
         } else {
           setReceitaTotal(0);
           setDespesaTotal(0);
+        }
+
+        if (prevData) {
+          setPrevReceitaTotal(prevData.receita_total);
+          setPrevDespesaTotal(prevData.despesa_total);
+        } else {
+          setPrevReceitaTotal(null);
+          setPrevDespesaTotal(null);
         }
 
         setCardsLoading(false);
@@ -224,7 +276,7 @@
 
       getTransactions();
       getCardsData();
-    }, [fetchCardsData, fetchTransactionsData]);
+    }, [fetchCardsData, fetchTransactionsData, selectedYear, selectedMonth]);
 
     useEffect(() => {
       async function loadRecurringDueAlerts() {
@@ -399,30 +451,44 @@
                 </TabsList>
 
                 <TabsContent value="receita">
-                  <MemoDonutChart
-                    data={donutChartDataReceita}
-                    onSliceClick={(type) => {
-                      setSelectedType((prev) => (prev === type ? null : type));
-                      setTableTab("receita");
-                    }}
-                  />
+                  <Suspense fallback={<TableLoadingSkeleton rows={6} />}>
+                    <MemoDonutChart
+                      data={donutChartDataReceita}
+                      onSliceClick={(type) => {
+                        setSelectedType((prev) => (prev === type ? null : type));
+                        setTableTab("receita");
+                      }}
+                    />
+                  </Suspense>
                 </TabsContent>
 
                 <TabsContent value="despesa">
-                  <MemoDonutChart
-                    data={donutChartDataDespesa}
-                    onSliceClick={(type) => {
-                      setSelectedType((prev) => (prev === type ? null : type));
-                      setTableTab("despesa");
-                    }}
-                  />
+                  <Suspense fallback={<TableLoadingSkeleton rows={6} />}>
+                    <MemoDonutChart
+                      data={donutChartDataDespesa}
+                      onSliceClick={(type) => {
+                        setSelectedType((prev) => (prev === type ? null : type));
+                        setTableTab("despesa");
+                      }}
+                    />
+                  </Suspense>
                 </TabsContent>
               </Tabs>
             </section>
 
-            <section className="grid gap-4 sm:grid-cols-1 lg:grid-cols-5">
-              <Overview datasets={datasets} />
+            {mom.despesa || mom.receita || mom.saldo ? (
+              <p className="text-sm text-muted-foreground">
+                Vs mês anterior
+                {mom.despesa ? ` · despesa ${mom.despesa}` : ""}
+                {mom.receita ? ` · receita ${mom.receita}` : ""}
+                {mom.saldo ? ` · saldo ${mom.saldo}` : ""}
+              </p>
+            ) : null}
 
+            <section className="grid gap-4 sm:grid-cols-1 lg:grid-cols-5">
+              <Suspense fallback={<TableLoadingSkeleton rows={8} />}>
+                <Overview datasets={datasets} />
+              </Suspense>
               <Tabs
                 value={tableTab}
                 onValueChange={(value) => setTableTab(value as "receita" | "despesa")}

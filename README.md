@@ -172,20 +172,26 @@ VITE_OMDB_API_KEY=sua_chave_omdb   # fallback opcional
 
 Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) (API Key v3).
 
-### Billing (opcional — Stripe depois)
+### Billing (Stripe)
 
-1. Rode `scripts/billing.sql` (ou migrations)
-2. **P0 acesso:** rode `scripts/app_access_enforce.sql` (bloqueia escrita sem trial/Pro)
-3. Crie um Price recorrente no Stripe e anote o `price_...`
-4. Deploy: `stripe-checkout`, `stripe-portal`, `stripe-webhook`
-5. Secrets: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_PRO`, `STRIPE_WEBHOOK_SECRET`, `SITE_URL`
-6. Front: `VITE_STRIPE_PUBLISHABLE_KEY`
-7. Dev / bypass do teste: `VITE_BILLING_FORCE_PRO=true`
+1. Rode `scripts/billing.sql` (ou migrations) + **`app_access_enforce.sql`**
+2. Crie um Price recorrente (`price_...`, BRL) no Stripe
+3. Deploy: `stripe-checkout`, `stripe-portal`, `stripe-webhook`  
+   (`stripe-webhook` usa `verify_jwt = false` — Stripe não manda JWT)
+4. Secrets: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_PRO`, `STRIPE_WEBHOOK_SECRET`, `SITE_URL` (`https://orbyva.app`)
+5. Front: `VITE_STRIPE_PUBLISHABLE_KEY` (mesmo modo Test/Live da secret key)
+6. Dev / bypass: `VITE_BILLING_FORCE_PRO=true`
+
+**Live:** cobrança real só com **Cards Active** no Dashboard (conta verificada). Enquanto *Payments paused* / Cards *Pending approval*, o Checkout falha.
+
+**PIX:** assinatura mensal no Stripe BR usa **cartão**; PIX não cobre recorrência — o checkout pede só `card`.
+
+**Prod checklist:** `app_access_enforce` aplicado; secrets setados; webhook Live apontando para `/functions/v1/stripe-webhook`; `SITE_URL` = domínio público; CORS das edges = origin do `SITE_URL`.
 
 Analytics: `VITE_POSTHOG_KEY` (+ opcional `VITE_POSTHOG_HOST`).  
 Sentry: `VITE_SENTRY_DSN` (opcional).
 
-Migrations versionadas: ver `supabase/migrations/` e `scripts/README.md`.
+Migrations = fonte da verdade: `supabase/migrations/` (espelho em `scripts/` para SQL Editor). Ver `scripts/README.md`.
 
 ### Instalar e rodar
 
@@ -201,6 +207,7 @@ npm run dev
 npm run lint
 npm run test
 npm run build
+npm run check:bundle   # orçamento gzip dos chunks (Fase D)
 npm run preview
 npm run start         # serve /dist em produção local
 ```

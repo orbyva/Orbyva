@@ -4,12 +4,11 @@ import { registerSW } from "virtual:pwa-register";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/hooks/useAuth";
-import { initSentry } from "@/lib/sentry";
 import { track } from "@/lib/analytics";
 import "./index.css";
 import AppRouter from "./routes";
 
-initSentry();
+void import("@/lib/sentry").then(({ initSentry }) => initSentry());
 track("app_boot");
 
 // PWA: atualiza em background — NUNCA força reload (fecha modais / perde estado)

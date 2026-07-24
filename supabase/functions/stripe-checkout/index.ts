@@ -1,24 +1,25 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
+import {
+  corsHeadersForRequest,
+  siteOriginFromEnv,
+} from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: {
+      ...corsHeadersForRequest(req),
+      "Content-Type": "application/json",
+    },
   });
 }
 
-/** SITE_URL absoluta (https) — Stripe rejeita success/cancel relativos. */
-function requireSiteOrigin(): string | Response {
-  const siteRaw = (Deno.env.get("SITE_URL") ?? "").trim().replace(/\/$/, "");
-  if (!siteRaw) {
+function requireSiteOrigin(req: Request): string | Response {
+  const origin = siteOriginFromEnv();
+  if (!origin) {
     return json(
+      req,
       {
         error:
           "SITE_URL não configurada. Defina o secret https://orbyva.app (ou seu domínio).",
@@ -26,23 +27,12 @@ function requireSiteOrigin(): string | Response {
       503
     );
   }
-  try {
-    const site = new URL(siteRaw);
-    if (site.protocol !== "http:" && site.protocol !== "https:") {
-      return json({ error: "SITE_URL deve começar com https://" }, 503);
-    }
-    return site.origin;
-  } catch {
-    return json(
-      { error: "SITE_URL inválida. Use https://orbyva.app sem barra no final." },
-      503
-    );
-  }
+  return origin;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeadersForRequest(req) });
   }
 
   try {
@@ -54,6 +44,7 @@ Deno.serve(async (req) => {
 
     if (!stripeKey || !priceId) {
       return json(
+        req,
         {
           error:
             "Stripe não configurado (STRIPE_SECRET_KEY / STRIPE_PRICE_ID_PRO).",
@@ -63,6 +54,7 @@ Deno.serve(async (req) => {
     }
     if (!priceId.startsWith("price_")) {
       return json(
+        req,
         {
           error:
             "STRIPE_PRICE_ID_PRO deve ser um Price (price_...), não Product (prod_...).",
@@ -71,11 +63,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    const siteOrigin = requireSiteOrigin();
+    const siteOrigin = requireSiteOrigin(req);
     if (siteOrigin instanceof Response) return siteOrigin;
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Não autenticado" }, 401);
+    if (!authHeader) return json(req, { error: "Não autenticado" }, 401);
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -84,7 +76,7 @@ Deno.serve(async (req) => {
       data: { user },
       error: userError,
     } = await userClient.auth.getUser();
-    if (userError || !user) return json({ error: "Não autenticado" }, 401);
+    if (userError || !user) return json(req, { error: "Não autenticado" }, 401);
 
     const admin = createClient(supabaseUrl, serviceKey);
     const stripe = new Stripe(stripeKey, {
@@ -104,6 +96,7 @@ Deno.serve(async (req) => {
 
     if (profileError) {
       return json(
+        req,
         {
           error: `Tabela profiles inacessível: ${profileError.message}. Rode supabase/migrations/20240101000300_billing.sql.`,
         },
@@ -127,6 +120,7 @@ Deno.serve(async (req) => {
       });
       if (upsertError) {
         return json(
+          req,
           {
             error: `Falha ao salvar stripe_customer_id: ${upsertError.message}`,
           },
@@ -135,10 +129,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Assinatura BRL: cartão. PIX não cobre recorrência mensal no Stripe.
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
+      payment_method_types: ["card"],
       success_url: successUrl,
       cancel_url: cancelUrl,
       client_reference_id: user.id,
@@ -148,9 +144,9 @@ Deno.serve(async (req) => {
       },
     });
 
-    return json({ url: session.url });
+    return json(req, { url: session.url });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return json({ error: message }, 500);
+    return json(req, { error: message }, 500);
   }
 });

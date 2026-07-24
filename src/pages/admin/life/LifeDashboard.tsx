@@ -33,6 +33,7 @@ import {
 import {
   fetchLatestTransactionAt,
   fetchMonthlyBudgetSummary,
+  fetchValueByNatureForMonth,
 } from "@/api/finance";
 import {
   fetchRecurringTransactions,
@@ -48,6 +49,10 @@ import { isCompletedToday } from "@/domain/habits";
 import { formatMovieRating } from "@/domain/movies";
 import { formatBRL } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  formatMomTrend,
+  previousYearMonth,
+} from "@/domain/finance/insights";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { BRAND } from "@/lib/brand";
@@ -229,6 +234,7 @@ export default function LifeDashboard() {
   );
   const [daysWithoutTx, setDaysWithoutTx] = useState<number | null>(null);
   const [showStaleNudge, setShowStaleNudge] = useState(false);
+  const [momDespesa, setMomDespesa] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -254,6 +260,7 @@ export default function LifeDashboard() {
           recurring,
           latestAt,
           watchedPage,
+          prevMonthTotals,
         ] = await Promise.all([
           fetchLifeDashboardSummary(),
           fetchTimelineItems(30, 7),
@@ -263,6 +270,12 @@ export default function LifeDashboard() {
           fetchRecurringTransactions().catch(() => []),
           fetchLatestTransactionAt().catch(() => null),
           fetchMovies("watched", 1, 1).catch(() => ({ data: [], total: 0 })),
+          (() => {
+            const prev = previousYearMonth(year, month);
+            return fetchValueByNatureForMonth(prev.year, prev.month).catch(
+              () => null
+            );
+          })(),
         ]);
         const upcomingItems = getUpcomingTimeline(timeline, 7);
         const withAlerts: LifeDashboardSummary = {
@@ -274,6 +287,14 @@ export default function LifeDashboard() {
         };
         const [h, l] = habitsBundle;
         setSummary(withAlerts);
+        const prevYm = previousYearMonth(year, month);
+        setMomDespesa(
+          formatMomTrend(
+            withAlerts.expenseTotal ?? 0,
+            prevMonthTotals?.despesa_total,
+            prevYm.month
+          )
+        );
         setUpcoming(upcomingItems);
         setAlerts(appAlerts.slice(0, 6));
         setHabits(h);
@@ -316,7 +337,7 @@ export default function LifeDashboard() {
       }
     }
     void load();
-  }, [toast, user?.id]);
+  }, [toast, user?.id, year, month]);
 
   useEffect(() => {
     if (!user?.id || !summary) return;
@@ -501,6 +522,11 @@ export default function LifeDashboard() {
               >
                 {s.balance != null ? formatBRL(s.balance) : "—"}
               </p>
+              {momDespesa ? (
+                <p className="mt-1 text-[11px] text-primary-foreground/75">
+                  Despesa {momDespesa}
+                </p>
+              ) : null}
             </div>
             <Link
               to="/finance/dashboard"

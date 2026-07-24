@@ -8,6 +8,7 @@ import {
   trialDaysRemaining,
   type PlanId,
 } from "@/lib/plan";
+import { maybeTrackRetentionD7 } from "@/lib/retention";
 
 export function usePlan() {
   const { user } = useAuth();
@@ -57,6 +58,11 @@ export function usePlan() {
   useEffect(() => {
     void refresh({ soft: hasProfileRef.current });
   }, [refresh]);
+
+  useEffect(() => {
+    if (!userId || !profile?.created_at) return;
+    maybeTrackRetentionD7(userId, profile.created_at);
+  }, [userId, profile?.created_at]);
 
   const plan: PlanId = profile?.plan ?? "free";
   const createdAt = profile?.created_at ?? null;
