@@ -19,7 +19,6 @@ import {
 
 import { moduleColors } from "@/lib/design-tokens"
 import { useAuth } from "@/hooks/useAuth"
-import { isActivationDone } from "@/lib/onboarding"
 
 type NavItem = {
   title: string
@@ -71,13 +70,11 @@ const NAV_VIDA: NavItem = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
-  const activated = Boolean(user?.id && isActivationDone(user.id))
 
-  const navItems = React.useMemo(() => {
-    // Até o ledger ativar, Finanças sobe e Vida fica fora do menu.
-    if (!activated) return [NAV_INICIO, NAV_FINANCE]
-    return [NAV_INICIO, NAV_FINANCE, NAV_VIDA]
-  }, [activated])
+  const navItems = React.useMemo(
+    () => [NAV_INICIO, NAV_FINANCE, NAV_VIDA],
+    []
+  )
 
   const navUser = React.useMemo(
     () => ({

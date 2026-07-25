@@ -66,7 +66,6 @@ import {
   dismissLedgerStaleNudge,
   isLedgerStaleNudgeDismissed,
 } from "@/lib/ledgerStickiness";
-import { isActivationDone } from "@/lib/onboarding";
 import {
   generateMonthSpendShareImage,
   monthLabel,
@@ -241,7 +240,6 @@ export default function LifeDashboard() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
-  const activated = Boolean(user?.id && isActivationDone(user.id));
 
   useEffect(() => {
     track("ledger_open", { source: "home" });
@@ -745,12 +743,11 @@ export default function LifeDashboard() {
           )}
         </section>
 
-        {activated ? (
-          <section className="space-y-3 lg:col-span-7">
-            <h2 className="text-base font-semibold tracking-tight sm:text-lg">
-              Resumo do dia
-            </h2>
-            <ul className="overflow-hidden rounded-[1.25rem] border bg-card/80 shadow-sm divide-y backdrop-blur">
+        <section className="space-y-3 lg:col-span-7">
+          <h2 className="text-base font-semibold tracking-tight sm:text-lg">
+            Resumo do dia
+          </h2>
+          <ul className="overflow-hidden rounded-[1.25rem] border bg-card/80 shadow-sm divide-y backdrop-blur">
               <li>
                 <Link
                   to="/habits"
@@ -866,14 +863,7 @@ export default function LifeDashboard() {
                 </li>
               ) : null}
             </ul>
-          </section>
-        ) : (
-          <section className="rounded-[1.25rem] border border-dashed px-5 py-8 text-sm text-muted-foreground lg:col-span-7">
-            Resumo do dia e módulos de vida liberam depois da{" "}
-            <strong className="font-medium text-foreground">1ª transação</strong>{" "}
-            e do tour. Foque no ledger agora.
-          </section>
-        )}
+        </section>
       </div>
 
       {/* Timeline + módulos */}
@@ -956,58 +946,38 @@ export default function LifeDashboard() {
           ) : null}
         </section>
 
-        {activated ? (
-          <section className="space-y-3 lg:col-span-7">
-            <h2 className="text-base font-semibold tracking-tight sm:text-lg">Módulos</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-              {HOME_MODULES.map((mod) => {
-                const Icon = mod.icon;
-                return (
-                  <Link
-                    key={mod.href}
-                    to={mod.href}
-                    className="group flex flex-col gap-2 rounded-xl border bg-card/80 px-3 py-3 shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md sm:gap-2.5 sm:rounded-[1.15rem] sm:px-3.5 sm:py-3.5"
+        <section className="space-y-3 lg:col-span-7">
+          <h2 className="text-base font-semibold tracking-tight sm:text-lg">Módulos</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+            {HOME_MODULES.map((mod) => {
+              const Icon = mod.icon;
+              return (
+                <Link
+                  key={mod.href}
+                  to={mod.href}
+                  className="group flex flex-col gap-2 rounded-xl border bg-card/80 px-3 py-3 shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md sm:gap-2.5 sm:rounded-[1.15rem] sm:px-3.5 sm:py-3.5"
+                >
+                  <span
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-xl transition-transform group-hover:scale-105 sm:h-10 sm:w-10",
+                      mod.tone
+                    )}
                   >
-                    <span
-                      className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-xl transition-transform group-hover:scale-105 sm:h-10 sm:w-10",
-                        mod.tone
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold leading-tight">
+                      {mod.label}
                     </span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold leading-tight">
-                        {mod.label}
-                      </span>
-                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                        {mod.subtitle}
-                      </span>
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      {mod.subtitle}
                     </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        ) : (
-          <section className="space-y-3 lg:col-span-7">
-            <h2 className="text-base font-semibold tracking-tight sm:text-lg">Módulos</h2>
-            <Link
-              to="/finance/dashboard"
-              className="flex items-center gap-3 rounded-[1.15rem] border bg-card px-4 py-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary sm:h-10 sm:w-10 sm:rounded-2xl">
-                <Wallet className="h-5 w-5" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold">Finanças</span>
-                <span className="block text-xs text-muted-foreground">
-                  Livro-caixa
-                </span>
-              </span>
-            </Link>
-          </section>
-        )}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
       </div>
 
       {receita != null && despesa != null ? (
