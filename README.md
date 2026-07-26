@@ -65,6 +65,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
   ├─ tenancy_rls.sql         # P0: user_id + RLS + excluir conta
   ├─ dimensions_tenancy.sql  # tipos/classes por usuário
   ├─ billing.sql             # teste 7d / Pro + waitlist
+  ├─ retention.sql           # last_seen_at + cohort e-mail D7
   ├─ seed_natures.sql
   ├─ movies_opinion.sql
   ├─ vehicle_kind.sql
@@ -138,6 +139,8 @@ Execute **um por vez** no **SQL Editor** do Supabase (detalhe em `scripts/README
 | 9 | `shared_trips_invite_fix.sql` | Aceite de convite + policies |
 | 10 | `trip_activity_author.sql` | Autor da atividade no itinerário |
 | 11 | **`security_hardening.sql`** | **Obrigatório** — trava Pro no profiles, convites, roles, despesas |
+| 12 | `app_access_enforce.sql` | Gate trial/Pro nas escritas |
+| 13 | `retention.sql` | `last_seen_at` + cohort do e-mail D7 |
 
 > Rode `tenancy_rls.sql` antes de convidar outro usuário. Sem isso, o app filtra no cliente, mas o banco ainda pode vazar dados. Depois teste com **2 contas Google**.
 > Para planejar viagem juntos, rode também `shared_trips.sql` → `shared_trips_invite_fix.sql`.
@@ -190,6 +193,22 @@ Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/ap
 
 Analytics: `VITE_POSTHOG_KEY` (+ opcional `VITE_POSTHOG_HOST`).  
 Sentry: `VITE_SENTRY_DSN` (opcional).
+
+### Retenção D7 (server + e-mail)
+
+1. Rode `scripts/retention.sql` (ou migration `20260725220000_retention_d7`)
+2. Conta no [Resend](https://resend.com) + domínio `orbyva.app` verificado
+3. Deploy: `supabase functions deploy retention-d7-email`
+4. Secrets: `CRON_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (`Orbyva <noreply@orbyva.app>`), `SITE_URL`  
+   Opcional: `POSTHOG_API_KEY` (+ `POSTHOG_HOST`) para evento `retention_email_sent`
+5. Cron diário (Dashboard → Edge Functions → Schedules, ou GitHub Action):
+
+```bash
+curl -X POST "$SUPABASE_URL/functions/v1/retention-d7-email" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Quem abre o app atualiza `profiles.last_seen_at` (RPC). O cron e-maila quem tem 7–14 dias de conta, inativo há 5+ dias, e ainda não recebeu o retorno.
 
 Migrations = fonte da verdade: `supabase/migrations/` (espelho em `scripts/` para SQL Editor). Ver `scripts/README.md`.
 

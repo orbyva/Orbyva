@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ensureProfile, type UserProfile } from "@/api/billing";
+import { ensureProfile, touchLastSeen, type UserProfile } from "@/api/billing";
 import { useAuth } from "@/hooks/useAuth";
 import {
   hasAppAccess,
@@ -34,6 +34,7 @@ export function usePlan() {
       const next = await ensureProfile();
       setProfile(next);
       hasProfileRef.current = true;
+      void touchLastSeen();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao carregar plano");
       // Não resetar trial com now() — usa created_at do auth se já houver perfil em memória

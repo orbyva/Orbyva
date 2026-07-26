@@ -4,3 +4,7 @@ id = "orbyva"
 # Stripe envia o webhook sem JWT do Supabase — desligar verificação no gateway.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# Cron diário (Authorization: Bearer CRON_SECRET) — sem JWT de usuário.
+[functions.retention-d7-email]
+verify_jwt = false

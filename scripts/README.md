@@ -40,6 +40,7 @@ supabase db push
 | 10 | `trip_activity_author.sql` | Autor da atividade |
 | 11 | `security_hardening.sql` | **Obrigatório** — trava billing / convites |
 | 12 | **`app_access_enforce.sql`** | **P0** — bloqueia escrita sem trial/Pro |
+| 13 | `retention.sql` | `last_seen_at` + e-mail D7 (`retention-d7-email`) |
 
 ## Notas
 
@@ -47,3 +48,4 @@ supabase db push
 - **`app_access_enforce.sql`** é o gate server-side do trial (independente do Stripe).
 - Billing Stripe: `billing.sql` + secrets + `VITE_STRIPE_PUBLISHABLE_KEY`. Sem a chave → waitlist; com a chave → teste → Pro.
 - Cobrança Live exige Cards Active no Stripe Dashboard.
+- Retenção: após `retention.sql`, deploy `retention-d7-email` + secrets Resend/Cron (ver README).

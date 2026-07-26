@@ -1,4 +1,6 @@
-/** Retenção D7 do funil (Fase B). */
+/** Retenção D7 do funil — evento PostHog no client (quem volta).
+ *  Server: `profiles.last_seen_at` + e-mail via `retention-d7-email`.
+ */
 
 import { track } from "@/lib/analytics";
 import { daysSinceIsoDate } from "@/lib/ledgerStickiness";
