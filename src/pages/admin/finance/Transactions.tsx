@@ -51,6 +51,7 @@ export default function Transactions() {
     setTransactions,
     loadingTransactions,
     totalPages,
+    fromCache,
     refetchTransactions,
   } = useTransactions({
     page,
@@ -78,17 +79,24 @@ export default function Transactions() {
 
   useEffect(() => {
     if (searchParams.get("new") !== "1") return;
+    const prefillDesc = searchParams.get("desc") ?? "";
+    const prefillValue = Number(searchParams.get("value"));
     setIsEditing(false);
     setSelectedTransaction(null);
     setNewTransaction({
       class_id: 0,
-      value: 0,
-      description: "",
+      value:
+        Number.isFinite(prefillValue) && prefillValue > 0
+          ? Math.round(prefillValue * 100) / 100
+          : 0,
+      description: prefillDesc,
       transaction_at: new Date().toISOString(),
     });
     setOpen(true);
     const next = new URLSearchParams(searchParams);
     next.delete("new");
+    next.delete("desc");
+    next.delete("value");
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
@@ -230,6 +238,11 @@ export default function Transactions() {
       }
     >
       <section className="space-y-3">
+        {fromCache ? (
+          <p className="text-xs text-muted-foreground">
+            Sem conexão — mostrando o último ledger salvo neste dispositivo.
+          </p>
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

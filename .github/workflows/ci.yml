@@ -42,6 +42,11 @@ jobs:
       - name: Bundle budget
         run: npm run check:bundle
 
+      - name: Lighthouse budget
+        run: npx --yes @lhci/cli@0.15.x autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 

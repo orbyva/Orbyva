@@ -203,13 +203,29 @@ export default function Goals() {
                     <p className="mt-1 text-xs text-muted-foreground">
                       {financeInsight.suggestion}
                     </p>
-                    <Button
-                      variant="link"
-                      className="mt-1 h-auto p-0 text-xs"
-                      asChild
-                    >
-                      <Link to="/finance/transactions">Abrir transações</Link>
-                    </Button>
+                    <div className="mt-1 flex items-center gap-3">
+                      {financeInsight.monthlyTarget != null &&
+                      financeInsight.monthlyTarget > 0 ? (
+                        <Button
+                          variant="link"
+                          className="h-auto p-0 text-xs"
+                          asChild
+                        >
+                          <Link
+                            to={`/finance/transactions?new=1&desc=${encodeURIComponent(`Aporte meta: ${goal.title}`)}&value=${financeInsight.monthlyTarget.toFixed(2)}`}
+                          >
+                            Lançar aporte do mês
+                          </Link>
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="link"
+                        className="h-auto p-0 text-xs text-muted-foreground"
+                        asChild
+                      >
+                        <Link to="/finance/transactions">Abrir transações</Link>
+                      </Button>
+                    </div>
                   </div>
                 ) : null}
               </article>

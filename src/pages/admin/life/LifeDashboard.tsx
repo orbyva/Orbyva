@@ -189,17 +189,21 @@ export default function LifeDashboard() {
           alerts: appAlerts.slice(0, 6),
         });
       } catch (error) {
+        // Fallback para o snapshot mesmo com navigator.onLine true
+        // (rede instável / captive portal também derruba o fetch).
         const cached = loadOfflineSnapshot<HubCache>(hubCacheKey(user?.id));
-        if (cached && isNavigatorOffline()) {
+        if (cached) {
           setSummary(cached.data.summary);
           setUpcoming(cached.data.upcoming);
           setAlerts(cached.data.alerts ?? []);
           setFromCache(true);
-          toast({
-            title: "Modo offline",
-            description: "Exibindo o último hub salvo neste dispositivo.",
-            duration: 3000,
-          });
+          if (isNavigatorOffline()) {
+            toast({
+              title: "Modo offline",
+              description: "Exibindo o último hub salvo neste dispositivo.",
+              duration: 3000,
+            });
+          }
         } else {
           toast({
             title: "Erro",

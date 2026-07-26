@@ -249,7 +249,7 @@ export default function Landing() {
     }
   }
 
-  const ctaTo = !loading && user ? "/home" : "/login";
+  const ctaTo = !loading && user ? "/home" : "/login?mode=signup";
   const ctaLabel =
     !loading && user
       ? "Abrir app"
