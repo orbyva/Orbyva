@@ -18,7 +18,9 @@ describe("plan", () => {
 
   it("expõe teste e Pro sem prometer IA", () => {
     expect(PLANS.free.priceLabel).toContain("7");
-    expect(PLANS.pro.features.join(" ").toLowerCase()).not.toContain("ia");
+    const copy = PLANS.pro.features.join(" ").toLowerCase();
+    expect(copy).not.toMatch(/\bia\b/);
+    expect(copy).not.toContain("inteligência artificial");
   });
 
   it("calcula fim do teste em 7 dias", () => {

@@ -3,17 +3,14 @@ import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   CalendarDays,
-  Car,
   CheckCircle2,
   Clapperboard,
   CreditCard,
-  MapPin,
   PiggyBank,
   Plane,
   Plus,
   Share2,
   Star,
-  Target,
   Wallet,
   X,
   ArrowUpRight,
@@ -82,139 +79,19 @@ import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { FirstTxChecklist } from "@/components/FirstTxChecklist";
 import { ShareImageDialog } from "@/components/ShareImageDialog";
-
-const HOME_MODULES = [
-  {
-    label: "Finanças",
-    subtitle: "Livro-caixa",
-    href: "/finance/dashboard",
-    icon: Wallet,
-    tone: "bg-primary/10 text-primary",
-  },
-  {
-    label: "Hábitos",
-    subtitle: "Rotina do dia",
-    href: "/habits",
-    icon: CheckCircle2,
-    tone: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  },
-  {
-    label: "Metas",
-    subtitle: "Progresso longo prazo",
-    href: "/goals",
-    icon: Target,
-    tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  },
-  {
-    label: "Viagens",
-    subtitle: "Planeje e viva",
-    href: "/travel",
-    icon: Plane,
-    tone: "bg-teal-500/10 text-teal-700 dark:text-teal-400",
-  },
-  {
-    label: "Lugares",
-    subtitle: "Onde você esteve",
-    href: "/places",
-    icon: MapPin,
-    tone: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
-  },
-  {
-    label: "Cinema",
-    subtitle: "Filmes e séries",
-    href: "/movies",
-    icon: Clapperboard,
-    tone: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400",
-  },
-  {
-    label: "Veículos",
-    subtitle: "Tudo do seu carro",
-    href: "/car",
-    icon: Car,
-    tone: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-  },
-] as const;
-
-const MODULE_DOT: Record<string, string> = {
-  finance: "bg-primary",
-  car: "bg-[hsl(var(--car))]",
-  travel: "bg-[hsl(var(--travel))]",
-  goals: "bg-emerald-500",
-  habits: "bg-violet-500",
-  places: "bg-sky-500",
-  cinema: "bg-[hsl(var(--cinema))]",
-};
-
-function daysUntilIso(isoDate: string, from = new Date()): number {
-  const target = new Date(`${isoDate}T12:00:00`);
-  const start = new Date(from);
-  start.setHours(12, 0, 0, 0);
-  return Math.round((target.getTime() - start.getTime()) / 86_400_000);
-}
-
-function formatShortDate(isoDate: string): string {
-  const [, m, d] = isoDate.split("-");
-  return `${d}/${m}`;
-}
-
-type HubCache = {
-  summary: LifeDashboardSummary;
-  upcoming: TimelineItem[];
-  alerts: AppAlert[];
-};
-
-const HUB_CACHE_KEY = "life_hub_v2";
-
-function hubCacheKey(userId: string | undefined): string {
-  return userId ? `${HUB_CACHE_KEY}:${userId}` : HUB_CACHE_KEY;
-}
-
-function todayHeading(d = new Date()): string {
-  const raw = d.toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
-}
-
-function firstNameFromUser(user: {
-  email?: string | null;
-  user_metadata?: Record<string, unknown> | null;
-} | null): string | null {
-  const meta = user?.user_metadata ?? {};
-  const raw =
-    (typeof meta.full_name === "string" && meta.full_name) ||
-    (typeof meta.name === "string" && meta.name) ||
-    (typeof meta.given_name === "string" && meta.given_name) ||
-    (user?.email ? user.email.split("@")[0] : "") ||
-    "";
-  const first = raw.trim().split(/\s+/)[0] ?? "";
-  if (!first) return null;
-  return first.charAt(0).toUpperCase() + first.slice(1);
-}
-
-function severityAccent(severity: AppAlert["severity"]): string {
-  if (severity === "danger") {
-    return "border-destructive/25 bg-destructive/[0.06]";
-  }
-  if (severity === "warning") {
-    return "border-amber-500/25 bg-amber-500/[0.06]";
-  }
-  return "border-border bg-card";
-}
-
-function severityIcon(severity: AppAlert["severity"]): string {
-  if (severity === "danger") return "text-destructive";
-  if (severity === "warning") return "text-amber-600 dark:text-amber-400";
-  return "text-muted-foreground";
-}
-
-function budgetMonthIso(d = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}-01`;
-}
+import { HubModulesGrid } from "./HubModulesGrid";
+import {
+  type HubCache,
+  MODULE_DOT,
+  budgetMonthIso,
+  daysUntilIso,
+  firstNameFromUser,
+  formatShortDate,
+  hubCacheKey,
+  severityAccent,
+  severityIcon,
+  todayHeading,
+} from "./hubMeta";
 
 export default function LifeDashboard() {
   const [loading, setLoading] = useState(true);
@@ -946,38 +823,7 @@ export default function LifeDashboard() {
           ) : null}
         </section>
 
-        <section className="space-y-3 lg:col-span-7">
-          <h2 className="text-base font-semibold tracking-tight sm:text-lg">Módulos</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-            {HOME_MODULES.map((mod) => {
-              const Icon = mod.icon;
-              return (
-                <Link
-                  key={mod.href}
-                  to={mod.href}
-                  className="group flex flex-col gap-2 rounded-xl border bg-card/80 px-3 py-3 shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md sm:gap-2.5 sm:rounded-[1.15rem] sm:px-3.5 sm:py-3.5"
-                >
-                  <span
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-xl transition-transform group-hover:scale-105 sm:h-10 sm:w-10",
-                      mod.tone
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold leading-tight">
-                      {mod.label}
-                    </span>
-                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                      {mod.subtitle}
-                    </span>
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
+        <HubModulesGrid />
       </div>
 
       {receita != null && despesa != null ? (

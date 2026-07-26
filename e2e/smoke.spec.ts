@@ -5,7 +5,7 @@ test.describe("smoke público", () => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: "Orbyva" }).first()).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: /livro-caixa|órbita/i }).first()
+      page.getByRole("heading", { name: /cabe no mês|órbita|organize/i }).first()
     ).toBeVisible();
     // Sem Stripe no CI → "Entrar na lista"; com billing → Começar/Abrir app
     await expect(

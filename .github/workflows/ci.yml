@@ -18,6 +18,9 @@ jobs:
 
       - run: npm ci
 
+      - name: npm audit (prod)
+        run: npm audit --omit=dev --audit-level=high
+
       - run: npm run lint
 
       # Unitários não precisam do Supabase real
@@ -47,6 +50,8 @@ jobs:
         env:
           E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          E2E_EMAIL_B: ${{ secrets.E2E_EMAIL_B }}
+          E2E_PASSWORD_B: ${{ secrets.E2E_PASSWORD_B }}
           # Necessários para login via API no auth.spec (mais estável que UI no CI)
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}

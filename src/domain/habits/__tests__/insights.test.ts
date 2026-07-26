@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getHabitInsights } from "@/domain/habits/insights";
+import { getTodayIso } from "@/domain/habits";
 import type { Habit, HabitLog } from "@/types/habits";
 
 const habit = (id: string, name: string): Habit => ({
@@ -18,7 +19,7 @@ describe("getHabitInsights", () => {
   });
 
   it("destaca streak e taxa da semana", () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayIso();
     const habits = [habit("1", "Água")];
     const logs: HabitLog[] = [
       { id: "l1", habit_id: "1", date: today, completed: true },

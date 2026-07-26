@@ -191,6 +191,7 @@ Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/ap
 
 **Prod checklist:** `app_access_enforce` aplicado; secrets setados; webhook Live apontando para `/functions/v1/stripe-webhook`; `SITE_URL` = domínio público; CORS das edges = origin do `SITE_URL`.
 
+**Migrations gate (Fase G):** em produção, confirme na ordem `tenancy_rls` → `billing` → `security_hardening` → `app_access_enforce` → `retention` (D7). Sem tenancy/hardening, RLS e Pro não estão seguros.
 Analytics: `VITE_POSTHOG_KEY` (+ opcional `VITE_POSTHOG_HOST`).  
 Sentry: `VITE_SENTRY_DSN` (opcional).
 

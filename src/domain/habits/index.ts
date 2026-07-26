@@ -1,7 +1,11 @@
 import type { Habit, HabitLog } from "@/types/habits";
 
-export function getTodayIso(): string {
-  return new Date().toISOString().split("T")[0];
+/** Data local YYYY-MM-DD (não UTC — evita streak/check-in errados à noite no BR). */
+export function getTodayIso(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export function calculateStreak(logs: HabitLog[]): number {
@@ -13,10 +17,10 @@ export function calculateStreak(logs: HabitLog[]): number {
 
   let streak = 0;
   const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
+  cursor.setHours(12, 0, 0, 0);
 
   while (true) {
-    const iso = cursor.toISOString().split("T")[0];
+    const iso = getTodayIso(cursor);
     if (!completedDates.has(iso)) break;
     streak++;
     cursor.setDate(cursor.getDate() - 1);
