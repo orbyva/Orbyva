@@ -469,7 +469,7 @@ export default function LifeDashboard() {
             {BRAND.name}
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight leading-none sm:text-[2.05rem]">
-            {firstName ? `Olá, ${firstName}` : "Olá"}
+            {firstName ? `Olá, ${firstName}!` : "Olá"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">{todayHeading()}</p>
         </div>

@@ -54,7 +54,7 @@ export function OnboardingDialog() {
     markTourDone(userId!);
     track("onboarding_complete", { skipped: true });
     setOpen(false);
-    navigate("/finance/transactions");
+    navigate("/home");
   }
 
   async function handleNext() {
@@ -117,7 +117,7 @@ export function OnboardingDialog() {
 
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
           <Button variant="ghost" onClick={skip} disabled={busy}>
-            Pular e ir ao ledger
+            Pular e explorar o app
           </Button>
           <div className="flex flex-wrap gap-2">
             {current.id === "first-tx" ? (

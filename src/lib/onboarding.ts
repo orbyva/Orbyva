@@ -200,26 +200,26 @@ export function markOnboardingDone(): void {
   localStorage.setItem(LEGACY_V1, "done");
 }
 
-/** Finance-first: bem-vindo → categorias → 1ª tx → orçamento (opcional). */
+/** Tour curto: bem-vindo → categorias → 1ª tx (sugerida) → orçamento (opcional). */
 export const ONBOARDING_STEPS = [
   {
     id: "welcome",
     title: `Bem-vindo ao ${BRAND.name}`,
-    body: `${BRAND.wedge} Começamos pelo livro-caixa — o resto do life OS vem depois.`,
+    body: `Orçamento, parcelas e o mês em clareza — mais hábitos, viagens e cinema no mesmo app. Tudo liberado desde o primeiro acesso.`,
   },
   {
     id: "dimensions",
     title: "Categorias prontas",
-    body: "Criamos tipos e classes iniciais (ex.: Alimentação → Mercado) só na sua conta, para registrar a primeira despesa sem fricção.",
+    body: "Criamos tipos e classes iniciais (ex.: Alimentação → Mercado) só na sua conta, para registrar despesas sem fricção quando quiser.",
   },
   {
     id: "first-tx",
-    title: "Primeira transação",
-    body: "Registre um gasto ou receita agora. Sem isso o hub fica vazio — é o único passo obrigatório da ativação.",
+    title: "Primeira transação (sugerida)",
+    body: "Um lançamento deixa o saldo e as parcelas do mês com sentido. Não é obrigatório para usar Hábitos, Viagens, Cinema e o resto.",
   },
   {
     id: "budget",
-    title: "Orçamento do mês (opcional)",
-    body: "Defina um teto de despesa ou meta de receita. Pode pular e fazer depois em Finanças → Orçamento.",
+    title: "Orçamento do mês (recomendado)",
+    body: "Defina o teto de despesa (e, se quiser, meta de receita). É o que transforma o ledger em controle de verdade — pode pular e fazer depois.",
   },
 ] as const;

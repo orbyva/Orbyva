@@ -9,7 +9,7 @@ const MODULES = [
   },
   {
     title: "Finanças",
-    body: "Transações, parcelas, orçamento e dimensões — o livro-caixa no centro.",
+    body: "Livro-caixa, orçamento com teto e gerenciamento de parcelas — o diferencial do mês sob controle. CSV e card para compartilhar.",
   },
   {
     title: "Metas e hábitos",
@@ -17,11 +17,11 @@ const MODULES = [
   },
   {
     title: "Viagens e lugares",
-    body: "Roteiros, checklist, gastos da trip e lugares que importam.",
+    body: "Roteiro, orçamento e checklist. Viagem compartilhada com amigos no Orbyva; lugares com nota para compartilhar.",
   },
   {
     title: "Cinema",
-    body: "Filmes e séries em português: lista, notas e o que assistir depois.",
+    body: "Watchlist, notas e opinião — importe filmes e séries de outros sites e compartilhe o card nos Stories.",
   },
   {
     title: "Veículos",
@@ -109,7 +109,7 @@ export function AboutPage() {
           <p className="mt-3 text-base leading-relaxed text-zinc-400">
             Conta pessoal com login Google. Seus dados ficam na sua órbita —
             dá para exportar e excluir quando quiser. O produto evolui em
-            público: teste, waitlist do Pro e melhorias contínuas.
+            público: teste de 7 dias, Pro e melhorias contínuas.
           </p>
         </section>
 
@@ -122,6 +122,15 @@ export function AboutPage() {
               className="text-sky-300 underline-offset-2 hover:underline"
             >
               {BRAND.email}
+            </a>
+            {" · "}
+            <a
+              href={BRAND.instagramUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sky-300 underline-offset-2 hover:underline"
+            >
+              {BRAND.instagramHandle}
             </a>
           </p>
           <div className="mt-5 flex flex-wrap gap-3 text-sm">

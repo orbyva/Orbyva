@@ -1,0 +1,37 @@
+id,data,descricao,valor,classe,tipo,natureza
+,2026-05-05,Salário maio,8200.00,Salário,Salário,Receita
+,2026-05-08,Freelance landing page,1500.00,Freelance,Salário,Receita
+,2026-05-10,Aluguel maio,2200.00,Aluguel,Moradia,Despesa
+,2026-05-12,Conta de luz,186.40,Contas,Moradia,Despesa
+,2026-05-12,Internet fibra,119.90,Internet,Moradia,Despesa
+,2026-05-14,Mercado semanal,412.75,Mercado,Alimentação,Despesa
+,2026-05-16,Almoço no trabalho,48.90,Restaurante,Alimentação,Despesa
+,2026-05-18,iFood jantar,67.20,Delivery,Alimentação,Despesa
+,2026-05-20,Combustível posto Shell,280.00,Combustível,Transporte,Despesa
+,2026-05-22,Uber aeroporto,89.50,App / Uber,Transporte,Despesa
+,2026-05-25,Cinema Duna 2,72.00,Cinema,Lazer,Despesa
+,2026-05-28,Mercado mensal,523.10,Mercado,Alimentação,Despesa
+,2026-06-05,Salário junho,8200.00,Salário,Salário,Receita
+,2026-06-07,Aluguel junho,2200.00,Aluguel,Moradia,Despesa
+,2026-06-09,Conta de água,94.30,Contas,Moradia,Despesa
+,2026-06-11,Mercado,389.60,Mercado,Alimentação,Despesa
+,2026-06-13,Café da manhã,28.50,Restaurante,Alimentação,Despesa
+,2026-06-15,Combustível,265.00,Combustível,Transporte,Despesa
+,2026-06-18,Troca de óleo,420.00,Manutenção,Transporte,Despesa
+,2026-06-20,Delivery sushi,118.90,Delivery,Alimentação,Despesa
+,2026-06-22,Uber noite,34.80,App / Uber,Transporte,Despesa
+,2026-06-25,Ingresso show,180.00,Outros,Lazer,Despesa
+,2026-06-28,Mercado,445.20,Mercado,Alimentação,Despesa
+,2026-07-05,Salário julho,8200.00,Salário,Salário,Receita
+,2026-07-06,Freelance app,900.00,Freelance,Salário,Receita
+,2026-07-07,Aluguel julho,2200.00,Aluguel,Moradia,Despesa
+,2026-07-08,Internet,119.90,Internet,Moradia,Despesa
+,2026-07-09,Conta de luz,201.15,Contas,Moradia,Despesa
+,2026-07-10,Mercado,476.80,Mercado,Alimentação,Despesa
+,2026-07-12,Almoço com cliente,95.00,Restaurante,Alimentação,Despesa
+,2026-07-14,Combustível,290.00,Combustível,Transporte,Despesa
+,2026-07-16,iFood,54.30,Delivery,Alimentação,Despesa
+,2026-07-18,Uber centro,42.00,App / Uber,Transporte,Despesa
+,2026-07-20,Cinema Oppenheimer,68.00,Cinema,Lazer,Despesa
+,2026-07-22,Reserva pousada Serra,890.00,Viagem,Lazer,Despesa
+,2026-07-24,Mercado fim de semana,318.45,Mercado,Alimentação,Despesa

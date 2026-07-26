@@ -72,10 +72,10 @@ export function FirstTxChecklist() {
     <section className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold">Ativação do ledger</p>
+          <p className="text-sm font-semibold">Ative o controle do mês</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Finanças primeiro: uma transação desbloqueia o hub. Orçamento é o
-            segundo passo.
+            Uma transação + orçamento (teto) e, se tiver, parcelas — o trio que
+            deixa o mês sob controle. Vida já está liberada no menu.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

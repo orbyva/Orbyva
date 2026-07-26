@@ -12,7 +12,7 @@ export const PLANS = {
     blurb: "Acesso completo ao life OS durante o período de teste.",
     features: [
       `${TRIAL_DAYS} dias para explorar tudo`,
-      "Finanças, orçamento e parcelas",
+      "Livro-caixa, orçamento com teto e parcelas",
       "Metas, hábitos, viagens e lugares",
       "Cinema, veículos, PWA e alertas",
       "Export CSV e exclusão de conta",
@@ -22,10 +22,10 @@ export const PLANS = {
     id: "pro" as const,
     name: "Pro",
     priceLabel: "R$ 19,90/mês",
-    blurb: "Continue no Orbyva depois do teste — sem limite de tempo.",
+    blurb: "Continue no controle do mês e do life OS — sem limite de tempo.",
     features: [
-      "Tudo do período de teste",
-      "Acesso contínuo ao life OS",
+      "Orçamento, parcelas e ledger sem prazo",
+      "Life OS completo (hábitos, viagens, cinema…)",
       "Export e privacidade (LGPD)",
       "Novidades do produto primeiro",
     ],

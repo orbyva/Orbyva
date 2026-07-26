@@ -40,23 +40,27 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "travel",
     icon: Plane,
     title: "Como funcionam as Viagens",
-    hook: "Planeje roteiro, orçamento e gastos de cada viagem em um só lugar.",
+    hook: "Planeje sozinho ou compartilhe a viagem com amigos que também usam o Orbyva.",
     steps: [
       {
         title: "Crie a viagem",
-        body: "Comece com destino e datas. O card mostra a contagem regressiva e o status (planejada, em andamento, concluída).",
+        body: "Destino, datas e status. O card já mostra countdown, orçamento e checklist.",
       },
       {
         title: "Monte roteiro e checklist",
-        body: "Adicione dias, atividades e um checklist do que levar. O progresso do checklist aparece no card.",
+        body: "Dias, atividades e o que levar. O progresso do checklist aparece no card da viagem.",
+      },
+      {
+        title: "Convide amigos",
+        body: "Compartilhe a viagem com quem também usa o Orbyva: todo mundo vê o mesmo roteiro, divide gastos e acompanha o orçamento junto.",
       },
       {
         title: "Controle o orçamento",
-        body: "Defina um teto e registre despesas — inclusive divididas com quem viaja junto. Tudo conversa com o seu livro-caixa.",
+        body: "Defina um teto e lance despesas — inclusive divididas. Tudo conversa com o seu livro-caixa.",
       },
       {
-        title: "Avalie no fim",
-        body: "Ao concluir, avalie lugares visitados. Eles alimentam o módulo Lugares automaticamente.",
+        title: "Compartilhe e avalie",
+        body: "Gere um card da viagem para Stories ou WhatsApp. No fim, avalie lugares visitados — eles entram no módulo Lugares.",
       },
     ],
   },
@@ -64,19 +68,19 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "habits",
     icon: Flame,
     title: "Como funcionam os Hábitos",
-    hook: "Marque o que fez hoje e mantenha sequências (streaks) vivas.",
+    hook: "Um toque por dia. Streaks e a taxa da semana mostram se a rotina está grudando.",
     steps: [
       {
         title: "Crie um hábito",
-        body: "Dê um nome e a frequência (diária ou X vezes por semana). Comece com um ou dois — menos é mais.",
+        body: "Nome + frequência (diária ou X vezes por semana). Comece com um ou dois — menos é mais.",
       },
       {
         title: "Marque todo dia",
-        body: "Um toque marca o dia como feito. A sequência (streak) cresce enquanto você não quebra o ritmo.",
+        body: "Um toque marca o dia. A sequência (streak) cresce enquanto você não quebra o ritmo — e aparece no resumo do hub.",
       },
       {
         title: "Acompanhe a semana",
-        body: "O progresso semanal e os insights mostram onde você está firme e onde precisa de atenção.",
+        body: "Taxa dos últimos 7 dias e melhor streak mostram onde você está firme e onde precisa de atenção.",
       },
     ],
   },
@@ -84,19 +88,19 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "goals",
     icon: Target,
     title: "Como funcionam as Metas",
-    hook: "Defina objetivos de vida e acompanhe o progresso até a data.",
+    hook: "Objetivos de vida com barra de progresso — financeiros ligados ao ledger.",
     steps: [
       {
         title: "Crie a meta",
-        body: "Escolha uma categoria, um valor-alvo e uma unidade (R$, kg, páginas…). Um prazo é opcional, mas ajuda.",
+        body: "Categoria, valor-alvo e unidade (R$, km, livros…). Um prazo é opcional, mas ajuda a não deixar solto.",
       },
       {
         title: "Atualize o progresso",
-        body: "Registre o valor atual quando avançar. A barra de progresso mostra quanto falta.",
+        body: "Registre o valor atual quando avançar. A barra mostra quanto falta até o alvo.",
       },
       {
         title: "Metas financeiras",
-        body: "Metas em R$ mostram um insight de quanto guardar por mês para chegar no prazo.",
+        body: "Metas em R$ conversam com Finanças: veja quanto falta e lance o valor nas transações quando fizer sentido.",
       },
     ],
   },
@@ -104,19 +108,23 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "places",
     icon: MapPin,
     title: "Como funcionam os Lugares",
-    hook: "Avalie restaurantes, cafés e passeios — na cidade ou em viagem.",
+    hook: "Seu mapa de opiniões: restaurantes, cafés e passeios — com nota para lembrar e compartilhar.",
     steps: [
       {
         title: "Registre um lugar",
-        body: "Adicione um restaurante, café ou passeio e dê uma nota. Guarde o que valeu (ou não) a pena.",
+        body: "Nome, categoria e nota. Guarde o que valeu (ou não) a pena — na cidade ou em viagem.",
       },
       {
         title: "Filtre e reveja",
-        body: "Use notas e categorias para lembrar aonde voltar e o que recomendar.",
+        body: "Busque por nota, tipo ou viagem. Ideal para decidir aonde voltar ou o que recomendar.",
+      },
+      {
+        title: "Compartilhe a opinião",
+        body: "Gere um card do lugar para mandar no WhatsApp ou Stories — com nota e o que você achou.",
       },
       {
         title: "Vem das viagens também",
-        body: "Lugares avaliados dentro de uma viagem aparecem aqui automaticamente.",
+        body: "Lugares avaliados dentro de uma viagem (inclusive compartilhada) aparecem aqui automaticamente.",
       },
     ],
   },
@@ -124,19 +132,19 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "car",
     icon: Car,
     title: "Como funciona o Veículo",
-    hook: "Controle manutenções, abastecimentos e documentos do carro ou moto.",
+    hook: "Manutenções, combustível e documentos do carro ou moto — sem planilha paralela.",
     steps: [
       {
         title: "Cadastre o veículo",
-        body: "Informe carro ou moto e os dados básicos. Você pode ter mais de um.",
+        body: "Carro ou moto, placa e combustível. Você pode ter mais de um.",
       },
       {
         title: "Registre abastecimentos",
-        body: "Anote litros, valor e quilometragem. O app calcula consumo e custo por km.",
+        body: "Litros, valor e quilometragem. O app calcula consumo e custo por km.",
       },
       {
         title: "Manutenções e documentos",
-        body: "Acompanhe revisões e prazos (IPVA, seguro). Gastos entram no seu livro-caixa.",
+        body: "Cronograma de revisões e prazos (IPVA, seguro). Gastos entram no seu livro-caixa.",
       },
     ],
   },
@@ -144,19 +152,23 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "movies",
     icon: Film,
     title: "Como funciona o Cinema",
-    hook: "Monte sua watchlist, registre opiniões e acompanhe o histórico.",
+    hook: "Seu diário de filmes e séries: watchlist, nota e card pronto para Stories.",
     steps: [
       {
-        title: "Adicione à watchlist",
-        body: "Salve filmes e séries que quer assistir para não esquecer.",
+        title: "Monte a watchlist",
+        body: "Salve o que quer assistir — filme ou série — e não dependa da memória (nem do algoritmo).",
       },
       {
-        title: "Registre a opinião",
-        body: "Ao assistir, dê nota e comente. Séries acompanham episódios vistos.",
+        title: "Importe o que já viu",
+        body: "Traga filmes e séries de outros sites via CSV e continue o histórico daqui.",
       },
       {
-        title: "Revisite o histórico",
-        body: "Veja o que já assistiu e suas notas para decidir a próxima maratona.",
+        title: "Dê nota e opinião",
+        body: "Ao assistir, avalie e comente. Séries acompanham o progresso de episódios.",
+      },
+      {
+        title: "Compartilhe a opinião",
+        body: "Gere um card com poster e nota para Stories, WhatsApp ou onde quiser — sua opinião, do seu jeito.",
       },
     ],
   },

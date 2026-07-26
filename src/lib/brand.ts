@@ -1,18 +1,23 @@
-/** Identidade do produto — Orbyva (life OS · porta = ledger). */
+/** Identidade do produto — Orbyva (life OS · ledger no núcleo). */
 export const BRAND = {
   name: "Orbyva",
-  tagline: "Comece pelo livro-caixa. Organize o resto da vida.",
+  tagline: "Saiba o que cabe no mês — e organize o resto da vida",
   /** Cunha de diferenciação (landing / marketing). */
   wedge: "Life OS com ledger",
   shortDescription:
-    "Finanças no centro — hábitos, metas, viagens, cinema e veículos na mesma órbita.",
-  /** Uma linha para o hero — prova + proposta. */
+    "Orçamento, parcelas e livro-caixa — com hábitos, metas, viagens e cinema na mesma órbita.",
+  /** Uma linha para o hero — prova + proposta (conversão). */
   heroSupport:
-    "Registre gastos, acompanhe o mês e o orçamento. O life OS cresce depois que o ledger gruda.",
+    "Orçamento com teto, parcelas sob controle e o mês em clareza. Depois, hábitos, viagens, cinema e o restante do life OS — tudo liberado desde o primeiro dia.",
   /** Assets em /public */
   logo: "/logo.webp",
   logoMark: "/logo-mark.webp",
-  email: "hello@orbyva.app",
+  email: "orbyva@gmail.com",
+  domain: "orbyva.app",
+  siteUrl: "https://orbyva.app",
+  /** Canal de aquisição principal */
+  instagramHandle: "@orbyva",
+  instagramUrl: "https://instagram.com/orbyva",
 } as const;
 
 /** Hex de marca — canvas/shares/PWA (espelha --primary / --cinema). */
