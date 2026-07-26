@@ -8,6 +8,7 @@ export const SHARE_H = 1920;
 export const SHARE_BRAND = {
   name: BRAND.name,
   tagline: BRAND.tagline,
+  logoSlogan: BRAND.logoSlogan,
   wedge: BRAND.wedge,
   primary: BRAND_COLORS.primary,
   primarySoft: BRAND_COLORS.primarySoft,
@@ -19,6 +20,73 @@ export const SHARE_BRAND = {
   gold: "#FBBF24",
   font: '"Plus Jakarta Sans", system-ui, -apple-system, sans-serif',
 } as const;
+
+/** No-op mantido para os geradores (marca é vetorial nos shares). */
+export async function ensureShareBrandAssets(): Promise<void> {
+  /* mark desenhado via drawBrandMark — sem asset com fundo branco */
+}
+
+/** Wordmark ORBYVA — O/A em sky, RBYV em paper (como na logo). */
+export function drawOrbyvaWordmark(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number
+): number {
+  const letters: { ch: string; color: string }[] = [
+    { ch: "O", color: SHARE_BRAND.primary },
+    { ch: "R", color: SHARE_BRAND.paper },
+    { ch: "B", color: SHARE_BRAND.paper },
+    { ch: "Y", color: SHARE_BRAND.paper },
+    { ch: "V", color: SHARE_BRAND.paper },
+    { ch: "A", color: SHARE_BRAND.primary },
+  ];
+  ctx.save();
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `800 ${size}px ${SHARE_BRAND.font}`;
+  let cursor = x;
+  for (const { ch, color } of letters) {
+    ctx.fillStyle = color;
+    ctx.fillText(ch, cursor, y);
+    cursor += ctx.measureText(ch).width;
+  }
+  ctx.restore();
+  return cursor - x;
+}
+
+/** Slogan da lockup: “… ÓRBITA.” com a última palavra em sky. */
+export function drawLogoSlogan(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  y: number,
+  fontSize = 18
+) {
+  const prefix = "TUDO DA SUA VIDA EM UMA SÓ ";
+  const accent = "ÓRBITA.";
+  ctx.save();
+  ctx.font = `600 ${fontSize}px ${SHARE_BRAND.font}`;
+  ctx.textBaseline = "alphabetic";
+  const w1 = ctx.measureText(prefix).width;
+  const w2 = ctx.measureText(accent).width;
+  const start = cx - (w1 + w2) / 2;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(248, 250, 252, 0.45)";
+  ctx.fillText(prefix, start, y);
+  ctx.fillStyle = SHARE_BRAND.primary;
+  ctx.fillText(accent, start + w1, y);
+  ctx.restore();
+}
+
+function drawShareMark(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number
+) {
+  // Vetorial: o logo-mark.webp tem fundo branco e vira um quadrado no card.
+  drawBrandMark(ctx, cx, cy, size);
+}
 
 export function createShareCanvas(): {
   canvas: HTMLCanvasElement;
@@ -84,37 +152,40 @@ export function drawShareHeader(
   ctx: CanvasRenderingContext2D,
   eyebrow: string
 ) {
-  drawBrandMark(ctx, 96, 96, 44);
+  const markCx = 88;
+  const markCy = 100;
+  const markSize = 40;
+  drawShareMark(ctx, markCx, markCy, markSize);
+
+  const textX = markCx + markSize * 0.75;
+  drawOrbyvaWordmark(ctx, textX, markCy + 10, 32);
+
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = SHARE_BRAND.paper;
-  ctx.font = `700 34px ${SHARE_BRAND.font}`;
-  ctx.fillText(SHARE_BRAND.name, 132, 108);
   ctx.fillStyle = "rgba(248, 250, 252, 0.55)";
-  ctx.font = `500 22px ${SHARE_BRAND.font}`;
-  ctx.fillText(eyebrow.toUpperCase(), 132, 142);
+  ctx.font = `500 20px ${SHARE_BRAND.font}`;
+  ctx.fillText(eyebrow.toUpperCase(), textX, markCy + 40);
 }
 
 export function drawShareFooter(ctx: CanvasRenderingContext2D) {
-  const footerY = SHARE_H - 110;
+  const footerY = SHARE_H - 120;
   ctx.strokeStyle = "rgba(248, 250, 252, 0.12)";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(160, footerY - 36);
-  ctx.lineTo(SHARE_W - 160, footerY - 36);
+  ctx.moveTo(160, footerY - 48);
+  ctx.lineTo(SHARE_W - 160, footerY - 48);
   ctx.stroke();
 
-  drawBrandMark(ctx, SHARE_W / 2 - 78, footerY - 4, 28);
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = SHARE_BRAND.paper;
-  ctx.font = `700 28px ${SHARE_BRAND.font}`;
-  ctx.fillText(SHARE_BRAND.name, SHARE_W / 2 - 52, footerY + 6);
-
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(248, 250, 252, 0.4)";
-  ctx.font = `500 20px ${SHARE_BRAND.font}`;
-  ctx.fillText(SHARE_BRAND.tagline.toLowerCase(), SHARE_W / 2, footerY + 40);
+  const markSize = 28;
+  ctx.font = `800 28px ${SHARE_BRAND.font}`;
+  const nameW = ctx.measureText("ORBYVA").width;
+  const gap = 12;
+  const markSpan = markSize * 1.1;
+  const totalW = markSpan + gap + nameW;
+  const left = SHARE_W / 2 - totalW / 2;
+  drawShareMark(ctx, left + markSpan / 2, footerY - 6, markSize);
+  drawOrbyvaWordmark(ctx, left + markSpan + gap, footerY + 4, 28);
+  drawLogoSlogan(ctx, SHARE_W / 2, footerY + 42, 17);
 }
 
 /** Frame do hero — idêntico ao pôster do cinema (com foto). */
@@ -180,15 +251,7 @@ export function drawStoryHeader(
   ctx: CanvasRenderingContext2D,
   eyebrow: string
 ) {
-  drawBrandMark(ctx, 96, 96, 44);
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = SHARE_BRAND.paper;
-  ctx.font = `700 34px ${SHARE_BRAND.font}`;
-  ctx.fillText(SHARE_BRAND.name, 132, 108);
-  ctx.fillStyle = "rgba(248, 250, 252, 0.55)";
-  ctx.font = `500 22px ${SHARE_BRAND.font}`;
-  ctx.fillText(eyebrow.toUpperCase(), 132, 142);
+  drawShareHeader(ctx, eyebrow);
 }
 
 export function roundSharePath(

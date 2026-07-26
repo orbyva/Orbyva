@@ -100,7 +100,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Metas financeiras",
-        body: "Metas em R$ conversam com Finanças: veja quanto falta e lance o valor nas transações quando fizer sentido.",
+        body: "Metas em R$ com prazo mostram quanto guardar por mês. Atualize o progresso e lance em Finanças quando fizer sentido.",
       },
     ],
   },

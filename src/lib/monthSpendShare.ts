@@ -7,6 +7,7 @@ import {
   createShareCanvas,
   drawShareFooter,
   drawShareHeader,
+  ensureShareBrandAssets,
   paintShareBackground,
   shareNativePayload,
   slugify,
@@ -41,6 +42,7 @@ export function monthLabel(year: number, month: number): string {
 export async function generateMonthSpendShareImage(
   input: MonthSpendShareInput
 ): Promise<Blob | null> {
+  await ensureShareBrandAssets();
   const { canvas, ctx } = createShareCanvas();
   paintShareBackground(ctx, BRAND_COLORS.primaryDark, BRAND_COLORS.ink);
   drawShareHeader(ctx, "Resumo do mês");

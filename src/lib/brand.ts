@@ -2,6 +2,8 @@
 export const BRAND = {
   name: "Orbyva",
   tagline: "Saiba o que cabe no mês — e organize o resto da vida",
+  /** Slogan da lockup visual (logo.webp) — shares / exportações. */
+  logoSlogan: "Tudo da sua vida em uma só órbita.",
   /** Cunha de diferenciação (landing / marketing). */
   wedge: "Life OS com ledger",
   shortDescription:

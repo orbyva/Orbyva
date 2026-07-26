@@ -1,23 +1,28 @@
 import type { Movie } from "@/types/movies";
 import { formatMovieRating, getMovieRatingLabel } from "@/domain/movies";
-import { BRAND as PRODUCT_BRAND, BRAND_COLORS } from "@/lib/brand";
+import { BRAND_COLORS } from "@/lib/brand";
+import {
+  SHARE_BRAND,
+  SHARE_H as STORY_H,
+  SHARE_W as STORY_W,
+  canvasToPngBlob,
+  drawShareFooter,
+  drawShareHeader,
+  ensureShareBrandAssets,
+} from "@/lib/shareKit";
 
-const STORY_W = 1080;
-const STORY_H = 1920;
-
-/** Identidade visual do produto no card de share. */
 const BRAND = {
-  name: PRODUCT_BRAND.name,
-  tagline: PRODUCT_BRAND.tagline,
-  primary: BRAND_COLORS.primary,
-  primaryDeep: BRAND_COLORS.primaryDeep,
-  primarySoft: BRAND_COLORS.primarySoft,
+  name: SHARE_BRAND.name,
+  tagline: SHARE_BRAND.tagline,
+  primary: SHARE_BRAND.primary,
+  primaryDeep: SHARE_BRAND.primaryDeep,
+  primarySoft: SHARE_BRAND.primarySoft,
   cinema: BRAND_COLORS.cinema,
-  ink: BRAND_COLORS.ink,
-  paper: BRAND_COLORS.paper,
-  muted: "#94A3B8",
-  gold: "#FBBF24",
-  font: '"Plus Jakarta Sans", system-ui, -apple-system, sans-serif',
+  ink: SHARE_BRAND.ink,
+  paper: SHARE_BRAND.paper,
+  muted: SHARE_BRAND.muted,
+  gold: SHARE_BRAND.gold,
+  font: SHARE_BRAND.font,
 } as const;
 
 function isTmdbImageHost(hostname: string): boolean {
@@ -226,43 +231,6 @@ function drawRecommendBadge(
   }
 }
 
-function drawBrandMark(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  size: number
-) {
-  const r = size * 0.42;
-  const stroke = Math.max(3, size * 0.18);
-  ctx.save();
-  ctx.strokeStyle = BRAND.primary;
-  ctx.fillStyle = BRAND.primary;
-  ctx.lineCap = "round";
-
-  ctx.beginPath();
-  ctx.ellipse(
-    cx + size * 0.04,
-    cy,
-    size * 0.52,
-    size * 0.18,
-    -Math.PI / 5,
-    0,
-    Math.PI * 2
-  );
-  ctx.lineWidth = Math.max(2, size * 0.06);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(cx - size * 0.04, cy + size * 0.02, r, 0, Math.PI * 2);
-  ctx.lineWidth = stroke;
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(cx + r * 0.85, cy - r * 0.85, size * 0.12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
 /**
  * Card Stories com identidade visual do produto:
  * pôster em atmosfera + tipografia + marca.
@@ -271,6 +239,7 @@ export async function generateMovieShareImage(
   movie: Movie,
   options: { includeNotes?: boolean } = {}
 ): Promise<Blob | null> {
+  await ensureShareBrandAssets();
   const canvas = document.createElement("canvas");
   canvas.width = STORY_W;
   canvas.height = STORY_H;
@@ -311,15 +280,7 @@ export async function generateMovieShareImage(
   ctx.fillRect(0, 0, STORY_W, STORY_H);
 
   // ── Header da marca ────────────────────────────────────────────────
-  drawBrandMark(ctx, 96, 96, 44);
-  ctx.textAlign = "left";
-  ctx.fillStyle = BRAND.paper;
-  ctx.font = `700 34px ${BRAND.font}`;
-  ctx.fillText(BRAND.name, 132, 108);
-
-  ctx.fillStyle = "rgba(248, 250, 252, 0.55)";
-  ctx.font = `500 22px ${BRAND.font}`;
-  ctx.fillText("MINHA OPINIÃO", 132, 142);
+  drawShareHeader(ctx, "Minha opinião");
 
   // ── Pôster principal ───────────────────────────────────────────────
   const posterW = 680;
@@ -489,28 +450,9 @@ export async function generateMovieShareImage(
   }
 
   // ── Footer de marca ────────────────────────────────────────────────
-  const footerY = STORY_H - 110;
-  ctx.strokeStyle = "rgba(248, 250, 252, 0.12)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(160, footerY - 36);
-  ctx.lineTo(STORY_W - 160, footerY - 36);
-  ctx.stroke();
+  drawShareFooter(ctx);
 
-  drawBrandMark(ctx, STORY_W / 2 - 78, footerY - 4, 28);
-  ctx.textAlign = "left";
-  ctx.fillStyle = BRAND.paper;
-  ctx.font = `700 28px ${BRAND.font}`;
-  ctx.fillText(BRAND.name, STORY_W / 2 - 52, footerY + 6);
-
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(248, 250, 252, 0.4)";
-  ctx.font = `500 20px ${BRAND.font}`;
-  ctx.fillText(BRAND.tagline.toLowerCase(), STORY_W / 2, footerY + 40);
-
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob), "image/png");
-  });
+  return canvasToPngBlob(canvas);
 }
 
 export function buildMovieShareText(

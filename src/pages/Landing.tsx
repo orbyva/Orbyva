@@ -110,7 +110,7 @@ const LIFE_MODULES = [
   {
     id: "metas",
     label: "Metas",
-    body: "Objetivos com progresso — metas em R$ ligadas ao ledger.",
+    body: "Objetivos com progresso — e quanto guardar por mês nas metas em R$.",
     src: "/marketing/metas.png",
   },
   {

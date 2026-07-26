@@ -18,6 +18,7 @@ import {
   drawShareFooter,
   drawStoryHeader,
   drawStoryHeroCard,
+  ensureShareBrandAssets,
   paintStoryBackdrop,
   shareNativePayload,
   slugify,
@@ -41,6 +42,7 @@ export async function generatePlaceShareImage(
   place: PlaceVisit,
   options: PlaceShareOptions = {}
 ): Promise<Blob | null> {
+  await ensureShareBrandAssets();
   const { canvas, ctx } = createShareCanvas();
   const photos = (
     options.photos?.length

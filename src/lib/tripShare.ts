@@ -12,6 +12,7 @@ import {
   drawShareFooter,
   drawStoryHeader,
   drawStoryHeroCard,
+  ensureShareBrandAssets,
   paintStoryBackdrop,
   roundSharePath,
   shareNativePayload,
@@ -38,6 +39,7 @@ export async function generateTripShareImage(
   trip: Trip,
   options: TripShareOptions = {}
 ): Promise<Blob | null> {
+  await ensureShareBrandAssets();
   const { canvas, ctx } = createShareCanvas();
   const photos = (
     options.photos?.length

@@ -29,7 +29,7 @@ import { getFinancialGoalInsight } from "@/domain/goals/finance";
 import type { GoalCategory, PersonalGoal, PersonalGoalCreateRequest } from "@/types/goals";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
-import { formatDateBR } from "@/lib/currency";
+import { formatDateBR, formatBRL } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useState } from "react";
 
@@ -179,6 +179,27 @@ export default function Goals() {
                       <Wallet className="h-3.5 w-3.5" />
                       Meta ↔ Finanças
                     </p>
+                    {financeInsight.monthlyTarget != null &&
+                    financeInsight.monthlyTarget > 0 ? (
+                      <>
+                        <p className="mt-1.5 text-sm font-semibold tabular-nums">
+                          {formatBRL(financeInsight.monthlyTarget)}
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            / mês
+                          </span>
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {financeInsight.monthsRemaining === 1
+                            ? "1 mês para bater a meta no prazo"
+                            : `${financeInsight.monthsRemaining} meses para bater a meta no prazo`}
+                        </p>
+                      </>
+                    ) : financeInsight.monthlyLabel ? (
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        {financeInsight.monthlyLabel}
+                      </p>
+                    ) : null}
                     <p className="mt-1 text-xs text-muted-foreground">
                       {financeInsight.suggestion}
                     </p>
