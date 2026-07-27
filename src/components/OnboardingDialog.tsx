@@ -67,7 +67,7 @@ export function OnboardingDialog() {
         if (result.missingNatures.length) {
           toast({
             title: "Naturezas faltando",
-            description: `Rode scripts/seed_natures.sql no Supabase (${result.missingNatures.join(", ")}).`,
+            description: `Aplique as migrations de naturezas no Supabase (${result.missingNatures.join(", ")}).`,
             variant: "destructive",
           });
         } else if (result.createdTypes || result.createdClasses) {

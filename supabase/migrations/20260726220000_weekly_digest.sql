@@ -1,4 +1,4 @@
--- Espelho de scripts/weekly_digest.sql
+-- Weekly digest: marca envio + grant execute no cron RPC
 alter table public.profiles
   add column if not exists weekly_digest_sent_at timestamptz;
 

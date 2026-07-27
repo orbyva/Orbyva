@@ -113,7 +113,7 @@ export default function Account() {
     } catch (error) {
       toast({
         title: "Não foi possível excluir a conta",
-        description: `${getErrorMessage(error)} Rode o script scripts/tenancy_rls.sql no Supabase se ainda não rodou.`,
+        description: `${getErrorMessage(error)} Confirme as migrations de tenancy/RLS no Supabase se ainda não aplicou.`,
         variant: "destructive",
       });
       setDeleting(false);
@@ -135,7 +135,7 @@ export default function Account() {
     } catch (error) {
       toast({
         title: "Não foi possível limpar os dados",
-        description: `${getErrorMessage(error)} Rode o script scripts/tenancy_rls.sql no Supabase se ainda não rodou.`,
+        description: `${getErrorMessage(error)} Confirme as migrations de tenancy/RLS no Supabase se ainda não aplicou.`,
         variant: "destructive",
       });
     } finally {

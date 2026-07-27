@@ -60,19 +60,11 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 /public
   └─ logo.webp, placeholder.svg
 
-/scripts                    # SQL para rodar no Supabase (ver scripts/README.md)
-  ├─ README.md               # ordem de execução
-  ├─ tenancy_rls.sql         # P0: user_id + RLS + excluir conta
-  ├─ dimensions_tenancy.sql  # tipos/classes por usuário
-  ├─ billing.sql             # teste 7d / Pro + waitlist
-  ├─ retention.sql           # last_seen_at + cohort e-mail D7
-  ├─ seed_natures.sql
-  ├─ movies_opinion.sql
-  ├─ vehicle_kind.sql
-  ├─ fuel_log_transaction.sql
-  ├─ shared_trips.sql
-  ├─ shared_trips_invite_fix.sql
-  └─ trip_activity_author.sql
+/scripts                    # Utilitários locais (bundle budget, minify SW, ci:local)
+/supabase
+  ├─ migrations/            # Schema / RLS / seeds — fonte da verdade do banco
+  ├─ config.toml
+  └─ functions/             # stripe-*, retention, digest
 
 /src
   ├─ api/                   # I/O Supabase por domínio
@@ -85,10 +77,6 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
   ├─ types/
   ├─ routes.tsx
   └─ main.tsx
-
-/supabase
-  ├─ config.toml
-  └─ functions/             # stripe-* (billing)
 ```
 
 ---
@@ -122,31 +110,32 @@ Atalhos: **⌘K** busca global · sino no header para alertas · PWA instalável
 
 ---
 
-## Scripts SQL (Supabase)
+## Banco (Supabase migrations)
 
-Execute **um por vez** no **SQL Editor** do Supabase (detalhe em `scripts/README.md`):
+A fonte da verdade é `supabase/migrations/`. Aplique com o CLI (projeto linkado):
 
-| Ordem | Script | Descrição |
-|-------|--------|-----------|
-| 1 | `tenancy_rls.sql` | **Obrigatório** — `user_id` + RLS + RPC excluir conta |
-| 2 | `dimensions_tenancy.sql` | Tipos/classes por usuário |
-| 3 | `billing.sql` | `profiles` (teste 7 dias → Pro) + `waitlist` |
-| 4 | `seed_natures.sql` | Naturezas Receita/Despesa/Investimento (onboarding) |
-| 5 | `movies_opinion.sql` | Colunas de opinião em `movie` |
-| 6 | `vehicle_kind.sql` | Coluna `kind` em `vehicle` |
-| 7 | `fuel_log_transaction.sql` | `transaction_id` em `vehicle_fuel_log` |
-| 8 | `shared_trips.sql` | Viagem compartilhada (membros, convites, opiniões, splits) |
-| 9 | `shared_trips_invite_fix.sql` | Aceite de convite + policies |
-| 10 | `trip_activity_author.sql` | Autor da atividade no itinerário |
-| 11 | **`security_hardening.sql`** | **Obrigatório** — trava Pro no profiles, convites, roles, despesas |
-| 12 | `app_access_enforce.sql` | Gate trial/Pro nas escritas |
-| 13 | `retention.sql` | `last_seen_at` + cohort do e-mail D7 |
+```bash
+supabase db push
+```
 
-> Rode `tenancy_rls.sql` antes de convidar outro usuário. Sem isso, o app filtra no cliente, mas o banco ainda pode vazar dados. Depois teste com **2 contas Google**.
-> Para planejar viagem juntos, rode também `shared_trips.sql` → `shared_trips_invite_fix.sql`.
-> Se você já rodou 1–10 antes, rode **`security_hardening.sql`** agora — fecha bypass de Pro e leaks de convite.
+Ou cole a migration desejada no **SQL Editor** do Dashboard.
 
-**Funil de conversão:** com `VITE_STRIPE_PUBLISHABLE_KEY` a landing vende **7 dias → Assinar Pro**; sem a chave, vende só **waitlist** (sem misturar as duas histórias).
+Principais gates (já versionados nas migrations):
+
+| Tema | Migration (prefixo) |
+|------|---------------------|
+| Tenancy + RLS | `20240101000100_tenancy_rls` |
+| Dimensões por usuário | `20240101000200_dimensions_tenancy` |
+| Billing / waitlist | `20240101000300_billing` |
+| Naturezas (Receita/Despesa/Investimento) | `20240101000400_seed_natures` (+ investimento) |
+| Cinema / veículos / viagens | `20240101000500` … `20240101001100` |
+| Security hardening | `20240101001200_security_hardening` |
+| Gate trial/Pro (escritas) | `20260723120000_app_access_enforce` |
+| Retenção D7 / digest | `20260725220000_retention_d7`, `20260726220000_weekly_digest` |
+| Hábitos kind + meta | `20260727143000_habit_kind_goal` |
+
+> Sem tenancy/RLS, o app filtra no cliente, mas o banco ainda pode vazar. Teste com **2 contas**.
+> **Funil:** com `VITE_STRIPE_PUBLISHABLE_KEY` a landing vende **7 dias → Pro**; sem a chave, só **waitlist**.
 
 ---
 
@@ -177,7 +166,7 @@ Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/ap
 
 ### Billing (Stripe)
 
-1. Rode `scripts/billing.sql` (ou migrations) + **`app_access_enforce.sql`**
+1. Aplique as migrations (`supabase db push`) — billing + **`app_access_enforce`**
 2. Crie um Price recorrente (`price_...`, BRL) no Stripe
 3. Deploy: `stripe-checkout`, `stripe-portal`, `stripe-webhook`  
    (`stripe-webhook` usa `verify_jwt = false` — Stripe não manda JWT)
@@ -191,13 +180,13 @@ Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/ap
 
 **Prod checklist:** `app_access_enforce` aplicado; secrets setados; webhook Live apontando para `/functions/v1/stripe-webhook`; `SITE_URL` = domínio público; CORS das edges = origin do `SITE_URL`.
 
-**Migrations gate (Fase G):** em produção, confirme na ordem `tenancy_rls` → `billing` → `security_hardening` → `app_access_enforce` → `retention` (D7). Sem tenancy/hardening, RLS e Pro não estão seguros.
+**Migrations gate:** em produção, confirme tenancy → billing → security_hardening → app_access_enforce → retention. Sem tenancy/hardening, RLS e Pro não estão seguros.
 Analytics: `VITE_POSTHOG_KEY` (+ opcional `VITE_POSTHOG_HOST`).  
 Sentry: `VITE_SENTRY_DSN` (opcional).
 
 ### Retenção D7 (server + e-mail)
 
-1. Rode `scripts/retention.sql` (ou migration `20260725220000_retention_d7`)
+1. Migration `20260725220000_retention_d7` aplicada
 2. Conta no [Resend](https://resend.com) + domínio `orbyva.app` verificado
 3. Deploy: `supabase functions deploy retention-d7-email`
 4. Secrets: `CRON_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (`Orbyva <noreply@orbyva.app>`), `SITE_URL`  
@@ -213,7 +202,7 @@ Quem abre o app atualiza `profiles.last_seen_at` (RPC). O cron e-maila quem tem 
 
 ### Digest semanal (e-mail)
 
-1. Rode `scripts/weekly_digest.sql` (ou migration `20260726220000_weekly_digest`)
+1. Migration `20260726220000_weekly_digest` aplicada
 2. Deploy: `supabase functions deploy weekly-digest-email`
 3. Mesmos secrets Resend/Cron do D7
 4. Cron semanal (ex.: segunda):
@@ -223,7 +212,7 @@ curl -X POST "$SUPABASE_URL/functions/v1/weekly-digest-email" \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-Migrations = fonte da verdade: `supabase/migrations/` (espelho em `scripts/` para SQL Editor). Ver `scripts/README.md`.
+Schema novo = só migrations em `supabase/migrations/` (`supabase db push`).
 
 ### Instalar e rodar
 
@@ -239,9 +228,10 @@ npm run dev
 npm run lint
 npm run test
 npm run build
-npm run check:bundle   # orçamento gzip dos chunks (Fase D)
+npm run check:bundle   # orçamento gzip dos chunks
+npm run ci:local       # espelha o CI (lint → test → build → lhci → e2e)
 npm run preview
-npm run start         # serve /dist em produção local
+npm run start          # serve /dist em produção local
 ```
 
 ---

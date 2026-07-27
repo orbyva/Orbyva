@@ -112,7 +112,7 @@ export async function repairOrphanClasses(types: Type[]): Promise<number> {
 
 /**
  * Semeia tipos/classes padrão **só para o usuário autenticado**.
- * Naturezas Receita/Despesa/Investimento precisam existir (scripts/seed_natures.sql).
+ * Naturezas Receita/Despesa/Investimento precisam existir (migration seed_natures).
  */
 export async function ensureDefaultDimensions(): Promise<{
   createdTypes: number;

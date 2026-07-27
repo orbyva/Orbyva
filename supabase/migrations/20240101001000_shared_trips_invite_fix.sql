@@ -1,5 +1,5 @@
 -- Fix: aceite de convite + RLS endurecido (rode após shared_trips.sql).
--- Preferir scripts/security_hardening.sql se ainda não rodou.
+-- Preferir security_hardening se ainda não rodou.
 
 create or replace function public.accept_trip_invite(p_token text)
 returns uuid

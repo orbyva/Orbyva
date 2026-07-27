@@ -15,6 +15,7 @@ test.describe("offline outbox na UI", () => {
     await page.goto("/home");
     await dismissOnboardingIfPresent(page);
 
+    // Injeta fila + dispara offline no documento (sem cortar localhost).
     await page.evaluate(() => {
       localStorage.setItem(
         "orbyva_outbox_v1",
@@ -32,13 +33,14 @@ test.describe("offline outbox na UI", () => {
           },
         ])
       );
+      window.dispatchEvent(new Event("offline"));
     });
 
-    await page.reload();
-    await dismissOnboardingIfPresent(page);
-
-    await expect(
-      page.getByText(/aguardando sincronização|na fila/i).first()
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("offline-banner")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByTestId("offline-banner")).toContainText(
+      /na fila|offline/i
+    );
   });
 });

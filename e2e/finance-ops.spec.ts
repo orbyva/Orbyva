@@ -17,13 +17,33 @@ async function pickClassId(token: string): Promise<number | null> {
   return (json as { id: number }[])[0]?.id ?? null;
 }
 
-async function pickTypeId(token: string): Promise<number | null> {
-  const { res, json } = await rest("type", token, {
+/** Prefere classe de Despesa (aba padrão do orçamento). */
+async function pickExpenseClass(
+  token: string
+): Promise<{ id: number; type_id: number; name: string } | null> {
+  const { res, json } = await rest("class", token, {
     method: "GET",
-    query: "select=id&limit=1",
+    query:
+      "select=id,type_id,name,type:type_id(nature:nature_id(name))&limit=100",
   });
   if (!res.ok) return null;
-  return (json as { id: number }[])[0]?.id ?? null;
+  type Row = {
+    id: number;
+    type_id: number;
+    name: string;
+    type?: { nature?: { name?: string } | null } | null;
+  };
+  const rows = (json as Row[]) ?? [];
+  const expenses = rows.filter((r) =>
+    /despesa/i.test(r.type?.nature?.name ?? "")
+  );
+  const preferred = expenses.find((r) =>
+    /^(Delivery|Mercado|Manutenção|Cinema)$/i.test(r.name)
+  );
+  const row = preferred ?? expenses[0] ?? rows[0];
+  return row
+    ? { id: row.id, type_id: row.type_id, name: row.name }
+    : null;
 }
 
 test.describe("orçamento e parcelas", () => {
@@ -31,28 +51,62 @@ test.describe("orçamento e parcelas", () => {
 
   test("vê orçamento do mês na UI", async ({ page }) => {
     const session = await signInViaSupabaseApi(page);
-    const typeId = await pickTypeId(session.access_token);
-    test.skip(!typeId, "Sem tipos/dimensões no usuário E2E");
+    const klass = await pickExpenseClass(session.access_token);
+    test.skip(!klass, "Sem classes/dimensões no usuário E2E");
 
     const month = new Date().toISOString().slice(0, 7) + "-01";
-    const stamp = 777;
-    await rest("monthly_budget", session.access_token, {
-      method: "POST",
-      body: JSON.stringify({
-        user_id: session.user.id,
-        type_id: typeId,
-        class_id: null,
-        budget_month: month,
-        planned_value: stamp,
-      }),
+    // Valor raro na UI formatada (R$ 777,77) — evita colisão com seed real.
+    const stamp = 777.77;
+
+    const existing = await rest("monthly_budget", session.access_token, {
+      method: "GET",
+      query: `select=id&class_id=eq.${klass!.id}&budget_month=eq.${month}&limit=1`,
     });
+    const existingId = (existing.json as { id: number }[] | null)?.[0]?.id;
+
+    if (existingId) {
+      const patched = await rest("monthly_budget", session.access_token, {
+        method: "PATCH",
+        query: `id=eq.${existingId}`,
+        body: JSON.stringify({ planned_value: stamp }),
+      });
+      expect(patched.res.ok, patched.text).toBeTruthy();
+    } else {
+      const created = await rest("monthly_budget", session.access_token, {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: session.user.id,
+          type_id: klass!.type_id,
+          class_id: klass!.id,
+          budget_month: month,
+          planned_value: stamp,
+        }),
+      });
+      expect(created.res.ok, created.text).toBeTruthy();
+    }
 
     await page.goto("/finance/budget");
     await dismissOnboardingIfPresent(page);
     await expect(page.locator("body")).toContainText(/Orçamento|orçamento/i, {
       timeout: 20_000,
     });
-    await expect(page.locator("body")).toContainText(/777/);
+    // Garante aba certa se a classe cair em receita.
+    const receitas = page.getByRole("tab", { name: /Receitas/i });
+    if (await receitas.isVisible().catch(() => false)) {
+      // Tenta Despesas primeiro (padrão); se não achar, troca.
+      const found = await page
+        .locator("body")
+        .getByText(/777,77/)
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (!found) {
+        await receitas.click();
+      }
+    }
+    await expect(page.getByText(/777,77/).first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("lista parcela/recorrência criada via API", async ({ page }) => {
@@ -129,11 +183,14 @@ test.describe("exclusão e export", () => {
     await signInViaSupabaseApi(page);
     await page.goto("/account");
     await dismissOnboardingIfPresent(page);
+    const exportSection = page
+      .locator("section")
+      .filter({ hasText: /Exportar dados/i });
     await expect(
-      page.getByRole("heading", { name: /Exportar dados/i })
+      exportSection.getByRole("heading", { name: /Exportar dados/i })
     ).toBeVisible({ timeout: 20_000 });
     await expect(
-      page.getByRole("button", { name: "Finanças", exact: true })
+      exportSection.getByRole("button", { name: "Finanças", exact: true })
     ).toBeVisible({ timeout: 10_000 });
   });
 });

@@ -158,7 +158,7 @@ export async function fetchInviteByToken(
       error.message.includes("get_trip_invite_by_token")
     ) {
       throw new Error(
-        "Convites endurecidos: rode scripts/security_hardening.sql no Supabase."
+        "Convites endurecidos: aplique a migration security_hardening no Supabase."
       );
     }
     throw new Error(error.message);
@@ -179,7 +179,7 @@ export async function acceptTripInvite(token: string): Promise<string> {
     throw new Error(
       rpcError.message.includes("accept_trip_invite") ||
         rpcError.code === "PGRST202"
-        ? "Rode scripts/security_hardening.sql (accept_trip_invite) no Supabase."
+        ? "Aplique a migration security_hardening (accept_trip_invite) no Supabase."
         : rpcError.message
     );
   }

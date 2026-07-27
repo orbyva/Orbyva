@@ -92,6 +92,16 @@ export async function signInViaSupabaseApi(
           user: session.user,
         })
       );
+      // Evita dialog de tour bloqueando asserts (body com scroll-lock).
+      localStorage.setItem(
+        `orbyva_onboarding_v1:${session.user.id}`,
+        JSON.stringify({
+          tourDone: true,
+          firstTxDone: true,
+          firstBudgetDone: true,
+          moduleGuidesSeen: [],
+        })
+      );
     },
     { storageKey, session }
   );
@@ -101,8 +111,11 @@ export async function signInViaSupabaseApi(
 
 export async function dismissOnboardingIfPresent(page: Page) {
   const skip = page.getByRole("button", { name: /Pular/i });
-  if (await skip.isVisible().catch(() => false)) {
+  try {
+    await skip.waitFor({ state: "visible", timeout: 1_500 });
     await skip.click();
+  } catch {
+    /* tour já dispensado ou ausente */
   }
 }
 

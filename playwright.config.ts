@@ -1,4 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadEnv } from "vite";
+
+// Playwright não carrega .env sozinho — espelha Vite (.env, .env.local, …).
+const loaded = loadEnv(process.env.MODE || "test", process.cwd(), "");
+for (const [key, value] of Object.entries(loaded)) {
+  if (process.env[key] === undefined) process.env[key] = value;
+}
 
 export default defineConfig({
   testDir: "./e2e",
@@ -13,9 +20,12 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "npm run preview -- --host 127.0.0.1 --port 4173",
+    // Local: rebuild pra não testar dist velho. CI: só preview (job já fez build).
+    command: process.env.CI
+      ? "npm run preview -- --host 127.0.0.1 --port 4173"
+      : "npm run build && npm run preview -- --host 127.0.0.1 --port 4173",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 180_000,
   },
 });

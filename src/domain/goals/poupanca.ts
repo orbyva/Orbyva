@@ -32,7 +32,7 @@ export async function ensureGoalInvestimentoClass(
   );
   if (!nature) {
     throw new Error(
-      "Natureza Investimento não encontrada. Rode scripts/seed_nature_investimento.sql no Supabase."
+      "Natureza Investimento não encontrada. Aplique a migration de seed Investimento no Supabase."
     );
   }
 

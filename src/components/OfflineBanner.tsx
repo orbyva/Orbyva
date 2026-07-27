@@ -15,20 +15,26 @@ export function OfflineBanner({ pendingCount }: OfflineBannerProps) {
   const [localPending, setLocalPending] = useState(() => countOfflineOutbox());
 
   useEffect(() => {
-    const goOffline = () => setOffline(true);
+    const syncPending = () => setLocalPending(countOfflineOutbox());
+    const goOffline = () => {
+      setOffline(true);
+      syncPending();
+    };
     const goOnline = () => {
       setOffline(false);
-      setLocalPending(countOfflineOutbox());
+      syncPending();
     };
     window.addEventListener("offline", goOffline);
     window.addEventListener("online", goOnline);
+    window.addEventListener("storage", syncPending);
     return () => {
       window.removeEventListener("offline", goOffline);
       window.removeEventListener("online", goOnline);
+      window.removeEventListener("storage", syncPending);
     };
   }, []);
 
-  const pending = pendingCount ?? localPending;
+  const pending = Math.max(pendingCount ?? 0, localPending);
 
   if (!offline && pending <= 0) return null;
 
@@ -36,6 +42,7 @@ export function OfflineBanner({ pendingCount }: OfflineBannerProps) {
     return (
       <div
         role="status"
+        data-testid="offline-banner"
         className="flex items-center justify-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-950 dark:text-amber-100"
       >
         <WifiOff className="h-3.5 w-3.5 shrink-0" />
@@ -49,6 +56,7 @@ export function OfflineBanner({ pendingCount }: OfflineBannerProps) {
   return (
     <div
       role="status"
+      data-testid="offline-banner"
       className="flex items-center justify-center gap-2 border-b border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs text-sky-950 dark:text-sky-100"
     >
       <CloudUpload className="h-3.5 w-3.5 shrink-0" />

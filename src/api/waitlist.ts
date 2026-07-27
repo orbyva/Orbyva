@@ -20,7 +20,7 @@ export async function joinWaitlist(
     }
     if (error.code === "42P01" || error.code === "PGRST205") {
       throw new Error(
-        "Waitlist ainda não configurada. Rode scripts/billing.sql no Supabase."
+        "Waitlist ainda não configurada. Aplique a migration de billing no Supabase."
       );
     }
     throw new Error(error.message);

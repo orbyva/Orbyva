@@ -272,7 +272,7 @@ function TypeManager({
                         title="Nenhum tipo ainda"
                         description={
                           natures.length === 0
-                            ? "Rode scripts/seed_natures.sql no Supabase e recarregue, ou use o tour de onboarding."
+                            ? "Aplique as migrations de naturezas no Supabase e recarregue, ou use o tour de onboarding."
                             : "Crie o primeiro tipo acima (ex.: Alimentação, Transporte)."
                         }
                         className="py-10"

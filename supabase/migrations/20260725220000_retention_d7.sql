@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Orbyva — Retenção D7 (last_seen + e-mail de retorno)
--- Idempotente. Espelho: scripts/retention.sql
+-- Idempotente.
 -- =============================================================================
 
 alter table public.profiles
