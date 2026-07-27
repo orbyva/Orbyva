@@ -8,6 +8,7 @@ import { fetchAppAlerts, type AppAlert } from "@/api/alerts";
 import {
   fetchHabits,
   fetchAllHabitLogs,
+  toggleHabitLog,
 } from "@/api/habits";
 import {
   fetchLatestTransactionAt,
@@ -26,6 +27,7 @@ import type { RecurringDueAlert } from "@/types/recurring";
 import type { Movie } from "@/types/movies";
 import { isCompletedToday } from "@/domain/habits";
 import { getErrorMessage } from "@/lib/errors";
+import { useLocalDay } from "@/hooks/useLocalDay";
 import {
   formatMomTrend,
   previousYearMonth,
@@ -91,6 +93,7 @@ export default function LifeDashboard() {
   const [momDespesa, setMomDespesa] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const today = useLocalDay();
 
   const now = new Date();
   const year = now.getFullYear();
@@ -230,10 +233,51 @@ export default function LifeDashboard() {
   const habitsDone = useMemo(
     () =>
       habits.filter((h) =>
-        isCompletedToday(habitLogs.filter((l) => l.habit_id === h.id))
+        isCompletedToday(
+          habitLogs.filter((l) => l.habit_id === h.id),
+          today
+        )
       ).length,
-    [habits, habitLogs]
+    [habits, habitLogs, today]
   );
+
+  async function handleHubToggleHabit(habitId: string) {
+    const done = isCompletedToday(
+      habitLogs.filter((l) => l.habit_id === habitId),
+      today
+    );
+    const next = !done;
+    const prev = habitLogs;
+    setHabitLogs((current) => {
+      const idx = current.findIndex(
+        (l) => l.habit_id === habitId && l.date === today
+      );
+      if (idx >= 0) {
+        const copy = [...current];
+        copy[idx] = { ...copy[idx]!, completed: next };
+        return copy;
+      }
+      return [
+        ...current,
+        {
+          id: `optimistic-${habitId}-${today}`,
+          habit_id: habitId,
+          date: today,
+          completed: next,
+        },
+      ];
+    });
+    try {
+      await toggleHabitLog(habitId, today, next);
+    } catch (error) {
+      setHabitLogs(prev);
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    }
+  }
 
   const nextTrip = useMemo(
     () => upcoming.find((i) => i.module === "travel") ?? null,
@@ -359,8 +403,12 @@ export default function LifeDashboard() {
           urgentAlertExtra={urgentAlertExtra}
         />
         <HubDaySummary
+          habits={habits}
+          habitLogs={habitLogs}
           habitsCount={habits.length}
           habitsDone={habitsDone}
+          today={today}
+          onToggleHabit={(id) => void handleHubToggleHabit(id)}
           nextTrip={nextTrip}
           tripCountdown={tripCountdown}
           nextPayment={nextPayment}

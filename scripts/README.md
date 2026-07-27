@@ -33,6 +33,7 @@ supabase db push
 | 4 | `seed_natures.sql` | Naturezas Receita / Despesa / Investimento |
 | 4b | `type_exclude_from_spend.sql` | Flag legacy (fora do gasto) + view |
 | 4c | `seed_nature_investimento.sql` | Natureza Investimento + reaponta Poupança |
+| 4d | `habit_kind_goal.sql` | Hábitos: kind (build/avoid) + vínculo com meta |
 | 5 | `movies_opinion.sql` | Opinião em `movie` |
 | 5b | `movie_episodes.sql` | Episódios de séries |
 | 6 | `vehicle_kind.sql` | `kind` em `vehicle` |

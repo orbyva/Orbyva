@@ -1,5 +1,8 @@
 export type HabitFrequency = "daily" | "weekly";
 
+/** build = criar rotina; avoid = anti-hábito (dia limpo). */
+export type HabitKind = "build" | "avoid";
+
 export interface Habit {
   id: string;
   user_id?: string;
@@ -7,6 +10,10 @@ export interface Habit {
   description?: string | null;
   frequency: HabitFrequency;
   target_per_week: number;
+  kind?: HabitKind;
+  goal_id?: string | null;
+  /** Quanto somar na meta a cada check-in (ex.: 1 livro, 0.5 km). */
+  goal_increment?: number | null;
   color?: string | null;
   created_at?: string;
 }
@@ -28,3 +35,11 @@ export interface HabitWithStats extends Habit {
   completedToday: boolean;
   weekProgress: number;
 }
+
+export type WeekStripDay = {
+  date: string;
+  /** Inicial do dia da semana (D S T Q Q S S). */
+  label: string;
+  completed: boolean;
+  isToday: boolean;
+};
