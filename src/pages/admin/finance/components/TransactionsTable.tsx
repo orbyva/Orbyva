@@ -54,6 +54,7 @@ function TransactionIcon({ transaction }: { transaction: Transaction }) {
 
 function NatureBadge({ nature }: { nature: string }) {
   const isReceita = nature === "Receita";
+  const isInvestimento = nature === "Investimento";
   return (
     <Badge
       variant="outline"
@@ -61,12 +62,20 @@ function NatureBadge({ nature }: { nature: string }) {
         "font-normal",
         isReceita
           ? "border-success/30 text-success"
-          : "border-destructive/30 text-destructive"
+          : isInvestimento
+            ? "border-teal-500/30 text-teal-700 dark:text-teal-300"
+            : "border-destructive/30 text-destructive"
       )}
     >
       {nature}
     </Badge>
   );
+}
+
+function amountToneClass(nature: string): string {
+  if (nature === "Receita") return "text-success";
+  if (nature === "Investimento") return "text-teal-700 dark:text-teal-300";
+  return "text-destructive";
 }
 
 function TransactionActions({
@@ -158,7 +167,6 @@ function TransactionsMobileList({
     <MobileStackList>
       {transactions.map((t) => {
         const nature = t.class?.type?.nature?.name ?? "";
-        const isReceita = nature === "Receita";
         const dateStr = t.transaction_at.includes("T")
           ? t.transaction_at.split("T")[0]
           : t.transaction_at.slice(0, 10);
@@ -175,13 +183,13 @@ function TransactionsMobileList({
                   <p className="text-sm text-muted-foreground">
                     {t.class?.type?.name} · {t.class?.name}
                   </p>
-                  {nature && <NatureBadge nature={nature} />}
+                  {nature ? <NatureBadge nature={nature} /> : null}
                 </div>
               </div>
               <span
                 className={cn(
                   "shrink-0 text-base font-semibold tabular-nums",
-                  isReceita ? "text-success" : "text-destructive"
+                  amountToneClass(nature)
                 )}
               >
                 {formatBRL(t.value)}
@@ -267,7 +275,6 @@ export function TransactionsTable({
           <TableBody>
             {transactions.map((t) => {
               const nature = t.class?.type?.nature?.name ?? "";
-              const isReceita = nature === "Receita";
               const dateStr = t.transaction_at.includes("T")
                 ? t.transaction_at.split("T")[0]
                 : t.transaction_at.slice(0, 10);
@@ -293,7 +300,7 @@ export function TransactionsTable({
                   <TableCell
                     className={cn(
                       "whitespace-nowrap font-medium tabular-nums",
-                      isReceita ? "text-success" : "text-destructive"
+                      amountToneClass(nature)
                     )}
                   >
                     {formatBRL(t.value)}

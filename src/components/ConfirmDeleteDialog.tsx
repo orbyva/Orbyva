@@ -37,7 +37,9 @@ export function ConfirmDeleteDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={() => {
+              void Promise.resolve(onConfirm()).catch(() => undefined);
+            }}
             disabled={loading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >

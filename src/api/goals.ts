@@ -1,7 +1,10 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
+import { asOne } from "@/api/finance/_shared";
 import {
-  goalAporteDescription,
+  matchesGoalAporte,
+  matchesGoalMetaClass,
+  resolveSyncedGoalProgress,
   sumAporteProgress,
 } from "@/domain/goals/finance";
 import type {
@@ -10,23 +13,52 @@ import type {
   PersonalGoalUpdateRequest,
 } from "@/types/goals";
 
-function escapeIlike(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
-}
-
-/** Soma lançamentos com descrição "Aporte meta: {título}…". */
+/** Soma lançamentos da meta (classe `Meta - …` ou descrição legado). */
 export async function sumGoalAporteFromLedger(
   goalTitle: string
 ): Promise<number> {
   const userId = await getCurrentUserId();
-  const prefix = escapeIlike(goalAporteDescription(goalTitle));
   const { data, error } = await supabase
     .from("transaction")
-    .select("value, description")
-    .eq("user_id", userId)
-    .ilike("description", `${prefix}%`);
+    .select("value, description, class:class_id(name)")
+    .eq("user_id", userId);
+
   if (error) throw new Error(error.message);
-  return sumAporteProgress(data ?? [], goalTitle);
+  return sumAporteProgress(
+    (data ?? []).map((row) => ({
+      value: row.value,
+      description: row.description,
+      class: asOne(row.class as { name?: string } | { name?: string }[] | null),
+    })),
+    goalTitle
+  );
+}
+
+/** Atualiza progresso das metas financeiras cujo aporte bate com a descrição/classe. */
+export async function syncGoalsFromAporteDescription(
+  description: string
+): Promise<void> {
+  const goals = await fetchGoals();
+  for (const goal of goals) {
+    if (goal.category !== "financial" || goal.status !== "active") continue;
+    if (
+      !matchesGoalAporte(description, goal.title) &&
+      !matchesGoalMetaClass(description, goal.title)
+    ) {
+      continue;
+    }
+    const summed = await sumGoalAporteFromLedger(goal.title);
+    const resolved = resolveSyncedGoalProgress(
+      goal.current_value,
+      summed,
+      goal.target_value
+    );
+    if (!resolved.changed) continue;
+    await updateGoal({
+      id: goal.id,
+      current_value: resolved.next,
+    });
+  }
 }
 
 export async function fetchGoals(): Promise<PersonalGoal[]> {

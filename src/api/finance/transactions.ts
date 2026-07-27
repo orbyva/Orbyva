@@ -5,11 +5,12 @@ import {
   ValueByNatureYearMonth,
 } from "@/types/finance";
 import type { PaginatedResult } from "@/types/pagination";
-import { getCurrentUserId, supabase } from "./_shared";
+import { countsAsMonthlySpend } from "@/domain/finance/spendFlags";
+import { asOne, getCurrentUserId, supabase } from "./_shared";
 
 
 const TRANSACTION_SELECT =
-  "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, nature:nature_id(name)))";
+  "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))";
 
 export interface TransactionQueryOptions {
   page?: number;
@@ -17,11 +18,11 @@ export interface TransactionQueryOptions {
   startDate?: string | null;
   endDate?: string | null;
   search?: string;
-  nature?: "Receita" | "Despesa" | null;
+  nature?: "Receita" | "Despesa" | "Investimento" | null;
 }
 
 async function getClassIdsForNature(
-  natureName: "Receita" | "Despesa"
+  natureName: "Receita" | "Despesa" | "Investimento"
 ): Promise<number[]> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
@@ -164,7 +165,18 @@ export async function fetchValueByNatureYearMonth(): Promise<
 
   if (error) throw new Error(error.message);
 
-  return data || [];
+  const rows = data || [];
+  if (rows.length === 0) return [];
+
+  const spendByMonth = await sumSpendDespesaGrouped(
+    rows.map((row) => ({ year: row.year, month: row.month }))
+  );
+
+  return rows.map((row) => ({
+    ...row,
+    despesa_total:
+      spendByMonth.get(`${row.year}-${row.month}`) ?? 0,
+  }));
 }
 
 export async function fetchValueByNatureForMonth(
@@ -179,8 +191,124 @@ export async function fetchValueByNatureForMonth(
     .maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) return null;
 
-  return data;
+  return {
+    ...data,
+    despesa_total: await sumSpendDespesaForMonth(year, month),
+  };
+}
+
+function monthKey(year: number, month: number): string {
+  return `${year}-${month}`;
+}
+
+/** Uma query para todos os meses do gráfico (evita N+1 no dashboard). */
+async function sumSpendDespesaGrouped(
+  months: { year: number; month: number }[]
+): Promise<Map<string, number>> {
+  const totals = new Map<string, number>();
+  if (months.length === 0) return totals;
+
+  const sorted = [...months].sort(
+    (a, b) => a.year - b.year || a.month - b.month
+  );
+  const first = sorted[0]!;
+  const last = sorted[sorted.length - 1]!;
+  const start = `${first.year}-${String(first.month).padStart(2, "0")}-01`;
+  const lastDay = new Date(last.year, last.month, 0).getDate();
+  const end = `${last.year}-${String(last.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("transaction")
+    .select(
+      "value, transaction_at, class:class_id(type:type_id(exclude_from_spend, nature:nature_id(name)))"
+    )
+    .eq("user_id", userId)
+    .gte("transaction_at", start)
+    .lte("transaction_at", `${end}T23:59:59.999Z`);
+
+  if (error) {
+    if (/exclude_from_spend/i.test(error.message)) {
+      for (const m of months) {
+        totals.set(
+          monthKey(m.year, m.month),
+          await sumLegacyDespesaForMonth(
+            userId,
+            `${m.year}-${String(m.month).padStart(2, "0")}-01`,
+            `${m.year}-${String(m.month).padStart(2, "0")}-${String(new Date(m.year, m.month, 0).getDate()).padStart(2, "0")}`
+          )
+        );
+      }
+      return totals;
+    }
+    throw new Error(error.message);
+  }
+
+  for (const row of data ?? []) {
+    const rawAt = String(row.transaction_at ?? "");
+    const datePart = rawAt.slice(0, 10);
+    const [y, mo] = datePart.split("-").map(Number);
+    if (!y || !mo) continue;
+
+    const cls = asOne(
+      row.class as
+        | {
+            type?: {
+              exclude_from_spend?: boolean;
+              nature?: { name?: string };
+            } | null;
+          }
+        | {
+            type?: {
+              exclude_from_spend?: boolean;
+              nature?: { name?: string };
+            } | null;
+          }[]
+        | null
+    );
+    const type = cls?.type ?? null;
+    if (!countsAsMonthlySpend(type?.nature?.name, type)) continue;
+
+    const key = monthKey(y, mo);
+    totals.set(key, (totals.get(key) ?? 0) + Math.abs(Number(row.value) || 0));
+  }
+
+  return totals;
+}
+
+/**
+ * Gasto do mês: só natureza Despesa que conta (Investimento e
+ * exclude_from_spend ficam de fora).
+ */
+async function sumSpendDespesaForMonth(
+  year: number,
+  month: number
+): Promise<number> {
+  const grouped = await sumSpendDespesaGrouped([{ year, month }]);
+  return grouped.get(monthKey(year, month)) ?? 0;
+}
+
+async function sumLegacyDespesaForMonth(
+  userId: string,
+  start: string,
+  end: string
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("transaction")
+    .select("value, class:class_id(type:type_id(nature:nature_id(name)))")
+    .eq("user_id", userId)
+    .gte("transaction_at", start)
+    .lte("transaction_at", `${end}T23:59:59.999Z`);
+  if (error) throw new Error(error.message);
+  return (data ?? []).reduce((sum, row) => {
+    const nature = (
+      row.class as { type?: { nature?: { name?: string } } | null } | null
+    )?.type?.nature?.name;
+    if (nature !== "Despesa") return sum;
+    return sum + Math.abs(Number(row.value) || 0);
+  }, 0);
 }
 
 export async function insertTransaction(

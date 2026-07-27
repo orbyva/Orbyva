@@ -21,6 +21,7 @@ export interface TypeCreateRequest {
   hex_color?: string | null;
   lucide_icon?: string | null;
   order?: number;
+  exclude_from_spend?: boolean;
 }
 
 export interface TypeUpdateRequest extends Partial<TypeCreateRequest> {

@@ -45,6 +45,14 @@ export function useTransactions(options: TransactionQueryOptions) {
     page === 1 && !startDate && !endDate && !search && !nature;
 
   const fetchTransactionsCallback = useCallback(async () => {
+    if (!user?.id) {
+      setTransactions([]);
+      setTotalPages(0);
+      setTotal(0);
+      setFromCache(false);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const result = await fetchTransactionsQuery({
@@ -60,7 +68,7 @@ export function useTransactions(options: TransactionQueryOptions) {
       setTotal(result.total);
       setFromCache(false);
       if (isDefaultView) {
-        saveOfflineSnapshot<LedgerCache>(ledgerCacheKey(user?.id), {
+        saveOfflineSnapshot<LedgerCache>(ledgerCacheKey(user.id), {
           transactions: result.data,
           totalPages: result.totalPages,
           total: result.total,
@@ -69,7 +77,7 @@ export function useTransactions(options: TransactionQueryOptions) {
     } catch (error) {
       // Fallback: última visão padrão salva neste dispositivo.
       const cached = isDefaultView
-        ? loadOfflineSnapshot<LedgerCache>(ledgerCacheKey(user?.id))
+        ? loadOfflineSnapshot<LedgerCache>(ledgerCacheKey(user.id))
         : null;
       if (cached) {
         setTransactions(cached.data.transactions);
@@ -84,8 +92,9 @@ export function useTransactions(options: TransactionQueryOptions) {
   }, [page, pageSize, startDate, endDate, search, nature, isDefaultView, user?.id]);
 
   useEffect(() => {
-    fetchTransactionsCallback();
-  }, [fetchTransactionsCallback]);
+    if (!user?.id) return;
+    void fetchTransactionsCallback();
+  }, [fetchTransactionsCallback, user?.id]);
 
   return {
     transactions,

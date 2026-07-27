@@ -55,10 +55,10 @@ export function useOfflineOutboxSync() {
 
   useEffect(() => {
     refreshCount();
-    void flush();
+    void flush().catch(() => undefined);
 
     const onOnline = () => {
-      void flush();
+      void flush().catch(() => undefined);
     };
     const onStorage = () => refreshCount();
 

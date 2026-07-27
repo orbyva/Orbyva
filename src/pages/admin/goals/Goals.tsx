@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Target, Trash2, Wallet, Pen, RefreshCw, Repeat } from "lucide-react";
+import { Target, Trash2, Wallet, Pen, Plus, Repeat, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { DatePicker } from "@/components/DatePicker";
 import { EmptyState } from "@/components/EmptyState";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { MoneyInput } from "@/components/MoneyInput";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
@@ -35,20 +36,29 @@ import {
   sumGoalAporteFromLedger,
   updateGoal,
 } from "@/api/goals";
+import { createTransactionApi, fetchValueByNatureForMonth } from "@/api/finance";
 import {
   createRecurringApi,
   fetchRecurringTransactions,
 } from "@/api/recurring";
-import { useClasses } from "@/hooks/database/useClasses";
 import {
   GOAL_CATEGORY_LABELS,
   getGoalProgress,
   formatGoalProgress,
 } from "@/domain/goals";
 import {
+  buildGoalInstallmentDraft,
+  clampGoalApplyAmount,
+  evaluateGoalAgainstSurplus,
   getFinancialGoalInsight,
-  goalAporteDescription,
+  goalApplyPresets,
+  goalMetaClassName,
+  initialGoalInstallmentFields,
+  installmentsToCoverRemaining,
+  maxGoalApplyAmount,
+  resolveSyncedGoalProgress,
 } from "@/domain/goals/finance";
+import { ensureGoalInvestimentoClass } from "@/domain/goals/poupanca";
 import type { GoalCategory, PersonalGoal, PersonalGoalCreateRequest } from "@/types/goals";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -73,28 +83,55 @@ export default function Goals() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PersonalGoal | null>(null);
   const [form, setForm] = useState(emptyGoal());
-  const [aporteGoal, setAporteGoal] = useState<PersonalGoal | null>(null);
-  const [aporteClassId, setAporteClassId] = useState<number>(0);
-  const [aporteDueDay, setAporteDueDay] = useState<number>(
-    () => new Date().getDate()
-  );
-  const [aporteBusy, setAporteBusy] = useState(false);
-  const { classes } = useClasses();
+  const [monthSurplus, setMonthSurplus] = useState<number | null>(null);
+  const [poupancaGoal, setPoupancaGoal] = useState<PersonalGoal | null>(null);
+  const [poupancaDueDay, setPoupancaDueDay] = useState(() => new Date().getDate());
+  const [poupancaBusy, setPoupancaBusy] = useState(false);
+  const [routineMonthly, setRoutineMonthly] = useState<number | "">("");
+  const [destinarGoal, setDestinarGoal] = useState<PersonalGoal | null>(null);
+  const [destinarAmount, setDestinarAmount] = useState<number | "">("");
+  const [destinarBusy, setDestinarBusy] = useState(false);
   const { toast } = useToast();
 
-  const expenseClasses = useMemo(
-    () =>
-      classes.filter((c) =>
-        /despesa/i.test(c.type?.nature?.name ?? "")
-      ),
-    [classes]
+  const destinarFit = useMemo(() => {
+    if (!destinarGoal || monthSurplus == null) return null;
+    return evaluateGoalAgainstSurplus(destinarGoal, monthSurplus);
+  }, [destinarGoal, monthSurplus]);
+
+  const destinarPresets = useMemo(
+    () => (destinarFit ? goalApplyPresets(destinarFit) : []),
+    [destinarFit]
   );
+
+  const destinarMax = useMemo(() => {
+    if (!destinarFit) return 0;
+    return maxGoalApplyAmount(destinarFit.remaining, destinarFit.surplus);
+  }, [destinarFit]);
 
   const load = useCallback(async () => {
     try {
-      setGoals(await fetchGoals());
+      const now = new Date();
+      const [list, month] = await Promise.all([
+        fetchGoals(),
+        fetchValueByNatureForMonth(
+          now.getFullYear(),
+          now.getMonth() + 1
+        ).catch(() => null),
+      ]);
+      setGoals(list);
+      if (month) {
+        setMonthSurplus(
+          Number(month.receita_total || 0) - Number(month.despesa_total || 0)
+        );
+      } else {
+        setMonthSurplus(null);
+      }
     } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -103,13 +140,6 @@ export default function Goals() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    if (!aporteGoal) return;
-    if (aporteClassId === 0 && expenseClasses[0]) {
-      setAporteClassId(expenseClasses[0].id);
-    }
-  }, [aporteGoal, aporteClassId, expenseClasses]);
 
   function openEdit(goal: PersonalGoal) {
     setEditing(goal);
@@ -132,7 +162,11 @@ export default function Goals() {
       setOpen(false);
       load();
     } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     }
   }
 
@@ -142,21 +176,110 @@ export default function Goals() {
       toast({ title: "Meta excluída", duration: 2000 });
       load();
     } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     }
   }
 
-  async function handleSyncProgress(goal: PersonalGoal) {
+  function openDestinar(goal: PersonalGoal) {
+    if (monthSurplus == null) return;
+    const fit = evaluateGoalAgainstSurplus(goal, monthSurplus);
+    if (!fit || fit.remaining <= 0) return;
+    const initial =
+      fit.applyAmount > 0
+        ? fit.applyAmount
+        : maxGoalApplyAmount(fit.remaining, fit.surplus);
+    setDestinarGoal(goal);
+    setDestinarAmount(initial > 0 ? initial : "");
+  }
+
+  async function handleDestinarConfirm() {
+    if (!destinarGoal || !destinarFit || monthSurplus == null) return;
+    const amount = clampGoalApplyAmount(
+      Number(destinarAmount) || 0,
+      destinarFit.remaining,
+      destinarFit.surplus
+    );
+    if (amount <= 0) {
+      toast({
+        title: "Valor inválido",
+        description: `Informe um valor entre R$ 0,01 e ${formatBRL(destinarMax)}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDestinarBusy(true);
+    try {
+      const classId = await ensureGoalInvestimentoClass(destinarGoal.title);
+      const label = goalMetaClassName(destinarGoal.title);
+      const result = await createTransactionApi({
+        class_id: classId,
+        value: amount,
+        description: label,
+        transaction_at: new Date().toISOString(),
+      });
+
+      const next =
+        Math.round((destinarGoal.current_value + amount) * 100) / 100;
+      await updateGoal({
+        id: destinarGoal.id,
+        current_value: Math.min(destinarGoal.target_value, next),
+      });
+
+      toast({
+        title: result.queued
+          ? "Aporte enfileirado (offline)"
+          : "Aporte destinado à meta",
+        description: `${formatBRL(amount)} em Investimento + progresso atualizado. Saldo restante estimado: ${formatBRL(Math.max(0, monthSurplus - amount))}.`,
+        duration: 3500,
+      });
+      setDestinarGoal(null);
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setDestinarBusy(false);
+    }
+  }
+
+  async function handleSyncFromLedger(goal: PersonalGoal) {
     try {
       const summed = await sumGoalAporteFromLedger(goal.title);
-      await updateGoal({
-        id: goal.id,
-        current_value: summed,
-      });
+      const resolved = resolveSyncedGoalProgress(
+        goal.current_value,
+        summed,
+        goal.target_value
+      );
+
+      if (!resolved.foundLedger) {
+        toast({
+          title: "Nenhum aporte no ledger",
+          description:
+            "Não achei lançamentos Meta/Investimento desta meta — o progresso foi mantido.",
+          duration: 3200,
+        });
+        return;
+      }
+
+      if (resolved.changed) {
+        await updateGoal({
+          id: goal.id,
+          current_value: resolved.next,
+        });
+      }
+
       toast({
         title: "Progresso sincronizado",
-        description: `${formatBRL(summed)} a partir dos aportes no ledger.`,
-        duration: 2500,
+        description: `${formatBRL(resolved.next)} a partir dos aportes no ledger.`,
+        duration: 2800,
       });
       load();
     } catch (error) {
@@ -168,19 +291,37 @@ export default function Goals() {
     }
   }
 
-  async function handleCreateMonthlyAporte() {
-    if (!aporteGoal) return;
-    const insight = getFinancialGoalInsight(aporteGoal);
-    if (!insight?.monthlyTarget || insight.monthlyTarget <= 0) return;
-    if (!aporteClassId) {
+  const routineDraft = useMemo(() => {
+    if (!poupancaGoal) return null;
+    const insight = getFinancialGoalInsight(poupancaGoal);
+    const remaining =
+      insight?.remaining ??
+      Math.max(0, poupancaGoal.target_value - poupancaGoal.current_value);
+    const monthly = Number(routineMonthly) || 0;
+    const installments = installmentsToCoverRemaining(remaining, monthly);
+    return buildGoalInstallmentDraft(remaining, monthly, installments);
+  }, [poupancaGoal, routineMonthly]);
+
+  function openRoutine(goal: PersonalGoal) {
+    const fields = initialGoalInstallmentFields(goal);
+    setPoupancaDueDay(new Date().getDate());
+    setRoutineMonthly(fields.monthlyAmount > 0 ? fields.monthlyAmount : "");
+    setPoupancaGoal(goal);
+  }
+
+  async function handleCreatePoupançaRoutine() {
+    if (!poupancaGoal || !routineDraft) return;
+    const monthly = routineDraft.monthlyAmount;
+    const months = routineDraft.installments;
+    if (monthly <= 0 || months <= 0) {
       toast({
-        title: "Escolha uma classe",
-        description: "Selecione a classe de despesa do aporte.",
+        title: "Plano incompleto",
+        description: "Informe o valor mensal e a quantidade de parcelas.",
         variant: "destructive",
       });
       return;
     }
-    if (aporteDueDay < 1 || aporteDueDay > 31) {
+    if (poupancaDueDay < 1 || poupancaDueDay > 31) {
       toast({
         title: "Dia inválido",
         description: "Informe o dia do mês (1–31).",
@@ -189,45 +330,44 @@ export default function Goals() {
       return;
     }
 
-    setAporteBusy(true);
+    setPoupancaBusy(true);
     try {
-      const prefix = goalAporteDescription(aporteGoal.title);
+      const classId = await ensureGoalInvestimentoClass(poupancaGoal.title);
+      const prefix = goalMetaClassName(poupancaGoal.title);
       const existing = await fetchRecurringTransactions();
-      const already = existing.find((r) =>
-        r.description?.toLowerCase().startsWith(prefix.toLowerCase())
+      const already = existing.find(
+        (r) =>
+          ((r.description || "").toLowerCase().startsWith(prefix.toLowerCase()) ||
+            (r.class?.name || "").toLowerCase() === prefix.toLowerCase()) &&
+          r.status
       );
       if (already) {
         toast({
-          title: "Aporte já existe",
-          description: "Há uma recorrência com essa descrição. Abra Parcelas para editar.",
+          title: "Rotina já existe",
+          description: "Há uma parcela/recorrência com essa descrição em Parcelas.",
         });
-        setAporteGoal(null);
+        setPoupancaGoal(null);
         return;
       }
 
-      const months =
-        insight.monthsRemaining != null && insight.monthsRemaining > 0
-          ? insight.monthsRemaining
-          : 12;
-
       await createRecurringApi({
-        class_id: aporteClassId,
-        value: Math.round(insight.monthlyTarget * 100) / 100,
+        class_id: classId,
+        value: monthly,
         description: prefix,
         frequency: "Mensal",
         validity: null,
-        due_day: aporteDueDay,
+        due_day: poupancaDueDay,
         installment_count: months,
         payment_start_date: new Date().toISOString().split("T")[0],
         status: true,
       });
 
       toast({
-        title: "Aporte mensal criado",
-        description: `${formatBRL(insight.monthlyTarget)} × ${months} meses em Parcelas.`,
-        duration: 3000,
+        title: "Rotina de investimento criada",
+        description: `${formatBRL(monthly)} × ${months} em Parcelas (tipo Investimento — fora do gasto).`,
+        duration: 3500,
       });
-      setAporteGoal(null);
+      setPoupancaGoal(null);
     } catch (error) {
       toast({
         title: "Erro",
@@ -235,7 +375,7 @@ export default function Goals() {
         variant: "destructive",
       });
     } finally {
-      setAporteBusy(false);
+      setPoupancaBusy(false);
     }
   }
 
@@ -244,7 +384,11 @@ export default function Goals() {
   return (
     <PageShell
       title="Metas Pessoais"
-      description="Acompanhe seu progresso em objetivos de vida."
+      description={
+        monthSurplus != null
+          ? `Saldo deste mês no ledger: ${formatBRL(monthSurplus)} — destino natural das metas financeiras.`
+          : "Acompanhe seu progresso em objetivos de vida."
+      }
       actions={
         <>
           <ModuleGuideButton moduleId="goals" />
@@ -267,8 +411,22 @@ export default function Goals() {
           {activeGoals.map((goal) => {
             const progress = getGoalProgress(goal);
             const financeInsight = getFinancialGoalInsight(goal);
+            const surplusFit =
+              monthSurplus != null
+                ? evaluateGoalAgainstSurplus(goal, monthSurplus)
+                : null;
+            const canDestinar =
+              !!surplusFit &&
+              surplusFit.remaining > 0 &&
+              maxGoalApplyAmount(surplusFit.remaining, surplusFit.surplus) > 0;
+            const canRoutine =
+              !!financeInsight && financeInsight.remaining > 0;
+
             return (
-              <article key={goal.id} className="rounded-xl border bg-card p-3.5 shadow-sm sm:p-5">
+              <article
+                key={goal.id}
+                className="rounded-xl border bg-card p-3.5 shadow-sm sm:p-5"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <Badge variant="outline" className="mb-2 text-[10px]">
@@ -276,7 +434,9 @@ export default function Goals() {
                     </Badge>
                     <h3 className="font-semibold">{goal.title}</h3>
                     {goal.description && (
-                      <p className="mt-1 text-xs text-muted-foreground">{goal.description}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {goal.description}
+                      </p>
                     )}
                   </div>
                   <div className="flex gap-1">
@@ -293,20 +453,24 @@ export default function Goals() {
                       description="O progresso registrado será perdido."
                       onConfirm={() => handleDelete(goal.id)}
                     >
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </ConfirmDeleteDialog>
                   </div>
                 </div>
                 <div className="mt-4">
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                  <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                     <span>{formatGoalProgress(goal)}</span>
                     <span>{progress}%</span>
                   </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className={cn("h-full rounded-full bg-primary transition-all")}
+                      className="h-full rounded-full bg-primary transition-all"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -320,75 +484,76 @@ export default function Goals() {
                   <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
                     <p className="flex items-center gap-1.5 text-xs font-medium">
                       <Wallet className="h-3.5 w-3.5" />
-                      Meta ↔ Finanças
+                      Meta ← saldo do mês
                     </p>
                     {financeInsight.monthlyTarget != null &&
                     financeInsight.monthlyTarget > 0 ? (
-                      <>
-                        <p className="mt-1.5 text-sm font-semibold tabular-nums">
-                          {formatBRL(financeInsight.monthlyTarget)}
-                          <span className="font-normal text-muted-foreground">
-                            {" "}
-                            / mês
-                          </span>
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {financeInsight.monthsRemaining === 1
-                            ? "1 mês para bater a meta no prazo"
-                            : `${financeInsight.monthsRemaining} meses para bater a meta no prazo`}
-                        </p>
-                      </>
+                      <p className="mt-1.5 text-sm font-semibold tabular-nums">
+                        {formatBRL(financeInsight.monthlyTarget)}
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          / mês no prazo
+                        </span>
+                      </p>
                     ) : financeInsight.monthlyLabel ? (
                       <p className="mt-1.5 text-xs text-muted-foreground">
                         {financeInsight.monthlyLabel}
                       </p>
                     ) : null}
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {financeInsight.suggestion}
-                    </p>
+
+                    {surplusFit ? (
+                      <p
+                        className={cn(
+                          "mt-1.5 text-xs",
+                          surplusFit.status === "comfortable" ||
+                            surplusFit.status === "exact"
+                            ? "text-foreground"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {surplusFit.summary}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {financeInsight.suggestion}
+                      </p>
+                    )}
+
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                      {financeInsight.monthlyTarget != null &&
-                      financeInsight.monthlyTarget > 0 ? (
-                        <>
-                          <Button
-                            variant="link"
-                            className="h-auto p-0 text-xs"
-                            onClick={() => {
-                              setAporteClassId(expenseClasses[0]?.id ?? 0);
-                              setAporteDueDay(new Date().getDate());
-                              setAporteGoal(goal);
-                            }}
-                          >
-                            <Repeat className="mr-1 h-3 w-3" />
-                            Criar aporte mensal
-                          </Button>
-                          <Button
-                            variant="link"
-                            className="h-auto p-0 text-xs"
-                            asChild
-                          >
-                            <Link
-                              to={`/finance/transactions?new=1&desc=${encodeURIComponent(goalAporteDescription(goal.title))}&value=${financeInsight.monthlyTarget.toFixed(2)}`}
-                            >
-                              Lançar aporte do mês
-                            </Link>
-                          </Button>
-                        </>
+                      {canDestinar ? (
+                        <Button
+                          variant="link"
+                          className="h-auto p-0 text-xs"
+                          onClick={() => openDestinar(goal)}
+                        >
+                          <Plus className="mr-1 h-3 w-3" />
+                          Destinar valor à meta
+                        </Button>
+                      ) : null}
+                      {canRoutine ? (
+                        <Button
+                          variant="link"
+                          className="h-auto p-0 text-xs"
+                          onClick={() => openRoutine(goal)}
+                        >
+                          <Repeat className="mr-1 h-3 w-3" />
+                          Rotina em Parcelas (investimento)
+                        </Button>
                       ) : null}
                       <Button
                         variant="link"
                         className="h-auto p-0 text-xs text-muted-foreground"
-                        onClick={() => void handleSyncProgress(goal)}
+                        onClick={() => void handleSyncFromLedger(goal)}
                       >
                         <RefreshCw className="mr-1 h-3 w-3" />
-                        Sincronizar progresso
+                        Sincronizar do ledger
                       </Button>
                       <Button
                         variant="link"
                         className="h-auto p-0 text-xs text-muted-foreground"
                         asChild
                       >
-                        <Link to="/finance/transactions">Abrir transações</Link>
+                        <Link to="/finance/dashboard">Ver saldo em Finanças</Link>
                       </Button>
                     </div>
                   </div>
@@ -505,43 +670,106 @@ export default function Goals() {
       </Dialog>
 
       <Dialog
-        open={!!aporteGoal}
+        open={!!destinarGoal}
         onOpenChange={(next) => {
-          if (!next) setAporteGoal(null);
+          if (!next) setDestinarGoal(null);
         }}
       >
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
           <DialogHeader>
-            <DialogTitle>Criar aporte mensal</DialogTitle>
+            <DialogTitle>Destinar valor à meta</DialogTitle>
           </DialogHeader>
-          {aporteGoal ? (
+          {destinarGoal && destinarFit ? (
             <div className={FORM_FIELDS_CLASS}>
               <p className="text-sm text-muted-foreground">
-                Gera uma recorrência em Parcelas com a descrição{" "}
+                Lança um aporte no tipo{" "}
+                <span className="font-medium text-foreground">Investimento</span>{" "}
+                (classe{" "}
                 <span className="font-medium text-foreground">
-                  {goalAporteDescription(aporteGoal.title)}
+                  {goalMetaClassName(destinarGoal.title)}
                 </span>
-                . Ao pagar as parcelas (ou lançar aportes), use “Sincronizar
-                progresso”.
+                ) e atualiza o progresso. Escolha quanto do saldo vai para esta
+                meta — o resto fica livre para outras.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Saldo do mês:{" "}
+                <span className="font-medium text-foreground tabular-nums">
+                  {formatBRL(destinarFit.surplus)}
+                </span>
+                {" · "}
+                Falta na meta:{" "}
+                <span className="font-medium text-foreground tabular-nums">
+                  {formatBRL(destinarFit.remaining)}
+                </span>
+                {" · "}
+                Máximo agora:{" "}
+                <span className="font-medium text-foreground tabular-nums">
+                  {formatBRL(destinarMax)}
+                </span>
               </p>
               <div>
-                <FormLabel required>Classe (despesa)</FormLabel>
-                <Select
-                  value={aporteClassId ? String(aporteClassId) : ""}
-                  onValueChange={(v) => setAporteClassId(Number(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {expenseClasses.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.type?.name ? `${c.type.name} · ` : ""}
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormLabel required>Valor do aporte</FormLabel>
+                <MoneyInput
+                  value={destinarAmount}
+                  onChange={setDestinarAmount}
+                  placeholder="0,00"
+                />
+              </div>
+              {destinarPresets.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {destinarPresets.map((preset) => (
+                    <Button
+                      key={preset.id}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      onClick={() => setDestinarAmount(preset.amount)}
+                    >
+                      {preset.label} · {formatBRL(preset.amount)}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+              <Button
+                onClick={() => void handleDestinarConfirm()}
+                disabled={destinarBusy || destinarMax <= 0}
+                className="w-full"
+              >
+                {destinarBusy ? "Destinando…" : "Destinar e lançar no ledger"}
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!poupancaGoal}
+        onOpenChange={(next) => {
+          if (!next) setPoupancaGoal(null);
+        }}
+      >
+        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
+          <DialogHeader>
+            <DialogTitle>Rotina em Parcelas (Investimento)</DialogTitle>
+          </DialogHeader>
+          {poupancaGoal && routineDraft ? (
+            <div className={FORM_FIELDS_CLASS}>
+              <p className="text-sm text-muted-foreground">
+                Você informa quanto planeja investir por mês. O app usa a{" "}
+                <span className="font-medium text-foreground">
+                  falta atual da meta ({formatBRL(routineDraft.remaining)})
+                </span>{" "}
+                para calcular quantas parcelas criar no tipo Investimento (
+                {goalMetaClassName(poupancaGoal.title)}).
+              </p>
+              <div>
+                <FormLabel required>Valor planejado / mês</FormLabel>
+                <MoneyInput
+                  value={routineMonthly}
+                  onChange={setRoutineMonthly}
+                  placeholder="0,00"
+                />
               </div>
               <div>
                 <FormLabel required>Dia do vencimento</FormLabel>
@@ -549,24 +777,50 @@ export default function Goals() {
                   type="number"
                   min={1}
                   max={31}
-                  value={aporteDueDay}
+                  value={poupancaDueDay}
                   onChange={(e) =>
-                    setAporteDueDay(Number(e.target.value) || 1)
+                    setPoupancaDueDay(Number(e.target.value) || 1)
                   }
                 />
               </div>
+              {routineDraft.monthlyAmount > 0 ? (
+                <p className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                  <span className="font-medium tabular-nums">
+                    {routineDraft.installments} parcela
+                    {routineDraft.installments === 1 ? "" : "s"}
+                  </span>{" "}
+                  de{" "}
+                  <span className="font-medium tabular-nums">
+                    {formatBRL(routineDraft.monthlyAmount)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · total {formatBRL(routineDraft.total)}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {routineDraft.summary}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Informe o valor mensal para calcular as parcelas pela falta da
+                  meta.
+                </p>
+              )}
               <Button
-                onClick={() => void handleCreateMonthlyAporte()}
-                disabled={aporteBusy || expenseClasses.length === 0}
+                onClick={() => void handleCreatePoupançaRoutine()}
+                disabled={
+                  poupancaBusy ||
+                  routineDraft.monthlyAmount <= 0 ||
+                  routineDraft.installments <= 0
+                }
                 className="w-full"
               >
-                {aporteBusy ? "Criando…" : "Criar recorrência"}
+                {poupancaBusy ? "Criando…" : "Criar em Parcelas"}
               </Button>
-              {expenseClasses.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Cadastre uma classe de despesa em Finanças para continuar.
-                </p>
-              ) : null}
+              <Button variant="link" className="h-auto p-0 text-xs" asChild>
+                <Link to="/finance/recurring">Abrir Parcelas</Link>
+              </Button>
             </div>
           ) : null}
         </DialogContent>

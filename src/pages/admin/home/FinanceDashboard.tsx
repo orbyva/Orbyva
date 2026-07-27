@@ -51,6 +51,9 @@
     previousYearMonth,
   } from "@/domain/finance/insights";
   import { sumTripSpendFromTransactions } from "@/domain/travel/ledger";
+  import { pickPrimarySurplusGoal } from "@/domain/goals/finance";
+  import { fetchGoals } from "@/api/goals";
+  import type { PersonalGoal } from "@/types/goals";
   import type { MonthlyBudgetSummary } from "@/types/finance";
   import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 
@@ -125,6 +128,7 @@
     const [recurring, setRecurring] = useState<Recurring[]>([]);
     const [shareOpen, setShareOpen] = useState(false);
     const [budgetPlanned, setBudgetPlanned] = useState<number | null>(null);
+    const [financialGoals, setFinancialGoals] = useState<PersonalGoal[]>([]);
 
     const dueAlerts = useMemo(
       () => getRecurringDueAlerts(recurring),
@@ -152,6 +156,18 @@
     const tripSpend = useMemo(
       () => sumTripSpendFromTransactions(transactions),
       [transactions]
+    );
+
+    const monthSurplus = receitaTotal - despesaTotal;
+
+    const surplusGoal = useMemo(
+      () =>
+        pickPrimarySurplusGoal(
+          financialGoals,
+          monthSurplus,
+          new Date(selectedYear, selectedMonth - 1, 15)
+        ),
+      [financialGoals, monthSurplus, selectedYear, selectedMonth]
     );
 
     const mom = useMemo(() => {
@@ -327,6 +343,16 @@
       }
       void loadBudgetCeiling();
     }, [selectedYear, selectedMonth]);
+
+    useEffect(() => {
+      void fetchGoals()
+        .then((list) =>
+          setFinancialGoals(
+            list.filter((g) => g.status === "active" && g.category === "financial")
+          )
+        )
+        .catch(() => setFinancialGoals([]));
+    }, []);
 
     useEffect(() => {
       async function loadRecurringDueAlerts() {
@@ -534,6 +560,22 @@
                 {mom.despesa ? ` · despesa ${mom.despesa}` : ""}
                 {mom.receita ? ` · receita ${mom.receita}` : ""}
                 {mom.saldo ? ` · saldo ${mom.saldo}` : ""}
+              </p>
+            ) : null}
+
+            {surplusGoal ? (
+              <p className="text-sm text-muted-foreground">
+                Saldo do mês → meta{" "}
+                <span className="font-medium text-foreground">
+                  {surplusGoal.goal.title}
+                </span>
+                : {surplusGoal.fit.summary}{" "}
+                <Link
+                  to="/goals"
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  Abrir metas
+                </Link>
               </p>
             ) : null}
 

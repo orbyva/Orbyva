@@ -1,6 +1,7 @@
 import type { Recurring, RecurringDueAlert } from "@/types/recurring";
 import { DUE_WARNING_DAYS } from "./constants";
 import { formatDueDate } from "./installments";
+import { countsAsMonthlySpend } from "@/domain/finance/spendFlags";
 
 export function getRecurringDueAlerts(
   recurringList: Recurring[],
@@ -162,6 +163,7 @@ export function calculateCommittedThisMonth(
 
     const paidParcels = rec.paid_parcels || [];
     const nature = rec.class?.type?.nature?.name;
+    const type = rec.class?.type ?? null;
 
     for (const installment of rec.installments) {
       if (paidParcels.includes(installment.number)) continue;
@@ -169,8 +171,8 @@ export function calculateCommittedThisMonth(
       const due = new Date(`${installment.dueDate}T12:00:00`);
       if (due.getFullYear() !== year || due.getMonth() !== month) continue;
 
-      if (nature === "Despesa") pay += rec.value;
-      else if (nature === "Receita") receive += rec.value;
+      if (nature === "Receita") receive += rec.value;
+      else if (countsAsMonthlySpend(nature, type)) pay += rec.value;
     }
   }
 

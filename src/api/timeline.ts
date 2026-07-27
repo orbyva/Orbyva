@@ -11,7 +11,7 @@ import { fetchPlaces } from "@/api/places";
 import { fetchTrips, fetchTripMilestones } from "@/api/travel";
 import { fetchMovies } from "@/api/movies";
 import { getMaintenanceAlerts, getDocumentAlerts } from "@/domain/car";
-import { isCompletedToday } from "@/domain/habits";
+import { getTodayIso, isCompletedToday } from "@/domain/habits";
 import { getDaysUntil } from "@/domain/travel";
 import { GOAL_CATEGORY_LABELS } from "@/domain/goals";
 import type { TimelineItem, LifeDashboardSummary } from "@/types/timeline";
@@ -45,13 +45,13 @@ export async function fetchTimelineItems(
 ): Promise<TimelineItem[]> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayIso = today.toISOString().split("T")[0];
+  const todayIso = getTodayIso(today);
   const minDate = new Date(today);
   minDate.setDate(minDate.getDate() - daysBehind);
   const maxDate = new Date(today);
   maxDate.setDate(maxDate.getDate() + daysAhead);
-  const minIso = minDate.toISOString().split("T")[0];
-  const maxIso = maxDate.toISOString().split("T")[0];
+  const minIso = getTodayIso(minDate);
+  const maxIso = getTodayIso(maxDate);
 
   const inRange = (date: string) => date >= minIso && date <= maxIso;
 

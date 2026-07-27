@@ -30,7 +30,9 @@ supabase db push
 | 1 | `tenancy_rls.sql` | **Obrigatório** — `user_id`, RLS, wipe/delete account |
 | 2 | `dimensions_tenancy.sql` | Tipos/classes por usuário |
 | 3 | `billing.sql` | `profiles` (teste 7d → Pro) + `waitlist` |
-| 4 | `seed_natures.sql` | Naturezas Receita / Despesa |
+| 4 | `seed_natures.sql` | Naturezas Receita / Despesa / Investimento |
+| 4b | `type_exclude_from_spend.sql` | Flag legacy (fora do gasto) + view |
+| 4c | `seed_nature_investimento.sql` | Natureza Investimento + reaponta Poupança |
 | 5 | `movies_opinion.sql` | Opinião em `movie` |
 | 5b | `movie_episodes.sql` | Episódios de séries |
 | 6 | `vehicle_kind.sql` | `kind` em `vehicle` |

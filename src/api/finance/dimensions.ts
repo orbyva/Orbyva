@@ -8,6 +8,7 @@ import {
   TypeUpdateRequest,
 } from "@/types/finance";
 import type { Dimension } from "@/types/dimensions";
+import { toAppError } from "@/lib/errors";
 import { asOne, getCurrentUserId, supabase } from "./_shared";
 
 export async function fetchNatures(): Promise<Nature[]> {
@@ -81,7 +82,7 @@ export async function deleteTypeApi(typeId: number): Promise<void> {
     .select("id", { count: "exact", head: true })
     .eq("type_id", typeId)
     .eq("user_id", userId);
-  if (classCountError) throw classCountError;
+  if (classCountError) throw toAppError(classCountError);
   if ((classCount ?? 0) > 0) {
     throw new Error(
       "Este tipo tem classes vinculadas. Remova ou reassocie as classes antes de excluir o tipo."
@@ -94,12 +95,12 @@ export async function deleteTypeApi(typeId: number): Promise<void> {
     .eq("id", typeId)
     .eq("user_id", userId);
   if (error) {
-    if (error.code === "23503") {
+    if (String(error.code) === "23503") {
       throw new Error(
-        "Não é possível excluir: ainda há registros vinculados a este tipo."
+        "Não é possível excluir: ainda há classes ou lançamentos vinculados a este tipo."
       );
     }
-    throw error;
+    throw toAppError(error);
   }
 }
 

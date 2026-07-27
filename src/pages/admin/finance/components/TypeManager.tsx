@@ -168,7 +168,7 @@ function TypeManager({
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Receita ou Despesa" />
+                <SelectValue placeholder="Receita, Despesa ou Investimento" />
               </SelectTrigger>
               <SelectContent>
                 {naturesSorted.map((nature) => (

@@ -11,6 +11,8 @@ export interface Type {
   nature: Nature;
   hex_color: string | null;
   lucide_icon: string | null;
+  /** Poupança/transferência: não entra no gasto do mês nem no teto. */
+  exclude_from_spend?: boolean;
 }
 
 export interface Class {

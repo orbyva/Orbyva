@@ -23,7 +23,7 @@ import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { getErrorMessage } from "@/lib/errors";
 import { track } from "@/lib/analytics";
 
-type NatureFilter = "all" | "Receita" | "Despesa";
+type NatureFilter = "all" | "Receita" | "Despesa" | "Investimento";
 
 export default function Transactions() {
   const { toast } = useToast();
@@ -203,6 +203,7 @@ export default function Transactions() {
     { id: "all", label: "Todas" },
     { id: "Receita", label: "Receitas" },
     { id: "Despesa", label: "Despesas" },
+    { id: "Investimento", label: "Investimentos" },
   ];
 
   return (

@@ -131,7 +131,7 @@ Execute **um por vez** no **SQL Editor** do Supabase (detalhe em `scripts/README
 | 1 | `tenancy_rls.sql` | **Obrigatório** — `user_id` + RLS + RPC excluir conta |
 | 2 | `dimensions_tenancy.sql` | Tipos/classes por usuário |
 | 3 | `billing.sql` | `profiles` (teste 7 dias → Pro) + `waitlist` |
-| 4 | `seed_natures.sql` | Naturezas Receita/Despesa (onboarding) |
+| 4 | `seed_natures.sql` | Naturezas Receita/Despesa/Investimento (onboarding) |
 | 5 | `movies_opinion.sql` | Colunas de opinião em `movie` |
 | 6 | `vehicle_kind.sql` | Coluna `kind` em `vehicle` |
 | 7 | `fuel_log_transaction.sql` | `transaction_id` em `vehicle_fuel_log` |

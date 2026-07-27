@@ -29,13 +29,13 @@ import {
 } from "@/api/habits";
 import {
   calculateStreak,
-  getTodayIso,
   getWeekProgress,
   isCompletedToday,
 } from "@/domain/habits";
 import { getHabitInsights } from "@/domain/habits/insights";
 import type { Habit, HabitCreateRequest } from "@/types/habits";
 import { useToast } from "@/hooks/use-toast";
+import { useLocalDay } from "@/hooks/useLocalDay";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +56,7 @@ export default function Habits() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyHabit());
-  const today = getTodayIso();
+  const today = useLocalDay();
   const { toast } = useToast();
   const insights = useMemo(() => getHabitInsights(habits, logs), [habits, logs]);
 
@@ -78,7 +78,7 @@ export default function Habits() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, today]);
 
   function openCreate() {
     setEditingId(null);
@@ -99,10 +99,11 @@ export default function Habits() {
   }
 
   async function handleToggle(habitId: string) {
+    const day = today;
     const habitLogs = logs.filter((l) => l.habit_id === habitId);
     const done = isCompletedToday(habitLogs);
     try {
-      await toggleHabitLog(habitId, today, !done);
+      await toggleHabitLog(habitId, day, !done);
       await load();
     } catch (error) {
       toast({

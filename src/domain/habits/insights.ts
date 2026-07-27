@@ -62,7 +62,7 @@ export function getHabitInsights(
   const last7 = [...Array(7)].map((_, i) => {
     const d = new Date(`${today}T12:00:00`);
     d.setDate(d.getDate() - i);
-    return d.toISOString().slice(0, 10);
+    return getTodayIso(d);
   });
   const completions = last7.reduce((acc, day) => {
     return (

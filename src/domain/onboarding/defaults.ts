@@ -9,11 +9,12 @@ import {
 import type { Type } from "@/types/finance";
 
 type SeedType = {
-  natureName: "Receita" | "Despesa";
+  natureName: "Receita" | "Despesa" | "Investimento";
   name: string;
   hex_color: string;
   lucide_icon: string;
   classes: string[];
+  exclude_from_spend?: boolean;
 };
 
 const DEFAULT_SEED: SeedType[] = [
@@ -51,6 +52,14 @@ const DEFAULT_SEED: SeedType[] = [
     hex_color: "#db2777",
     lucide_icon: "sparkles",
     classes: ["Cinema", "Viagem", "Outros"],
+  },
+  {
+    natureName: "Investimento",
+    name: "Investimento",
+    hex_color: "#0d9488",
+    lucide_icon: "trending-up",
+    classes: ["Reserva"],
+    exclude_from_spend: true,
   },
 ];
 
@@ -103,7 +112,7 @@ export async function repairOrphanClasses(types: Type[]): Promise<number> {
 
 /**
  * Semeia tipos/classes padrão **só para o usuário autenticado**.
- * Naturezas Receita/Despesa precisam existir (scripts/seed_natures.sql).
+ * Naturezas Receita/Despesa/Investimento precisam existir (scripts/seed_natures.sql).
  */
 export async function ensureDefaultDimensions(): Promise<{
   createdTypes: number;
@@ -150,6 +159,7 @@ export async function ensureDefaultDimensions(): Promise<{
         nature_id: nature.id,
         hex_color: seed.hex_color,
         lucide_icon: seed.lucide_icon,
+        exclude_from_spend: seed.exclude_from_spend ?? false,
       });
       createdTypes += 1;
       typeNames.add(seed.name.toLowerCase());
@@ -158,6 +168,22 @@ export async function ensureDefaultDimensions(): Promise<{
         (t) => t.name.trim().toLowerCase() === seed.name.toLowerCase()
       )?.id;
       if (typeId) types.push(...refreshed.filter((t) => t.id === typeId));
+    } else if (typeId && (seed.exclude_from_spend || seed.natureName === "Investimento")) {
+      const existing = types.find((t) => t.id === typeId);
+      if (
+        existing &&
+        ((seed.exclude_from_spend && !existing.exclude_from_spend) ||
+          (seed.natureName === "Investimento" &&
+            existing.nature?.name !== "Investimento"))
+      ) {
+        const { updateTypeApi } = await import("@/api/finance");
+        await updateTypeApi({
+          id: typeId,
+          name: existing.name,
+          nature_id: nature.id,
+          exclude_from_spend: seed.exclude_from_spend ?? existing.exclude_from_spend,
+        });
+      }
     }
 
     if (!typeId) continue;

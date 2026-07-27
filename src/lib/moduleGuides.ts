@@ -88,7 +88,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "goals",
     icon: Target,
     title: "Como funcionam as Metas",
-    hook: "Objetivos de vida com barra de progresso — financeiros ligados ao ledger.",
+    hook: "Objetivos de vida com barra de progresso — financeiras alimentadas pelo saldo do mês.",
     steps: [
       {
         title: "Crie a meta",
@@ -99,8 +99,8 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
         body: "Registre o valor atual quando avançar. A barra mostra quanto falta até o alvo.",
       },
       {
-        title: "Metas financeiras",
-        body: "Metas em R$ com prazo mostram quanto guardar por mês. Atualize o progresso e lance em Finanças quando fizer sentido.",
+        title: "Metas financeiras ↔ saldo + investimento",
+        body: "Destinar valor = aporte avulso no tipo Investimento. Rotina em Parcelas: você informa o valor planejado por mês; o app calcula a falta atual da meta e cria as parcelas (falta ÷ aporte). Com prazo, o valor mensal vem sugerido.",
       },
     ],
   },

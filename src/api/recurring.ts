@@ -16,7 +16,7 @@ export async function fetchRecurringTransactions(
   let query = supabase
     .from("recurring_transaction")
     .select(
-      "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, nature:nature_id(name)))"
+      "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))"
     )
     .eq("user_id", userId)
     .eq("status", true)
@@ -43,7 +43,7 @@ export async function createRecurringApi(
     .from("recurring_transaction")
     .insert([{ ...newRecurring, user_id: userId }])
     .select(
-      "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, nature:nature_id(name)))"
+      "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))"
     )
     .single();
 
@@ -141,6 +141,20 @@ export async function updateRecurringParcelPayment(
   if (error) {
     await deleteTransactionApi(transactionId).catch(() => undefined);
     throw error;
+  }
+
+  try {
+    const { syncGoalsFromAporteDescription } = await import("@/api/goals");
+    const { data: rec } = await supabase
+      .from("recurring_transaction")
+      .select("description")
+      .eq("id", recurringId)
+      .maybeSingle();
+    if (rec?.description) {
+      await syncGoalsFromAporteDescription(rec.description);
+    }
+  } catch {
+    /* progresso da meta é best-effort */
   }
 
   return updatedParcels;
