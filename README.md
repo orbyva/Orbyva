@@ -211,6 +211,18 @@ curl -X POST "$SUPABASE_URL/functions/v1/retention-d7-email" \
 
 Quem abre o app atualiza `profiles.last_seen_at` (RPC). O cron e-maila quem tem 7–14 dias de conta, inativo há 5+ dias, e ainda não recebeu o retorno.
 
+### Digest semanal (e-mail)
+
+1. Rode `scripts/weekly_digest.sql` (ou migration `20260726220000_weekly_digest`)
+2. Deploy: `supabase functions deploy weekly-digest-email`
+3. Mesmos secrets Resend/Cron do D7
+4. Cron semanal (ex.: segunda):
+
+```bash
+curl -X POST "$SUPABASE_URL/functions/v1/weekly-digest-email" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
 Migrations = fonte da verdade: `supabase/migrations/` (espelho em `scripts/` para SQL Editor). Ver `scripts/README.md`.
 
 ### Instalar e rodar

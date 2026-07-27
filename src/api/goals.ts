@@ -1,10 +1,33 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
+import {
+  goalAporteDescription,
+  sumAporteProgress,
+} from "@/domain/goals/finance";
 import type {
   PersonalGoal,
   PersonalGoalCreateRequest,
   PersonalGoalUpdateRequest,
 } from "@/types/goals";
+
+function escapeIlike(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+/** Soma lançamentos com descrição "Aporte meta: {título}…". */
+export async function sumGoalAporteFromLedger(
+  goalTitle: string
+): Promise<number> {
+  const userId = await getCurrentUserId();
+  const prefix = escapeIlike(goalAporteDescription(goalTitle));
+  const { data, error } = await supabase
+    .from("transaction")
+    .select("value, description")
+    .eq("user_id", userId)
+    .ilike("description", `${prefix}%`);
+  if (error) throw new Error(error.message);
+  return sumAporteProgress(data ?? [], goalTitle);
+}
 
 export async function fetchGoals(): Promise<PersonalGoal[]> {
   const userId = await getCurrentUserId();

@@ -197,7 +197,16 @@ export async function insertTransaction(
   return data.id as number;
 }
 
-export async function createTransactionApi(newTransaction: TransactionCreateRequest) {
+export async function createTransactionApi(
+  newTransaction: TransactionCreateRequest
+): Promise<{ queued: boolean }> {
+  const { isNavigatorOffline } = await import("@/lib/offlineCache");
+  if (isNavigatorOffline()) {
+    const { enqueueOfflineTransaction } = await import("@/lib/offlineOutbox");
+    enqueueOfflineTransaction(newTransaction);
+    return { queued: true };
+  }
+
   await insertTransaction(newTransaction);
   try {
     const { markFirstTxDone } = await import("@/lib/onboarding");
@@ -208,6 +217,7 @@ export async function createTransactionApi(newTransaction: TransactionCreateRequ
   } catch {
     /* ignore onboarding side-effects */
   }
+  return { queued: false };
 }
 
 export async function deleteTransactionApi(transactionId: number) {

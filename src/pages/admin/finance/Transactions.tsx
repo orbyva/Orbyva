@@ -102,12 +102,14 @@ export default function Transactions() {
 
   async function createTransaction() {
     try {
-      await createTransactionApi(newTransaction);
+      const result = await createTransactionApi(newTransaction);
       track("quick_add_done", { source: isEditing ? "edit" : "create" });
       toast({
-        title: "Sucesso",
-        description: "Transação adicionada com sucesso!",
-        duration: 2000,
+        title: result.queued ? "Salvo offline" : "Sucesso",
+        description: result.queued
+          ? "Sem rede — o lançamento entra na fila e sincroniza quando você voltar online."
+          : "Transação adicionada com sucesso!",
+        duration: result.queued ? 3500 : 2000,
       });
 
       refetchTransactions();

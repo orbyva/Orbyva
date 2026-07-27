@@ -8,7 +8,15 @@ import type {
   TripMilestone,
   TripWithChecklist,
 } from "@/types/travel";
-import { sumTripSpent } from "@/domain/travel/spent";
+import { sumTripSpent } from "./spent";
+
+export { sumTripSpent } from "./spent";
+export {
+  TRIP_LEDGER_PREFIX,
+  tripLedgerDescription,
+  isTripLedgerDescription,
+  sumTripSpendFromTransactions,
+} from "./ledger";
 
 export const TRIP_STATUS_LABELS: Record<string, string> = {
   planning: "Planejando",

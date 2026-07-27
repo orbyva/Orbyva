@@ -33,6 +33,7 @@ import { useAuth } from "@/hooks/useAuth";
 import type { TripMember } from "@/types/tripSharing";
 import type { TripExpenseVisibility } from "@/types/travel";
 import { TRIP_STATUS_LABELS } from "@/domain/travel";
+import { tripLedgerDescription } from "@/domain/travel/ledger";
 import type {
   TripExpense,
   TripExpenseCategory,
@@ -271,7 +272,10 @@ export default function TripDetail() {
                     ? splits?.find((s) => s.user_id === user?.id)?.amount ??
                       expenseForm.amount
                     : expenseForm.amount,
-                description: `Viagem ${trip!.title}: ${expenseForm.description}`,
+                description: tripLedgerDescription(
+                  trip!.title,
+                  expenseForm.description
+                ),
                 transaction_at: new Date(
                   `${expenseForm.expense_date}T12:00:00`
                 ).toISOString(),
@@ -701,7 +705,11 @@ export default function TripDetail() {
               await registerMyExpenseSplit(splitRegisterExpense.id, {
                 class_id: classId,
                 value: 0,
-                description: `Viagem ${trip.title}: ${splitRegisterExpense.description}`,
+                description: tripLedgerDescription(
+                  trip.title,
+                  splitRegisterExpense.description,
+                  { shareSlice: true }
+                ),
                 transaction_at: new Date(
                   `${splitRegisterExpense.expense_date}T12:00:00`
                 ).toISOString(),

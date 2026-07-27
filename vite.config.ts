@@ -18,6 +18,7 @@ export default defineConfig({
         "placeholder.svg",
         "pwa-192.png",
         "pwa-512.png",
+        "pwa-maskable-512.png",
       ],
       manifest: {
         name: "Orbyva",
@@ -44,7 +45,7 @@ export default defineConfig({
             purpose: "any",
           },
           {
-            src: "/pwa-512.png",
+            src: "/pwa-maskable-512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",

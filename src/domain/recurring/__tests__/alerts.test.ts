@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateCommittedThisMonth,
+  calculateProjectedMonthBalance,
   filterRecurringList,
   getRecurringDueAlerts,
   getRecurringProgress,
@@ -72,5 +74,26 @@ describe("getRecurringDueAlerts", () => {
     const alerts = getRecurringDueAlerts([rec]);
     expect(alerts.length).toBeGreaterThan(0);
     expect(alerts[0].status).toBe("overdue");
+  });
+});
+
+describe("calculateProjectedMonthBalance", () => {
+  it("soma realizado + comprometido", () => {
+    const rec = makeRecurring({
+      installments: [
+        { number: 1, dueDate: "2026-07-05", label: "Parcela 1" },
+      ],
+    });
+    const committed = calculateCommittedThisMonth(
+      [rec],
+      new Date("2026-07-15T12:00:00")
+    );
+    expect(committed.pay).toBe(100);
+    const projected = calculateProjectedMonthBalance(
+      { receita: 5000, despesa: 2000 },
+      committed
+    );
+    expect(projected.projectedExpense).toBe(2100);
+    expect(projected.projectedBalance).toBe(2900);
   });
 });

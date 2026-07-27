@@ -41,6 +41,7 @@ supabase db push
 | 11 | `security_hardening.sql` | **Obrigatório** — trava billing / convites |
 | 12 | **`app_access_enforce.sql`** | **P0** — bloqueia escrita sem trial/Pro |
 | 13 | `retention.sql` | `last_seen_at` + e-mail D7 (`retention-d7-email`) |
+| 14 | `weekly_digest.sql` | digest semanal (`weekly-digest-email`) |
 
 ## Notas
 

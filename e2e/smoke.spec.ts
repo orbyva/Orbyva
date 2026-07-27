@@ -41,4 +41,15 @@ test.describe("smoke público", () => {
       page.getByRole("button", { name: /Entrar com e-mail/i })
     ).toBeVisible();
   });
+
+  test("página Sobre descreve o produto", async ({ page }) => {
+    await page.goto("/about");
+    await expect(page.getByRole("heading", { name: /Sobre|Orbyva/i }).first()).toBeVisible();
+    await expect(page.getByText(/Finanças|orçamento/i).first()).toBeVisible();
+  });
+
+  test("landing FAQ está acessível", async ({ page }) => {
+    await page.goto("/#faq");
+    await expect(page.locator("#faq")).toBeVisible();
+  });
 });

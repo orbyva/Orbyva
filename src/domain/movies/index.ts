@@ -6,17 +6,49 @@ export const MOVIE_TYPE_LABELS: Record<MovieMediaType, string> = {
   series: "Série",
 };
 
-/** Supabase may return text[] or a comma-separated string — normalize to string[]. */
+/** Limpa aspas/colchetes residuais de tokens mal serializados. */
+function cleanListToken(value: string): string {
+  return value
+    .trim()
+    .replace(/^\[+/, "")
+    .replace(/\]+$/, "")
+    .replace(/^["'\u201C\u201D]+|["'\u201C\u201D]+$/g, "")
+    .trim();
+}
+
+/**
+ * Supabase pode devolver text[], JSON stringificado (`["A","B"]`)
+ * ou CSV — normaliza para string[] limpa.
+ */
 export function asStringList(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return value.map(String).map((s) => s.trim()).filter(Boolean);
-  }
-  if (typeof value === "string" && value.trim()) {
     return value
-      .split(",")
-      .map((s) => s.trim())
+      .flatMap((item) =>
+        typeof item === "string" || typeof item === "number"
+          ? [cleanListToken(String(item))]
+          : asStringList(item)
+      )
       .filter(Boolean);
   }
+
+  if (typeof value === "string" && value.trim()) {
+    const trimmed = value.trim();
+
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed: unknown = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return asStringList(parsed);
+      } catch {
+        /* cai no split */
+      }
+    }
+
+    return trimmed
+      .split(",")
+      .map(cleanListToken)
+      .filter(Boolean);
+  }
+
   return [];
 }
 
@@ -75,6 +107,57 @@ export function filterMoviesByType<T extends { type: MovieMediaType }>(
 ): T[] {
   if (typeFilter === "all") return movies;
   return movies.filter((m) => m.type === typeFilter);
+}
+
+export type MovieRatingFloor = "all" | "6" | "7" | "8" | "9";
+
+export function collectMovieGenres(
+  movies: { genre?: string[] | null }[]
+): string[] {
+  const set = new Set<string>();
+  for (const movie of movies) {
+    for (const g of asStringList(movie.genre)) {
+      set.add(g);
+    }
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+export function filterMoviesByGenreAndRating<
+  T extends { genre?: string[] | null; rating?: number | null; status?: string },
+>(
+  movies: T[],
+  options: { genre: string | "all"; minRating: MovieRatingFloor }
+): T[] {
+  const min =
+    options.minRating === "all" ? null : Number(options.minRating);
+
+  return movies.filter((movie) => {
+    if (options.genre !== "all") {
+      const genres = asStringList(movie.genre);
+      if (!genres.some((g) => g.toLowerCase() === options.genre.toLowerCase())) {
+        return false;
+      }
+    }
+    if (min != null) {
+      if (movie.rating == null || movie.rating < min) return false;
+    }
+    return true;
+  });
+}
+
+export function getWatchedMoviesStats(
+  movies: { status?: string; rating?: number | null }[]
+): { watched: number; rated: number; avgRating: number | null } {
+  const watched = movies.filter((m) => m.status === MovieStatus.WATCHED);
+  const rated = watched.filter((m) => m.rating != null && m.rating > 0);
+  const avgRating =
+    rated.length === 0
+      ? null
+      : Math.round(
+          (rated.reduce((s, m) => s + (m.rating ?? 0), 0) / rated.length) * 10
+        ) / 10;
+  return { watched: watched.length, rated: rated.length, avgRating };
 }
 
 export function normalizeWatchedDates(

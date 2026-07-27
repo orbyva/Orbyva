@@ -1,26 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import {
-  AlertTriangle,
-  CalendarDays,
-  CheckCircle2,
-  Clapperboard,
-  CreditCard,
-  PiggyBank,
-  Plane,
-  Plus,
-  Share2,
-  Star,
-  Wallet,
-  X,
-  ArrowUpRight,
-  ChevronRight,
-} from "lucide-react";
 import {
   fetchLifeDashboardSummary,
   fetchTimelineItems,
   getUpcomingTimeline,
-  MODULE_LABELS,
 } from "@/api/timeline";
 import { fetchAppAlerts, type AppAlert } from "@/api/alerts";
 import {
@@ -43,8 +25,6 @@ import type { MonthlyBudgetSummary } from "@/types/finance";
 import type { RecurringDueAlert } from "@/types/recurring";
 import type { Movie } from "@/types/movies";
 import { isCompletedToday } from "@/domain/habits";
-import { formatMovieRating } from "@/domain/movies";
-import { formatBRL } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import {
   formatMomTrend,
@@ -52,7 +32,6 @@ import {
 } from "@/domain/finance/insights";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { BRAND } from "@/lib/brand";
 import { track } from "@/lib/analytics";
 import {
   dismissMonthShareNudge,
@@ -73,8 +52,6 @@ import {
   loadOfflineSnapshot,
   saveOfflineSnapshot,
 } from "@/lib/offlineCache";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { FirstTxChecklist } from "@/components/FirstTxChecklist";
@@ -82,16 +59,17 @@ import { ShareImageDialog } from "@/components/ShareImageDialog";
 import { HubModulesGrid } from "./HubModulesGrid";
 import {
   type HubCache,
-  MODULE_DOT,
   budgetMonthIso,
   daysUntilIso,
   firstNameFromUser,
-  formatShortDate,
   hubCacheKey,
-  severityAccent,
-  severityIcon,
-  todayHeading,
 } from "./hubMeta";
+import { HubGreeting } from "./components/HubGreeting";
+import { HubLedgerHero } from "./components/HubLedgerHero";
+import { HubStaleNudge } from "./components/HubStaleNudge";
+import { HubAlerts } from "./components/HubAlerts";
+import { HubDaySummary } from "./components/HubDaySummary";
+import { HubUpcoming } from "./components/HubUpcoming";
 
 export default function LifeDashboard() {
   const [loading, setLoading] = useState(true);
@@ -343,27 +321,7 @@ export default function LifeDashboard() {
         className="pointer-events-none absolute inset-x-0 -top-6 h-72 bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.14),_transparent_65%)]"
       />
 
-      {/* Saudação */}
-      <header className="relative flex items-end justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
-            {BRAND.name}
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight leading-none sm:text-[2.05rem]">
-            {firstName ? `Olá, ${firstName}!` : "Olá"}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">{todayHeading()}</p>
-        </div>
-        <Button size="sm" className="shrink-0 shadow-sm" asChild>
-          <Link
-            to="/finance/transactions?new=1"
-            onClick={() => track("quick_add_open", { source: "home" })}
-          >
-            <Plus className="mr-1.5 h-4 w-4" />
-            Despesa
-          </Link>
-        </Button>
-      </header>
+      <HubGreeting firstName={firstName} />
 
       <FirstTxChecklist />
 
@@ -373,460 +331,45 @@ export default function LifeDashboard() {
         </p>
       ) : null}
 
-      {/* Herói unificado — compacto */}
-      <section className="relative overflow-hidden rounded-2xl bg-primary text-primary-foreground shadow-md">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/12"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-14 left-1/4 h-32 w-32 rounded-full bg-black/15"
-        />
-
-        <div className="relative px-4 py-4 sm:px-5">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary-foreground/70">
-                Ledger · {monthLabel(year, month)}
-              </p>
-              <p className="mt-1.5 text-xs text-primary-foreground/70">
-                Saldo do mês
-              </p>
-              <p
-                className={cn(
-                  "mt-0.5 text-xl font-semibold tabular-nums tracking-tight sm:text-3xl",
-                  !balancePositive && "text-primary-foreground/90"
-                )}
-              >
-                {s.balance != null ? formatBRL(s.balance) : "—"}
-              </p>
-              {momDespesa ? (
-                <p className="mt-1 text-[11px] text-primary-foreground/75">
-                  Despesa {momDespesa}
-                </p>
-              ) : null}
-            </div>
-            <Link
-              to="/finance/dashboard"
-              className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-primary-foreground/90 transition-colors hover:bg-white/15"
-            >
-              Finanças
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-3 border-t border-white/15 pt-3 sm:max-w-sm">
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-primary-foreground/60">
-                Receitas
-              </p>
-              <p className="mt-0.5 text-sm font-semibold tabular-nums">
-                {receita != null ? formatBRL(receita) : "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-primary-foreground/60">
-                Despesas
-              </p>
-              <p className="mt-0.5 text-sm font-semibold tabular-nums">
-                {despesa != null ? formatBRL(despesa) : "—"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative grid gap-px border-t border-white/15 bg-white/10 sm:grid-cols-2">
-          <Link
-            to="/finance/budget"
-            className="bg-black/10 px-4 py-3 transition-colors hover:bg-black/15"
-          >
-            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground/65">
-              <PiggyBank className="h-3 w-3" />
-              Orçamento
-            </p>
-            {budgetHighlight ? (
-              <>
-                <p className="mt-1 text-sm font-semibold tabular-nums">
-                  {formatBRL(budgetHighlight.spent)}
-                  <span className="font-normal text-primary-foreground/65">
-                    {" "}
-                    / {formatBRL(budgetHighlight.planned)}
-                  </span>
-                </p>
-                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/20">
-                  <div
-                    className={cn(
-                      "h-full rounded-full",
-                      budgetHighlight.pct >= 100
-                        ? "bg-rose-300"
-                        : budgetHighlight.pct >= 80
-                          ? "bg-amber-300"
-                          : "bg-white"
-                    )}
-                    style={{
-                      width: `${Math.min(100, budgetHighlight.pct)}%`,
-                    }}
-                  />
-                </div>
-                <p className="mt-1 text-[11px] text-primary-foreground/65">
-                  {budgetHighlight.pct.toFixed(0)}% usado
-                </p>
-              </>
-            ) : (
-              <p className="mt-1 text-sm text-primary-foreground/75">
-                Definir teto
-              </p>
-            )}
-          </Link>
-
-          <Link
-            to="/finance/recurring"
-            className="bg-black/10 px-4 py-3 transition-colors hover:bg-black/15"
-          >
-            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground/65">
-              <Wallet className="h-3 w-3" />
-              Parcelas
-            </p>
-            {recurringAlerts.length > 0 ? (
-              <ul className="mt-1 space-y-0.5">
-                {recurringAlerts.slice(0, 1).map((a) => (
-                  <li
-                    key={`${a.recurring.id}-${a.installmentNumber}`}
-                    className="text-sm leading-snug line-clamp-1"
-                  >
-                    {a.message}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-1 text-sm text-primary-foreground/75">
-                Nada urgente
-              </p>
-            )}
-          </Link>
-        </div>
-
-        {showNudge && receita != null && despesa != null ? (
-          <div className="relative flex flex-wrap items-center justify-between gap-2 border-t border-white/15 bg-black/20 px-4 py-2.5">
-            <p className="text-xs text-primary-foreground/85">
-              Ritual de {monthLabel(year, month)}
-            </p>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 bg-white px-2.5 text-xs text-primary hover:bg-white/90"
-                onClick={openShare}
-              >
-                <Share2 className="mr-1 h-3 w-3" />
-                Compartilhar
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7 text-primary-foreground/70 hover:bg-white/10 hover:text-primary-foreground"
-                aria-label="Dispensar"
-                onClick={dismissNudge}
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        ) : null}
-      </section>
+      <HubLedgerHero
+        year={year}
+        month={month}
+        balance={s.balance ?? null}
+        balancePositive={balancePositive}
+        momDespesa={momDespesa}
+        receita={receita}
+        despesa={despesa}
+        budgetHighlight={budgetHighlight}
+        recurringAlerts={recurringAlerts}
+        showNudge={showNudge}
+        onOpenShare={openShare}
+        onDismissNudge={dismissNudge}
+      />
 
       {showStaleNudge && daysWithoutTx != null ? (
-        <section className="relative flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-          <p className="text-sm">
-            <span className="font-semibold">
-              Sem lançamentos há {daysWithoutTx} dias.
-            </span>{" "}
-            <span className="text-muted-foreground">
-              Um registro rápido mantém o ledger vivo.
-            </span>
-          </p>
-          <div className="flex items-center gap-1.5">
-            <Button size="sm" className="h-8" asChild>
-              <Link
-                to="/finance/transactions?new=1"
-                onClick={() =>
-                  track("quick_add_open", { source: "stale_nudge" })
-                }
-              >
-                Lançar agora
-              </Link>
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              aria-label="Dispensar"
-              onClick={dismissStale}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </section>
+        <HubStaleNudge
+          daysWithoutTx={daysWithoutTx}
+          onDismiss={dismissStale}
+        />
       ) : null}
 
-      {/* Atenção (top 2) + Resumo */}
       <div className="relative grid gap-4 sm:gap-6 lg:grid-cols-12 lg:items-start lg:gap-8">
-        <section className="space-y-3 lg:col-span-5">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-base font-semibold tracking-tight sm:text-lg">Atenção</h2>
-            {urgentAlertExtra > 0 ? (
-              <span className="text-xs text-muted-foreground">
-                +{urgentAlertExtra} no sino
-              </span>
-            ) : null}
-          </div>
-
-          {priorityAlerts.length > 0 ? (
-            <ul className="space-y-2.5">
-              {priorityAlerts.map((a) => (
-                <li key={a.id}>
-                  <Link
-                    to={a.href}
-                    className={cn(
-                      "group flex gap-2.5 rounded-xl border px-3 py-2.5 transition-all hover:-translate-y-0.5 hover:shadow-md sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3.5",
-                      severityAccent(a.severity)
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-background/60",
-                        severityIcon(a.severity)
-                      )}
-                    >
-                      <AlertTriangle className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">
-                        {a.title}
-                      </span>
-                      <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-                        {a.message}
-                      </span>
-                    </span>
-                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="rounded-2xl border border-dashed px-4 py-8 text-center">
-              <p className="text-sm font-medium">Tudo em dia</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Nenhum alerta urgente agora.
-              </p>
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-3 lg:col-span-7">
-          <h2 className="text-base font-semibold tracking-tight sm:text-lg">
-            Resumo do dia
-          </h2>
-          <ul className="overflow-hidden rounded-[1.25rem] border bg-card/80 shadow-sm divide-y backdrop-blur">
-              <li>
-                <Link
-                  to="/habits"
-                  className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent/40 sm:gap-3.5 sm:px-4 sm:py-3"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 sm:h-10 sm:w-10 sm:rounded-2xl">
-                    <CheckCircle2 className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">
-                      {habits.length === 0
-                        ? "Nenhum hábito ainda"
-                        : `${habits.length} hábito${habits.length === 1 ? "" : "s"} para hoje`}
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      Disciplina do dia
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
-                    {habits.length === 0
-                      ? "Criar"
-                      : `${habitsDone}/${habits.length}`}
-                  </span>
-                </Link>
-              </li>
-
-              {nextTrip ? (
-                <li>
-                  <Link
-                    to={nextTrip.link ?? "/travel"}
-                    className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent/40 sm:gap-3.5 sm:px-4 sm:py-3"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/12 text-amber-600 dark:text-amber-400 sm:h-10 sm:w-10 sm:rounded-2xl">
-                      <Plane className="h-5 w-5" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold line-clamp-1">
-                        {nextTrip.title}
-                      </span>
-                      <span className="block text-xs text-muted-foreground">
-                        Próxima viagem
-                      </span>
-                    </span>
-                    <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-                      {tripCountdown == null
-                        ? ""
-                        : tripCountdown < 0
-                          ? "Atrasada"
-                          : tripCountdown === 0
-                            ? "Hoje"
-                            : tripCountdown === 1
-                              ? "Amanhã"
-                              : `Faltam ${tripCountdown} dias`}
-                    </span>
-                  </Link>
-                </li>
-              ) : null}
-
-              {nextPayment ? (
-                <li>
-                  <Link
-                    to="/finance/recurring"
-                    className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent/40 sm:gap-3.5 sm:px-4 sm:py-3"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/12 text-rose-600 dark:text-rose-400 sm:h-10 sm:w-10 sm:rounded-2xl">
-                      <CreditCard className="h-5 w-5" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">
-                        Próximo pagamento
-                      </span>
-                      <span className="block text-xs text-muted-foreground line-clamp-1">
-                        {nextPayment.recurring.description}
-                        {` · ${formatShortDate(nextPayment.dueDate)}`}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              ) : null}
-
-              {lastMovie ? (
-                <li>
-                  <Link
-                    to="/movies"
-                    className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent/40 sm:gap-3.5 sm:px-4 sm:py-3"
-                  >
-                    {lastMovie.poster && lastMovie.poster !== "N/A" ? (
-                      <img
-                        src={lastMovie.poster}
-                        alt=""
-                        className="h-10 w-7 shrink-0 rounded-md object-cover shadow-sm sm:h-12 sm:w-9 sm:rounded-lg"
-                      />
-                    ) : (
-                      <span className="flex h-10 w-7 shrink-0 items-center justify-center rounded-md bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-400 sm:h-12 sm:w-9 sm:rounded-lg">
-                        <Clapperboard className="h-4 w-4" />
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">
-                        Você assistiu
-                      </span>
-                      <span className="block text-xs text-muted-foreground line-clamp-1">
-                        {lastMovie.title}
-                      </span>
-                    </span>
-                    {lastMovie.rating != null ? (
-                      <span className="flex shrink-0 items-center gap-1 text-sm font-semibold tabular-nums text-amber-600 dark:text-amber-400">
-                        <Star className="h-3.5 w-3.5 fill-current" />
-                        {formatMovieRating(lastMovie.rating)}
-                      </span>
-                    ) : null}
-                  </Link>
-                </li>
-              ) : null}
-            </ul>
-        </section>
+        <HubAlerts
+          priorityAlerts={priorityAlerts}
+          urgentAlertExtra={urgentAlertExtra}
+        />
+        <HubDaySummary
+          habitsCount={habits.length}
+          habitsDone={habitsDone}
+          nextTrip={nextTrip}
+          tripCountdown={tripCountdown}
+          nextPayment={nextPayment}
+          lastMovie={lastMovie}
+        />
       </div>
 
-      {/* Timeline + módulos */}
       <div className="relative grid gap-4 sm:gap-6 lg:grid-cols-12 lg:items-start lg:gap-8">
-        <section className="space-y-3 lg:col-span-5">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-base font-semibold tracking-tight sm:text-lg">
-              Próximos 7 dias
-            </h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              asChild
-            >
-              <Link to="/timeline">
-                <CalendarDays className="mr-1 h-3.5 w-3.5" />
-                Timeline
-              </Link>
-            </Button>
-          </div>
-          {upcoming.length > 0 ? (
-            <ul className="overflow-hidden rounded-[1.25rem] border bg-card/80 shadow-sm divide-y backdrop-blur">
-              {upcoming.slice(0, 5).map((item) => {
-                const body = (
-                  <span className="flex items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-accent/40 sm:gap-3 sm:px-4 sm:py-3">
-                    <span
-                      className={cn(
-                        "mt-0.5 h-2 w-2 shrink-0 rounded-full",
-                        MODULE_DOT[item.module] ?? "bg-muted-foreground"
-                      )}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium line-clamp-1">
-                        {item.title}
-                      </span>
-                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                        {MODULE_LABELS[item.module] ?? item.module}
-                        {item.subtitle ? ` · ${item.subtitle}` : ""}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 flex-col items-end gap-1">
-                      <span className="text-[11px] tabular-nums text-muted-foreground">
-                        {formatShortDate(item.date)}
-                      </span>
-                      {item.status === "overdue" || item.status === "today" ? (
-                        <span
-                          className={cn(
-                            "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                            item.status === "overdue"
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                          )}
-                        >
-                          {item.status === "overdue" ? "Atrasado" : "Hoje"}
-                        </span>
-                      ) : null}
-                    </span>
-                  </span>
-                );
-                return (
-                  <li key={item.id}>
-                    {item.link ? <Link to={item.link}>{body}</Link> : body}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <div className="rounded-[1.25rem] border border-dashed px-4 py-8 text-center">
-              <p className="text-sm font-medium">Agenda leve</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Nada nos próximos 7 dias.
-              </p>
-            </div>
-          )}
-          {upcoming.length > 5 ? (
-            <Button variant="ghost" size="sm" className="w-full" asChild>
-              <Link to="/timeline">Ver timeline completa</Link>
-            </Button>
-          ) : null}
-        </section>
-
+        <HubUpcoming upcoming={upcoming} />
         <HubModulesGrid />
       </div>
 
@@ -841,11 +384,24 @@ export default function LifeDashboard() {
               month,
               receita,
               despesa,
+              budgetPlanned:
+                budgetHighlight && budgetHighlight.planned > 0
+                  ? budgetHighlight.planned
+                  : null,
             })
           }
           share={async (blob) => {
             const result = await shareMonthSpendNative(
-              { year, month, receita, despesa },
+              {
+                year,
+                month,
+                receita,
+                despesa,
+                budgetPlanned:
+                  budgetHighlight && budgetHighlight.planned > 0
+                    ? budgetHighlight.planned
+                    : null,
+              },
               blob
             );
             if (result !== "cancelled") {

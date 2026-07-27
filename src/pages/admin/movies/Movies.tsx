@@ -3,6 +3,13 @@ import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { deleteMovie, fetchMovies } from "@/api/movies";
 import { Movie, MovieTypeFilter } from "@/types/movies";
@@ -18,13 +25,22 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { getErrorMessage } from "@/lib/errors";
-import { filterMoviesByType } from "@/domain/movies";
+import {
+  collectMovieGenres,
+  filterMoviesByGenreAndRating,
+  filterMoviesByType,
+  formatMovieRating,
+  getWatchedMoviesStats,
+  type MovieRatingFloor,
+} from "@/domain/movies";
 
 export default function Movies() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<"to_watch" | "watched">("to_watch");
   const [typeFilter, setTypeFilter] = useState<MovieTypeFilter>("all");
+  const [genreFilter, setGenreFilter] = useState<string>("all");
+  const [ratingFloor, setRatingFloor] = useState<MovieRatingFloor>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(36);
   const [totalPages, setTotalPages] = useState(0);
@@ -71,11 +87,18 @@ export default function Movies() {
     }
   }
 
+  const genres = useMemo(() => collectMovieGenres(movies), [movies]);
+  const watchedStats = useMemo(() => getWatchedMoviesStats(movies), [movies]);
+
   const filteredMovies = useMemo(() => {
     const byType = filterMoviesByType(movies, typeFilter);
+    const byMeta = filterMoviesByGenreAndRating(byType, {
+      genre: genreFilter,
+      minRating: filter === "watched" ? ratingFloor : "all",
+    });
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return byType;
-    return byType.filter((movie) => {
+    if (!q) return byMeta;
+    return byMeta.filter((movie) => {
       const haystack = [
         movie.title,
         movie.notes,
@@ -88,17 +111,22 @@ export default function Movies() {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [movies, searchTerm, typeFilter]);
+  }, [movies, searchTerm, typeFilter, genreFilter, ratingFloor, filter]);
 
   function openDetail(movie: Movie) {
     setSelectedMovie(movie);
     setIsDetailOpen(true);
   }
 
+  const description =
+    filter === "watched" && watchedStats.avgRating != null
+      ? `Watchlist, opiniões e histórico · média ${formatMovieRating(watchedStats.avgRating)}/10 em ${watchedStats.rated} título${watchedStats.rated === 1 ? "" : "s"}`
+      : "Watchlist, opiniões e histórico.";
+
   return (
     <PageShell
       title="Cinema"
-      description="Watchlist, opiniões e histórico."
+      description={description}
       actions={
         <>
           <ModuleGuideButton moduleId="movies" />
@@ -126,6 +154,8 @@ export default function Movies() {
             onValueChange={(val) => {
               setFilter(val as "to_watch" | "watched");
               setPage(1);
+              setGenreFilter("all");
+              setRatingFloor("all");
             }}
             className="w-full sm:w-auto"
           >
@@ -136,17 +166,51 @@ export default function Movies() {
           </Tabs>
         </div>
 
-        <Tabs
-          value={typeFilter}
-          onValueChange={(val) => setTypeFilter(val as MovieTypeFilter)}
-          className="w-full sm:w-auto"
-        >
-          <TabsList className="grid w-full grid-cols-3 sm:w-auto">
-            <TabsTrigger value="all">Todos</TabsTrigger>
-            <TabsTrigger value="movie">Filmes</TabsTrigger>
-            <TabsTrigger value="series">Séries</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <Tabs
+            value={typeFilter}
+            onValueChange={(val) => setTypeFilter(val as MovieTypeFilter)}
+            className="w-full sm:w-auto"
+          >
+            <TabsList className="grid w-full grid-cols-3 sm:w-auto">
+              <TabsTrigger value="all">Todos</TabsTrigger>
+              <TabsTrigger value="movie">Filmes</TabsTrigger>
+              <TabsTrigger value="series">Séries</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <Select value={genreFilter} onValueChange={setGenreFilter}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Gênero" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os gêneros</SelectItem>
+              {genres.map((g) => (
+                <SelectItem key={g} value={g}>
+                  {g}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {filter === "watched" ? (
+            <Select
+              value={ratingFloor}
+              onValueChange={(v) => setRatingFloor(v as MovieRatingFloor)}
+            >
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Nota mínima" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Qualquer nota</SelectItem>
+                <SelectItem value="6">6+ Bom</SelectItem>
+                <SelectItem value="7">7+ Muito bom</SelectItem>
+                <SelectItem value="8">8+ Excelente</SelectItem>
+                <SelectItem value="9">9+ Obra-prima</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : null}
+        </div>
       </section>
 
       <section className="rounded-xl border p-3 sm:p-4">
@@ -165,12 +229,14 @@ export default function Movies() {
           <EmptyState
             title="Nenhum título encontrado"
             description={
-              searchTerm
-                ? "Tente outro termo de busca."
+              searchTerm || genreFilter !== "all" || ratingFloor !== "all"
+                ? "Tente outro filtro ou termo de busca."
                 : "Adicione títulos ou importe do Letterboxd / TV Time."
             }
             action={
-              searchTerm ? undefined : (
+              searchTerm || genreFilter !== "all" || ratingFloor !== "all" ? (
+                undefined
+              ) : (
                 <div className="flex flex-wrap justify-center gap-2">
                   <MovieSearchModal onMovieAdded={loadMovies} />
                   <MovieImportDialog onImported={loadMovies} />

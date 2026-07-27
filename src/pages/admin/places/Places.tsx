@@ -100,6 +100,11 @@ export default function Places() {
   }, [places, trips]);
 
   const avgRating = getAverageRating(places);
+  const recommendCount = places.filter((p) => p.would_recommend !== false).length;
+  const recommendPct =
+    places.length > 0
+      ? Math.round((recommendCount / places.length) * 100)
+      : null;
   const hasActiveFilters =
     category !== "all" ||
     search.trim().length > 0 ||
@@ -130,7 +135,9 @@ export default function Places() {
       title="Lugares"
       description={
         avgRating != null
-          ? `Avalie restaurantes, cafés e passeios — na cidade ou em viagens. Média: ${avgRating}★`
+          ? `Avalie restaurantes, cafés e passeios — na cidade ou em viagens. Média: ${avgRating}★${
+              recommendPct != null ? ` · ${recommendPct}% recomendaria` : ""
+            }`
           : "Avalie restaurantes, cafés e passeios — na cidade ou em viagens."
       }
       actions={

@@ -357,6 +357,36 @@ export default function Account() {
             {isPro ? "pro" : isTrialActive ? "teste" : "expirado"}
           </span>
         </div>
+        {isTrialActive && trialDaysLeft <= 2 ? (
+          <div
+            className={`mt-4 space-y-2 rounded-lg border p-4 text-sm ${
+              trialDaysLeft <= 1
+                ? "border-amber-500/40 bg-amber-500/10"
+                : "border-sky-500/30 bg-sky-500/5"
+            }`}
+          >
+            <p className="font-medium text-foreground">
+              {trialDaysLeft <= 1
+                ? "Último dia do teste"
+                : "Seu teste acaba em 2 dias"}
+            </p>
+            <p className="text-muted-foreground">
+              {trialDaysLeft <= 1
+                ? `Amanhã o acesso grátis termina. Assine o Pro (${PLANS.pro.priceLabel}) para continuar com orçamento, parcelas e o life OS.`
+                : `Faltam ${trialDaysLeft} dias. Vale montar o orçamento e as parcelas agora — e decidir com calma se o Pro faz sentido.`}
+            </p>
+            {isBillingConfigured() ? (
+              <Button
+                size="sm"
+                className="mt-1"
+                disabled={billingBusy}
+                onClick={() => void handleUpgrade()}
+              >
+                Assinar Pro · {PLANS.pro.priceLabel}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         {trialExpired ? (
           <div className="mt-4 space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
             <p className="font-medium text-foreground">Período de teste encerrado</p>
@@ -389,14 +419,26 @@ export default function Account() {
         </ul>
         <div className="mt-4 flex flex-wrap gap-2">
           {isPro ? (
-            <Button
-              variant="outline"
-              disabled={billingBusy || !isBillingConfigured()}
-              onClick={() => void handlePortal()}
-            >
-              <CreditCard className="mr-2 h-4 w-4" />
-              Gerenciar assinatura
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                disabled={billingBusy || !isBillingConfigured()}
+                onClick={() => void handlePortal()}
+              >
+                <CreditCard className="mr-2 h-4 w-4" />
+                Gerenciar assinatura
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={billingBusy || !isBillingConfigured()}
+                onClick={() => {
+                  track("billing_invoices");
+                  void handlePortal();
+                }}
+              >
+                Faturas e recibos
+              </Button>
+            </>
           ) : isBillingConfigured() ? (
             <Button
               disabled={billingBusy}

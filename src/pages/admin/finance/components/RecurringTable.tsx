@@ -1,4 +1,4 @@
-import { ChevronDown, CheckCircle, Pen, Trash2 } from "lucide-react";
+import { ChevronDown, CheckCircle, Pen, Trash2, Repeat } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -21,14 +21,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import { TypeIcon } from "@/components/TypeIcon";
+import { EmptyState } from "@/components/EmptyState";
 import {
   deleteRecurringApi,
   softDeleteRecurring,
   updateRecurringParcelPayment,
   formatInstallmentPlanSummary,
   getRecurringProgress,
-  type RecurringProgress,
 } from "@/api/recurring";
 import { formatBRL } from "@/lib/currency";
 import { Fragment, useState } from "react";
@@ -37,6 +36,12 @@ import { cn } from "@/lib/utils";
 import { ActionTooltip } from "@/components/ActionTooltip";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { toast } from "@/hooks/use-toast";
+import {
+  RecurringIcon,
+  ProgressBar,
+  getRemainingInfo,
+} from "./RecurringTableShared";
+import { RecurringTableMobile } from "./RecurringTableMobile";
 
 interface RecurringTableProps {
   recurring: Recurring[];
@@ -55,49 +60,6 @@ interface RecurringTableProps {
   ) => void;
   reloadRecurring: () => Promise<void>;
   handleEditRecurring: (recurring: Recurring) => void;
-}
-
-function RecurringIcon({ recurring }: { recurring: Recurring }) {
-  return (
-    <TypeIcon
-      name={recurring.class?.type?.lucide_icon}
-      className="h-4 w-4"
-      style={{ color: String(recurring.class?.type?.hex_color ?? "") }}
-    />
-  );
-}
-
-function ProgressBar({ progress }: { progress: RecurringProgress }) {
-  return (
-    <div className="mt-2 space-y-1.5">
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-        <span>
-          {progress.paid}/{progress.total} pagas
-        </span>
-        <span>{progress.open} em aberto</span>
-      </div>
-      <div className="h-1 w-full overflow-hidden rounded-full bg-muted/80">
-        <div
-          className="h-full rounded-full bg-primary transition-all duration-300"
-          style={{ width: `${progress.percent}%` }}
-          role="progressbar"
-          aria-valuenow={progress.percent}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        />
-      </div>
-    </div>
-  );
-}
-
-function getRemainingInfo(recurring: Recurring) {
-  const progress = getRecurringProgress(recurring);
-  if (!progress || !recurring.value) return null;
-
-  return {
-    ...progress,
-    remainingAmount: progress.open * recurring.value,
-  };
 }
 
 export function RecurringTable({
@@ -127,289 +89,35 @@ export function RecurringTable({
 
   if (recurring.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-        <p className="text-sm font-medium text-muted-foreground">
-          Nenhuma recorrência encontrada para este filtro.
-        </p>
-      </div>
+      <EmptyState
+        icon={Repeat}
+        title="Nenhuma recorrência neste filtro"
+        description="Ajuste o filtro ou cadastre uma parcela/recorrência para acompanhar o mês."
+      />
     );
   }
 
   if (isMobile) {
     return (
-      <TooltipProvider delayDuration={300}>
-        <div className="divide-y divide-border/60">
-          {recurring.map((item) => {
-            const paidParcels = item.paid_parcels || [];
-            const remainingInfo = getRemainingInfo(item);
-            const installments = item.installments;
-            const planSummary = formatInstallmentPlanSummary(item);
-            const progress = getRecurringProgress(item);
-            const isExpanded = !!expandedRows[item.id];
-            const displayName =
-              item.description || item.class?.name || "Sem descrição";
-
-            return (
-              <div key={item.id} className="flex flex-col gap-3 p-4">
-                <div className="flex items-start gap-3">
-                  <RecurringIcon recurring={item} />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="font-medium leading-snug">{displayName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {item.class?.type?.name} · {item.class?.name}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {item.frequency}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-base font-semibold tabular-nums">
-                    {formatBRL(item.value ?? 0)}
-                  </span>
-                </div>
-
-                {planSummary && (
-                  <div className="space-y-1 rounded-lg bg-muted/30 px-3 py-2">
-                    <span className="text-sm font-medium">{planSummary.title}</span>
-                    <p className="text-xs text-muted-foreground">{planSummary.subtitle}</p>
-                    {progress && <ProgressBar progress={progress} />}
-                  </div>
-                )}
-
-                {remainingInfo && (
-                  <p className="text-sm text-muted-foreground">
-                    Saldo:{" "}
-                    <span className="font-medium text-foreground tabular-nums">
-                      {formatBRL(remainingInfo.remainingAmount)}
-                    </span>
-                    {" · "}
-                    {remainingInfo.open}x de {formatBRL(item.value)}
-                  </p>
-                )}
-
-                <div className="flex items-center justify-between gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-10 flex-1 text-sm"
-                    aria-expanded={isExpanded}
-                    onClick={() => toggleExpanded(item.id)}
-                  >
-                    <ChevronDown
-                      className={cn(
-                        "mr-1.5 h-4 w-4 transition-transform duration-200",
-                        isExpanded && "rotate-180"
-                      )}
-                    />
-                    {isExpanded ? "Ocultar parcelas" : "Ver parcelas"}
-                  </Button>
-
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn("h-10 w-10", ICON_EDIT_BUTTON_CLASS)}
-                      aria-label="Editar recorrência"
-                      onClick={() => {
-                        setSelectedRecurring(item);
-                        handleEditRecurring(item);
-                      }}
-                    >
-                      <Pen className="h-4 w-4" />
-                    </Button>
-
-                    <AlertDialog
-                      open={confirmOpenSoft && selectedRecurring?.id === item.id}
-                      onOpenChange={setConfirmOpenSoft}
-                    >
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-10 w-10"
-                          aria-label="Marcar recorrência como paga"
-                          onClick={() => setSelectedRecurring(item)}
-                        >
-                          <CheckCircle className="h-4 w-4 text-success" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>Marcar como paga?</AlertDialogHeader>
-                        <p className="text-sm text-muted-foreground">
-                          A recorrência &quot;{displayName}&quot; será arquivada como concluída.
-                        </p>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={async () => {
-                              await softDeleteRecurring(item.id);
-                              setConfirmOpenSoft(false);
-                              reloadRecurring();
-                            }}
-                          >
-                            Marcar como paga
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-
-                    <AlertDialog
-                      open={confirmOpen && selectedRecurring?.id === item.id}
-                      onOpenChange={setConfirmOpen}
-                    >
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-10 w-10"
-                          aria-label="Excluir recorrência"
-                          onClick={() => setSelectedRecurring(item)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>Excluir recorrência?</AlertDialogHeader>
-                        <p className="text-sm text-muted-foreground">
-                          Esta ação é permanente e não pode ser desfeita.
-                        </p>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={async () => {
-                              await deleteRecurringApi(item.id);
-                              setConfirmOpen(false);
-                              reloadRecurring();
-                            }}
-                          >
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                    {typeof installments === "string" ? (
-                      <p className="text-sm text-muted-foreground">{installments}</p>
-                    ) : Array.isArray(installments) ? (
-                      <div className="space-y-2">
-                        {installments.map((installment: Installment) => {
-                          const isPaid = paidParcels.includes(installment.number);
-                          return (
-                            <div
-                              key={installment.number}
-                              className="flex flex-col gap-3 rounded-md border border-border/40 bg-background/40 px-3 py-3"
-                            >
-                              <div className="min-w-0 space-y-1">
-                                <p className="text-sm font-medium">
-                                  Parcela {installment.number}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Vence em{" "}
-                                  {installment.dueDate.split("-").reverse().join("/")}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    "font-normal",
-                                    isPaid
-                                      ? "border-success/30 text-success"
-                                      : "border-border text-muted-foreground"
-                                  )}
-                                >
-                                  {isPaid ? "Paga" : "Em aberto"}
-                                </Badge>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-10 flex-1 text-sm"
-                                  onClick={() => {
-                                    setSelectedParcel({
-                                      transactionId: item.id,
-                                      installmentNumber: installment.number,
-                                    });
-                                    setPaymentAction(isPaid ? "unmark" : "mark");
-                                    setConfirmPaymentOpen(true);
-                                  }}
-                                >
-                                  {isPaid ? "Desfazer" : "Marcar como paga"}
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Sem parcelas calculadas.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <AlertDialog open={confirmPaymentOpen} onOpenChange={setConfirmPaymentOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              {paymentAction === "mark"
-                ? "Marcar parcela como paga?"
-                : "Desfazer pagamento?"}
-            </AlertDialogHeader>
-            <p className="text-sm text-muted-foreground">
-              {paymentAction === "mark"
-                ? "A transação correspondente será registrada automaticamente."
-                : "O status da parcela será revertido e a transação vinculada será excluída automaticamente."}
-            </p>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={async () => {
-                  if (selectedParcel) {
-                    try {
-                      await updateRecurringParcelPayment(
-                        selectedParcel.transactionId,
-                        selectedParcel.installmentNumber,
-                        recurring.find(
-                          (transaction) => transaction.id === selectedParcel.transactionId
-                        )?.paid_parcels || []
-                      );
-                      await reloadRecurring();
-                      toast({
-                        title:
-                          paymentAction === "mark"
-                            ? "Parcela marcada como paga"
-                            : "Pagamento desfeito",
-                        description:
-                          paymentAction === "mark"
-                            ? "A transação foi registrada automaticamente."
-                            : "A parcela foi revertida e a transação vinculada foi excluída.",
-                      });
-                    } catch (error) {
-                      console.error("Erro ao atualizar pagamento da parcela:", error);
-                      toast({
-                        variant: "destructive",
-                        title: "Erro ao atualizar parcela",
-                        description:
-                          "Não foi possível concluir a operação. Tente novamente.",
-                      });
-                    }
-                  }
-                  setConfirmPaymentOpen(false);
-                }}
-              >
-                Confirmar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </TooltipProvider>
+      <RecurringTableMobile
+        recurring={recurring}
+        confirmOpen={confirmOpen}
+        setConfirmOpen={setConfirmOpen}
+        confirmOpenSoft={confirmOpenSoft}
+        setConfirmOpenSoft={setConfirmOpenSoft}
+        confirmPaymentOpen={confirmPaymentOpen}
+        setConfirmPaymentOpen={setConfirmPaymentOpen}
+        selectedRecurring={selectedRecurring}
+        setSelectedRecurring={setSelectedRecurring}
+        selectedParcel={selectedParcel}
+        setSelectedParcel={setSelectedParcel}
+        reloadRecurring={reloadRecurring}
+        handleEditRecurring={handleEditRecurring}
+        expandedRows={expandedRows}
+        toggleExpanded={toggleExpanded}
+        paymentAction={paymentAction}
+        setPaymentAction={setPaymentAction}
+      />
     );
   }
 

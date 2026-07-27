@@ -176,3 +176,31 @@ export function calculateCommittedThisMonth(
 
   return { pay, receive };
 }
+
+export interface ProjectedMonthBalance {
+  realizedIncome: number;
+  realizedExpense: number;
+  committedPay: number;
+  committedReceive: number;
+  projectedIncome: number;
+  projectedExpense: number;
+  projectedBalance: number;
+}
+
+/** Saldo previsto do mês = realizado + parcelas/recorrentes ainda em aberto no mês. */
+export function calculateProjectedMonthBalance(
+  realized: { receita: number; despesa: number },
+  committed: CommittedAmounts
+): ProjectedMonthBalance {
+  const projectedIncome = realized.receita + committed.receive;
+  const projectedExpense = realized.despesa + committed.pay;
+  return {
+    realizedIncome: realized.receita,
+    realizedExpense: realized.despesa,
+    committedPay: committed.pay,
+    committedReceive: committed.receive,
+    projectedIncome,
+    projectedExpense,
+    projectedBalance: projectedIncome - projectedExpense,
+  };
+}

@@ -206,6 +206,30 @@ export default function Car() {
     [allFuelLogs]
   );
 
+  const vehicleStatsLabel = useMemo(() => {
+    const bits: string[] = [];
+    if (avgConsumption != null) {
+      bits.push(`${avgConsumption.toFixed(1).replace(".", ",")} km/l`);
+    }
+    const alertCount = maintenanceAlerts.length + documentAlerts.length;
+    if (alertCount > 0) {
+      bits.push(
+        `${alertCount} alerta${alertCount === 1 ? "" : "s"}`
+      );
+    }
+    if (vehicles.length > 1) {
+      bits.push(`${vehicles.length} veículos`);
+    }
+    return bits.length > 0
+      ? `Manutenções, abastecimentos e documentos · ${bits.join(" · ")}`
+      : "Manutenções, abastecimentos e documentos do carro ou da moto.";
+  }, [
+    avgConsumption,
+    maintenanceAlerts.length,
+    documentAlerts.length,
+    vehicles.length,
+  ]);
+
   async function handleDeleteVehicle() {
     if (!vehicle) return;
     setDeleteLoading(vehicle.id);
@@ -316,7 +340,7 @@ export default function Car() {
   return (
     <PageShell
       title="Veículos"
-      description="Manutenções, abastecimentos e documentos do carro ou da moto."
+      description={vehicleStatsLabel}
       actions={
         <>
           <ModuleGuideButton moduleId="car" />

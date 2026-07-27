@@ -13,6 +13,27 @@ describe("asStringList", () => {
     expect(asStringList("Action, Drama")).toEqual(["Action", "Drama"]);
     expect(asStringList(null)).toEqual([]);
   });
+
+  it("parseia JSON stringificado sem aspas/colchetes", () => {
+    expect(asStringList('["Crime", "Drama", "Thriller"]')).toEqual([
+      "Crime",
+      "Drama",
+      "Thriller",
+    ]);
+    expect(
+      asStringList(
+        '["Jude Law", "Nicholas Hoult", "Tye Sheridan"]'
+      )
+    ).toEqual(["Jude Law", "Nicholas Hoult", "Tye Sheridan"]);
+  });
+
+  it("limpa tokens quebrados de split ingenuo", () => {
+    expect(asStringList(['["Crime"', '"Drama"', '"Thriller"]'])).toEqual([
+      "Crime",
+      "Drama",
+      "Thriller",
+    ]);
+  });
 });
 
 describe("letterboxdToTen", () => {

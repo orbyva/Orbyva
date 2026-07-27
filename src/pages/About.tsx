@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BRAND } from "@/lib/brand";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 const MODULES = [
   {
@@ -30,6 +31,14 @@ const MODULES = [
 ] as const;
 
 export function AboutPage() {
+  useDocumentMeta({
+    title: "Sobre o Orbyva",
+    description:
+      "Life OS brasileiro: orçamento com teto, parcelas, hábitos, metas, viagens, cinema e veículos.",
+    path: "/about",
+    image: "https://orbyva.app/marketing/hub.png",
+  });
+
   return (
     <div className="relative min-h-svh overflow-hidden bg-[#0c1222] text-zinc-100">
       <div

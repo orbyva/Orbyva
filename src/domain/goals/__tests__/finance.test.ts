@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   getFinancialGoalInsight,
+  goalAporteDescription,
+  matchesGoalAporte,
   monthsUntilDeadline,
+  sumAporteProgress,
 } from "@/domain/goals/finance";
 import type { PersonalGoal } from "@/types/goals";
 
@@ -34,6 +37,30 @@ describe("monthsUntilDeadline", () => {
   it("retorna 0 se o prazo já passou", () => {
     const from = new Date("2026-07-25T12:00:00");
     expect(monthsUntilDeadline("2026-07-01", from)).toBe(0);
+  });
+});
+
+describe("goal aporte ledger", () => {
+  it("monta descrição estável", () => {
+    expect(goalAporteDescription(" Reserva ")).toBe("Aporte meta: Reserva");
+  });
+
+  it("soma aportes da meta", () => {
+    expect(
+      sumAporteProgress(
+        [
+          { description: "Aporte meta: Reserva", value: 500 },
+          { description: "Aporte meta: Reserva 2/7", value: 500 },
+          { description: "Outro", value: 999 },
+        ],
+        "Reserva"
+      )
+    ).toBe(1000);
+  });
+
+  it("reconhece prefixo", () => {
+    expect(matchesGoalAporte("Aporte meta: Reserva", "Reserva")).toBe(true);
+    expect(matchesGoalAporte("Mercado", "Reserva")).toBe(false);
   });
 });
 

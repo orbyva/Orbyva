@@ -22,6 +22,7 @@
     fetchTransactions,
     fetchValueByNatureForMonth,
     fetchValueByNatureYearMonth,
+    fetchMonthlyBudgetSummary,
   } from "@/api/finance";
   import { Button } from "@/components/ui/button";
   import { Link } from "react-router-dom";
@@ -36,6 +37,7 @@
   import {
     calculateInstallments,
     calculateCommittedThisMonth,
+    calculateProjectedMonthBalance,
     fetchRecurringTransactions,
     getRecurringDueAlerts,
     resolvePaymentStartDate,
@@ -48,7 +50,16 @@
     buildMomTrends,
     previousYearMonth,
   } from "@/domain/finance/insights";
+  import { sumTripSpendFromTransactions } from "@/domain/travel/ledger";
+  import type { MonthlyBudgetSummary } from "@/types/finance";
   import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
+
+  function sumExpenseBudgetCeiling(rows: MonthlyBudgetSummary[]): number {
+    const expenses = rows.filter((b) => /despesa/i.test(b.nature_name || ""));
+    const parents = expenses.filter((b) => b.class_id == null);
+    const list = parents.length > 0 ? parents : expenses;
+    return list.reduce((s, b) => s + Number(b.planned_value || 0), 0);
+  }
 
   const Overview = lazy(() =>
     import("./components/overview").then((m) => ({ default: m.Overview }))
@@ -113,6 +124,7 @@
     const [selectedType, setSelectedType] = useState<string | null>(null);
     const [recurring, setRecurring] = useState<Recurring[]>([]);
     const [shareOpen, setShareOpen] = useState(false);
+    const [budgetPlanned, setBudgetPlanned] = useState<number | null>(null);
 
     const dueAlerts = useMemo(
       () => getRecurringDueAlerts(recurring),
@@ -120,8 +132,26 @@
     );
 
     const committed = useMemo(
-      () => calculateCommittedThisMonth(recurring),
-      [recurring]
+      () =>
+        calculateCommittedThisMonth(
+          recurring,
+          new Date(selectedYear, selectedMonth - 1, 15)
+        ),
+      [recurring, selectedYear, selectedMonth]
+    );
+
+    const projected = useMemo(
+      () =>
+        calculateProjectedMonthBalance(
+          { receita: receitaTotal, despesa: despesaTotal },
+          committed
+        ),
+      [receitaTotal, despesaTotal, committed]
+    );
+
+    const tripSpend = useMemo(
+      () => sumTripSpendFromTransactions(transactions),
+      [transactions]
     );
 
     const mom = useMemo(() => {
@@ -166,7 +196,10 @@
           title: "Saldo",
           value: receitaTotal - despesaTotal,
           variant: "primary",
-          description: null,
+          description:
+            projected.committedPay > 0 || projected.committedReceive > 0
+              ? `Previsto: ${formatBRL(projected.projectedBalance)}`
+              : null,
           isLoading: cardsLoading,
           trendText: mom.saldo,
           formatValue: (value: number) => {
@@ -175,10 +208,10 @@
           },
         },
         {
-          title: "Comprometido no mês",
-          value: committed.pay,
+          title: "Saldo previsto",
+          value: projected.projectedBalance,
           variant: "muted",
-          description: `A receber: ${formatBRL(committed.receive)}`,
+          description: `A pagar: ${formatBRL(committed.pay)} · A receber: ${formatBRL(committed.receive)}`,
           isLoading: cardsLoading,
           trendText: null,
           formatValue: (value: number) => formatBRL(value),
@@ -190,6 +223,9 @@
         cardsLoading,
         committed.pay,
         committed.receive,
+        projected.projectedBalance,
+        projected.committedPay,
+        projected.committedReceive,
         mom.receita,
         mom.despesa,
         mom.saldo,
@@ -277,6 +313,20 @@
       getTransactions();
       getCardsData();
     }, [fetchCardsData, fetchTransactionsData, selectedYear, selectedMonth]);
+
+    useEffect(() => {
+      async function loadBudgetCeiling() {
+        try {
+          const monthIso = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
+          const rows = await fetchMonthlyBudgetSummary(monthIso);
+          const ceiling = sumExpenseBudgetCeiling(rows);
+          setBudgetPlanned(ceiling > 0 ? ceiling : null);
+        } catch {
+          setBudgetPlanned(null);
+        }
+      }
+      void loadBudgetCeiling();
+    }, [selectedYear, selectedMonth]);
 
     useEffect(() => {
       async function loadRecurringDueAlerts() {
@@ -403,13 +453,14 @@
         <ShareImageDialog
           open={shareOpen}
           onOpenChange={setShareOpen}
-          title="Compartilhar gasto do mês"
+          title="Compartilhar fechamento do mês"
           generateImage={() =>
             generateMonthSpendShareImage({
               year: selectedYear,
               month: selectedMonth,
               receita: receitaTotal,
               despesa: despesaTotal,
+              budgetPlanned,
             })
           }
           share={(blob) =>
@@ -419,6 +470,7 @@
                 month: selectedMonth,
                 receita: receitaTotal,
                 despesa: despesaTotal,
+                budgetPlanned,
               },
               blob
             )
@@ -482,6 +534,22 @@
                 {mom.despesa ? ` · despesa ${mom.despesa}` : ""}
                 {mom.receita ? ` · receita ${mom.receita}` : ""}
                 {mom.saldo ? ` · saldo ${mom.saldo}` : ""}
+              </p>
+            ) : null}
+
+            {tripSpend > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Viagens no ledger deste mês:{" "}
+                <span className="font-medium text-foreground tabular-nums">
+                  {formatBRL(tripSpend)}
+                </span>
+                {" · "}
+                <Link
+                  to="/travel"
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  Abrir viagens
+                </Link>
               </p>
             ) : null}
 

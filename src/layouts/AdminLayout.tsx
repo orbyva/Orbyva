@@ -23,6 +23,8 @@ import { GlobalSearch } from "@/components/GlobalSearch"
 import { AlertsBell } from "@/components/AlertsBell"
 import { MobileBottomNav } from "@/components/MobileBottomNav"
 import { OfflineBanner } from "@/components/OfflineBanner"
+import { useOfflineOutboxSync } from "@/hooks/useOfflineOutboxSync"
+import { useDocumentMeta } from "@/hooks/useDocumentMeta"
 import { BREADCRUMB_LABELS } from "@/lib/brand"
 import { usePlan } from "@/hooks/usePlan"
 import {
@@ -36,6 +38,11 @@ function breadcrumbLabel(segment: string, override: string | null): string {
   if (override) return override
   if (looksLikeId(segment)) return "…"
   return BREADCRUMB_LABELS[segment] ?? decodeURIComponent(segment)
+}
+
+function OfflineOutboxHost() {
+  const { pending } = useOfflineOutboxSync()
+  return <OfflineBanner pendingCount={pending} />
 }
 
 function SidebarMobileCloser() {
@@ -107,6 +114,15 @@ export default function AdminLayout() {
 
   const onAccount = location.pathname.startsWith("/account")
 
+  const segment =
+    location.pathname.split("/").filter(Boolean).slice(-1)[0] ?? "home"
+  useDocumentMeta({
+    title: BREADCRUMB_LABELS[segment] ?? "App",
+    description: "Orbyva — sua vida em uma só órbita.",
+    path: location.pathname,
+    brandSuffix: true,
+  })
+
   // Só bloqueia no carregamento inicial — refresh de plano não desmonta modais
   if (planLoading && !profile) {
     return <LoadingFallback />
@@ -122,7 +138,28 @@ export default function AdminLayout() {
       <SidebarMobileCloser />
       <BreadcrumbTitleProvider>
         <SidebarInset>
-          <OfflineBanner />
+          <OfflineOutboxHost />
+          {isTrialActive && trialDaysLeft <= 2 && !onAccount ? (
+            <div
+              className={`flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2 text-xs sm:px-4 sm:text-sm ${
+                trialDaysLeft <= 1
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100"
+                  : "border-sky-500/20 bg-sky-500/10 text-foreground"
+              }`}
+            >
+              <p>
+                {trialDaysLeft <= 1
+                  ? "Último dia do teste — assine o Pro para não perder o acesso."
+                  : `Teste acaba em ${trialDaysLeft} dias — vale ativar orçamento e parcelas agora.`}
+              </p>
+              <Link
+                to="/account"
+                className="shrink-0 font-medium underline-offset-2 hover:underline"
+              >
+                Ver plano
+              </Link>
+            </div>
+          ) : null}
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border/40 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 sm:h-14">
             <div className="flex min-w-0 flex-1 items-center gap-2 px-2.5 sm:px-4">
               <SidebarTrigger className="-ml-1 shrink-0" />

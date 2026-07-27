@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Target, Trash2, Wallet, Pen } from "lucide-react";
+import { Target, Trash2, Wallet, Pen, RefreshCw, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,18 +20,41 @@ import { DatePicker } from "@/components/DatePicker";
 import { EmptyState } from "@/components/EmptyState";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS, ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import {
+  FormLabel,
+  FORM_DIALOG_CONTENT_CLASS,
+  FORM_FIELDS_CLASS,
+  ICON_EDIT_BUTTON_CLASS,
+} from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import { createGoal, deleteGoal, fetchGoals, updateGoal } from "@/api/goals";
-import { GOAL_CATEGORY_LABELS, getGoalProgress, formatGoalProgress } from "@/domain/goals";
-import { getFinancialGoalInsight } from "@/domain/goals/finance";
+import {
+  createGoal,
+  deleteGoal,
+  fetchGoals,
+  sumGoalAporteFromLedger,
+  updateGoal,
+} from "@/api/goals";
+import {
+  createRecurringApi,
+  fetchRecurringTransactions,
+} from "@/api/recurring";
+import { useClasses } from "@/hooks/database/useClasses";
+import {
+  GOAL_CATEGORY_LABELS,
+  getGoalProgress,
+  formatGoalProgress,
+} from "@/domain/goals";
+import {
+  getFinancialGoalInsight,
+  goalAporteDescription,
+} from "@/domain/goals/finance";
 import type { GoalCategory, PersonalGoal, PersonalGoalCreateRequest } from "@/types/goals";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { formatDateBR, formatBRL } from "@/lib/currency";
 import { cn } from "@/lib/utils";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const emptyGoal = (): PersonalGoalCreateRequest => ({
   title: "",
@@ -50,7 +73,22 @@ export default function Goals() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PersonalGoal | null>(null);
   const [form, setForm] = useState(emptyGoal());
+  const [aporteGoal, setAporteGoal] = useState<PersonalGoal | null>(null);
+  const [aporteClassId, setAporteClassId] = useState<number>(0);
+  const [aporteDueDay, setAporteDueDay] = useState<number>(
+    () => new Date().getDate()
+  );
+  const [aporteBusy, setAporteBusy] = useState(false);
+  const { classes } = useClasses();
   const { toast } = useToast();
+
+  const expenseClasses = useMemo(
+    () =>
+      classes.filter((c) =>
+        /despesa/i.test(c.type?.nature?.name ?? "")
+      ),
+    [classes]
+  );
 
   const load = useCallback(async () => {
     try {
@@ -62,7 +100,16 @@ export default function Goals() {
     }
   }, [toast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!aporteGoal) return;
+    if (aporteClassId === 0 && expenseClasses[0]) {
+      setAporteClassId(expenseClasses[0].id);
+    }
+  }, [aporteGoal, aporteClassId, expenseClasses]);
 
   function openEdit(goal: PersonalGoal) {
     setEditing(goal);
@@ -96,6 +143,99 @@ export default function Goals() {
       load();
     } catch (error) {
       toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+    }
+  }
+
+  async function handleSyncProgress(goal: PersonalGoal) {
+    try {
+      const summed = await sumGoalAporteFromLedger(goal.title);
+      await updateGoal({
+        id: goal.id,
+        current_value: summed,
+      });
+      toast({
+        title: "Progresso sincronizado",
+        description: `${formatBRL(summed)} a partir dos aportes no ledger.`,
+        duration: 2500,
+      });
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleCreateMonthlyAporte() {
+    if (!aporteGoal) return;
+    const insight = getFinancialGoalInsight(aporteGoal);
+    if (!insight?.monthlyTarget || insight.monthlyTarget <= 0) return;
+    if (!aporteClassId) {
+      toast({
+        title: "Escolha uma classe",
+        description: "Selecione a classe de despesa do aporte.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (aporteDueDay < 1 || aporteDueDay > 31) {
+      toast({
+        title: "Dia inválido",
+        description: "Informe o dia do mês (1–31).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAporteBusy(true);
+    try {
+      const prefix = goalAporteDescription(aporteGoal.title);
+      const existing = await fetchRecurringTransactions();
+      const already = existing.find((r) =>
+        r.description?.toLowerCase().startsWith(prefix.toLowerCase())
+      );
+      if (already) {
+        toast({
+          title: "Aporte já existe",
+          description: "Há uma recorrência com essa descrição. Abra Parcelas para editar.",
+        });
+        setAporteGoal(null);
+        return;
+      }
+
+      const months =
+        insight.monthsRemaining != null && insight.monthsRemaining > 0
+          ? insight.monthsRemaining
+          : 12;
+
+      await createRecurringApi({
+        class_id: aporteClassId,
+        value: Math.round(insight.monthlyTarget * 100) / 100,
+        description: prefix,
+        frequency: "Mensal",
+        validity: null,
+        due_day: aporteDueDay,
+        installment_count: months,
+        payment_start_date: new Date().toISOString().split("T")[0],
+        status: true,
+      });
+
+      toast({
+        title: "Aporte mensal criado",
+        description: `${formatBRL(insight.monthlyTarget)} × ${months} meses em Parcelas.`,
+        duration: 3000,
+      });
+      setAporteGoal(null);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setAporteBusy(false);
     }
   }
 
@@ -165,7 +305,10 @@ export default function Goals() {
                     <span>{progress}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className={cn("h-full rounded-full bg-primary transition-all")} style={{ width: `${progress}%` }} />
+                    <div
+                      className={cn("h-full rounded-full bg-primary transition-all")}
+                      style={{ width: `${progress}%` }}
+                    />
                   </div>
                 </div>
                 {goal.deadline && (
@@ -203,21 +346,43 @@ export default function Goals() {
                     <p className="mt-1 text-xs text-muted-foreground">
                       {financeInsight.suggestion}
                     </p>
-                    <div className="mt-1 flex items-center gap-3">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                       {financeInsight.monthlyTarget != null &&
                       financeInsight.monthlyTarget > 0 ? (
-                        <Button
-                          variant="link"
-                          className="h-auto p-0 text-xs"
-                          asChild
-                        >
-                          <Link
-                            to={`/finance/transactions?new=1&desc=${encodeURIComponent(`Aporte meta: ${goal.title}`)}&value=${financeInsight.monthlyTarget.toFixed(2)}`}
+                        <>
+                          <Button
+                            variant="link"
+                            className="h-auto p-0 text-xs"
+                            onClick={() => {
+                              setAporteClassId(expenseClasses[0]?.id ?? 0);
+                              setAporteDueDay(new Date().getDate());
+                              setAporteGoal(goal);
+                            }}
                           >
-                            Lançar aporte do mês
-                          </Link>
-                        </Button>
+                            <Repeat className="mr-1 h-3 w-3" />
+                            Criar aporte mensal
+                          </Button>
+                          <Button
+                            variant="link"
+                            className="h-auto p-0 text-xs"
+                            asChild
+                          >
+                            <Link
+                              to={`/finance/transactions?new=1&desc=${encodeURIComponent(goalAporteDescription(goal.title))}&value=${financeInsight.monthlyTarget.toFixed(2)}`}
+                            >
+                              Lançar aporte do mês
+                            </Link>
+                          </Button>
+                        </>
                       ) : null}
+                      <Button
+                        variant="link"
+                        className="h-auto p-0 text-xs text-muted-foreground"
+                        onClick={() => void handleSyncProgress(goal)}
+                      >
+                        <RefreshCw className="mr-1 h-3 w-3" />
+                        Sincronizar progresso
+                      </Button>
                       <Button
                         variant="link"
                         className="h-auto p-0 text-xs text-muted-foreground"
@@ -242,19 +407,36 @@ export default function Goals() {
           <div className={FORM_FIELDS_CLASS}>
             <div>
               <FormLabel required>Título</FormLabel>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
             </div>
             <div>
               <FormLabel optional>Descrição</FormLabel>
-              <Input value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <Input
+                value={form.description ?? ""}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+              />
             </div>
             <div>
               <FormLabel required>Categoria</FormLabel>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as GoalCategory })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={form.category}
+                onValueChange={(v) =>
+                  setForm({ ...form, category: v as GoalCategory })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {Object.entries(GOAL_CATEGORY_LABELS).map(([k, l]) => (
-                    <SelectItem key={k} value={k}>{l}</SelectItem>
+                    <SelectItem key={k} value={k}>
+                      {l}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -292,18 +474,101 @@ export default function Goals() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <FormLabel optional>Unidade</FormLabel>
-                <Input placeholder="R$, km, livros..." value={form.unit ?? ""} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+                <Input
+                  placeholder="R$, km, livros..."
+                  value={form.unit ?? ""}
+                  onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                />
               </div>
               <div>
                 <FormLabel optional>Prazo</FormLabel>
                 <DatePicker
-                  date={form.deadline ? new Date(`${form.deadline}T12:00:00`) : undefined}
-                  onSelect={(d) => setForm({ ...form, deadline: d ? d.toISOString().split("T")[0] : null })}
+                  date={
+                    form.deadline
+                      ? new Date(`${form.deadline}T12:00:00`)
+                      : undefined
+                  }
+                  onSelect={(d) =>
+                    setForm({
+                      ...form,
+                      deadline: d ? d.toISOString().split("T")[0] : null,
+                    })
+                  }
                 />
               </div>
             </div>
-            <Button onClick={handleSave} className="w-full">Salvar</Button>
+            <Button onClick={handleSave} className="w-full">
+              Salvar
+            </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!aporteGoal}
+        onOpenChange={(next) => {
+          if (!next) setAporteGoal(null);
+        }}
+      >
+        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
+          <DialogHeader>
+            <DialogTitle>Criar aporte mensal</DialogTitle>
+          </DialogHeader>
+          {aporteGoal ? (
+            <div className={FORM_FIELDS_CLASS}>
+              <p className="text-sm text-muted-foreground">
+                Gera uma recorrência em Parcelas com a descrição{" "}
+                <span className="font-medium text-foreground">
+                  {goalAporteDescription(aporteGoal.title)}
+                </span>
+                . Ao pagar as parcelas (ou lançar aportes), use “Sincronizar
+                progresso”.
+              </p>
+              <div>
+                <FormLabel required>Classe (despesa)</FormLabel>
+                <Select
+                  value={aporteClassId ? String(aporteClassId) : ""}
+                  onValueChange={(v) => setAporteClassId(Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {expenseClasses.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.type?.name ? `${c.type.name} · ` : ""}
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <FormLabel required>Dia do vencimento</FormLabel>
+                <Input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={aporteDueDay}
+                  onChange={(e) =>
+                    setAporteDueDay(Number(e.target.value) || 1)
+                  }
+                />
+              </div>
+              <Button
+                onClick={() => void handleCreateMonthlyAporte()}
+                disabled={aporteBusy || expenseClasses.length === 0}
+                className="w-full"
+              >
+                {aporteBusy ? "Criando…" : "Criar recorrência"}
+              </Button>
+              {expenseClasses.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Cadastre uma classe de despesa em Finanças para continuar.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </PageShell>

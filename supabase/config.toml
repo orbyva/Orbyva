@@ -8,3 +8,6 @@ verify_jwt = false
 # Cron diário (Authorization: Bearer CRON_SECRET) — sem JWT de usuário.
 [functions.retention-d7-email]
 verify_jwt = false
+
+[functions.weekly-digest-email]
+verify_jwt = false

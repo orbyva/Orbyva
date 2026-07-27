@@ -26,6 +26,7 @@ import { TypeIcon } from "@/components/TypeIcon";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { ActionTooltip } from "@/components/ActionTooltip";
 import { EmptyState } from "@/components/EmptyState";
+import { MobileStackList, MobileStackRow } from "@/components/MobileStackList";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { cn } from "@/lib/utils";
 
@@ -154,7 +155,7 @@ function TransactionsMobileList({
   handleEdit,
 }: Omit<TransactionsTableProps, "isMobile">) {
   return (
-    <div className="divide-y divide-border/60">
+    <MobileStackList>
       {transactions.map((t) => {
         const nature = t.class?.type?.nature?.name ?? "";
         const isReceita = nature === "Receita";
@@ -163,7 +164,7 @@ function TransactionsMobileList({
           : t.transaction_at.slice(0, 10);
 
         return (
-          <div key={t.id} className="flex flex-col gap-3 p-4">
+          <MobileStackRow key={t.id}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 <TransactionIcon transaction={t} />
@@ -202,10 +203,10 @@ function TransactionsMobileList({
                 handleEdit={handleEdit}
               />
             </div>
-          </div>
+          </MobileStackRow>
         );
       })}
-    </div>
+    </MobileStackList>
   );
 }
 

@@ -14,6 +14,31 @@ export type GoalFinanceInsight = {
   monthlyLabel: string | null;
 };
 
+/** Prefixo estável no ledger / recorrentes para ligar meta ↔ finanças. */
+export function goalAporteDescription(title: string): string {
+  return `Aporte meta: ${title.trim()}`;
+}
+
+export function matchesGoalAporte(
+  description: string | null | undefined,
+  title: string
+): boolean {
+  if (!description) return false;
+  const prefix = goalAporteDescription(title).toLowerCase();
+  return description.trim().toLowerCase().startsWith(prefix.toLowerCase());
+}
+
+/** Soma lançamentos (e parcelas) que são aportes da meta. */
+export function sumAporteProgress(
+  rows: { description?: string | null; value?: number | null }[],
+  title: string
+): number {
+  return rows.reduce((sum, row) => {
+    if (!matchesGoalAporte(row.description, title)) return sum;
+    return sum + Math.abs(Number(row.value) || 0);
+  }, 0);
+}
+
 /** Meses a guardar: pelo menos 1 se ainda há dias; 0 se o prazo já passou. */
 export function monthsUntilDeadline(
   deadline: string | null | undefined,

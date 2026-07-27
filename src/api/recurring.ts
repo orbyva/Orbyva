@@ -37,13 +37,18 @@ export async function fetchRecurringTransactions(
 
 export async function createRecurringApi(
   newRecurring: RecurringCreateRequest
-): Promise<void> {
+): Promise<Recurring> {
   const userId = await getCurrentUserId();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("recurring_transaction")
-    .insert([{ ...newRecurring, user_id: userId }]);
+    .insert([{ ...newRecurring, user_id: userId }])
+    .select(
+      "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, nature:nature_id(name)))"
+    )
+    .single();
 
   if (error) throw error;
+  return data;
 }
 
 export async function updateRecurringApi(

@@ -25,6 +25,7 @@ import type {
   TripUpdateRequest,
 } from "@/types/travel";
 import { enrichTripFull } from "@/domain/travel";
+import { tripLedgerDescription } from "@/domain/travel/ledger";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { assertTripAccess, fetchMemberTripIds } from "@/lib/tripAccess";
 import { ensureTripOwnerMember } from "@/api/tripMembers";
@@ -346,7 +347,9 @@ export async function createTripExpense(
           value: mySplit.amount,
           description:
             transaction.description ||
-            `Viagem (fatia): ${expense.description}`,
+            tripLedgerDescription("compartilhada", expense.description, {
+              shareSlice: true,
+            }),
         });
         await supabase
           .from("trip_expense_split")
@@ -392,7 +395,9 @@ export async function registerMyExpenseSplit(
     value: Number(split.amount),
     description:
       transaction.description ||
-      `Viagem (fatia): ${expense.description}`,
+      tripLedgerDescription("compartilhada", expense.description, {
+        shareSlice: true,
+      }),
   });
   const { error: upd } = await supabase
     .from("trip_expense_split")
