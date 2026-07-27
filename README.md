@@ -86,6 +86,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 | Rota | Tela |
 |------|------|
 | `/` | Landing (life OS + planos; trial→Pro se Stripe, senão waitlist) |
+| `/about` | Sobre o produto |
 | `/home` | Dashboard geral (app) |
 | `/timeline` | Timeline unificada |
 | `/goals` | Metas |
