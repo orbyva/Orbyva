@@ -2,6 +2,7 @@
   "ci": {
     "collect": {
       "staticDistDir": "./dist",
+      "isSinglePageApplication": true,
       "url": ["http://localhost/", "http://localhost/about", "http://localhost/login"],
       "numberOfRuns": 1,
       "settings": {
