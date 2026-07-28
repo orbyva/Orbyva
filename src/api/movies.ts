@@ -4,11 +4,12 @@ import { normalizeMovie } from "@/domain/movies";
 import {
   Movie,
   MovieCreateRequest,
+  MovieListFilter,
   MovieUpdateRequest,
 } from "@/types/movies";
 
 export async function fetchMovies(
-  status: Movie["status"],
+  status: MovieListFilter,
   page: number,
   pageSize: number
 ): Promise<{ data: Movie[]; total: number }> {

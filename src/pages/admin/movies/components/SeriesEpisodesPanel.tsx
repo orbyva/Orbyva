@@ -209,15 +209,9 @@ export function SeriesEpisodesPanel({
     const status = movieStatusRef.current;
 
     let next: MovieStatus | null = null;
-    if (
-      watched > 0 &&
-      (status === MovieStatus.TO_WATCH || status === "to_watch")
-    ) {
+    if (watched > 0 && status === MovieStatus.TO_WATCH) {
       next = MovieStatus.WATCHING;
-    } else if (
-      watched === 0 &&
-      (status === MovieStatus.WATCHING || status === "watching")
-    ) {
+    } else if (watched === 0 && status === MovieStatus.WATCHING) {
       next = MovieStatus.TO_WATCH;
     }
 
