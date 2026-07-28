@@ -1,5 +1,6 @@
 import * as React from "react"
 import {
+  Clapperboard,
   LayoutDashboard,
   PiggyBank,
   Target,
@@ -53,15 +54,24 @@ const NAV_FINANCE: NavItem = {
   ],
 }
 
+const NAV_ENTRETENIMENTO: NavItem = {
+  title: "Entretenimento",
+  color: moduleColors.entertainment,
+  url: "#",
+  icon: Clapperboard,
+  items: [
+    { title: "Cinema", url: "/movies" },
+    { title: "Livros", url: "/books" },
+    { title: "Música", url: "/music" },
+  ],
+}
+
 const NAV_VIDA: NavItem = {
   title: "Vida",
   color: moduleColors.life,
   url: "#",
   icon: Target,
   items: [
-    { title: "Cinema", url: "/movies" },
-    { title: "Livros", url: "/books" },
-    { title: "Música", url: "/music" },
     { title: "Hábitos", url: "/habits" },
     { title: "Lugares", url: "/places" },
     { title: "Metas", url: "/goals" },
@@ -74,7 +84,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
 
   const navItems = React.useMemo(
-    () => [NAV_INICIO, NAV_FINANCE, NAV_VIDA],
+    () => [NAV_INICIO, NAV_FINANCE, NAV_ENTRETENIMENTO, NAV_VIDA],
     []
   )
 

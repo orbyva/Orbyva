@@ -1,7 +1,9 @@
 import {
+  BookOpen,
   Car,
   CheckCircle2,
   Clapperboard,
+  Disc3,
   MapPin,
   Plane,
   Target,
@@ -17,6 +19,27 @@ export const HOME_MODULES = [
     href: "/finance/dashboard",
     icon: Wallet,
     tone: "bg-primary/10 text-primary",
+  },
+  {
+    label: "Cinema",
+    subtitle: "Filmes e séries",
+    href: "/movies",
+    icon: Clapperboard,
+    tone: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400",
+  },
+  {
+    label: "Livros",
+    subtitle: "Lendo e lidos",
+    href: "/books",
+    icon: BookOpen,
+    tone: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  },
+  {
+    label: "Música",
+    subtitle: "Álbuns e EPs",
+    href: "/music",
+    icon: Disc3,
+    tone: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
   },
   {
     label: "Hábitos",
@@ -45,13 +68,6 @@ export const HOME_MODULES = [
     href: "/places",
     icon: MapPin,
     tone: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
-  },
-  {
-    label: "Cinema",
-    subtitle: "Filmes e séries",
-    href: "/movies",
-    icon: Clapperboard,
-    tone: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400",
   },
   {
     label: "Veículos",

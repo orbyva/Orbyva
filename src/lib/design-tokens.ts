@@ -8,6 +8,7 @@ export const chartColors = {
 export const moduleColors = {
   hub: "hsl(var(--hub))",
   finance: "hsl(var(--primary))",
+  entertainment: "hsl(var(--cinema))",
   life: "hsl(var(--life))",
   cinema: "hsl(var(--cinema))",
   travel: "hsl(var(--travel))",
