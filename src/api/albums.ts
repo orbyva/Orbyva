@@ -1,0 +1,124 @@
+import { supabase } from "@/lib/supabase";
+import { getCurrentUserId } from "@/lib/auth-user";
+import { normalizeAlbum } from "@/domain/music";
+import type {
+  Album,
+  AlbumCreateRequest,
+  AlbumStatus,
+  AlbumUpdateRequest,
+} from "@/types/music";
+
+function albumDbFields(
+  album: Partial<AlbumCreateRequest> & { musicbrainz_id?: string }
+) {
+  return {
+    ...(album.musicbrainz_id !== undefined
+      ? { musicbrainz_id: album.musicbrainz_id }
+      : {}),
+    ...(album.title !== undefined ? { title: album.title } : {}),
+    ...(album.artists !== undefined ? { artists: album.artists } : {}),
+    ...(album.release_year !== undefined
+      ? { release_year: album.release_year }
+      : {}),
+    ...(album.album_type !== undefined ? { album_type: album.album_type } : {}),
+    ...(album.cover_url !== undefined ? { cover_url: album.cover_url } : {}),
+    ...(album.source !== undefined ? { source: album.source } : {}),
+    ...(album.status !== undefined ? { status: album.status } : {}),
+    ...(album.rating !== undefined ? { rating: album.rating } : {}),
+    ...(album.notes !== undefined ? { notes: album.notes } : {}),
+    ...(album.would_recommend !== undefined
+      ? { would_recommend: album.would_recommend }
+      : {}),
+    ...(album.listened_dates !== undefined
+      ? { listened_dates: album.listened_dates }
+      : {}),
+    ...(album.track_ratings !== undefined
+      ? { track_ratings: album.track_ratings }
+      : {}),
+  };
+}
+
+export async function fetchAlbums(
+  status: AlbumStatus,
+  page: number,
+  pageSize: number
+): Promise<{ data: Album[]; total: number }> {
+  const userId = await getCurrentUserId();
+  const { data, error, count } = await supabase
+    .from("album")
+    .select("*", { count: "exact" })
+    .eq("user_id", userId)
+    .eq("status", status)
+    .order(status === "listened" ? "listened_dates" : "release_year", {
+      ascending: false,
+      nullsFirst: false,
+    })
+    .range((page - 1) * pageSize, page * pageSize - 1);
+
+  if (error) throw new Error(error.message);
+  return {
+    data: (data || []).map((row) => normalizeAlbum(row as Album)),
+    total: count || 0,
+  };
+}
+
+export async function createAlbum(album: AlbumCreateRequest): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase.from("album").insert([
+    {
+      ...albumDbFields(album),
+      user_id: userId,
+      notes: album.notes ?? null,
+      would_recommend: album.would_recommend ?? true,
+      track_ratings: album.track_ratings ?? {},
+    },
+  ]);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateAlbum(
+  updateData: AlbumUpdateRequest
+): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { musicbrainz_id, ...rest } = updateData;
+  const { error } = await supabase
+    .from("album")
+    .update(albumDbFields(rest))
+    .eq("user_id", userId)
+    .eq("musicbrainz_id", musicbrainz_id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteAlbum(musicbrainzId: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("album")
+    .delete()
+    .eq("user_id", userId)
+    .eq("musicbrainz_id", musicbrainzId);
+  if (error) throw new Error(error.message);
+}
+
+/** Upload de capa manual → URL pública do Storage. */
+export async function uploadAlbumCover(
+  musicbrainzId: string,
+  file: File
+): Promise<string> {
+  const userId = await getCurrentUserId();
+  const ext =
+    file.type === "image/png"
+      ? "png"
+      : file.type === "image/webp"
+        ? "webp"
+        : "jpg";
+  const path = `${userId}/${musicbrainzId}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from("album-covers")
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage.from("album-covers").getPublicUrl(path);
+  return data.publicUrl;
+}

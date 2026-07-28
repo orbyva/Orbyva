@@ -55,5 +55,6 @@ export const BREADCRUMB_LABELS: Record<string, string> = {
   budget: "Orçamento",
   movies: "Cinema",
   books: "Livros",
+  music: "Música",
   car: "Veículos",
 };

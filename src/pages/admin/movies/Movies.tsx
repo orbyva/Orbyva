@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 
 import { deleteMovie, fetchMovies } from "@/api/movies";
+import { fetchWatchedEpisodeCounts } from "@/api/movieEpisodes";
 import { Movie, MovieTypeFilter } from "@/types/movies";
 import { MovieCard } from "./components/MovieCard";
 import { MovieSearchModal } from "./components/MovieSearchModal";
@@ -36,6 +37,9 @@ import {
 
 export default function Movies() {
   const [movies, setMovies] = useState<Movie[]>([]);
+  const [watchedEpisodeCounts, setWatchedEpisodeCounts] = useState<
+    Record<string, number>
+  >({});
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<"to_watch" | "watched">("to_watch");
   const [typeFilter, setTypeFilter] = useState<MovieTypeFilter>("all");
@@ -60,6 +64,20 @@ export default function Movies() {
       if (!current) return current;
       return data.find((m) => m.imdb_id === current.imdb_id) ?? current;
     });
+
+    const seriesIds = data
+      .filter((m) => m.type === "series")
+      .map((m) => m.imdb_id);
+    if (seriesIds.length === 0) {
+      setWatchedEpisodeCounts({});
+      return;
+    }
+    try {
+      const counts = await fetchWatchedEpisodeCounts(seriesIds);
+      setWatchedEpisodeCounts(counts);
+    } catch {
+      setWatchedEpisodeCounts({});
+    }
   }, [filter, page, pageSize]);
 
   useEffect(() => {
@@ -220,6 +238,7 @@ export default function Movies() {
               <MovieCard
                 key={movie.imdb_id}
                 movie={movie}
+                watchedEpisodes={watchedEpisodeCounts[movie.imdb_id]}
                 onClick={() => openDetail(movie)}
                 onDelete={handleDeleteMovie}
               />
@@ -256,9 +275,16 @@ export default function Movies() {
             onEdit={() => setIsEditOpen(true)}
             onShare={() => setIsShareOpen(true)}
             onDelete={() => void handleDeleteMovie(selectedMovie.imdb_id)}
-            onMoviePatch={(patch) =>
-              setSelectedMovie((prev) => (prev ? { ...prev, ...patch } : prev))
-            }
+            onMoviePatch={(patch) => {
+              setSelectedMovie((prev) =>
+                prev ? { ...prev, ...patch } : prev
+              );
+              setMovies((prev) =>
+                prev.map((m) =>
+                  m.imdb_id === selectedMovie.imdb_id ? { ...m, ...patch } : m
+                )
+              );
+            }}
           />
           <MovieEditModal
             movie={selectedMovie}

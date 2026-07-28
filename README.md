@@ -1,6 +1,6 @@
 # Orbyva
 
-**Tudo da sua vida em uma só órbita** — finanças, metas, hábitos, viagens, lugares, veículos, cinema e livros num só lugar.
+**Tudo da sua vida em uma só órbita** — finanças, metas, hábitos, viagens, lugares, veículos, cinema, livros e música num só lugar.
 
 Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts**, **Framer Motion** e **Supabase** (auth, banco e Edge Functions).
 
@@ -35,6 +35,9 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 ### Livros
 - **Livros** (`/books`) — para ler / lendo / lidos / abandonei, marca-página, comentários na leitura, Google Books, opinião e card Stories
+
+### Música
+- **Música** (`/music`) — para ouvir / ouvidos, MusicBrainz + Cover Art Archive (ou cadastro manual com capa), opinião (nota + comentário) e card Stories
 
 ### Carro / Moto
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
@@ -170,6 +173,8 @@ VITE_GOOGLE_BOOKS_API_KEY=sua_chave # Livros (Google Books)
 Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) (API Key v3).  
 Chave Google Books: [console.cloud.google.com](https://console.cloud.google.com/) → APIs & Services → enable **Books API** → criar API key.  
 Se a key tiver restrição **HTTP referrers**, inclua `http://localhost:5173/*`, `http://127.0.0.1:5173/*` e `https://orbyva.app/*` (senão a busca retorna 403).
+
+**Música** usa [MusicBrainz](https://musicbrainz.org/doc/MusicBrainz_API) + [Cover Art Archive](https://musicbrainz.org/doc/Cover_Art_Archive/API) via proxies `/mb-api` e `/caa-media` (sem API key). Em produção, o User-Agent deve identificar o app (já configurado no client). Após mudar proxies no Vite, reinicie o `npm run dev`.
 
 ### Billing (Stripe)
 

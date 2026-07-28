@@ -133,3 +133,29 @@ export async function markSeasonUnwatched(params: {
   );
   if (error) throw new Error(error.message);
 }
+
+/** Contagem de episódios assistidos por série (uma query). */
+export async function fetchWatchedEpisodeCounts(
+  imdbIds: string[]
+): Promise<Record<string, number>> {
+  const ids = [...new Set(imdbIds.filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("movie_episode")
+    .select("imdb_id")
+    .eq("user_id", userId)
+    .eq("status", "watched")
+    .in("imdb_id", ids);
+
+  if (error) throw new Error(error.message);
+
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const id = (row as { imdb_id: string }).imdb_id;
+    counts[id] = (counts[id] ?? 0) + 1;
+  }
+  return counts;
+}
+

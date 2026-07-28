@@ -59,7 +59,12 @@ export default defineConfig({
         mode: "development",
         globPatterns: ["**/*.{js,css,html,ico,webp,svg,woff2,png}"],
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/tmdb-media/, /^\/books-media/],
+        navigateFallbackDenylist: [
+          /^\/tmdb-media/,
+          /^\/books-media/,
+          /^\/mb-api/,
+          /^\/caa-media/,
+        ],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/tmdb-media"),
@@ -77,6 +82,17 @@ export default defineConfig({
             handler: "CacheFirst",
             options: {
               cacheName: "books-covers",
+              expiration: {
+                maxEntries: 128,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/caa-media"),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "album-covers-caa",
               expiration: {
                 maxEntries: 128,
                 maxAgeSeconds: 60 * 60 * 24 * 30,
@@ -163,6 +179,20 @@ export default defineConfig({
         target: "https://books.google.com",
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/books-media/, ""),
+      },
+      "/mb-api": {
+        target: "https://musicbrainz.org",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/mb-api/, ""),
+        headers: {
+          "User-Agent": "Orbyva/1.0 (https://orbyva.app; orbyva@gmail.com)",
+        },
+      },
+      "/caa-media": {
+        target: "https://coverartarchive.org",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/caa-media/, ""),
+        followRedirects: true,
       },
     },
   },

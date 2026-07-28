@@ -39,6 +39,10 @@ import {
 } from "@/lib/tmdb";
 import type { Movie, MovieEpisode } from "@/types/movies";
 import { cn } from "@/lib/utils";
+import {
+  getSeriesWatchProgress,
+  sumSeasonEpisodeCounts,
+} from "@/domain/movies";
 
 type SeriesEpisodesPanelProps = {
   movie: Movie;
@@ -119,6 +123,11 @@ export function SeriesEpisodesPanel({
       setProgress(rows);
       if (tvMeta?.seasons.length) {
         setSeason((prev) => prev ?? tvMeta.seasons[0].season_number);
+        const total = sumSeasonEpisodeCounts(tvMeta.seasons);
+        if (total > 0 && movie.episode_count !== total) {
+          await updateMovie({ imdb_id: movie.imdb_id, episode_count: total });
+          onMoviePatch?.({ episode_count: total });
+        }
       }
       if (!movie.tmdb_tv_id && tmdbId) {
         await updateMovie({ imdb_id: movie.imdb_id, tmdb_tv_id: tmdbId });
@@ -133,7 +142,7 @@ export function SeriesEpisodesPanel({
     } finally {
       setLoading(false);
     }
-  }, [tmdbId, movie.imdb_id, movie.tmdb_tv_id, onMoviePatch, toast]);
+  }, [tmdbId, movie.imdb_id, movie.tmdb_tv_id, movie.episode_count, onMoviePatch, toast]);
 
   useEffect(() => {
     void loadBase();
@@ -331,16 +340,29 @@ export function SeriesEpisodesPanel({
 
   const seasons: TmdbSeasonSummary[] = meta?.seasons ?? [];
   const next = meta?.next_episode_to_air;
+  const episodeTotal = sumSeasonEpisodeCounts(seasons);
+  const watchProgress = getSeriesWatchProgress({
+    watched: watchedCount,
+    total: episodeTotal,
+  });
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-muted-foreground">Episódios</p>
           <p className="text-sm">
             {watchedCount} assistido{watchedCount === 1 ? "" : "s"}
             {meta ? ` · ${meta.number_of_seasons} temp.` : ""}
           </p>
+          {watchProgress && (
+            <div className="mt-2 h-1 max-w-xs overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary"
+                style={{ width: `${watchProgress.percent}%` }}
+              />
+            </div>
+          )}
         </div>
         <Button
           type="button"

@@ -1,6 +1,7 @@
 import {
   BookOpen,
   Car,
+  Disc3,
   Film,
   Flame,
   MapPin,
@@ -16,7 +17,8 @@ export type ModuleGuideId =
   | "places"
   | "car"
   | "movies"
-  | "books";
+  | "books"
+  | "music";
 
 export type ModuleGuideStep = {
   title: string;
@@ -199,6 +201,30 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       {
         title: "Compartilhe a opinião",
         body: "Nos lidos, gere um card com capa e nota para Stories ou WhatsApp.",
+      },
+    ],
+  },
+  music: {
+    id: "music",
+    icon: Disc3,
+    title: "Como funciona Música",
+    hook: "Álbuns e EPs: para ouvir, ouvidos com nota e opinião — capa via MusicBrainz.",
+    steps: [
+      {
+        title: "Monte a lista",
+        body: "Busque álbuns e EPs no MusicBrainz ou cadastre manualmente com capa. Singles ficam de fora de propósito.",
+      },
+      {
+        title: "Ouça e avalie",
+        body: "Ao ouvir, marque como Ouvido, dê nota e deixe um comentário se quiser. No detalhe, veja a tracklist, note cada faixa e atualize metadados pelo MusicBrainz.",
+      },
+      {
+        title: "Filtre e reencontre",
+        body: "Filtre por artista, tipo (álbum, EP…) e nota mínima nos ouvidos.",
+      },
+      {
+        title: "Compartilhe a opinião",
+        body: "Gere um card com capa e nota para Stories, WhatsApp ou onde preferir.",
       },
     ],
   },

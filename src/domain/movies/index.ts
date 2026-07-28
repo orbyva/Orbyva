@@ -160,6 +160,27 @@ export function getWatchedMoviesStats(
   return { watched: watched.length, rated: rated.length, avgRating };
 }
 
+/** Soma episode_count das temporadas TMDB (exclui especiais). */
+export function sumSeasonEpisodeCounts(
+  seasons: { episode_count?: number }[]
+): number {
+  return seasons.reduce((sum, s) => sum + (s.episode_count ?? 0), 0);
+}
+
+export function getSeriesWatchProgress(options: {
+  watched: number;
+  total: number;
+}): { watched: number; total: number; percent: number } | null {
+  const total = options.total;
+  if (total <= 0) return null;
+  const watched = Math.min(Math.max(0, options.watched), total);
+  return {
+    watched,
+    total,
+    percent: Math.round((watched / total) * 100),
+  };
+}
+
 export function normalizeWatchedDates(
   dates: Movie["watched_dates"] | undefined
 ): string[] {

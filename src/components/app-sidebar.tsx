@@ -61,6 +61,7 @@ const NAV_VIDA: NavItem = {
   items: [
     { title: "Cinema", url: "/movies" },
     { title: "Livros", url: "/books" },
+    { title: "Música", url: "/music" },
     { title: "Hábitos", url: "/habits" },
     { title: "Lugares", url: "/places" },
     { title: "Metas", url: "/goals" },

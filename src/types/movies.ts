@@ -31,6 +31,8 @@ export interface Movie {
   following?: boolean;
   /** Avisar episódios novos. */
   notify_new_episodes?: boolean;
+  /** Total de episódios (TMDB) p/ barra de progresso. */
+  episode_count?: number | null;
   created_at?: string;
 }
 
