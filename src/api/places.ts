@@ -257,12 +257,10 @@ export async function createPlace(
       /status|amount|transaction_id/i.test(error.message) ||
       error.code === "PGRST204"
     ) {
-      const {
-        status: _s,
-        amount: _a,
-        transaction_id: _t,
-        ...legacy
-      } = payload;
+      const legacy = { ...payload } as Record<string, unknown>;
+      delete legacy.status;
+      delete legacy.amount;
+      delete legacy.transaction_id;
       const retry = await supabase
         .from("place_visit")
         .insert([{ ...legacy, user_id: userId }])
