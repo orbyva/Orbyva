@@ -25,7 +25,7 @@ import {
   type PlaceRecommendFilter,
   type PlaceTripFilter,
 } from "@/domain/places";
-import type { PlaceFilter, PlaceVisit } from "@/types/places";
+import type { PlaceFilter, PlaceStatus, PlaceVisit } from "@/types/places";
 import type { Trip } from "@/types/travel";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -48,6 +48,7 @@ const CATEGORY_FILTERS: { id: PlaceFilter; label: string }[] = [
 export default function Places() {
   const [places, setPlaces] = useState<PlaceVisit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<PlaceStatus>("to_visit");
   const [category, setCategory] = useState<PlaceFilter>("all");
   const [search, setSearch] = useState("");
   const [ratingFilter, setRatingFilter] = useState<PlaceRatingFilter>("all");
@@ -83,11 +84,20 @@ export default function Places() {
       filterPlaces(places, {
         category,
         search,
-        rating: ratingFilter,
-        recommend: recommendFilter,
+        rating: statusFilter === "visited" ? ratingFilter : "all",
+        recommend: statusFilter === "visited" ? recommendFilter : "all",
         trip: tripFilter,
+        status: statusFilter,
       }),
-    [places, category, search, ratingFilter, recommendFilter, tripFilter]
+    [
+      places,
+      category,
+      search,
+      ratingFilter,
+      recommendFilter,
+      tripFilter,
+      statusFilter,
+    ]
   );
 
   const tripsWithPlaces = useMemo(() => {
@@ -99,11 +109,17 @@ export default function Places() {
       .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
   }, [places, trips]);
 
-  const avgRating = getAverageRating(places);
-  const recommendCount = places.filter((p) => p.would_recommend !== false).length;
+  const visitedPlaces = useMemo(
+    () => places.filter((p) => (p.status ?? "visited") === "visited"),
+    [places]
+  );
+  const avgRating = getAverageRating(visitedPlaces);
+  const recommendCount = visitedPlaces.filter(
+    (p) => p.would_recommend !== false
+  ).length;
   const recommendPct =
-    places.length > 0
-      ? Math.round((recommendCount / places.length) * 100)
+    visitedPlaces.length > 0
+      ? Math.round((recommendCount / visitedPlaces.length) * 100)
       : null;
   const hasActiveFilters =
     category !== "all" ||
@@ -135,19 +151,29 @@ export default function Places() {
       title="Lugares"
       description={
         avgRating != null
-          ? `Avalie restaurantes, cafés e passeios — na cidade ou em viagens. Média: ${avgRating}★${
+          ? `Lista e avaliações — na cidade ou em viagens. Média: ${avgRating}★${
               recommendPct != null ? ` · ${recommendPct}% recomendaria` : ""
             }`
-          : "Avalie restaurantes, cafés e passeios — na cidade ou em viagens."
+          : "Monte a lista Para visitar e avalie o que já conheceu."
       }
       actions={
         <>
           <ModuleGuideButton moduleId="places" />
-          <PlaceFormDialog onSaved={load} />
+          <PlaceFormDialog onSaved={load} defaultStatus={statusFilter} />
         </>
       }
     >
       <ModuleGuide moduleId="places" />
+      <Tabs
+        value={statusFilter}
+        onValueChange={(v) => setStatusFilter(v as PlaceStatus)}
+      >
+        <TabsList>
+          <TabsTrigger value="to_visit">Para visitar</TabsTrigger>
+          <TabsTrigger value="visited">Visitados</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <section className="space-y-3 rounded-xl border bg-card p-3 sm:p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -160,34 +186,40 @@ export default function Places() {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Select
-            value={ratingFilter}
-            onValueChange={(v) => setRatingFilter(v as PlaceRatingFilter)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Nota mínima" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Qualquer nota</SelectItem>
-              <SelectItem value="3">3★ ou mais</SelectItem>
-              <SelectItem value="4">4★ ou mais</SelectItem>
-              <SelectItem value="5">5★ apenas</SelectItem>
-            </SelectContent>
-          </Select>
+          {statusFilter === "visited" ? (
+            <>
+              <Select
+                value={ratingFilter}
+                onValueChange={(v) => setRatingFilter(v as PlaceRatingFilter)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Nota mínima" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Qualquer nota</SelectItem>
+                  <SelectItem value="3">3★ ou mais</SelectItem>
+                  <SelectItem value="4">4★ ou mais</SelectItem>
+                  <SelectItem value="5">5★ apenas</SelectItem>
+                </SelectContent>
+              </Select>
 
-          <Select
-            value={recommendFilter}
-            onValueChange={(v) => setRecommendFilter(v as PlaceRecommendFilter)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Recomendação" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="yes">Recomendaria</SelectItem>
-              <SelectItem value="no">Não recomendaria</SelectItem>
-            </SelectContent>
-          </Select>
+              <Select
+                value={recommendFilter}
+                onValueChange={(v) =>
+                  setRecommendFilter(v as PlaceRecommendFilter)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Recomendação" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="yes">Recomendaria</SelectItem>
+                  <SelectItem value="no">Não recomendaria</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
+          ) : null}
 
           <Select
             value={tripFilter}
@@ -239,13 +271,25 @@ export default function Places() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={MapPin}
-          title={hasActiveFilters ? "Nenhum lugar encontrado" : "Nenhum lugar registrado"}
+          title={
+            hasActiveFilters
+              ? "Nenhum lugar encontrado"
+              : statusFilter === "to_visit"
+                ? "Nada na lista ainda"
+                : "Nenhum lugar visitado"
+          }
           description={
             hasActiveFilters
               ? "Tente outro termo ou remova alguns filtros."
-              : "Avalie um restaurante, café ou passeio que você visitou."
+              : statusFilter === "to_visit"
+                ? "Salve restaurantes, cafés e passeios que você quer conhecer."
+                : "Avalie um restaurante, café ou passeio que você visitou."
           }
-          action={hasActiveFilters ? undefined : <PlaceFormDialog onSaved={load} />}
+          action={
+            hasActiveFilters ? undefined : (
+              <PlaceFormDialog onSaved={load} defaultStatus={statusFilter} />
+            )
+          }
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -81,7 +81,10 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       id: `place-${p.id}`,
       kind: "place",
       title: p.name,
-      subtitle: p.address ?? p.visited_date,
+      subtitle:
+        p.status === "to_visit"
+          ? "Para visitar"
+          : p.address ?? p.visited_date ?? undefined,
       href: "/places",
     });
   }

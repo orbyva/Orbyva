@@ -124,7 +124,7 @@ export default function Travel() {
   return (
     <PageShell
       title="Viagens"
-      description="Planeje, acompanhe gastos, roteiro e avalie lugares visitados."
+      description="Planeje, acompanhe gastos, roteiro e lugares para visitar."
       actions={
         <>
           <ModuleGuideButton moduleId="travel" />

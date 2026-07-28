@@ -21,7 +21,7 @@ import {
 } from "@/domain/places";
 import type { PlaceVisit } from "@/types/places";
 import type { TripPlaceOpinion } from "@/types/tripSharing";
-import { formatDateBR } from "@/lib/currency";
+import { formatBRL, formatDateBR } from "@/lib/currency";
 import { generatePlaceShareImage, sharePlaceNative } from "@/lib/placeShare";
 import { fetchPlaceOpinions } from "@/api/places";
 import { useAuth } from "@/hooks/useAuth";
@@ -184,8 +184,25 @@ export function PlaceDetailDialog({
             ) : null}
 
             <DetailRow label="Data da visita">
-              {formatDateBR(place.visited_date)}
+              {place.status === "to_visit"
+                ? "Na lista · Para visitar"
+                : formatDateBR(place.visited_date)}
             </DetailRow>
+
+            {place.status !== "to_visit" &&
+            place.amount != null &&
+            place.amount > 0 ? (
+              <DetailRow label="Valor gasto">
+                <span>
+                  {formatBRL(place.amount)}
+                  {place.transaction_id != null ? (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      · no extrato
+                    </span>
+                  ) : null}
+                </span>
+              </DetailRow>
+            ) : null}
 
             {place.address && (
               <DetailRow label="Endereço">

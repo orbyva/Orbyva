@@ -63,6 +63,8 @@ export interface TripExpense {
   visibility?: TripExpenseVisibility;
   created_by_user_id?: string | null;
   paid_by_user_id?: string | null;
+  /** Gasto gerado a partir de um lugar visitado. */
+  place_visit_id?: string | null;
   created_at?: string;
   splits?: TripExpenseSplit[];
 }

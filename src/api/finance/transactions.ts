@@ -325,6 +325,26 @@ export async function insertTransaction(
   return data.id as number;
 }
 
+/** class_id (+ type_id) de uma transação — para pré-preencher edição. */
+export async function fetchTransactionClassMeta(
+  transactionId: number
+): Promise<{ class_id: number; type_id: number | null } | null> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("transaction")
+    .select("class_id, class:class_id(type_id)")
+    .eq("id", transactionId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data?.class_id) return null;
+  const classRel = data.class as { type_id?: number } | null;
+  return {
+    class_id: data.class_id as number,
+    type_id: classRel?.type_id ?? null,
+  };
+}
+
 export async function createTransactionApi(
   newTransaction: TransactionCreateRequest
 ): Promise<{ queued: boolean }> {

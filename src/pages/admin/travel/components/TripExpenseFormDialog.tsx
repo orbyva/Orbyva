@@ -40,6 +40,8 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: boolean;
+  /** Gasto já tem lançamento no extrato. */
+  linkedToLedger?: boolean;
   form: TripExpenseFormState;
   onChange: (form: TripExpenseFormState) => void;
   memberCount: number;
@@ -58,6 +60,7 @@ export function TripExpenseFormDialog({
   open,
   onOpenChange,
   editing,
+  linkedToLedger = false,
   form,
   onChange,
   memberCount,
@@ -71,6 +74,9 @@ export function TripExpenseFormDialog({
   expenseClasses,
   onSave,
 }: Props) {
+  const showFinancePicker =
+    (!editing && registerExpense) || (editing && linkedToLedger);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
@@ -140,95 +146,99 @@ export function TripExpenseFormDialog({
               />
             </div>
           </div>
-          <div>
-            <FormLabel>Tipo do gasto</FormLabel>
-            <Select
-              value={form.visibility}
-              onValueChange={(v) =>
-                onChange({
-                  ...form,
-                  visibility: v as TripExpenseVisibility,
-                })
+          {memberCount > 1 ? (
+            <div>
+              <FormLabel>Tipo do gasto</FormLabel>
+              <Select
+                value={form.visibility}
+                onValueChange={(v) =>
+                  onChange({
+                    ...form,
+                    visibility: v as TripExpenseVisibility,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="personal">Pessoal (só você vê)</SelectItem>
+                  <SelectItem value="shared">
+                    Conjunta (divide entre membros)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {form.visibility === "shared" ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Divide igual entre {memberCount} membro(s). Ex.: casa
+                  alugada.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          {!editing ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={registerExpense}
+                onChange={(e) => onRegisterExpenseChange(e.target.checked)}
+                className="rounded"
+              />
+              Registrar em Finanças
+            </label>
+          ) : linkedToLedger ? (
+            <p className="text-xs text-muted-foreground">
+              No extrato — salvar atualiza o lançamento
+            </p>
+          ) : null}
+          {showFinancePicker ? (
+            <div
+              className={
+                financeTypeId
+                  ? "grid grid-cols-2 gap-3"
+                  : "grid grid-cols-1 gap-3"
               }
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="personal">Pessoal (só você vê)</SelectItem>
-                <SelectItem value="shared">
-                  Conjunta (divide entre membros)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {form.visibility === "shared" ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Divide igual entre {Math.max(memberCount, 1)} membro(s). Ex.:
-                casa alugada.
-              </p>
-            ) : null}
-          </div>
-          {!editing && (
-            <>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={registerExpense}
-                  onChange={(e) => onRegisterExpenseChange(e.target.checked)}
-                  className="rounded"
-                />
-                Registrar em Finanças
-              </label>
-              {registerExpense && (
-                <div
-                  className={
-                    financeTypeId
-                      ? "grid grid-cols-2 gap-3"
-                      : "grid grid-cols-1 gap-3"
-                  }
+              <div>
+                <FormLabel required>Tipo</FormLabel>
+                <Select
+                  value={financeTypeId ? String(financeTypeId) : ""}
+                  onValueChange={(v) => onFinanceTypeIdChange(Number(v))}
                 >
-                  <div>
-                    <FormLabel required>Tipo</FormLabel>
-                    <Select
-                      value={financeTypeId ? String(financeTypeId) : ""}
-                      onValueChange={(v) => onFinanceTypeIdChange(Number(v))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {expenseTypes.map((type) => (
-                          <SelectItem key={type.id} value={String(type.id)}>
-                            {type.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {financeTypeId ? (
-                    <div>
-                      <FormLabel required>Classe</FormLabel>
-                      <Select
-                        value={classId ? String(classId) : ""}
-                        onValueChange={(v) => onClassIdChange(Number(v))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a classe" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {expenseClasses.map((cls) => (
-                            <SelectItem key={cls.id} value={String(cls.id)}>
-                              {cls.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : null}
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {expenseTypes.map((type) => (
+                      <SelectItem key={type.id} value={String(type.id)}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {financeTypeId ? (
+                <div>
+                  <FormLabel required>Classe</FormLabel>
+                  <Select
+                    value={classId ? String(classId) : ""}
+                    onValueChange={(v) => onClassIdChange(Number(v))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a classe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {expenseClasses.map((cls) => (
+                        <SelectItem key={cls.id} value={String(cls.id)}>
+                          {cls.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-            </>
-          )}
+              ) : null}
+            </div>
+          ) : null}
           <Button onClick={onSave} className="w-full">
             {editing ? "Salvar alterações" : "Adicionar gasto"}
           </Button>

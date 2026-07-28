@@ -97,3 +97,16 @@ export function getExpenseNatureId(dimensions: Dimension[]): number | null {
     dimensions.find((n) => n.name.toLowerCase() === "despesa")?.id ?? null
   );
 }
+
+/** Resolve type_id a partir de class_id nas dimensões carregadas. */
+export function findTypeIdForClass(
+  dimensions: Dimension[],
+  classId: number
+): number | null {
+  for (const nature of dimensions) {
+    for (const type of nature.types) {
+      if (type.classes.some((c) => c.id === classId)) return type.id;
+    }
+  }
+  return null;
+}

@@ -22,7 +22,7 @@ import {
   getLatestFuelLogKm,
 } from "@/domain/car";
 import { createFuelLog, updateFuelLog } from "@/api/car";
-import { ExpenseCategoryPicker } from "./ExpenseCategoryPicker";
+import { ExpenseCategoryPicker } from "@/components/ExpenseCategoryPicker";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 

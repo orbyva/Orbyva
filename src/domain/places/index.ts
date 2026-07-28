@@ -1,4 +1,11 @@
-import type { PlaceType, PlaceFilter, PlaceOpinionSummary } from "@/types/places";
+import type {
+  PlaceType,
+  PlaceFilter,
+  PlaceOpinionSummary,
+  PlaceStatus,
+  PlaceVisit,
+} from "@/types/places";
+import type { TripExpenseCategory } from "@/types/travel";
 
 export const PLACE_TYPE_LABELS: Record<PlaceType, string> = {
   restaurant: "Restaurante",
@@ -24,10 +31,28 @@ export const PLACE_TYPE_EMOJI: Record<PlaceType, string> = {
   other: "📌",
 };
 
+export const PLACE_STATUS_LABELS: Record<PlaceStatus, string> = {
+  to_visit: "Para visitar",
+  visited: "Visitado",
+};
+
+export function normalizePlaceStatus(
+  status?: string | null,
+  visitedDate?: string | null
+): PlaceStatus {
+  if (status === "to_visit" || status === "visited") return status;
+  return visitedDate ? "visited" : "to_visit";
+}
+
 export function getAverageRating(
-  places: { rating?: number | null }[]
+  places: { rating?: number | null; status?: PlaceStatus | null; visited_date?: string | null }[]
 ): number | null {
-  const rated = places.filter((p) => p.rating != null && p.rating > 0);
+  const rated = places.filter(
+    (p) =>
+      normalizePlaceStatus(p.status, p.visited_date) !== "to_visit" &&
+      p.rating != null &&
+      p.rating > 0
+  );
   if (rated.length === 0) return null;
   const sum = rated.reduce((acc, p) => acc + (p.rating ?? 0), 0);
   return Math.round((sum / rated.length) * 10) / 10;
@@ -64,6 +89,38 @@ export function formatRating(rating: number): string {
     : rating.toFixed(1).replace(".", ",");
 }
 
+/** Mapeia tipo do lugar → categoria de gasto da viagem. */
+export function placeTypeToExpenseCategory(
+  type: PlaceType
+): TripExpenseCategory {
+  switch (type) {
+    case "restaurant":
+    case "cafe":
+    case "bar":
+      return "food";
+    case "hotel":
+      return "lodging";
+    case "attraction":
+    case "park":
+    case "museum":
+      return "activity";
+    case "shop":
+      return "shopping";
+    default:
+      return "other";
+  }
+}
+
+/** Descrição padrão da despesa no extrato. */
+export function placeLedgerDescription(
+  place: { name: string; type?: PlaceType },
+  tripTitle?: string | null
+): string {
+  const typeLabel = place.type ? PLACE_TYPE_LABELS[place.type] : "Lugar";
+  const base = `${typeLabel}: ${place.name.trim()}`;
+  return tripTitle?.trim() ? `${base} · ${tripTitle.trim()}` : base;
+}
+
 export function getRatingLabel(rating: number): string {
   if (rating >= 4.5) return "Excelente";
   if (rating >= 3.5) return "Muito bom";
@@ -80,10 +137,12 @@ export function filterPlaces<
   T extends {
     name: string;
     type: PlaceType;
+    status?: PlaceStatus | null;
     rating?: number | null;
     notes?: string | null;
     address?: string | null;
     trip_id?: string | null;
+    visited_date?: string | null;
     would_recommend: boolean;
   },
 >(
@@ -94,11 +153,16 @@ export function filterPlaces<
     rating?: PlaceRatingFilter;
     recommend?: PlaceRecommendFilter;
     trip?: PlaceTripFilter;
+    status?: PlaceStatus | "all";
   }
 ): T[] {
   const query = options.search?.trim().toLowerCase() ?? "";
+  const statusFilter = options.status ?? "all";
 
   return places.filter((place) => {
+    const status = normalizePlaceStatus(place.status, place.visited_date);
+    if (statusFilter !== "all" && status !== statusFilter) return false;
+
     if (options.category !== "all") {
       if (options.category === "local" && place.trip_id) return false;
       if (options.category === "trip" && !place.trip_id) return false;
@@ -137,4 +201,11 @@ export function filterPlaces<
 
     return true;
   });
+}
+
+export function withNormalizedPlaceStatus(place: PlaceVisit): PlaceVisit {
+  return {
+    ...place,
+    status: normalizePlaceStatus(place.status, place.visited_date),
+  };
 }

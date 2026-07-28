@@ -1,14 +1,166 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { assertTripAccess } from "@/lib/tripAccess";
-import { summarizePlaceOpinions } from "@/domain/places";
+import {
+  deleteTransactionApi,
+  insertTransaction,
+} from "@/api/finance";
+import {
+  placeLedgerDescription,
+  placeTypeToExpenseCategory,
+  summarizePlaceOpinions,
+  withNormalizedPlaceStatus,
+} from "@/domain/places";
+import { sumTripSpent } from "@/domain/travel/spent";
 import type {
   PlaceOpinionSummary,
+  PlaceType,
   PlaceVisit,
   PlaceVisitCreateRequest,
   PlaceVisitUpdateRequest,
 } from "@/types/places";
+import type { TransactionCreateRequest } from "@/types/finance";
 import type { TripPlaceOpinion } from "@/types/tripSharing";
+
+function normalizeRows(rows: PlaceVisit[] | null): PlaceVisit[] {
+  return (rows ?? []).map(withNormalizedPlaceStatus);
+}
+
+function normalizeAmount(
+  status: string,
+  amount?: number | null
+): number | null {
+  if (status === "to_visit") return null;
+  return amount != null && amount > 0 ? amount : null;
+}
+
+async function deleteLinkedTransaction(
+  transactionId: number | null | undefined
+): Promise<void> {
+  if (!transactionId) return;
+  try {
+    await deleteTransactionApi(transactionId);
+  } catch {
+    // Transação já removida / sem permissão — segue o fluxo do lugar.
+  }
+}
+
+async function syncTripSpentLocal(tripId: string): Promise<void> {
+  const [{ data, error }, { count: memberCount }] = await Promise.all([
+    supabase
+      .from("trip_expense")
+      .select("amount, visibility")
+      .eq("trip_id", tripId),
+    supabase
+      .from("trip_member")
+      .select("*", { count: "exact", head: true })
+      .eq("trip_id", tripId),
+  ]);
+  if (error) throw new Error(error.message);
+  const sharedTrip = (memberCount ?? 0) > 1;
+  const total = sumTripSpent(data ?? [], sharedTrip);
+  await supabase.from("trip").update({ spent: total }).eq("id", tripId);
+}
+
+async function findExpenseForPlace(
+  placeVisitId: string
+): Promise<{ id: string; trip_id: string; transaction_id: number | null } | null> {
+  const { data, error } = await supabase
+    .from("trip_expense")
+    .select("id, trip_id, transaction_id")
+    .eq("place_visit_id", placeVisitId)
+    .maybeSingle();
+  if (error) {
+    if (/place_visit_id/i.test(error.message) || error.code === "PGRST204") {
+      return null;
+    }
+    throw new Error(error.message);
+  }
+  return data;
+}
+
+async function removePlaceTripExpense(placeVisitId: string): Promise<void> {
+  const existing = await findExpenseForPlace(placeVisitId);
+  if (!existing) return;
+  const { error } = await supabase
+    .from("trip_expense")
+    .delete()
+    .eq("id", existing.id);
+  if (error) throw new Error(error.message);
+  await syncTripSpentLocal(existing.trip_id);
+}
+
+/**
+ * Cria/atualiza gasto pessoal da viagem a partir do valor do lugar.
+ * Reusa o mesmo transaction_id do lugar (sem duplicar no extrato).
+ */
+async function upsertPlaceTripExpense(params: {
+  placeVisitId: string;
+  tripId: string;
+  name: string;
+  type: PlaceType;
+  amount: number;
+  expenseDate: string;
+  transactionId: number | null;
+  userId: string;
+}): Promise<void> {
+  await assertTripAccess(params.tripId);
+  const description = placeLedgerDescription({
+    name: params.name,
+    type: params.type,
+  });
+  const category = placeTypeToExpenseCategory(params.type);
+  const existing = await findExpenseForPlace(params.placeVisitId);
+
+  if (existing) {
+    if (existing.trip_id !== params.tripId) {
+      const { error: delError } = await supabase
+        .from("trip_expense")
+        .delete()
+        .eq("id", existing.id);
+      if (delError) throw new Error(delError.message);
+      await syncTripSpentLocal(existing.trip_id);
+    } else {
+      const { error } = await supabase
+        .from("trip_expense")
+        .update({
+          description,
+          amount: params.amount,
+          category,
+          expense_date: params.expenseDate,
+          transaction_id: params.transactionId,
+          visibility: "personal",
+        })
+        .eq("id", existing.id);
+      if (error) throw new Error(error.message);
+      await syncTripSpentLocal(params.tripId);
+      return;
+    }
+  }
+
+  const { error } = await supabase.from("trip_expense").insert([
+    {
+      trip_id: params.tripId,
+      description,
+      amount: params.amount,
+      category,
+      expense_date: params.expenseDate,
+      visibility: "personal",
+      created_by_user_id: params.userId,
+      paid_by_user_id: params.userId,
+      transaction_id: params.transactionId,
+      place_visit_id: params.placeVisitId,
+    },
+  ]);
+  if (error) {
+    if (/place_visit_id/i.test(error.message) || error.code === "PGRST204") {
+      // Migration ainda não aplicada — lugar/extrato seguem sem gasto de viagem.
+      return;
+    }
+    throw new Error(error.message);
+  }
+  await syncTripSpentLocal(params.tripId);
+}
 
 export async function fetchPlaces(
   tripId?: string | null
@@ -21,18 +173,18 @@ export async function fetchPlaces(
       .from("place_visit")
       .select("*, trip:trip_id(id, title, destination)")
       .eq("trip_id", tripId)
-      .order("visited_date", { ascending: false });
+      .order("visited_date", { ascending: false, nullsFirst: false });
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return normalizeRows(data);
   }
 
   const { data, error } = await supabase
     .from("place_visit")
     .select("*, trip:trip_id(id, title, destination)")
     .eq("user_id", userId)
-    .order("visited_date", { ascending: false });
+    .order("visited_date", { ascending: false, nullsFirst: false });
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return normalizeRows(data);
 }
 
 export async function fetchPlaceById(id: string): Promise<PlaceVisit | null> {
@@ -45,11 +197,12 @@ export async function fetchPlaceById(id: string): Promise<PlaceVisit | null> {
   if (error) throw new Error(error.message);
   if (!data) return null;
 
-  if (data.user_id === userId) return data;
-  if (data.trip_id) {
+  const place = withNormalizedPlaceStatus(data);
+  if (place.user_id === userId) return place;
+  if (place.trip_id) {
     try {
-      await assertTripAccess(data.trip_id);
-      return data;
+      await assertTripAccess(place.trip_id);
+      return place;
     } catch {
       return null;
     }
@@ -58,20 +211,70 @@ export async function fetchPlaceById(id: string): Promise<PlaceVisit | null> {
 }
 
 export async function createPlace(
-  place: PlaceVisitCreateRequest
+  place: PlaceVisitCreateRequest,
+  options?: {
+    transaction?: TransactionCreateRequest | null;
+  }
 ): Promise<PlaceVisit> {
   const userId = await getCurrentUserId();
   if (place.trip_id) {
     await assertTripAccess(place.trip_id);
   }
+  const status = place.status ?? (place.visited_date ? "visited" : "to_visit");
+  const amount = normalizeAmount(status, place.amount);
+
+  let transactionId: number | null = place.transaction_id ?? null;
+  if (
+    options?.transaction &&
+    options.transaction.class_id > 0 &&
+    options.transaction.value > 0 &&
+    amount != null
+  ) {
+    transactionId = await insertTransaction({
+      ...options.transaction,
+      value: amount,
+    });
+  }
+
+  const payload = {
+    ...place,
+    status,
+    visited_date: status === "to_visit" ? null : place.visited_date,
+    rating: status === "to_visit" ? null : place.rating,
+    amount,
+    transaction_id: transactionId,
+    would_recommend: place.would_recommend !== false,
+    user_id: userId,
+  };
   const { data, error } = await supabase
     .from("place_visit")
-    .insert([{ ...place, user_id: userId }])
+    .insert([payload])
     .select("*, trip:trip_id(id, title, destination)")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Migration ainda não aplicada — salva sem colunas novas.
+    if (
+      /status|amount|transaction_id/i.test(error.message) ||
+      error.code === "PGRST204"
+    ) {
+      const {
+        status: _s,
+        amount: _a,
+        transaction_id: _t,
+        ...legacy
+      } = payload;
+      const retry = await supabase
+        .from("place_visit")
+        .insert([{ ...legacy, user_id: userId }])
+        .select("*, trip:trip_id(id, title, destination)")
+        .single();
+      if (retry.error) throw new Error(retry.error.message);
+      return withNormalizedPlaceStatus(retry.data);
+    }
+    throw new Error(error.message);
+  }
 
-  if (place.trip_id) {
+  if (place.trip_id && status === "visited") {
     try {
       await upsertPlaceOpinion(data.id, {
         rating: place.rating ?? null,
@@ -83,11 +286,41 @@ export async function createPlace(
     }
   }
 
-  return data;
+  if (place.trip_id && amount != null && status === "visited") {
+    try {
+      await upsertPlaceTripExpense({
+        placeVisitId: data.id,
+        tripId: place.trip_id,
+        name: place.name,
+        type: place.type,
+        amount,
+        expenseDate: place.visited_date ?? new Date().toISOString().split("T")[0],
+        transactionId,
+        userId,
+      });
+    } catch {
+      // migration / permissão — lugar já salvo
+    }
+  }
+
+  return withNormalizedPlaceStatus(data);
 }
 
 export async function updatePlace(
-  data: PlaceVisitUpdateRequest
+  data: PlaceVisitUpdateRequest,
+  options?: {
+    /** Cria despesa se ainda não houver vínculo. */
+    transaction?: TransactionCreateRequest | null;
+    /** Atualiza a despesa já vinculada. */
+    syncTransaction?: {
+      value: number;
+      description: string;
+      transaction_at: string;
+      class_id?: number;
+    } | null;
+    /** Remove a despesa vinculada (ex.: voltou para Para visitar / zerou valor). */
+    removeTransaction?: boolean;
+  }
 ): Promise<void> {
   const userId = await getCurrentUserId();
   const existing = await fetchPlaceById(data.id);
@@ -96,11 +329,59 @@ export async function updatePlace(
   const canEditPlace =
     existing.user_id === userId ||
     (existing.trip_id
-      ? (await assertTripAccess(existing.trip_id).then(() => true).catch(() => false))
+      ? (await assertTripAccess(existing.trip_id)
+          .then(() => true)
+          .catch(() => false))
       : false);
   if (!canEditPlace) throw new Error("Sem permissão para editar este lugar.");
 
-  const { id, ...fields } = data;
+  const { id, ...raw } = data;
+  const status =
+    raw.status ??
+    existing.status ??
+    (raw.visited_date ?? existing.visited_date ? "visited" : "to_visit");
+  const amount =
+    raw.amount !== undefined || status === "to_visit"
+      ? normalizeAmount(status, raw.amount)
+      : existing.amount ?? null;
+
+  let transactionId = existing.transaction_id ?? null;
+
+  if (options?.removeTransaction || amount == null) {
+    await deleteLinkedTransaction(transactionId);
+    transactionId = null;
+  } else if (transactionId && options?.syncTransaction) {
+    const payload: Record<string, unknown> = {
+      value: options.syncTransaction.value,
+      description: options.syncTransaction.description,
+      transaction_at: options.syncTransaction.transaction_at,
+    };
+    if (options.syncTransaction.class_id) {
+      payload.class_id = options.syncTransaction.class_id;
+    }
+    const { error: txError } = await supabase
+      .from("transaction")
+      .update(payload)
+      .eq("id", transactionId)
+      .eq("user_id", userId);
+    if (txError) throw new Error(txError.message);
+  } else if (
+    !transactionId &&
+    options?.transaction &&
+    options.transaction.class_id > 0 &&
+    options.transaction.value > 0
+  ) {
+    transactionId = await insertTransaction({
+      ...options.transaction,
+      value: amount,
+    });
+  }
+
+  const fields = {
+    ...raw,
+    amount,
+    transaction_id: transactionId,
+  };
   // Só o autor altera a row base; membros usam opinião
   if (existing.user_id === userId) {
     const { error } = await supabase
@@ -110,7 +391,33 @@ export async function updatePlace(
     if (error) throw new Error(error.message);
   }
 
-  if (existing.trip_id) {
+  const tripId = (raw.trip_id !== undefined ? raw.trip_id : existing.trip_id) ?? null;
+  const placeName = raw.name ?? existing.name;
+  const placeType = (raw.type ?? existing.type) as PlaceType;
+  const visitedDate =
+    status === "visited"
+      ? (raw.visited_date ?? existing.visited_date ??
+        new Date().toISOString().split("T")[0])
+      : null;
+
+  if (existing.user_id === userId) {
+    if (tripId && amount != null && status === "visited" && visitedDate) {
+      await upsertPlaceTripExpense({
+        placeVisitId: id,
+        tripId,
+        name: placeName,
+        type: placeType,
+        amount,
+        expenseDate: visitedDate,
+        transactionId,
+        userId,
+      });
+    } else {
+      await removePlaceTripExpense(id);
+    }
+  }
+
+  if (tripId) {
     await upsertPlaceOpinion(id, {
       rating: fields.rating ?? existing.rating ?? null,
       notes: fields.notes ?? existing.notes ?? null,
@@ -131,8 +438,14 @@ export async function deletePlace(id: string): Promise<void> {
       throw new Error("Sem permissão para excluir.");
     }
   }
+  // Gasto da viagem some via ON DELETE CASCADE em place_visit_id.
+  const linkedExpense = await findExpenseForPlace(id);
   const { error } = await supabase.from("place_visit").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  if (linkedExpense) {
+    await syncTripSpentLocal(linkedExpense.trip_id);
+  }
+  await deleteLinkedTransaction(existing.transaction_id);
 }
 
 export async function countPlacesByTrip(tripId: string): Promise<number> {

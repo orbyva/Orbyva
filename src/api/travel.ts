@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { insertTransaction } from "@/api/finance";
+import { deleteTransactionApi, insertTransaction } from "@/api/finance";
 import type { TransactionCreateRequest } from "@/types/finance";
 import {
   generateItineraryDays,
@@ -407,19 +407,31 @@ export async function registerMyExpenseSplit(
 }
 
 export async function updateTripExpense(
-  data: TripExpenseUpdateRequest
+  data: TripExpenseUpdateRequest,
+  options?: {
+    /** Atualiza a transação vinculada (valor, data, descrição, classe). */
+    syncTransaction?: {
+      value: number;
+      description: string;
+      transaction_at: string;
+      class_id?: number;
+    } | null;
+  }
 ): Promise<void> {
   const { id, splits, ...fields } = data as TripExpenseUpdateRequest & {
     splits?: { user_id: string; amount: number }[];
   };
   const { data: existing, error: fetchError } = await supabase
     .from("trip_expense")
-    .select("trip_id, created_by_user_id, visibility")
+    .select(
+      "trip_id, created_by_user_id, visibility, place_visit_id, transaction_id, amount, expense_date, description"
+    )
     .eq("id", id)
     .maybeSingle();
   if (fetchError) throw new Error(fetchError.message);
   if (!existing) throw new Error("Gasto não encontrado.");
   const access = await assertTripAccess(existing.trip_id);
+  const userId = access.userId;
 
   if (
     (existing.visibility ?? "personal") === "personal" &&
@@ -452,6 +464,65 @@ export async function updateTripExpense(
     }
   }
 
+  const nextAmount =
+    fields.amount !== undefined ? Number(fields.amount) : Number(existing.amount);
+  const nextDate = fields.expense_date ?? existing.expense_date;
+  const nextDescription =
+    fields.description ?? (existing.description as string);
+
+  // Gasto veio de um lugar → espelha valor/data no lugar.
+  if (existing.place_visit_id) {
+    const placePatch: Record<string, unknown> = {
+      amount: nextAmount > 0 ? nextAmount : null,
+    };
+    if (fields.expense_date) {
+      placePatch.visited_date = fields.expense_date;
+    }
+    if (!(nextAmount > 0)) {
+      placePatch.transaction_id = null;
+    }
+    const { error: placeError } = await supabase
+      .from("place_visit")
+      .update(placePatch)
+      .eq("id", existing.place_visit_id);
+    if (placeError) throw new Error(placeError.message);
+  }
+
+  const txId = existing.transaction_id as number | null;
+  if (txId) {
+    if (nextAmount > 0) {
+      const sync = options?.syncTransaction;
+      const payload: Record<string, unknown> = {
+        value: sync?.value ?? nextAmount,
+        description: sync?.description ?? nextDescription,
+        transaction_at:
+          sync?.transaction_at ??
+          new Date(`${nextDate}T12:00:00`).toISOString(),
+      };
+      if (sync?.class_id) {
+        payload.class_id = sync.class_id;
+      }
+      const { error: txError } = await supabase
+        .from("transaction")
+        .update(payload)
+        .eq("id", txId)
+        .eq("user_id", userId);
+      if (txError) throw new Error(txError.message);
+    } else {
+      await deleteTransactionApi(txId);
+      await supabase
+        .from("trip_expense")
+        .update({ transaction_id: null })
+        .eq("id", id);
+      if (existing.place_visit_id) {
+        await supabase
+          .from("place_visit")
+          .update({ transaction_id: null })
+          .eq("id", existing.place_visit_id);
+      }
+    }
+  }
+
   await syncTripSpent(fields.trip_id ?? existing.trip_id);
 }
 
@@ -462,7 +533,9 @@ export async function deleteTripExpense(
   const access = await assertTripAccess(tripId);
   const { data: existing } = await supabase
     .from("trip_expense")
-    .select("created_by_user_id, visibility")
+    .select(
+      "created_by_user_id, visibility, place_visit_id, transaction_id"
+    )
     .eq("id", id)
     .maybeSingle();
   if (
@@ -474,8 +547,29 @@ export async function deleteTripExpense(
   ) {
     throw new Error("Só quem criou o gasto pessoal pode excluí-lo.");
   }
+
+  const placeVisitId = existing?.place_visit_id as string | null | undefined;
+  const transactionId = existing?.transaction_id as number | null | undefined;
+
   const { error } = await supabase.from("trip_expense").delete().eq("id", id);
   if (error) throw new Error(error.message);
+
+  if (placeVisitId) {
+    const { error: placeError } = await supabase
+      .from("place_visit")
+      .update({ amount: null, transaction_id: null })
+      .eq("id", placeVisitId);
+    if (placeError) throw new Error(placeError.message);
+  }
+
+  if (transactionId) {
+    try {
+      await deleteTransactionApi(transactionId);
+    } catch {
+      // já removida
+    }
+  }
+
   await syncTripSpent(tripId);
 }
 

@@ -9,15 +9,24 @@ export type PlaceType =
   | "shop"
   | "other";
 
+/** Espelha filmes: to_visit ≈ to_watch, visited ≈ watched. */
+export type PlaceStatus = "to_visit" | "visited";
+
 export interface PlaceVisit {
   id: string;
   user_id?: string;
   trip_id?: string | null;
   name: string;
   type: PlaceType;
+  status?: PlaceStatus;
   rating?: number | null;
   notes?: string | null;
-  visited_date: string;
+  /** Null quando ainda está em "Para visitar". */
+  visited_date?: string | null;
+  /** Valor gasto no local (opcional; só em visitados). */
+  amount?: number | null;
+  /** Transação no livro-caixa, se registrada. */
+  transaction_id?: number | null;
   address?: string | null;
   would_recommend: boolean;
   created_at?: string;
@@ -44,3 +53,4 @@ export type PlaceVisitUpdateRequest = Partial<PlaceVisitCreateRequest> & {
 };
 
 export type PlaceFilter = "all" | "local" | "trip" | PlaceType;
+export type PlaceListStatusFilter = PlaceStatus;

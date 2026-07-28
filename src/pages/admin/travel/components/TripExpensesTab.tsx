@@ -68,6 +68,7 @@ export function TripExpensesTab({
                 <p className="text-xs text-muted-foreground">
                   {EXPENSE_CATEGORY_LABELS[exp.category]} ·{" "}
                   {formatDateBR(exp.expense_date)}
+                  {exp.place_visit_id ? " · Lugar" : ""}
                   {(exp.visibility ?? "personal") === "shared"
                     ? " · Conjunta"
                     : " · Pessoal"}
@@ -112,6 +113,15 @@ export function TripExpensesTab({
                 </Button>
                 <ConfirmDeleteDialog
                   title="Excluir este gasto?"
+                  description={
+                    exp.transaction_id != null && exp.place_visit_id
+                      ? "Também remove o valor do lugar e o lançamento no extrato automaticamente."
+                      : exp.transaction_id != null
+                        ? "Também remove o lançamento no extrato automaticamente."
+                        : exp.place_visit_id
+                          ? "Também zera o valor registrado no lugar."
+                          : undefined
+                  }
                   onConfirm={() =>
                     deleteTripExpense(exp.id, trip.id).then(onReload)
                   }

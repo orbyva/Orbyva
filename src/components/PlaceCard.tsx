@@ -18,7 +18,7 @@ import {
   getRatingLabel,
 } from "@/domain/places";
 import type { PlaceVisit } from "@/types/places";
-import { formatDateBR } from "@/lib/currency";
+import { formatBRL, formatDateBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 interface PlaceCardProps {
@@ -70,6 +70,11 @@ export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
               <Badge variant="outline" className="text-[10px]">
                 {PLACE_TYPE_LABELS[place.type]}
               </Badge>
+              {place.status === "to_visit" ? (
+                <Badge variant="secondary" className="text-[10px]">
+                  Para visitar
+                </Badge>
+              ) : null}
               {multi ? (
                 <Badge variant="secondary" className="text-[10px]">
                   {summary!.totalOpinions} opiniões
@@ -85,25 +90,30 @@ export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
             )}
           </div>
 
-          {multi && summary ? (
-            <div className="flex shrink-0 items-center gap-2 text-[11px] font-medium">
-              <span className="inline-flex items-center gap-1 text-success">
-                <ThumbsUp className="h-3.5 w-3.5" />
-                {summary.recommendYes}
-              </span>
-              <span className="inline-flex items-center gap-1 text-destructive">
-                <ThumbsDown className="h-3.5 w-3.5" />
-                {summary.recommendNo}
-              </span>
-            </div>
-          ) : place.would_recommend ? (
-            <ThumbsUp className="h-4 w-4 shrink-0 text-success" />
-          ) : (
-            <ThumbsDown className="h-4 w-4 shrink-0 text-destructive" />
-          )}
+          {place.status !== "to_visit" ? (
+            multi && summary ? (
+              <div className="flex shrink-0 items-center gap-2 text-[11px] font-medium">
+                <span className="inline-flex items-center gap-1 text-success">
+                  <ThumbsUp className="h-3.5 w-3.5" />
+                  {summary.recommendYes}
+                </span>
+                <span className="inline-flex items-center gap-1 text-destructive">
+                  <ThumbsDown className="h-3.5 w-3.5" />
+                  {summary.recommendNo}
+                </span>
+              </div>
+            ) : place.would_recommend ? (
+              <ThumbsUp className="h-4 w-4 shrink-0 text-success" />
+            ) : (
+              <ThumbsDown className="h-4 w-4 shrink-0 text-destructive" />
+            )
+          ) : null}
         </div>
 
-        {starValue != null && displayRating != null && displayRating > 0 ? (
+        {place.status !== "to_visit" &&
+        starValue != null &&
+        displayRating != null &&
+        displayRating > 0 ? (
           <div className="mt-2 flex items-center gap-2">
             <StarRating value={starValue} readonly size="sm" />
             <span className="text-xs text-muted-foreground">
@@ -122,7 +132,18 @@ export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
         ) : null}
 
         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-          <span>{formatDateBR(place.visited_date)}</span>
+          <span>
+            {place.status === "to_visit"
+              ? "Na lista"
+              : formatDateBR(place.visited_date)}
+            {place.status !== "to_visit" &&
+            place.amount != null &&
+            place.amount > 0
+              ? ` · ${formatBRL(place.amount)}${
+                  place.transaction_id != null ? " · extrato" : ""
+                }`
+              : ""}
+          </span>
           {place.trip && (
             <span className="text-primary truncate max-w-[140px]">
               {place.trip.title}

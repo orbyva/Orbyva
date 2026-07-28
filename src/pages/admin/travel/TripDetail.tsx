@@ -28,6 +28,7 @@ import {
 } from "@/api/travel";
 import { listTripMembers, ensureTripOwnerMember } from "@/api/tripMembers";
 import { deletePlace, enrichPlacesWithOpinions, fetchPlaces } from "@/api/places";
+import { fetchTransactionClassMeta } from "@/api/finance";
 import { useDimensions } from "@/hooks/useDimensions";
 import { useAuth } from "@/hooks/useAuth";
 import type { TripMember } from "@/types/tripSharing";
@@ -210,6 +211,15 @@ export default function TripDetail() {
     setFinanceTypeId(0);
     setClassId(0);
     setExpenseDialogOpen(true);
+    if (exp.transaction_id) {
+      void fetchTransactionClassMeta(exp.transaction_id)
+        .then((meta) => {
+          if (!meta) return;
+          setClassId(meta.class_id);
+          if (meta.type_id) setFinanceTypeId(meta.type_id);
+        })
+        .catch(() => undefined);
+    }
   }
 
   function equalSplits(total: number, memberList: TripMember[]) {
@@ -237,7 +247,22 @@ export default function TripDetail() {
       return;
     }
 
-    const visibility = expenseForm.visibility ?? "personal";
+    if (
+      editingExpense?.transaction_id &&
+      (!financeTypeId || !classId)
+    ) {
+      toast({
+        title: "Selecione tipo e classe",
+        description: "Este gasto está no extrato — escolha tipo e classe.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const visibility =
+      members.length > 1
+        ? (expenseForm.visibility ?? "personal")
+        : "personal";
     const splits =
       visibility === "shared"
         ? equalSplits(expenseForm.amount, members.length ? members : [])
@@ -255,13 +280,34 @@ export default function TripDetail() {
 
     try {
       if (editingExpense) {
-        await updateTripExpense({
-          id: editingExpense.id,
-          trip_id: trip!.id,
-          ...expenseForm,
-          splits,
+        const linked = Boolean(editingExpense.transaction_id);
+        await updateTripExpense(
+          {
+            id: editingExpense.id,
+            trip_id: trip!.id,
+            ...expenseForm,
+            splits,
+          },
+          linked
+            ? {
+                syncTransaction: {
+                  value: expenseForm.amount,
+                  description: tripLedgerDescription(
+                    trip!.title,
+                    expenseForm.description
+                  ),
+                  transaction_at: new Date(
+                    `${expenseForm.expense_date}T12:00:00`
+                  ).toISOString(),
+                  class_id: classId > 0 ? classId : undefined,
+                },
+              }
+            : undefined
+        );
+        toast({
+          title: linked ? "Gasto e extrato atualizados!" : "Gasto atualizado!",
+          duration: 2000,
         });
-        toast({ title: "Gasto atualizado!", duration: 2000 });
       } else {
         const transaction =
           registerExpense && classId > 0
@@ -660,6 +706,7 @@ export default function TripDetail() {
         open={expenseDialogOpen}
         onOpenChange={setExpenseDialogOpen}
         editing={!!editingExpense}
+        linkedToLedger={Boolean(editingExpense?.transaction_id)}
         form={expenseForm}
         onChange={setExpenseForm}
         memberCount={members.length}

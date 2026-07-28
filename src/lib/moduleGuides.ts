@@ -47,6 +47,10 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
         body: "Destino, datas e status. O card já mostra countdown, orçamento e checklist.",
       },
       {
+        title: "Lugares da viagem",
+        body: "Na aba Lugares, salve o que quer conhecer (Para visitar) e depois avalie o que já foi — com nota e valor gasto opcional.",
+      },
+      {
         title: "Monte roteiro e checklist",
         body: "Dias, atividades e o que levar. O progresso do checklist aparece no card da viagem.",
       },
@@ -108,15 +112,15 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "places",
     icon: MapPin,
     title: "Como funcionam os Lugares",
-    hook: "Seu mapa de opiniões: restaurantes, cafés e passeios — com nota para lembrar e compartilhar.",
+    hook: "Lista Para visitar + diário do que você já conheceu — com nota para lembrar e compartilhar.",
     steps: [
       {
-        title: "Registre um lugar",
-        body: "Nome, categoria e nota. Guarde o que valeu (ou não) a pena — na cidade ou em viagem.",
+        title: "Salve o que quer conhecer",
+        body: "Em Para visitar, guarde restaurantes, cafés e passeios sem precisar avaliar ainda.",
       },
       {
-        title: "Filtre e reveja",
-        body: "Busque por nota, tipo ou viagem. Ideal para decidir aonde voltar ou o que recomendar.",
+        title: "Marque como visitado",
+        body: "Depois da ida, mude para Visitado, ponha nota e valor (opcional). Com viagem, o valor entra nos gastos; se quiser, registre também no extrato.",
       },
       {
         title: "Compartilhe a opinião",

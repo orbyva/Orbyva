@@ -5,7 +5,7 @@ import {
   formatRating,
   getRatingLabel,
 } from "@/domain/places";
-import { formatDateBR } from "@/lib/currency";
+import { formatBRL, formatDateBR } from "@/lib/currency";
 import {
   SHARE_BRAND,
   SHARE_W,
@@ -93,7 +93,11 @@ export async function generatePlaceShareImage(
   ctx.fillStyle = "rgba(248, 250, 252, 0.7)";
   ctx.font = `600 26px ${SHARE_BRAND.font}`;
   ctx.fillText(
-    `${(PLACE_TYPE_LABELS[place.type] ?? place.type).toUpperCase()}  ·  ${formatDateBR(place.visited_date)}`,
+    `${(PLACE_TYPE_LABELS[place.type] ?? place.type).toUpperCase()}  ·  ${
+      place.status === "to_visit"
+        ? "PARA VISITAR"
+        : formatDateBR(place.visited_date)
+    }`,
     centerX,
     cursorY
   );
@@ -152,6 +156,9 @@ export function buildPlaceShareText(
     parts.push(
       `Nota ${formatRating(place.rating)}/5 · ${getRatingLabel(place.rating)}`
     );
+  }
+  if (place.amount != null && place.amount > 0) {
+    parts.push(`💰 ${formatBRL(place.amount)}`);
   }
   if (includeNotes && place.notes?.trim()) {
     parts.push(`💬 ${place.notes.trim()}`);
