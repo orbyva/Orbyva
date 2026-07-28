@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Car,
   Film,
   Flame,
@@ -14,7 +15,8 @@ export type ModuleGuideId =
   | "goals"
   | "places"
   | "car"
-  | "movies";
+  | "movies"
+  | "books";
 
 export type ModuleGuideStep = {
   title: string;
@@ -173,6 +175,30 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       {
         title: "Compartilhe a opinião",
         body: "Gere um card com poster e nota para Stories, WhatsApp ou onde quiser — sua opinião, do seu jeito.",
+      },
+    ],
+  },
+  books: {
+    id: "books",
+    icon: BookOpen,
+    title: "Como funciona Livros",
+    hook: "Estante digital: para ler, lendo com marca-página e comentários, lidos e abandonados.",
+    steps: [
+      {
+        title: "Monte a lista",
+        body: "Busque no Google Books e salve o que quer ler — capa, autor e sinopse vêm prontos.",
+      },
+      {
+        title: "Comece a ler",
+        body: "Mova para Lendo, use a marca-página e deixe comentários curtos ligados à página.",
+      },
+      {
+        title: "Termine ou abandone",
+        body: "Ao terminar, avalie e compartilhe. Se largar o livro, marque como Abandonei — dá para retomar.",
+      },
+      {
+        title: "Compartilhe a opinião",
+        body: "Nos lidos, gere um card com capa e nota para Stories ou WhatsApp.",
       },
     ],
   },

@@ -9,6 +9,7 @@ const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 const Login = lazy(() => import("./pages/admin/Login"));
 const Landing = lazy(() => import("./pages/Landing"));
 const Movies = lazy(() => import("./pages/admin/movies/Movies"));
+const Books = lazy(() => import("./pages/admin/books/Books"));
 const Car = lazy(() => import("./pages/admin/car/Car"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const LifeDashboard = lazy(() => import("./pages/admin/life/LifeDashboard"));
@@ -107,6 +108,7 @@ const router = createBrowserRouter([
           },
 
           { path: "movies", element: <Movies /> },
+          { path: "books", element: <Books /> },
           { path: "car", element: <Car /> },
         ],
       },

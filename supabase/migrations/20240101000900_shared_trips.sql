@@ -174,6 +174,7 @@ create policy trip_invite_update on public.trip_invite
   with check (public.is_trip_owner(trip_id));
 
 drop policy if exists trip_place_opinion_all on public.trip_place_opinion;
+drop policy if exists trip_place_opinion_select on public.trip_place_opinion;
 create policy trip_place_opinion_select on public.trip_place_opinion
   for select to authenticated
   using (
@@ -187,6 +188,7 @@ create policy trip_place_opinion_select on public.trip_place_opinion
     )
   );
 
+drop policy if exists trip_place_opinion_insert on public.trip_place_opinion;
 create policy trip_place_opinion_insert on public.trip_place_opinion
   for insert to authenticated
   with check (
@@ -199,10 +201,12 @@ create policy trip_place_opinion_insert on public.trip_place_opinion
     )
   );
 
+drop policy if exists trip_place_opinion_update on public.trip_place_opinion;
 create policy trip_place_opinion_update on public.trip_place_opinion
   for update to authenticated
   using (user_id = auth.uid());
 
+drop policy if exists trip_place_opinion_delete on public.trip_place_opinion;
 create policy trip_place_opinion_delete on public.trip_place_opinion
   for delete to authenticated
   using (user_id = auth.uid());
@@ -218,6 +222,7 @@ create policy trip_expense_split_select on public.trip_expense_split
   );
 
 drop policy if exists trip_expense_split_write on public.trip_expense_split;
+drop policy if exists trip_expense_split_insert on public.trip_expense_split;
 create policy trip_expense_split_insert on public.trip_expense_split
   for insert to authenticated
   with check (
@@ -227,6 +232,7 @@ create policy trip_expense_split_insert on public.trip_expense_split
     )
   );
 
+drop policy if exists trip_expense_split_update on public.trip_expense_split;
 create policy trip_expense_split_update on public.trip_expense_split
   for update to authenticated
   using (
@@ -236,6 +242,7 @@ create policy trip_expense_split_update on public.trip_expense_split
     )
   );
 
+drop policy if exists trip_expense_split_delete on public.trip_expense_split;
 create policy trip_expense_split_delete on public.trip_expense_split
   for delete to authenticated
   using (

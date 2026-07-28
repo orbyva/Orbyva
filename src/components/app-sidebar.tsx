@@ -60,6 +60,7 @@ const NAV_VIDA: NavItem = {
   icon: Target,
   items: [
     { title: "Cinema", url: "/movies" },
+    { title: "Livros", url: "/books" },
     { title: "Hábitos", url: "/habits" },
     { title: "Lugares", url: "/places" },
     { title: "Metas", url: "/goals" },

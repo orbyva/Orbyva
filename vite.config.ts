@@ -59,13 +59,24 @@ export default defineConfig({
         mode: "development",
         globPatterns: ["**/*.{js,css,html,ico,webp,svg,woff2,png}"],
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/tmdb-media/],
+        navigateFallbackDenylist: [/^\/tmdb-media/, /^\/books-media/],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/tmdb-media"),
             handler: "CacheFirst",
             options: {
               cacheName: "tmdb-posters",
+              expiration: {
+                maxEntries: 128,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/books-media"),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "books-covers",
               expiration: {
                 maxEntries: 128,
                 maxAgeSeconds: 60 * 60 * 24 * 30,
@@ -146,6 +157,12 @@ export default defineConfig({
         target: "https://image.tmdb.org",
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/tmdb-media/, ""),
+      },
+      /** Capas Google Books — CORS quebra canvas do share. */
+      "/books-media": {
+        target: "https://books.google.com",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/books-media/, ""),
       },
     },
   },

@@ -1,6 +1,6 @@
 # Orbyva
 
-**Tudo da sua vida em uma só órbita** — finanças, metas, hábitos, viagens, lugares, veículos e cinema num só lugar.
+**Tudo da sua vida em uma só órbita** — finanças, metas, hábitos, viagens, lugares, veículos, cinema e livros num só lugar.
 
 Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts**, **Framer Motion** e **Supabase** (auth, banco e Edge Functions).
 
@@ -32,6 +32,9 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 ### Cinema
 - **Cinema** (`/movies`) — watchlist, opinião (nota 0–10 + comentário + recomendação), compartilhar card e import CSV (Letterboxd / TV Time)
+
+### Livros
+- **Livros** (`/books`) — para ler / lendo / lidos / abandonei, marca-página, comentários na leitura, Google Books, opinião e card Stories
 
 ### Carro / Moto
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
@@ -161,9 +164,12 @@ VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 VITE_SUPABASE_ANON_KEY=sua_anon_key
 VITE_TMDB_API_KEY=sua_chave_tmdb   # Cinema em pt-BR (recomendado)
 VITE_OMDB_API_KEY=sua_chave_omdb   # fallback opcional
+VITE_GOOGLE_BOOKS_API_KEY=sua_chave # Livros (Google Books)
 ```
 
-Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) (API Key v3).
+Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) (API Key v3).  
+Chave Google Books: [console.cloud.google.com](https://console.cloud.google.com/) → APIs & Services → enable **Books API** → criar API key.  
+Se a key tiver restrição **HTTP referrers**, inclua `http://localhost:5173/*`, `http://127.0.0.1:5173/*` e `https://orbyva.app/*` (senão a busca retorna 403).
 
 ### Billing (Stripe)
 
