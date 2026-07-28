@@ -16,11 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ScoreRating } from "@/components/ScoreRating";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
@@ -72,57 +67,6 @@ function DetailRow({
   );
 }
 
-function TrackRatingButton({
-  value,
-  onChange,
-  saving,
-}: {
-  value: number | null;
-  onChange: (next: number | null) => void;
-  saving?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          disabled={saving}
-          className={cn(
-            "min-w-[2.5rem] flex-none rounded-md border px-1.5 py-0.5 text-xs font-semibold tabular-nums transition-colors",
-            value != null && value > 0
-              ? "border-warning/60 bg-warning/15 text-foreground"
-              : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-muted-foreground/70"
-          )}
-          aria-label={
-            value != null && value > 0
-              ? `Nota ${formatAlbumRating(value)}. Alterar`
-              : "Avaliar faixa"
-          }
-        >
-          {value != null && value > 0 ? formatAlbumRating(value) : "Nota"}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="w-auto p-3"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <p className="mb-2 text-xs text-muted-foreground">Nota da faixa</p>
-        <ScoreRating
-          value={value}
-          size="sm"
-          onChange={(next) => {
-            onChange(next);
-            setOpen(false);
-          }}
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 export function AlbumDetailDialog({
   album,
   open,
@@ -137,6 +81,8 @@ export function AlbumDetailDialog({
   const [tracksError, setTracksError] = useState("");
   const [trackRatings, setTrackRatings] = useState<Record<string, number>>({});
   const [ratingSavingKey, setRatingSavingKey] = useState<string | null>(null);
+  /** Nota inline (evita Popover flutuando no Dialog com scroll). */
+  const [editingTrackKey, setEditingTrackKey] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const { toast } = useToast();
@@ -148,10 +94,16 @@ export function AlbumDetailDialog({
   useEffect(() => {
     if (!album) {
       setTrackRatings({});
+      setEditingTrackKey(null);
       return;
     }
     setTrackRatings(album.track_ratings ?? {});
+    setEditingTrackKey(null);
   }, [album?.musicbrainz_id, album?.track_ratings]);
+
+  useEffect(() => {
+    if (!open) setEditingTrackKey(null);
+  }, [open]);
 
   useEffect(() => {
     abortRef.current?.abort();
@@ -208,6 +160,7 @@ export function AlbumDetailDialog({
 
     setTrackRatings(updated);
     setRatingSavingKey(key);
+    setEditingTrackKey(null);
     try {
       await updateAlbum({
         musicbrainz_id: album.musicbrainz_id,
@@ -362,29 +315,65 @@ export function AlbumDetailDialog({
                   {tracks.map((track, idx) => {
                     const key = trackRatingKey(track.disc, track.position);
                     const rating = trackRatings[key] ?? null;
+                    const editing = editingTrackKey === key;
+                    const saving = ratingSavingKey === key;
                     return (
                       <li
                         key={`${key}-${track.title}-${idx}`}
-                        className="flex items-center gap-2 text-sm"
+                        className="space-y-2 rounded-md border border-transparent px-0.5 py-1 data-[editing=true]:border-border data-[editing=true]:bg-muted/30 data-[editing=true]:px-2 data-[editing=true]:py-2"
+                        data-editing={editing || undefined}
                       >
-                        <span className="w-10 flex-none tabular-nums text-muted-foreground">
-                          {multiDisc
-                            ? `${track.disc}.${track.position}`
-                            : track.position}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">
-                          {track.title}
-                        </span>
-                        <span className="flex-none tabular-nums text-xs text-muted-foreground">
-                          {formatTrackLength(track.lengthMs)}
-                        </span>
-                        <TrackRatingButton
-                          value={rating}
-                          saving={ratingSavingKey === key}
-                          onChange={(next) =>
-                            void handleTrackRating(track, next)
-                          }
-                        />
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="w-10 flex-none tabular-nums text-muted-foreground">
+                            {multiDisc
+                              ? `${track.disc}.${track.position}`
+                              : track.position}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">
+                            {track.title}
+                          </span>
+                          <span className="flex-none tabular-nums text-xs text-muted-foreground">
+                            {formatTrackLength(track.lengthMs)}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={saving}
+                            className={cn(
+                              "min-w-[2.5rem] flex-none rounded-md border px-1.5 py-0.5 text-xs font-semibold tabular-nums transition-colors",
+                              rating != null && rating > 0
+                                ? "border-warning/60 bg-warning/15 text-foreground"
+                                : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-muted-foreground/70",
+                              editing && "ring-1 ring-primary/40"
+                            )}
+                            aria-expanded={editing}
+                            aria-label={
+                              rating != null && rating > 0
+                                ? `Nota ${formatAlbumRating(rating)}. Alterar`
+                                : "Avaliar faixa"
+                            }
+                            onClick={() =>
+                              setEditingTrackKey(editing ? null : key)
+                            }
+                          >
+                            {rating != null && rating > 0
+                              ? formatAlbumRating(rating)
+                              : "Nota"}
+                          </button>
+                        </div>
+                        {editing ? (
+                          <div className="pl-10 sm:pl-12">
+                            <p className="mb-1.5 text-xs text-muted-foreground">
+                              Nota da faixa
+                            </p>
+                            <ScoreRating
+                              value={rating}
+                              size="sm"
+                              onChange={(next) => {
+                                void handleTrackRating(track, next);
+                              }}
+                            />
+                          </div>
+                        ) : null}
                       </li>
                     );
                   })}

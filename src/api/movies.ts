@@ -32,6 +32,18 @@ export async function fetchMovies(
   };
 }
 
+/** Lista completa do usuário — filtro/paginação no cliente (UX mais rápida). */
+export async function fetchAllMovies(): Promise<Movie[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("movie")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message);
+  return (data || []).map((row) => normalizeMovie(row as Movie));
+}
+
 export async function fetchMovieById(imdbId: string): Promise<Movie | null> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase

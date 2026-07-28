@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { deleteBook, fetchBooks } from "@/api/books";
+import { deleteBook, fetchAllBooks } from "@/api/books";
 import type { Book, BookRatingFloor, BookStatus } from "@/types/books";
 import { BookCard } from "./components/BookCard";
 import { BookSearchModal } from "./components/BookSearchModal";
@@ -24,16 +24,42 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { getErrorMessage } from "@/lib/errors";
+import { createMemoryCache } from "@/lib/memoryCache";
+import { useCachedCatalog } from "@/hooks/useCachedCatalog";
 import {
   collectBookAuthors,
   collectBookCategories,
   filterBooksByMeta,
   formatBookRating,
+  getLatestReadDate,
   getReadBooksStats,
 } from "@/domain/books";
 
+const booksCatalogCache = createMemoryCache<Book[]>();
+
+function sortBooksForStatus(list: Book[], status: BookStatus): Book[] {
+  const copy = [...list];
+  if (status === "read") {
+    copy.sort((a, b) => {
+      const da = getLatestReadDate(a.read_dates) ?? "";
+      const db = getLatestReadDate(b.read_dates) ?? "";
+      return db.localeCompare(da);
+    });
+  } else if (status === "reading") {
+    copy.sort((a, b) => (b.current_page ?? 0) - (a.current_page ?? 0));
+  } else {
+    copy.sort((a, b) => (b.published_year ?? 0) - (a.published_year ?? 0));
+  }
+  return copy;
+}
+
 export default function Books() {
-  const [books, setBooks] = useState<Book[]>([]);
+  const fetchAll = useCallback(() => fetchAllBooks(), []);
+  const { items: allBooks, reload, replace } = useCachedCatalog(
+    booksCatalogCache,
+    fetchAll
+  );
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<BookStatus>("to_read");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -41,7 +67,6 @@ export default function Books() {
   const [ratingFloor, setRatingFloor] = useState<BookRatingFloor>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(36);
-  const [totalPages, setTotalPages] = useState(0);
 
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -50,47 +75,26 @@ export default function Books() {
 
   const { toast } = useToast();
 
-  const loadBooks = useCallback(async () => {
-    const { data, total } = await fetchBooks(filter, page, pageSize);
-    setBooks(data);
-    setTotalPages(Math.ceil(total / pageSize));
-    setSelectedBook((current) => {
-      if (!current) return current;
-      return data.find((b) => b.google_id === current.google_id) ?? current;
-    });
-  }, [filter, page, pageSize]);
+  const loadBooks = useCallback(() => reload(true), [reload]);
 
-  useEffect(() => {
-    void loadBooks();
-  }, [loadBooks]);
+  const statusBooks = useMemo(
+    () =>
+      sortBooksForStatus(
+        allBooks.filter((b) => b.status === filter),
+        filter
+      ),
+    [allBooks, filter]
+  );
 
-  async function handleDeleteBook(googleId: string) {
-    try {
-      await deleteBook(googleId);
-
-      toast({
-        title: "Sucesso",
-        description: "Livro excluído!",
-        duration: 2000,
-      });
-
-      await loadBooks();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Falha ao excluir."),
-        variant: "destructive",
-        duration: 2000,
-      });
-    }
-  }
-
-  const categories = useMemo(() => collectBookCategories(books), [books]);
-  const authors = useMemo(() => collectBookAuthors(books), [books]);
-  const readStats = useMemo(() => getReadBooksStats(books), [books]);
+  const categories = useMemo(
+    () => collectBookCategories(statusBooks),
+    [statusBooks]
+  );
+  const authors = useMemo(() => collectBookAuthors(statusBooks), [statusBooks]);
+  const readStats = useMemo(() => getReadBooksStats(statusBooks), [statusBooks]);
 
   const filteredBooks = useMemo(() => {
-    const byMeta = filterBooksByMeta(books, {
+    const byMeta = filterBooksByMeta(statusBooks, {
       category: categoryFilter,
       author: authorFilter,
       minRating: filter === "read" ? ratingFloor : "all",
@@ -110,7 +114,52 @@ export default function Books() {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [books, searchTerm, categoryFilter, authorFilter, ratingFloor, filter]);
+  }, [
+    statusBooks,
+    searchTerm,
+    categoryFilter,
+    authorFilter,
+    ratingFloor,
+    filter,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredBooks.length / pageSize));
+  const pageBooks = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredBooks.slice(start, start + pageSize);
+  }, [filteredBooks, page, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setSelectedBook((current) => {
+      if (!current) return current;
+      return (
+        allBooks.find((b) => b.google_id === current.google_id) ?? current
+      );
+    });
+  }, [allBooks]);
+
+  async function handleDeleteBook(googleId: string) {
+    try {
+      await deleteBook(googleId);
+      replace((prev) => prev.filter((b) => b.google_id !== googleId));
+      toast({
+        title: "Sucesso",
+        description: "Livro excluído!",
+        duration: 2000,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Falha ao excluir."),
+        variant: "destructive",
+        duration: 2000,
+      });
+    }
+  }
 
   function openDetail(book: Book) {
     setSelectedBook(book);
@@ -121,6 +170,12 @@ export default function Books() {
     filter === "read" && readStats.avgRating != null
       ? `Lista de leitura e opiniões · média ${formatBookRating(readStats.avgRating)}/10 em ${readStats.rated} livro${readStats.rated === 1 ? "" : "s"}`
       : "Lista de leitura, opiniões e histórico.";
+
+  const hasClientFilters =
+    searchTerm ||
+    categoryFilter !== "all" ||
+    authorFilter !== "all" ||
+    ratingFloor !== "all";
 
   return (
     <PageShell
@@ -143,7 +198,10 @@ export default function Books() {
               placeholder="Buscar título, autor, categoria..."
               className="pl-9"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
 
@@ -158,7 +216,7 @@ export default function Books() {
             }}
             className="w-full sm:w-auto"
           >
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 sm:w-auto">
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4 sm:w-auto">
               <TabsTrigger value="to_read">Para ler</TabsTrigger>
               <TabsTrigger value="reading">Lendo</TabsTrigger>
               <TabsTrigger value="read">Lidos</TabsTrigger>
@@ -168,7 +226,13 @@ export default function Books() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <Select value={authorFilter} onValueChange={setAuthorFilter}>
+          <Select
+            value={authorFilter}
+            onValueChange={(v) => {
+              setAuthorFilter(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Autor" />
             </SelectTrigger>
@@ -182,7 +246,13 @@ export default function Books() {
             </SelectContent>
           </Select>
 
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <Select
+            value={categoryFilter}
+            onValueChange={(v) => {
+              setCategoryFilter(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
@@ -199,7 +269,10 @@ export default function Books() {
           {filter === "read" ? (
             <Select
               value={ratingFloor}
-              onValueChange={(v) => setRatingFloor(v as BookRatingFloor)}
+              onValueChange={(v) => {
+                setRatingFloor(v as BookRatingFloor);
+                setPage(1);
+              }}
             >
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Nota mínima" />
@@ -217,9 +290,9 @@ export default function Books() {
       </section>
 
       <section className="rounded-xl border p-3 sm:p-4">
-        {filteredBooks.length ? (
+        {pageBooks.length ? (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-6">
-            {filteredBooks.map((book) => (
+            {pageBooks.map((book) => (
               <BookCard
                 key={book.google_id}
                 book={book}
@@ -232,20 +305,12 @@ export default function Books() {
           <EmptyState
             title="Nenhum livro encontrado"
             description={
-              searchTerm ||
-              categoryFilter !== "all" ||
-              authorFilter !== "all" ||
-              ratingFloor !== "all"
+              hasClientFilters
                 ? "Tente outro filtro ou termo de busca."
                 : "Busque no Google Books e monte sua lista."
             }
             action={
-              searchTerm ||
-              categoryFilter !== "all" ||
-              authorFilter !== "all" ||
-              ratingFloor !== "all" ? (
-                undefined
-              ) : (
+              hasClientFilters ? undefined : (
                 <BookSearchModal onBookAdded={loadBooks} />
               )
             }
@@ -283,9 +348,12 @@ export default function Books() {
         pageSizes={[6, 12, 36, 60]}
         page={page}
         pageSize={pageSize}
-        totalPages={totalPages}
+        totalPages={filteredBooks.length === 0 ? 0 : totalPages}
         onSetPage={setPage}
-        onSetPageSize={setPageSize}
+        onSetPageSize={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
       />
     </PageShell>
   );

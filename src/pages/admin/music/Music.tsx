@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { deleteAlbum, fetchAlbums } from "@/api/albums";
+import { deleteAlbum, fetchAllAlbums } from "@/api/albums";
 import type { Album, AlbumRatingFloor, AlbumStatus } from "@/types/music";
 import { AlbumCard } from "./components/AlbumCard";
 import { AlbumSearchModal } from "./components/AlbumSearchModal";
@@ -24,17 +24,41 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { getErrorMessage } from "@/lib/errors";
+import { createMemoryCache } from "@/lib/memoryCache";
+import { useCachedCatalog } from "@/hooks/useCachedCatalog";
 import {
   ALBUM_TYPE_LABELS,
   collectAlbumArtists,
   collectAlbumTypes,
   filterAlbumsByMeta,
   formatAlbumRating,
+  getLatestListenedDate,
   getListenedAlbumsStats,
 } from "@/domain/music";
 
+const albumsCatalogCache = createMemoryCache<Album[]>();
+
+function sortAlbumsForStatus(list: Album[], status: AlbumStatus): Album[] {
+  const copy = [...list];
+  if (status === "listened") {
+    copy.sort((a, b) => {
+      const da = getLatestListenedDate(a.listened_dates) ?? "";
+      const db = getLatestListenedDate(b.listened_dates) ?? "";
+      return db.localeCompare(da);
+    });
+  } else {
+    copy.sort((a, b) => (b.release_year ?? 0) - (a.release_year ?? 0));
+  }
+  return copy;
+}
+
 export default function Music() {
-  const [albums, setAlbums] = useState<Album[]>([]);
+  const fetchAll = useCallback(() => fetchAllAlbums(), []);
+  const { items: allAlbums, reload, replace } = useCachedCatalog(
+    albumsCatalogCache,
+    fetchAll
+  );
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<AlbumStatus>("to_listen");
   const [artistFilter, setArtistFilter] = useState("all");
@@ -42,7 +66,6 @@ export default function Music() {
   const [ratingFloor, setRatingFloor] = useState<AlbumRatingFloor>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(36);
-  const [totalPages, setTotalPages] = useState(0);
 
   const [selected, setSelected] = useState<Album | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -51,28 +74,80 @@ export default function Music() {
 
   const { toast } = useToast();
 
-  const loadAlbums = useCallback(async () => {
-    const { data, total } = await fetchAlbums(filter, page, pageSize);
-    setAlbums(data);
-    setTotalPages(Math.ceil(total / pageSize));
+  const loadAlbums = useCallback(() => reload(true), [reload]);
+
+  const statusAlbums = useMemo(
+    () =>
+      sortAlbumsForStatus(
+        allAlbums.filter((a) => a.status === filter),
+        filter
+      ),
+    [allAlbums, filter]
+  );
+
+  const artists = useMemo(
+    () => collectAlbumArtists(statusAlbums),
+    [statusAlbums]
+  );
+  const types = useMemo(() => collectAlbumTypes(statusAlbums), [statusAlbums]);
+  const listenedStats = useMemo(
+    () => getListenedAlbumsStats(statusAlbums),
+    [statusAlbums]
+  );
+
+  const filtered = useMemo(() => {
+    const byMeta = filterAlbumsByMeta(statusAlbums, {
+      artist: artistFilter,
+      albumType: typeFilter,
+      minRating: filter === "listened" ? ratingFloor : "all",
+    });
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return byMeta;
+    return byMeta.filter((album) => {
+      const haystack = [album.title, album.notes, ...(album.artists ?? [])]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [
+    statusAlbums,
+    searchTerm,
+    artistFilter,
+    typeFilter,
+    ratingFloor,
+    filter,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageAlbums = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  useEffect(() => {
     setSelected((current) => {
       if (!current) return current;
       return (
-        data.find((a) => a.musicbrainz_id === current.musicbrainz_id) ??
+        allAlbums.find((a) => a.musicbrainz_id === current.musicbrainz_id) ??
         current
       );
     });
-  }, [filter, page, pageSize]);
-
-  useEffect(() => {
-    void loadAlbums();
-  }, [loadAlbums]);
+  }, [allAlbums]);
 
   async function handleDelete(id: string) {
     try {
       await deleteAlbum(id);
-      toast({ title: "Sucesso", description: "Álbum excluído!", duration: 2000 });
-      await loadAlbums();
+      replace((prev) => prev.filter((a) => a.musicbrainz_id !== id));
+      toast({
+        title: "Sucesso",
+        description: "Álbum excluído!",
+        duration: 2000,
+      });
     } catch (error) {
       toast({
         title: "Erro",
@@ -81,31 +156,6 @@ export default function Music() {
       });
     }
   }
-
-  const artists = useMemo(() => collectAlbumArtists(albums), [albums]);
-  const types = useMemo(() => collectAlbumTypes(albums), [albums]);
-  const listenedStats = useMemo(() => getListenedAlbumsStats(albums), [albums]);
-
-  const filtered = useMemo(() => {
-    const byMeta = filterAlbumsByMeta(albums, {
-      artist: artistFilter,
-      albumType: typeFilter,
-      minRating: filter === "listened" ? ratingFloor : "all",
-    });
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return byMeta;
-    return byMeta.filter((album) => {
-      const haystack = [
-        album.title,
-        album.notes,
-        ...(album.artists ?? []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [albums, searchTerm, artistFilter, typeFilter, ratingFloor, filter]);
 
   const description =
     filter === "listened" && listenedStats.avgRating != null
@@ -139,7 +189,10 @@ export default function Music() {
               placeholder="Buscar álbum, artista..."
               className="pl-9"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
 
@@ -162,7 +215,13 @@ export default function Music() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <Select value={artistFilter} onValueChange={setArtistFilter}>
+          <Select
+            value={artistFilter}
+            onValueChange={(v) => {
+              setArtistFilter(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Artista" />
             </SelectTrigger>
@@ -176,7 +235,13 @@ export default function Music() {
             </SelectContent>
           </Select>
 
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <Select
+            value={typeFilter}
+            onValueChange={(v) => {
+              setTypeFilter(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
@@ -193,7 +258,10 @@ export default function Music() {
           {filter === "listened" ? (
             <Select
               value={ratingFloor}
-              onValueChange={(v) => setRatingFloor(v as AlbumRatingFloor)}
+              onValueChange={(v) => {
+                setRatingFloor(v as AlbumRatingFloor);
+                setPage(1);
+              }}
             >
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Nota mínima" />
@@ -211,9 +279,9 @@ export default function Music() {
       </section>
 
       <section className="rounded-xl border p-3 sm:p-4">
-        {filtered.length ? (
+        {pageAlbums.length ? (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-6">
-            {filtered.map((album) => (
+            {pageAlbums.map((album) => (
               <AlbumCard
                 key={album.musicbrainz_id}
                 album={album}
@@ -275,9 +343,12 @@ export default function Music() {
         pageSizes={[6, 12, 36, 60]}
         page={page}
         pageSize={pageSize}
-        totalPages={totalPages}
+        totalPages={filtered.length === 0 ? 0 : totalPages}
         onSetPage={setPage}
-        onSetPageSize={setPageSize}
+        onSetPageSize={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
       />
     </PageShell>
   );

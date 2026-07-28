@@ -5,6 +5,7 @@ import {
   rest,
   signInViaSupabaseApi,
 } from "./helpers/auth";
+import { E2eCleanup, e2eStamp, firstId } from "./helpers/cleanup";
 
 const env = e2eEnv();
 
@@ -51,6 +52,7 @@ test.describe("orçamento e parcelas", () => {
 
   test("vê orçamento do mês na UI", async ({ page }) => {
     const session = await signInViaSupabaseApi(page);
+    const cleanup = new E2eCleanup(session.access_token);
     const klass = await pickExpenseClass(session.access_token);
     test.skip(!klass, "Sem classes/dimensões no usuário E2E");
 
@@ -58,85 +60,97 @@ test.describe("orçamento e parcelas", () => {
     // Valor raro na UI formatada (R$ 777,77) — evita colisão com seed real.
     const stamp = 777.77;
 
-    const existing = await rest("monthly_budget", session.access_token, {
-      method: "GET",
-      query: `select=id&class_id=eq.${klass!.id}&budget_month=eq.${month}&limit=1`,
-    });
-    const existingId = (existing.json as { id: number }[] | null)?.[0]?.id;
-
-    if (existingId) {
-      const patched = await rest("monthly_budget", session.access_token, {
-        method: "PATCH",
-        query: `id=eq.${existingId}`,
-        body: JSON.stringify({ planned_value: stamp }),
+    try {
+      const existing = await rest("monthly_budget", session.access_token, {
+        method: "GET",
+        query: `select=id,planned_value&class_id=eq.${klass!.id}&budget_month=eq.${month}&limit=1`,
       });
-      expect(patched.res.ok, patched.text).toBeTruthy();
-    } else {
-      const created = await rest("monthly_budget", session.access_token, {
-        method: "POST",
-        body: JSON.stringify({
-          user_id: session.user.id,
-          type_id: klass!.type_id,
-          class_id: klass!.id,
-          budget_month: month,
-          planned_value: stamp,
-        }),
-      });
-      expect(created.res.ok, created.text).toBeTruthy();
-    }
+      const existingRow = (
+        existing.json as { id: number; planned_value: number }[] | null
+      )?.[0];
 
-    await page.goto("/finance/budget");
-    await dismissOnboardingIfPresent(page);
-    await expect(page.locator("body")).toContainText(/Orçamento|orçamento/i, {
-      timeout: 20_000,
-    });
-    // Garante aba certa se a classe cair em receita.
-    const receitas = page.getByRole("tab", { name: /Receitas/i });
-    if (await receitas.isVisible().catch(() => false)) {
-      // Tenta Despesas primeiro (padrão); se não achar, troca.
-      const found = await page
-        .locator("body")
-        .getByText(/777,77/)
-        .first()
-        .isVisible()
-        .catch(() => false);
-      if (!found) {
-        await receitas.click();
+      if (existingRow) {
+        cleanup.trackBudgetRestore(existingRow.id, Number(existingRow.planned_value));
+        const patched = await rest("monthly_budget", session.access_token, {
+          method: "PATCH",
+          query: `id=eq.${existingRow.id}`,
+          body: JSON.stringify({ planned_value: stamp }),
+        });
+        expect(patched.res.ok, patched.text).toBeTruthy();
+      } else {
+        const created = await rest("monthly_budget", session.access_token, {
+          method: "POST",
+          body: JSON.stringify({
+            user_id: session.user.id,
+            type_id: klass!.type_id,
+            class_id: klass!.id,
+            budget_month: month,
+            planned_value: stamp,
+          }),
+        });
+        expect(created.res.ok, created.text).toBeTruthy();
+        cleanup.trackBudget(firstId(created.json));
       }
+
+      await page.goto("/finance/budget");
+      await dismissOnboardingIfPresent(page);
+      await expect(page.locator("body")).toContainText(/Orçamento|orçamento/i, {
+        timeout: 20_000,
+      });
+      const receitas = page.getByRole("tab", { name: /Receitas/i });
+      if (await receitas.isVisible().catch(() => false)) {
+        const found = await page
+          .locator("body")
+          .getByText(/777,77/)
+          .first()
+          .isVisible()
+          .catch(() => false);
+        if (!found) {
+          await receitas.click();
+        }
+      }
+      await expect(page.getByText(/777,77/).first()).toBeVisible({
+        timeout: 15_000,
+      });
+    } finally {
+      await cleanup.run();
     }
-    await expect(page.getByText(/777,77/).first()).toBeVisible({
-      timeout: 15_000,
-    });
   });
 
   test("lista parcela/recorrência criada via API", async ({ page }) => {
     const session = await signInViaSupabaseApi(page);
+    const cleanup = new E2eCleanup(session.access_token);
     const classId = await pickClassId(session.access_token);
     test.skip(!classId, "Sem classes no usuário E2E");
 
-    const stamp = `E2E-REC-${Date.now()}`;
-    const created = await rest("recurring_transaction", session.access_token, {
-      method: "POST",
-      body: JSON.stringify({
-        user_id: session.user.id,
-        class_id: classId,
-        value: 99.9,
-        description: stamp,
-        frequency: "Mensal",
-        validity: null,
-        due_day: 10,
-        installment_count: 3,
-        payment_start_date: new Date().toISOString().slice(0, 10),
-        status: true,
-      }),
-    });
-    expect(created.res.ok, created.text).toBeTruthy();
+    const stamp = e2eStamp("REC");
+    try {
+      const created = await rest("recurring_transaction", session.access_token, {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: session.user.id,
+          class_id: classId,
+          value: 99.9,
+          description: stamp,
+          frequency: "Mensal",
+          validity: null,
+          due_day: 10,
+          installment_count: 3,
+          payment_start_date: new Date().toISOString().slice(0, 10),
+          status: true,
+        }),
+      });
+      expect(created.res.ok, created.text).toBeTruthy();
+      cleanup.trackRecurring(firstId(created.json));
 
-    await page.goto("/finance/recurring");
-    await dismissOnboardingIfPresent(page);
-    await expect(page.getByText(stamp).first()).toBeVisible({
-      timeout: 20_000,
-    });
+      await page.goto("/finance/recurring");
+      await dismissOnboardingIfPresent(page);
+      await expect(page.getByText(stamp).first()).toBeVisible({
+        timeout: 20_000,
+      });
+    } finally {
+      await cleanup.run();
+    }
   });
 });
 
@@ -145,38 +159,44 @@ test.describe("exclusão e export", () => {
 
   test("exclui transação e some da lista", async ({ page }) => {
     const session = await signInViaSupabaseApi(page);
+    const cleanup = new E2eCleanup(session.access_token);
     const classId = await pickClassId(session.access_token);
     test.skip(!classId, "Sem classes no usuário E2E");
 
-    const stamp = `E2E-DEL-${Date.now()}`;
-    const tx = await rest("transaction", session.access_token, {
-      method: "POST",
-      body: JSON.stringify({
-        user_id: session.user.id,
-        class_id: classId,
-        value: 12.34,
-        description: stamp,
-        transaction_at: new Date().toISOString().slice(0, 10),
-      }),
-    });
-    expect(tx.res.ok, tx.text).toBeTruthy();
-    const id = (tx.json as { id: number }[])[0]?.id;
-    expect(id).toBeTruthy();
+    const stamp = e2eStamp("DEL");
+    try {
+      const tx = await rest("transaction", session.access_token, {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: session.user.id,
+          class_id: classId,
+          value: 12.34,
+          description: stamp,
+          transaction_at: new Date().toISOString().slice(0, 10),
+        }),
+      });
+      expect(tx.res.ok, tx.text).toBeTruthy();
+      const id = firstId(tx.json);
+      expect(id).toBeTruthy();
+      cleanup.trackTx(id);
 
-    await page.goto("/finance/transactions");
-    await dismissOnboardingIfPresent(page);
-    await expect(page.getByText(stamp).first()).toBeVisible({
-      timeout: 20_000,
-    });
+      await page.goto("/finance/transactions");
+      await dismissOnboardingIfPresent(page);
+      await expect(page.getByText(stamp).first()).toBeVisible({
+        timeout: 20_000,
+      });
 
-    const del = await rest("transaction", session.access_token, {
-      method: "DELETE",
-      query: `id=eq.${id}`,
-    });
-    expect(del.res.ok, del.text).toBeTruthy();
+      const del = await rest("transaction", session.access_token, {
+        method: "DELETE",
+        query: `id=eq.${id}`,
+      });
+      expect(del.res.ok, del.text).toBeTruthy();
 
-    await page.reload();
-    await expect(page.getByText(stamp)).toHaveCount(0, { timeout: 15_000 });
+      await page.reload();
+      await expect(page.getByText(stamp)).toHaveCount(0, { timeout: 15_000 });
+    } finally {
+      await cleanup.run();
+    }
   });
 
   test("Conta expõe export CSV", async ({ page }) => {

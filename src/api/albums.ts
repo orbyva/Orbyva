@@ -62,6 +62,18 @@ export async function fetchAlbums(
   };
 }
 
+/** Lista completa do usuário — filtro/paginação no cliente. */
+export async function fetchAllAlbums(): Promise<Album[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("album")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message);
+  return (data || []).map((row) => normalizeAlbum(row as Album));
+}
+
 export async function createAlbum(album: AlbumCreateRequest): Promise<void> {
   const userId = await getCurrentUserId();
   const { error } = await supabase.from("album").insert([

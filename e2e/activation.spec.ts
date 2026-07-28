@@ -5,6 +5,7 @@ import {
   rest,
   signInViaSupabaseApi,
 } from "./helpers/auth";
+import { E2eCleanup, e2eStamp, firstId } from "./helpers/cleanup";
 
 /**
  * Ativação completa: login → 1ª tx → orçamento.
@@ -43,52 +44,59 @@ test.describe("ativação completa", () => {
     const session = await signInViaSupabaseApi(page);
     const token = session.access_token;
     const userId = session.user.id;
-    const stamp = `E2E ${Date.now()}`;
+    const cleanup = new E2eCleanup(token);
+    const stamp = e2eStamp("ACT");
 
-    const classId = await pickClassId(token);
-    const typeId = await pickTypeId(token);
-    test.skip(
-      !classId || !typeId,
-      "Usuário E2E sem dimensões — complete o onboarding uma vez ou rode seed"
-    );
+    try {
+      const classId = await pickClassId(token);
+      const typeId = await pickTypeId(token);
+      test.skip(
+        !classId || !typeId,
+        "Usuário E2E sem dimensões — complete o onboarding uma vez ou rode seed"
+      );
 
-    const tx = await rest("transaction", token, {
-      method: "POST",
-      body: JSON.stringify({
-        user_id: userId,
-        class_id: classId,
-        value: 42.5,
-        description: stamp,
-        transaction_at: new Date().toISOString().slice(0, 10),
-      }),
-    });
-    expect(tx.res.ok, tx.text).toBeTruthy();
+      const tx = await rest("transaction", token, {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: userId,
+          class_id: classId,
+          value: 42.5,
+          description: stamp,
+          transaction_at: new Date().toISOString().slice(0, 10),
+        }),
+      });
+      expect(tx.res.ok, tx.text).toBeTruthy();
+      cleanup.trackTx(firstId(tx.json));
 
-    const month = new Date().toISOString().slice(0, 7) + "-01";
-    const budget = await rest("monthly_budget", token, {
-      method: "POST",
-      body: JSON.stringify({
-        user_id: userId,
-        type_id: typeId,
-        class_id: null,
-        budget_month: month,
-        planned_value: 500,
-      }),
-    });
-    expect(budget.res.ok, budget.text).toBeTruthy();
+      const month = new Date().toISOString().slice(0, 7) + "-01";
+      const budget = await rest("monthly_budget", token, {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: userId,
+          type_id: typeId,
+          class_id: null,
+          budget_month: month,
+          planned_value: 500,
+        }),
+      });
+      expect(budget.res.ok, budget.text).toBeTruthy();
+      cleanup.trackBudget(firstId(budget.json));
 
-    await page.goto("/home");
-    await dismissOnboardingIfPresent(page);
-    await expect(page).toHaveURL(/\/(home|finance|account)/, {
-      timeout: 30_000,
-    });
+      await page.goto("/home");
+      await dismissOnboardingIfPresent(page);
+      await expect(page).toHaveURL(/\/(home|finance|account)/, {
+        timeout: 30_000,
+      });
 
-    await page.goto("/finance/transactions");
-    await expect(page.getByText(stamp).first()).toBeVisible({
-      timeout: 20_000,
-    });
+      await page.goto("/finance/transactions");
+      await expect(page.getByText(stamp).first()).toBeVisible({
+        timeout: 20_000,
+      });
 
-    await page.goto("/finance/budget");
-    await expect(page.locator("body")).toContainText(/Orçamento|Despesa|500/i);
+      await page.goto("/finance/budget");
+      await expect(page.locator("body")).toContainText(/Orçamento|Despesa|500/i);
+    } finally {
+      await cleanup.run();
+    }
   });
 });

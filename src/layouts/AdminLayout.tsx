@@ -114,6 +114,27 @@ export default function AdminLayout() {
 
   const onAccount = location.pathname.startsWith("/account")
 
+  // Pré-carrega chunks de Entretenimento para troca Cinema↔Livros↔Música sem flash.
+  useEffect(() => {
+    if (!hasAccess) return
+    const idle =
+      typeof window !== "undefined" && "requestIdleCallback" in window
+        ? window.requestIdleCallback
+        : (cb: () => void) => window.setTimeout(cb, 300)
+    const id = idle(() => {
+      void import("@/pages/admin/movies/Movies")
+      void import("@/pages/admin/books/Books")
+      void import("@/pages/admin/music/Music")
+    })
+    return () => {
+      if (typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(id as number)
+      } else {
+        window.clearTimeout(id as number)
+      }
+    }
+  }, [hasAccess])
+
   const segment =
     location.pathname.split("/").filter(Boolean).slice(-1)[0] ?? "home"
   useDocumentMeta({
