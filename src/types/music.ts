@@ -5,7 +5,7 @@ export type AlbumType =
   | "single"
   | "compilation"
   | "other";
-export type AlbumSource = "musicbrainz" | "manual";
+export type AlbumSource = "spotify" | "musicbrainz" | "manual";
 
 export interface Album {
   musicbrainz_id: string;

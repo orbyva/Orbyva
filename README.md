@@ -37,7 +37,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 - **Livros** (`/books`) — para ler / lendo / lidos / abandonei, marca-página, comentários na leitura, Google Books, opinião e card Stories
 
 ### Música
-- **Música** (`/music`) — para ouvir / ouvidos, MusicBrainz + Cover Art Archive (ou cadastro manual com capa), opinião (nota + comentário) e card Stories
+- **Música** (`/music`) — para ouvir / ouvidos, catálogo Spotify (MusicBrainz fallback) ou cadastro manual, opinião (nota + faixas) e card Stories
 
 ### Carro / Moto
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
@@ -174,7 +174,7 @@ Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/ap
 Chave Google Books: [console.cloud.google.com](https://console.cloud.google.com/) → APIs & Services → enable **Books API** → criar API key.  
 Se a key tiver restrição **HTTP referrers**, inclua `http://localhost:5173/*`, `http://127.0.0.1:5173/*` e `https://orbyva.app/*` (senão a busca retorna 403).
 
-**Música** usa [MusicBrainz](https://musicbrainz.org/doc/MusicBrainz_API) + [Cover Art Archive](https://musicbrainz.org/doc/Cover_Art_Archive/API) via proxies `/mb-api` e `/caa-media` (sem API key). Em produção, o User-Agent deve identificar o app (já configurado no client). Após mudar proxies no Vite, reinicie o `npm run dev`.
+**Música** usa [Spotify Web API](https://developer.spotify.com/documentation/web-api) (Client Credentials via Edge Function `spotify-catalog`) como catálogo principal — busca, capa e tracklist **sem login do usuário**. [MusicBrainz](https://musicbrainz.org/doc/MusicBrainz_API) + [Cover Art Archive](https://musicbrainz.org/doc/Cover_Art_Archive/API) ficam como fallback (`/mb-api`, `/caa-media`). Capas Spotify passam por `/spotify-media`. Secrets: `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` no Supabase (não no Vite). Em Development Mode o Spotify limita cota/usuários; produção comercial precisa de Extended Quota. Após mudar proxies no Vite, reinicie o `npm run dev`.
 
 ### Billing (Stripe)
 
@@ -191,6 +191,16 @@ Se a key tiver restrição **HTTP referrers**, inclua `http://localhost:5173/*`,
 **PIX:** assinatura mensal no Stripe BR usa **cartão**; PIX não cobre recorrência — o checkout pede só `card`.
 
 **Prod checklist:** `app_access_enforce` aplicado; secrets setados; webhook Live apontando para `/functions/v1/stripe-webhook`; `SITE_URL` = domínio público; CORS das edges = origin do `SITE_URL`.
+
+**Spotify (Música):**
+
+```bash
+supabase secrets set SPOTIFY_CLIENT_ID=… SPOTIFY_CLIENT_SECRET=…
+supabase functions deploy spotify-catalog
+supabase db push   # migration source=spotify
+```
+
+App em [developer.spotify.com](https://developer.spotify.com) — Client Credentials. Produção comercial: Extended Quota Mode.
 
 **Migrations gate:** em produção, confirme tenancy → billing → security_hardening → app_access_enforce → retention. Sem tenancy/hardening, RLS e Pro não estão seguros.
 Analytics: `VITE_POSTHOG_KEY` (+ opcional `VITE_POSTHOG_HOST`).  

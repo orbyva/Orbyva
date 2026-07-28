@@ -64,6 +64,7 @@ export default defineConfig({
           /^\/books-media/,
           /^\/mb-api/,
           /^\/caa-media/,
+          /^\/spotify-media/,
         ],
         runtimeCaching: [
           {
@@ -93,6 +94,17 @@ export default defineConfig({
             handler: "CacheFirst",
             options: {
               cacheName: "album-covers-caa",
+              expiration: {
+                maxEntries: 128,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/spotify-media"),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "album-covers-spotify",
               expiration: {
                 maxEntries: 128,
                 maxAgeSeconds: 60 * 60 * 24 * 30,
@@ -193,6 +205,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/caa-media/, ""),
         followRedirects: true,
+      },
+      "/spotify-media": {
+        target: "https://i.scdn.co",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/spotify-media/, ""),
       },
     },
   },

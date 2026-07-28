@@ -231,7 +231,7 @@ export default function Music() {
             description={
               hasFilters
                 ? "Tente outro filtro ou termo de busca."
-                : "Busque no MusicBrainz ou adicione manualmente."
+                : "Busque no catálogo ou adicione manualmente."
             }
             action={
               hasFilters ? undefined : (

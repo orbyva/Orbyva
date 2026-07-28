@@ -8,10 +8,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  coverArtUrl,
-  searchMusicBrainz,
+  catalogCoverUrl,
+  searchAlbums,
   type AlbumSearchHit,
-} from "@/lib/musicbrainz";
+} from "@/lib/musicCatalog";
 import { createAlbum } from "@/api/albums";
 import type { Album, AlbumCreateRequest } from "@/types/music";
 import { Plus } from "lucide-react";
@@ -52,6 +52,9 @@ export function AlbumSearchModal({ onAlbumAdded }: AlbumSearchModalProps) {
   const [formError, setFormError] = useState("");
   const [status, setStatus] = useState<"to_listen" | "listened">("to_listen");
 
+  const [searchProvider, setSearchProvider] = useState<
+    "spotify" | "musicbrainz" | null
+  >(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualDraft, setManualDraft] = useState({ title: "", artists: "" });
   const searchAbortRef = useRef<AbortController | null>(null);
@@ -91,12 +94,13 @@ export function AlbumSearchModal({ onAlbumAdded }: AlbumSearchModalProps) {
     searchAbortRef.current = controller;
 
     try {
-      const results = await searchMusicBrainz(
+      const { hits, provider } = await searchAlbums(
         query.trim(),
         controller.signal
       );
       if (controller.signal.aborted) return;
-      setSearchResults(results);
+      setSearchResults(hits);
+      setSearchProvider(provider);
       setHasSearched(true);
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -110,14 +114,15 @@ export function AlbumSearchModal({ onAlbumAdded }: AlbumSearchModalProps) {
   }
 
   function handleSelect(hit: AlbumSearchHit) {
+    const provider = searchProvider ?? "musicbrainz";
     setSelected({
       musicbrainz_id: hit.musicbrainz_id,
       title: hit.title,
       artists: hit.artists,
       release_year: hit.release_year,
       album_type: hit.album_type,
-      cover_url: coverArtUrl(hit.musicbrainz_id, 500),
-      source: "musicbrainz",
+      cover_url: catalogCoverUrl(hit, provider, 500),
+      source: provider,
       status: "to_listen",
       rating: null,
       notes: null,
@@ -168,6 +173,7 @@ export function AlbumSearchModal({ onAlbumAdded }: AlbumSearchModalProps) {
     setStep("search");
     setQuery("");
     setSearchResults([]);
+    setSearchProvider(null);
     setHasSearched(false);
     setSelected(null);
     setRating(null);
@@ -214,6 +220,7 @@ export function AlbumSearchModal({ onAlbumAdded }: AlbumSearchModalProps) {
                   setQuery(e.target.value);
                   setHasSearched(false);
                   setSearchResults([]);
+                  setSearchProvider(null);
                   setFormError("");
                 }}
                 onKeyDown={(e) => e.key === "Enter" && void handleSearch()}
@@ -268,12 +275,11 @@ export function AlbumSearchModal({ onAlbumAdded }: AlbumSearchModalProps) {
                 <div className="space-y-3 rounded-lg border border-dashed bg-muted/30 p-4">
                   <div className="space-y-1">
                     <p className="text-sm font-medium">
-                      Nada encontrado no MusicBrainz
+                      Nada encontrado no catálogo
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Lançamentos recentes ou regionais às vezes faltam. Cadastre
-                      manualmente com capa — usamos o que você digitou como
-                      ponto de partida.
+                      O catálogo não trouxe resultados. Cadastre manualmente com
+                      capa — usamos o que você digitou como ponto de partida.
                     </p>
                   </div>
                   <Button

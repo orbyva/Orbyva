@@ -8,9 +8,8 @@ import {
   type RatedAlbumTrack,
 } from "@/domain/music";
 import { formatDateBR } from "@/lib/currency";
-import {
-  fetchMusicBrainzTracklist,
-} from "@/lib/musicbrainz";
+import { fetchCatalogTracklist } from "@/lib/musicCatalog";
+import { toProxiedSpotifyCover } from "@/lib/spotify";
 import {
   SHARE_BRAND,
   SHARE_H,
@@ -46,6 +45,17 @@ function toShareableCoverUrl(src: string): string {
         return `/caa-media${u.pathname}${u.search}`;
       }
       if (u.pathname.startsWith("/caa-media")) return `${u.pathname}${u.search}`;
+    }
+    if (
+      u.pathname.startsWith("/spotify-media") ||
+      u.hostname === "i.scdn.co" ||
+      u.hostname.endsWith(".scdn.co")
+    ) {
+      const proxied = toProxiedSpotifyCover(src);
+      if (proxied) return proxied;
+      if (u.pathname.startsWith("/spotify-media")) {
+        return `${u.pathname}${u.search}`;
+      }
     }
   } catch {
     /* ignore */
@@ -113,12 +123,14 @@ function drawCover(
 async function loadRatedTracks(album: Album): Promise<RatedAlbumTrack[]> {
   const ratings = album.track_ratings ?? {};
   if (!Object.keys(ratings).length) return [];
-  if (album.source !== "musicbrainz" || album.musicbrainz_id.startsWith("manual_")) {
+  if (album.musicbrainz_id.startsWith("manual_")) return [];
+  if (album.source !== "spotify" && album.source !== "musicbrainz") {
     return [];
   }
   try {
-    const tracks = await fetchMusicBrainzTracklist(
+    const tracks = await fetchCatalogTracklist(
       album.musicbrainz_id,
+      album.source,
       album.title
     );
     return resolveRatedAlbumTracks(ratings, tracks);

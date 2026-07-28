@@ -36,7 +36,7 @@ import {
 
 interface AlbumManualModalProps {
   onAlbumAdded: () => void;
-  /** Pré-preenche ao abrir (ex.: texto da busca MusicBrainz). */
+  /** Pré-preenche ao abrir (ex.: texto da busca no catálogo). */
   initialTitle?: string;
   initialArtists?: string;
   open?: boolean;

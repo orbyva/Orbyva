@@ -37,10 +37,11 @@ import {
 import type { Album } from "@/types/music";
 import { formatDateBR } from "@/lib/currency";
 import {
-  fetchMusicBrainzAlbumMeta,
-  fetchMusicBrainzTracklist,
+  fetchCatalogAlbumMeta,
+  fetchCatalogTracklist,
+  isCatalogSyncedSource,
   type AlbumTrack,
-} from "@/lib/musicbrainz";
+} from "@/lib/musicCatalog";
 import { updateAlbum } from "@/api/albums";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -140,10 +141,8 @@ export function AlbumDetailDialog({
   const abortRef = useRef<AbortController | null>(null);
   const { toast } = useToast();
 
-  const fromMusicBrainz = Boolean(
-    album &&
-      album.source === "musicbrainz" &&
-      !album.musicbrainz_id.startsWith("manual_")
+  const fromCatalog = Boolean(
+    album && isCatalogSyncedSource(album.source, album.musicbrainz_id)
   );
 
   useEffect(() => {
@@ -156,7 +155,7 @@ export function AlbumDetailDialog({
 
   useEffect(() => {
     abortRef.current?.abort();
-    if (!open || !album || !fromMusicBrainz) {
+    if (!open || !album || !fromCatalog) {
       setTracks([]);
       setTracksError("");
       setTracksLoading(false);
@@ -169,8 +168,9 @@ export function AlbumDetailDialog({
     setTracksError("");
     setTracks([]);
 
-    void fetchMusicBrainzTracklist(
+    void fetchCatalogTracklist(
       album.musicbrainz_id,
+      album.source,
       album.title,
       controller.signal
     )
@@ -190,7 +190,7 @@ export function AlbumDetailDialog({
       });
 
     return () => controller.abort();
-  }, [open, album?.musicbrainz_id, album?.title, fromMusicBrainz]);
+  }, [open, album?.musicbrainz_id, album?.title, album?.source, fromCatalog]);
 
   if (!album) return null;
 
@@ -227,14 +227,17 @@ export function AlbumDetailDialog({
   }
 
   async function handleRefresh() {
-    if (!album || !fromMusicBrainz) return;
+    if (!album || !fromCatalog) return;
     setRefreshing(true);
     try {
-      const meta = await fetchMusicBrainzAlbumMeta(album.musicbrainz_id);
+      const meta = await fetchCatalogAlbumMeta(
+        album.musicbrainz_id,
+        album.source
+      );
       if (!meta) {
         toast({
           title: "Não encontrado",
-          description: "O MusicBrainz não retornou este lançamento.",
+          description: "O catálogo não retornou este lançamento.",
           variant: "destructive",
         });
         return;
@@ -246,11 +249,11 @@ export function AlbumDetailDialog({
         release_year: meta.release_year,
         album_type: meta.album_type,
         cover_url: meta.cover_url,
-        source: "musicbrainz",
+        source: album.source,
       });
       toast({
         title: "Atualizado",
-        description: "Metadados e capa sincronizados com o MusicBrainz.",
+        description: "Metadados e capa sincronizados com o catálogo.",
         duration: 2000,
       });
       onAlbumUpdated?.();
@@ -324,9 +327,11 @@ export function AlbumDetailDialog({
             </DetailRow>
           )}
 
-          {album.source === "manual" && (
+          {album.source === "manual" ? (
             <DetailRow label="Origem">Cadastro manual</DetailRow>
-          )}
+          ) : album.source === "spotify" || album.source === "musicbrainz" ? (
+            <DetailRow label="Origem">Catálogo</DetailRow>
+          ) : null}
 
           {album.notes?.trim() && (
             <DetailRow label="O que você achou?">
@@ -342,7 +347,7 @@ export function AlbumDetailDialog({
             </DetailRow>
           )}
 
-          {fromMusicBrainz && (
+          {fromCatalog && (
             <DetailRow label="Faixas">
               {tracksLoading ? (
                 <p className="text-muted-foreground">Carregando tracklist…</p>
@@ -350,7 +355,7 @@ export function AlbumDetailDialog({
                 <p className="text-destructive">{tracksError}</p>
               ) : tracks.length === 0 ? (
                 <p className="text-muted-foreground">
-                  Nenhuma faixa encontrada no MusicBrainz.
+                  Nenhuma faixa encontrada no catálogo.
                 </p>
               ) : (
                 <ol className="space-y-2">
@@ -405,7 +410,7 @@ export function AlbumDetailDialog({
               </Button>
             </ConfirmDeleteDialog>
           )}
-          {fromMusicBrainz && (
+          {fromCatalog && (
             <Button
               variant="outline"
               disabled={refreshing}

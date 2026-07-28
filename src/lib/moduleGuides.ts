@@ -208,15 +208,15 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "music",
     icon: Disc3,
     title: "Como funciona Música",
-    hook: "Álbuns e EPs: para ouvir, ouvidos com nota e opinião — capa via MusicBrainz.",
+    hook: "Álbuns e EPs: busca no catálogo, ouvidos com nota e opinião.",
     steps: [
       {
         title: "Monte a lista",
-        body: "Busque álbuns e EPs no MusicBrainz ou cadastre manualmente com capa. Singles ficam de fora de propósito.",
+        body: "Busque álbuns e EPs no catálogo (capa e tracklist vêm prontos) ou cadastre manualmente. Singles ficam de fora de propósito.",
       },
       {
         title: "Ouça e avalie",
-        body: "Ao ouvir, marque como Ouvido, dê nota e deixe um comentário se quiser. No detalhe, veja a tracklist, note cada faixa e atualize metadados pelo MusicBrainz.",
+        body: "Ao ouvir, marque como Ouvido, dê nota e deixe um comentário se quiser. No detalhe, veja a tracklist, note cada faixa e atualize metadados pelo catálogo.",
       },
       {
         title: "Filtre e reencontre",
@@ -224,7 +224,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Compartilhe a opinião",
-        body: "Gere um card com capa e nota para Stories, WhatsApp ou onde preferir.",
+        body: "Gere um card com capa, nota e faixas avaliadas para Stories, WhatsApp ou onde preferir.",
       },
     ],
   },

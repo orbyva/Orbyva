@@ -1,4 +1,4 @@
-/** CORS restrito ao origin de SITE_URL (checkout/portal). */
+/** CORS: SITE_URL em produção + localhost em desenvolvimento. */
 
 export function siteOriginFromEnv(): string | null {
   const siteRaw = (Deno.env.get("SITE_URL") ?? "").trim().replace(/\/$/, "");
@@ -12,11 +12,32 @@ export function siteOriginFromEnv(): string | null {
   }
 }
 
+function isLocalDevOrigin(origin: string): boolean {
+  try {
+    const u = new URL(origin);
+    return (
+      (u.protocol === "http:" || u.protocol === "https:") &&
+      (u.hostname === "localhost" ||
+        u.hostname === "127.0.0.1" ||
+        u.hostname === "[::1]")
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function corsHeadersForRequest(req: Request): Record<string, string> {
-  const allowed = siteOriginFromEnv();
+  const siteOrigin = siteOriginFromEnv();
   const origin = req.headers.get("Origin");
-  const allowOrigin =
-    allowed && origin && origin === allowed ? origin : allowed ?? "null";
+
+  let allowOrigin = siteOrigin ?? "null";
+  if (origin && siteOrigin && origin === siteOrigin) {
+    allowOrigin = origin;
+  } else if (origin && isLocalDevOrigin(origin)) {
+    // Vite / preview local chamando functions remotas.
+    allowOrigin = origin;
+  }
+
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Headers":
