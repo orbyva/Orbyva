@@ -76,15 +76,15 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "habits",
     icon: Flame,
     title: "Como funcionam os Hábitos",
-    hook: "Um toque por dia — na lista ou no hub. Faixa de 7 dias, frequência e anti-hábitos deixam a rotina visível.",
+    hook: "Um toque por dia — na lista ou no hub. Hoje para marcar; Mês para ver o padrão.",
     steps: [
       {
         title: "Crie com frequência e tipo",
         body: "Todo dia ou N×/semana. Use anti-hábito (ex.: Sem delivery) quando o sucesso for “ficar limpo”.",
       },
       {
-        title: "Marque no app ou no hub",
-        body: "Bolinha grande = hoje. Faixa S–D = semana Seg→Dom. No hub Vida, a Disciplina do dia permite check-in sem abrir a página.",
+        title: "Hoje e Mês",
+        body: "Em Hoje: bolinha + faixa da semana para check-in. Em Mês: heatmap geral e por hábito (feitos e falhas). No hub, a Disciplina do dia também marca sem abrir a página.",
       },
       {
         title: "Vincule a uma meta",

@@ -40,7 +40,7 @@ test.describe("offline outbox na UI", () => {
       timeout: 10_000,
     });
     await expect(page.getByTestId("offline-banner")).toContainText(
-      /na fila|offline/i
+      /na fila|offline|aguardando sincronização/i
     );
   });
 });

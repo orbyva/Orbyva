@@ -108,3 +108,12 @@ export function frequencyLabel(habit: Pick<Habit, "frequency" | "target_per_week
   }
   return avoid ? "Todo dia limpo" : "Todo dia";
 }
+
+export {
+  buildHabitMonthHeatmap,
+  buildOverallMonthHeatmap,
+  heatmapRateLabel,
+  monthHeatmapHeaders,
+  monthLabel,
+  shiftMonth,
+} from "@/domain/habits/heatmap";

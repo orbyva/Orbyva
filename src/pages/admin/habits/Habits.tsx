@@ -43,6 +43,9 @@ import {
   getWeekStrip,
   isAvoidHabit,
   isCompletedToday,
+  buildHabitMonthHeatmap,
+  buildOverallMonthHeatmap,
+  shiftMonth,
 } from "@/domain/habits";
 import { getHabitInsights } from "@/domain/habits/insights";
 import type { Habit, HabitCreateRequest, HabitKind } from "@/types/habits";
@@ -51,7 +54,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocalDay } from "@/hooks/useLocalDay";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HabitWeekStrip } from "./components/HabitWeekStrip";
+import { HabitMonthHeatmap } from "./components/HabitMonthHeatmap";
+
+type HabitsView = "today" | "month";
 
 const emptyHabit = (): HabitCreateRequest => ({
   name: "",
@@ -77,6 +84,42 @@ export default function Habits() {
   const today = useLocalDay();
   const { toast } = useToast();
   const insights = useMemo(() => getHabitInsights(habits, logs), [habits, logs]);
+
+  const todayParts = useMemo(() => {
+    const [y, m] = today.split("-").map(Number);
+    return { year: y ?? 2026, month: m ?? 1 };
+  }, [today]);
+
+  const [heatYear, setHeatYear] = useState(todayParts.year);
+  const [heatMonth, setHeatMonth] = useState(todayParts.month);
+  const [view, setView] = useState<HabitsView>("today");
+
+  useEffect(() => {
+    setHeatYear(todayParts.year);
+    setHeatMonth(todayParts.month);
+  }, [todayParts.year, todayParts.month]);
+
+  const canGoNextMonth =
+    heatYear < todayParts.year ||
+    (heatYear === todayParts.year && heatMonth < todayParts.month);
+
+  const overallHeatmap = useMemo(
+    () => buildOverallMonthHeatmap(habits, logs, heatYear, heatMonth, today),
+    [habits, logs, heatYear, heatMonth, today]
+  );
+
+  function goPrevMonth() {
+    const next = shiftMonth(heatYear, heatMonth, -1);
+    setHeatYear(next.year);
+    setHeatMonth(next.month);
+  }
+
+  function goNextMonth() {
+    if (!canGoNextMonth) return;
+    const next = shiftMonth(heatYear, heatMonth, 1);
+    setHeatYear(next.year);
+    setHeatMonth(next.month);
+  }
 
   const load = useCallback(async () => {
     try {
@@ -231,7 +274,11 @@ export default function Habits() {
   return (
     <PageShell
       title="Hábitos"
-      description={`Hoje: ${doneCount}/${habits.length} · toque nas bolinhas dos 7 dias`}
+      description={
+        habits.length === 0
+          ? "Crie hábitos para acompanhar a rotina."
+          : `Hoje: ${doneCount}/${habits.length}`
+      }
       actions={
         <>
           <ModuleGuideButton moduleId="habits" />
@@ -251,141 +298,234 @@ export default function Habits() {
         />
       ) : (
         <>
-          {insights.length > 0 ? (
-            <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {insights.map((insight) => (
-                <div
-                  key={insight.id}
-                  className={cn(
-                    "rounded-lg border px-3 py-2",
-                    insight.tone === "success" &&
-                      "border-success/30 bg-success/5",
-                    insight.tone === "warning" &&
-                      "border-warning/30 bg-warning/5",
-                    insight.tone === "info" && "bg-muted/40"
-                  )}
-                >
-                  <p className="text-xs font-semibold">{insight.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {insight.detail}
-                  </p>
-                </div>
-              ))}
-            </section>
-          ) : null}
-          <div className="space-y-3">
-            {habits.map((habit) => {
-              const habitLogs = logs.filter((l) => l.habit_id === habit.id);
-              const avoid = isAvoidHabit(habit);
-              const done = isCompletedToday(habitLogs, today);
-              const streak = calculateStreak(habitLogs);
-              const weekPct = getWeekProgress(habit, habitLogs);
-              const strip = getWeekStrip(habitLogs);
-              const linkedGoal = habit.goal_id
-                ? activeGoals.find((g) => g.id === habit.goal_id)
-                : null;
+          <Tabs
+            value={view}
+            onValueChange={(v) => setView(v as HabitsView)}
+            className="w-full sm:w-auto"
+          >
+            <TabsList className="grid w-full grid-cols-2 sm:w-auto">
+              <TabsTrigger value="today">Hoje</TabsTrigger>
+              <TabsTrigger value="month">Mês</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-              return (
-                <article
-                  key={habit.id}
-                  className={cn(
-                    "rounded-xl border bg-card p-3 sm:p-4",
-                    done &&
-                      (avoid
-                        ? "border-teal-500/30 bg-teal-500/5"
-                        : "border-success/30 bg-success/5")
-                  )}
-                >
-                  <div className="flex items-start gap-3 sm:gap-4">
-                    <button
-                      type="button"
-                      onClick={() => void handleToggle(habit.id, today)}
+          {view === "today" ? (
+            <>
+              {insights.length > 0 ? (
+                <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {insights.map((insight) => (
+                    <div
+                      key={insight.id}
                       className={cn(
-                        "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors sm:h-10 sm:w-10",
-                        done
-                          ? avoid
-                            ? "border-teal-600 bg-teal-600 text-white"
-                            : "border-success bg-success text-success-foreground"
-                          : "border-muted-foreground/30 hover:border-primary"
+                        "rounded-lg border px-3 py-2",
+                        insight.tone === "success" &&
+                          "border-success/30 bg-success/5",
+                        insight.tone === "warning" &&
+                          "border-warning/30 bg-warning/5",
+                        insight.tone === "info" && "bg-muted/40"
                       )}
-                      aria-label={
-                        avoid
-                          ? done
-                            ? "Desmarcar dia limpo"
-                            : "Marcar dia limpo"
-                          : done
-                            ? "Desmarcar concluído"
-                            : "Marcar concluído"
-                      }
                     >
-                      {done ? (
-                        avoid ? (
-                          <Ban className="h-4 w-4 sm:h-5 sm:w-5" />
-                        ) : (
-                          <Check className="h-4 w-4 sm:h-5 sm:w-5" />
-                        )
-                      ) : null}
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold">{habit.name}</h3>
-                        {avoid ? (
-                          <span className="rounded-full border border-teal-500/30 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:text-teal-300">
-                            Anti-hábito
-                          </span>
-                        ) : null}
-                      </div>
-                      {habit.description ? (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {habit.description}
-                        </p>
-                      ) : null}
+                      <p className="text-xs font-semibold">{insight.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        {frequencyLabel(habit)}
-                        {" · "}
-                        {avoid ? "Dias limpos" : "Sequência"}: {streak}
-                        {" · "}
-                        Semana: {weekPct}%
-                        {linkedGoal
-                          ? ` · Meta: ${linkedGoal.title}`
-                          : null}
+                        {insight.detail}
                       </p>
-                      <HabitWeekStrip
-                        days={strip}
-                        avoid={avoid}
-                        onToggleDay={(date, next) => {
-                          void handleToggle(habit.id, date, next);
-                        }}
-                      />
                     </div>
-                    <div className="flex shrink-0 gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
-                        onClick={() => openEdit(habit)}
-                      >
-                        <Pen className="h-3.5 w-3.5" />
-                      </Button>
-                      <ConfirmDeleteDialog
-                        title="Excluir este hábito?"
-                        description="O histórico de registros também será removido."
-                        onConfirm={() => handleDelete(habit.id)}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
+                  ))}
+                </section>
+              ) : null}
+
+              <div className="space-y-3">
+                {habits.map((habit) => {
+                  const habitLogs = logs.filter((l) => l.habit_id === habit.id);
+                  const avoid = isAvoidHabit(habit);
+                  const done = isCompletedToday(habitLogs, today);
+                  const streak = calculateStreak(habitLogs);
+                  const weekPct = getWeekProgress(habit, habitLogs);
+                  const strip = getWeekStrip(habitLogs);
+                  const linkedGoal = habit.goal_id
+                    ? activeGoals.find((g) => g.id === habit.goal_id)
+                    : null;
+
+                  return (
+                    <article
+                      key={habit.id}
+                      className={cn(
+                        "rounded-xl border bg-card p-3 sm:p-4",
+                        done &&
+                          (avoid
+                            ? "border-teal-500/30 bg-teal-500/5"
+                            : "border-success/30 bg-success/5")
+                      )}
+                    >
+                      <div className="flex items-start gap-3 sm:gap-4">
+                        <button
+                          type="button"
+                          onClick={() => void handleToggle(habit.id, today)}
+                          className={cn(
+                            "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors sm:h-10 sm:w-10",
+                            done
+                              ? avoid
+                                ? "border-teal-600 bg-teal-600 text-white"
+                                : "border-success bg-success text-success-foreground"
+                              : "border-muted-foreground/30 hover:border-primary"
+                          )}
+                          aria-label={
+                            avoid
+                              ? done
+                                ? "Desmarcar dia limpo"
+                                : "Marcar dia limpo"
+                              : done
+                                ? "Desmarcar concluído"
+                                : "Marcar concluído"
+                          }
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </ConfirmDeleteDialog>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                          {done ? (
+                            avoid ? (
+                              <Ban className="h-4 w-4 sm:h-5 sm:w-5" />
+                            ) : (
+                              <Check className="h-4 w-4 sm:h-5 sm:w-5" />
+                            )
+                          ) : null}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold">{habit.name}</h3>
+                            {avoid ? (
+                              <span className="rounded-full border border-teal-500/30 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:text-teal-300">
+                                Anti-hábito
+                              </span>
+                            ) : null}
+                          </div>
+                          {habit.description ? (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {habit.description}
+                            </p>
+                          ) : null}
+                          <p className="text-xs text-muted-foreground">
+                            {frequencyLabel(habit)}
+                            {" · "}
+                            {avoid ? "Dias limpos" : "Sequência"}: {streak}
+                            {" · "}
+                            Semana: {weekPct}%
+                            {linkedGoal
+                              ? ` · Meta: ${linkedGoal.title}`
+                              : null}
+                          </p>
+                          <HabitWeekStrip
+                            days={strip}
+                            avoid={avoid}
+                            onToggleDay={(date, next) => {
+                              void handleToggle(habit.id, date, next);
+                            }}
+                          />
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
+                            onClick={() => openEdit(habit)}
+                          >
+                            <Pen className="h-3.5 w-3.5" />
+                          </Button>
+                          <ConfirmDeleteDialog
+                            title="Excluir este hábito?"
+                            description="O histórico de registros também será removido."
+                            onConfirm={() => handleDelete(habit.id)}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </ConfirmDeleteDialog>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <>
+              <section className="rounded-xl border bg-card p-3 sm:p-4">
+                <HabitMonthHeatmap
+                  map={overallHeatmap}
+                  title="Visão geral"
+                  onPrev={goPrevMonth}
+                  onNext={goNextMonth}
+                  canGoNext={canGoNextMonth}
+                />
+              </section>
+
+              <div className="space-y-3">
+                {habits.map((habit) => {
+                  const habitLogs = logs.filter((l) => l.habit_id === habit.id);
+                  const avoid = isAvoidHabit(habit);
+                  const habitHeat = buildHabitMonthHeatmap(
+                    habitLogs,
+                    heatYear,
+                    heatMonth,
+                    {
+                      today,
+                      markMissed: habit.frequency === "daily",
+                    }
+                  );
+
+                  return (
+                    <article
+                      key={habit.id}
+                      className="rounded-xl border bg-card p-3 sm:p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold">{habit.name}</h3>
+                            {avoid ? (
+                              <span className="rounded-full border border-teal-500/30 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:text-teal-300">
+                                Anti-hábito
+                              </span>
+                            ) : null}
+                          </div>
+                          <HabitMonthHeatmap
+                            map={habitHeat}
+                            avoid={avoid}
+                            compact
+                            showNav={false}
+                          />
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
+                            onClick={() => openEdit(habit)}
+                          >
+                            <Pen className="h-3.5 w-3.5" />
+                          </Button>
+                          <ConfirmDeleteDialog
+                            title="Excluir este hábito?"
+                            description="O histórico de registros também será removido."
+                            onConfirm={() => handleDelete(habit.id)}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </ConfirmDeleteDialog>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </>
       )}
 

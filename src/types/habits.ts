@@ -43,3 +43,34 @@ export type WeekStripDay = {
   completed: boolean;
   isToday: boolean;
 };
+
+/** Célula do heatmap mensal (hábito ou geral). */
+export type HabitHeatCellStatus =
+  | "future"
+  | "empty"
+  | "missed"
+  | "done"
+  | "partial"
+  | "today";
+
+export type HabitHeatCell = {
+  date: string;
+  dayOfMonth: number;
+  status: HabitHeatCellStatus;
+  /** Taxa 0–1 no heatmap geral; 0 ou 1 no por hábito. */
+  rate: number;
+  done: number;
+  total: number;
+};
+
+export type MonthHeatmap = {
+  year: number;
+  /** 1–12 */
+  month: number;
+  /** Grade Seg→Dom; `null` = padding fora do mês. */
+  cells: (HabitHeatCell | null)[];
+  /** Dias passados+hoje com 100% (ou check-in no por hábito). */
+  successDays: number;
+  /** Dias do mês até hoje (inclusive) que contam para taxa. */
+  trackedDays: number;
+};
