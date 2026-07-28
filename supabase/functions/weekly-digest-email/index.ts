@@ -1,10 +1,23 @@
 /**
- * Cron semanal: digest com lembrete do mês + próximas parcelas.
+ * Cron semanal: digest com orçamento do mês, hábitos (7d) e próximas parcelas.
  * Auth: Authorization: Bearer <CRON_SECRET>
- * Secrets: CRON_SECRET, RESEND_API_KEY, RESEND_FROM, SITE_URL, SUPABASE_*
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { siteOriginFromEnv } from "../_shared/cors.ts";
+import {
+  assertCronAuth,
+  jsonResponse,
+  unauthorizedResponse,
+} from "../_shared/cronAuth.ts";
+import {
+  emailListBlock,
+  emailShell,
+  firstNameFromEmail,
+  formatBRL,
+  monthLabelPt,
+} from "../_shared/emailHtml.ts";
+import { sendResendEmail } from "../_shared/resend.ts";
+import { trackPostHog } from "../_shared/posthog.ts";
 
 type Candidate = {
   user_id: string;
@@ -19,140 +32,141 @@ type RecurringRow = {
   due_day: number | null;
 };
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+type BudgetRow = {
+  nature_name?: string | null;
+  type_name?: string | null;
+  planned_value?: number | null;
+  spent_value?: number | null;
+  percentage_used?: number | null;
+};
+
+type HabitRow = { id: string; name: string | null; kind?: string | null };
+type HabitLogRow = { habit_id: string; date: string; completed: boolean };
+
+function monthStartIso(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
 }
 
-function unauthorized() {
-  return json({ error: "Unauthorized" }, 401);
+function daysAgoIso(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-function assertCronAuth(req: Request): boolean {
-  const secret = (Deno.env.get("CRON_SECRET") ?? "").trim();
-  if (!secret) return false;
-  const auth = req.headers.get("Authorization") ?? "";
-  const header = req.headers.get("x-cron-secret") ?? "";
-  return auth === `Bearer ${secret}` || header === secret;
+function expenseBudgets(rows: BudgetRow[]) {
+  return rows.filter((b) => /despesa/i.test(b.nature_name || ""));
 }
 
-function formatBRL(value: number) {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
-
-function monthLabel(d = new Date()) {
-  return d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-}
-
-function buildEmailHtml(opts: {
-  siteUrl: string;
-  firstName?: string;
-  parcels: { label: string; value: string; due: string }[];
-}) {
-  const greet = opts.firstName ? `Oi, ${opts.firstName}` : "Oi";
-  const homeUrl = `${opts.siteUrl}/home`;
-  const budgetUrl = `${opts.siteUrl}/finance/budget`;
-  const parcelsHtml =
-    opts.parcels.length === 0
-      ? `<p style="margin:16px 0 0;color:#a1a1aa;font-size:14px;line-height:1.5;">
-          Nenhuma recorrência em aberto listada — se tiver parcelas, cadastre em Finanças → Parcelas.
-        </p>`
-      : `<ul style="margin:16px 0 0;padding:0;list-style:none;">
-          ${opts.parcels
-            .map(
-              (p) => `<li style="margin:0 0 10px;padding:12px 14px;background:#161f2e;border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
-              <span style="color:#f4f4f5;font-size:14px;font-weight:600;">${p.label}</span>
-              <br/>
-              <span style="color:#a1a1aa;font-size:13px;">${p.value} · dia ${p.due}</span>
-            </li>`
-            )
-            .join("")}
-        </ul>`;
-
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<body style="margin:0;padding:0;background:#070b14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#070b14;padding:32px 16px;">
-    <tr><td align="center">
-      <table width="100%" style="max-width:480px;background:#0f1623;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px;">
-        <tr><td>
-          <p style="margin:0;color:#38bdf8;font-size:14px;font-weight:600;">Orbyva · Digest semanal</p>
-          <h1 style="margin:12px 0 0;color:#f4f4f5;font-size:22px;line-height:1.3;">${greet} — como vai ${monthLabel()}?</h1>
-          <p style="margin:16px 0 0;color:#a1a1aa;font-size:15px;line-height:1.55;">
-            Um lembrete rápido: olhe o orçamento do mês e o que vem nas parcelas.
-            Dois minutos agora evitam susto no dia 25.
-          </p>
-          <p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Próximas recorrências</p>
-          ${parcelsHtml}
-          <p style="margin:28px 0 0;">
-            <a href="${budgetUrl}" style="display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:999px;margin-right:8px;">
-              Ver orçamento
-            </a>
-            <a href="${homeUrl}" style="display:inline-block;color:#38bdf8;text-decoration:none;font-weight:600;font-size:14px;padding:12px 8px;">
-              Abrir hub
-            </a>
-          </p>
-          <p style="margin:24px 0 0;color:#71717a;font-size:12px;line-height:1.5;">
-            Você recebe isso porque usa o Orbyva. Para sair, ignore — ou fale em orbyva@gmail.com.
-          </p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}
-
-async function sendResend(opts: {
-  apiKey: string;
-  from: string;
-  to: string;
-  subject: string;
-  html: string;
-}): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${opts.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: opts.from,
-      to: [opts.to],
-      subject: opts.subject,
-      html: opts.html,
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    return { ok: false, error: text.slice(0, 500) };
+function budgetSection(rows: BudgetRow[]): string {
+  const expenses = expenseBudgets(rows);
+  if (expenses.length === 0) {
+    return `<p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Orçamento</p>
+      <p style="margin:8px 0 0;color:#a1a1aa;font-size:14px;">Sem teto definido este mês — vale montar em Finanças → Orçamento.</p>`;
   }
-  return { ok: true };
+
+  const planned = expenses.reduce(
+    (s, b) => s + Number(b.planned_value || 0),
+    0
+  );
+  const spent = expenses.reduce((s, b) => s + Number(b.spent_value || 0), 0);
+  const pct = planned > 0 ? Math.round((spent / planned) * 100) : 0;
+  const tone =
+    pct >= 100 ? "#f87171" : pct >= 80 ? "#fbbf24" : "#4ade80";
+
+  const worst = [...expenses].sort(
+    (a, b) => Number(b.percentage_used || 0) - Number(a.percentage_used || 0)
+  )[0];
+  const worstLine =
+    worst && Number(worst.percentage_used || 0) >= 80
+      ? `<p style="margin:8px 0 0;color:#a1a1aa;font-size:13px;">Atenção: <strong style="color:#e4e4e7;">${
+          worst.type_name || "categoria"
+        }</strong> em ${Math.round(Number(worst.percentage_used || 0))}% do teto.</p>`
+      : "";
+
+  return `<p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Orçamento de ${monthLabelPt()}</p>
+    <p style="margin:8px 0 0;font-size:15px;line-height:1.5;">
+      <span style="color:#f4f4f5;font-weight:600;">${formatBRL(spent)}</span>
+      <span style="color:#a1a1aa;"> de ${formatBRL(planned)}</span>
+      <span style="color:${tone};font-weight:600;"> · ${pct}%</span>
+    </p>
+    ${worstLine}`;
+}
+
+function habitsSection(
+  habits: HabitRow[],
+  logs: HabitLogRow[]
+): string {
+  if (habits.length === 0) {
+    return `<p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Hábitos</p>
+      <p style="margin:8px 0 0;color:#a1a1aa;font-size:14px;">Nenhum hábito ainda — o hub Vida conta check-ins da semana.</p>`;
+  }
+
+  const done = logs.filter((l) => l.completed);
+  const byHabit = new Map<string, number>();
+  for (const l of done) {
+    byHabit.set(l.habit_id, (byHabit.get(l.habit_id) ?? 0) + 1);
+  }
+
+  const top = [...habits]
+    .map((h) => ({
+      name: h.name?.trim() || "Hábito",
+      count: byHabit.get(h.id) ?? 0,
+      kind: h.kind ?? "build",
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 4);
+
+  const items = top.map((h) => ({
+    title: h.name,
+    meta:
+      h.count === 0
+        ? h.kind === "avoid"
+          ? "Sem registro esta semana"
+          : "0 check-ins nos últimos 7 dias"
+        : h.kind === "avoid"
+          ? `${h.count} dia${h.count === 1 ? "" : "s"} limpo${h.count === 1 ? "" : "s"}`
+          : `${h.count} check-in${h.count === 1 ? "" : "s"}`,
+  }));
+
+  return `<p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Hábitos · últimos 7 dias</p>
+    <p style="margin:8px 0 0;color:#a1a1aa;font-size:14px;">${done.length} registro${done.length === 1 ? "" : "s"} em ${habits.length} hábito${habits.length === 1 ? "" : "s"}.</p>
+    ${emailListBlock(items)}`;
+}
+
+function parcelsSection(rows: RecurringRow[]): string {
+  const parcels = rows.map((r) => ({
+    title: r.description?.trim() || "Recorrência",
+    meta: `${formatBRL(Number(r.value) || 0)} · dia ${
+      r.due_day != null ? String(r.due_day) : "—"
+    }`,
+  }));
+
+  if (parcels.length === 0) {
+    return `<p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Próximas recorrências</p>
+      <p style="margin:8px 0 0;color:#a1a1aa;font-size:14px;">Nenhuma em aberto — cadastre em Finanças → Parcelas se tiver.</p>`;
+  }
+
+  return `<p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Próximas recorrências</p>
+    ${emailListBlock(parcels)}`;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { status: 200 });
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  if (!assertCronAuth(req)) return unauthorized();
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+  if (!assertCronAuth(req)) return unauthorizedResponse();
 
-  const resendKey = (Deno.env.get("RESEND_API_KEY") ?? "").trim();
-  const resendFrom = (
-    Deno.env.get("RESEND_FROM") ?? "Orbyva <noreply@orbyva.app>"
-  ).trim();
   const siteUrl = siteOriginFromEnv() ?? "https://orbyva.app";
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-  if (!resendKey) {
-    return json({ error: "RESEND_API_KEY não configurada." }, 503);
-  }
   if (!supabaseUrl || !serviceKey) {
-    return json({ error: "Supabase env incompleto" }, 503);
+    return jsonResponse({ error: "Supabase env incompleto" }, 503);
   }
 
   const admin = createClient(supabaseUrl, serviceKey);
@@ -160,40 +174,80 @@ Deno.serve(async (req) => {
     "weekly_digest_candidates",
     { p_active_days: 21, p_min_gap_days: 6, p_limit: 80 }
   );
-  if (listError) return json({ error: listError.message }, 500);
+  if (listError) return jsonResponse({ error: listError.message }, 500);
 
   const rows = (candidates ?? []) as Candidate[];
   let sent = 0;
   let failed = 0;
   const errors: { email: string; error: string }[] = [];
+  const monthIso = monthStartIso();
+  const weekStart = daysAgoIso(7);
 
   for (const row of rows) {
-    const { data: recurring } = await admin
-      .from("recurring_transaction")
-      .select("description, value, due_day")
-      .eq("user_id", row.user_id)
-      .eq("status", true)
-      .order("due_day", { ascending: true })
-      .limit(4);
+    const [{ data: recurring }, { data: budgets }, { data: habits }] =
+      await Promise.all([
+        admin
+          .from("recurring_transaction")
+          .select("description, value, due_day")
+          .eq("user_id", row.user_id)
+          .eq("status", true)
+          .order("due_day", { ascending: true })
+          .limit(4),
+        admin
+          .from("vw_monthly_budget_summary")
+          .select(
+            "nature_name, type_name, planned_value, spent_value, percentage_used"
+          )
+          .eq("user_id", row.user_id)
+          .eq("budget_month", monthIso),
+        admin
+          .from("habit")
+          .select("id, name, kind")
+          .eq("user_id", row.user_id)
+          .order("created_at", { ascending: true })
+          .limit(20),
+      ]);
 
-    const parcels = ((recurring ?? []) as RecurringRow[]).map((r) => ({
-      label: r.description?.trim() || "Recorrência",
-      value: formatBRL(Number(r.value) || 0),
-      due: r.due_day != null ? String(r.due_day) : "—",
-    }));
+    const habitRows = (habits ?? []) as HabitRow[];
+    let logs: HabitLogRow[] = [];
+    if (habitRows.length > 0) {
+      const { data: logRows } = await admin
+        .from("habit_log")
+        .select("habit_id, date, completed")
+        .in(
+          "habit_id",
+          habitRows.map((h) => h.id)
+        )
+        .gte("date", weekStart)
+        .eq("completed", true);
+      logs = (logRows ?? []) as HabitLogRow[];
+    }
 
-    const local = row.email.split("@")[0] ?? "";
-    const firstName =
-      local.length >= 2
-        ? local.charAt(0).toUpperCase() + local.slice(1, 24)
-        : undefined;
+    const firstName = firstNameFromEmail(row.email);
+    const greet = firstName ? `Oi, ${firstName}` : "Oi";
+    const bodyHtml = [
+      `<p style="margin:0;">Resumo rápido de ${monthLabelPt()}: orçamento, hábitos da semana e o que vem nas parcelas.</p>`,
+      budgetSection((budgets ?? []) as BudgetRow[]),
+      habitsSection(habitRows, logs),
+      parcelsSection((recurring ?? []) as RecurringRow[]),
+    ].join("");
 
-    const result = await sendResend({
-      apiKey: resendKey,
-      from: resendFrom,
+    const html = emailShell({
+      eyebrow: "Orbyva · Digest semanal",
+      title: `${greet} — como vai ${monthLabelPt()}?`,
+      bodyHtml,
+      ctaLabel: "Ver orçamento",
+      ctaUrl: `${siteUrl}/finance/budget`,
+      secondaryLabel: "Abrir hub",
+      secondaryUrl: `${siteUrl}/home`,
+      footer:
+        "Preferências em Conta → E-mails. Digest respeita opt-out de produto.",
+    });
+
+    const result = await sendResendEmail({
       to: row.email,
-      subject: `Orbyva · seu resumo de ${monthLabel()}`,
-      html: buildEmailHtml({ siteUrl, firstName, parcels }),
+      subject: `Orbyva · seu resumo de ${monthLabelPt()}`,
+      html,
     });
 
     if (!result.ok) {
@@ -214,7 +268,24 @@ Deno.serve(async (req) => {
     }
 
     sent += 1;
+    await trackPostHog(
+      "weekly_digest_sent",
+      row.user_id,
+      {
+        budget_rows: (budgets ?? []).length,
+        habit_count: habitRows.length,
+        habit_checkins: logs.length,
+        parcel_count: (recurring ?? []).length,
+      },
+      "orbyva-digest-edge"
+    );
   }
 
-  return json({ ok: true, candidates: rows.length, sent, failed, errors });
+  return jsonResponse({
+    ok: true,
+    candidates: rows.length,
+    sent,
+    failed,
+    errors: errors.slice(0, 10),
+  });
 });

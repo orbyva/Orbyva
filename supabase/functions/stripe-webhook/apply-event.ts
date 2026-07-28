@@ -12,11 +12,17 @@ export type ProfileBillingPatch = {
 
 export type StripeWebhookApplyResult =
   | { action: "noop" }
-  | { action: "upsert"; userId: string; patch: ProfileBillingPatch }
+  | {
+      action: "upsert";
+      userId: string;
+      patch: ProfileBillingPatch;
+      notify?: "payment_failed" | "pro_welcome" | "cancel_winback";
+    }
   | {
       action: "upsert_by_customer";
       customerId: string;
       patch: ProfileBillingPatch;
+      notify?: "payment_failed" | "pro_welcome" | "cancel_winback";
     };
 
 type CheckoutSessionLike = {
@@ -88,19 +94,42 @@ export function applyStripeWebhookEvent(event: {
           stripe_subscription_id: subscriptionIdOf(session.subscription),
           subscription_status: "active",
         },
+        notify: "pro_welcome",
       };
     }
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       const sub = event.data.object as SubscriptionLike;
       const patch = patchFromSubscription(sub);
+      const canceled =
+        event.type === "customer.subscription.deleted" ||
+        sub.status === "canceled";
+      const notify = canceled ? ("cancel_winback" as const) : undefined;
       const userId = sub.metadata?.supabase_user_id;
       if (userId) {
-        return { action: "upsert", userId, patch };
+        return { action: "upsert", userId, patch, notify };
       }
       const customerId = customerIdOf(sub.customer);
       if (!customerId) return { action: "noop" };
-      return { action: "upsert_by_customer", customerId, patch };
+      return { action: "upsert_by_customer", customerId, patch, notify };
+    }
+    case "invoice.payment_failed": {
+      const invoice = event.data.object as {
+        customer?: string | { id?: string } | null;
+        subscription?: string | { id?: string } | null;
+      };
+      const customerId = customerIdOf(invoice.customer);
+      if (!customerId) return { action: "noop" };
+      return {
+        action: "upsert_by_customer",
+        customerId,
+        patch: {
+          plan: "pro",
+          subscription_status: "past_due",
+          stripe_subscription_id: subscriptionIdOf(invoice.subscription),
+        },
+        notify: "payment_failed",
+      };
     }
     default:
       return { action: "noop" };

@@ -13,10 +13,14 @@ export interface UserProfile {
   subscription_status: string | null;
   current_period_end: string | null;
   created_at: string;
+  email_unsubscribed_at?: string | null;
+  email_digest_enabled?: boolean;
+  email_alerts_enabled?: boolean;
+  email_habit_reminder_enabled?: boolean;
 }
 
 const PROFILE_SELECT =
-  "id, plan, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, created_at";
+  "id, plan, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, created_at, email_unsubscribed_at, email_digest_enabled, email_alerts_enabled, email_habit_reminder_enabled";
 
 const LAST_SEEN_CLIENT_KEY = "orbyva_last_seen_touch_v1";
 
@@ -110,6 +114,18 @@ export async function ensureProfile(): Promise<UserProfile> {
   if (error) {
     if (isMissingProfilesTable(error)) {
       return fallbackProfile(userId, authUser?.created_at);
+    }
+    // Migration email_lifecycle ainda não aplicada — lê colunas base.
+    if ((error.message ?? "").toLowerCase().includes("email_")) {
+      const legacy = await supabase
+        .from("profiles")
+        .select(
+          "id, plan, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, created_at"
+        )
+        .eq("id", userId)
+        .maybeSingle();
+      if (legacy.error) throw new Error(legacy.error.message);
+      if (legacy.data) return normalizeProfile(legacy.data as UserProfile);
     }
     throw new Error(error.message);
   }
@@ -206,4 +222,39 @@ export async function createCheckoutSession(): Promise<{ url: string }> {
 
 export async function createPortalSession(): Promise<{ url: string }> {
   return invokeBillingUrl("stripe-portal", "Portal indisponível");
+}
+
+export type EmailPrefsPatch = {
+  email_digest_enabled?: boolean;
+  email_alerts_enabled?: boolean;
+  email_habit_reminder_enabled?: boolean;
+  /** true = opt-out global de produto */
+  unsubscribed?: boolean;
+};
+
+export async function updateEmailPrefs(
+  patch: EmailPrefsPatch
+): Promise<void> {
+  const userId = await getCurrentUserId();
+  const payload: Record<string, unknown> = {};
+  if (patch.email_digest_enabled !== undefined) {
+    payload.email_digest_enabled = patch.email_digest_enabled;
+  }
+  if (patch.email_alerts_enabled !== undefined) {
+    payload.email_alerts_enabled = patch.email_alerts_enabled;
+  }
+  if (patch.email_habit_reminder_enabled !== undefined) {
+    payload.email_habit_reminder_enabled = patch.email_habit_reminder_enabled;
+  }
+  if (patch.unsubscribed === true) {
+    payload.email_unsubscribed_at = new Date().toISOString();
+  }
+  if (patch.unsubscribed === false) {
+    payload.email_unsubscribed_at = null;
+  }
+  const { error } = await supabase
+    .from("profiles")
+    .update(payload)
+    .eq("id", userId);
+  if (error) throw new Error(error.message);
 }

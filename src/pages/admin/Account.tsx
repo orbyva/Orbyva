@@ -14,7 +14,10 @@ import { deleteOwnAccount, wipeOwnData } from "@/api/account";
 import {
   createCheckoutSession,
   createPortalSession,
+  ensureProfile,
   isBillingConfigured,
+  updateEmailPrefs,
+  type UserProfile,
 } from "@/api/billing";
 import {
   exportFinanceCsv,
@@ -49,6 +52,13 @@ import { cn } from "@/lib/utils";
 export default function Account() {
   const { user } = useAuth();
   const { isPro, isTrialActive, trialDaysLeft, hasAccess, loading: planLoading, refresh } = usePlan();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    void ensureProfile()
+      .then(setProfile)
+      .catch(() => setProfile(null));
+  }, [user?.id]);
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [confirmText, setConfirmText] = useState("");
@@ -170,7 +180,7 @@ export default function Account() {
       toast({
         title: "Checkout ainda não disponível",
         description:
-          "Stripe não está configurado neste ambiente. Entre na waitlist na landing ou use o bypass local.",
+          "Stripe não está configurado neste ambiente. Use o bypass local ou fale conosco.",
         variant: "destructive",
       });
       return;
@@ -397,13 +407,9 @@ export default function Account() {
             {!isBillingConfigured() ? (
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button size="sm" asChild>
-                  <Link to="/#waitlist" onClick={() => track("paywall_waitlist_cta")}>
-                    Entrar na waitlist
-                  </Link>
-                </Button>
-                <Button size="sm" variant="outline" asChild>
                   <a
                     href={`mailto:${BRAND.email}?subject=${encodeURIComponent(`${BRAND.name} Pro`)}`}
+                    onClick={() => track("paywall_contact_cta")}
                   >
                     Falar conosco
                   </a>
@@ -453,10 +459,13 @@ export default function Account() {
             </Button>
           ) : (
             <Button asChild>
-              <Link to="/#waitlist" onClick={() => track("paywall_waitlist_cta")}>
+              <a
+                href={`mailto:${BRAND.email}?subject=${encodeURIComponent(`${BRAND.name} Pro`)}`}
+                onClick={() => track("paywall_contact_cta")}
+              >
                 <Sparkles className="mr-2 h-4 w-4" />
-                Lista de espera · {PLANS.pro.priceLabel}
-              </Link>
+                Falar sobre o Pro
+              </a>
             </Button>
           )}
           <Button variant="ghost" asChild>
@@ -471,14 +480,135 @@ export default function Account() {
         </div>
         {!isBillingConfigured() && !isPro ? (
           <p className="mt-3 text-xs text-muted-foreground">
-            Stripe ainda não configurado neste ambiente. Entre na{" "}
-            <Link to="/" className="underline">
-              waitlist
-            </Link>{" "}
-            ou use <code className="text-[11px]">VITE_BILLING_FORCE_PRO=true</code>{" "}
-            apenas em <code className="text-[11px]">npm run dev</code>.
+            Stripe ainda não configurado neste ambiente. Use{" "}
+            <code className="text-[11px]">VITE_BILLING_FORCE_PRO=true</code>{" "}
+            apenas em <code className="text-[11px]">npm run dev</code>, ou fale
+            conosco.
           </p>
         ) : null}
+      </section>
+
+      <section className="rounded-xl border bg-card p-5 sm:p-6">
+        <h2 className="text-base font-semibold">E-mails</h2>
+        <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+          Digest, alertas e lembrete de hábitos. Login, confirmação e reset
+          sempre são enviados.
+        </p>
+        <div className="mt-4 space-y-3">
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span>Digest semanal</span>
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={profile?.email_digest_enabled !== false}
+              disabled={!profile || Boolean(profile.email_unsubscribed_at)}
+              onChange={(e) => {
+                const enabled = e.target.checked;
+                setProfile((p) =>
+                  p ? { ...p, email_digest_enabled: enabled } : p
+                );
+                void updateEmailPrefs({ email_digest_enabled: enabled })
+                  .then(() =>
+                    toast({ title: "Preferência salva", duration: 2000 })
+                  )
+                  .catch((err) =>
+                    toast({
+                      title: "Erro",
+                      description: getErrorMessage(err),
+                      variant: "destructive",
+                    })
+                  );
+              }}
+            />
+          </label>
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span>Alertas por e-mail (parcelas / orçamento)</span>
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={Boolean(profile?.email_alerts_enabled)}
+              disabled={!profile || Boolean(profile.email_unsubscribed_at)}
+              onChange={(e) => {
+                const enabled = e.target.checked;
+                setProfile((p) =>
+                  p ? { ...p, email_alerts_enabled: enabled } : p
+                );
+                void updateEmailPrefs({ email_alerts_enabled: enabled })
+                  .then(() =>
+                    toast({ title: "Preferência salva", duration: 2000 })
+                  )
+                  .catch((err) =>
+                    toast({
+                      title: "Erro",
+                      description: getErrorMessage(err),
+                      variant: "destructive",
+                    })
+                  );
+              }}
+            />
+          </label>
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span>Lembrete diário de hábitos</span>
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={Boolean(profile?.email_habit_reminder_enabled)}
+              disabled={!profile || Boolean(profile.email_unsubscribed_at)}
+              onChange={(e) => {
+                const enabled = e.target.checked;
+                setProfile((p) =>
+                  p ? { ...p, email_habit_reminder_enabled: enabled } : p
+                );
+                void updateEmailPrefs({
+                  email_habit_reminder_enabled: enabled,
+                })
+                  .then(() =>
+                    toast({ title: "Preferência salva", duration: 2000 })
+                  )
+                  .catch((err) =>
+                    toast({
+                      title: "Erro",
+                      description: getErrorMessage(err),
+                      variant: "destructive",
+                    })
+                  );
+              }}
+            />
+          </label>
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span>Pausar todos os e-mails de produto</span>
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={Boolean(profile?.email_unsubscribed_at)}
+              disabled={!profile}
+              onChange={(e) => {
+                const unsubscribed = e.target.checked;
+                setProfile((p) =>
+                  p
+                    ? {
+                        ...p,
+                        email_unsubscribed_at: unsubscribed
+                          ? new Date().toISOString()
+                          : null,
+                      }
+                    : p
+                );
+                void updateEmailPrefs({ unsubscribed })
+                  .then(() =>
+                    toast({ title: "Preferência salva", duration: 2000 })
+                  )
+                  .catch((err) =>
+                    toast({
+                      title: "Erro",
+                      description: getErrorMessage(err),
+                      variant: "destructive",
+                    })
+                  );
+              }}
+            />
+          </label>
+        </div>
       </section>
 
       <section className="rounded-xl border bg-card p-5 sm:p-6">

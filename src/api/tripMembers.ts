@@ -112,6 +112,15 @@ export async function createTripInvite(
     .select()
     .single();
   if (error) throw new Error(error.message);
+
+  if (email?.trim()) {
+    void supabase.functions
+      .invoke("trip-invite-email", { body: { invite_id: data.id } })
+      .catch(() => {
+        /* e-mail best-effort; link ainda funciona */
+      });
+  }
+
   return data;
 }
 

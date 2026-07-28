@@ -1,5 +1,5 @@
-[project]
-id = "orbyva"
+# Apenas overrides necessários. project_id vem do `supabase link`.
+# (A seção [project] antiga quebra o CLI recente.)
 
 # Stripe envia o webhook sem JWT do Supabase — desligar verificação no gateway.
 [functions.stripe-webhook]
@@ -10,4 +10,17 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.weekly-digest-email]
+verify_jwt = false
+
+[functions.lifecycle-email]
+verify_jwt = false
+
+[functions.habit-reminder-email]
+verify_jwt = false
+
+[functions.waitlist-email]
+verify_jwt = false
+
+# Auth Hook Send Email (assinatura Standard Webhooks).
+[functions.auth-send-email]
 verify_jwt = false

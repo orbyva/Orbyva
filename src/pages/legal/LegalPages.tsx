@@ -88,7 +88,7 @@ export function PrivacyPage() {
           Dados técnicos mínimos (erros via Sentry, se configurado; eventos de
           funil no dispositivo)
         </li>
-        <li>E-mail da waitlist, se você se inscrever</li>
+        <li>E-mail, se você criar conta ou entrar em contato conosco</li>
       </ul>
       <h2 className="text-base font-semibold text-foreground">Para que usamos</h2>
       <p>

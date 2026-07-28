@@ -3,11 +3,9 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Smartphone, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
-import { joinWaitlist } from "@/api/waitlist";
 import { isBillingConfigured } from "@/api/billing";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,7 +21,7 @@ import { LandingFaq, FAQ_JSON_LD } from "@/pages/landing/LandingFaq";
  * - Hero = Home (prova do produto, 1 composição)
  * - Gancho de compra = Orçamento + Parcelas (2 seções profundas)
  * - Life OS = grade sem repetir finanças
- * - CTA = teste → Pro R$19,90
+ * - CTA = teste → Pro
  */
 
 const NAV = [
@@ -60,11 +58,6 @@ export default function Landing() {
     brandSuffix: false,
   });
   const billingLive = isBillingConfigured();
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">(
-    "idle"
-  );
-  const [message, setMessage] = useState("");
   const [showStickyCta, setShowStickyCta] = useState(false);
 
   useEffect(() => {
@@ -81,33 +74,9 @@ export default function Landing() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  async function handleWaitlist(e: React.FormEvent) {
-    e.preventDefault();
-    setStatus("loading");
-    setMessage("");
-    try {
-      await joinWaitlist(email, "landing");
-      track("waitlist_join", { source: "landing" });
-      setStatus("ok");
-      setMessage("Você entrou na lista. Avisamos por e-mail.");
-      setEmail("");
-    } catch (err) {
-      setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Não foi possível salvar.");
-    }
-  }
-
   const ctaTo = !loading && user ? "/home" : "/login?mode=signup";
-  const ctaLabel =
-    !loading && user
-      ? "Abrir app"
-      : billingLive
-        ? "Começar grátis"
-        : "Entrar na lista";
-  const heroSub = billingLive
-    ? `7 dias grátis · depois Pro ${PLANS.pro.priceLabel}`
-    : `Lista de espera · ${BRAND.wedge}`;
-  const showPlanCtas = billingLive || (!loading && !!user);
+  const ctaLabel = !loading && user ? "Abrir app" : "Começar grátis";
+  const heroSub = `7 dias grátis · depois Pro ${PLANS.pro.priceLabel}`;
 
   return (
     <div className="relative min-h-svh overflow-x-hidden bg-[#070b14] pb-16 text-zinc-100 md:pb-0">
@@ -150,22 +119,15 @@ export default function Landing() {
           >
             <Link to="/login">Entrar</Link>
           </Button>
-          {showPlanCtas ? (
-            <Button size="sm" className="rounded-full px-4" asChild>
-              <Link to={ctaTo} onClick={() => track("landing_cta_nav")}>
-                {ctaLabel}
-              </Link>
-            </Button>
-          ) : (
-            <Button size="sm" className="rounded-full px-4" asChild>
-              <a href="#waitlist">{ctaLabel}</a>
-            </Button>
-          )}
+          <Button size="sm" className="rounded-full px-4" asChild>
+            <Link to={ctaTo} onClick={() => track("landing_cta_nav")}>
+              {ctaLabel}
+            </Link>
+          </Button>
         </div>
       </header>
 
       <main className="relative z-10">
-        {/* Hero — Home como prova dominante */}
         <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 pb-16 pt-6 sm:px-8 sm:pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:pb-24">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
@@ -182,27 +144,12 @@ export default function Landing() {
               {BRAND.heroSupport}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              {billingLive || (!loading && user) ? (
-                <Button size="lg" className="rounded-full px-7" asChild>
-                  <Link
-                    to={ctaTo}
-                    onClick={() => track("landing_cta_login")}
-                  >
-                    {ctaLabel}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              ) : (
-                <Button size="lg" className="rounded-full px-7" asChild>
-                  <a
-                    href="#waitlist"
-                    onClick={() => track("landing_cta_waitlist")}
-                  >
-                    {ctaLabel}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </a>
-                </Button>
-              )}
+              <Button size="lg" className="rounded-full px-7" asChild>
+                <Link to={ctaTo} onClick={() => track("landing_cta_login")}>
+                  {ctaLabel}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
               <a
                 href={BRAND.instagramUrl}
                 target="_blank"
@@ -245,128 +192,42 @@ export default function Landing() {
           </div>
         </section>
 
-
         <LandingFeatures />
         <LandingProof ctaTo={ctaTo} />
         <LandingPricing
           ctaTo={ctaTo}
           ctaLabel={ctaLabel}
-          showPlanCtas={showPlanCtas}
+          showPlanCtas
         />
         <LandingFaq />
 
-        {/* CTA final */}
         <section className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
-          {billingLive ? (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4 }}
-              className="rounded-[1.75rem] border border-sky-400/25 bg-gradient-to-br from-sky-500/15 to-transparent px-6 py-12 text-center sm:px-12"
-            >
-              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                Pronto para organizar o mês?
-              </h2>
-              <p className="mx-auto mt-3 max-w-md text-zinc-400">
-                7 dias grátis com orçamento, parcelas e life OS. Depois, Pro por{" "}
-                {PLANS.pro.priceLabel}.
-              </p>
-              <Button size="lg" className="mt-8 rounded-full px-8" asChild>
-                <Link to={ctaTo} onClick={() => track("landing_cta_trial")}>
-                  {ctaLabel}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <p className="mt-3 text-xs text-zinc-500">
-                Cadastro rápido · cartão só quando assinar o Pro
-              </p>
-
-              <div
-                id="waitlist"
-                className="mx-auto mt-12 max-w-md border-t border-white/10 pt-8 text-left"
-              >
-                <p className="text-sm font-medium text-zinc-300">
-                  Prefere só ser avisado?
-                </p>
-                <form
-                  onSubmit={(e) => void handleWaitlist(e)}
-                  className="mt-3 flex flex-col gap-2 sm:flex-row"
-                >
-                  <Input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
-                    className="border-white/15 bg-black/30 text-zinc-100 placeholder:text-zinc-500"
-                  />
-                  <Button
-                    type="submit"
-                    variant="outline"
-                    disabled={status === "loading"}
-                    className="border-white/20 bg-white text-zinc-900 hover:bg-zinc-100 hover:text-zinc-900"
-                  >
-                    {status === "loading" ? "Enviando..." : "Avisar-me"}
-                  </Button>
-                </form>
-                {message ? (
-                  <p
-                    className={`mt-3 text-sm ${
-                      status === "error" ? "text-red-300" : "text-emerald-300"
-                    }`}
-                  >
-                    {message}
-                  </p>
-                ) : null}
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              id="waitlist"
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4 }}
-              className="rounded-[1.75rem] border border-sky-400/25 bg-sky-500/10 px-6 py-12 sm:px-12"
-            >
-              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                Lista de espera do Pro
-              </h2>
-              <p className="mt-3 max-w-xl text-zinc-400">
-                Checkout ainda fechado. Deixe o e-mail e avisamos quando o Pro (
-                {PLANS.pro.priceLabel}) liberar.
-              </p>
-              <form
-                onSubmit={(e) => void handleWaitlist(e)}
-                className="mt-6 flex max-w-md flex-col gap-2 sm:flex-row"
-              >
-                <Input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
-                  className="border-white/15 bg-black/30 text-zinc-100 placeholder:text-zinc-500"
-                />
-                <Button type="submit" disabled={status === "loading"}>
-                  {status === "loading" ? "Enviando..." : "Quero o Pro"}
-                </Button>
-              </form>
-              {message ? (
-                <p
-                  className={`mt-3 text-sm ${
-                    status === "error" ? "text-red-300" : "text-emerald-300"
-                  }`}
-                >
-                  {message}
-                </p>
-              ) : null}
-            </motion.div>
-          )}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+            className="rounded-[1.75rem] border border-sky-400/25 bg-gradient-to-br from-sky-500/15 to-transparent px-6 py-12 text-center sm:px-12"
+          >
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Pronto para organizar o mês?
+            </h2>
+            <p className="mx-auto mt-3 max-w-md text-zinc-400">
+              7 dias grátis com orçamento, parcelas e life OS. Depois, Pro por{" "}
+              {PLANS.pro.priceLabel}.
+            </p>
+            <Button size="lg" className="mt-8 rounded-full px-8" asChild>
+              <Link to={ctaTo} onClick={() => track("landing_cta_trial")}>
+                {ctaLabel}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <p className="mt-3 text-xs text-zinc-500">
+              Cadastro rápido · cartão só quando assinar o Pro
+            </p>
+          </motion.div>
         </section>
 
-        {/* No radar — direção, não prazo */}
         <section className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -409,7 +270,6 @@ export default function Landing() {
           </ul>
         </section>
 
-        {/* Fale conosco */}
         <section
           id="contato"
           className="scroll-mt-20 border-t border-white/8 bg-white/[0.02]"
@@ -491,7 +351,6 @@ export default function Landing() {
         </div>
       </footer>
 
-      {/* CTA fixo — só mobile, depois do hero */}
       <div
         className={`fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070b14]/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-md transition-transform duration-300 md:hidden ${
           showStickyCta ? "translate-y-0" : "translate-y-full"
@@ -499,19 +358,11 @@ export default function Landing() {
       >
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs leading-tight text-zinc-400">{heroSub}</p>
-          {billingLive || (!loading && user) ? (
-            <Button size="sm" className="rounded-full px-5" asChild>
-              <Link to={ctaTo} onClick={() => track("landing_cta_sticky")}>
-                {ctaLabel}
-              </Link>
-            </Button>
-          ) : (
-            <Button size="sm" className="rounded-full px-5" asChild>
-              <a href="#waitlist" onClick={() => track("landing_cta_sticky")}>
-                {ctaLabel}
-              </a>
-            </Button>
-          )}
+          <Button size="sm" className="rounded-full px-5" asChild>
+            <Link to={ctaTo} onClick={() => track("landing_cta_sticky")}>
+              {ctaLabel}
+            </Link>
+          </Button>
         </div>
       </div>
     </div>

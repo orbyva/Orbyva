@@ -18,6 +18,7 @@ describe("applyStripeWebhookEvent", () => {
     expect(result).toEqual({
       action: "upsert",
       userId: "user-1",
+      notify: "pro_welcome",
       patch: {
         plan: "pro",
         stripe_customer_id: "cus_1",
@@ -65,7 +66,7 @@ describe("applyStripeWebhookEvent", () => {
     );
   });
 
-  it("subscription.deleted sem metadata → lookup por customer", () => {
+  it("subscription.deleted sem metadata → lookup por customer + winback", () => {
     const result = applyStripeWebhookEvent({
       type: "customer.subscription.deleted",
       data: {
@@ -80,12 +81,35 @@ describe("applyStripeWebhookEvent", () => {
     expect(result).toEqual({
       action: "upsert_by_customer",
       customerId: "cus_3",
+      notify: "cancel_winback",
       patch: {
         plan: "free",
         stripe_customer_id: "cus_3",
         stripe_subscription_id: "sub_3",
         subscription_status: "canceled",
         current_period_end: null,
+      },
+    });
+  });
+
+  it("invoice.payment_failed → past_due + notify", () => {
+    const result = applyStripeWebhookEvent({
+      type: "invoice.payment_failed",
+      data: {
+        object: {
+          customer: "cus_9",
+          subscription: "sub_9",
+        },
+      },
+    });
+    expect(result).toEqual({
+      action: "upsert_by_customer",
+      customerId: "cus_9",
+      notify: "payment_failed",
+      patch: {
+        plan: "pro",
+        subscription_status: "past_due",
+        stripe_subscription_id: "sub_9",
       },
     });
   });

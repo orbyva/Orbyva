@@ -132,7 +132,7 @@ Principais gates (já versionados nas migrations):
 | Cinema / veículos / viagens | `20240101000500` … `20240101001100` |
 | Security hardening | `20240101001200_security_hardening` |
 | Gate trial/Pro (escritas) | `20260723120000_app_access_enforce` |
-| Retenção D7 / digest | `20260725220000_retention_d7`, `20260726220000_weekly_digest` |
+| Retenção / digest / lifecycle e-mail | `20260725220000_retention_d7`, `20260726220000_weekly_digest`, `20260727180000_email_lifecycle` |
 | Hábitos kind + meta | `20260727143000_habit_kind_goal` |
 
 > Sem tenancy/RLS, o app filtra no cliente, mas o banco ainda pode vazar. Teste com **2 contas**.
@@ -184,6 +184,25 @@ Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/ap
 **Migrations gate:** em produção, confirme tenancy → billing → security_hardening → app_access_enforce → retention. Sem tenancy/hardening, RLS e Pro não estão seguros.
 Analytics: `VITE_POSTHOG_KEY` (+ opcional `VITE_POSTHOG_HOST`).  
 Sentry: `VITE_SENTRY_DSN` (opcional).
+
+### E-mails (Auth + lifecycle)
+
+**Auth (confirmação, magic link, reset de senha)** — Edge `auth-send-email` via Auth Hook Send Email + Resend.
+
+1. Migration `20260727180000_email_lifecycle`
+2. `supabase functions deploy auth-send-email`
+3. Secrets: `RESEND_API_KEY`, `RESEND_FROM`, `SITE_URL`, `SEND_EMAIL_HOOK_SECRET`
+4. Dashboard → Authentication → Hooks → Send Email → URL da function
+
+**Lifecycle (cron)** — welcome, trial ending/expired, onboarding nudge, alertas (opt-in), além de D7 e digest:
+
+```bash
+supabase functions deploy lifecycle-email
+curl -X POST "$SUPABASE_URL/functions/v1/lifecycle-email" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Preferências na Conta (digest / alertas / pausar produto). Auth nunca é pausado.
 
 ### Retenção D7 (server + e-mail)
 

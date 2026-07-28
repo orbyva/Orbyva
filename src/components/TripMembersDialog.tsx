@@ -83,14 +83,22 @@ export function TripMembersDialog({
     try {
       const invite = await createTripInvite(tripId, email || null);
       const url = inviteUrl(invite.token);
+      const emailed = Boolean(email?.trim());
       try {
         await navigator.clipboard.writeText(url);
         toast({
-          title: "Link copiado",
-          description: "Envie para quem for viajar com você.",
+          title: emailed ? "Convite enviado" : "Link copiado",
+          description: emailed
+            ? "E-mail disparado e link copiado."
+            : "Envie para quem for viajar com você.",
         });
       } catch {
-        toast({ title: "Convite criado", description: url });
+        toast({
+          title: emailed ? "Convite criado" : "Convite criado",
+          description: emailed
+            ? `E-mail enviado. Link: ${url}`
+            : url,
+        });
       }
       setEmail("");
       await load();

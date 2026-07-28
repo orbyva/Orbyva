@@ -11,12 +11,13 @@ import { supabase } from "@/lib/supabase";
 import { track } from "@/lib/analytics";
 import { getErrorMessage } from "@/lib/errors";
 
-type AuthMode = "login" | "signup";
+type AuthMode = "login" | "signup" | "forgot" | "recovery";
 
 function modeFromSearch(raw: string | null): AuthMode {
-  return raw === "signup" || raw === "register" || raw === "criar"
-    ? "signup"
-    : "login";
+  if (raw === "signup" || raw === "register" || raw === "criar") return "signup";
+  if (raw === "forgot" || raw === "reset") return "forgot";
+  if (raw === "recovery") return "recovery";
+  return "login";
 }
 
 export function LoginForm({
@@ -35,10 +36,24 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
 
   const isSignup = mode === "signup";
+  const isForgot = mode === "forgot";
+  const isRecovery = mode === "recovery";
 
   useEffect(() => {
     setMode(modeFromSearch(searchParams.get("mode")));
   }, [searchParams]);
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setMode("recovery");
+        setSearchParams({ mode: "recovery" }, { replace: true });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [setSearchParams]);
 
   function switchMode(next: AuthMode) {
     if (next === mode) return;
@@ -47,8 +62,8 @@ export function LoginForm({
     setMessage(null);
     setPassword("");
     const params = new URLSearchParams(searchParams);
-    if (next === "signup") params.set("mode", "signup");
-    else params.delete("mode");
+    if (next === "login") params.delete("mode");
+    else params.set("mode", next);
     setSearchParams(params, { replace: true });
   }
 
@@ -63,6 +78,69 @@ export function LoginForm({
     });
     if (oauthError) {
       setError(oauthError.message);
+    }
+  }
+
+  async function handleMagicLink() {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      track("login_magic_link_submit");
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/home`,
+          shouldCreateUser: false,
+        },
+      });
+      if (otpError) throw otpError;
+      setMessage("Enviamos um link de login para o seu e-mail.");
+    } catch (err) {
+      setError(getErrorMessage(err, "Não foi possível enviar o link."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleForgot(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      track("password_reset_request");
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        { redirectTo: `${window.location.origin}/login?mode=recovery` }
+      );
+      if (resetError) throw resetError;
+      setMessage(
+        "Se existir uma conta com este e-mail, enviamos o link para redefinir a senha."
+      );
+    } catch (err) {
+      setError(getErrorMessage(err, "Não foi possível enviar o reset."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleNewPassword(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({
+        password,
+      });
+      if (updateError) throw updateError;
+      track("password_reset_complete");
+      navigate("/home", { replace: true });
+    } catch (err) {
+      setError(getErrorMessage(err, "Não foi possível salvar a nova senha."));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -97,7 +175,7 @@ export function LoginForm({
         return;
       }
       setMessage(
-        "Conta criada. Se o Supabase exigir confirmação, verifique seu e-mail."
+        "Conta criada. Confirme o e-mail que acabamos de enviar para entrar."
       );
     } catch (err) {
       setError(
@@ -111,6 +189,22 @@ export function LoginForm({
     }
   }
 
+  const title = isRecovery
+    ? "Nova senha"
+    : isForgot
+      ? "Recuperar senha"
+      : isSignup
+        ? "Crie sua conta"
+        : "Bem-vindo de volta";
+
+  const subtitle = isRecovery
+    ? "Defina uma senha nova para continuar."
+    : isForgot
+      ? "Enviamos um link seguro para o seu e-mail."
+      : isSignup
+        ? "7 dias grátis com tudo liberado. Sem cartão no início."
+        : `${BRAND.tagline}. Entre para continuar.`;
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden">
@@ -123,131 +217,200 @@ export function LoginForm({
               <p className="mb-1 text-sm font-medium text-muted-foreground">
                 {BRAND.name}
               </p>
-              <h1 className="text-2xl font-bold tracking-tight">
-                {isSignup ? "Crie sua conta" : "Bem-vindo de volta"}
-              </h1>
+              <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
               <p className="mt-1 text-balance text-sm text-muted-foreground">
-                {isSignup
-                  ? "7 dias grátis com tudo liberado. Sem cartão no início."
-                  : `${BRAND.tagline}. Entre para continuar.`}
+                {subtitle}
               </p>
             </div>
 
-            <div
-              role="tablist"
-              aria-label="Tipo de acesso"
-              className="grid grid-cols-2 rounded-lg bg-muted p-1"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={!isSignup}
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  !isSignup
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => switchMode("login")}
+            {!isForgot && !isRecovery ? (
+              <div
+                role="tablist"
+                aria-label="Tipo de acesso"
+                className="grid grid-cols-2 rounded-lg bg-muted p-1"
               >
-                Entrar
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={isSignup}
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isSignup
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => switchMode("signup")}
-              >
-                Criar conta
-              </button>
-            </div>
-
-            {isSignup ? (
-              <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-center text-xs text-muted-foreground">
-                Novo por aqui — em poucos segundos você entra no Life OS com
-                orçamento, parcelas e o resto dos módulos.
-              </p>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={!isSignup}
+                  className={cn(
+                    "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    !isSignup
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => switchMode("login")}
+                >
+                  Entrar
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isSignup}
+                  className={cn(
+                    "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    isSignup
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => switchMode("signup")}
+                >
+                  Criar conta
+                </button>
+              </div>
             ) : null}
 
-            <Button
-              type="button"
-              className="w-full"
-              onClick={handleGoogleLogin}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                className="mr-2 h-4 w-4"
-                aria-hidden
+            {!isForgot && !isRecovery ? (
+              <Button
+                type="button"
+                className="w-full"
+                onClick={handleGoogleLogin}
               >
-                <path
-                  d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
-                  fill="currentColor"
-                />
-              </svg>
-              {isSignup ? "Criar conta com Google" : "Continuar com Google"}
-            </Button>
-
-            <div className="relative text-center text-xs text-muted-foreground">
-              <span className="bg-card relative z-10 px-2">
-                {isSignup ? "ou cadastre com e-mail" : "ou e-mail"}
-              </span>
-              <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
-            </div>
-
-            <form
-              className="grid gap-3"
-              onSubmit={(e) => void handleEmailAuth(e)}
-            >
-              <div className="grid gap-2">
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="voce@email.com"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="password">
-                  {isSignup ? "Crie uma senha" : "Senha"}
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete={isSignup ? "new-password" : "current-password"}
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={isSignup ? "Mínimo 6 caracteres" : undefined}
-                />
-              </div>
-              {error ? (
-                <p className="text-sm text-destructive" role="alert">
-                  {error}
-                </p>
-              ) : null}
-              {message ? (
-                <p className="text-sm text-muted-foreground">{message}</p>
-              ) : null}
-              <Button type="submit" disabled={busy} className="w-full">
-                {busy
-                  ? "Aguarde…"
-                  : isSignup
-                    ? "Criar minha conta"
-                    : "Entrar com e-mail"}
+                {isSignup ? "Criar conta com Google" : "Continuar com Google"}
               </Button>
-            </form>
+            ) : null}
+
+            {!isForgot && !isRecovery ? (
+              <div className="relative text-center text-xs text-muted-foreground">
+                <span className="bg-card relative z-10 px-2">
+                  {isSignup ? "ou cadastre com e-mail" : "ou e-mail"}
+                </span>
+                <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+              </div>
+            ) : null}
+
+            {isRecovery ? (
+              <form
+                className="grid gap-3"
+                onSubmit={(e) => void handleNewPassword(e)}
+              >
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Nova senha</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                </div>
+                {error ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+                <Button type="submit" disabled={busy} className="w-full">
+                  {busy ? "Aguarde…" : "Salvar senha"}
+                </Button>
+              </form>
+            ) : isForgot ? (
+              <form className="grid gap-3" onSubmit={(e) => void handleForgot(e)}>
+                <div className="grid gap-2">
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="voce@email.com"
+                  />
+                </div>
+                {error ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+                {message ? (
+                  <p className="text-sm text-muted-foreground">{message}</p>
+                ) : null}
+                <Button type="submit" disabled={busy} className="w-full">
+                  {busy ? "Aguarde…" : "Enviar link de reset"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => switchMode("login")}
+                >
+                  Voltar ao login
+                </Button>
+              </form>
+            ) : (
+              <form
+                className="grid gap-3"
+                onSubmit={(e) => void handleEmailAuth(e)}
+              >
+                <div className="grid gap-2">
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="voce@email.com"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="password">
+                      {isSignup ? "Crie uma senha" : "Senha"}
+                    </Label>
+                    {!isSignup ? (
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                        onClick={() => switchMode("forgot")}
+                      >
+                        Esqueci a senha
+                      </button>
+                    ) : null}
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete={isSignup ? "new-password" : "current-password"}
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={isSignup ? "Mínimo 6 caracteres" : undefined}
+                  />
+                </div>
+                {error ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+                {message ? (
+                  <p className="text-sm text-muted-foreground">{message}</p>
+                ) : null}
+                <Button type="submit" disabled={busy} className="w-full">
+                  {busy
+                    ? "Aguarde…"
+                    : isSignup
+                      ? "Criar minha conta"
+                      : "Entrar com e-mail"}
+                </Button>
+                {!isSignup ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy || !email.trim()}
+                    className="w-full"
+                    onClick={() => void handleMagicLink()}
+                  >
+                    Entrar só com link no e-mail
+                  </Button>
+                ) : null}
+              </form>
+            )}
 
             <p className="text-center text-xs text-muted-foreground">
               Ao continuar, você aceita os{" "}
