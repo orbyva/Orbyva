@@ -33,6 +33,19 @@
     <meta name="twitter:title" content="Orbyva — Saiba o que cabe no mês" />
     <meta name="twitter:description" content="Orçamento, parcelas e livro-caixa — com hábitos, metas, viagens e cinema no mesmo app." />
     <meta name="twitter:image" content="https://orbyva.app/marketing/hub.png" />
+
+    <script>
+      // Preload LCP só na home — evita puxar hub nas outras rotas do SPA.
+      if (location.pathname === "/" || location.pathname === "") {
+        var l = document.createElement("link");
+        l.rel = "preload";
+        l.as = "image";
+        l.href = "/marketing/hub.webp";
+        l.type = "image/webp";
+        l.fetchPriority = "high";
+        document.head.appendChild(l);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

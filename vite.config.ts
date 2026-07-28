@@ -19,6 +19,7 @@ export default defineConfig({
         "pwa-192.png",
         "pwa-512.png",
         "pwa-maskable-512.png",
+        "marketing/hub.webp",
       ],
       manifest: {
         name: "Orbyva",
@@ -109,7 +110,21 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          if (id.includes("recharts") || id.includes("/d3-")) return "recharts";
+          // Utils pequenos — NÃO deixar cair no chunk do recharts (clsx era engolido).
+          if (
+            id.includes("clsx") ||
+            id.includes("tailwind-merge") ||
+            id.includes("class-variance-authority")
+          ) {
+            return "ui-utils";
+          }
+          if (
+            id.includes("node_modules/recharts") ||
+            id.includes("node_modules/victory-vendor") ||
+            id.includes("node_modules/d3-")
+          ) {
+            return "recharts";
+          }
           if (id.includes("framer-motion")) return "motion";
           if (id.includes("@sentry")) return "sentry";
           if (id.includes("@supabase")) return "supabase";

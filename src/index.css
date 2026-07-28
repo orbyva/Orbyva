@@ -1,4 +1,7 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
+@import "@fontsource/plus-jakarta-sans/400.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
 
 @tailwind base;
 @tailwind components;
@@ -223,4 +226,31 @@ textarea,
   font-size: 16px !important;
   line-height: 1.4;
   touch-action: manipulation;
+}
+
+/* Hero da landing: CSS em vez de framer-motion no first paint */
+@keyframes landing-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-hero-copy {
+  animation: landing-fade-up 0.5s ease-out both;
+}
+
+.landing-hero-visual {
+  animation: landing-fade-up 0.55s ease-out 0.12s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-copy,
+  .landing-hero-visual {
+    animation: none;
+  }
 }

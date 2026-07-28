@@ -2,10 +2,10 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 
 import ProtectedRoute from "./ProtectedRoute";
-import AdminLayout from "./layouts/AdminLayout";
 import LoadingFallback from "./components/LoadingFallback";
 import { useAuth } from "@/hooks/useAuth";
 
+const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 const Login = lazy(() => import("./pages/admin/Login"));
 const Landing = lazy(() => import("./pages/Landing"));
 const Movies = lazy(() => import("./pages/admin/movies/Movies"));
@@ -32,10 +32,10 @@ const withSuspense = (Component: React.ReactNode) => (
   <Suspense fallback={<LoadingFallback />}>{Component}</Suspense>
 );
 
+/** Não bloqueia o first paint anônimo esperando auth. */
 function LandingEntry() {
   const { user, loading } = useAuth();
-  if (loading) return <LoadingFallback />;
-  if (user) return <Navigate to="/home" replace />;
+  if (!loading && user) return <Navigate to="/home" replace />;
   return withSuspense(<Landing />);
 }
 
@@ -79,7 +79,7 @@ const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        element: <AdminLayout />,
+        element: withSuspense(<AdminLayout />),
         children: [
           { path: "home", element: <LifeDashboard /> },
           { path: "timeline", element: <Timeline /> },

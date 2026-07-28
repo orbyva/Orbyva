@@ -8,7 +8,14 @@ import { track } from "@/lib/analytics";
 import "./index.css";
 import AppRouter from "./routes";
 
-void import("@/lib/sentry").then(({ initSentry }) => initSentry());
+void import("@/lib/sentry").then(({ initSentry }) => {
+  const boot = () => initSentry();
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => boot(), { timeout: 4000 });
+  } else {
+    setTimeout(boot, 2500);
+  }
+});
 track("app_boot");
 
 // PWA: atualiza em background — NUNCA força reload (fecha modais / perde estado)

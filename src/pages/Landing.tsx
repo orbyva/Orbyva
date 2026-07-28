@@ -1,20 +1,37 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { ArrowRight, Smartphone, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
-import { isBillingConfigured } from "@/api/billing";
+import { isBillingConfigured } from "@/lib/billing-config";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/hooks/useAuth";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import { LandingPhoneFrame } from "@/pages/landing/LandingPhoneFrame";
-import { LandingFeatures } from "@/pages/landing/LandingFeatures";
-import { LandingProof } from "@/pages/landing/LandingProof";
-import { LandingPricing } from "@/pages/landing/LandingPricing";
-import { LandingFaq, FAQ_JSON_LD } from "@/pages/landing/LandingFaq";
+import { FAQ_JSON_LD } from "@/pages/landing/LandingFaq";
+
+const LandingFeatures = lazy(() =>
+  import("@/pages/landing/LandingFeatures").then((m) => ({
+    default: m.LandingFeatures,
+  }))
+);
+const LandingProof = lazy(() =>
+  import("@/pages/landing/LandingProof").then((m) => ({
+    default: m.LandingProof,
+  }))
+);
+const LandingPricing = lazy(() =>
+  import("@/pages/landing/LandingPricing").then((m) => ({
+    default: m.LandingPricing,
+  }))
+);
+const LandingFaq = lazy(() =>
+  import("@/pages/landing/LandingFaq").then((m) => ({
+    default: m.LandingFaq,
+  }))
+);
 
 /**
  * Landing Orbyva — síntese UI/UX + marketing + vendas:
@@ -129,11 +146,7 @@ export default function Landing() {
 
       <main className="relative z-10">
         <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 pb-16 pt-6 sm:px-8 sm:pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:pb-24">
-          <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
+          <div className="landing-hero-copy">
             <p className="font-sans text-2xl font-semibold tracking-tight text-sky-400 sm:text-3xl">
               {BRAND.name}
             </p>
@@ -161,14 +174,9 @@ export default function Landing() {
               </a>
             </div>
             <p className="mt-3 text-xs text-zinc-500">{heroSub}</p>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 28 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12, duration: 0.55 }}
-            className="relative mx-auto w-full max-w-[280px] lg:max-w-[300px]"
-          >
+          <div className="landing-hero-visual relative mx-auto w-full max-w-[280px] lg:max-w-[300px]">
             <div
               aria-hidden
               className="absolute -inset-8 rounded-full bg-sky-500/15 blur-3xl"
@@ -179,7 +187,7 @@ export default function Landing() {
               priority
               className="relative"
             />
-          </motion.div>
+          </div>
         </section>
 
         <section className="border-y border-white/8 bg-white/[0.02]">
@@ -192,23 +200,19 @@ export default function Landing() {
           </div>
         </section>
 
-        <LandingFeatures />
-        <LandingProof ctaTo={ctaTo} />
-        <LandingPricing
-          ctaTo={ctaTo}
-          ctaLabel={ctaLabel}
-          showPlanCtas
-        />
-        <LandingFaq />
+        <Suspense fallback={null}>
+          <LandingFeatures />
+          <LandingProof ctaTo={ctaTo} />
+          <LandingPricing
+            ctaTo={ctaTo}
+            ctaLabel={ctaLabel}
+            showPlanCtas
+          />
+          <LandingFaq />
+        </Suspense>
 
         <section className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4 }}
-            className="rounded-[1.75rem] border border-sky-400/25 bg-gradient-to-br from-sky-500/15 to-transparent px-6 py-12 text-center sm:px-12"
-          >
+          <div className="rounded-[1.75rem] border border-sky-400/25 bg-gradient-to-br from-sky-500/15 to-transparent px-6 py-12 text-center sm:px-12">
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               Pronto para organizar o mês?
             </h2>
@@ -225,17 +229,11 @@ export default function Landing() {
             <p className="mt-3 text-xs text-zinc-500">
               Cadastro rápido · cartão só quando assinar o Pro
             </p>
-          </motion.div>
+          </div>
         </section>
 
         <section className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4 }}
-            className="max-w-xl"
-          >
+          <div className="max-w-xl">
             <p className="text-sm font-medium text-sky-400/90">No radar</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
               O que vem depois
@@ -244,15 +242,11 @@ export default function Landing() {
               Estamos evoluindo o Orbyva para acompanhar sua vida de forma
               ainda mais completa.
             </p>
-          </motion.div>
+          </div>
           <ul className="mt-8 grid gap-4 sm:grid-cols-2">
-            {ROADMAP.map((item, i) => (
-              <motion.li
+            {ROADMAP.map((item) => (
+              <li
                 key={item.title}
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.06, duration: 0.35 }}
                 className="flex gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5"
               >
                 <item.icon
@@ -265,7 +259,7 @@ export default function Landing() {
                     {item.body}
                   </p>
                 </div>
-              </motion.li>
+              </li>
             ))}
           </ul>
         </section>
