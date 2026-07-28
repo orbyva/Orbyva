@@ -160,19 +160,19 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "movies",
     icon: Film,
     title: "Como funciona o Cinema",
-    hook: "Seu diário de filmes e séries: watchlist, nota e card pronto para Stories.",
+    hook: "Watchlist, assistindo, assistidos e abandonados — com nota e card para Stories.",
     steps: [
       {
         title: "Monte a watchlist",
         body: "Salve o que quer assistir — filme ou série — e não dependa da memória (nem do algoritmo).",
       },
       {
-        title: "Importe o que já viu",
-        body: "Traga filmes e séries de outros sites via CSV e continue o histórico daqui.",
+        title: "Comece a assistir",
+        body: "Mova para Assistindo. Em séries, marque episódios e veja o progresso no card — igual ao marca-página dos livros.",
       },
       {
-        title: "Dê nota e opinião",
-        body: "Ao assistir, avalie e comente. Séries acompanham o progresso de episódios.",
+        title: "Termine ou abandone",
+        body: "Ao terminar, avalie e compartilhe. Se largar, marque como Abandonei — dá para retomar.",
       },
       {
         title: "Compartilhe a opinião",

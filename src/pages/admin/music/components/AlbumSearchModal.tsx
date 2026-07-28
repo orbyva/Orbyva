@@ -226,7 +226,7 @@ export function AlbumSearchModal({ onAlbumAdded }: AlbumSearchModalProps) {
                 disabled={loading}
                 className="w-full"
               >
-                {loading ? "Consultando MusicBrainz…" : "Buscar"}
+                {loading ? "Consultando…" : "Buscar"}
               </Button>
 
               {searchResults.length > 0 && (

@@ -13,7 +13,7 @@ import {
 
 import { deleteMovie, fetchMovies } from "@/api/movies";
 import { fetchWatchedEpisodeCounts } from "@/api/movieEpisodes";
-import { Movie, MovieTypeFilter } from "@/types/movies";
+import { Movie, MovieListFilter, MovieTypeFilter } from "@/types/movies";
 import { MovieCard } from "./components/MovieCard";
 import { MovieSearchModal } from "./components/MovieSearchModal";
 import { MovieEditModal } from "./components/MovieEditModal";
@@ -41,7 +41,7 @@ export default function Movies() {
     Record<string, number>
   >({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState<"to_watch" | "watched">("to_watch");
+  const [filter, setFilter] = useState<MovieListFilter>("to_watch");
   const [typeFilter, setTypeFilter] = useState<MovieTypeFilter>("all");
   const [genreFilter, setGenreFilter] = useState<string>("all");
   const [ratingFloor, setRatingFloor] = useState<MovieRatingFloor>("all");
@@ -170,16 +170,18 @@ export default function Movies() {
           <Tabs
             value={filter}
             onValueChange={(val) => {
-              setFilter(val as "to_watch" | "watched");
+              setFilter(val as MovieListFilter);
               setPage(1);
               setGenreFilter("all");
               setRatingFloor("all");
             }}
             className="w-full sm:w-auto"
           >
-            <TabsList className="grid w-full grid-cols-2 sm:w-auto">
-              <TabsTrigger value="to_watch">Para Assistir</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 sm:w-auto">
+              <TabsTrigger value="to_watch">Para assistir</TabsTrigger>
+              <TabsTrigger value="watching">Assistindo</TabsTrigger>
               <TabsTrigger value="watched">Assistidos</TabsTrigger>
+              <TabsTrigger value="abandoned">Abandonei</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -276,14 +278,32 @@ export default function Movies() {
             onShare={() => setIsShareOpen(true)}
             onDelete={() => void handleDeleteMovie(selectedMovie.imdb_id)}
             onMoviePatch={(patch) => {
+              const id = selectedMovie.imdb_id;
               setSelectedMovie((prev) =>
                 prev ? { ...prev, ...patch } : prev
               );
-              setMovies((prev) =>
-                prev.map((m) =>
-                  m.imdb_id === selectedMovie.imdb_id ? { ...m, ...patch } : m
-                )
-              );
+              setMovies((prev) => {
+                if (patch.status && patch.status !== filter) {
+                  return prev.filter((m) => m.imdb_id !== id);
+                }
+                const idx = prev.findIndex((m) => m.imdb_id === id);
+                if (idx >= 0) {
+                  return prev.map((m) =>
+                    m.imdb_id === id ? { ...m, ...patch } : m
+                  );
+                }
+                // Voltou para a aba atual (ex.: remarcar episódio → Assistindo).
+                if (patch.status && patch.status === filter) {
+                  return [{ ...selectedMovie, ...patch }, ...prev];
+                }
+                return prev;
+              });
+            }}
+            onWatchedEpisodesChange={(count) => {
+              setWatchedEpisodeCounts((prev) => ({
+                ...prev,
+                [selectedMovie.imdb_id]: count,
+              }));
             }}
           />
           <MovieEditModal

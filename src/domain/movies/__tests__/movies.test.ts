@@ -5,6 +5,7 @@ import {
   formatMovieRating,
   getMovieRatingLabel,
   letterboxdToTen,
+  MOVIE_STATUS_LABELS,
 } from "@/domain/movies";
 
 describe("asStringList", () => {
@@ -52,6 +53,13 @@ describe("formatMovieRating / labels", () => {
   it("labels high scores", () => {
     expect(getMovieRatingLabel(9.5)).toBe("Obra-prima");
     expect(getMovieRatingLabel(7)).toBe("Muito bom");
+  });
+});
+
+describe("MOVIE_STATUS_LABELS", () => {
+  it("covers watching and abandoned", () => {
+    expect(MOVIE_STATUS_LABELS.watching).toBe("Assistindo");
+    expect(MOVIE_STATUS_LABELS.abandoned).toBe("Abandonei");
   });
 });
 

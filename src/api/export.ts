@@ -48,7 +48,12 @@ export async function exportMoviesCsv(): Promise<void> {
   const pageSize = 100;
   const rows: Array<Array<unknown>> = [];
 
-  for (const status of ["to_watch", "watched"] as const) {
+  for (const status of [
+    "to_watch",
+    "watching",
+    "watched",
+    "abandoned",
+  ] as const) {
     let page = 1;
     for (;;) {
       const { data, total } = await fetchMovies(status, page, pageSize);

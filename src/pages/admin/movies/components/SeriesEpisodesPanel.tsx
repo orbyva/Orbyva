@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
   BellOff,
@@ -38,6 +38,7 @@ import {
   type TmdbTvMeta,
 } from "@/lib/tmdb";
 import type { Movie, MovieEpisode } from "@/types/movies";
+import { MovieStatus } from "@/types/movies";
 import { cn } from "@/lib/utils";
 import {
   getSeriesWatchProgress,
@@ -47,6 +48,8 @@ import {
 type SeriesEpisodesPanelProps = {
   movie: Movie;
   onMoviePatch?: (patch: Partial<Movie>) => void;
+  /** Contagem de episódios assistidos — para atualizar o card sem F5. */
+  onWatchedEpisodesChange?: (count: number) => void;
 };
 
 function epKey(season: number, episode: number) {
@@ -69,6 +72,7 @@ function airedEpisodes(episodes: TmdbEpisode[]): TmdbEpisode[] {
 export function SeriesEpisodesPanel({
   movie,
   onMoviePatch,
+  onWatchedEpisodesChange,
 }: SeriesEpisodesPanelProps) {
   const { toast } = useToast();
   const tmdbId = parseTmdbTvId(movie.imdb_id, movie.tmdb_tv_id);
@@ -83,6 +87,27 @@ export function SeriesEpisodesPanel({
   const [draftNotes, setDraftNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [notify, setNotify] = useState(Boolean(movie.notify_new_episodes));
+
+  const onMoviePatchRef = useRef(onMoviePatch);
+  onMoviePatchRef.current = onMoviePatch;
+  const onWatchedEpisodesChangeRef = useRef(onWatchedEpisodesChange);
+  onWatchedEpisodesChangeRef.current = onWatchedEpisodesChange;
+  const movieStatusRef = useRef(movie.status);
+  const episodeCountRef = useRef(movie.episode_count);
+  episodeCountRef.current = movie.episode_count;
+  const tmdbTvIdRef = useRef(movie.tmdb_tv_id);
+  tmdbTvIdRef.current = movie.tmdb_tv_id;
+
+  // Só sincroniza status vindo de fora (ex.: modal Editar) — nunca no meio de um toggle.
+  useEffect(() => {
+    movieStatusRef.current = movie.status;
+  }, [movie.status, movie.imdb_id]);
+
+  const applyProgress = useCallback((rows: MovieEpisode[]) => {
+    setProgress(rows);
+    const count = rows.filter((p) => p.status === "watched").length;
+    onWatchedEpisodesChangeRef.current?.(count);
+  }, []);
 
   const progressMap = useMemo(() => {
     const map = new Map<string, MovieEpisode>();
@@ -120,18 +145,20 @@ export function SeriesEpisodesPanel({
         fetchEpisodesForSeries(movie.imdb_id),
       ]);
       setMeta(tvMeta);
-      setProgress(rows);
+      applyProgress(rows);
       if (tvMeta?.seasons.length) {
         setSeason((prev) => prev ?? tvMeta.seasons[0].season_number);
         const total = sumSeasonEpisodeCounts(tvMeta.seasons);
-        if (total > 0 && movie.episode_count !== total) {
+        if (total > 0 && episodeCountRef.current !== total) {
           await updateMovie({ imdb_id: movie.imdb_id, episode_count: total });
-          onMoviePatch?.({ episode_count: total });
+          episodeCountRef.current = total;
+          onMoviePatchRef.current?.({ episode_count: total });
         }
       }
-      if (!movie.tmdb_tv_id && tmdbId) {
+      if (!tmdbTvIdRef.current && tmdbId) {
         await updateMovie({ imdb_id: movie.imdb_id, tmdb_tv_id: tmdbId });
-        onMoviePatch?.({ tmdb_tv_id: tmdbId });
+        tmdbTvIdRef.current = tmdbId;
+        onMoviePatchRef.current?.({ tmdb_tv_id: tmdbId });
       }
     } catch (error) {
       toast({
@@ -142,7 +169,7 @@ export function SeriesEpisodesPanel({
     } finally {
       setLoading(false);
     }
-  }, [tmdbId, movie.imdb_id, movie.tmdb_tv_id, movie.episode_count, onMoviePatch, toast]);
+  }, [tmdbId, movie.imdb_id, applyProgress, toast]);
 
   useEffect(() => {
     void loadBase();
@@ -176,6 +203,41 @@ export function SeriesEpisodesPanel({
     setExpanded(key);
   }
 
+  /** Espelha o progresso: ≥1 episódio → Assistindo; zero → Para assistir. */
+  async function syncStatusFromProgress(rows: MovieEpisode[]) {
+    const watched = rows.filter((p) => p.status === "watched").length;
+    const status = movieStatusRef.current;
+
+    let next: MovieStatus | null = null;
+    if (
+      watched > 0 &&
+      (status === MovieStatus.TO_WATCH || status === "to_watch")
+    ) {
+      next = MovieStatus.WATCHING;
+    } else if (
+      watched === 0 &&
+      (status === MovieStatus.WATCHING || status === "watching")
+    ) {
+      next = MovieStatus.TO_WATCH;
+    }
+
+    if (!next || next === status) return;
+
+    // Atualiza ref antes do await para não perder o estado no meio do toggle.
+    movieStatusRef.current = next;
+    await updateMovie({
+      imdb_id: movie.imdb_id,
+      status: next,
+    });
+    onMoviePatchRef.current?.({ status: next });
+  }
+
+  async function reloadProgress() {
+    const rows = await fetchEpisodesForSeries(movie.imdb_id);
+    applyProgress(rows);
+    return rows;
+  }
+
   async function toggleWatched(ep: TmdbEpisode) {
     const key = epKey(ep.season_number, ep.episode_number);
     const saved = progressMap.get(key);
@@ -199,7 +261,8 @@ export function SeriesEpisodesPanel({
           notes: draftNotes,
         });
       }
-      setProgress(await fetchEpisodesForSeries(movie.imdb_id));
+      const rows = await reloadProgress();
+      await syncStatusFromProgress(rows);
       invalidateAppAlertsCache();
     } catch (error) {
       toast({
@@ -244,7 +307,8 @@ export function SeriesEpisodesPanel({
           description: `T${season}: ${seasonAired.length} episódio${seasonAired.length === 1 ? "" : "s"} marcado${seasonAired.length === 1 ? "" : "s"} como assistido${seasonAired.length === 1 ? "" : "s"}.`,
         });
       }
-      setProgress(await fetchEpisodesForSeries(movie.imdb_id));
+      const rows = await reloadProgress();
+      await syncStatusFromProgress(rows);
       invalidateAppAlertsCache();
     } catch (error) {
       toast({
@@ -275,7 +339,8 @@ export function SeriesEpisodesPanel({
         rating: draftRating,
         notes: draftNotes.trim() || null,
       });
-      setProgress(await fetchEpisodesForSeries(movie.imdb_id));
+      const rows = await reloadProgress();
+      await syncStatusFromProgress(rows);
       toast({ title: "Salvo", description: "Nota do episódio atualizada." });
     } catch (error) {
       toast({
@@ -296,7 +361,7 @@ export function SeriesEpisodesPanel({
         imdb_id: movie.imdb_id,
         notify_new_episodes: next,
       });
-      onMoviePatch?.({ notify_new_episodes: next });
+      onMoviePatchRef.current?.({ notify_new_episodes: next });
       invalidateAppAlertsCache();
       if (next) {
         const permission = await requestBrowserNotifyPermission();

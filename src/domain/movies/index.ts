@@ -1,6 +1,13 @@
 import type { Movie, MovieMediaType, MovieTypeFilter } from "@/types/movies";
 import { MovieStatus } from "@/types/movies";
 
+export const MOVIE_STATUS_LABELS: Record<MovieStatus, string> = {
+  [MovieStatus.TO_WATCH]: "Para assistir",
+  [MovieStatus.WATCHING]: "Assistindo",
+  [MovieStatus.WATCHED]: "Assistido",
+  [MovieStatus.ABANDONED]: "Abandonei",
+};
+
 export const MOVIE_TYPE_LABELS: Record<MovieMediaType, string> = {
   movie: "Filme",
   series: "Série",
@@ -84,11 +91,31 @@ export function getMovieRatingLabel(rating: number): string {
   return "Ruim";
 }
 
-export function getDisplayScore(movie: Movie): string | number {
-  if (movie.status === MovieStatus.WATCHED) {
-    return movie.rating != null ? formatMovieRating(movie.rating) : "—";
+/** Badge do card: nota do usuário (assistido) ou IMDb (lista / assistindo). */
+export function getMovieCardRating(movie: Movie): {
+  value: string;
+  source: "user" | "imdb";
+} | null {
+  if (
+    movie.status === MovieStatus.WATCHED &&
+    movie.rating != null &&
+    movie.rating > 0
+  ) {
+    return { value: formatMovieRating(movie.rating), source: "user" };
   }
-  return movie.score_imdb != null ? formatMovieRating(movie.score_imdb) : "—";
+  if (
+    (movie.status === MovieStatus.TO_WATCH ||
+      movie.status === MovieStatus.WATCHING) &&
+    movie.score_imdb != null &&
+    movie.score_imdb > 0
+  ) {
+    return { value: formatMovieRating(movie.score_imdb), source: "imdb" };
+  }
+  return null;
+}
+
+export function getDisplayScore(movie: Movie): string | number {
+  return getMovieCardRating(movie)?.value ?? "—";
 }
 
 export function getLatestWatchedDate(

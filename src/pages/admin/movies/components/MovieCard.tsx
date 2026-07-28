@@ -1,4 +1,4 @@
-import { Trash2, Star, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Trash2, Star, ThumbsDown, ThumbsUp, Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { useRef, useState } from "react";
 import { Movie, MovieStatus } from "@/types/movies";
-import { getDisplayScore, getSeriesWatchProgress } from "@/domain/movies";
+import { getMovieCardRating, getSeriesWatchProgress } from "@/domain/movies";
 
 interface MovieCardProps {
   movie: Movie;
@@ -48,8 +48,10 @@ export function MovieCard({
     }
   }
 
-  const score = getDisplayScore(movie);
+  const ratingBadge = getMovieCardRating(movie);
   const watched = movie.status === MovieStatus.WATCHED;
+  const watching = movie.status === MovieStatus.WATCHING;
+  const abandoned = movie.status === MovieStatus.ABANDONED;
   const seriesProgress =
     movie.type === "series" && movie.episode_count
       ? getSeriesWatchProgress({
@@ -57,6 +59,7 @@ export function MovieCard({
           total: movie.episode_count,
         })
       : null;
+  const showWatchProgress = watching && seriesProgress != null;
 
   return (
     <div
@@ -133,17 +136,38 @@ export function MovieCard({
           </DialogContent>
         </Dialog>
 
-        <div
-          className="
-            absolute left-2 top-2 z-10
-            flex items-center gap-1 rounded-md
-            bg-black/80 px-2 py-1 text-white
-            text-xs sm:text-sm
-          "
-        >
-          <Star className="h-4 w-4 fill-warning text-warning" />
-          <span className="font-medium">{score}</span>
-        </div>
+        {ratingBadge && (
+          <div
+            className="
+              absolute left-2 top-2 z-10
+              flex items-center gap-1 rounded-md
+              bg-black/80 px-2 py-1 text-white
+              text-xs sm:text-sm
+            "
+            title={
+              ratingBadge.source === "imdb"
+                ? "Nota IMDb (escala 0–10)"
+                : "Sua nota"
+            }
+          >
+            <Star className="h-4 w-4 fill-warning text-warning" />
+            <span className="font-medium">{ratingBadge.value}</span>
+          </div>
+        )}
+
+        {showWatchProgress && !ratingBadge && (
+          <div
+            className="
+              absolute left-2 top-2 z-10
+              flex items-center gap-1 rounded-md
+              bg-black/80 px-2 py-1 text-white
+              text-xs sm:text-sm
+            "
+          >
+            <Clapperboard className="h-3.5 w-3.5" />
+            <span className="font-medium">{seriesProgress.percent}%</span>
+          </div>
+        )}
 
         {watched && (
           <div className="absolute bottom-2 left-2 z-10 rounded-md bg-black/75 p-1.5">
@@ -155,21 +179,13 @@ export function MovieCard({
           </div>
         )}
 
-        {seriesProgress && (
-          <div
-            className="
-              absolute bottom-2 right-2 z-10
-              rounded-md bg-black/80 px-2 py-1 text-white
-              text-xs sm:text-sm
-            "
-          >
-            <span className="font-medium tabular-nums">
-              {seriesProgress.watched}/{seriesProgress.total}
-            </span>
+        {abandoned && (
+          <div className="absolute bottom-2 left-2 z-10 rounded-md bg-black/75 px-1.5 py-1 text-[10px] font-medium text-white">
+            Abandonado
           </div>
         )}
 
-        {seriesProgress && (
+        {showWatchProgress && (
           <div className="absolute inset-x-0 bottom-0 z-10 h-1 bg-black/40">
             <div
               className="h-full bg-primary"
@@ -195,10 +211,17 @@ export function MovieCard({
         <h3 className="line-clamp-2 text-sm font-semibold leading-snug sm:text-base">
           {movie.title}
         </h3>
-        <p className="text-xs text-muted-foreground sm:text-sm">
+        <p className="line-clamp-1 text-xs text-muted-foreground sm:text-sm">
           {movie.year}
           {movie.type === "series" ? " · Série" : ""}
         </p>
+        {showWatchProgress && (
+          <p className="flex items-center gap-1 text-[11px] text-primary sm:text-xs">
+            <Clapperboard className="h-3 w-3" />
+            {seriesProgress.watched}/{seriesProgress.total} eps
+            {` · ${seriesProgress.percent}%`}
+          </p>
+        )}
         {movie.notes?.trim() && watched && (
           <p className="line-clamp-2 text-[11px] text-muted-foreground/90 sm:text-xs">
             {movie.notes}

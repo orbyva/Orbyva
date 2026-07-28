@@ -29,13 +29,25 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
 
   const hits: GlobalSearchHit[] = [];
 
-  const [tx, moviesWatch, moviesWatched, places, trips, goals, habits, vehicles] =
-    await Promise.all([
+  const [
+    tx,
+    moviesWatch,
+    moviesWatching,
+    moviesWatched,
+    moviesAbandoned,
+    places,
+    trips,
+    goals,
+    habits,
+    vehicles,
+  ] = await Promise.all([
       fetchTransactionsQuery({ page: 1, pageSize: 40, search: query }).catch(
         () => null
       ),
       fetchMovies("to_watch", 1, 40).catch(() => null),
+      fetchMovies("watching", 1, 40).catch(() => null),
       fetchMovies("watched", 1, 40).catch(() => null),
+      fetchMovies("abandoned", 1, 40).catch(() => null),
       fetchPlaces().catch(() => []),
       fetchTrips().catch(() => []),
       fetchGoals().catch(() => []),
@@ -53,7 +65,12 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     });
   }
 
-  const movies = [...(moviesWatch?.data ?? []), ...(moviesWatched?.data ?? [])];
+  const movies = [
+    ...(moviesWatch?.data ?? []),
+    ...(moviesWatching?.data ?? []),
+    ...(moviesWatched?.data ?? []),
+    ...(moviesAbandoned?.data ?? []),
+  ];
   for (const m of movies) {
     const hay = [
       m.title,
@@ -65,11 +82,19 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       .join(" ")
       .toLowerCase();
     if (!hay.includes(q)) continue;
+    const statusLabel =
+      m.status === "watched"
+        ? "Assistido"
+        : m.status === "watching"
+          ? "Assistindo"
+          : m.status === "abandoned"
+            ? "Abandonei"
+            : "Para assistir";
     hits.push({
       id: `movie-${m.imdb_id}`,
       kind: "movie",
       title: m.title,
-      subtitle: `${m.year} · ${m.status === "watched" ? "Assistido" : "Para assistir"}`,
+      subtitle: `${m.year} · ${statusLabel}`,
       href: "/movies",
     });
   }

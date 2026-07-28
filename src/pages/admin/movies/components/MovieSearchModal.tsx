@@ -44,7 +44,9 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
   const [wouldRecommend, setWouldRecommend] = useState(true);
   const [watchedDate, setWatchedDate] = useState<Date>();
   const [formError, setFormError] = useState("");
-  const [status, setStatus] = useState<"watched" | "to_watch">("to_watch");
+  const [status, setStatus] = useState<"to_watch" | "watching" | "watched">(
+    "to_watch"
+  );
   const { toast } = useToast();
 
   async function handleSearch() {
@@ -133,7 +135,12 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
 
     const newMovie: MovieCreateRequest = {
       ...selectedMovie,
-      status: status === "watched" ? MovieStatus.WATCHED : MovieStatus.TO_WATCH,
+      status:
+        status === "watched"
+          ? MovieStatus.WATCHED
+          : status === "watching"
+            ? MovieStatus.WATCHING
+            : MovieStatus.TO_WATCH,
       rating: status === "watched" ? rating : null,
       notes: status === "watched" ? notes.trim() || null : null,
       would_recommend: status === "watched" ? wouldRecommend : true,
@@ -270,14 +277,22 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
 
             <div className={FORM_FIELDS_CLASS}>
               <FormLabel required>Status</FormLabel>
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Button
                   type="button"
                   variant={status === "to_watch" ? "default" : "outline"}
                   onClick={() => setStatus("to_watch")}
                   className="w-full sm:w-auto"
                 >
-                  Para Assistir
+                  Para assistir
+                </Button>
+                <Button
+                  type="button"
+                  variant={status === "watching" ? "default" : "outline"}
+                  onClick={() => setStatus("watching")}
+                  className="w-full sm:w-auto"
+                >
+                  Assistindo
                 </Button>
                 <Button
                   type="button"

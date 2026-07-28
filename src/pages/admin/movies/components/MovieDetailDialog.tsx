@@ -19,6 +19,7 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ScoreRating } from "@/components/ScoreRating";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import {
+  MOVIE_STATUS_LABELS,
   MOVIE_TYPE_LABELS,
   asStringList,
   formatMovieRating,
@@ -38,6 +39,7 @@ interface MovieDetailDialogProps {
   onShare?: () => void;
   onDelete?: () => void;
   onMoviePatch?: (patch: Partial<Movie>) => void;
+  onWatchedEpisodesChange?: (count: number) => void;
 }
 
 function DetailRow({
@@ -63,6 +65,7 @@ export function MovieDetailDialog({
   onShare,
   onDelete,
   onMoviePatch,
+  onWatchedEpisodesChange,
 }: MovieDetailDialogProps) {
   if (!movie) return null;
 
@@ -90,6 +93,9 @@ export function MovieDetailDialog({
               </DialogTitle>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="text-[10px]">
+                  {MOVIE_STATUS_LABELS[movie.status]}
+                </Badge>
+                <Badge variant="secondary" className="text-[10px]">
                   {MOVIE_TYPE_LABELS[movie.type]}
                 </Badge>
                 <span className="text-sm text-muted-foreground">{movie.year}</span>
@@ -124,9 +130,7 @@ export function MovieDetailDialog({
           )}
 
           <DetailRow label="Status">
-            {movie.status === MovieStatus.WATCHED
-              ? "Assistido"
-              : "Para assistir"}
+            {MOVIE_STATUS_LABELS[movie.status]}
           </DetailRow>
 
           {latest && (
@@ -180,6 +184,7 @@ export function MovieDetailDialog({
               <SeriesEpisodesPanel
                 movie={movie}
                 onMoviePatch={onMoviePatch}
+                onWatchedEpisodesChange={onWatchedEpisodesChange}
               />
             </div>
           )}
@@ -220,7 +225,17 @@ export function MovieDetailDialog({
               {movie.status === MovieStatus.TO_WATCH ? (
                 <>
                   <Clapperboard className="mr-2 h-4 w-4" />
-                  Avaliar
+                  Começar
+                </>
+              ) : movie.status === MovieStatus.WATCHING ? (
+                <>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Atualizar
+                </>
+              ) : movie.status === MovieStatus.ABANDONED ? (
+                <>
+                  <Clapperboard className="mr-2 h-4 w-4" />
+                  Retomar
                 </>
               ) : (
                 <>

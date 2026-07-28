@@ -8,7 +8,7 @@ import {
 } from "@/types/movies";
 
 export async function fetchMovies(
-  status: "to_watch" | "watched",
+  status: Movie["status"],
   page: number,
   pageSize: number
 ): Promise<{ data: Movie[]; total: number }> {
@@ -20,6 +20,7 @@ export async function fetchMovies(
     .eq("status", status)
     .order(status === "watched" ? "watched_dates" : "year", {
       ascending: false,
+      nullsFirst: false,
     })
     .range((page - 1) * pageSize, page * pageSize - 1);
 

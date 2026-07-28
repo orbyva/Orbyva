@@ -1,6 +1,8 @@
 export enum MovieStatus {
   TO_WATCH = "to_watch",
+  WATCHING = "watching",
   WATCHED = "watched",
+  ABANDONED = "abandoned",
 }
 
 export type MovieMediaType = "movie" | "series";
@@ -73,5 +75,9 @@ export type MovieUpdateRequest = Partial<Omit<Movie, "user_id">> & {
   imdb_id: string;
 };
 
-export type MovieListFilter = "to_watch" | "watched";
+export type MovieListFilter =
+  | "to_watch"
+  | "watching"
+  | "watched"
+  | "abandoned";
 export type MovieTypeFilter = "all" | MovieMediaType;

@@ -1,5 +1,6 @@
-import type { Movie } from "@/types/movies";
+import type { Movie, MovieEpisode } from "@/types/movies";
 import { formatMovieRating, getMovieRatingLabel } from "@/domain/movies";
+import { fetchEpisodesForSeries } from "@/api/movieEpisodes";
 import { BRAND_COLORS } from "@/lib/brand";
 import {
   SHARE_BRAND,
@@ -24,6 +25,65 @@ const BRAND = {
   gold: SHARE_BRAND.gold,
   font: SHARE_BRAND.font,
 } as const;
+
+export type RatedShareEpisode = {
+  season: number;
+  episode: number;
+  title: string;
+  rating: number;
+};
+
+/** Episódios com nota, na ordem da série. */
+export function resolveRatedEpisodes(
+  rows: MovieEpisode[]
+): RatedShareEpisode[] {
+  return rows
+    .filter((e) => e.rating != null && e.rating > 0)
+    .sort(
+      (a, b) =>
+        a.season_number - b.season_number ||
+        a.episode_number - b.episode_number
+    )
+    .map((e) => ({
+      season: e.season_number,
+      episode: e.episode_number,
+      title: e.episode_name?.trim() || `Episódio ${e.episode_number}`,
+      rating: e.rating as number,
+    }));
+}
+
+async function loadRatedEpisodes(movie: Movie): Promise<RatedShareEpisode[]> {
+  if (movie.type !== "series") return [];
+  try {
+    const rows = await fetchEpisodesForSeries(movie.imdb_id);
+    return resolveRatedEpisodes(rows);
+  } catch {
+    return [];
+  }
+}
+
+/** Nota desc; empate → ordem da série. */
+function sortEpisodesByRatingDesc(
+  episodes: RatedShareEpisode[]
+): RatedShareEpisode[] {
+  return [...episodes].sort((a, b) => {
+    if (b.rating !== a.rating) return b.rating - a.rating;
+    if (a.season !== b.season) return a.season - b.season;
+    return a.episode - b.episode;
+  });
+}
+
+/**
+ * Se cabe tudo: ordem da série.
+ * Se precisa cortar: melhores notas primeiro (empate na ordem da série).
+ */
+function pickEpisodesForShare(
+  episodes: RatedShareEpisode[],
+  limit: number
+): RatedShareEpisode[] {
+  if (episodes.length <= limit) return episodes;
+  return sortEpisodesByRatingDesc(episodes).slice(0, limit);
+}
 
 function isTmdbImageHost(hostname: string): boolean {
   return (
@@ -168,6 +228,19 @@ function wrapText(
   return yy;
 }
 
+function ellipsize(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxW: number
+): string {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(`${t}…`).width > maxW) {
+    t = t.slice(0, -1);
+  }
+  return t.length ? `${t}…` : "…";
+}
+
 /**
  * Joinha outline (path Lucide) — leve e alinhado ao resto do card.
  */
@@ -232,6 +305,105 @@ function drawRecommendBadge(
 }
 
 /**
+ * Episódios avaliados: 1–2 colunas, margem simétrica.
+ * Se couber tudo → ordem da série; se cortar → melhores notas primeiro.
+ */
+function drawRatedEpisodesBlock(
+  ctx: CanvasRenderingContext2D,
+  episodes: RatedShareEpisode[],
+  startY: number,
+  maxY: number
+): number {
+  if (!episodes.length || maxY - startY < 80) return startY;
+
+  const sidePad = 88;
+  const gapX = 40;
+  const usableW = STORY_W - sidePad * 2;
+  const available = maxY - startY;
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(248, 250, 252, 0.55)";
+  ctx.font = `700 22px ${BRAND.font}`;
+  ctx.fillText("EPISÓDIOS", STORY_W / 2, startY);
+
+  const headerH = 40;
+  const bodyTop = startY + headerH;
+  const bodyH = available - headerH;
+  if (bodyH < 48) return startY;
+
+  const cols = episodes.length >= 5 ? 2 : 1;
+  const minRow = cols === 1 ? 44 : 40;
+  const maxRowsFit = Math.max(1, Math.floor(bodyH / minRow));
+  const maxItems = maxRowsFit * cols;
+  const shown = pickEpisodesForShare(episodes, maxItems);
+  const rows = Math.ceil(shown.length / cols);
+  const rowH = Math.min(64, Math.max(minRow, bodyH / rows));
+  const colW = cols === 1 ? usableW : (usableW - gapX) / 2;
+  const originX = sidePad;
+
+  const scoreFont = `800 ${cols === 1 ? 22 : 18}px ${BRAND.font}`;
+  const titleFont = `600 ${cols === 1 ? 24 : 20}px ${BRAND.font}`;
+  const indexFont = `600 ${cols === 1 ? 20 : 17}px ${BRAND.font}`;
+  const pillH = cols === 1 ? 34 : 30;
+  const pillW = cols === 1 ? 78 : 68;
+  const indexW = cols === 1 ? 88 : 72;
+  const titleMaxW = colW - indexW - pillW - 20;
+
+  ctx.textBaseline = "middle";
+
+  shown.forEach((ep, i) => {
+    const col = cols === 1 ? 0 : Math.floor(i / rows);
+    const row = cols === 1 ? i : i % rows;
+    const x = originX + col * (colW + gapX);
+    const cy = bodyTop + row * rowH + rowH / 2;
+    const indexLabel = `S${ep.season}E${ep.episode}`;
+    const scoreLabel = formatMovieRating(ep.rating);
+
+    ctx.textAlign = "right";
+    ctx.font = indexFont;
+    ctx.fillStyle = "rgba(248, 250, 252, 0.45)";
+    ctx.fillText(indexLabel, x + indexW - 8, cy + 1);
+
+    ctx.textAlign = "left";
+    ctx.font = titleFont;
+    ctx.fillStyle = BRAND.paper;
+    ctx.fillText(ellipsize(ctx, ep.title, titleMaxW), x + indexW, cy + 1);
+
+    const pillX = x + colW - pillW;
+    const pillY = cy - pillH / 2;
+    ctx.fillStyle = "rgba(251, 191, 36, 0.18)";
+    ctx.strokeStyle = "rgba(251, 191, 36, 0.55)";
+    ctx.lineWidth = 2;
+    roundRect(ctx, pillX, pillY, pillW, pillH, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.font = scoreFont;
+    ctx.fillStyle = BRAND.gold;
+    ctx.fillText(scoreLabel, pillX + pillW / 2, cy + 1);
+  });
+
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "center";
+
+  if (episodes.length > shown.length) {
+    const moreY = bodyTop + rows * rowH + 8;
+    if (moreY < maxY - 8) {
+      ctx.fillStyle = "rgba(248, 250, 252, 0.45)";
+      ctx.font = `600 20px ${BRAND.font}`;
+      ctx.fillText(
+        `+${episodes.length - shown.length} episódios`,
+        STORY_W / 2,
+        moreY
+      );
+    }
+  }
+
+  return bodyTop + rows * rowH + (episodes.length > shown.length ? 28 : 8);
+}
+
+/**
  * Card Stories com identidade visual do produto:
  * pôster em atmosfera + tipografia + marca.
  */
@@ -248,6 +420,8 @@ export async function generateMovieShareImage(
 
   const includeNotes = options.includeNotes !== false;
   const notes = includeNotes ? movie.notes?.trim() : "";
+  const ratedEpisodes = await loadRatedEpisodes(movie);
+  const hasEpisodes = ratedEpisodes.length > 0;
 
   const posterUrl = movie.poster && movie.poster !== "N/A" ? movie.poster : null;
   const poster = posterUrl ? await loadImage(posterUrl) : null;
@@ -282,12 +456,12 @@ export async function generateMovieShareImage(
   // ── Header da marca ────────────────────────────────────────────────
   drawShareHeader(ctx, "Minha opinião");
 
-  // ── Pôster principal ───────────────────────────────────────────────
-  const posterW = 680;
-  const posterH = 1020;
+  // ── Pôster principal (menor quando há episódios avaliados) ─────────
+  const posterW = hasEpisodes ? (notes ? 360 : 420) : 680;
+  const posterH = hasEpisodes ? (notes ? 540 : 630) : 1020;
   const posterX = (STORY_W - posterW) / 2;
-  const posterY = 220;
-  const radius = 36;
+  const posterY = hasEpisodes ? 200 : 220;
+  const radius = hasEpisodes ? 28 : 36;
 
   // Sombra profunda
   ctx.save();
@@ -317,7 +491,7 @@ export async function generateMovieShareImage(
   ctx.stroke();
 
   // ── Bloco de conteúdo ──────────────────────────────────────────────
-  let cursorY = posterY + posterH + 88;
+  let cursorY = posterY + posterH + (hasEpisodes ? 48 : 88);
 
   // Tipo + ano
   const meta = [
@@ -326,30 +500,30 @@ export async function generateMovieShareImage(
   ].join("  ·  ");
   ctx.textAlign = "center";
   ctx.fillStyle = "rgba(248, 250, 252, 0.7)";
-  ctx.font = `600 26px ${BRAND.font}`;
+  ctx.font = `600 ${hasEpisodes ? 22 : 26}px ${BRAND.font}`;
   ctx.fillText(meta, STORY_W / 2, cursorY);
-  cursorY += 62;
+  cursorY += hasEpisodes ? 44 : 62;
 
   // Título
   ctx.fillStyle = BRAND.paper;
-  ctx.font = `800 58px ${BRAND.font}`;
+  ctx.font = `800 ${hasEpisodes ? 46 : 58}px ${BRAND.font}`;
   cursorY = wrapText(
     ctx,
     movie.title,
     STORY_W / 2,
     cursorY,
     STORY_W - 140,
-    68,
-    3
+    hasEpisodes ? 52 : 68,
+    hasEpisodes ? 2 : 3
   );
-  cursorY += 54;
+  cursorY += hasEpisodes ? 28 : 54;
 
   // Nota em pill de produto
   if (movie.rating != null && movie.rating > 0) {
     const score = `${formatMovieRating(movie.rating)}`;
     const label = getMovieRatingLabel(movie.rating);
-    const pillW = 480;
-    const pillH = 132;
+    const pillW = hasEpisodes ? 400 : 480;
+    const pillH = hasEpisodes ? 108 : 132;
     const pillX = (STORY_W - pillW) / 2;
     const pillY = cursorY - 12;
     const pillCy = pillY + pillH / 2;
@@ -375,19 +549,26 @@ export async function generateMovieShareImage(
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Bloco de texto centrado verticalmente no pill
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = BRAND.paper;
-    ctx.font = `800 58px ${BRAND.font}`;
-    ctx.fillText(`${score}/10`, STORY_W / 2, pillCy - 18);
+    ctx.font = `800 ${hasEpisodes ? 48 : 58}px ${BRAND.font}`;
+    ctx.fillText(
+      `${score}/10`,
+      STORY_W / 2,
+      pillCy - (hasEpisodes ? 14 : 18)
+    );
 
     ctx.fillStyle = "rgba(248, 250, 252, 0.82)";
-    ctx.font = `600 24px ${BRAND.font}`;
-    ctx.fillText(label.toUpperCase(), STORY_W / 2, pillCy + 28);
+    ctx.font = `600 ${hasEpisodes ? 20 : 24}px ${BRAND.font}`;
+    ctx.fillText(
+      label.toUpperCase(),
+      STORY_W / 2,
+      pillCy + (hasEpisodes ? 22 : 28)
+    );
     ctx.textBaseline = "alphabetic";
 
-    cursorY = pillY + pillH + 48;
+    cursorY = pillY + pillH + (hasEpisodes ? 28 : 48);
   }
 
   // Recomendação — chip + ícone, conteúdo centrado no chip
@@ -431,7 +612,20 @@ export async function generateMovieShareImage(
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
 
-    cursorY = chipY + chipH + 40;
+    cursorY = chipY + chipH + (hasEpisodes ? 28 : 40);
+  }
+
+  const footerTop = STORY_H - 180;
+
+  if (hasEpisodes) {
+    const notesReserve = notes ? 90 : 16;
+    cursorY =
+      drawRatedEpisodesBlock(
+        ctx,
+        ratedEpisodes,
+        cursorY,
+        footerTop - notesReserve
+      ) + 16;
   }
 
   // Nota escrita (curta) — controlada por includeNotes
@@ -442,7 +636,7 @@ export async function generateMovieShareImage(
       ctx,
       `“${notes}”`,
       STORY_W / 2,
-      cursorY + 8,
+      Math.min(cursorY + 8, footerTop - 70),
       STORY_W - 160,
       36,
       2
@@ -457,7 +651,10 @@ export async function generateMovieShareImage(
 
 export function buildMovieShareText(
   movie: Movie,
-  options: { includeNotes?: boolean } = {}
+  options: {
+    includeNotes?: boolean;
+    ratedEpisodes?: RatedShareEpisode[];
+  } = {}
 ): string {
   const includeNotes = options.includeNotes !== false;
   const parts = [`🎬 ${movie.title} (${movie.year})`];
@@ -468,6 +665,19 @@ export function buildMovieShareText(
   }
   if (includeNotes && movie.notes?.trim()) {
     parts.push(`💬 ${movie.notes.trim()}`);
+  }
+  const rated = options.ratedEpisodes ?? [];
+  if (rated.length) {
+    parts.push("Episódios:");
+    const shown = pickEpisodesForShare(rated, 12);
+    for (const e of shown) {
+      parts.push(
+        `• S${e.season}E${e.episode} ${e.title} — ${formatMovieRating(e.rating)}/10`
+      );
+    }
+    if (rated.length > shown.length) {
+      parts.push(`• +${rated.length - shown.length} episódios`);
+    }
   }
   if (movie.would_recommend === false) {
     parts.push("👎 Não recomendaria");
@@ -483,7 +693,8 @@ export async function shareMovieNative(
   imageBlob: Blob | null,
   options: { includeNotes?: boolean } = {}
 ): Promise<"shared" | "copied" | "downloaded" | "cancelled"> {
-  const text = buildMovieShareText(movie, options);
+  const ratedEpisodes = await loadRatedEpisodes(movie);
+  const text = buildMovieShareText(movie, { ...options, ratedEpisodes });
   const file = toShareFile(movie, imageBlob);
 
   if (navigator.share) {
