@@ -374,7 +374,17 @@ export function BookEditModal({
               disabled={loading}
               className="w-full sm:flex-1"
             >
-              {loading ? "Salvando..." : "Salvar"}
+              {loading
+                ? "Salvando…"
+                : intent === "start"
+                  ? "Começar"
+                  : intent === "abandon"
+                    ? "Confirmar"
+                    : intent === "resume"
+                      ? "Retomar"
+                      : book.status === "read"
+                        ? "Salvar alterações"
+                        : "Salvar"}
             </Button>
           </div>
         </div>

@@ -207,7 +207,11 @@ export function AlbumEditModal({
               disabled={loading}
               onClick={() => void handleSave()}
             >
-              {loading ? "Salvando..." : "Salvar"}
+              {loading
+                ? "Salvando…"
+                : isToListen
+                  ? "Salvar"
+                  : "Salvar alterações"}
             </Button>
           </div>
         </div>

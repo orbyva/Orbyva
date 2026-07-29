@@ -56,7 +56,7 @@ export function TripSplitRegisterDialog({
     >
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogHeader>
-          <DialogTitle>Registrar Despesa</DialogTitle>
+          <DialogTitle>Registrar despesa</DialogTitle>
         </DialogHeader>
         {expense ? (
           <div className={FORM_FIELDS_CLASS}>

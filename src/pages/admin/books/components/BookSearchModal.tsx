@@ -339,7 +339,7 @@ export function BookSearchModal({ onBookAdded }: BookSearchModalProps) {
                   disabled={loading}
                   className="w-full sm:flex-1"
                 >
-                  {loading ? "Salvando..." : "Salvar"}
+                  {loading ? "Salvando…" : "Adicionar à lista"}
                 </Button>
               </div>
             </div>

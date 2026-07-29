@@ -332,7 +332,17 @@ export function MovieEditModal({
               disabled={loading}
               className="w-full sm:flex-1"
             >
-              {loading ? "Salvando..." : "Salvar"}
+              {loading
+                ? "Salvando…"
+                : intent === "start"
+                  ? "Começar"
+                  : intent === "abandon"
+                    ? "Confirmar"
+                    : intent === "resume"
+                      ? "Retomar"
+                      : movie.status === MovieStatus.WATCHED
+                        ? "Salvar alterações"
+                        : "Salvar"}
             </Button>
           </div>
         </div>

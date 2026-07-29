@@ -164,7 +164,7 @@ export function BudgetFormDialog({
               clearInternalState();
             }}
           >
-            Adicionar Orçamento
+            Adicionar orçamento
           </Button>
         </DialogTrigger>
       )}
@@ -172,7 +172,7 @@ export function BudgetFormDialog({
       <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-4 sm:max-w-xl sm:p-6">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? "Editar Orçamento" : "Novo Orçamento"}
+            {isEditing ? "Editar orçamento" : "Novo orçamento"}
           </DialogTitle>
         </DialogHeader>
 
@@ -339,10 +339,10 @@ export function BudgetFormDialog({
 
           <Button onClick={handleSubmit} className="w-full sm:w-auto">
             {isEditing
-              ? "Salvar Alterações"
+              ? "Salvar alterações"
               : applyAllMonths
                 ? `Salvar nos 12 meses de ${selectedYear}`
-                : "Salvar"}
+                : "Adicionar orçamento"}
           </Button>
         </div>
       </DialogContent>

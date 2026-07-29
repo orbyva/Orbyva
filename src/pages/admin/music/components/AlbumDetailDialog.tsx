@@ -408,7 +408,7 @@ export function AlbumDetailDialog({
               <RefreshCw
                 className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
               />
-              {refreshing ? "Atualizando…" : "Atualizar"}
+              {refreshing ? "Atualizando…" : "Atualizar do catálogo"}
             </Button>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -430,7 +430,7 @@ export function AlbumDetailDialog({
               {album.status === "to_listen" ? (
                 <>
                   <Disc3 className="mr-2 h-4 w-4" />
-                  Avaliar
+                  Ouvi
                 </>
               ) : (
                 <>

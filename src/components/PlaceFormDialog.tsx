@@ -539,7 +539,11 @@ export function PlaceFormDialog({
           ) : null}
 
           <Button onClick={handleSave} disabled={loading} className="w-full">
-            {loading ? "Salvando..." : "Salvar"}
+            {loading
+              ? "Salvando…"
+              : isEditing
+                ? "Salvar alterações"
+                : "Adicionar lugar"}
           </Button>
         </div>
       </DialogContent>

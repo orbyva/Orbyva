@@ -342,7 +342,7 @@ export function AlbumManualModal({
               disabled={loading}
               onClick={() => void handleSave()}
             >
-              {loading ? "Salvando..." : "Salvar"}
+              {loading ? "Salvando…" : "Adicionar à lista"}
             </Button>
           </div>
         </div>

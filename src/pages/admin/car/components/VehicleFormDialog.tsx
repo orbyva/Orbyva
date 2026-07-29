@@ -296,7 +296,11 @@ export function VehicleFormDialog({
             <p className="text-sm text-destructive">{formError}</p>
           )}
           <Button onClick={handleSave} disabled={loading} className="w-full">
-            {loading ? "Salvando..." : "Salvar"}
+            {loading
+              ? "Salvando…"
+              : isEditing
+                ? "Salvar alterações"
+                : "Cadastrar veículo"}
           </Button>
         </div>
       </DialogContent>

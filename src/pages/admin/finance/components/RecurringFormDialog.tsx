@@ -173,13 +173,13 @@ export function RecurringFormDialog({
     >
       {!isEditing && (
         <DialogTrigger asChild>
-          <Button className="w-full sm:w-auto">Adicionar Recorrência</Button>
+          <Button className="w-full sm:w-auto">Adicionar recorrência</Button>
         </DialogTrigger>
       )}
       <DialogContent className="max-h-[90vh] max-w-md gap-0 overflow-y-auto p-4 sm:max-w-xl sm:p-6">
         <DialogHeader className="pb-3">
           <DialogTitle>
-            {isEditing ? "Editar Recorrência" : "Nova Recorrência"}
+            {isEditing ? "Editar recorrência" : "Nova recorrência"}
           </DialogTitle>
         </DialogHeader>
 
@@ -395,7 +395,7 @@ export function RecurringFormDialog({
           ) : null}
 
           <Button onClick={handleCreate} className="w-full sm:w-auto sm:justify-self-start">
-            {isEditing ? "Salvar Alterações" : "Salvar"}
+            {isEditing ? "Salvar alterações" : "Adicionar recorrência"}
           </Button>
         </div>
       </DialogContent>

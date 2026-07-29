@@ -99,7 +99,7 @@ export function TripExpensesTab({
                     className="h-7 text-[10px] px-2"
                     onClick={() => onRegisterSplit(exp)}
                   >
-                    Registrar Despesa
+                    Registrar despesa
                   </Button>
                 ) : null}
                 <Button

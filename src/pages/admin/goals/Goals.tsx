@@ -663,7 +663,7 @@ export default function Goals() {
               </div>
             </div>
             <Button onClick={handleSave} className="w-full">
-              Salvar
+              {editing ? "Salvar alterações" : "Criar meta"}
             </Button>
           </div>
         </DialogContent>
@@ -816,7 +816,7 @@ export default function Goals() {
                 }
                 className="w-full"
               >
-                {poupancaBusy ? "Criando…" : "Criar em Parcelas"}
+                {poupancaBusy ? "Criando…" : "Criar em parcelas"}
               </Button>
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
                 <Link to="/finance/recurring">Abrir Parcelas</Link>

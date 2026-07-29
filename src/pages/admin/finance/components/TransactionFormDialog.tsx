@@ -125,13 +125,13 @@ export function TransactionFormDialog({
     >
       {!isEditing && (
         <DialogTrigger asChild>
-          <Button className="w-full sm:w-auto">Adicionar Transação</Button>
+          <Button className="w-full sm:w-auto">Adicionar transação</Button>
         </DialogTrigger>
       )}
       <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-4 sm:max-w-xl sm:p-6">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? "Editar Transação" : "Nova Transação"}
+            {isEditing ? "Editar transação" : "Nova transação"}
           </DialogTitle>
         </DialogHeader>
 
@@ -267,7 +267,7 @@ export function TransactionFormDialog({
           {formError && <p className="text-sm text-destructive">{formError}</p>}
 
           <Button onClick={handleSubmit} className="w-full sm:w-auto">
-            {isEditing ? "Salvar Alterações" : "Salvar"}
+            {isEditing ? "Salvar alterações" : "Adicionar transação"}
           </Button>
         </div>
       </DialogContent>
