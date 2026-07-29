@@ -67,6 +67,9 @@ export function initSentry() {
       /Can't find variable:\s*webkit/i,
       /Usuário não autenticado/i,
       "AuthRequiredError",
+      // PWA: falha transitória ao buscar sw.js (rede/deploy). App segue ok.
+      /Failed to update a ServiceWorker/i,
+      /ServiceWorker.*bad HTTP response/i,
     ],
     beforeSend(event, hint) {
       if (isInAppBrowserBridgeNoise(event)) return null;

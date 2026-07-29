@@ -37,11 +37,31 @@ const updateSW = registerSW({
   },
   onRegisteredSW(_swUrl, registration) {
     if (!registration) return;
-    const check = () => void registration.update();
+
+    const check = () => {
+      void (async () => {
+        // Rede ruim / deploy no meio / SW já instalando → update() estoura TypeError no Sentry.
+        if (!navigator.onLine || registration.installing) return;
+        try {
+          const ping = await fetch("/sw.js", {
+            cache: "no-store",
+            headers: { "cache-control": "no-cache" },
+          });
+          if (!ping.ok) return;
+          await registration.update();
+        } catch {
+          /* ignore — próximo ciclo tenta de novo */
+        }
+      })();
+    };
+
     window.setInterval(check, 60 * 1000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") check();
     });
+  },
+  onRegisterError() {
+    /* silencioso — falha transitória de rede */
   },
 });
 
