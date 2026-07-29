@@ -3,8 +3,10 @@ import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { PwaUpdateBanner } from "@/components/PwaUpdateBanner";
 import { AuthProvider } from "@/hooks/useAuth";
 import { track } from "@/lib/analytics";
+import { handleNeedRefresh } from "@/lib/pwaUpdate";
 import "./index.css";
 import AppRouter from "./routes";
 
@@ -18,33 +20,37 @@ void import("@/lib/sentry").then(({ initSentry }) => {
 });
 track("app_boot");
 
-// PWA: atualiza em background — NUNCA força reload (fecha modais / perde estado)
-registerSW({
+// PWA: fora de formulário → atualiza na hora; em formulário → banner "Atualizar agora".
+let refreshing = false;
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+}
+
+const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {
-    // Nova versão disponível; aplica no próximo load natural, sem reload agora
+    handleNeedRefresh(() => updateSW(true));
   },
   onRegisteredSW(_swUrl, registration) {
     if (!registration) return;
-    const hour = 60 * 60 * 1000;
-    window.setInterval(() => {
-      void registration.update();
-    }, hour);
+    const check = () => void registration.update();
+    window.setInterval(check, 60 * 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") check();
+    });
   },
 });
-
-// Service workers antigos (autoUpdate) às vezes ainda forçam reload
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    // intencional: sem location.reload()
-  });
-}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
       <AuthProvider>
         <AppRouter />
+        <PwaUpdateBanner />
       </AuthProvider>
     </ErrorBoundary>
   </StrictMode>

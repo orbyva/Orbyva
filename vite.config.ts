@@ -57,6 +57,7 @@ export default defineConfig({
         // generateSW com mode production crasha (@rollup/plugin-terser 1.0.0
         // trava em worker) — geramos dev e minificamos em scripts/minify-sw.mjs.
         mode: "development",
+        cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,webp,svg,woff2,png}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
