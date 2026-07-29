@@ -1,8 +1,8 @@
 # Orbyva
 
-**Tudo da sua vida em uma só órbita** — finanças, metas, hábitos, viagens, lugares, veículos, cinema, livros e música num só lugar.
+**Tudo da sua vida em uma só órbita** — finanças, metas, hábitos, viagens, lugares, veículos, cinema, livros e música no mesmo app.
 
-Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts**, **Framer Motion** e **Supabase** (auth, banco e Edge Functions).
+Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts**, **Framer Motion** e **Supabase** (Auth, Postgres + RLS, Storage e Edge Functions).
 
 <p align="center">
   <img alt="Orbyva" src="public/logo.webp" width="120" />
@@ -10,37 +10,90 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 ---
 
-## Módulos
+## Módulos (navegação)
+
+A sidebar agrupa o app em quatro blocos:
 
 ### Início
 - **Landing** (`/`) — life OS, planos (teste 7 dias → Pro), waitlist
-- **Dashboard geral** (`/home`) — resumo de metas, hábitos, viagens, saldo e alertas
+- **Dashboard** (`/home`) — resumo do dia: hábitos, saldo, alertas, atalhos
 - **Timeline** (`/timeline`) — eventos agregados de todos os módulos
 
 ### Finanças
 - **Dashboard** (`/finance/dashboard`) — KPIs, gráficos e alertas de vencimento
 - **Transações** — CRUD com dimensões (Tipo/Classe), busca e paginação
-- **Parcelas** — valor total dividido automaticamente; marcar/desfazer pagamento
+- **Parcelas** — valor total dividido; marcar/desfazer pagamento
 - **Orçamento mensal** — planejado vs gasto, alertas e duplicação entre meses
 - **Dimensões** — tipos e classes com cor e ícone
 
+### Entretenimento
+- **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); episódios com nota; import Letterboxd / TV Time; card Stories
+- **Livros** (`/books`) — para ler / lendo / lidos / abandonei; Google Books; marca-página e notas de leitura; opinião e card Stories
+- **Música** (`/music`) — para ouvir / ouvidos; catálogo via Edge Function (Spotify) com fallback MusicBrainz; tracklist + nota por faixa; cadastro manual; card Stories
+
 ### Vida
+- **Hábitos** (`/habits`) — check-in do dia, faixa da semana, heatmap mensal (aba **Hoje | Mês**), anti-hábitos e vínculo com metas
 - **Metas** (`/goals`) — progresso, categorias e prazos
-- **Hábitos** (`/habits`) — streak e progresso semanal
-- **Lugares** (`/places`) — avaliar restaurantes, cafés, passeios etc.
-- **Viagens** (`/travel`) — checklist, roteiro, gastos, lugares e prazos (`/travel/:id`)
-
-### Cinema
-- **Cinema** (`/movies`) — watchlist, opinião (nota 0–10 + comentário + recomendação), compartilhar card e import CSV (Letterboxd / TV Time)
-
-### Livros
-- **Livros** (`/books`) — para ler / lendo / lidos / abandonei, marca-página, comentários na leitura, Google Books, opinião e card Stories
-
-### Música
-- **Música** (`/music`) — para ouvir / ouvidos, catálogo Spotify (MusicBrainz fallback) ou cadastro manual, opinião (nota + faixas) e card Stories
-
-### Carro / Moto
+- **Lugares** (`/places`) — restaurantes, cafés, passeios; nota e opinião
+- **Viagens** (`/travel`) — checklist, roteiro, gastos, lugares e prazos (`/travel/:id`); convites compartilhados
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
+
+---
+
+## Arquitetura
+
+Orbyva é um **SPA multi-módulo** com backend BaaS. O front não fala SQL direto: passa por uma camada de API tipada; regras de negócio ficam em funções puras testáveis; segredos de terceiros (Stripe, Spotify, Resend) ficam em **Edge Functions**, não em `VITE_*`.
+
+### Camadas (`src/`)
+
+```
+pages/          UI por módulo (rotas lazy)
+  └─ chama
+hooks/          Estado de sessão, plano, cache de catálogo, etc.
+  └─ chama
+api/            I/O Supabase (CRUD, RPC, Storage) — um arquivo/pasta por domínio
+  └─ usa
+domain/         Regras puras (ordenar, filtrar, streaks, alertas, labels…)
+types/          Contratos TypeScript alinhados ao schema
+lib/            Integrações e utilitários (TMDB, Spotify client, share cards, auth helper…)
+components/     UI compartilhada (shadcn + app shell)
+layouts/        AdminLayout (sidebar, outlet, prefetch)
+```
+
+**Regra prática:** se a lógica precisa de `supabase` ou `fetch`, vai em `api/` ou `lib/`. Se dá para unit-testar sem rede, vai em `domain/`.
+
+### Fluxo de dados (exemplo Música)
+
+1. `Music.tsx` carrega a lista com `useCachedCatalog` + `fetchAllAlbums` (`api/albums.ts`)
+2. Filtros de status/artista/tipo/nota e paginação rodam **no cliente** (troca de aba instantânea)
+3. Busca no catálogo: `lib/musicCatalog.ts` tenta Spotify (`lib/spotify.ts` → Edge `spotify-catalog`) e cai para MusicBrainz
+4. Capas externas passam por proxies Vite/Vercel (`/spotify-media`, `/caa-media`, `/books-media`) para CORS e canvas do share
+5. Opinião / track ratings persistem em `album.track_ratings` (jsonb) via `updateAlbum`
+
+Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
+
+### Segurança e tenancy
+
+- Toda tabela de usuário tem `user_id` + **RLS** (migrations `tenancy_rls` / hardening)
+- Front usa só **Anon Key**; service role nunca no browser
+- Escrita gated por trial/Pro (`app_access_enforce`)
+- CORS das Edge Functions: origin de `SITE_URL` + localhost em dev (`supabase/functions/_shared/cors.ts`)
+
+### Front: rotas e performance
+
+- `routes.tsx` — React Router v7; app atrás de `ProtectedRoute`
+- Módulos em `React.lazy`; `AdminLayout` pré-carrega chunks de Entretenimento em idle
+- Listas de Cinema/Livros/Música: cache em memória (`memoryCache` + `useCachedCatalog`) com revalidação
+- PWA via `vite-plugin-pwa`; bundle budget em `npm run check:bundle`
+
+### Backend: Supabase
+
+| Peça | Papel |
+|------|--------|
+| Postgres + migrations | Schema versionado em `supabase/migrations/` |
+| Auth | Google OAuth (+ e-mail via hook `auth-send-email`) |
+| Storage | Capas manuais (`album-covers`), avatares, etc. |
+| Edge Functions | Stripe, e-mails lifecycle/retenção/digest, `spotify-catalog`, convites de viagem |
 
 ---
 
@@ -48,38 +101,38 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 | Camada | Tecnologia |
 |--------|------------|
-| Front-end | React 19, TypeScript, Vite 6 |
-| Estilos/UX | Tailwind CSS, shadcn/ui (Radix), Lucide Icons, Framer Motion |
+| Front-end | React 19, TypeScript (strict), Vite 6 |
+| Estilos/UX | Tailwind CSS, shadcn/ui (Radix), Lucide, Framer Motion |
 | Gráficos | Recharts |
-| Dados/Auth | Supabase (`@supabase/supabase-js`) |
+| Dados/Auth | Supabase JS |
 | Tabelas | TanStack Table |
-| Roteamento | React Router v7 (rotas protegidas + lazy loading) |
-| Testes | Vitest |
-| CI | GitHub Actions (lint, test, build) |
-| Deploy | Vercel (SPA) |
+| Roteamento | React Router v7 |
+| Testes | Vitest (unit) · Playwright (E2E) |
+| CI | GitHub Actions + `npm run ci:local` |
+| Deploy | Vercel (SPA + rewrites de proxy de mídia) |
 
 ---
 
-## Estrutura do projeto
+## Estrutura do repositório
 
 ```
-/public
-  └─ logo.webp, placeholder.svg
-
-/scripts                    # Utilitários locais (bundle budget, minify SW, ci:local)
+/public                 Assets estáticos (logo, marketing)
+/e2e                    Playwright + helpers (auth, cleanup E2E*)
+/scripts                ci-local, bundle budget, minify SW
 /supabase
-  ├─ migrations/            # Schema / RLS / seeds — fonte da verdade do banco
+  ├─ migrations/        Schema / RLS / seeds (fonte da verdade)
   ├─ config.toml
-  └─ functions/             # stripe-*, retention, digest
-
+  └─ functions/         stripe-*, spotify-catalog, e-mails, waitlist…
 /src
-  ├─ api/                   # I/O Supabase por domínio
-  ├─ domain/                # Regras de negócio puras (testáveis)
-  ├─ components/            # UI compartilhada
+  ├─ api/               Cliente Supabase por domínio
+  ├─ domain/            Regras puras + testes
+  ├─ components/        UI compartilhada
   ├─ hooks/
   ├─ layouts/
-  ├─ lib/
-  ├─ pages/admin/           # Páginas por módulo
+  ├─ lib/               Integrações (cinema, livros, música, share, billing…)
+  ├─ pages/
+  │   ├─ admin/         App autenticado (finance, movies, books, music, life…)
+  │   └─ landing/       Marketing
   ├─ types/
   ├─ routes.tsx
   └─ main.tsx
@@ -91,58 +144,49 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 | Rota | Tela |
 |------|------|
-| `/` | Landing (life OS + planos; trial→Pro se Stripe, senão waitlist) |
-| `/about` | Sobre o produto |
-| `/home` | Dashboard geral (app) |
-| `/timeline` | Timeline unificada |
-| `/goals` | Metas |
+| `/` | Landing |
+| `/about` | Sobre |
+| `/login` | Login |
+| `/home` | Hub / dashboard geral |
+| `/timeline` | Timeline |
+| `/account` | Conta (plano, export, preferências de e-mail) |
+| `/finance/*` | Dashboard, transações, parcelas, orçamento, dimensões |
+| `/movies` | Cinema |
+| `/books` | Livros |
+| `/music` | Música |
 | `/habits` | Hábitos |
+| `/goals` | Metas |
 | `/places` | Lugares |
-| `/travel` | Viagens |
-| `/travel/:id` | Detalhe da viagem |
-| `/finance/dashboard` | Dashboard financeiro |
-| `/finance/transactions` | Transações |
-| `/finance/recurring` | Parcelas |
-| `/finance/budget` | Orçamento |
-| `/finance/dimensions` | Dimensões |
-| `/movies` | Filmes |
-| `/car` | Veículos (carro / moto) |
-| `/account` | Conta (plano, export, sair, excluir) |
-| `/terms` | Termos de uso |
-| `/privacy` | Privacidade / LGPD |
-| `/login` | Login (Google OAuth) |
+| `/travel` · `/travel/:id` | Viagens |
+| `/car` | Veículos |
+| `/terms` · `/privacy` | Legal |
 
-Atalhos: **⌘K** busca global · sino no header para alertas · PWA instalável após `npm run build`.
-
+Atalhos: **⌘K** busca global · sino de alertas · PWA após `npm run build`.
 
 ---
 
-## Banco (Supabase migrations)
-
-A fonte da verdade é `supabase/migrations/`. Aplique com o CLI (projeto linkado):
+## Banco (migrations)
 
 ```bash
 supabase db push
 ```
 
-Ou cole a migration desejada no **SQL Editor** do Dashboard.
-
-Principais gates (já versionados nas migrations):
+Gates importantes:
 
 | Tema | Migration (prefixo) |
 |------|---------------------|
 | Tenancy + RLS | `20240101000100_tenancy_rls` |
-| Dimensões por usuário | `20240101000200_dimensions_tenancy` |
-| Billing / waitlist | `20240101000300_billing` |
-| Naturezas (Receita/Despesa/Investimento) | `20240101000400_seed_natures` (+ investimento) |
-| Cinema / veículos / viagens | `20240101000500` … `20240101001100` |
+| Dimensões / billing / naturezas | `20240101000200` … `00400` |
+| Cinema / veículos / viagens | `20240101000500` … `01100` |
 | Security hardening | `20240101001200_security_hardening` |
-| Gate trial/Pro (escritas) | `20260723120000_app_access_enforce` |
-| Retenção / digest / lifecycle e-mail | `20260725220000_retention_d7`, `20260726220000_weekly_digest`, `20260727180000_email_lifecycle` |
+| Gate trial/Pro | `20260723120000_app_access_enforce` |
+| Retenção / digest / lifecycle e-mail | `20260725220000` … `20260727180000` |
 | Hábitos kind + meta | `20260727143000_habit_kind_goal` |
+| Livros | `20260728120000_books` (+ bookmark, notes, score) |
+| Música (álbum + faixas + Spotify source) | `20260728160000_albums` … `20260728210000_album_source_spotify` |
+| Cinema watching/abandoned | `20260728200000_movie_watching_abandoned` |
 
-> Sem tenancy/RLS, o app filtra no cliente, mas o banco ainda pode vazar. Teste com **2 contas**.
-> **Funil:** com `VITE_STRIPE_PUBLISHABLE_KEY` a landing vende **7 dias → Pro**; sem a chave, só **waitlist**.
+> Sem tenancy/RLS, o app filtra no cliente, mas o banco ainda pode vazar. Teste com **2 contas** (E2E RLS opcional).
 
 ---
 
@@ -151,174 +195,113 @@ Principais gates (já versionados nas migrations):
 ### Pré-requisitos
 
 - **Node.js 20+**
-- Conta no **Supabase** (URL + Anon Key)
-- Chave **OMDb** (opcional — módulo Filmes)
+- Projeto **Supabase** (URL + Anon Key)
+- Opcionais: TMDB / OMDb (cinema), Google Books, Spotify (música), Stripe, Resend
 
-### Variáveis de ambiente
-
-Copie `.env.example` para `.env` (o `.env` **não** vai para o git):
+### Variáveis
 
 ```bash
 cp .env.example .env
 ```
 
+Mínimo para o app:
+
 ```bash
 VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 VITE_SUPABASE_ANON_KEY=sua_anon_key
-VITE_TMDB_API_KEY=sua_chave_tmdb   # Cinema em pt-BR (recomendado)
-VITE_OMDB_API_KEY=sua_chave_omdb   # fallback opcional
-VITE_GOOGLE_BOOKS_API_KEY=sua_chave # Livros (Google Books)
 ```
 
-Chave TMDB: [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) (API Key v3).  
-Chave Google Books: [console.cloud.google.com](https://console.cloud.google.com/) → APIs & Services → enable **Books API** → criar API key.  
-Se a key tiver restrição **HTTP referrers**, inclua `http://localhost:5173/*`, `http://127.0.0.1:5173/*` e `https://orbyva.app/*` (senão a busca retorna 403).
+Catálogos (front):
 
-**Música** usa [Spotify Web API](https://developer.spotify.com/documentation/web-api) (Client Credentials via Edge Function `spotify-catalog`) como catálogo principal — busca, capa e tracklist **sem login do usuário**. [MusicBrainz](https://musicbrainz.org/doc/MusicBrainz_API) + [Cover Art Archive](https://musicbrainz.org/doc/Cover_Art_Archive/API) ficam como fallback (`/mb-api`, `/caa-media`). Capas Spotify passam por `/spotify-media`. Secrets: `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` no Supabase (não no Vite). Em Development Mode o Spotify limita cota/usuários; produção comercial precisa de Extended Quota. Após mudar proxies no Vite, reinicie o `npm run dev`.
+```bash
+VITE_TMDB_API_KEY=…          # Cinema pt-BR (recomendado)
+VITE_OMDB_API_KEY=…          # fallback
+VITE_GOOGLE_BOOKS_API_KEY=…  # Livros
+```
 
-### Billing (Stripe)
-
-1. Aplique as migrations (`supabase db push`) — billing + **`app_access_enforce`**
-2. Crie um Price recorrente (`price_...`, BRL) no Stripe
-3. Deploy: `stripe-checkout`, `stripe-portal`, `stripe-webhook`  
-   (`stripe-webhook` usa `verify_jwt = false` — Stripe não manda JWT)
-4. Secrets: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_PRO`, `STRIPE_WEBHOOK_SECRET`, `SITE_URL` (`https://orbyva.app`)
-5. Front: `VITE_STRIPE_PUBLISHABLE_KEY` (mesmo modo Test/Live da secret key)
-6. Dev / bypass: `VITE_BILLING_FORCE_PRO=true`
-
-**Live:** cobrança real só com **Cards Active** no Dashboard (conta verificada). Enquanto *Payments paused* / Cards *Pending approval*, o Checkout falha.
-
-**PIX:** assinatura mensal no Stripe BR usa **cartão**; PIX não cobre recorrência — o checkout pede só `card`.
-
-**Prod checklist:** `app_access_enforce` aplicado; secrets setados; webhook Live apontando para `/functions/v1/stripe-webhook`; `SITE_URL` = domínio público; CORS das edges = origin do `SITE_URL`.
-
-**Spotify (Música):**
+**Música — secrets no Supabase (não no Vite):**
 
 ```bash
 supabase secrets set SPOTIFY_CLIENT_ID=… SPOTIFY_CLIENT_SECRET=…
 supabase functions deploy spotify-catalog
-supabase db push   # migration source=spotify
+supabase db push
 ```
 
-App em [developer.spotify.com](https://developer.spotify.com) — Client Credentials. Produção comercial: Extended Quota Mode.
-
-**Migrations gate:** em produção, confirme tenancy → billing → security_hardening → app_access_enforce → retention. Sem tenancy/hardening, RLS e Pro não estão seguros.
-Analytics: `VITE_POSTHOG_KEY` (+ opcional `VITE_POSTHOG_HOST`).  
-Sentry: `VITE_SENTRY_DSN` (opcional).
-
-### E-mails (Auth + lifecycle)
-
-**Auth (confirmação, magic link, reset de senha)** — Edge `auth-send-email` via Auth Hook Send Email + Resend.
-
-1. Migration `20260727180000_email_lifecycle`
-2. `supabase functions deploy auth-send-email`
-3. Secrets: `RESEND_API_KEY`, `RESEND_FROM`, `SITE_URL`, `SEND_EMAIL_HOOK_SECRET`
-4. Dashboard → Authentication → Hooks → Send Email → URL da function
-
-**Lifecycle (cron)** — welcome, trial ending/expired, onboarding nudge, alertas (opt-in), além de D7 e digest:
-
-```bash
-supabase functions deploy lifecycle-email
-curl -X POST "$SUPABASE_URL/functions/v1/lifecycle-email" \
-  -H "Authorization: Bearer $CRON_SECRET"
-```
-
-Preferências na Conta (digest / alertas / pausar produto). Auth nunca é pausado.
-
-### Retenção D7 (server + e-mail)
-
-1. Migration `20260725220000_retention_d7` aplicada
-2. Conta no [Resend](https://resend.com) + domínio `orbyva.app` verificado
-3. Deploy: `supabase functions deploy retention-d7-email`
-4. Secrets: `CRON_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (`Orbyva <noreply@orbyva.app>`), `SITE_URL`  
-   Opcional: `POSTHOG_API_KEY` (+ `POSTHOG_HOST`) para evento `retention_email_sent`
-5. Cron diário (Dashboard → Edge Functions → Schedules, ou GitHub Action):
-
-```bash
-curl -X POST "$SUPABASE_URL/functions/v1/retention-d7-email" \
-  -H "Authorization: Bearer $CRON_SECRET"
-```
-
-Quem abre o app atualiza `profiles.last_seen_at` (RPC). O cron e-maila quem tem 7–14 dias de conta, inativo há 5+ dias, e ainda não recebeu o retorno.
-
-### Digest semanal (e-mail)
-
-1. Migration `20260726220000_weekly_digest` aplicada
-2. Deploy: `supabase functions deploy weekly-digest-email`
-3. Mesmos secrets Resend/Cron do D7
-4. Cron semanal (ex.: segunda):
-
-```bash
-curl -X POST "$SUPABASE_URL/functions/v1/weekly-digest-email" \
-  -H "Authorization: Bearer $CRON_SECRET"
-```
-
-Schema novo = só migrations em `supabase/migrations/` (`supabase db push`).
+Fluxo: Client Credentials na Edge `spotify-catalog` → busca/capa/tracklist **sem login Spotify do usuário**. Fallback: MusicBrainz + Cover Art Archive (`/mb-api`, `/caa-media`). Capas Spotify: `/spotify-media`. Em Development Mode a cota é limitada; produção comercial precisa de Extended Quota. Depois de mudar proxies no Vite, reinicie `npm run dev`.
 
 ### Instalar e rodar
 
 ```bash
 npm install
-npm run dev
-# http://localhost:5173
-```
-
-### Build, testes e lint
-
-```bash
+npm run dev          # http://localhost:5173
 npm run lint
-npm run test
+npm run test         # Vitest
+npm run test:e2e     # Playwright (precisa E2E_* + Supabase)
 npm run build
-npm run check:bundle   # orçamento gzip dos chunks
-npm run ci:local       # espelha o CI (lint → test → build → lhci → e2e)
-npm run preview
-npm run start          # serve /dist em produção local
+npm run ci:local     # espelha o CI
 ```
+
+**E2E:** os specs marcam dados com `E2E…` e fazem **teardown** (apaga txs/parcelas `like E2E*`; restaura orçamento patchado). Ideal depois: conta dedicada (`E2E_EMAIL`), não a conta do dia a dia.
+
+---
+
+## Billing (Stripe)
+
+1. `supabase db push` (billing + `app_access_enforce`)
+2. Price recorrente BRL no Stripe
+3. Deploy: `stripe-checkout`, `stripe-portal`, `stripe-webhook` (`verify_jwt = false` no webhook)
+4. Secrets: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_PRO`, `STRIPE_WEBHOOK_SECRET`, `SITE_URL`
+5. Front: `VITE_STRIPE_PUBLISHABLE_KEY` · bypass: `VITE_BILLING_FORCE_PRO=true`
+
+Assinatura mensal BR: **cartão** (PIX não cobre recorrência no Checkout).
+
+---
+
+## E-mails
+
+| Função | Uso |
+|--------|-----|
+| `auth-send-email` | Confirmação, magic link, reset (Auth Hook + Resend) |
+| `lifecycle-email` | Welcome, trial, nudges (cron + `CRON_SECRET`) |
+| `retention-d7-email` | Retorno D7 |
+| `weekly-digest-email` | Digest semanal |
+| `habit-reminder-email` / `trip-invite-email` / `waitlist-email` | Produto / growth |
+
+Secrets comuns: `RESEND_API_KEY`, `RESEND_FROM`, `SITE_URL`, `CRON_SECRET`. Preferências na Conta.
 
 ---
 
 ## Autenticação
 
-- Login via **Google OAuth** (Supabase Auth)
-- Rotas protegidas por `ProtectedRoute` + `useAuth`
-- Variáveis Supabase obrigatórias — app falha cedo se não configuradas
+- Google OAuth (Supabase Auth) + e-mail quando o hook está ativo
+- `ProtectedRoute` + `useAuth`
+- Sem URL/Anon Key válidas o app falha cedo
 
 ---
 
 ## Deploy (Vercel)
 
-1. Importe o repositório na Vercel
-2. **Environment Variables:**
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-   - `VITE_TMDB_API_KEY` (Cinema em pt-BR)
-   - `VITE_OMDB_API_KEY` (fallback opcional)
-3. **Build Command:** `npm run build` · **Output:** `dist`
-4. Deploy das Edge Functions Stripe quando for cobrar (opcional)
+1. Importar o repo
+2. Env: `VITE_SUPABASE_*`, chaves de catálogo, Stripe publishable se cobrar
+3. Build: `npm run build` · Output: `dist`
+4. `vercel.json` — SPA rewrite + proxies de mídia + CSP
+5. Deploy das Edge Functions no Supabase (Stripe / Spotify / e-mails)
 
-> Use apenas a **Anon Key** no front-end. Nunca exponha a service role key.
-
----
-
-## Segurança
-
-- `.env` está no `.gitignore` — use sempre `.env.example` como referência
-- Se alguma chave foi exposta no git, **rotacione** no Supabase/OMDb/Stripe
-- `supabase/.temp/` (cache local do CLI) também é ignorado
+> Só **Anon Key** no front. Nunca service role no browser.
 
 ---
 
 ## Qualidade
 
-- TypeScript strict
-- Camada `domain/` com regras testáveis (parcelas, alertas, carro, etc.)
-- CI em `.github/workflows/ci.yml` — lint, testes e build
+- TypeScript strict · ESLint
+- `domain/**/__tests__` e `lib/__tests__` (Vitest)
+- Playwright em `e2e/` com cleanup de dados de teste
+- CI: `.github/workflows/ci.yml` · local: `npm run ci:local`
 
 ---
 
 ## Contribuição
 
-1. Fork do repositório
-2. Branch: `feat/minha-feature`
-3. PR com descrição das mudanças
-4. Garanta `npm run lint && npm run test && npm run build` verdes
+1. Fork → branch `feat/…`
+2. PR com o *porquê* da mudança
+3. `npm run lint && npm run test && npm run build` verdes (ideal: `ci:local`)
