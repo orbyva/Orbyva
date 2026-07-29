@@ -98,8 +98,8 @@ interface ModuleGuideProps {
 }
 
 /**
- * Callout dispensável só na 1ª visita ao módulo (não é modal forçado).
- * Depois de visto/dispensado some — use `ModuleGuideButton` para reabrir.
+ * Callout só no 1º acesso ao módulo. Depois some — use `ModuleGuideButton` para reabrir.
+ * Conta como visto ao aparecer (não precisa clicar); “Agora não” / “Entendi” só fecham na hora.
  */
 export function ModuleGuide({ moduleId, className }: ModuleGuideProps) {
   const { user, guide, dialogOpen, openDialog, closeDialog, persistSeen } =
@@ -120,6 +120,12 @@ export function ModuleGuide({ moduleId, className }: ModuleGuideProps) {
       track("module_guide_shown", { module: moduleId });
     }
 
+    // 1º acesso: marca como visto após um instante (sobrevive ao StrictMode).
+    // Sem notify — o callout permanece nesta visita até dispensar.
+    const markTimer = window.setTimeout(() => {
+      markModuleGuideSeen(userId, moduleId, { notify: false });
+    }, 800);
+
     function onSeen(event: Event) {
       const detail = (event as CustomEvent<{ userId: string; moduleId: string }>)
         .detail;
@@ -128,7 +134,10 @@ export function ModuleGuide({ moduleId, className }: ModuleGuideProps) {
       }
     }
     window.addEventListener("orbyva:module-guide-seen", onSeen);
-    return () => window.removeEventListener("orbyva:module-guide-seen", onSeen);
+    return () => {
+      window.clearTimeout(markTimer);
+      window.removeEventListener("orbyva:module-guide-seen", onSeen);
+    };
   }, [user?.id, moduleId]);
 
   function dismiss() {
