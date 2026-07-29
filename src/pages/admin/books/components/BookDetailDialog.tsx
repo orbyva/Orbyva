@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Bookmark,
   BookOpen,
@@ -16,29 +16,35 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ScoreRating } from "@/components/ScoreRating";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
+import { updateBook } from "@/api/books";
 import {
   BOOK_STATUS_LABELS,
   formatAuthors,
   formatBookRating,
-  formatBookmark,
   getBookRatingLabel,
   getLatestReadDate,
   getReadingProgress,
+  parsePageInput,
 } from "@/domain/books";
 import type { Book } from "@/types/books";
 import { formatDateBR } from "@/lib/currency";
+import { getErrorMessage } from "@/lib/errors";
+import { useToast } from "@/hooks/use-toast";
+import type { BookEditIntent } from "./BookEditModal";
 import { BookReadingNotes } from "./BookReadingNotes";
 
 interface BookDetailDialogProps {
   book: Book | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onEdit?: () => void;
+  onEdit?: (intent?: BookEditIntent) => void;
   onShare?: () => void;
   onDelete?: () => void;
+  onBookPatch?: (patch: Partial<Book>) => void;
 }
 
 function DetailRow({
@@ -56,6 +62,163 @@ function DetailRow({
   );
 }
 
+function ReadingLifecycleLinks({
+  onFinish,
+  onAbandon,
+}: {
+  onFinish: () => void;
+  onAbandon: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-sm">
+      <button
+        type="button"
+        className="font-medium text-foreground underline-offset-4 hover:underline"
+        onClick={onFinish}
+      >
+        Terminei
+      </button>
+      <span className="text-muted-foreground/50" aria-hidden>
+        ·
+      </span>
+      <button
+        type="button"
+        className="font-medium text-destructive underline-offset-4 hover:underline"
+        onClick={onAbandon}
+      >
+        Abandonei
+      </button>
+    </div>
+  );
+}
+
+function BookmarkEditor({
+  book,
+  onBookPatch,
+  onFinish,
+  onAbandon,
+}: {
+  book: Book;
+  onBookPatch?: (patch: Partial<Book>) => void;
+  onFinish?: () => void;
+  onAbandon?: () => void;
+}) {
+  const { toast } = useToast();
+  const [page, setPage] = useState(
+    book.current_page != null ? String(book.current_page) : ""
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const lastSaved = useRef(book.current_page ?? null);
+
+  useEffect(() => {
+    setPage(book.current_page != null ? String(book.current_page) : "");
+    lastSaved.current = book.current_page ?? null;
+    setError("");
+  }, [book.google_id, book.current_page]);
+
+  const progress = getReadingProgress({
+    current_page: parsePageInput(page) ?? book.current_page,
+    page_count: book.page_count,
+  });
+
+  async function save() {
+    setError("");
+    const raw = page.trim();
+    const next = raw === "" ? null : parsePageInput(page);
+    if (raw !== "" && next == null) {
+      setError("Informe uma página válida.");
+      return;
+    }
+    if (
+      next != null &&
+      book.page_count != null &&
+      book.page_count > 0 &&
+      next > book.page_count
+    ) {
+      setError(`Máximo: ${book.page_count} páginas.`);
+      return;
+    }
+    if (next === lastSaved.current) return;
+
+    setSaving(true);
+    try {
+      await updateBook({
+        google_id: book.google_id,
+        current_page: next,
+        status: "reading",
+      });
+      lastSaved.current = next;
+      onBookPatch?.({ current_page: next });
+    } catch (err) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(err, "Falha ao salvar marca-página."),
+        variant: "destructive",
+        duration: 2000,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <DetailRow label="Marca-página">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Bookmark className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={book.page_count ?? undefined}
+              className="h-8 w-24"
+              placeholder="Pág."
+              value={page}
+              disabled={saving}
+              onChange={(e) => setPage(e.target.value)}
+              onBlur={() => void save()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.currentTarget.blur();
+                }
+              }}
+              aria-label="Página atual"
+            />
+            {book.page_count != null && book.page_count > 0 ? (
+              <span className="text-sm text-muted-foreground">
+                de {book.page_count}
+                {progress != null ? ` · ${progress}%` : ""}
+              </span>
+            ) : saving ? (
+              <span className="text-xs text-muted-foreground">Salvando…</span>
+            ) : null}
+          </div>
+        </div>
+        {progress != null && (
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-[width]"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        )}
+        {error ? (
+          <p className="text-xs text-destructive">{error}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Salva ao sair do campo — onde você parou.
+          </p>
+        )}
+        {onFinish && onAbandon ? (
+          <ReadingLifecycleLinks onFinish={onFinish} onAbandon={onAbandon} />
+        ) : null}
+      </div>
+    </DetailRow>
+  );
+}
+
 export function BookDetailDialog({
   book,
   open,
@@ -63,22 +226,17 @@ export function BookDetailDialog({
   onEdit,
   onShare,
   onDelete,
+  onBookPatch,
 }: BookDetailDialogProps) {
   if (!book) return null;
 
   const latest = getLatestReadDate(book.read_dates);
   const recommend = book.would_recommend !== false;
-  const bookmark = book.status === "reading" ? formatBookmark(book) : null;
-  const progress =
-    book.status === "reading" ? getReadingProgress(book) : null;
-  const editLabel =
-    book.status === "to_read"
-      ? "Começar"
-      : book.status === "reading"
-        ? "Atualizar"
-        : book.status === "abandoned"
-          ? "Retomar"
-          : "Editar";
+
+  function openEdit(intent?: BookEditIntent) {
+    onOpenChange(false);
+    onEdit?.(intent);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -132,23 +290,12 @@ export function BookDetailDialog({
           )}
 
           {book.status === "reading" && (
-            <DetailRow label="Marca-página">
-              <div className="space-y-2">
-                <p className="flex items-center gap-1.5">
-                  <Bookmark className="h-3.5 w-3.5 text-primary" />
-                  {bookmark ?? "Ainda não marcada"}
-                  {progress != null ? ` · ${progress}%` : ""}
-                </p>
-                {progress != null && (
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-[width]"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                )}
-              </div>
-            </DetailRow>
+            <BookmarkEditor
+              book={book}
+              onBookPatch={onBookPatch}
+              onFinish={onEdit ? () => openEdit("finish") : undefined}
+              onAbandon={onEdit ? () => openEdit("abandon") : undefined}
+            />
           )}
 
           {latest && (
@@ -234,27 +381,22 @@ export function BookDetailDialog({
               Compartilhar
             </Button>
           )}
-          {onEdit && (
-            <Button
-              onClick={() => {
-                onOpenChange(false);
-                onEdit();
-              }}
-            >
+          {onEdit && book.status !== "reading" && (
+            <Button onClick={() => openEdit()}>
               {book.status === "to_read" ? (
                 <>
                   <BookOpen className="mr-2 h-4 w-4" />
-                  {editLabel}
+                  Começar
                 </>
-              ) : book.status === "reading" ? (
+              ) : book.status === "abandoned" ? (
                 <>
-                  <Bookmark className="mr-2 h-4 w-4" />
-                  {editLabel}
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  Retomar
                 </>
               ) : (
                 <>
                   <Pencil className="mr-2 h-4 w-4" />
-                  {editLabel}
+                  Editar
                 </>
               )}
             </Button>

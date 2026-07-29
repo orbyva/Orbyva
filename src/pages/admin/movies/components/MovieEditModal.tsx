@@ -22,20 +22,25 @@ import {
 } from "@/domain/movies";
 import { getErrorMessage } from "@/lib/errors";
 
+type EditIntent = "start" | "finish" | "abandon" | "resume";
+
+export type MovieEditIntent = EditIntent;
+
 interface MovieEditModalProps {
   movie: Movie;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onMovieUpdated: () => void;
+  /** Intent inicial ao abrir (ex.: Terminei / Abandonei no detalhe). */
+  initialIntent?: MovieEditIntent | null;
 }
-
-type EditIntent = "start" | "finish" | "abandon" | "resume";
 
 export function MovieEditModal({
   movie,
   open,
   onOpenChange,
   onMovieUpdated,
+  initialIntent = null,
 }: MovieEditModalProps) {
   const [intent, setIntent] = useState<EditIntent>("finish");
   const [rating, setRating] = useState<number | null>(movie.rating ?? null);
@@ -55,11 +60,18 @@ export function MovieEditModal({
     setWouldRecommend(movie.would_recommend !== false);
     setWatchedDate(undefined);
     setFormError("");
-    if (movie.status === MovieStatus.TO_WATCH) setIntent("start");
-    else if (movie.status === MovieStatus.WATCHING) setIntent("finish");
-    else if (movie.status === MovieStatus.ABANDONED) setIntent("resume");
-    else setIntent("finish");
-  }, [open, movie]);
+    if (initialIntent) {
+      setIntent(initialIntent);
+    } else if (movie.status === MovieStatus.TO_WATCH) {
+      setIntent("start");
+    } else if (movie.status === MovieStatus.WATCHING) {
+      setIntent("finish");
+    } else if (movie.status === MovieStatus.ABANDONED) {
+      setIntent("resume");
+    } else {
+      setIntent("finish");
+    }
+  }, [open, movie, initialIntent]);
 
   async function handleSave() {
     setFormError("");

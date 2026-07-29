@@ -29,13 +29,14 @@ import {
 import type { Movie } from "@/types/movies";
 import { MovieStatus } from "@/types/movies";
 import { formatDateBR } from "@/lib/currency";
+import type { MovieEditIntent } from "./MovieEditModal";
 import { SeriesEpisodesPanel } from "./SeriesEpisodesPanel";
 
 interface MovieDetailDialogProps {
   movie: Movie | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onEdit?: () => void;
+  onEdit?: (intent?: MovieEditIntent) => void;
   onShare?: () => void;
   onDelete?: () => void;
   onMoviePatch?: (patch: Partial<Movie>) => void;
@@ -57,6 +58,37 @@ function DetailRow({
   );
 }
 
+/** Ações de ciclo quietas — fora do footer, sem cara de “Salvar”. */
+function WatchingLifecycleLinks({
+  onFinish,
+  onAbandon,
+}: {
+  onFinish: () => void;
+  onAbandon: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-sm">
+      <button
+        type="button"
+        className="font-medium text-foreground underline-offset-4 hover:underline"
+        onClick={onFinish}
+      >
+        Terminei
+      </button>
+      <span className="text-muted-foreground/50" aria-hidden>
+        ·
+      </span>
+      <button
+        type="button"
+        className="font-medium text-destructive underline-offset-4 hover:underline"
+        onClick={onAbandon}
+      >
+        Abandonei
+      </button>
+    </div>
+  );
+}
+
 export function MovieDetailDialog({
   movie,
   open,
@@ -74,6 +106,11 @@ export function MovieDetailDialog({
   const latest = getLatestWatchedDate(movie.watched_dates);
   const recommend = movie.would_recommend !== false;
   const isSeries = movie.type === "series";
+
+  function openEdit(intent?: MovieEditIntent) {
+    onOpenChange(false);
+    onEdit?.(intent);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -105,13 +142,12 @@ export function MovieDetailDialog({
                   </span>
                 )}
               </div>
-              {movie.status === MovieStatus.WATCHED && (
-                recommend ? (
+              {movie.status === MovieStatus.WATCHED &&
+                (recommend ? (
                   <ThumbsUp className="h-5 w-5 text-success" />
                 ) : (
                   <ThumbsDown className="h-5 w-5 text-destructive" />
-                )
-              )}
+                ))}
             </div>
           </div>
         </DialogHeader>
@@ -130,7 +166,18 @@ export function MovieDetailDialog({
           )}
 
           <DetailRow label="Status">
-            {MOVIE_STATUS_LABELS[movie.status]}
+            <div>
+              <p>{MOVIE_STATUS_LABELS[movie.status]}</p>
+              {/* Filme: links sob o status. Série: sob os episódios. */}
+              {onEdit &&
+                movie.status === MovieStatus.WATCHING &&
+                !isSeries && (
+                  <WatchingLifecycleLinks
+                    onFinish={() => openEdit("finish")}
+                    onAbandon={() => openEdit("abandon")}
+                  />
+                )}
+            </div>
           </DetailRow>
 
           {latest && (
@@ -185,6 +232,14 @@ export function MovieDetailDialog({
                 movie={movie}
                 onMoviePatch={onMoviePatch}
                 onWatchedEpisodesChange={onWatchedEpisodesChange}
+                lifecycleActions={
+                  onEdit && movie.status === MovieStatus.WATCHING ? (
+                    <WatchingLifecycleLinks
+                      onFinish={() => openEdit("finish")}
+                      onAbandon={() => openEdit("abandon")}
+                    />
+                  ) : null
+                }
               />
             </div>
           )}
@@ -215,22 +270,12 @@ export function MovieDetailDialog({
               Compartilhar
             </Button>
           )}
-          {onEdit && (
-            <Button
-              onClick={() => {
-                onOpenChange(false);
-                onEdit();
-              }}
-            >
+          {onEdit && movie.status !== MovieStatus.WATCHING && (
+            <Button onClick={() => openEdit()}>
               {movie.status === MovieStatus.TO_WATCH ? (
                 <>
                   <Clapperboard className="mr-2 h-4 w-4" />
                   Começar
-                </>
-              ) : movie.status === MovieStatus.WATCHING ? (
-                <>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Atualizar
                 </>
               ) : movie.status === MovieStatus.ABANDONED ? (
                 <>

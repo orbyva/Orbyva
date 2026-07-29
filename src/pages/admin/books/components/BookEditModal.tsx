@@ -26,6 +26,8 @@ interface BookEditModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onBookUpdated: () => void;
+  /** Intent inicial ao abrir (ex.: Terminei / Abandonei no detalhe). */
+  initialIntent?: BookEditIntent | null;
 }
 
 function normalizeReadDates(dates: Book["read_dates"]): string[] {
@@ -34,13 +36,16 @@ function normalizeReadDates(dates: Book["read_dates"]): string[] {
 
 type EditIntent = "bookmark" | "finish" | "abandon" | "resume" | "start";
 
+export type BookEditIntent = EditIntent;
+
 export function BookEditModal({
   book,
   open,
   onOpenChange,
   onBookUpdated,
+  initialIntent = null,
 }: BookEditModalProps) {
-  const [intent, setIntent] = useState<EditIntent>("bookmark");
+  const [intent, setIntent] = useState<EditIntent>("finish");
   const [rating, setRating] = useState<number | null>(book.rating ?? null);
   const [notes, setNotes] = useState(book.notes ?? "");
   const [wouldRecommend, setWouldRecommend] = useState(
@@ -62,11 +67,18 @@ export function BookEditModal({
     setReadDate(undefined);
     setCurrentPage(book.current_page != null ? String(book.current_page) : "");
     setFormError("");
-    if (book.status === "to_read") setIntent("start");
-    else if (book.status === "reading") setIntent("bookmark");
-    else if (book.status === "abandoned") setIntent("resume");
-    else setIntent("finish");
-  }, [open, book]);
+    if (initialIntent) {
+      setIntent(initialIntent);
+    } else if (book.status === "to_read") {
+      setIntent("start");
+    } else if (book.status === "reading") {
+      setIntent("finish");
+    } else if (book.status === "abandoned") {
+      setIntent("resume");
+    } else {
+      setIntent("finish");
+    }
+  }, [open, book, initialIntent]);
 
   function parsePageOrError(): number | null | undefined {
     if (!currentPage.trim()) return null;
@@ -167,20 +179,15 @@ export function BookEditModal({
   const title =
     intent === "start"
       ? "Começar a ler"
-      : intent === "bookmark"
-        ? "Marca-página"
-        : intent === "abandon"
-          ? "Abandonar livro"
-          : intent === "resume"
-            ? "Retomar leitura"
-            : book.status === "read"
-              ? "Editar opinião"
-              : "Avaliar livro";
+      : intent === "abandon"
+        ? "Abandonar livro"
+        : intent === "resume"
+          ? "Retomar leitura"
+          : book.status === "read"
+            ? "Editar opinião"
+            : "Avaliar livro";
 
-  const showPageField =
-    intent === "start" ||
-    intent === "bookmark" ||
-    intent === "resume";
+  const showPageField = intent === "start" || intent === "resume";
   const showFinishFields = intent === "finish";
 
   return (
@@ -242,14 +249,6 @@ export function BookEditModal({
                   <Button
                     type="button"
                     size="sm"
-                    variant={intent === "bookmark" ? "default" : "outline"}
-                    onClick={() => setIntent("bookmark")}
-                  >
-                    Marca-página
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
                     variant={intent === "finish" ? "default" : "outline"}
                     onClick={() => setIntent("finish")}
                   >
@@ -280,9 +279,7 @@ export function BookEditModal({
 
           {showPageField && (
             <div>
-              <FormLabel optional={intent !== "bookmark"}>
-                Página atual
-              </FormLabel>
+              <FormLabel optional>Página atual</FormLabel>
               <Input
                 type="number"
                 inputMode="numeric"

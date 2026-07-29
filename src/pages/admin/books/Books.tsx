@@ -15,7 +15,7 @@ import { deleteBook, fetchAllBooks } from "@/api/books";
 import type { Book, BookRatingFloor, BookStatus } from "@/types/books";
 import { BookCard } from "./components/BookCard";
 import { BookSearchModal } from "./components/BookSearchModal";
-import { BookEditModal } from "./components/BookEditModal";
+import { BookEditModal, type BookEditIntent } from "./components/BookEditModal";
 import { BookDetailDialog } from "./components/BookDetailDialog";
 import { BookShareDialog } from "./components/BookShareDialog";
 import Pagination from "../finance/components/Pagination";
@@ -71,6 +71,7 @@ export default function Books() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editIntent, setEditIntent] = useState<BookEditIntent | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
 
   const { toast } = useToast();
@@ -324,14 +325,36 @@ export default function Books() {
             book={selectedBook}
             open={isDetailOpen}
             onOpenChange={setIsDetailOpen}
-            onEdit={() => setIsEditOpen(true)}
+            onEdit={(intent) => {
+              setEditIntent(intent ?? null);
+              setIsEditOpen(true);
+            }}
             onShare={() => setIsShareOpen(true)}
             onDelete={() => void handleDeleteBook(selectedBook.google_id)}
+            onBookPatch={(patch) => {
+              const id = selectedBook.google_id;
+              setSelectedBook((prev) =>
+                prev ? { ...prev, ...patch } : prev
+              );
+              replace((prev) => {
+                const idx = prev.findIndex((b) => b.google_id === id);
+                if (idx >= 0) {
+                  return prev.map((b) =>
+                    b.google_id === id ? { ...b, ...patch } : b
+                  );
+                }
+                return [{ ...selectedBook, ...patch }, ...prev];
+              });
+            }}
           />
           <BookEditModal
             book={selectedBook}
             open={isEditOpen}
-            onOpenChange={setIsEditOpen}
+            onOpenChange={(open) => {
+              setIsEditOpen(open);
+              if (!open) setEditIntent(null);
+            }}
+            initialIntent={editIntent}
             onBookUpdated={async () => {
               await loadBooks();
             }}

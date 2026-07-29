@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Bell,
   BellOff,
@@ -50,6 +50,8 @@ type SeriesEpisodesPanelProps = {
   onMoviePatch?: (patch: Partial<Movie>) => void;
   /** Contagem de episódios assistidos — para atualizar o card sem F5. */
   onWatchedEpisodesChange?: (count: number) => void;
+  /** Ações quietas (ex.: Terminei / Abandonei) no topo, sob o progresso. */
+  lifecycleActions?: ReactNode;
 };
 
 function epKey(season: number, episode: number) {
@@ -73,6 +75,7 @@ export function SeriesEpisodesPanel({
   movie,
   onMoviePatch,
   onWatchedEpisodesChange,
+  lifecycleActions,
 }: SeriesEpisodesPanelProps) {
   const { toast } = useToast();
   const tmdbId = parseTmdbTvId(movie.imdb_id, movie.tmdb_tv_id);
@@ -422,6 +425,7 @@ export function SeriesEpisodesPanel({
               />
             </div>
           )}
+          {lifecycleActions}
         </div>
         <Button
           type="button"

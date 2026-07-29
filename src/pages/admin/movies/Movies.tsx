@@ -16,7 +16,7 @@ import { fetchWatchedEpisodeCounts } from "@/api/movieEpisodes";
 import { Movie, MovieListFilter, MovieTypeFilter } from "@/types/movies";
 import { MovieCard } from "./components/MovieCard";
 import { MovieSearchModal } from "./components/MovieSearchModal";
-import { MovieEditModal } from "./components/MovieEditModal";
+import { MovieEditModal, type MovieEditIntent } from "./components/MovieEditModal";
 import { MovieDetailDialog } from "./components/MovieDetailDialog";
 import { MovieShareDialog } from "./components/MovieShareDialog";
 import { MovieImportDialog } from "./components/MovieImportDialog";
@@ -78,6 +78,7 @@ export default function Movies() {
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editIntent, setEditIntent] = useState<MovieEditIntent | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
 
   const { toast } = useToast();
@@ -348,7 +349,10 @@ export default function Movies() {
             movie={selectedMovie}
             open={isDetailOpen}
             onOpenChange={setIsDetailOpen}
-            onEdit={() => setIsEditOpen(true)}
+            onEdit={(intent) => {
+              setEditIntent(intent ?? null);
+              setIsEditOpen(true);
+            }}
             onShare={() => setIsShareOpen(true)}
             onDelete={() => void handleDeleteMovie(selectedMovie.imdb_id)}
             onMoviePatch={(patch) => {
@@ -376,7 +380,11 @@ export default function Movies() {
           <MovieEditModal
             movie={selectedMovie}
             open={isEditOpen}
-            onOpenChange={setIsEditOpen}
+            onOpenChange={(open) => {
+              setIsEditOpen(open);
+              if (!open) setEditIntent(null);
+            }}
+            initialIntent={editIntent}
             onMovieUpdated={async () => {
               await loadMovies();
             }}
