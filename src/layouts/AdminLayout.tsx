@@ -117,21 +117,32 @@ export default function AdminLayout() {
   // Pré-carrega chunks de Entretenimento para troca Cinema↔Livros↔Música sem flash.
   useEffect(() => {
     if (!hasAccess) return
-    const idle =
-      typeof window !== "undefined" && "requestIdleCallback" in window
-        ? window.requestIdleCallback
-        : (cb: () => void) => window.setTimeout(cb, 300)
-    const id = idle(() => {
+
+    let cancelled = false
+    const prefetch = () => {
+      if (cancelled) return
       void import("@/pages/admin/movies/Movies")
       void import("@/pages/admin/books/Books")
       void import("@/pages/admin/music/Music")
-    })
+    }
+
+    let idleId: number | undefined
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(prefetch)
+    } else {
+      timeoutId = setTimeout(prefetch, 300)
+    }
+
     return () => {
-      if (typeof window !== "undefined" && "cancelIdleCallback" in window) {
-        window.cancelIdleCallback(id as number)
-      } else {
-        window.clearTimeout(id as number)
+      cancelled = true
+      if (
+        idleId != null &&
+        typeof window.cancelIdleCallback === "function"
+      ) {
+        window.cancelIdleCallback(idleId)
       }
+      if (timeoutId != null) clearTimeout(timeoutId)
     }
   }, [hasAccess])
 
