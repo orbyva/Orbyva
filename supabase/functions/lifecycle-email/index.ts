@@ -1,5 +1,6 @@
 /**
- * Cron diário: welcome, trial ending/expired, onboarding nudge, alertas (opt-in).
+ * Cron diário: welcome (fallback), trial ending/expired, onboarding nudge, alertas (opt-in).
+ * Welcome preferencial: Edge Function `welcome-email` no primeiro acesso.
  * Auth: Authorization: Bearer <CRON_SECRET>
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -14,6 +15,10 @@ import {
   emailShell,
   firstNameFromEmail,
 } from "../_shared/emailHtml.ts";
+import {
+  WELCOME_EMAIL_SUBJECT,
+  welcomeEmailHtml,
+} from "../_shared/welcomeEmail.ts";
 
 type Candidate = {
   user_id: string;
@@ -37,7 +42,7 @@ const KIND_META: Record<
 > = {
   welcome: {
     sentCol: "welcome_email_sent_at",
-    subject: () => "Bem-vindo ao Orbyva — 7 dias pra organizar o mês",
+    subject: () => WELCOME_EMAIL_SUBJECT,
   },
   trial_ending: {
     sentCol: "trial_ending_email_sent_at",
@@ -66,18 +71,7 @@ function contentFor(
   const greet = firstName ? `Oi, ${firstName}` : "Oi";
   switch (kind) {
     case "welcome":
-      return emailShell({
-        eyebrow: "Orbyva · Boas-vindas",
-        title: `${greet} — sua órbita começou`,
-        bodyHtml: `<p style="margin:0;">Você tem 7 dias com tudo liberado. O caminho mais curto:</p>
-          <ol style="margin:12px 0 0;padding-left:18px;color:#d4d4d8;">
-            <li>Lance a primeira despesa</li>
-            <li>Defina o teto do orçamento</li>
-            <li>Olhe as parcelas do mês</li>
-          </ol>`,
-        ctaLabel: "Abrir o hub",
-        ctaUrl: `${siteUrl}/home`,
-      });
+      return welcomeEmailHtml(siteUrl, firstName);
     case "trial_ending":
       return emailShell({
         eyebrow: "Orbyva · Teste",

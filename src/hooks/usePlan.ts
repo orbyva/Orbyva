@@ -9,6 +9,7 @@ import {
   type PlanId,
 } from "@/lib/plan";
 import { maybeTrackRetentionD7 } from "@/lib/retention";
+import { maybeRequestWelcomeEmail } from "@/lib/welcomeEmail";
 
 export function usePlan() {
   const { user } = useAuth();
@@ -35,6 +36,7 @@ export function usePlan() {
       setProfile(next);
       hasProfileRef.current = true;
       void touchLastSeen();
+      maybeRequestWelcomeEmail(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao carregar plano");
       // Não resetar trial com now() — usa created_at do auth se já houver perfil em memória

@@ -17,10 +17,11 @@ export interface UserProfile {
   email_digest_enabled?: boolean;
   email_alerts_enabled?: boolean;
   email_habit_reminder_enabled?: boolean;
+  welcome_email_sent_at?: string | null;
 }
 
 const PROFILE_SELECT =
-  "id, plan, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, created_at, email_unsubscribed_at, email_digest_enabled, email_alerts_enabled, email_habit_reminder_enabled";
+  "id, plan, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, created_at, email_unsubscribed_at, email_digest_enabled, email_alerts_enabled, email_habit_reminder_enabled, welcome_email_sent_at";
 
 const LAST_SEEN_CLIENT_KEY = "orbyva_last_seen_touch_v1";
 

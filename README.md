@@ -262,7 +262,8 @@ Assinatura mensal BR: **cartão** (PIX não cobre recorrência no Checkout).
 | Função | Uso |
 |--------|-----|
 | `auth-send-email` | Confirmação, magic link, reset (Auth Hook + Resend) |
-| `lifecycle-email` | Welcome, trial, nudges (cron + `CRON_SECRET`) |
+| `welcome-email` | Welcome no primeiro acesso (JWT do usuário) |
+| `lifecycle-email` | Welcome (fallback), trial, nudges (cron + `CRON_SECRET`) |
 | `retention-d7-email` | Retorno D7 |
 | `weekly-digest-email` | Digest semanal |
 | `habit-reminder-email` / `trip-invite-email` / `waitlist-email` | Produto / growth |
