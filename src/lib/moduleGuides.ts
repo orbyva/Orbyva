@@ -107,8 +107,8 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
         body: "Registre o valor atual quando avançar. A barra mostra quanto falta até o alvo.",
       },
       {
-        title: "Metas financeiras ↔ saldo + investimento",
-        body: "Destinar valor = aporte avulso no tipo Investimento. Rotina em Parcelas: você informa o valor planejado por mês; o app calcula a falta atual da meta e cria as parcelas (falta ÷ aporte). Com prazo, o valor mensal vem sugerido.",
+        title: "Metas financeiras ↔ saldo + tipo Meta",
+        body: "Destinar valor = aporte avulso (natureza Investimento → tipo Meta → classe = nome da meta). Rotina em Parcelas: você informa o valor planejado por mês; o app calcula a falta atual da meta e cria as parcelas (falta ÷ aporte). Com prazo, o valor mensal vem sugerido.",
       },
     ],
   },

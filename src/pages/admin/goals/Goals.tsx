@@ -58,7 +58,7 @@ import {
   maxGoalApplyAmount,
   resolveSyncedGoalProgress,
 } from "@/domain/goals/finance";
-import { ensureGoalInvestimentoClass } from "@/domain/goals/poupanca";
+import { ensureGoalMetaClass } from "@/domain/goals/poupanca";
 import type { GoalCategory, PersonalGoal, PersonalGoalCreateRequest } from "@/types/goals";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -214,7 +214,7 @@ export default function Goals() {
 
     setDestinarBusy(true);
     try {
-      const classId = await ensureGoalInvestimentoClass(destinarGoal.title);
+      const classId = await ensureGoalMetaClass(destinarGoal.title);
       const label = goalMetaClassName(destinarGoal.title);
       const result = await createTransactionApi({
         class_id: classId,
@@ -234,7 +234,7 @@ export default function Goals() {
         title: result.queued
           ? "Aporte enfileirado (offline)"
           : "Aporte destinado à meta",
-        description: `${formatBRL(amount)} em Investimento + progresso atualizado. Saldo restante estimado: ${formatBRL(Math.max(0, monthSurplus - amount))}.`,
+        description: `${formatBRL(amount)} em Meta · ${destinarGoal.title.trim()}. Saldo restante estimado: ${formatBRL(Math.max(0, monthSurplus - amount))}.`,
         duration: 3500,
       });
       setDestinarGoal(null);
@@ -263,7 +263,7 @@ export default function Goals() {
         toast({
           title: "Nenhum aporte no ledger",
           description:
-            "Não achei lançamentos Meta/Investimento desta meta — o progresso foi mantido.",
+            "Não achei lançamentos desta meta no ledger — o progresso foi mantido.",
           duration: 3200,
         });
         return;
@@ -332,7 +332,7 @@ export default function Goals() {
 
     setPoupancaBusy(true);
     try {
-      const classId = await ensureGoalInvestimentoClass(poupancaGoal.title);
+      const classId = await ensureGoalMetaClass(poupancaGoal.title);
       const prefix = goalMetaClassName(poupancaGoal.title);
       const existing = await fetchRecurringTransactions();
       const already = existing.find(
@@ -364,7 +364,7 @@ export default function Goals() {
 
       toast({
         title: "Rotina de investimento criada",
-        description: `${formatBRL(monthly)} × ${months} em Parcelas (tipo Investimento — fora do gasto).`,
+        description: `${formatBRL(monthly)} × ${months} em Parcelas (tipo Meta · ${poupancaGoal.title.trim()}).`,
         duration: 3500,
       });
       setPoupancaGoal(null);
@@ -537,7 +537,7 @@ export default function Goals() {
                           onClick={() => openRoutine(goal)}
                         >
                           <Repeat className="mr-1 h-3 w-3" />
-                          Rotina em Parcelas (investimento)
+                          Rotina em Parcelas (meta)
                         </Button>
                       ) : null}
                       <Button
@@ -682,9 +682,14 @@ export default function Goals() {
           {destinarGoal && destinarFit ? (
             <div className={FORM_FIELDS_CLASS}>
               <p className="text-sm text-muted-foreground">
-                Lança um aporte no tipo{" "}
-                <span className="font-medium text-foreground">Investimento</span>{" "}
-                (classe{" "}
+                Lança um aporte na natureza{" "}
+                <span className="font-medium text-foreground">Investimento</span>
+                , tipo{" "}
+                <span className="font-medium text-foreground">Meta</span>, classe{" "}
+                <span className="font-medium text-foreground">
+                  {destinarGoal.title.trim()}
+                </span>{" "}
+                (descrição{" "}
                 <span className="font-medium text-foreground">
                   {goalMetaClassName(destinarGoal.title)}
                 </span>
@@ -751,7 +756,7 @@ export default function Goals() {
       >
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
           <DialogHeader>
-            <DialogTitle>Rotina em Parcelas (Investimento)</DialogTitle>
+            <DialogTitle>Rotina em Parcelas (Meta)</DialogTitle>
           </DialogHeader>
           {poupancaGoal && routineDraft ? (
             <div className={FORM_FIELDS_CLASS}>
@@ -760,7 +765,8 @@ export default function Goals() {
                 <span className="font-medium text-foreground">
                   falta atual da meta ({formatBRL(routineDraft.remaining)})
                 </span>{" "}
-                para calcular quantas parcelas criar no tipo Investimento (
+                para calcular quantas parcelas criar no tipo Meta ·{" "}
+                {poupancaGoal.title.trim()} (descrição{" "}
                 {goalMetaClassName(poupancaGoal.title)}).
               </p>
               <div>

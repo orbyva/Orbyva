@@ -4,8 +4,11 @@ export const NATURE_RECEITA = "Receita";
 export const NATURE_DESPESA = "Despesa";
 export const NATURE_INVESTIMENTO = "Investimento";
 
-/** Tipo no ledger sob a natureza Investimento (aportes de meta). */
+/** Tipo legado de aporte (ainda pode existir no ledger). */
 export const INVESTIMENTO_TYPE_NAME = "Investimento";
+
+/** Tipo atual dos aportes de meta (sob natureza Investimento). */
+export const META_TYPE_NAME = "Meta";
 
 /** @deprecated prefer INVESTIMENTO_TYPE_NAME */
 export const POUPANCA_TYPE_NAME = "Poupança";

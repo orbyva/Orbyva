@@ -40,9 +40,19 @@ export function goalAporteDescription(title: string): string {
   return `Aporte meta: ${title.trim()}`;
 }
 
-/** Classe no tipo Investimento: `Meta - {título}`. */
-export function goalMetaClassName(title: string): string {
+/** Descrição do lançamento: `Meta - {título}`. */
+export function goalMetaDescription(title: string): string {
   return `Meta - ${title.trim()}`;
+}
+
+/** Classe sob o tipo Meta: só o título (ex.: Viajar). */
+export function goalClassName(title: string): string {
+  return title.trim();
+}
+
+/** @deprecated use goalMetaDescription — era o nome da classe. */
+export function goalMetaClassName(title: string): string {
+  return goalMetaDescription(title);
 }
 
 export function matchesGoalAporte(
@@ -52,7 +62,7 @@ export function matchesGoalAporte(
   if (!description) return false;
   const d = description.trim().toLowerCase();
   const legacy = goalAporteDescription(title).toLowerCase();
-  const meta = goalMetaClassName(title).toLowerCase();
+  const meta = goalMetaDescription(title).toLowerCase();
   return d.startsWith(legacy) || d === meta || d.startsWith(`${meta} `);
 }
 
@@ -61,9 +71,10 @@ export function matchesGoalMetaClass(
   title: string
 ): boolean {
   if (!className) return false;
-  return (
-    className.trim().toLowerCase() === goalMetaClassName(title).toLowerCase()
-  );
+  const c = className.trim().toLowerCase();
+  const t = title.trim().toLowerCase();
+  // Novo: classe = título. Legado: classe = `Meta - título`.
+  return c === t || c === goalMetaDescription(title).toLowerCase();
 }
 
 function rowClassName(

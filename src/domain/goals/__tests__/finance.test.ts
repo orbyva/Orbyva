@@ -57,7 +57,7 @@ describe("goal aporte ledger (legado)", () => {
     expect(goalAporteDescription(" Reserva ")).toBe("Aporte meta: Reserva");
   });
 
-  it("monta classe Meta - título", () => {
+  it("monta descrição Meta - título", () => {
     expect(goalMetaClassName(" Reserva de emergência ")).toBe(
       "Meta - Reserva de emergência"
     );
@@ -74,18 +74,25 @@ describe("goal aporte ledger (legado)", () => {
             value: 300,
             class: { name: "Meta - Reserva" },
           },
+          {
+            description: "Meta - Reserva",
+            value: 100,
+            class: { name: "Reserva" },
+          },
           { description: "Outro", value: 999 },
         ],
         "Reserva"
       )
-    ).toBe(1300);
+    ).toBe(1400);
   });
 
-  it("reconhece prefixo e classe Meta", () => {
+  it("reconhece prefixo e classe Meta (nova e legado)", () => {
     expect(matchesGoalAporte("Aporte meta: Reserva", "Reserva")).toBe(true);
     expect(matchesGoalAporte("Meta - Reserva", "Reserva")).toBe(true);
     expect(matchesGoalAporte("Mercado", "Reserva")).toBe(false);
     expect(matchesGoalMetaClass("Meta - Reserva", "Reserva")).toBe(true);
+    expect(matchesGoalMetaClass("Reserva", "Reserva")).toBe(true);
+    expect(matchesGoalMetaClass("Outra", "Reserva")).toBe(false);
   });
 
   it("aceita class como array (embed supabase)", () => {

@@ -13,7 +13,7 @@ import type {
   PersonalGoalUpdateRequest,
 } from "@/types/goals";
 
-/** Soma lançamentos da meta (classe `Meta - …` ou descrição legado). */
+/** Soma lançamentos da meta (classe = título, ou `Meta - …` / descrição legado). */
 export async function sumGoalAporteFromLedger(
   goalTitle: string
 ): Promise<number> {
