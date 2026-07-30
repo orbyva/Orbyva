@@ -22,6 +22,7 @@ import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { EntertainmentInsightsStrip } from "@/components/EntertainmentInsightsStrip";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { getErrorMessage } from "@/lib/errors";
 import { createMemoryCache } from "@/lib/memoryCache";
@@ -31,8 +32,9 @@ import {
   collectBookCategories,
   filterBooksByMeta,
   formatBookRating,
+  getBookLibraryStats,
   getLatestReadDate,
-  getReadBooksStats,
+  pickRandomToReadBook,
 } from "@/domain/books";
 
 const booksCatalogCache = createMemoryCache<Book[]>();
@@ -92,7 +94,23 @@ export default function Books() {
     [statusBooks]
   );
   const authors = useMemo(() => collectBookAuthors(statusBooks), [statusBooks]);
-  const readStats = useMemo(() => getReadBooksStats(statusBooks), [statusBooks]);
+  const libraryStats = useMemo(
+    () => getBookLibraryStats(allBooks),
+    [allBooks]
+  );
+
+  const insightStats = useMemo(() => {
+    const pages =
+      libraryStats.pagesRead >= 1000
+        ? `${(libraryStats.pagesRead / 1000).toFixed(libraryStats.pagesRead % 1000 === 0 ? 0 : 1).replace(".", ",")} mil`
+        : libraryStats.pagesRead;
+    return [
+      { label: "lidos", value: libraryStats.read },
+      { label: "páginas", value: pages },
+      { label: "este ano", value: libraryStats.thisYear },
+      { label: "na lista", value: libraryStats.toRead },
+    ];
+  }, [libraryStats]);
 
   const filteredBooks = useMemo(() => {
     const byMeta = filterBooksByMeta(statusBooks, {
@@ -167,9 +185,22 @@ export default function Books() {
     setIsDetailOpen(true);
   }
 
+  function handleSurprise() {
+    const pick = pickRandomToReadBook(allBooks);
+    if (!pick) {
+      toast({
+        title: "Lista vazia",
+        description: "Adicione livros em Para ler para surpreender.",
+        duration: 2500,
+      });
+      return;
+    }
+    openDetail(pick);
+  }
+
   const description =
-    filter === "read" && readStats.avgRating != null
-      ? `Lista de leitura e opiniões · média ${formatBookRating(readStats.avgRating)}/10 em ${readStats.rated} livro${readStats.rated === 1 ? "" : "s"}`
+    libraryStats.avgRating != null
+      ? `Lista de leitura e opiniões · média ${formatBookRating(libraryStats.avgRating)}/10 em ${libraryStats.rated} livro${libraryStats.rated === 1 ? "" : "s"}`
       : "Lista de leitura, opiniões e histórico.";
 
   const hasClientFilters =
@@ -190,6 +221,10 @@ export default function Books() {
       }
     >
       <ModuleGuide moduleId="books" />
+      <EntertainmentInsightsStrip
+        stats={insightStats}
+        onSurprise={handleSurprise}
+      />
       <section className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-md">

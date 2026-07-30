@@ -22,6 +22,7 @@ import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { EntertainmentInsightsStrip } from "@/components/EntertainmentInsightsStrip";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { getErrorMessage } from "@/lib/errors";
 import { createMemoryCache } from "@/lib/memoryCache";
@@ -32,8 +33,9 @@ import {
   collectAlbumTypes,
   filterAlbumsByMeta,
   formatAlbumRating,
+  getAlbumLibraryStats,
   getLatestListenedDate,
-  getListenedAlbumsStats,
+  pickRandomToListenAlbum,
 } from "@/domain/music";
 
 const albumsCatalogCache = createMemoryCache<Album[]>();
@@ -90,9 +92,19 @@ export default function Music() {
     [statusAlbums]
   );
   const types = useMemo(() => collectAlbumTypes(statusAlbums), [statusAlbums]);
-  const listenedStats = useMemo(
-    () => getListenedAlbumsStats(statusAlbums),
-    [statusAlbums]
+  const libraryStats = useMemo(
+    () => getAlbumLibraryStats(allAlbums),
+    [allAlbums]
+  );
+
+  const insightStats = useMemo(
+    () => [
+      { label: "ouvidos", value: libraryStats.listened },
+      { label: "este ano", value: libraryStats.thisYear },
+      { label: "na fila", value: libraryStats.toListen },
+      { label: "favoritos", value: libraryStats.favorites },
+    ],
+    [libraryStats]
   );
 
   const filtered = useMemo(() => {
@@ -157,9 +169,27 @@ export default function Music() {
     }
   }
 
+  function openDetail(album: Album) {
+    setSelected(album);
+    setIsDetailOpen(true);
+  }
+
+  function handleSurprise() {
+    const pick = pickRandomToListenAlbum(allAlbums);
+    if (!pick) {
+      toast({
+        title: "Fila vazia",
+        description: "Adicione álbuns em Para ouvir para surpreender.",
+        duration: 2500,
+      });
+      return;
+    }
+    openDetail(pick);
+  }
+
   const description =
-    filter === "listened" && listenedStats.avgRating != null
-      ? `Álbuns e opiniões · média ${formatAlbumRating(listenedStats.avgRating)}/10 em ${listenedStats.rated} álbum${listenedStats.rated === 1 ? "" : "s"}`
+    libraryStats.avgRating != null
+      ? `Álbuns e opiniões · média ${formatAlbumRating(libraryStats.avgRating)}/10 em ${libraryStats.rated} álbum${libraryStats.rated === 1 ? "" : "s"}`
       : "Álbuns, EPs e o que você ouviu.";
 
   const hasFilters =
@@ -180,6 +210,10 @@ export default function Music() {
       }
     >
       <ModuleGuide moduleId="music" />
+      <EntertainmentInsightsStrip
+        stats={insightStats}
+        onSurprise={handleSurprise}
+      />
       <section className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-md">

@@ -4,6 +4,11 @@ import type {
   AlbumStatus,
   AlbumType,
 } from "@/types/music";
+import {
+  datesTouchYear,
+  isEntertainmentFavorite,
+  pickRandomItem,
+} from "@/domain/entertainment/insights";
 
 export const ALBUM_STATUS_LABELS: Record<AlbumStatus, string> = {
   to_listen: "Para ouvir",
@@ -214,6 +219,49 @@ export function getListenedAlbumsStats(albums: Album[]): {
     avgRating: Math.round((sum / rated.length) * 10) / 10,
     rated: rated.length,
   };
+}
+
+export type AlbumLibraryStats = {
+  listened: number;
+  toListen: number;
+  favorites: number;
+  thisYear: number;
+  rated: number;
+  avgRating: number | null;
+};
+
+/** Agrega a biblioteca completa (todas as abas). */
+export function getAlbumLibraryStats(
+  albums: Album[],
+  year = new Date().getFullYear()
+): AlbumLibraryStats {
+  const listened = albums.filter((a) => a.status === "listened");
+  const rated = listened.filter((a) => a.rating != null && a.rating > 0);
+  const avgRating =
+    rated.length === 0
+      ? null
+      : Math.round(
+          (rated.reduce((s, a) => s + (a.rating ?? 0), 0) / rated.length) * 10
+        ) / 10;
+
+  return {
+    listened: listened.length,
+    toListen: albums.filter((a) => a.status === "to_listen").length,
+    favorites: listened.filter((a) => isEntertainmentFavorite(a)).length,
+    thisYear: listened.filter((a) =>
+      datesTouchYear(a.listened_dates, year)
+    ).length,
+    rated: rated.length,
+    avgRating,
+  };
+}
+
+export function pickRandomAlbum(albums: Album[]): Album | null {
+  return pickRandomItem(albums);
+}
+
+export function pickRandomToListenAlbum(albums: Album[]): Album | null {
+  return pickRandomItem(albums.filter((a) => a.status === "to_listen"));
 }
 
 export function newManualAlbumId(): string {

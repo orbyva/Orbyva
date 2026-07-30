@@ -24,6 +24,7 @@ import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { EntertainmentInsightsStrip } from "@/components/EntertainmentInsightsStrip";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { getErrorMessage } from "@/lib/errors";
 import { createMemoryCache } from "@/lib/memoryCache";
@@ -33,8 +34,9 @@ import {
   filterMoviesByGenreAndRating,
   filterMoviesByType,
   formatMovieRating,
+  getCinemaLibraryStats,
   getLatestWatchedDate,
-  getWatchedMoviesStats,
+  pickRandomToWatchMovie,
   type MovieRatingFloor,
 } from "@/domain/movies";
 
@@ -98,9 +100,19 @@ export default function Movies() {
     () => collectMovieGenres(statusMovies),
     [statusMovies]
   );
-  const watchedStats = useMemo(
-    () => getWatchedMoviesStats(statusMovies),
-    [statusMovies]
+  const libraryStats = useMemo(
+    () => getCinemaLibraryStats(allMovies),
+    [allMovies]
+  );
+
+  const insightStats = useMemo(
+    () => [
+      { label: "assistidos", value: libraryStats.watched },
+      { label: "este ano", value: libraryStats.thisYear },
+      { label: "na lista", value: libraryStats.toWatch },
+      { label: "favoritos", value: libraryStats.favorites },
+    ],
+    [libraryStats]
   );
 
   const filteredMovies = useMemo(() => {
@@ -195,9 +207,22 @@ export default function Movies() {
     setIsDetailOpen(true);
   }
 
+  function handleSurprise() {
+    const pick = pickRandomToWatchMovie(allMovies);
+    if (!pick) {
+      toast({
+        title: "Lista vazia",
+        description: "Adicione títulos em Para assistir para surpreender.",
+        duration: 2500,
+      });
+      return;
+    }
+    openDetail(pick);
+  }
+
   const description =
-    filter === "watched" && watchedStats.avgRating != null
-      ? `Watchlist, opiniões e histórico · média ${formatMovieRating(watchedStats.avgRating)}/10 em ${watchedStats.rated} título${watchedStats.rated === 1 ? "" : "s"}`
+    libraryStats.avgRating != null
+      ? `Watchlist, opiniões e histórico · média ${formatMovieRating(libraryStats.avgRating)}/10 em ${libraryStats.rated} título${libraryStats.rated === 1 ? "" : "s"}`
       : "Watchlist, opiniões e histórico.";
 
   const hasClientFilters =
@@ -216,6 +241,10 @@ export default function Movies() {
       }
     >
       <ModuleGuide moduleId="movies" />
+      <EntertainmentInsightsStrip
+        stats={insightStats}
+        onSurprise={handleSurprise}
+      />
       <section className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-md">

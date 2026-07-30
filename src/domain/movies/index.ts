@@ -1,5 +1,10 @@
 import type { Movie, MovieMediaType, MovieTypeFilter } from "@/types/movies";
 import { MovieStatus } from "@/types/movies";
+import {
+  datesTouchYear,
+  isEntertainmentFavorite,
+  pickRandomItem,
+} from "@/domain/entertainment/insights";
 
 export const MOVIE_STATUS_LABELS: Record<MovieStatus, string> = {
   [MovieStatus.TO_WATCH]: "Para assistir",
@@ -185,6 +190,58 @@ export function getWatchedMoviesStats(
           (rated.reduce((s, m) => s + (m.rating ?? 0), 0) / rated.length) * 10
         ) / 10;
   return { watched: watched.length, rated: rated.length, avgRating };
+}
+
+export type CinemaLibraryStats = {
+  watched: number;
+  toWatch: number;
+  watching: number;
+  abandoned: number;
+  favorites: number;
+  thisYear: number;
+  rated: number;
+  avgRating: number | null;
+};
+
+/** Agrega a biblioteca completa (todas as abas). */
+export function getCinemaLibraryStats(
+  movies: Movie[],
+  year = new Date().getFullYear()
+): CinemaLibraryStats {
+  const watched = movies.filter((m) => m.status === MovieStatus.WATCHED);
+  const rated = watched.filter((m) => m.rating != null && m.rating > 0);
+  const avgRating =
+    rated.length === 0
+      ? null
+      : Math.round(
+          (rated.reduce((s, m) => s + (m.rating ?? 0), 0) / rated.length) * 10
+        ) / 10;
+
+  return {
+    watched: watched.length,
+    toWatch: movies.filter((m) => m.status === MovieStatus.TO_WATCH).length,
+    watching: movies.filter((m) => m.status === MovieStatus.WATCHING).length,
+    abandoned: movies.filter((m) => m.status === MovieStatus.ABANDONED).length,
+    favorites: movies.filter(
+      (m) =>
+        m.status === MovieStatus.WATCHED && isEntertainmentFavorite(m)
+    ).length,
+    thisYear: watched.filter((m) =>
+      datesTouchYear(m.watched_dates, year)
+    ).length,
+    rated: rated.length,
+    avgRating,
+  };
+}
+
+export function pickRandomMovie(movies: Movie[]): Movie | null {
+  return pickRandomItem(movies);
+}
+
+export function pickRandomToWatchMovie(movies: Movie[]): Movie | null {
+  return pickRandomItem(
+    movies.filter((m) => m.status === MovieStatus.TO_WATCH)
+  );
 }
 
 /** Soma episode_count das temporadas TMDB (exclui especiais). */

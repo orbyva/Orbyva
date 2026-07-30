@@ -1,4 +1,9 @@
 import type { Book, BookRatingFloor, BookStatus } from "@/types/books";
+import {
+  datesTouchYear,
+  isEntertainmentFavorite,
+  pickRandomItem,
+} from "@/domain/entertainment/insights";
 
 export const BOOK_STATUS_LABELS: Record<BookStatus, string> = {
   to_read: "Para ler",
@@ -311,6 +316,56 @@ export function getReadBooksStats(books: Book[]): {
     avgRating: Math.round((sum / rated.length) * 10) / 10,
     rated: rated.length,
   };
+}
+
+export type BookLibraryStats = {
+  read: number;
+  toRead: number;
+  reading: number;
+  abandoned: number;
+  pagesRead: number;
+  favorites: number;
+  thisYear: number;
+  rated: number;
+  avgRating: number | null;
+};
+
+/** Agrega a biblioteca completa (todas as abas). */
+export function getBookLibraryStats(
+  books: Book[],
+  year = new Date().getFullYear()
+): BookLibraryStats {
+  const read = books.filter((b) => b.status === "read");
+  const rated = read.filter((b) => b.rating != null && b.rating > 0);
+  const avgRating =
+    rated.length === 0
+      ? null
+      : Math.round(
+          (rated.reduce((s, b) => s + (b.rating ?? 0), 0) / rated.length) * 10
+        ) / 10;
+
+  return {
+    read: read.length,
+    toRead: books.filter((b) => b.status === "to_read").length,
+    reading: books.filter((b) => b.status === "reading").length,
+    abandoned: books.filter((b) => b.status === "abandoned").length,
+    pagesRead: read.reduce(
+      (sum, b) => sum + (b.page_count != null && b.page_count > 0 ? b.page_count : 0),
+      0
+    ),
+    favorites: read.filter((b) => isEntertainmentFavorite(b)).length,
+    thisYear: read.filter((b) => datesTouchYear(b.read_dates, year)).length,
+    rated: rated.length,
+    avgRating,
+  };
+}
+
+export function pickRandomBook(books: Book[]): Book | null {
+  return pickRandomItem(books);
+}
+
+export function pickRandomToReadBook(books: Book[]): Book | null {
+  return pickRandomItem(books.filter((b) => b.status === "to_read"));
 }
 
 export function formatAuthors(authors: string[]): string {
