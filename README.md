@@ -241,7 +241,7 @@ npm run build
 npm run ci:local     # espelha o CI
 ```
 
-**E2E:** os specs marcam dados com `E2E…` e fazem **teardown** (apaga txs/parcelas `like E2E*`; restaura orçamento patchado). Ideal depois: conta dedicada (`E2E_EMAIL`), não a conta do dia a dia.
+**E2E:** os specs marcam dados com `E2E…` e fazem teardown por id (e restauram orçamento patchado). O sweep `description like E2E*` roda só no **global teardown** — não no cleanup por teste, para não apagar txs de specs paralelos na mesma conta. Ideal: conta dedicada (`E2E_EMAIL`).
 
 ---
 

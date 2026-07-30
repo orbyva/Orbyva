@@ -238,6 +238,7 @@ export function BookDetailDialog({
   const latest = getLatestReadDate(book.read_dates);
   const recommend = book.would_recommend !== false;
   const favorited = book.is_favorite === true;
+  const bookId = book.google_id;
 
   function openEdit(intent?: BookEditIntent) {
     onOpenChange(false);
@@ -250,7 +251,7 @@ export function BookDetailDialog({
     setFavoriteBusy(true);
     onBookPatch?.({ is_favorite: next });
     try {
-      await updateBook({ google_id: book.google_id, is_favorite: next });
+      await updateBook({ google_id: bookId, is_favorite: next });
     } catch (error) {
       onBookPatch?.({ is_favorite: favorited });
       toast({

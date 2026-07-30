@@ -68,11 +68,12 @@ export class E2eCleanup {
       }).catch(() => undefined);
     }
 
-    await sweepE2eByDescription(this.token);
+    // Sem sweep global aqui: apagar `E2E*` no meio da suíte (fullyParallel)
+    // remove txs de outros specs ainda rodando. Ver e2e/global-teardown.ts.
   }
 }
 
-/** Apaga txs/parcelas órfãs marcadas E2E* (inclui runs anteriores). */
+/** Apaga txs/parcelas órfãs marcadas E2E* (global teardown / manual). */
 export async function sweepE2eByDescription(token: string): Promise<void> {
   // PostgREST: * = wildcard
   await rest("transaction", token, {

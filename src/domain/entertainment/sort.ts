@@ -61,7 +61,7 @@ function compareRating(
 
 /** Nota usada na ordenação = mesma regra do badge do card. */
 function sortableMovieRating(movie: Movie): number | null {
-  if (movie.status === MovieStatus.WATCHED || movie.status === "watched") {
+  if (movie.status === MovieStatus.WATCHED) {
     const r = movie.rating == null ? null : Number(movie.rating);
     return r != null && !Number.isNaN(r) && r > 0 ? r : null;
   }
@@ -102,7 +102,7 @@ export function sortMoviesForStatus(
   status: MovieListFilter
 ): Movie[] {
   const copy = [...list];
-  if (status === MovieStatus.WATCHED || status === "watched") {
+  if (status === MovieStatus.WATCHED) {
     copy.sort((a, b) => {
       const da = getLatestWatchedDate(a.watched_dates) ?? "";
       const db = getLatestWatchedDate(b.watched_dates) ?? "";

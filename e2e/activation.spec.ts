@@ -89,11 +89,17 @@ test.describe("ativação completa", () => {
       });
 
       await page.goto("/finance/transactions");
+      await dismissOnboardingIfPresent(page);
+      const search = page.getByPlaceholder(/Buscar por descrição/i);
+      if (await search.isVisible().catch(() => false)) {
+        await search.fill(stamp);
+      }
       await expect(page.getByText(stamp).first()).toBeVisible({
         timeout: 20_000,
       });
 
       await page.goto("/finance/budget");
+      await dismissOnboardingIfPresent(page);
       await expect(page.locator("body")).toContainText(/Orçamento|Despesa|500/i);
     } finally {
       await cleanup.run();

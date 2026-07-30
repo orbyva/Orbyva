@@ -115,6 +115,7 @@ export function MovieDetailDialog({
   const recommend = movie.would_recommend !== false;
   const isSeries = movie.type === "series";
   const favorited = movie.is_favorite === true;
+  const movieId = movie.imdb_id;
 
   function openEdit(intent?: MovieEditIntent) {
     onOpenChange(false);
@@ -127,7 +128,7 @@ export function MovieDetailDialog({
     setFavoriteBusy(true);
     onMoviePatch?.({ is_favorite: next });
     try {
-      await updateMovie({ imdb_id: movie.imdb_id, is_favorite: next });
+      await updateMovie({ imdb_id: movieId, is_favorite: next });
     } catch (error) {
       onMoviePatch?.({ is_favorite: favorited });
       toast({
