@@ -1,19 +1,18 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { track } from "@/lib/analytics";
+import { fadeUp, staggerDelay } from "./landingMotion";
 
 /**
  * Depoimentos reais — preencha quando tiver (Fase I ops).
  * Enquanto vazio, a landing mostra sinais honestos de early access.
  */
-const TESTIMONIALS: { quote: string; name: string; role: string }[] = [
-  // Ex.: { quote: "…", name: "Ana", role: "Early access" },
-];
+const TESTIMONIALS: { quote: string; name: string; role: string }[] = [];
 
 const SOCIAL_SIGNALS = [
   {
     title: "Sem senha de banco",
-    body: "Você registra o que quiser. Sem Open Finance.",
+    body: "Você registra o que quiser. Sem conectar conta do banco.",
   },
   {
     title: "7 dias, tudo liberado",
@@ -31,15 +30,9 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
       id="prova"
       className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-24"
     >
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-40px" }}
-        transition={{ duration: 0.4 }}
-        className="mx-auto max-w-xl text-center"
-      >
-        <p className="text-sm font-medium text-sky-400/90">Prova</p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+      <motion.div {...fadeUp} className="mx-auto max-w-xl text-center">
+        <p className="font-display text-sm font-medium text-sky-400/90">Prova</p>
+        <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
           {TESTIMONIALS.length > 0
             ? "Quem já está na órbita"
             : "Early access — com as regras certas"}
@@ -59,7 +52,7 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.05, duration: 0.35 }}
+              transition={{ delay: staggerDelay(i), duration: 0.35 }}
               className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
             >
               <p className="text-sm leading-relaxed text-zinc-200">
@@ -78,8 +71,8 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.05, duration: 0.35 }}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center sm:text-left"
+              transition={{ delay: staggerDelay(i), duration: 0.35 }}
+              className="rounded-2xl border border-sky-400/15 bg-sky-500/[0.04] p-5 text-center sm:text-left"
             >
               <p className="text-sm font-medium text-zinc-100">{item.title}</p>
               <p className="mt-2 text-sm leading-relaxed text-zinc-500">

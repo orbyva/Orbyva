@@ -434,7 +434,7 @@ export default function Movies() {
             description={
               hasClientFilters
                 ? "Tente outro filtro ou termo de busca."
-                : "Adicione títulos ou importe do Letterboxd / TV Time."
+                : "Adicione títulos ou importe uma lista em CSV."
             }
             action={
               hasClientFilters ? undefined : (

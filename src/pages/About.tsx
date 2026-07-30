@@ -22,7 +22,7 @@ const MODULES = [
   },
   {
     title: "Cinema",
-    body: "Watchlist, notas e opinião — importe filmes e séries de outros sites e compartilhe o card nos Stories.",
+    body: "Watchlist, notas e opinião — importe filmes e séries de um CSV e compartilhe o card.",
   },
   {
     title: "Veículos",

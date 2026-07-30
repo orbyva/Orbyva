@@ -29,8 +29,8 @@ interface MovieImportDialogProps {
 }
 
 const SOURCE_LABEL: Record<ImportSource, string> = {
-  letterboxd: "Letterboxd",
-  tvtime: "TV Time",
+  letterboxd: "CSV com notas (0–5)",
+  tvtime: "CSV de filmes/séries",
   generic: "CSV genérico",
 };
 
@@ -137,7 +137,7 @@ export function MovieImportDialog({ onImported }: MovieImportDialogProps) {
 
         <div className={FORM_FIELDS_CLASS}>
           <p className="text-sm text-muted-foreground">
-            Aceita CSV do Letterboxd (diary/ratings), backups estilo TV Time ou
+            Aceita CSV exportado de outros serviços de cinema (diary/ratings) ou
             um CSV genérico com Title/Name, Year, Rating e Watched Date.
           </p>
 

@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { BRAND } from "@/lib/brand";
 import { LandingPhoneFrame } from "./LandingPhoneFrame";
+import { fadeUp, fadeUpSlow, staggerDelay } from "./landingMotion";
 
 /** Ganchos de conversão — 1 print = 1 tela real. */
 const MONEY_FEATURES = [
@@ -16,6 +17,7 @@ const MONEY_FEATURES = [
       "Aparece no hub junto com o saldo do ledger",
     ],
     src: "/marketing/orcamento.png",
+    detailSrc: "/marketing/orcamento-categorias.png",
     alt: "Orçamento mensal: resultado, gasto e receita",
     reverse: false,
   },
@@ -30,6 +32,7 @@ const MONEY_FEATURES = [
       "Marque parcela a parcela — e veja no hub / timeline",
     ],
     src: "/marketing/parcelas.png",
+    detailSrc: "/marketing/parcelas-lista.png",
     alt: "Recorrências com alertas de atrasadas e próximas",
     reverse: true,
   },
@@ -64,7 +67,7 @@ const LIFE_MODULES = [
   {
     id: "cinema",
     label: "Cinema",
-    body: "Watchlist, notas e card para Stories. Importe de outros sites.",
+    body: "Watchlist, notas e card para compartilhar. Importe uma lista em CSV.",
     src: "/marketing/cinema.png",
   },
   {
@@ -78,20 +81,15 @@ const LIFE_MODULES = [
 export function LandingFeatures() {
   return (
     <>
-      {/* Controle = o que faz pagar */}
       <section
         id="controle"
         className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-28"
       >
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.4 }}
-          className="max-w-xl"
-        >
-          <p className="text-sm font-medium text-sky-400/90">Controle do mês</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+        <motion.div {...fadeUp} className="max-w-xl">
+          <p className="font-display text-sm font-medium text-sky-400/90">
+            Controle do mês
+          </p>
+          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
             O que faz alguém assinar
           </h2>
           <p className="mt-3 text-zinc-400">
@@ -103,17 +101,14 @@ export function LandingFeatures() {
           {MONEY_FEATURES.map((feat) => (
             <motion.div
               key={feat.id}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.45 }}
+              {...fadeUpSlow}
               className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16"
             >
               <div className={feat.reverse ? "lg:order-2" : "lg:order-1"}>
                 <p className="text-sm font-medium text-sky-400/80">
                   {feat.eyebrow}
                 </p>
-                <h3 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+                <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
                   {feat.title}
                 </h3>
                 <p className="mt-3 max-w-md text-base leading-relaxed text-zinc-400">
@@ -132,27 +127,31 @@ export function LandingFeatures() {
                 </ul>
               </div>
               <div
-                className={`mx-auto w-full max-w-[280px] ${
+                className={`mx-auto flex w-full max-w-[280px] flex-col items-center gap-4 sm:max-w-[420px] sm:flex-row sm:items-end sm:justify-center sm:gap-3 ${
                   feat.reverse ? "lg:order-1" : "lg:order-2"
                 }`}
               >
-                <LandingPhoneFrame src={feat.src} alt={feat.alt} />
+                <div className="hidden w-[48%] max-w-[200px] opacity-80 sm:block">
+                  <LandingPhoneFrame
+                    src={feat.detailSrc}
+                    alt={`${feat.eyebrow}: detalhe`}
+                  />
+                </div>
+                <div className="w-full max-w-[260px] sm:w-[58%] sm:max-w-[240px]">
+                  <LandingPhoneFrame src={feat.src} alt={feat.alt} />
+                </div>
               </div>
             </motion.div>
           ))}
         </div>
 
-        {/* Prova extra: dashboard finanças com alertas */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.4 }}
+          {...fadeUp}
           className="mt-20 grid items-center gap-10 border-t border-white/10 pt-16 lg:grid-cols-2 lg:gap-16"
         >
           <div>
             <p className="text-sm font-medium text-sky-400/80">Finanças</p>
-            <h3 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+            <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
               O mês inteiro, com alertas
             </h3>
             <p className="mt-3 max-w-md text-base leading-relaxed text-zinc-400">
@@ -160,34 +159,38 @@ export function LandingFeatures() {
               no dashboard. Compartilhe o mês ou exporte CSV.
             </p>
           </div>
-          <div className="mx-auto w-full max-w-[280px]">
-            <LandingPhoneFrame
-              src="/marketing/financas.png"
-              alt="Dashboard de Finanças com alertas de parcelas"
-            />
+          <div className="mx-auto flex w-full max-w-[280px] flex-col items-center gap-4 sm:max-w-[420px] sm:flex-row sm:items-end sm:justify-center sm:gap-3">
+            <div className="hidden w-[48%] max-w-[200px] opacity-80 sm:block">
+              <LandingPhoneFrame
+                src="/marketing/financas-charts.png"
+                alt="Gráficos de finanças no Orbyva"
+              />
+            </div>
+            <div className="w-full max-w-[260px] sm:w-[58%] sm:max-w-[240px]">
+              <LandingPhoneFrame
+                src="/marketing/financas.png"
+                alt="Dashboard de Finanças com alertas de parcelas"
+              />
+            </div>
           </div>
         </motion.div>
       </section>
 
-      {/* Life OS */}
       <section
         id="modulos"
         className="scroll-mt-20 border-t border-white/8 bg-gradient-to-b from-sky-500/[0.05] to-transparent"
       >
         <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-40px" }}
-            transition={{ duration: 0.4 }}
-            className="max-w-xl"
-          >
-            <p className="text-sm font-medium text-sky-400/90">Life OS</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-              O resto da vida, na mesma órbita
+          <motion.div {...fadeUp} className="max-w-xl">
+            <p className="font-display text-sm font-medium text-sky-400/90">
+              Life OS
+            </p>
+            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+              O que antes eram vários apps
             </h2>
             <p className="mt-3 text-zinc-400">
-              Liberado desde o dia 1. Sem trocar de app — e sem gate de tour.
+              Hábitos, metas, viagens, lugares, cinema e veículos — na mesma
+              órbita do ledger. Liberado desde o dia 1.
             </p>
           </motion.div>
 
@@ -199,10 +202,10 @@ export function LandingFeatures() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-30px" }}
                 transition={{
-                  delay: Math.min(i * 0.04, 0.2),
+                  delay: staggerDelay(i, 0.04),
                   duration: 0.4,
                 }}
-                className="mx-auto w-full max-w-[240px] space-y-3 sm:max-w-none"
+                className="mx-auto w-full max-w-[260px] space-y-3 sm:max-w-none"
               >
                 <LandingPhoneFrame
                   src={mod.src}

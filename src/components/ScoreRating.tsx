@@ -5,7 +5,7 @@ interface ScoreRatingProps {
   value: number | null;
   onChange?: (value: number | null) => void;
   readonly?: boolean;
-  /** Máximo da escala (padrão 10, estilo TV Time / IMDb). */
+  /** Máximo da escala (padrão 10). */
   max?: number;
   size?: "sm" | "md";
 }

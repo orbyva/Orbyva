@@ -7,10 +7,10 @@ export const BRAND = {
   /** Cunha de diferenciação (landing / marketing). */
   wedge: "Life OS com ledger",
   shortDescription:
-    "Orçamento, parcelas e livro-caixa — com hábitos, metas, viagens e cinema na mesma órbita.",
+    "O que você espalha em vários apps — orçamento, parcelas, hábitos, metas, viagens e cinema — numa só órbita.",
   /** Uma linha para o hero — prova + proposta (conversão). */
   heroSupport:
-    "Orçamento com teto, parcelas sob controle e o mês em clareza. Depois, hábitos, viagens, cinema e o restante do life OS — tudo liberado desde o primeiro dia.",
+    "Em vez de planilha + hábitos + cinema + viagem em apps separados: orçamento, parcelas e o resto da vida — tudo no Orbyva, desde o primeiro dia.",
   /** Assets em /public */
   logo: "/logo.webp",
   logoMark: "/logo-mark.webp",

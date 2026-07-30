@@ -2,6 +2,9 @@
 @import "@fontsource/plus-jakarta-sans/500.css";
 @import "@fontsource/plus-jakarta-sans/600.css";
 @import "@fontsource/plus-jakarta-sans/700.css";
+@import "@fontsource/syne/600.css";
+@import "@fontsource/syne/700.css";
+@import "@fontsource/syne/800.css";
 
 @tailwind base;
 @tailwind components;
@@ -229,6 +232,11 @@ textarea,
 }
 
 /* Hero da landing: CSS em vez de framer-motion no first paint */
+:root {
+  --landing-bg: #070b14;
+  --landing-accent: #0ea5e9;
+}
+
 @keyframes landing-fade-up {
   from {
     opacity: 0;
@@ -240,6 +248,12 @@ textarea,
   }
 }
 
+@keyframes landing-beam-dash {
+  to {
+    stroke-dashoffset: -120;
+  }
+}
+
 .landing-hero-copy {
   animation: landing-fade-up 0.5s ease-out both;
 }
@@ -248,9 +262,38 @@ textarea,
   animation: landing-fade-up 0.55s ease-out 0.12s both;
 }
 
+.landing-beam-path {
+  stroke-dasharray: 18 28;
+  stroke-dashoffset: 0;
+  animation: landing-beam-dash 14s linear infinite;
+}
+
+.landing-beam-path--b {
+  animation-duration: 18s;
+  animation-direction: reverse;
+}
+
+.landing-beam-path--c {
+  animation-duration: 22s;
+}
+
+.landing-beam-path--d {
+  animation-duration: 16s;
+  animation-direction: reverse;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-hero-copy,
   .landing-hero-visual {
     animation: none;
+  }
+
+  .landing-beam-path {
+    animation: none;
+    opacity: 0.35;
+  }
+
+  .landing-beams .landing-beam-path {
+    stroke-dasharray: none;
   }
 }

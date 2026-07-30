@@ -11,14 +11,14 @@ import { PLANS } from "@/lib/plan";
 const FAQS = [
   {
     q: "O que é o Orbyva?",
-    a: "O app do mês sob controle: orçamento, parcelas e livro-caixa — e hábitos, metas, viagens (inclusive compartilhadas), lugares, cinema e veículos na mesma órbita. Tudo liberado no primeiro acesso.",
+    a: "O app que junta o que você espalha em vários lugares: orçamento, parcelas e livro-caixa — e hábitos, metas, viagens, lugares, cinema e veículos na mesma órbita. Tudo liberado no primeiro acesso.",
   },
   {
     q: "Orçamento e parcelas são o quê, na prática?",
     a: "Orçamento: você define o teto e vê gasto vs. planejado por categoria. Parcelas: gerencia o que vence, o atrasado e o progresso do 12x — sem surpresa na fatura.",
   },
   {
-    q: "Precisa conectar banco ou Open Finance?",
+    q: "Precisa conectar conta do banco?",
     a: "Não. Você digita (ou importa CSV onde existir). Controle consciente: cada lançamento é seu.",
   },
   {
@@ -59,8 +59,8 @@ export function LandingFaq() {
     >
       <div className="mx-auto w-full max-w-3xl px-5 py-20 sm:px-8 sm:py-24">
         <div className="text-center">
-          <p className="text-sm font-medium text-sky-400/90">Dúvidas</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight">
+          <p className="font-display text-sm font-medium text-sky-400/90">Dúvidas</p>
+          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">
             Perguntas frequentes
           </h2>
         </div>

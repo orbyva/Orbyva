@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLANS } from "@/lib/plan";
 import { track } from "@/lib/analytics";
+import { fadeUp, staggerDelay } from "./landingMotion";
 
 /** Redução de risco — o que responde “e se eu não gostar?”. */
 const GUARANTEES = [
@@ -21,7 +22,7 @@ const GUARANTEES = [
   },
   {
     title: "Sem senha de banco",
-    body: "Nada de Open Finance: você registra o que quiser, do seu jeito.",
+    body: "Nada de conectar banco: você registra o que quiser, do seu jeito.",
   },
 ] as const;
 
@@ -40,15 +41,11 @@ export function LandingPricing({
         id="planos"
         className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-28"
       >
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.4 }}
-          className="mx-auto max-w-xl text-center"
-        >
-          <p className="text-sm font-medium text-sky-400/90">Planos</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+        <motion.div {...fadeUp} className="mx-auto max-w-xl text-center">
+          <p className="font-display text-sm font-medium text-sky-400/90">
+            Planos
+          </p>
+          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
             Teste tudo. Depois, Pro simples.
           </h2>
           <p className="mt-3 text-zinc-400">
@@ -56,19 +53,16 @@ export function LandingPricing({
           </p>
         </motion.div>
 
-        <div className="mx-auto mt-12 grid max-w-3xl gap-5 sm:grid-cols-2">
+        <div className="mx-auto mt-12 grid max-w-3xl gap-5 sm:grid-cols-2 sm:items-stretch">
           {([PLANS.free, PLANS.pro] as const).map((plan) => {
             const isPro = plan.id === "pro";
             return (
               <motion.div
                 key={plan.id}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4 }}
-                className={`relative rounded-2xl border p-6 sm:p-7 ${
+                {...fadeUp}
+                className={`relative flex flex-col rounded-2xl border p-6 sm:p-7 ${
                   isPro
-                    ? "border-sky-400/40 bg-sky-500/10"
+                    ? "border-sky-400/50 bg-sky-500/10 shadow-[0_0_40px_-12px_rgba(14,165,233,0.45)] sm:scale-[1.03]"
                     : "border-white/10 bg-white/[0.03]"
                 }`}
               >
@@ -78,13 +72,15 @@ export function LandingPricing({
                   </span>
                 ) : null}
                 <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="text-xl font-semibold">{plan.name}</h3>
+                  <h3 className="font-display text-xl font-semibold">
+                    {plan.name}
+                  </h3>
                   <span className="text-sm font-medium text-zinc-300">
                     {plan.priceLabel}
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-zinc-400">{plan.blurb}</p>
-                <ul className="mt-5 space-y-2.5">
+                <ul className="mt-5 flex-1 space-y-2.5">
                   {plan.features.map((f) => (
                     <li
                       key={f}
@@ -121,7 +117,6 @@ export function LandingPricing({
         </div>
       </section>
 
-      {/* Redução de risco */}
       <section className="mx-auto w-full max-w-6xl px-5 pb-8 sm:px-8">
         <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {GUARANTEES.map((item, i) => (
@@ -130,7 +125,7 @@ export function LandingPricing({
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.05, duration: 0.35 }}
+              transition={{ delay: staggerDelay(i), duration: 0.35 }}
               className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
             >
               <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">

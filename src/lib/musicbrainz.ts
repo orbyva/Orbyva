@@ -206,7 +206,7 @@ export async function searchMusicBrainz(
     signal,
   });
   if (!res.ok) {
-    throw new Error(`MusicBrainz: ${res.status} ${res.statusText}`);
+    throw new Error(`Catálogo: ${res.status} ${res.statusText}`);
   }
 
   const data = (await res.json()) as { "release-groups"?: MbReleaseGroup[] };
@@ -240,7 +240,7 @@ export async function fetchMusicBrainzAlbumMeta(
   });
   if (res.status === 404) return null;
   if (!res.ok) {
-    throw new Error(`MusicBrainz: ${res.status} ${res.statusText}`);
+    throw new Error(`Catálogo: ${res.status} ${res.statusText}`);
   }
 
   const rg = (await res.json()) as MbReleaseGroup;
@@ -272,7 +272,7 @@ export async function fetchMusicBrainzTracklist(
     signal,
   });
   if (!res.ok) {
-    throw new Error(`MusicBrainz: ${res.status} ${res.statusText}`);
+    throw new Error(`Catálogo: ${res.status} ${res.statusText}`);
   }
 
   const data = (await res.json()) as { releases?: MbRelease[] };

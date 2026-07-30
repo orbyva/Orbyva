@@ -170,7 +170,7 @@ export function MovieShareDialog({
           </Button>
 
           <p className="text-xs text-muted-foreground">
-            No celular, o menu do sistema sugere WhatsApp, Instagram e outros
+            No celular, o menu do sistema sugere apps de mensagem e redes sociais.
             apps — com o banner e a nota.
           </p>
         </div>

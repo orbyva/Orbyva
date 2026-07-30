@@ -26,7 +26,8 @@ export const PLANS = {
     features: [
       "Orçamento, parcelas e ledger sem prazo",
       "Life OS completo (hábitos, viagens, cinema…)",
-      "Export e privacidade (LGPD)",
+      "Alertas, PWA e export CSV",
+      "Privacidade (LGPD) e exclusão de conta",
       "Novidades do produto primeiro",
     ],
   },

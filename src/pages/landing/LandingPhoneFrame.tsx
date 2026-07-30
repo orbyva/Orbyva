@@ -26,7 +26,7 @@ export function LandingPhoneFrame({
           alt={alt}
           width={390}
           height={809}
-          className="aspect-[9/17] h-auto w-full object-cover object-top"
+          className="aspect-[9/19] h-auto w-full object-contain object-top"
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : undefined}
           decoding={priority ? "sync" : "async"}

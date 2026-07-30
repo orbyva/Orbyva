@@ -98,7 +98,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Compartilhe e avalie",
-        body: "Gere um card da viagem para Stories ou WhatsApp. No fim, avalie lugares visitados — eles entram no módulo Lugares.",
+        body: "Gere um card da viagem para compartilhar. No fim, avalie lugares visitados — eles entram no módulo Lugares.",
       },
     ],
   },
@@ -158,7 +158,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Compartilhe a opinião",
-        body: "Gere um card do lugar para mandar no WhatsApp ou Stories — com nota e o que você achou.",
+        body: "Gere um card do lugar para compartilhar — com nota e o que você achou.",
       },
       {
         title: "Vem das viagens também",
@@ -190,7 +190,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "movies",
     icon: Film,
     title: "Como funciona o Cinema",
-    hook: "Watchlist, assistindo, assistidos e abandonados — com nota e card para Stories.",
+    hook: "Watchlist, assistindo, assistidos e abandonados — com nota e card para compartilhar.",
     steps: [
       {
         title: "Monte a watchlist",
@@ -206,7 +206,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Compartilhe a opinião",
-        body: "Gere um card com poster e nota para Stories, WhatsApp ou onde quiser — sua opinião, do seu jeito.",
+        body: "Gere um card com poster e nota para compartilhar onde quiser — sua opinião, do seu jeito.",
       },
     ],
   },
@@ -230,7 +230,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Compartilhe a opinião",
-        body: "Nos lidos, gere um card com capa e nota para Stories ou WhatsApp.",
+        body: "Nos lidos, gere um card com capa e nota para compartilhar.",
       },
     ],
   },
@@ -254,7 +254,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Compartilhe a opinião",
-        body: "Gere um card com capa, nota e faixas avaliadas para Stories, WhatsApp ou onde preferir.",
+        body: "Gere um card com capa, nota e faixas avaliadas para compartilhar onde preferir.",
       },
     ],
   },
