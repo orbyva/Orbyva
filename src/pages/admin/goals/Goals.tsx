@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/DatePicker";
+import { formatLocalIsoDate } from "@/lib/dates";
 import { EmptyState } from "@/components/EmptyState";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
@@ -648,6 +649,7 @@ export default function Goals() {
               <div>
                 <FormLabel optional>Prazo</FormLabel>
                 <DatePicker
+                  clearable
                   date={
                     form.deadline
                       ? new Date(`${form.deadline}T12:00:00`)
@@ -656,7 +658,7 @@ export default function Goals() {
                   onSelect={(d) =>
                     setForm({
                       ...form,
-                      deadline: d ? d.toISOString().split("T")[0] : null,
+                      deadline: d ? formatLocalIsoDate(d) : null,
                     })
                   }
                 />

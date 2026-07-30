@@ -20,6 +20,7 @@ import { RecurringDueAlerts } from "./components/RecurringDueAlerts";
 import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
 import { toast } from "@/hooks/use-toast";
 import { PageShell } from "@/components/PageShell";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/errors";
@@ -203,18 +204,22 @@ export default function Recurring() {
       title="Recorrências"
       description="Gerencie receitas e despesas fixas do seu planejamento financeiro."
       actions={
-        <RecurringFormDialog
-          open={open}
-          setOpen={setOpen}
-          newRecurring={newRecurring}
-          setNewRecurring={setNewRecurring}
-          createRecurring={isEditing ? editRecurring : handleCreateRecurring}
-          isEditing={isEditing}
-          onClose={handleCloseForm}
-          dimensions={dimensions}
-        />
+        <>
+          <ModuleGuideButton moduleId="finance" />
+          <RecurringFormDialog
+            open={open}
+            setOpen={setOpen}
+            newRecurring={newRecurring}
+            setNewRecurring={setNewRecurring}
+            createRecurring={isEditing ? editRecurring : handleCreateRecurring}
+            isEditing={isEditing}
+            onClose={handleCloseForm}
+            dimensions={dimensions}
+          />
+        </>
       }
     >
+      <ModuleGuide moduleId="finance" />
       <RecurringSummary
         totalFixesReceivable={totalFixesReceivable}
         totalFixesPay={totalFixesPay}

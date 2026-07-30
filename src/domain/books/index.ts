@@ -1,7 +1,8 @@
 import type { Book, BookRatingFloor, BookStatus } from "@/types/books";
 import {
-  datesTouchYear,
+  activityTouchesYear,
   isEntertainmentFavorite,
+  normalizeEntertainmentDates,
   pickRandomItem,
 } from "@/domain/entertainment/insights";
 
@@ -193,9 +194,7 @@ export function normalizeBook(raw: Book): Book {
     authors: asStringList(raw.authors),
     categories: translateBookCategories(asStringList(raw.categories)),
     description,
-    read_dates: Array.isArray(raw.read_dates)
-      ? raw.read_dates.map((d) => String(d).slice(0, 10))
-      : [],
+    read_dates: normalizeEntertainmentDates(raw.read_dates),
     would_recommend: raw.would_recommend !== false,
   };
 }
@@ -354,7 +353,9 @@ export function getBookLibraryStats(
       0
     ),
     favorites: read.filter((b) => isEntertainmentFavorite(b)).length,
-    thisYear: read.filter((b) => datesTouchYear(b.read_dates, year)).length,
+    thisYear: read.filter((b) =>
+      activityTouchesYear(b.read_dates, year, b.created_at)
+    ).length,
     rated: rated.length,
     avgRating,
   };

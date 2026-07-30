@@ -17,6 +17,10 @@ import {
   formatArtists,
   getAlbumRatingLabel,
 } from "@/domain/music";
+import {
+  formatLocalIsoDate,
+  normalizeEntertainmentDates,
+} from "@/domain/entertainment/insights";
 import { getErrorMessage } from "@/lib/errors";
 import { Input } from "@/components/ui/input";
 
@@ -28,7 +32,7 @@ interface AlbumEditModalProps {
 }
 
 function normalizeDates(dates: Album["listened_dates"]): string[] {
-  return (dates ?? []).map((d) => String(d).slice(0, 10));
+  return normalizeEntertainmentDates(dates);
 }
 
 export function AlbumEditModal({
@@ -84,7 +88,7 @@ export function AlbumEditModal({
       }
 
       if (listenedDate) {
-        const nextDate = listenedDate.toISOString().split("T")[0];
+        const nextDate = formatLocalIsoDate(listenedDate);
         updateData.listened_dates = [
           ...normalizeDates(album.listened_dates),
           nextDate,

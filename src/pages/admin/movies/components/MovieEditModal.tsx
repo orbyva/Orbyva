@@ -20,6 +20,7 @@ import {
   getMovieRatingLabel,
   normalizeWatchedDates,
 } from "@/domain/movies";
+import { formatLocalIsoDate } from "@/domain/entertainment/insights";
 import { getErrorMessage } from "@/lib/errors";
 
 type EditIntent = "start" | "finish" | "abandon" | "resume";
@@ -96,7 +97,7 @@ export function MovieEditModal({
         updateData.would_recommend = wouldRecommend;
         updateData.status = MovieStatus.WATCHED;
         if (watchedDate) {
-          const nextDate = watchedDate.toISOString().split("T")[0];
+          const nextDate = formatLocalIsoDate(watchedDate);
           updateData.watched_dates = [
             ...normalizeWatchedDates(movie.watched_dates),
             nextDate,

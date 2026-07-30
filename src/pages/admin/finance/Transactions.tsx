@@ -4,6 +4,7 @@ import { RefreshCw, Loader2, Search } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
 import { PageShell } from "@/components/PageShell";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Pagination from "./components/Pagination";
@@ -212,6 +213,7 @@ export default function Transactions() {
       description="Registre, edite e acompanhe suas movimentações financeiras."
       actions={
         <>
+          <ModuleGuideButton moduleId="finance" />
           <Button
             onClick={refetchTransactions}
             variant="outline"
@@ -240,6 +242,7 @@ export default function Transactions() {
         </>
       }
     >
+      <ModuleGuide moduleId="finance" />
       <section className="space-y-3">
         {fromCache ? (
           <p className="text-xs text-muted-foreground">

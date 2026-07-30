@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
+import { formatLocalIsoDate } from "@/lib/dates";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
@@ -277,6 +278,7 @@ export function VehicleFormDialog({
           <div>
             <FormLabel optional>Data de compra</FormLabel>
             <DatePicker
+              clearable
               date={
                 form.purchase_date
                   ? new Date(`${form.purchase_date}T12:00:00`)
@@ -285,9 +287,7 @@ export function VehicleFormDialog({
               onSelect={(d) =>
                 setForm({
                   ...form,
-                  purchase_date: d
-                    ? d.toISOString().split("T")[0]
-                    : null,
+                  purchase_date: d ? formatLocalIsoDate(d) : null,
                 })
               }
             />

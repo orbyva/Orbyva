@@ -26,6 +26,7 @@ import {
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
 import { formatMovieRating, getMovieRatingLabel } from "@/domain/movies";
+import { formatLocalIsoDate } from "@/domain/entertainment/insights";
 import { getErrorMessage } from "@/lib/errors";
 
 interface MovieSearchModalProps {
@@ -144,7 +145,10 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
       rating: status === "watched" ? rating : null,
       notes: status === "watched" ? notes.trim() || null : null,
       would_recommend: status === "watched" ? wouldRecommend : true,
-      watched_dates: status === "watched" && watchedDate ? [watchedDate] : [],
+      watched_dates:
+        status === "watched" && watchedDate
+          ? [formatLocalIsoDate(watchedDate)]
+          : [],
     };
 
     try {

@@ -29,6 +29,7 @@ import {
   formatBookRating,
   getBookRatingLabel,
 } from "@/domain/books";
+import { formatLocalIsoDate } from "@/domain/entertainment/insights";
 import { getErrorMessage } from "@/lib/errors";
 
 interface BookSearchModalProps {
@@ -120,7 +121,7 @@ export function BookSearchModal({ onBookAdded }: BookSearchModalProps) {
       would_recommend: status === "read" ? wouldRecommend : true,
       read_dates:
         status === "read" && readDate
-          ? [readDate.toISOString().split("T")[0]]
+          ? [formatLocalIsoDate(readDate)]
           : [],
     };
 

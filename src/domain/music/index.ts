@@ -5,8 +5,9 @@ import type {
   AlbumType,
 } from "@/types/music";
 import {
-  datesTouchYear,
+  activityTouchesYear,
   isEntertainmentFavorite,
+  normalizeEntertainmentDates,
   pickRandomItem,
 } from "@/domain/entertainment/insights";
 
@@ -66,9 +67,7 @@ export function normalizeAlbum(raw: Album): Album {
     artists: asStringList(raw.artists),
     album_type: raw.album_type || "album",
     source: raw.source || "musicbrainz",
-    listened_dates: Array.isArray(raw.listened_dates)
-      ? raw.listened_dates.map((d) => String(d).slice(0, 10))
-      : [],
+    listened_dates: normalizeEntertainmentDates(raw.listened_dates),
     would_recommend: raw.would_recommend !== false,
     track_ratings: normalizeTrackRatings(raw.track_ratings),
   };
@@ -249,7 +248,7 @@ export function getAlbumLibraryStats(
     toListen: albums.filter((a) => a.status === "to_listen").length,
     favorites: listened.filter((a) => isEntertainmentFavorite(a)).length,
     thisYear: listened.filter((a) =>
-      datesTouchYear(a.listened_dates, year)
+      activityTouchesYear(a.listened_dates, year, a.created_at)
     ).length,
     rated: rated.length,
     avgRating,

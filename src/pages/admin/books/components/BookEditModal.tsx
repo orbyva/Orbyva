@@ -19,6 +19,10 @@ import {
   getBookRatingLabel,
   parsePageInput,
 } from "@/domain/books";
+import {
+  formatLocalIsoDate,
+  normalizeEntertainmentDates,
+} from "@/domain/entertainment/insights";
 import { getErrorMessage } from "@/lib/errors";
 
 interface BookEditModalProps {
@@ -31,7 +35,7 @@ interface BookEditModalProps {
 }
 
 function normalizeReadDates(dates: Book["read_dates"]): string[] {
-  return (dates ?? []).map((d) => String(d).slice(0, 10));
+  return normalizeEntertainmentDates(dates);
 }
 
 type EditIntent = "bookmark" | "finish" | "abandon" | "resume" | "start";
@@ -134,7 +138,7 @@ export function BookEditModal({
         updateData.would_recommend = wouldRecommend;
         updateData.status = "read";
         if (readDate) {
-          const nextDate = readDate.toISOString().split("T")[0];
+          const nextDate = formatLocalIsoDate(readDate);
           updateData.read_dates = [
             ...normalizeReadDates(book.read_dates),
             nextDate,

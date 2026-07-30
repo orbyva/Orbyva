@@ -1,8 +1,9 @@
 import type { Movie, MovieMediaType, MovieTypeFilter } from "@/types/movies";
 import { MovieStatus } from "@/types/movies";
 import {
-  datesTouchYear,
+  activityTouchesYear,
   isEntertainmentFavorite,
+  normalizeEntertainmentDates,
   pickRandomItem,
 } from "@/domain/entertainment/insights";
 
@@ -69,7 +70,7 @@ export function normalizeMovie(raw: Movie): Movie {
     ...raw,
     genre: asStringList(raw.genre),
     actors: asStringList(raw.actors),
-    watched_dates: Array.isArray(raw.watched_dates) ? raw.watched_dates : [],
+    watched_dates: normalizeEntertainmentDates(raw.watched_dates),
     would_recommend: raw.would_recommend !== false,
   };
 }
@@ -227,7 +228,7 @@ export function getCinemaLibraryStats(
         m.status === MovieStatus.WATCHED && isEntertainmentFavorite(m)
     ).length,
     thisYear: watched.filter((m) =>
-      datesTouchYear(m.watched_dates, year)
+      activityTouchesYear(m.watched_dates, year, m.created_at)
     ).length,
     rated: rated.length,
     avgRating,
@@ -268,8 +269,5 @@ export function getSeriesWatchProgress(options: {
 export function normalizeWatchedDates(
   dates: Movie["watched_dates"] | undefined
 ): string[] {
-  if (!dates?.length) return [];
-  return dates.map((d) =>
-    d instanceof Date ? d.toISOString().split("T")[0] : String(d).slice(0, 10)
-  );
+  return normalizeEntertainmentDates(dates);
 }

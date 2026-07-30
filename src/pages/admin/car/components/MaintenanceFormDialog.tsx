@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
+import { formatLocalIsoDate } from "@/lib/dates";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
@@ -333,6 +334,7 @@ export function MaintenanceFormDialog({
               <div>
                 <FormLabel optional>Próxima data</FormLabel>
                 <DatePicker
+                  clearable
                   date={
                     form.next_date
                       ? new Date(`${form.next_date}T12:00:00`)
@@ -341,9 +343,7 @@ export function MaintenanceFormDialog({
                   onSelect={(d) =>
                     setForm({
                       ...form,
-                      next_date: d
-                        ? d.toISOString().split("T")[0]
-                        : null,
+                      next_date: d ? formatLocalIsoDate(d) : null,
                     })
                   }
                 />

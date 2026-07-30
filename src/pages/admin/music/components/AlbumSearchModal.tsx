@@ -30,6 +30,7 @@ import {
   getAlbumRatingLabel,
   parseAlbumSearchQuery,
 } from "@/domain/music";
+import { formatLocalIsoDate } from "@/domain/entertainment/insights";
 import { getErrorMessage } from "@/lib/errors";
 import { AlbumManualModal } from "./AlbumManualModal";
 
@@ -148,8 +149,8 @@ export function AlbumSearchModal({ onAlbumAdded }: AlbumSearchModalProps) {
       would_recommend: status === "listened" ? wouldRecommend : true,
       listened_dates:
         status === "listened" && listenedDate
-          ? [listenedDate.toISOString().split("T")[0]]
-          : [],
+            ? [formatLocalIsoDate(listenedDate)]
+            : [],
     };
 
     try {

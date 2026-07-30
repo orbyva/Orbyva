@@ -28,6 +28,7 @@
   import { Link } from "react-router-dom";
   import { Share2, Wallet } from "lucide-react";
   import { PageShell } from "@/components/PageShell";
+  import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
   import { EmptyState } from "@/components/EmptyState";
   import { ShareImageDialog } from "@/components/ShareImageDialog";
   import {
@@ -416,14 +417,17 @@
         description="Visão detalhada das receitas, despesas e saldo do período."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[240px]">
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={() => setShareOpen(true)}
-            >
-              <Share2 className="h-4 w-4" />
-              Compartilhar mês
-            </Button>
+            <div className="flex gap-2">
+              <ModuleGuideButton moduleId="finance" />
+              <Button
+                variant="outline"
+                className="min-w-0 flex-1 gap-2"
+                onClick={() => setShareOpen(true)}
+              >
+                <Share2 className="h-4 w-4" />
+                Compartilhar mês
+              </Button>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <Select
                 onValueChange={(value) => setSelectedMonth(Number(value))}
@@ -474,6 +478,7 @@
           </div>
         }
       >
+        <ModuleGuide moduleId="finance" />
         <RecurringDueAlerts alerts={dueAlerts} showRecurringLink />
 
         <ShareImageDialog

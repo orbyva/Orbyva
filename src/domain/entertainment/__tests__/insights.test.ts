@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  activityTouchesYear,
   datesTouchYear,
+  formatLocalIsoDate,
   isEntertainmentFavorite,
+  normalizeEntertainmentDates,
   pickRandomItem,
 } from "@/domain/entertainment/insights";
 import { getCinemaLibraryStats, pickRandomToWatchMovie } from "@/domain/movies";
@@ -23,6 +26,19 @@ describe("entertainment insights helpers", () => {
   it("detecta datas no ano", () => {
     expect(datesTouchYear(["2025-03-01", "2024-12-01"], 2025)).toBe(true);
     expect(datesTouchYear(["2024-12-01"], 2025)).toBe(false);
+  });
+
+  it("normaliza Date e formatos BR", () => {
+    expect(normalizeEntertainmentDates([new Date(2026, 6, 15)])).toEqual([
+      "2026-07-15",
+    ]);
+    expect(normalizeEntertainmentDates(["15/07/2026"])).toEqual(["2026-07-15"]);
+    expect(formatLocalIsoDate(new Date(2026, 0, 1))).toBe("2026-01-01");
+  });
+
+  it("usa created_at quando não há datas de atividade", () => {
+    expect(activityTouchesYear([], 2026, "2026-03-01T12:00:00Z")).toBe(true);
+    expect(activityTouchesYear(["2024-01-01"], 2026, "2026-03-01")).toBe(false);
   });
 
   it("pickRandomItem retorna null em lista vazia", () => {
@@ -66,14 +82,27 @@ describe("getCinemaLibraryStats", () => {
       watched_dates: ["2024-06-01"],
       would_recommend: false,
     },
+    {
+      imdb_id: "4",
+      title: "Sem data",
+      year: 2022,
+      genre: [],
+      actors: [],
+      type: "movie",
+      status: MovieStatus.WATCHED,
+      rating: 8,
+      watched_dates: [],
+      created_at: "2026-05-01T10:00:00Z",
+      would_recommend: false,
+    },
   ] as Movie[];
 
   it("agrega status, favoritos e este ano", () => {
     const stats = getCinemaLibraryStats(movies, 2026);
-    expect(stats.watched).toBe(2);
+    expect(stats.watched).toBe(3);
     expect(stats.toWatch).toBe(1);
-    expect(stats.favorites).toBe(1);
-    expect(stats.thisYear).toBe(1);
+    expect(stats.favorites).toBe(2);
+    expect(stats.thisYear).toBe(2);
     expect(stats.avgRating).toBe(8);
   });
 

@@ -1,4 +1,5 @@
 import { PageShell } from "@/components/PageShell";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import TypeManager from "./components/TypeManager";
 import ClassManager from "../home/components/ClassManager";
@@ -29,7 +30,9 @@ export default function Dimensions() {
     <PageShell
       title="Dimensões"
       description="Tipos e classes são só seus — organize receitas e despesas do seu jeito."
+      actions={<ModuleGuideButton moduleId="finance" />}
     >
+      <ModuleGuide moduleId="finance" />
       {loading ? (
         <TableLoadingSkeleton rows={4} columns={3} />
       ) : (

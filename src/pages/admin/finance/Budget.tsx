@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { PageShell } from "@/components/PageShell";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { EmptyState } from "@/components/EmptyState";
 import { useSidebar } from "@/components/ui/sidebar";
 import { PiggyBank } from "lucide-react";
@@ -320,6 +321,7 @@ export default function Budget() {
       description="Acompanhe o planejado, gasto e restante por categoria."
       actions={
         <>
+          <ModuleGuideButton moduleId="finance" />
           <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[240px]">
             <Select
               onValueChange={(value) => setSelectedMonth(Number(value))}
@@ -389,6 +391,7 @@ export default function Budget() {
         </>
       }
     >
+      <ModuleGuide moduleId="finance" />
       <BudgetSummary
         plannedExpense={totals.plannedExpense}
         plannedIncome={totals.plannedIncome}

@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { normalizeMovie } from "@/domain/movies";
+import { normalizeEntertainmentDates } from "@/domain/entertainment/insights";
 import {
   Movie,
   MovieCreateRequest,
@@ -139,8 +140,5 @@ export async function fetchSeriesWithEpisodeNotify(): Promise<Movie[]> {
 }
 
 function normalizeDates(dates: Movie["watched_dates"] | undefined): string[] {
-  if (!dates?.length) return [];
-  return dates.map((d) =>
-    d instanceof Date ? d.toISOString().split("T")[0] : String(d).slice(0, 10)
-  );
+  return normalizeEntertainmentDates(dates);
 }

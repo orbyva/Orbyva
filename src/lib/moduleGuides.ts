@@ -7,10 +7,12 @@ import {
   MapPin,
   Plane,
   Target,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
 export type ModuleGuideId =
+  | "finance"
   | "travel"
   | "habits"
   | "goals"
@@ -40,6 +42,34 @@ export type ModuleGuideConfig = {
  * (`ModuleGuide`) renderiza qualquer um destes — não há tour forçado.
  */
 export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
+  finance: {
+    id: "finance",
+    icon: Wallet,
+    title: "Como funcionam as Finanças",
+    hook: "Livro-caixa pessoal: classifique, registre, orce e acompanhe o mês sem planilha.",
+    steps: [
+      {
+        title: "Organize as dimensões",
+        body: "Natureza (Receita, Despesa, Investimento) → Tipo (ex.: Alimentação) → Classe (ex.: Mercado). Em Dimensões você cria tipos e classes do seu jeito.",
+      },
+      {
+        title: "Lance no extrato",
+        body: "Em Transações, registre cada movimentação com valor, data e classificação. Dá para importar CSV e editar depois.",
+      },
+      {
+        title: "Planeje o mês",
+        body: "No Orçamento, defina tetos por categoria e veja o quanto já gastou versus o planejado — com alertas se estourar.",
+      },
+      {
+        title: "Recorrências e parcelas",
+        body: "Cadastre contas e receitas fixas (ou parcelas). O app avisa vencimentos e ajuda a projetar o saldo do mês.",
+      },
+      {
+        title: "Leia o painel",
+        body: "Em Finanças (dashboard) você vê saldo, receitas, despesas e o desenho do mês — e pode compartilhar um resumo.",
+      },
+    ],
+  },
   travel: {
     id: "travel",
     icon: Plane,
