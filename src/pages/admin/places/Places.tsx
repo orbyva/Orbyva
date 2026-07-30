@@ -71,7 +71,7 @@ export default function Places() {
       setPlaces(placesData);
       setTrips(tripsData);
     } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+      toast({ title: "Erro", description: getErrorMessage(error, "Não foi possível atualizar o lugar."), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -134,7 +134,7 @@ export default function Places() {
       toast({ title: "Lugar excluído", duration: 2000 });
       load();
     } catch (error) {
-      toast({ title: "Erro", description: getErrorMessage(error), variant: "destructive" });
+      toast({ title: "Erro", description: getErrorMessage(error, "Não foi possível atualizar o lugar."), variant: "destructive" });
     }
   }
 

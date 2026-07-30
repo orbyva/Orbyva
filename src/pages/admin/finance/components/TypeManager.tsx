@@ -78,7 +78,10 @@ function TypeManager({
     } catch (error) {
       toast({
         title: "Não foi possível excluir o tipo",
-        description: getErrorMessage(error),
+        description: getErrorMessage(
+          error,
+          "Não foi possível excluir o tipo. Tente de novo."
+        ),
         variant: "destructive",
       });
     } finally {
@@ -272,7 +275,7 @@ function TypeManager({
                         title="Nenhum tipo ainda"
                         description={
                           natures.length === 0
-                            ? "Aplique as migrations de naturezas no Supabase e recarregue, ou use o tour de onboarding."
+                            ? "As categorias básicas ainda não estão prontas. Recarregue a página ou refaça o tour inicial em Conta."
                             : "Crie o primeiro tipo acima (ex.: Alimentação, Transporte)."
                         }
                         className="py-10"

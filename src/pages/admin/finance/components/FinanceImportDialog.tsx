@@ -76,7 +76,7 @@ export function FinanceImportDialog({ onImported }: FinanceImportDialogProps) {
     } catch (error) {
       toast({
         title: "Falha ao ler classes",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível importar."),
         variant: "destructive",
       });
     }
@@ -213,7 +213,7 @@ export function FinanceImportDialog({ onImported }: FinanceImportDialogProps) {
               void handleImport().catch((e) => {
                 toast({
                   title: "Erro",
-                  description: getErrorMessage(e),
+                  description: getErrorMessage(e, "Não foi possível importar a linha."),
                   variant: "destructive",
                 });
                 setImporting(false);

@@ -203,7 +203,7 @@ export function MovieImportDialog({ onImported }: MovieImportDialogProps) {
               void handleImport().catch((e) => {
                 toast({
                   title: "Erro",
-                  description: getErrorMessage(e),
+                  description: getErrorMessage(e, "Não foi possível importar."),
                   variant: "destructive",
                 });
                 setImporting(false);

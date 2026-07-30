@@ -33,7 +33,7 @@ export async function ensureGoalMetaClass(goalTitle: string): Promise<number> {
   );
   if (!nature) {
     throw new Error(
-      "Natureza Investimento não encontrada. Aplique a migration de seed Investimento no Supabase."
+      "Categoria de investimento indisponível no momento. Tente mais tarde."
     );
   }
 

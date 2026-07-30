@@ -67,7 +67,7 @@ export function TripMembersDialog({
     } catch (error) {
       toast({
         title: "Não foi possível carregar membros",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar os membros."),
         variant: "destructive",
       });
     } finally {
@@ -106,7 +106,7 @@ export function TripMembersDialog({
     } catch (error) {
       toast({
         title: "Erro ao convidar",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar os membros."),
         variant: "destructive",
       });
     }
@@ -179,7 +179,7 @@ export function TripMembersDialog({
                             .catch((error) =>
                               toast({
                                 title: "Erro",
-                                description: getErrorMessage(error),
+                                description: getErrorMessage(error, "Não foi possível atualizar os membros."),
                                 variant: "destructive",
                               })
                             )
@@ -251,7 +251,7 @@ export function TripMembersDialog({
                             .catch((error) =>
                               toast({
                                 title: "Erro",
-                                description: getErrorMessage(error),
+                                description: getErrorMessage(error, "Não foi possível atualizar os membros."),
                                 variant: "destructive",
                               })
                             )
@@ -280,7 +280,7 @@ export function TripMembersDialog({
                   .catch((error) =>
                     toast({
                       title: "Erro",
-                      description: getErrorMessage(error),
+                      description: getErrorMessage(error, "Não foi possível atualizar os membros."),
                       variant: "destructive",
                     })
                   )

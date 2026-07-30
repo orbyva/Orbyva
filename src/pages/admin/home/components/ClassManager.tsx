@@ -79,7 +79,7 @@ function ClassManager({ types }: { types: Type[] }) {
     } catch (error) {
       toast({
         title: "Não foi possível excluir a classe",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar a classe."),
         variant: "destructive",
       });
     } finally {

@@ -66,8 +66,9 @@ export function OnboardingDialog() {
         const result = await ensureDefaultDimensions();
         if (result.missingNatures.length) {
           toast({
-            title: "Naturezas faltando",
-            description: `Aplique as migrations de naturezas no Supabase (${result.missingNatures.join(", ")}).`,
+            title: "Configuração incompleta",
+            description:
+              "Ainda faltam categorias básicas. Recarregue a página ou fale conosco se o problema continuar.",
             variant: "destructive",
           });
         } else if (result.createdTypes || result.createdClasses) {
@@ -80,7 +81,10 @@ export function OnboardingDialog() {
       } catch (error) {
         toast({
           title: "Não foi possível semear categorias",
-          description: getErrorMessage(error),
+          description: getErrorMessage(
+            error,
+            "Não foi possível preparar as categorias. Tente de novo."
+          ),
           variant: "destructive",
         });
         setBusy(false);

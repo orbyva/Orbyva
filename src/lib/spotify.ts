@@ -28,7 +28,7 @@ const searchCache = new Map<
 
 export class SpotifyNotConfiguredError extends Error {
   readonly code = "SPOTIFY_NOT_CONFIGURED";
-  constructor(message = "Catálogo de música não configurado") {
+  constructor(message = "Catálogo de música temporariamente indisponível.") {
     super(message);
     this.name = "SpotifyNotConfiguredError";
   }

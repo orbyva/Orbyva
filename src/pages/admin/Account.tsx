@@ -123,7 +123,10 @@ export default function Account() {
     } catch (error) {
       toast({
         title: "Não foi possível excluir a conta",
-        description: `${getErrorMessage(error)} Confirme as migrations de tenancy/RLS no Supabase se ainda não aplicou.`,
+        description: getErrorMessage(
+          error,
+          "Não foi possível excluir a conta. Tente de novo em instantes."
+        ),
         variant: "destructive",
       });
       setDeleting(false);
@@ -145,7 +148,10 @@ export default function Account() {
     } catch (error) {
       toast({
         title: "Não foi possível limpar os dados",
-        description: `${getErrorMessage(error)} Confirme as migrations de tenancy/RLS no Supabase se ainda não aplicou.`,
+        description: getErrorMessage(
+          error,
+          "Não foi possível limpar os dados. Tente de novo em instantes."
+        ),
         variant: "destructive",
       });
     } finally {
@@ -166,7 +172,10 @@ export default function Account() {
     } catch (error) {
       toast({
         title: "Falha no export",
-        description: getErrorMessage(error),
+        description: getErrorMessage(
+          error,
+          "Não foi possível exportar. Tente de novo."
+        ),
         variant: "destructive",
       });
     } finally {
@@ -180,7 +189,7 @@ export default function Account() {
       toast({
         title: "Checkout ainda não disponível",
         description:
-          "Stripe não está configurado neste ambiente. Use o bypass local ou fale conosco.",
+          "Assinatura ainda não está disponível neste ambiente. Fale conosco se precisar.",
         variant: "destructive",
       });
       return;
@@ -193,7 +202,10 @@ export default function Account() {
     } catch (error) {
       toast({
         title: "Checkout indisponível",
-        description: getErrorMessage(error),
+        description: getErrorMessage(
+          error,
+          "Não foi possível abrir o checkout. Tente de novo."
+        ),
         variant: "destructive",
       });
       setBillingBusy(false);
@@ -209,7 +221,10 @@ export default function Account() {
     } catch (error) {
       toast({
         title: "Portal indisponível",
-        description: getErrorMessage(error),
+        description: getErrorMessage(
+          error,
+          "Não foi possível abrir o portal de assinatura. Tente de novo."
+        ),
         variant: "destructive",
       });
       setBillingBusy(false);
@@ -480,10 +495,8 @@ export default function Account() {
         </div>
         {!isBillingConfigured() && !isPro ? (
           <p className="mt-3 text-xs text-muted-foreground">
-            Stripe ainda não configurado neste ambiente. Use{" "}
-            <code className="text-[11px]">VITE_BILLING_FORCE_PRO=true</code>{" "}
-            apenas em <code className="text-[11px]">npm run dev</code>, ou fale
-            conosco.
+            Assinatura ainda não está disponível neste ambiente. Fale conosco se
+            precisar.
           </p>
         ) : null}
       </section>
@@ -514,7 +527,10 @@ export default function Account() {
                   .catch((err) =>
                     toast({
                       title: "Erro",
-                      description: getErrorMessage(err),
+                      description: getErrorMessage(
+                        err,
+                        "Não foi possível salvar a preferência."
+                      ),
                       variant: "destructive",
                     })
                   );
@@ -540,7 +556,10 @@ export default function Account() {
                   .catch((err) =>
                     toast({
                       title: "Erro",
-                      description: getErrorMessage(err),
+                      description: getErrorMessage(
+                        err,
+                        "Não foi possível salvar a preferência."
+                      ),
                       variant: "destructive",
                     })
                   );
@@ -568,7 +587,10 @@ export default function Account() {
                   .catch((err) =>
                     toast({
                       title: "Erro",
-                      description: getErrorMessage(err),
+                      description: getErrorMessage(
+                        err,
+                        "Não foi possível salvar a preferência."
+                      ),
                       variant: "destructive",
                     })
                   );
@@ -601,7 +623,10 @@ export default function Account() {
                   .catch((err) =>
                     toast({
                       title: "Erro",
-                      description: getErrorMessage(err),
+                      description: getErrorMessage(
+                        err,
+                        "Não foi possível salvar a preferência."
+                      ),
                       variant: "destructive",
                     })
                   );

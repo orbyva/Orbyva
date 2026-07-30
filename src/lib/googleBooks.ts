@@ -49,14 +49,13 @@ function apiKey(): string {
   const key = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY?.trim();
   if (!key) {
     throw new Error(
-      "Configure VITE_GOOGLE_BOOKS_API_KEY para buscar livros."
+      "Catálogo de livros temporariamente indisponível."
     );
   }
   return key;
 }
 
 async function googleBooksError(res: Response): Promise<Error> {
-  let detail = `${res.status} ${res.statusText}`;
   try {
     const body = (await res.json()) as {
       error?: { message?: string; status?: string; details?: { reason?: string }[] };
@@ -64,15 +63,18 @@ async function googleBooksError(res: Response): Promise<Error> {
     const reason = body.error?.details?.[0]?.reason ?? body.error?.status;
     const message = body.error?.message;
     if (reason === "API_KEY_HTTP_REFERRER_BLOCKED" || message?.includes("referer")) {
+      console.error("[googleBooks] API key referrer blocked", { reason, message });
       return new Error(
-        "Google Books bloqueou a chave (referrer). No Google Cloud → Credentials → sua API key → Application restrictions → HTTP referrers, inclua http://localhost:5173/* e https://orbyva.app/*."
+        "Catálogo de livros temporariamente indisponível. Tente mais tarde."
       );
     }
-    if (message) detail = message;
   } catch {
     /* ignore */
   }
-  return new Error(`Google Books: ${detail}`);
+  if (res.status === 429) {
+    return new Error("Muitas buscas em pouco tempo. Aguarde um momento e tente de novo.");
+  }
+  return new Error("Não foi possível consultar o catálogo de livros.");
 }
 
 function httpsCover(url?: string | null): string | null {

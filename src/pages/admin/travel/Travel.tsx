@@ -104,7 +104,7 @@ export default function Travel() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível carregar as viagens."),
         variant: "destructive",
       });
     } finally {

@@ -273,7 +273,7 @@ export default function LifeDashboard() {
       setHabitLogs(prev);
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível salvar."),
         variant: "destructive",
       });
     }

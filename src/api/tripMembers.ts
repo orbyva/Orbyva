@@ -167,7 +167,7 @@ export async function fetchInviteByToken(
       error.message.includes("get_trip_invite_by_token")
     ) {
       throw new Error(
-        "Convites endurecidos: aplique a migration security_hardening no Supabase."
+        "Convites temporariamente indisponíveis. Tente mais tarde."
       );
     }
     throw new Error(error.message);
@@ -188,7 +188,7 @@ export async function acceptTripInvite(token: string): Promise<string> {
     throw new Error(
       rpcError.message.includes("accept_trip_invite") ||
         rpcError.code === "PGRST202"
-        ? "Aplique a migration security_hardening (accept_trip_invite) no Supabase."
+        ? "Não foi possível aceitar o convite. Tente mais tarde."
         : rpcError.message
     );
   }

@@ -64,7 +64,7 @@ export function BookSearchModal({ onBookAdded }: BookSearchModalProps) {
     try {
       if (!isGoogleBooksConfigured()) {
         setFormError(
-          "Configure VITE_GOOGLE_BOOKS_API_KEY para buscar livros."
+          "Busca de livros temporariamente indisponível. Tente mais tarde."
         );
         return;
       }

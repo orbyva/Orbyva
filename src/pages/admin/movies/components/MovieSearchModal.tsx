@@ -89,7 +89,7 @@ export function MovieSearchModal({ onMovieAdded }: MovieSearchModalProps) {
         setFormError(
           isTmdbConfigured()
             ? "Nenhum título encontrado. Tente outro nome."
-            : "Nenhum título encontrado. Configure VITE_TMDB_API_KEY para busca em português."
+            : "Busca de cinema temporariamente indisponível. Tente mais tarde."
         );
       }
     } catch (error) {

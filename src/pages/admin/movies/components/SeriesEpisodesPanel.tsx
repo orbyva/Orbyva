@@ -377,7 +377,7 @@ export function SeriesEpisodesPanel({
   if (!isTmdbConfigured()) {
     return (
       <p className="text-sm text-muted-foreground">
-        Configure VITE_TMDB_API_KEY para rastrear episódios.
+        Episódios indisponíveis no momento. Tente mais tarde.
       </p>
     );
   }

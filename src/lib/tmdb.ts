@@ -83,7 +83,7 @@ async function tmdbGet<T>(
   params: Record<string, string> = {}
 ): Promise<T> {
   if (!isTmdbConfigured()) {
-    throw new Error("TMDB não configurada. Defina VITE_TMDB_API_KEY no .env.");
+    throw new Error("Catálogo de cinema temporariamente indisponível.");
   }
   const url = new URL(`${API_URL}${path}`);
   url.searchParams.set("api_key", String(API_KEY));
@@ -93,7 +93,7 @@ async function tmdbGet<T>(
   }
   const res = await fetch(url.toString());
   if (!res.ok) {
-    throw new Error(`TMDB ${res.status}`);
+    throw new Error("Não foi possível consultar o catálogo de cinema.");
   }
   return (await res.json()) as T;
 }

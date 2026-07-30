@@ -23,6 +23,7 @@ import { FormLabel } from "@/components/FormLabel";
 import { FormSection } from "@/components/FormSection";
 import { Separator } from "@/components/ui/separator";
 import { sortByNamePt } from "@/lib/utils";
+import { NoClassesForTypeHint } from "./NoClassesForTypeHint";
 
 interface TransactionFormDialogProps {
   open: boolean;
@@ -85,6 +86,12 @@ export function TransactionFormDialog({
     }
     if (!selectedType) {
       setFormError("Selecione o Tipo.");
+      return;
+    }
+    if (classes.length === 0) {
+      setFormError(
+        "Este tipo não tem classes. Cadastre uma em Dimensões."
+      );
       return;
     }
     if (!newTransaction.class_id) {
@@ -191,26 +198,34 @@ export function TransactionFormDialog({
                 {selectedType ? (
                   <div className="space-y-3">
                     <FormLabel required>Classe</FormLabel>
-                    <Select
-                      value={String(newTransaction.class_id)}
-                      onValueChange={(value) =>
-                        setNewTransaction({
-                          ...newTransaction,
-                          class_id: Number(value),
-                        })
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione a Classe" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {classes.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {classes.length === 0 ? (
+                      <NoClassesForTypeHint typeName={selectedTypeObj?.name} />
+                    ) : (
+                      <Select
+                        value={
+                          newTransaction.class_id
+                            ? String(newTransaction.class_id)
+                            : undefined
+                        }
+                        onValueChange={(value) =>
+                          setNewTransaction({
+                            ...newTransaction,
+                            class_id: Number(value),
+                          })
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Selecione a Classe" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {classes.map((c) => (
+                            <SelectItem key={c.id} value={String(c.id)}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 ) : null}
               </div>

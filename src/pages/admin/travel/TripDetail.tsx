@@ -144,7 +144,7 @@ export default function TripDetail() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
         variant: "destructive",
       });
     } finally {
@@ -339,7 +339,7 @@ export default function TripDetail() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
         variant: "destructive",
       });
     }
@@ -390,7 +390,7 @@ export default function TripDetail() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
         variant: "destructive",
       });
     }
@@ -409,7 +409,7 @@ export default function TripDetail() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
         variant: "destructive",
       });
     }
@@ -437,7 +437,7 @@ export default function TripDetail() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
         variant: "destructive",
       });
     }
@@ -467,7 +467,7 @@ export default function TripDetail() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
         variant: "destructive",
       });
     }
@@ -481,7 +481,7 @@ export default function TripDetail() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
         variant: "destructive",
       });
     }
@@ -497,7 +497,7 @@ export default function TripDetail() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
         variant: "destructive",
       });
     }
@@ -767,7 +767,7 @@ export default function TripDetail() {
             } catch (error) {
               toast({
                 title: "Erro",
-                description: getErrorMessage(error),
+                description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
                 variant: "destructive",
               });
             }

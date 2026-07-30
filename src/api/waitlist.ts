@@ -20,7 +20,7 @@ export async function joinWaitlist(
     }
     if (error.code === "42P01" || error.code === "PGRST205") {
       throw new Error(
-        "Waitlist ainda não configurada. Aplique a migration de billing no Supabase."
+        "Lista de espera temporariamente indisponível. Tente mais tarde."
       );
     }
     throw new Error(error.message);

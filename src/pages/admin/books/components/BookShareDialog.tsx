@@ -103,7 +103,7 @@ export function BookShareDialog({
     } catch (error) {
       toast({
         title: "Erro ao compartilhar",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível compartilhar."),
         variant: "destructive",
       });
     } finally {

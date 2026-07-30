@@ -199,7 +199,11 @@ export function resolveFinanceImportRows(
 export function financeImportToCreateRequest(
   row: FinanceImportRow
 ): TransactionCreateRequest {
-  if (!row.classId) throw new Error("classId ausente");
+  if (!row.classId) {
+    throw new Error(
+      "Não foi possível importar o arquivo. Verifique o formato e tente de novo."
+    );
+  }
   return {
     class_id: row.classId,
     value: row.valor,

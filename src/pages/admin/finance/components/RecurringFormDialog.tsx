@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/MoneyInput";
 import { FormLabel } from "@/components/FormLabel";
+import { NoClassesForTypeHint } from "./NoClassesForTypeHint";
 
 interface RecurringFormDialogProps {
   open: boolean;
@@ -111,6 +112,11 @@ export function RecurringFormDialog({
   const handleCreate = () => {
     if (!selectedNature) return setFormError("Selecione a Natureza.");
     if (!selectedType) return setFormError("Selecione o Tipo.");
+    if (classes.length === 0) {
+      return setFormError(
+        "Este tipo não tem classes. Cadastre uma em Dimensões."
+      );
+    }
     if (!newRecurring.class_id) return setFormError("Selecione a Classe.");
     if (!newRecurring.description.trim())
       return setFormError("Informe a Descrição.");
@@ -211,7 +217,9 @@ export function RecurringFormDialog({
             <div
               className={cn(
                 "grid gap-3",
-                selectedType ? "grid-cols-2" : "grid-cols-1"
+                selectedType && classes.length > 0
+                  ? "grid-cols-2"
+                  : "grid-cols-1"
               )}
             >
               <div className="space-y-1.5">
@@ -239,26 +247,34 @@ export function RecurringFormDialog({
               {selectedType ? (
                 <div className="space-y-1.5">
                   <FormLabel required>Classe</FormLabel>
-                  <Select
-                    value={String(newRecurring.class_id)}
-                    onValueChange={(value) =>
-                      setNewRecurring({
-                        ...newRecurring,
-                        class_id: Number(value),
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Classe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classes.map((c) => (
-                        <SelectItem key={c.id} value={String(c.id)}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {classes.length === 0 ? (
+                    <NoClassesForTypeHint typeName={selectedTypeObj?.name} />
+                  ) : (
+                    <Select
+                      value={
+                        newRecurring.class_id
+                          ? String(newRecurring.class_id)
+                          : undefined
+                      }
+                      onValueChange={(value) =>
+                        setNewRecurring({
+                          ...newRecurring,
+                          class_id: Number(value),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Classe" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               ) : null}
             </div>

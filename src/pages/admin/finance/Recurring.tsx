@@ -83,7 +83,7 @@ export default function Recurring() {
       toast({
         variant: "destructive",
         title: "Erro ao carregar recorrências",
-        description: getErrorMessage(err),
+        description: getErrorMessage(err, "Não foi possível atualizar a recorrência."),
       });
     }
   };

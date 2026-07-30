@@ -225,7 +225,7 @@ export function ShareImageDialog({
     } catch (error) {
       toast({
         title: "Falha ao carregar foto",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível compartilhar."),
         variant: "destructive",
       });
     } finally {
@@ -276,7 +276,7 @@ export function ShareImageDialog({
     } catch (error) {
       toast({
         title: "Falha ao compartilhar",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível compartilhar."),
         variant: "destructive",
       });
     } finally {

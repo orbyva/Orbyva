@@ -266,7 +266,7 @@ export function PlaceFormDialog({
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível salvar o lugar."),
         variant: "destructive",
       });
     } finally {

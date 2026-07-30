@@ -134,7 +134,7 @@ export default function Habits() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar o hábito."),
         variant: "destructive",
       });
     } finally {
@@ -210,7 +210,7 @@ export default function Habits() {
       setLogs(prev);
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar o hábito."),
         variant: "destructive",
       });
     }
@@ -245,7 +245,7 @@ export default function Habits() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar o hábito."),
         variant: "destructive",
       });
     }
@@ -259,7 +259,7 @@ export default function Habits() {
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível atualizar o hábito."),
         variant: "destructive",
       });
     }

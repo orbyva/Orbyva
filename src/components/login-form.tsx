@@ -77,7 +77,9 @@ export function LoginForm({
       },
     });
     if (oauthError) {
-      setError(oauthError.message);
+      setError(
+        getErrorMessage(oauthError, "Não foi possível entrar com o Google.")
+      );
     }
   }
 

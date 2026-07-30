@@ -36,7 +36,7 @@ export default function TripInviteAccept() {
         setStatus("ready");
       } catch (error) {
         setStatus("error");
-        setErrorMsg(getErrorMessage(error));
+        setErrorMsg(getErrorMessage(error, "Não foi possível aceitar o convite."));
       }
     })();
   }, [token]);
@@ -51,7 +51,7 @@ export default function TripInviteAccept() {
     } catch (error) {
       toast({
         title: "Não foi possível aceitar",
-        description: getErrorMessage(error),
+        description: getErrorMessage(error, "Não foi possível aceitar o convite."),
         variant: "destructive",
       });
     } finally {
