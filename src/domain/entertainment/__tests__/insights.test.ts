@@ -15,12 +15,10 @@ import type { Book } from "@/types/books";
 import type { Album } from "@/types/music";
 
 describe("entertainment insights helpers", () => {
-  it("marca favorito por nota ou recomendação", () => {
-    expect(isEntertainmentFavorite({ rating: 8 })).toBe(true);
-    expect(isEntertainmentFavorite({ rating: 7.5 })).toBe(false);
-    expect(isEntertainmentFavorite({ rating: 6, would_recommend: true })).toBe(
-      true
-    );
+  it("marca favorito só com is_favorite explícito", () => {
+    expect(isEntertainmentFavorite({ is_favorite: true })).toBe(true);
+    expect(isEntertainmentFavorite({ is_favorite: false })).toBe(false);
+    expect(isEntertainmentFavorite({})).toBe(false);
   });
 
   it("detecta datas no ano", () => {
@@ -59,6 +57,7 @@ describe("getCinemaLibraryStats", () => {
       rating: 9,
       watched_dates: ["2026-01-10"],
       would_recommend: true,
+      is_favorite: true,
     },
     {
       imdb_id: "2",
@@ -94,6 +93,7 @@ describe("getCinemaLibraryStats", () => {
       watched_dates: [],
       created_at: "2026-05-01T10:00:00Z",
       would_recommend: false,
+      is_favorite: true,
     },
   ] as Movie[];
 
@@ -125,6 +125,7 @@ describe("getBookLibraryStats", () => {
       rating: 8,
       read_dates: ["2026-02-01"],
       would_recommend: false,
+      is_favorite: true,
     },
     {
       google_id: "2",
@@ -144,6 +145,7 @@ describe("getBookLibraryStats", () => {
       rating: 9,
       read_dates: ["2025-01-01"],
       would_recommend: true,
+      is_favorite: true,
     },
   ] as Book[];
 
@@ -173,6 +175,7 @@ describe("getAlbumLibraryStats", () => {
       rating: 8.5,
       listened_dates: ["2026-03-01"],
       would_recommend: false,
+      is_favorite: true,
     },
     {
       musicbrainz_id: "2",

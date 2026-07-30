@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { ArrowUpDown, Heart, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { deleteAlbum, fetchAllAlbums } from "@/api/albums";
+import { deleteAlbum, fetchAllAlbums, updateAlbum } from "@/api/albums";
 import type { Album, AlbumRatingFloor, AlbumStatus } from "@/types/music";
 import { AlbumCard } from "./components/AlbumCard";
 import { AlbumSearchModal } from "./components/AlbumSearchModal";
@@ -34,25 +35,16 @@ import {
   filterAlbumsByMeta,
   formatAlbumRating,
   getAlbumLibraryStats,
-  getLatestListenedDate,
   pickRandomToListenAlbum,
 } from "@/domain/music";
+import {
+  CATALOG_SORT_OPTIONS,
+  sortAlbums,
+  type CatalogSort,
+} from "@/domain/entertainment/sort";
+import { cn } from "@/lib/utils";
 
 const albumsCatalogCache = createMemoryCache<Album[]>();
-
-function sortAlbumsForStatus(list: Album[], status: AlbumStatus): Album[] {
-  const copy = [...list];
-  if (status === "listened") {
-    copy.sort((a, b) => {
-      const da = getLatestListenedDate(a.listened_dates) ?? "";
-      const db = getLatestListenedDate(b.listened_dates) ?? "";
-      return db.localeCompare(da);
-    });
-  } else {
-    copy.sort((a, b) => (b.release_year ?? 0) - (a.release_year ?? 0));
-  }
-  return copy;
-}
 
 export default function Music() {
   const fetchAll = useCallback(() => fetchAllAlbums(), []);
@@ -66,6 +58,8 @@ export default function Music() {
   const [artistFilter, setArtistFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [ratingFloor, setRatingFloor] = useState<AlbumRatingFloor>("all");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [sort, setSort] = useState<CatalogSort>("default");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(36);
 
@@ -79,11 +73,7 @@ export default function Music() {
   const loadAlbums = useCallback(() => reload(true), [reload]);
 
   const statusAlbums = useMemo(
-    () =>
-      sortAlbumsForStatus(
-        allAlbums.filter((a) => a.status === filter),
-        filter
-      ),
+    () => allAlbums.filter((a) => a.status === filter),
     [allAlbums, filter]
   );
 
@@ -114,21 +104,28 @@ export default function Music() {
       minRating: filter === "listened" ? ratingFloor : "all",
     });
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return byMeta;
-    return byMeta.filter((album) => {
-      const haystack = [album.title, album.notes, ...(album.artists ?? [])]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
+    const searched = !q
+      ? byMeta
+      : byMeta.filter((album) => {
+          const haystack = [album.title, album.notes, ...(album.artists ?? [])]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(q);
+        });
+    const byFavorite = favoritesOnly
+      ? searched.filter((a) => a.is_favorite === true)
+      : searched;
+    return sortAlbums(byFavorite, sort, filter);
   }, [
     statusAlbums,
     searchTerm,
     artistFilter,
     typeFilter,
     ratingFloor,
+    favoritesOnly,
     filter,
+    sort,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -169,6 +166,39 @@ export default function Music() {
     }
   }
 
+  async function handleToggleFavorite(id: string, next: boolean) {
+    const previous = allAlbums.find((a) => a.musicbrainz_id === id)?.is_favorite;
+    replace((prev) =>
+      prev.map((a) =>
+        a.musicbrainz_id === id ? { ...a, is_favorite: next } : a
+      )
+    );
+    setSelected((cur) =>
+      cur?.musicbrainz_id === id ? { ...cur, is_favorite: next } : cur
+    );
+    try {
+      await updateAlbum({ musicbrainz_id: id, is_favorite: next });
+    } catch (error) {
+      replace((prev) =>
+        prev.map((a) =>
+          a.musicbrainz_id === id
+            ? { ...a, is_favorite: previous === true }
+            : a
+        )
+      );
+      setSelected((cur) =>
+        cur?.musicbrainz_id === id
+          ? { ...cur, is_favorite: previous === true }
+          : cur
+      );
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Falha ao atualizar favorito."),
+        variant: "destructive",
+      });
+    }
+  }
+
   function openDetail(album: Album) {
     setSelected(album);
     setIsDetailOpen(true);
@@ -196,7 +226,8 @@ export default function Music() {
     searchTerm ||
     artistFilter !== "all" ||
     typeFilter !== "all" ||
-    ratingFloor !== "all";
+    ratingFloor !== "all" ||
+    favoritesOnly;
 
   return (
     <PageShell
@@ -309,10 +340,55 @@ export default function Music() {
               </SelectContent>
             </Select>
           ) : null}
+
+          <Button
+            type="button"
+            variant={favoritesOnly ? "default" : "outline"}
+            className="w-full sm:w-auto"
+            onClick={() => {
+              setFavoritesOnly((v) => !v);
+              setPage(1);
+            }}
+            aria-pressed={favoritesOnly}
+          >
+            <Heart
+              className={cn(
+                "mr-2 h-4 w-4",
+                favoritesOnly && "fill-current"
+              )}
+            />
+            Favoritos
+          </Button>
         </div>
       </section>
 
       <section className="rounded-xl border p-3 sm:p-4">
+        <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {filtered.length === 1
+              ? "1 item"
+              : `${filtered.length} itens`}
+          </p>
+          <Select
+            value={sort}
+            onValueChange={(v) => {
+              setSort(v as CatalogSort);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[220px]" aria-label="Ordenar">
+              <ArrowUpDown className="mr-2 h-4 w-4 shrink-0 opacity-60" />
+              <SelectValue placeholder="Ordenar" />
+            </SelectTrigger>
+            <SelectContent>
+              {CATALOG_SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {pageAlbums.length ? (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-6">
             {pageAlbums.map((album) => (
@@ -324,6 +400,7 @@ export default function Music() {
                   setIsDetailOpen(true);
                 }}
                 onDelete={handleDelete}
+                onToggleFavorite={handleToggleFavorite}
               />
             ))}
           </div>
@@ -355,6 +432,19 @@ export default function Music() {
             onDelete={() => void handleDelete(selected.musicbrainz_id)}
             onAlbumUpdated={async () => {
               await loadAlbums();
+            }}
+            onAlbumPatch={(patch) => {
+              const id = selected.musicbrainz_id;
+              setSelected((prev) => (prev ? { ...prev, ...patch } : prev));
+              replace((prev) => {
+                const idx = prev.findIndex((a) => a.musicbrainz_id === id);
+                if (idx >= 0) {
+                  return prev.map((a) =>
+                    a.musicbrainz_id === id ? { ...a, ...patch } : a
+                  );
+                }
+                return [{ ...selected, ...patch }, ...prev];
+              });
             }}
           />
           <AlbumEditModal

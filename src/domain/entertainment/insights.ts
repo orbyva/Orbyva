@@ -10,14 +10,10 @@ export { formatLocalIsoDate } from "@/lib/dates";
  * stats de cada domínio. Entrada discreta no módulo/Conta; mínimo ~3 itens no ano.
  */
 
-export const ENTERTAINMENT_FAVORITE_MIN_RATING = 8;
-
 export function isEntertainmentFavorite(item: {
-  rating?: number | null;
-  would_recommend?: boolean | null;
+  is_favorite?: boolean | null;
 }): boolean {
-  if (item.would_recommend === true) return true;
-  return item.rating != null && item.rating >= ENTERTAINMENT_FAVORITE_MIN_RATING;
+  return item.is_favorite === true;
 }
 
 function parseOneDateToken(raw: unknown): string | null {

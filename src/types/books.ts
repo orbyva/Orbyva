@@ -19,6 +19,8 @@ export interface Book {
   rating?: number | null;
   notes?: string | null;
   would_recommend?: boolean;
+  /** Favorito explícito — independente de nota / recomendaria. */
+  is_favorite?: boolean;
   read_dates: string[];
   /** Nota média Google Books (0–5), só informativa. */
   score_google?: number | null;

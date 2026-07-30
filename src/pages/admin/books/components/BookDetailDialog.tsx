@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Bookmark,
   BookOpen,
+  Heart,
   Pencil,
   Share2,
   ThumbsDown,
@@ -34,6 +35,7 @@ import type { Book } from "@/types/books";
 import { formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import type { BookEditIntent } from "./BookEditModal";
 import { BookReadingNotes } from "./BookReadingNotes";
 
@@ -228,14 +230,37 @@ export function BookDetailDialog({
   onDelete,
   onBookPatch,
 }: BookDetailDialogProps) {
+  const { toast } = useToast();
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+
   if (!book) return null;
 
   const latest = getLatestReadDate(book.read_dates);
   const recommend = book.would_recommend !== false;
+  const favorited = book.is_favorite === true;
 
   function openEdit(intent?: BookEditIntent) {
     onOpenChange(false);
     onEdit?.(intent);
+  }
+
+  async function handleToggleFavorite() {
+    if (favoriteBusy) return;
+    const next = !favorited;
+    setFavoriteBusy(true);
+    onBookPatch?.({ is_favorite: next });
+    try {
+      await updateBook({ google_id: book.google_id, is_favorite: next });
+    } catch (error) {
+      onBookPatch?.({ is_favorite: favorited });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Falha ao atualizar favorito."),
+        variant: "destructive",
+      });
+    } finally {
+      setFavoriteBusy(false);
+    }
   }
 
   return (
@@ -250,9 +275,30 @@ export function BookDetailDialog({
               referrerPolicy="no-referrer"
             />
             <div className="min-w-0 flex-1 space-y-2">
-              <DialogTitle className="text-left leading-snug">
-                {book.title}
-              </DialogTitle>
+              <div className="flex items-start gap-2">
+                <DialogTitle className="min-w-0 flex-1 text-left leading-snug">
+                  {book.title}
+                </DialogTitle>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => void handleToggleFavorite()}
+                  disabled={favoriteBusy}
+                  aria-label={
+                    favorited ? "Remover dos favoritos" : "Favoritar"
+                  }
+                  aria-pressed={favorited}
+                >
+                  <Heart
+                    className={cn(
+                      "h-5 w-5",
+                      favorited && "fill-destructive text-destructive"
+                    )}
+                  />
+                </Button>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="text-[10px]">
                   {BOOK_STATUS_LABELS[book.status]}

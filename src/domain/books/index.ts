@@ -196,6 +196,7 @@ export function normalizeBook(raw: Book): Book {
     description,
     read_dates: normalizeEntertainmentDates(raw.read_dates),
     would_recommend: raw.would_recommend !== false,
+    is_favorite: raw.is_favorite === true,
   };
 }
 

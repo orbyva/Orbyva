@@ -1,4 +1,4 @@
-import { Trash2, Star, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Trash2, Star, ThumbsDown, ThumbsUp, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,16 +13,24 @@ import {
   formatArtists,
   getAlbumCardRating,
 } from "@/domain/music";
+import { cn } from "@/lib/utils";
 
 interface AlbumCardProps {
   album: Album;
   onClick: () => void;
   onDelete: (id: string) => Promise<void>;
+  onToggleFavorite: (id: string, next: boolean) => Promise<void>;
 }
 
-export function AlbumCard({ album, onClick, onDelete }: AlbumCardProps) {
+export function AlbumCard({
+  album,
+  onClick,
+  onDelete,
+  onToggleFavorite,
+}: AlbumCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
   const [coverBroken, setCoverBroken] = useState(false);
   const suppressCardClickRef = useRef(false);
 
@@ -36,6 +44,18 @@ export function AlbumCard({ album, onClick, onDelete }: AlbumCardProps) {
     }
   };
 
+  async function handleToggleFavorite(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (favoriteBusy) return;
+    setFavoriteBusy(true);
+    try {
+      await onToggleFavorite(album.musicbrainz_id, !album.is_favorite);
+    } finally {
+      setFavoriteBusy(false);
+    }
+  }
+
   function handleDeleteOpenChange(open: boolean) {
     setIsDeleteDialogOpen(open);
     if (!open) {
@@ -48,6 +68,7 @@ export function AlbumCard({ album, onClick, onDelete }: AlbumCardProps) {
 
   const rating = getAlbumCardRating(album);
   const listened = album.status === "listened";
+  const favorited = album.is_favorite === true;
 
   return (
     <div
@@ -121,6 +142,33 @@ export function AlbumCard({ album, onClick, onDelete }: AlbumCardProps) {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className={cn(
+            "absolute bottom-2 right-2 z-20 h-9 w-9 bg-black/75 text-white hover:bg-black/90",
+            favorited
+              ? "opacity-100"
+              : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
+          )}
+          onClick={(e) => void handleToggleFavorite(e)}
+          disabled={favoriteBusy}
+          aria-label={
+            favorited
+              ? `Remover ${album.title} dos favoritos`
+              : `Favoritar ${album.title}`
+          }
+          aria-pressed={favorited}
+        >
+          <Heart
+            className={cn(
+              "h-4 w-4",
+              favorited && "fill-destructive text-destructive"
+            )}
+          />
+        </Button>
 
         {rating && (
           <div

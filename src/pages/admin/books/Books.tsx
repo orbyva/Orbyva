@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { ArrowUpDown, Heart, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { deleteBook, fetchAllBooks } from "@/api/books";
+import { deleteBook, fetchAllBooks, updateBook } from "@/api/books";
 import type { Book, BookRatingFloor, BookStatus } from "@/types/books";
 import { BookCard } from "./components/BookCard";
 import { BookSearchModal } from "./components/BookSearchModal";
@@ -33,27 +34,16 @@ import {
   filterBooksByMeta,
   formatBookRating,
   getBookLibraryStats,
-  getLatestReadDate,
   pickRandomToReadBook,
 } from "@/domain/books";
+import {
+  CATALOG_SORT_OPTIONS,
+  sortBooks,
+  type CatalogSort,
+} from "@/domain/entertainment/sort";
+import { cn } from "@/lib/utils";
 
 const booksCatalogCache = createMemoryCache<Book[]>();
-
-function sortBooksForStatus(list: Book[], status: BookStatus): Book[] {
-  const copy = [...list];
-  if (status === "read") {
-    copy.sort((a, b) => {
-      const da = getLatestReadDate(a.read_dates) ?? "";
-      const db = getLatestReadDate(b.read_dates) ?? "";
-      return db.localeCompare(da);
-    });
-  } else if (status === "reading") {
-    copy.sort((a, b) => (b.current_page ?? 0) - (a.current_page ?? 0));
-  } else {
-    copy.sort((a, b) => (b.published_year ?? 0) - (a.published_year ?? 0));
-  }
-  return copy;
-}
 
 export default function Books() {
   const fetchAll = useCallback(() => fetchAllBooks(), []);
@@ -67,6 +57,8 @@ export default function Books() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [authorFilter, setAuthorFilter] = useState<string>("all");
   const [ratingFloor, setRatingFloor] = useState<BookRatingFloor>("all");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [sort, setSort] = useState<CatalogSort>("default");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(36);
 
@@ -81,11 +73,7 @@ export default function Books() {
   const loadBooks = useCallback(() => reload(true), [reload]);
 
   const statusBooks = useMemo(
-    () =>
-      sortBooksForStatus(
-        allBooks.filter((b) => b.status === filter),
-        filter
-      ),
+    () => allBooks.filter((b) => b.status === filter),
     [allBooks, filter]
   );
 
@@ -119,27 +107,34 @@ export default function Books() {
       minRating: filter === "read" ? ratingFloor : "all",
     });
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return byMeta;
-    return byMeta.filter((book) => {
-      const haystack = [
-        book.title,
-        book.notes,
-        book.publisher,
-        ...(book.authors ?? []),
-        ...(book.categories ?? []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
+    const searched = !q
+      ? byMeta
+      : byMeta.filter((book) => {
+          const haystack = [
+            book.title,
+            book.notes,
+            book.publisher,
+            ...(book.authors ?? []),
+            ...(book.categories ?? []),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(q);
+        });
+    const byFavorite = favoritesOnly
+      ? searched.filter((b) => b.is_favorite === true)
+      : searched;
+    return sortBooks(byFavorite, sort, filter);
   }, [
     statusBooks,
     searchTerm,
     categoryFilter,
     authorFilter,
     ratingFloor,
+    favoritesOnly,
     filter,
+    sort,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredBooks.length / pageSize));
@@ -180,6 +175,39 @@ export default function Books() {
     }
   }
 
+  async function handleToggleFavorite(googleId: string, next: boolean) {
+    const previous = allBooks.find((b) => b.google_id === googleId)?.is_favorite;
+    replace((prev) =>
+      prev.map((b) =>
+        b.google_id === googleId ? { ...b, is_favorite: next } : b
+      )
+    );
+    setSelectedBook((cur) =>
+      cur?.google_id === googleId ? { ...cur, is_favorite: next } : cur
+    );
+    try {
+      await updateBook({ google_id: googleId, is_favorite: next });
+    } catch (error) {
+      replace((prev) =>
+        prev.map((b) =>
+          b.google_id === googleId
+            ? { ...b, is_favorite: previous === true }
+            : b
+        )
+      );
+      setSelectedBook((cur) =>
+        cur?.google_id === googleId
+          ? { ...cur, is_favorite: previous === true }
+          : cur
+      );
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Falha ao atualizar favorito."),
+        variant: "destructive",
+      });
+    }
+  }
+
   function openDetail(book: Book) {
     setSelectedBook(book);
     setIsDetailOpen(true);
@@ -207,7 +235,8 @@ export default function Books() {
     searchTerm ||
     categoryFilter !== "all" ||
     authorFilter !== "all" ||
-    ratingFloor !== "all";
+    ratingFloor !== "all" ||
+    favoritesOnly;
 
   return (
     <PageShell
@@ -322,10 +351,55 @@ export default function Books() {
               </SelectContent>
             </Select>
           ) : null}
+
+          <Button
+            type="button"
+            variant={favoritesOnly ? "default" : "outline"}
+            className="w-full sm:w-auto"
+            onClick={() => {
+              setFavoritesOnly((v) => !v);
+              setPage(1);
+            }}
+            aria-pressed={favoritesOnly}
+          >
+            <Heart
+              className={cn(
+                "mr-2 h-4 w-4",
+                favoritesOnly && "fill-current"
+              )}
+            />
+            Favoritos
+          </Button>
         </div>
       </section>
 
       <section className="rounded-xl border p-3 sm:p-4">
+        <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {filteredBooks.length === 1
+              ? "1 item"
+              : `${filteredBooks.length} itens`}
+          </p>
+          <Select
+            value={sort}
+            onValueChange={(v) => {
+              setSort(v as CatalogSort);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[220px]" aria-label="Ordenar">
+              <ArrowUpDown className="mr-2 h-4 w-4 shrink-0 opacity-60" />
+              <SelectValue placeholder="Ordenar" />
+            </SelectTrigger>
+            <SelectContent>
+              {CATALOG_SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {pageBooks.length ? (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-6">
             {pageBooks.map((book) => (
@@ -334,6 +408,7 @@ export default function Books() {
                 book={book}
                 onClick={() => openDetail(book)}
                 onDelete={handleDeleteBook}
+                onToggleFavorite={handleToggleFavorite}
               />
             ))}
           </div>

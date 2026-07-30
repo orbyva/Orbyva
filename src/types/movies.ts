@@ -27,6 +27,8 @@ export interface Movie {
   notes?: string | null;
   /** Se recomendaria — mesmo papel de place_visit.would_recommend. */
   would_recommend?: boolean;
+  /** Favorito explícito — independente de nota / recomendaria. */
+  is_favorite?: boolean;
   /** ID TMDB da série (quando type === series). */
   tmdb_tv_id?: number | null;
   /** Acompanhar a série. */

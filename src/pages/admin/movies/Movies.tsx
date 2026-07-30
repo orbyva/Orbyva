@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { ArrowUpDown, Heart, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { deleteMovie, fetchAllMovies } from "@/api/movies";
+import { deleteMovie, fetchAllMovies, updateMovie } from "@/api/movies";
 import { fetchWatchedEpisodeCounts } from "@/api/movieEpisodes";
 import { Movie, MovieListFilter, MovieTypeFilter } from "@/types/movies";
 import { MovieCard } from "./components/MovieCard";
@@ -35,29 +36,17 @@ import {
   filterMoviesByType,
   formatMovieRating,
   getCinemaLibraryStats,
-  getLatestWatchedDate,
   pickRandomToWatchMovie,
   type MovieRatingFloor,
 } from "@/domain/movies";
+import {
+  CATALOG_SORT_OPTIONS,
+  sortMovies,
+  type CatalogSort,
+} from "@/domain/entertainment/sort";
+import { cn } from "@/lib/utils";
 
 const moviesCatalogCache = createMemoryCache<Movie[]>();
-
-function sortMoviesForStatus(
-  list: Movie[],
-  status: MovieListFilter
-): Movie[] {
-  const copy = [...list];
-  if (status === "watched") {
-    copy.sort((a, b) => {
-      const da = getLatestWatchedDate(a.watched_dates) ?? "";
-      const db = getLatestWatchedDate(b.watched_dates) ?? "";
-      return db.localeCompare(da);
-    });
-  } else {
-    copy.sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
-  }
-  return copy;
-}
 
 export default function Movies() {
   const fetchAll = useCallback(() => fetchAllMovies(), []);
@@ -74,6 +63,8 @@ export default function Movies() {
   const [typeFilter, setTypeFilter] = useState<MovieTypeFilter>("all");
   const [genreFilter, setGenreFilter] = useState<string>("all");
   const [ratingFloor, setRatingFloor] = useState<MovieRatingFloor>("all");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [sort, setSort] = useState<CatalogSort>("default");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(36);
 
@@ -88,11 +79,7 @@ export default function Movies() {
   const loadMovies = useCallback(() => reload(true), [reload]);
 
   const statusMovies = useMemo(
-    () =>
-      sortMoviesForStatus(
-        allMovies.filter((m) => m.status === filter),
-        filter
-      ),
+    () => allMovies.filter((m) => m.status === filter),
     [allMovies, filter]
   );
 
@@ -122,27 +109,34 @@ export default function Movies() {
       minRating: filter === "watched" ? ratingFloor : "all",
     });
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return byMeta;
-    return byMeta.filter((movie) => {
-      const haystack = [
-        movie.title,
-        movie.notes,
-        movie.director,
-        ...(movie.genre ?? []),
-        ...(movie.actors ?? []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
+    const searched = !q
+      ? byMeta
+      : byMeta.filter((movie) => {
+          const haystack = [
+            movie.title,
+            movie.notes,
+            movie.director,
+            ...(movie.genre ?? []),
+            ...(movie.actors ?? []),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(q);
+        });
+    const byFavorite = favoritesOnly
+      ? searched.filter((m) => m.is_favorite === true)
+      : searched;
+    return sortMovies(byFavorite, sort, filter);
   }, [
     statusMovies,
     searchTerm,
     typeFilter,
     genreFilter,
     ratingFloor,
+    favoritesOnly,
     filter,
+    sort,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredMovies.length / pageSize));
@@ -202,6 +196,39 @@ export default function Movies() {
     }
   }
 
+  async function handleToggleFavorite(imdbId: string, next: boolean) {
+    const previous = allMovies.find((m) => m.imdb_id === imdbId)?.is_favorite;
+    replace((prev) =>
+      prev.map((m) =>
+        m.imdb_id === imdbId ? { ...m, is_favorite: next } : m
+      )
+    );
+    setSelectedMovie((cur) =>
+      cur?.imdb_id === imdbId ? { ...cur, is_favorite: next } : cur
+    );
+    try {
+      await updateMovie({ imdb_id: imdbId, is_favorite: next });
+    } catch (error) {
+      replace((prev) =>
+        prev.map((m) =>
+          m.imdb_id === imdbId
+            ? { ...m, is_favorite: previous === true }
+            : m
+        )
+      );
+      setSelectedMovie((cur) =>
+        cur?.imdb_id === imdbId
+          ? { ...cur, is_favorite: previous === true }
+          : cur
+      );
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Falha ao atualizar favorito."),
+        variant: "destructive",
+      });
+    }
+  }
+
   function openDetail(movie: Movie) {
     setSelectedMovie(movie);
     setIsDetailOpen(true);
@@ -226,7 +253,10 @@ export default function Movies() {
       : "Watchlist, opiniões e histórico.";
 
   const hasClientFilters =
-    searchTerm || genreFilter !== "all" || ratingFloor !== "all";
+    searchTerm ||
+    genreFilter !== "all" ||
+    ratingFloor !== "all" ||
+    favoritesOnly;
 
   return (
     <PageShell
@@ -336,10 +366,55 @@ export default function Movies() {
               </SelectContent>
             </Select>
           ) : null}
+
+          <Button
+            type="button"
+            variant={favoritesOnly ? "default" : "outline"}
+            className="w-full sm:w-auto"
+            onClick={() => {
+              setFavoritesOnly((v) => !v);
+              setPage(1);
+            }}
+            aria-pressed={favoritesOnly}
+          >
+            <Heart
+              className={cn(
+                "mr-2 h-4 w-4",
+                favoritesOnly && "fill-current"
+              )}
+            />
+            Favoritos
+          </Button>
         </div>
       </section>
 
       <section className="rounded-xl border p-3 sm:p-4">
+        <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {filteredMovies.length === 1
+              ? "1 item"
+              : `${filteredMovies.length} itens`}
+          </p>
+          <Select
+            value={sort}
+            onValueChange={(v) => {
+              setSort(v as CatalogSort);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[220px]" aria-label="Ordenar">
+              <ArrowUpDown className="mr-2 h-4 w-4 shrink-0 opacity-60" />
+              <SelectValue placeholder="Ordenar" />
+            </SelectTrigger>
+            <SelectContent>
+              {CATALOG_SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {pageMovies.length ? (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-6">
             {pageMovies.map((movie) => (
@@ -349,6 +424,7 @@ export default function Movies() {
                 watchedEpisodes={watchedEpisodeCounts[movie.imdb_id]}
                 onClick={() => openDetail(movie)}
                 onDelete={handleDeleteMovie}
+                onToggleFavorite={handleToggleFavorite}
               />
             ))}
           </div>

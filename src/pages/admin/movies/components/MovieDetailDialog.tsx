@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Clapperboard,
+  Heart,
   Pencil,
   Share2,
   ThumbsDown,
@@ -29,6 +30,10 @@ import {
 import type { Movie } from "@/types/movies";
 import { MovieStatus } from "@/types/movies";
 import { formatDateBR } from "@/lib/currency";
+import { updateMovie } from "@/api/movies";
+import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import type { MovieEditIntent } from "./MovieEditModal";
 import { SeriesEpisodesPanel } from "./SeriesEpisodesPanel";
 
@@ -99,6 +104,9 @@ export function MovieDetailDialog({
   onMoviePatch,
   onWatchedEpisodesChange,
 }: MovieDetailDialogProps) {
+  const { toast } = useToast();
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+
   if (!movie) return null;
 
   const genres = asStringList(movie.genre);
@@ -106,10 +114,30 @@ export function MovieDetailDialog({
   const latest = getLatestWatchedDate(movie.watched_dates);
   const recommend = movie.would_recommend !== false;
   const isSeries = movie.type === "series";
+  const favorited = movie.is_favorite === true;
 
   function openEdit(intent?: MovieEditIntent) {
     onOpenChange(false);
     onEdit?.(intent);
+  }
+
+  async function handleToggleFavorite() {
+    if (favoriteBusy) return;
+    const next = !favorited;
+    setFavoriteBusy(true);
+    onMoviePatch?.({ is_favorite: next });
+    try {
+      await updateMovie({ imdb_id: movie.imdb_id, is_favorite: next });
+    } catch (error) {
+      onMoviePatch?.({ is_favorite: favorited });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Falha ao atualizar favorito."),
+        variant: "destructive",
+      });
+    } finally {
+      setFavoriteBusy(false);
+    }
   }
 
   return (
@@ -125,9 +153,30 @@ export function MovieDetailDialog({
               className="h-28 w-20 flex-none rounded-lg object-cover sm:h-36 sm:w-24"
             />
             <div className="min-w-0 flex-1 space-y-2">
-              <DialogTitle className="text-left leading-snug">
-                {movie.title}
-              </DialogTitle>
+              <div className="flex items-start gap-2">
+                <DialogTitle className="min-w-0 flex-1 text-left leading-snug">
+                  {movie.title}
+                </DialogTitle>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => void handleToggleFavorite()}
+                  disabled={favoriteBusy}
+                  aria-label={
+                    favorited ? "Remover dos favoritos" : "Favoritar"
+                  }
+                  aria-pressed={favorited}
+                >
+                  <Heart
+                    className={cn(
+                      "h-5 w-5",
+                      favorited && "fill-destructive text-destructive"
+                    )}
+                  />
+                </Button>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="text-[10px]">
                   {MOVIE_STATUS_LABELS[movie.status]}

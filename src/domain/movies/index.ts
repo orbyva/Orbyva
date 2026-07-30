@@ -72,6 +72,7 @@ export function normalizeMovie(raw: Movie): Movie {
     actors: asStringList(raw.actors),
     watched_dates: normalizeEntertainmentDates(raw.watched_dates),
     would_recommend: raw.would_recommend !== false,
+    is_favorite: raw.is_favorite === true,
   };
 }
 

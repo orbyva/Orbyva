@@ -41,6 +41,9 @@ function bookDbFields(
     ...(book.would_recommend !== undefined
       ? { would_recommend: book.would_recommend }
       : {}),
+    ...(book.is_favorite !== undefined
+      ? { is_favorite: book.is_favorite }
+      : {}),
     ...(book.read_dates !== undefined ? { read_dates: book.read_dates } : {}),
   };
 }
@@ -109,6 +112,7 @@ export async function createBook(book: BookCreateRequest): Promise<void> {
       user_id: userId,
       notes: book.notes ?? null,
       would_recommend: book.would_recommend ?? true,
+      is_favorite: book.is_favorite === true,
     },
   ]);
 

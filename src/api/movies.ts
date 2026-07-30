@@ -66,6 +66,7 @@ export async function createMovie(movie: MovieCreateRequest): Promise<void> {
       user_id: userId,
       notes: movie.notes ?? null,
       would_recommend: movie.would_recommend ?? true,
+      is_favorite: movie.is_favorite === true,
     },
   ]);
 
@@ -109,6 +110,7 @@ export async function upsertMovie(
     rating: movie.rating ?? existing.rating,
     notes: movie.notes?.trim() ? movie.notes : existing.notes,
     would_recommend: movie.would_recommend ?? existing.would_recommend,
+    is_favorite: movie.is_favorite ?? existing.is_favorite,
     watched_dates: mergedDates,
   });
   return "updated";

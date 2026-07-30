@@ -69,6 +69,7 @@ export function normalizeAlbum(raw: Album): Album {
     source: raw.source || "musicbrainz",
     listened_dates: normalizeEntertainmentDates(raw.listened_dates),
     would_recommend: raw.would_recommend !== false,
+    is_favorite: raw.is_favorite === true,
     track_ratings: normalizeTrackRatings(raw.track_ratings),
   };
 }

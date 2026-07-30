@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Disc3,
+  Heart,
   Pencil,
   RefreshCw,
   Share2,
@@ -50,6 +51,7 @@ interface AlbumDetailDialogProps {
   onShare?: () => void;
   onDelete?: () => void;
   onAlbumUpdated?: () => void;
+  onAlbumPatch?: (patch: Partial<Album>) => void;
 }
 
 function DetailRow({
@@ -75,6 +77,7 @@ export function AlbumDetailDialog({
   onShare,
   onDelete,
   onAlbumUpdated,
+  onAlbumPatch,
 }: AlbumDetailDialogProps) {
   const [tracks, setTracks] = useState<AlbumTrack[]>([]);
   const [tracksLoading, setTracksLoading] = useState(false);
@@ -84,6 +87,7 @@ export function AlbumDetailDialog({
   /** Nota inline (evita Popover flutuando no Dialog com scroll). */
   const [editingTrackKey, setEditingTrackKey] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const { toast } = useToast();
 
@@ -148,7 +152,30 @@ export function AlbumDetailDialog({
 
   const latest = getLatestListenedDate(album.listened_dates);
   const recommend = album.would_recommend !== false;
+  const favorited = album.is_favorite === true;
   const multiDisc = tracks.some((t) => t.disc > 1);
+
+  async function handleToggleFavorite() {
+    if (favoriteBusy || !album) return;
+    const next = !favorited;
+    setFavoriteBusy(true);
+    onAlbumPatch?.({ is_favorite: next });
+    try {
+      await updateAlbum({
+        musicbrainz_id: album.musicbrainz_id,
+        is_favorite: next,
+      });
+    } catch (error) {
+      onAlbumPatch?.({ is_favorite: favorited });
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Falha ao atualizar favorito."),
+        variant: "destructive",
+      });
+    } finally {
+      setFavoriteBusy(false);
+    }
+  }
 
   async function handleTrackRating(track: AlbumTrack, next: number | null) {
     if (!album) return;
@@ -236,9 +263,30 @@ export function AlbumDetailDialog({
               }}
             />
             <div className="min-w-0 flex-1 space-y-2">
-              <DialogTitle className="text-left leading-snug">
-                {album.title}
-              </DialogTitle>
+              <div className="flex items-start gap-2">
+                <DialogTitle className="min-w-0 flex-1 text-left leading-snug">
+                  {album.title}
+                </DialogTitle>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => void handleToggleFavorite()}
+                  disabled={favoriteBusy}
+                  aria-label={
+                    favorited ? "Remover dos favoritos" : "Favoritar"
+                  }
+                  aria-pressed={favorited}
+                >
+                  <Heart
+                    className={cn(
+                      "h-5 w-5",
+                      favorited && "fill-destructive text-destructive"
+                    )}
+                  />
+                </Button>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="text-[10px]">
                   {ALBUM_STATUS_LABELS[album.status]}

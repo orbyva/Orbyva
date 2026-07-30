@@ -1,4 +1,4 @@
-import { Trash2, Star, ThumbsDown, ThumbsUp, Clapperboard } from "lucide-react";
+import { Trash2, Star, ThumbsDown, ThumbsUp, Clapperboard, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,12 +9,14 @@ import {
 import { useRef, useState } from "react";
 import { Movie, MovieStatus } from "@/types/movies";
 import { getMovieCardRating, getSeriesWatchProgress } from "@/domain/movies";
+import { cn } from "@/lib/utils";
 
 interface MovieCardProps {
   movie: Movie;
   watchedEpisodes?: number;
   onClick: () => void;
   onDelete: (imdbId: string) => Promise<void>;
+  onToggleFavorite: (imdbId: string, next: boolean) => Promise<void>;
 }
 
 export function MovieCard({
@@ -22,9 +24,11 @@ export function MovieCard({
   watchedEpisodes,
   onClick,
   onDelete,
+  onToggleFavorite,
 }: MovieCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
   /** Evita que o clique de fechar a modal (fora) abra os detalhes. */
   const suppressCardClickRef = useRef(false);
 
@@ -37,6 +41,18 @@ export function MovieCard({
       setIsDeleting(false);
     }
   };
+
+  async function handleToggleFavorite(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (favoriteBusy) return;
+    setFavoriteBusy(true);
+    try {
+      await onToggleFavorite(movie.imdb_id, !movie.is_favorite);
+    } finally {
+      setFavoriteBusy(false);
+    }
+  }
 
   function handleDeleteOpenChange(open: boolean) {
     setIsDeleteDialogOpen(open);
@@ -52,6 +68,7 @@ export function MovieCard({
   const watched = movie.status === MovieStatus.WATCHED;
   const watching = movie.status === MovieStatus.WATCHING;
   const abandoned = movie.status === MovieStatus.ABANDONED;
+  const favorited = movie.is_favorite === true;
   const seriesProgress =
     movie.type === "series" && movie.episode_count
       ? getSeriesWatchProgress({
@@ -135,6 +152,33 @@ export function MovieCard({
             </div>
           </DialogContent>
         </Dialog>
+
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className={cn(
+            "absolute bottom-2 right-2 z-20 h-9 w-9 bg-black/75 text-white hover:bg-black/90",
+            favorited
+              ? "opacity-100"
+              : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
+          )}
+          onClick={(e) => void handleToggleFavorite(e)}
+          disabled={favoriteBusy}
+          aria-label={
+            favorited
+              ? `Remover ${movie.title} dos favoritos`
+              : `Favoritar ${movie.title}`
+          }
+          aria-pressed={favorited}
+        >
+          <Heart
+            className={cn(
+              "h-4 w-4",
+              favorited && "fill-destructive text-destructive"
+            )}
+          />
+        </Button>
 
         {ratingBadge && (
           <div

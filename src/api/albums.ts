@@ -29,6 +29,9 @@ function albumDbFields(
     ...(album.would_recommend !== undefined
       ? { would_recommend: album.would_recommend }
       : {}),
+    ...(album.is_favorite !== undefined
+      ? { is_favorite: album.is_favorite }
+      : {}),
     ...(album.listened_dates !== undefined
       ? { listened_dates: album.listened_dates }
       : {}),
@@ -82,6 +85,7 @@ export async function createAlbum(album: AlbumCreateRequest): Promise<void> {
       user_id: userId,
       notes: album.notes ?? null,
       would_recommend: album.would_recommend ?? true,
+      is_favorite: album.is_favorite === true,
       track_ratings: album.track_ratings ?? {},
     },
   ]);
