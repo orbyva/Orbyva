@@ -15,7 +15,7 @@ const FAQS = [
   },
   {
     q: "Orçamento e parcelas são o quê, na prática?",
-    a: "Orçamento: você define o teto e vê gasto vs. planejado por categoria. Parcelas: gerencia o que vence, o atrasado e o progresso do 12x — sem surpresa na fatura.",
+    a: "Orçamento: você define o teto e vê gasto vs. planejado por categoria. Parcelas: o que vence (atrasadas, 12x) e a aba Projeção — a receber × a pagar, gráfico à frente e simular compra antes de fechar um compromisso.",
   },
   {
     q: "Precisa conectar conta do banco?",

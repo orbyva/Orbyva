@@ -20,7 +20,7 @@ const ROWS = [
     orbyva: true,
   },
   {
-    label: "Parcelas e recorrências no radar",
+    label: "Parcelas, projeção e simular compra",
     many: "partial",
     orbyva: true,
   },

@@ -22,7 +22,7 @@ A sidebar agrupa o app em quatro blocos:
 ### Finanças
 - **Dashboard** (`/finance/dashboard`) — KPIs, gráficos e alertas de vencimento
 - **Transações** — CRUD com dimensões (Tipo/Classe), busca e paginação
-- **Parcelas** — valor total dividido; marcar/desfazer pagamento
+- **Parcelas** — lista de recorrências/12x; aba **Projeção** (a receber × a pagar, gráfico e simular compra); marcar/desfazer pagamento
 - **Orçamento mensal** — planejado vs gasto, alertas e duplicação entre meses
 - **Dimensões** — tipos e classes com cor e ícone
 

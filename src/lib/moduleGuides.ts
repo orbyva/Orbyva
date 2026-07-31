@@ -62,7 +62,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Recorrências e parcelas",
-        body: "Cadastre contas e receitas fixas (ou parcelas). O app avisa vencimentos e ajuda a projetar o saldo do mês.",
+        body: "Cadastre contas e receitas fixas (ou 12x). A Lista mostra alertas e progresso; a aba Projeção monta a receber × a pagar do mês, o gráfico dos próximos meses e a simulação de compra (valor, parcelas e quando começa) — sem gravar nada até você cadastrar de verdade.",
       },
       {
         title: "Leia o painel",
