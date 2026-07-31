@@ -3,6 +3,7 @@ import {
   getRecurringProgress,
   type RecurringProgress,
 } from "@/api/recurring";
+import { recurringNatureSide } from "@/domain/recurring/listView";
 import { Recurring } from "@/types/recurring";
 
 export function RecurringIcon({ recurring }: { recurring: Recurring }) {
@@ -15,12 +16,60 @@ export function RecurringIcon({ recurring }: { recurring: Recurring }) {
   );
 }
 
-export function ProgressBar({ progress }: { progress: RecurringProgress }) {
+/** Copy de ação conforme natureza (Receita → receber; Despesa → pagar). */
+export function getActionCopyBySide(isReceive: boolean) {
+  return {
+    isReceive,
+    action: isReceive ? "Receber" : "Pagar",
+    markAction: isReceive ? "Marcar como recebida" : "Marcar como paga",
+    doneBadge: isReceive ? "Recebida" : "Paga",
+    openBadge: "Em aberto",
+    markTitle: isReceive
+      ? "Marcar como recebida?"
+      : "Marcar como paga?",
+    unmarkTitle: isReceive
+      ? "Desfazer recebimento?"
+      : "Desfazer pagamento?",
+    markToast: isReceive
+      ? "Parcela marcada como recebida"
+      : "Parcela marcada como paga",
+    unmarkToast: isReceive
+      ? "Recebimento desfeito"
+      : "Pagamento desfeito",
+    markHint: isReceive
+      ? "A receita correspondente será registrada automaticamente."
+      : "A transação correspondente será registrada automaticamente.",
+    unmarkHint:
+      "O status da parcela será revertido e a transação vinculada será excluída automaticamente.",
+    archiveLabel: isReceive
+      ? "Marcar recorrência como recebida"
+      : "Marcar recorrência como paga",
+    archiveTitle: isReceive
+      ? "Marcar como recebida?"
+      : "Marcar como paga?",
+    archiveConfirm: isReceive
+      ? "Marcar como recebida"
+      : "Marcar como paga",
+    progressPaidLabel: isReceive ? "recebidas" : "pagas",
+  };
+}
+
+export function getRecurringActionCopy(recurring: Recurring) {
+  return getActionCopyBySide(recurringNatureSide(recurring) === "receive");
+}
+
+export function ProgressBar({
+  progress,
+  paidWord = "pagas",
+}: {
+  progress: RecurringProgress;
+  paidWord?: string;
+}) {
   return (
     <div className="mt-2 space-y-1.5">
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
         <span>
-          {progress.paid}/{progress.total} pagas
+          {progress.paid}/{progress.total} {paidWord}
         </span>
         <span>{progress.open} em aberto</span>
       </div>

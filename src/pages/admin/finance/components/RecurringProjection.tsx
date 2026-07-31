@@ -54,6 +54,32 @@ function shiftYm(ym: YearMonth, delta: number): YearMonth {
   return { year: Math.floor(idx / 12), month: (idx % 12) + 1 };
 }
 
+/** Copy de ação: receber vs pagar, conforme a coluna. */
+function projectionActionCopy(nature: ProjectionLine["nature"] | undefined) {
+  const isReceive = nature === "receive";
+  return {
+    action: isReceive ? "Receber" : "Pagar",
+    doneBadge: isReceive ? "Recebida" : "Paga",
+    markTitle: isReceive
+      ? "Marcar como recebida?"
+      : "Marcar parcela como paga?",
+    unmarkTitle: isReceive
+      ? "Desfazer recebimento?"
+      : "Desfazer pagamento?",
+    markToast: isReceive
+      ? "Parcela marcada como recebida"
+      : "Parcela marcada como paga",
+    unmarkToast: isReceive
+      ? "Recebimento desfeito"
+      : "Pagamento desfeito",
+    markHint: isReceive
+      ? "A receita correspondente será registrada automaticamente no livro-caixa."
+      : "A transação correspondente será registrada automaticamente no livro-caixa.",
+    unmarkHint:
+      "O status da parcela será revertido e a transação vinculada será excluída automaticamente.",
+  };
+}
+
 type RecurringProjectionProps = {
   recurring: Recurring[];
   onChanged: () => Promise<void> | void;
@@ -120,7 +146,9 @@ export function RecurringProjection({
         rec?.paid_parcels || []
       );
       toast({
-        title: line.paid ? "Pagamento desfeito" : "Parcela marcada como paga",
+        title: line.paid
+          ? projectionActionCopy(line.nature).unmarkToast
+          : projectionActionCopy(line.nature).markToast,
         description: line.paid
           ? "A parcela voltou ao previsto e a transação vinculada foi removida."
           : "Registrada no livro-caixa automaticamente.",
@@ -141,6 +169,7 @@ export function RecurringProjection({
   const monthTitle = `${MONTH_LABELS[ym.month - 1]} / ${ym.year}`;
   const simStartTitle = `${MONTH_LABELS[simStart.month - 1]} / ${simStart.year}`;
   const paymentAction = pendingLine?.paid ? "unmark" : "mark";
+  const pendingCopy = projectionActionCopy(pendingLine?.nature);
 
   function clearSimulation() {
     setSimOpen(false);
@@ -443,8 +472,8 @@ export function RecurringProjection({
         <AlertDialogContent>
           <AlertDialogHeader>
             {paymentAction === "mark"
-              ? "Marcar parcela como paga?"
-              : "Desfazer pagamento?"}
+              ? pendingCopy.markTitle
+              : pendingCopy.unmarkTitle}
           </AlertDialogHeader>
           <p className="text-sm text-muted-foreground">
             {pendingLine ? (
@@ -458,8 +487,8 @@ export function RecurringProjection({
               </>
             ) : null}
             {paymentAction === "mark"
-              ? "A transação correspondente será registrada automaticamente no livro-caixa."
-              : "O status da parcela será revertido e a transação vinculada será excluída automaticamente."}
+              ? pendingCopy.markHint
+              : pendingCopy.unmarkHint}
           </p>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busyKey != null}>
@@ -543,6 +572,8 @@ function ProjectionColumn({
   simulationExtra?: { label: string; value: number } | null;
 }) {
   const displayTotal = total + (simulationExtra?.value ?? 0);
+  const isReceive = tone === "success";
+  const copy = projectionActionCopy(isReceive ? "receive" : "pay");
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/60 bg-card/30">
@@ -565,8 +596,12 @@ function ProjectionColumn({
         {lines.length === 0 && !simulationExtra ? (
           <p className="px-4 py-6 text-center text-sm text-muted-foreground">
             {openOnly
-              ? "Nenhuma conta em aberto neste mês."
-              : "Nenhuma conta neste mês."}
+              ? isReceive
+                ? "Nenhuma receita em aberto neste mês."
+                : "Nenhuma conta em aberto neste mês."
+              : isReceive
+                ? "Nenhuma receita neste mês."
+                : "Nenhuma conta neste mês."}
           </p>
         ) : (
           lines.map((line) => {
@@ -590,7 +625,7 @@ function ProjectionColumn({
                   </p>
                   {line.paid ? (
                     <Badge variant="secondary" className="mt-1 text-[10px]">
-                      Paga
+                      {copy.doneBadge}
                     </Badge>
                   ) : null}
                 </div>
@@ -606,7 +641,7 @@ function ProjectionColumn({
                     disabled={busyKey === key}
                     onClick={() => onRequestToggle(line)}
                   >
-                    {line.paid ? "Desfazer" : "Pagar"}
+                    {line.paid ? "Desfazer" : copy.action}
                   </Button>
                 </div>
               </div>

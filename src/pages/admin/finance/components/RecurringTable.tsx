@@ -1,4 +1,4 @@
-import { ChevronDown, CheckCircle, Pen, Trash2, Repeat } from "lucide-react";
+import { ChevronDown, CheckCircle, Pen, Trash2, Repeat, ArrowUpDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -29,6 +29,10 @@ import {
   formatInstallmentPlanSummary,
   getRecurringProgress,
 } from "@/api/recurring";
+import type {
+  RecurringSortKey,
+  RecurringSortState,
+} from "@/domain/recurring/listView";
 import { formatBRL } from "@/lib/currency";
 import { Fragment, useState } from "react";
 import { Installment, Recurring } from "@/types/recurring";
@@ -40,12 +44,16 @@ import {
   RecurringIcon,
   ProgressBar,
   getRemainingInfo,
+  getRecurringActionCopy,
+  getActionCopyBySide,
 } from "./RecurringTableShared";
 import { RecurringTableMobile } from "./RecurringTableMobile";
 
 interface RecurringTableProps {
   recurring: Recurring[];
   isMobile?: boolean;
+  sort: RecurringSortState;
+  onSortChange: (key: RecurringSortKey) => void;
   confirmOpen: boolean;
   setConfirmOpen: (open: boolean) => void;
   confirmOpenSoft: boolean;
@@ -62,9 +70,55 @@ interface RecurringTableProps {
   handleEditRecurring: (recurring: Recurring) => void;
 }
 
+function SortableHead({
+  label,
+  sortKey,
+  sort,
+  onSortChange,
+  className,
+}: {
+  label: string;
+  sortKey: RecurringSortKey;
+  sort: RecurringSortState;
+  onSortChange: (key: RecurringSortKey) => void;
+  className?: string;
+}) {
+  const active = sort.key === sortKey;
+  return (
+    <TableHead className={className}>
+      <Button
+        type="button"
+        variant="ghost"
+        className={cn(
+          "-ml-3 h-8 px-3 text-xs font-medium hover:bg-transparent",
+          active && "text-foreground"
+        )}
+        onClick={() => onSortChange(sortKey)}
+      >
+        {label}
+        <ArrowUpDown
+          className={cn(
+            "ml-1.5 h-3.5 w-3.5",
+            active ? "opacity-100" : "opacity-40"
+          )}
+        />
+        <span className="sr-only">
+          {active
+            ? sort.dir === "asc"
+              ? "ordenado crescente"
+              : "ordenado decrescente"
+            : "ordenar"}
+        </span>
+      </Button>
+    </TableHead>
+  );
+}
+
 export function RecurringTable({
   recurring,
   isMobile = false,
+  sort,
+  onSortChange,
   confirmOpen,
   setConfirmOpen,
   confirmOpenSoft,
@@ -128,13 +182,45 @@ export function RecurringTable({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-10" />
-              <TableHead>Tipo</TableHead>
-              <TableHead>Classe</TableHead>
-              <TableHead>Valor</TableHead>
+              <SortableHead
+                label="Tipo"
+                sortKey="type"
+                sort={sort}
+                onSortChange={onSortChange}
+              />
+              <SortableHead
+                label="Classe"
+                sortKey="class"
+                sort={sort}
+                onSortChange={onSortChange}
+              />
+              <SortableHead
+                label="Valor"
+                sortKey="value"
+                sort={sort}
+                onSortChange={onSortChange}
+              />
               <TableHead className="min-w-[140px]">Descrição</TableHead>
-              <TableHead>Frequência</TableHead>
-              <TableHead className="min-w-[200px]">Parcelas</TableHead>
-              <TableHead className="min-w-[160px]">Saldo</TableHead>
+              <SortableHead
+                label="Frequência"
+                sortKey="frequency"
+                sort={sort}
+                onSortChange={onSortChange}
+              />
+              <SortableHead
+                label="Parcelas"
+                sortKey="installments"
+                sort={sort}
+                onSortChange={onSortChange}
+                className="min-w-[200px]"
+              />
+              <SortableHead
+                label="Saldo"
+                sortKey="balance"
+                sort={sort}
+                onSortChange={onSortChange}
+                className="min-w-[160px]"
+              />
               <TableHead className="w-[148px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -149,6 +235,7 @@ export function RecurringTable({
               const isExpanded = !!expandedRows[item.id];
               const displayName =
                 item.description || item.class?.name || "Sem descrição";
+              const copy = getRecurringActionCopy(item);
 
               return (
                 <Fragment key={item.id}>
@@ -186,7 +273,12 @@ export function RecurringTable({
                           <p className="text-xs leading-relaxed text-muted-foreground">
                             {planSummary.subtitle}
                           </p>
-                          {progress && <ProgressBar progress={progress} />}
+                          {progress && (
+                            <ProgressBar
+                              progress={progress}
+                              paidWord={copy.progressPaidLabel}
+                            />
+                          )}
                         </div>
                       ) : typeof item.validity === "string" &&
                         item.validity !== "Invalid Date" ? (
@@ -242,13 +334,13 @@ export function RecurringTable({
                           }
                           onOpenChange={setConfirmOpenSoft}
                         >
-                          <ActionTooltip label="Marcar recorrência como paga">
+                          <ActionTooltip label={copy.archiveLabel}>
                             <AlertDialogTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 focus-visible:ring-primary"
-                                aria-label="Marcar recorrência como paga"
+                                aria-label={copy.archiveLabel}
                                 onClick={() => setSelectedRecurring(item)}
                               >
                                 <CheckCircle className="h-4 w-4 text-success" />
@@ -257,7 +349,7 @@ export function RecurringTable({
                           </ActionTooltip>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              Marcar como paga?
+                              {copy.archiveTitle}
                             </AlertDialogHeader>
                             <p className="text-sm text-muted-foreground">
                               A recorrência &quot;{displayName}&quot; será
@@ -272,7 +364,7 @@ export function RecurringTable({
                                   reloadRecurring();
                                 }}
                               >
-                                Marcar como paga
+                                {copy.archiveConfirm}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -402,7 +494,9 @@ export function RecurringTable({
                                             : "border-border text-muted-foreground"
                                         )}
                                       >
-                                        {isPaid ? "Paga" : "Em aberto"}
+                                        {isPaid
+                                          ? copy.doneBadge
+                                          : copy.openBadge}
                                       </Badge>
 
                                       <Button
@@ -421,9 +515,7 @@ export function RecurringTable({
                                           setConfirmPaymentOpen(true);
                                         }}
                                       >
-                                        {isPaid
-                                          ? "Desfazer"
-                                          : "Marcar como paga"}
+                                        {isPaid ? "Desfazer" : copy.markAction}
                                       </Button>
                                     </div>
                                   </div>
@@ -450,62 +542,74 @@ export function RecurringTable({
           onOpenChange={setConfirmPaymentOpen}
         >
           <AlertDialogContent>
-            <AlertDialogHeader>
-              {paymentAction === "mark"
-                ? "Marcar parcela como paga?"
-                : "Desfazer pagamento?"}
-            </AlertDialogHeader>
+            {(() => {
+              const parcelRec = recurring.find(
+                (r) => r.id === selectedParcel?.transactionId
+              );
+              const parcelCopy = parcelRec
+                ? getRecurringActionCopy(parcelRec)
+                : getActionCopyBySide(false);
+              return (
+                <>
+                  <AlertDialogHeader>
+                    {paymentAction === "mark"
+                      ? parcelCopy.markTitle
+                      : parcelCopy.unmarkTitle}
+                  </AlertDialogHeader>
 
-            <p className="text-sm text-muted-foreground">
-              {paymentAction === "mark"
-                ? "A transação correspondente será registrada automaticamente."
-                : "O status da parcela será revertido e a transação vinculada será excluída automaticamente."}
-            </p>
+                  <p className="text-sm text-muted-foreground">
+                    {paymentAction === "mark"
+                      ? parcelCopy.markHint
+                      : parcelCopy.unmarkHint}
+                  </p>
 
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={async () => {
-                  if (selectedParcel) {
-                    try {
-                      await updateRecurringParcelPayment(
-                        selectedParcel.transactionId,
-                        selectedParcel.installmentNumber,
-                        recurring.find(
-                          (transaction) =>
-                            transaction.id === selectedParcel.transactionId
-                        )?.paid_parcels || []
-                      );
-                      await reloadRecurring();
-                      toast({
-                        title:
-                          paymentAction === "mark"
-                            ? "Parcela marcada como paga"
-                            : "Pagamento desfeito",
-                        description:
-                          paymentAction === "mark"
-                            ? "A transação foi registrada automaticamente."
-                            : "A parcela foi revertida e a transação vinculada foi excluída.",
-                      });
-                    } catch (error) {
-                      console.error(
-                        "Erro ao atualizar pagamento da parcela:",
-                        error
-                      );
-                      toast({
-                        variant: "destructive",
-                        title: "Erro ao atualizar parcela",
-                        description:
-                          "Não foi possível concluir a operação. Tente novamente.",
-                      });
-                    }
-                  }
-                  setConfirmPaymentOpen(false);
-                }}
-              >
-                Confirmar
-              </AlertDialogAction>
-            </AlertDialogFooter>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={async () => {
+                        if (selectedParcel) {
+                          try {
+                            await updateRecurringParcelPayment(
+                              selectedParcel.transactionId,
+                              selectedParcel.installmentNumber,
+                              recurring.find(
+                                (transaction) =>
+                                  transaction.id === selectedParcel.transactionId
+                              )?.paid_parcels || []
+                            );
+                            await reloadRecurring();
+                            toast({
+                              title:
+                                paymentAction === "mark"
+                                  ? parcelCopy.markToast
+                                  : parcelCopy.unmarkToast,
+                              description:
+                                paymentAction === "mark"
+                                  ? "A transação foi registrada automaticamente."
+                                  : "A parcela foi revertida e a transação vinculada foi excluída.",
+                            });
+                          } catch (error) {
+                            console.error(
+                              "Erro ao atualizar pagamento da parcela:",
+                              error
+                            );
+                            toast({
+                              variant: "destructive",
+                              title: "Erro ao atualizar parcela",
+                              description:
+                                "Não foi possível concluir a operação. Tente novamente.",
+                            });
+                          }
+                        }
+                        setConfirmPaymentOpen(false);
+                      }}
+                    >
+                      Confirmar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </>
+              );
+            })()}
           </AlertDialogContent>
         </AlertDialog>
       </div>

@@ -28,6 +28,8 @@ import {
   RecurringIcon,
   ProgressBar,
   getRemainingInfo,
+  getRecurringActionCopy,
+  getActionCopyBySide,
 } from "./RecurringTableShared";
 
 export interface RecurringTableMobileProps {
@@ -83,6 +85,7 @@ export function RecurringTableMobile({
             const isExpanded = !!expandedRows[item.id];
             const displayName =
               item.description || item.class?.name || "Sem descrição";
+            const copy = getRecurringActionCopy(item);
 
             return (
               <MobileStackRow key={item.id}>
@@ -106,7 +109,12 @@ export function RecurringTableMobile({
                   <div className="space-y-1 rounded-lg bg-muted/30 px-3 py-2">
                     <span className="text-sm font-medium">{planSummary.title}</span>
                     <p className="text-xs text-muted-foreground">{planSummary.subtitle}</p>
-                    {progress && <ProgressBar progress={progress} />}
+                    {progress && (
+                      <ProgressBar
+                        progress={progress}
+                        paidWord={copy.progressPaidLabel}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -162,14 +170,14 @@ export function RecurringTableMobile({
                           variant="ghost"
                           size="icon"
                           className="h-10 w-10"
-                          aria-label="Marcar recorrência como paga"
+                          aria-label={copy.archiveLabel}
                           onClick={() => setSelectedRecurring(item)}
                         >
                           <CheckCircle className="h-4 w-4 text-success" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
-                        <AlertDialogHeader>Marcar como paga?</AlertDialogHeader>
+                        <AlertDialogHeader>{copy.archiveTitle}</AlertDialogHeader>
                         <p className="text-sm text-muted-foreground">
                           A recorrência &quot;{displayName}&quot; será arquivada como concluída.
                         </p>
@@ -182,7 +190,7 @@ export function RecurringTableMobile({
                               reloadRecurring();
                             }}
                           >
-                            Marcar como paga
+                            {copy.archiveConfirm}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -257,7 +265,7 @@ export function RecurringTableMobile({
                                       : "border-border text-muted-foreground"
                                   )}
                                 >
-                                  {isPaid ? "Paga" : "Em aberto"}
+                                  {isPaid ? copy.doneBadge : copy.openBadge}
                                 </Badge>
                                 <Button
                                   type="button"
@@ -273,7 +281,7 @@ export function RecurringTableMobile({
                                     setConfirmPaymentOpen(true);
                                   }}
                                 >
-                                  {isPaid ? "Desfazer" : "Marcar como paga"}
+                                  {isPaid ? "Desfazer" : copy.markAction}
                                 </Button>
                               </div>
                             </div>
@@ -292,56 +300,72 @@ export function RecurringTableMobile({
 
         <AlertDialog open={confirmPaymentOpen} onOpenChange={setConfirmPaymentOpen}>
           <AlertDialogContent>
-            <AlertDialogHeader>
-              {paymentAction === "mark"
-                ? "Marcar parcela como paga?"
-                : "Desfazer pagamento?"}
-            </AlertDialogHeader>
-            <p className="text-sm text-muted-foreground">
-              {paymentAction === "mark"
-                ? "A transação correspondente será registrada automaticamente."
-                : "O status da parcela será revertido e a transação vinculada será excluída automaticamente."}
-            </p>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={async () => {
-                  if (selectedParcel) {
-                    try {
-                      await updateRecurringParcelPayment(
-                        selectedParcel.transactionId,
-                        selectedParcel.installmentNumber,
-                        recurring.find(
-                          (transaction) => transaction.id === selectedParcel.transactionId
-                        )?.paid_parcels || []
-                      );
-                      await reloadRecurring();
-                      toast({
-                        title:
-                          paymentAction === "mark"
-                            ? "Parcela marcada como paga"
-                            : "Pagamento desfeito",
-                        description:
-                          paymentAction === "mark"
-                            ? "A transação foi registrada automaticamente."
-                            : "A parcela foi revertida e a transação vinculada foi excluída.",
-                      });
-                    } catch (error) {
-                      console.error("Erro ao atualizar pagamento da parcela:", error);
-                      toast({
-                        variant: "destructive",
-                        title: "Erro ao atualizar parcela",
-                        description:
-                          "Não foi possível concluir a operação. Tente novamente.",
-                      });
-                    }
-                  }
-                  setConfirmPaymentOpen(false);
-                }}
-              >
-                Confirmar
-              </AlertDialogAction>
-            </AlertDialogFooter>
+            {(() => {
+              const parcelRec = recurring.find(
+                (r) => r.id === selectedParcel?.transactionId
+              );
+              const parcelCopy = parcelRec
+                ? getRecurringActionCopy(parcelRec)
+                : getActionCopyBySide(false);
+              return (
+                <>
+                  <AlertDialogHeader>
+                    {paymentAction === "mark"
+                      ? parcelCopy.markTitle
+                      : parcelCopy.unmarkTitle}
+                  </AlertDialogHeader>
+                  <p className="text-sm text-muted-foreground">
+                    {paymentAction === "mark"
+                      ? parcelCopy.markHint
+                      : parcelCopy.unmarkHint}
+                  </p>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={async () => {
+                        if (selectedParcel) {
+                          try {
+                            await updateRecurringParcelPayment(
+                              selectedParcel.transactionId,
+                              selectedParcel.installmentNumber,
+                              recurring.find(
+                                (transaction) =>
+                                  transaction.id === selectedParcel.transactionId
+                              )?.paid_parcels || []
+                            );
+                            await reloadRecurring();
+                            toast({
+                              title:
+                                paymentAction === "mark"
+                                  ? parcelCopy.markToast
+                                  : parcelCopy.unmarkToast,
+                              description:
+                                paymentAction === "mark"
+                                  ? "A transação foi registrada automaticamente."
+                                  : "A parcela foi revertida e a transação vinculada foi excluída.",
+                            });
+                          } catch (error) {
+                            console.error(
+                              "Erro ao atualizar pagamento da parcela:",
+                              error
+                            );
+                            toast({
+                              variant: "destructive",
+                              title: "Erro ao atualizar parcela",
+                              description:
+                                "Não foi possível concluir a operação. Tente novamente.",
+                            });
+                          }
+                        }
+                        setConfirmPaymentOpen(false);
+                      }}
+                    >
+                      Confirmar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </>
+              );
+            })()}
           </AlertDialogContent>
         </AlertDialog>
       </TooltipProvider>

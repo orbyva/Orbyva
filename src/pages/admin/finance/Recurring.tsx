@@ -13,12 +13,19 @@ import {
   getRecurringDueAlerts,
   resolvePaymentStartDate,
   filterRecurringList,
+  filterRecurringByNature,
+  countRecurringByNature,
+  sortRecurringList,
+  toggleRecurringSort,
   getRecurringProgress,
   type RecurringFilter,
+  type RecurringNatureFilter,
+  type RecurringSortState,
 } from "@/api/recurring";
 import { useDimensions } from "@/hooks/useDimensions";
 import { RecurringSummary } from "./components/RecurringSummary";
 import { RecurringDueAlerts } from "./components/RecurringDueAlerts";
+import { RecurringNatureFilters } from "./components/RecurringNatureFilters";
 import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
 import { toast } from "@/hooks/use-toast";
 import { PageShell } from "@/components/PageShell";
@@ -30,16 +37,22 @@ import { getErrorMessage } from "@/lib/errors";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Repeat } from "lucide-react";
 
-type RecurringTab = "lista" | "projecao";
+type RecurringTab = "registros" | "projecao";
 
 export default function Recurring() {
   const { isMobile } = useSidebar();
   const { dimensions } = useDimensions();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab: RecurringTab =
-    searchParams.get("tab") === "projecao" ? "projecao" : "lista";
+    searchParams.get("tab") === "projecao" ? "projecao" : "registros";
   const [recurring, setRecurring] = useState<Recurring[]>([]);
   const [activeFilter, setActiveFilter] = useState<RecurringFilter>("all");
+  const [natureFilter, setNatureFilter] =
+    useState<RecurringNatureFilter>("all");
+  const [sort, setSort] = useState<RecurringSortState>({
+    key: "type",
+    dir: "asc",
+  });
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmOpenSoft, setConfirmOpenSoft] = useState(false);
   const [confirmPaymentOpen, setConfirmPaymentOpen] = useState(false);
@@ -106,6 +119,16 @@ export default function Recurring() {
     [recurring]
   );
 
+  const natureBase = useMemo(
+    () => filterRecurringByNature(recurring, natureFilter),
+    [recurring, natureFilter]
+  );
+
+  const natureCounts = useMemo(
+    () => countRecurringByNature(recurring),
+    [recurring]
+  );
+
   const filterCounts = useMemo(() => {
     const overdueIds = new Set(
       dueAlerts.filter((a) => a.status === "overdue").map((a) => a.recurring.id)
@@ -115,24 +138,24 @@ export default function Recurring() {
     );
 
     return {
-      all: recurring.length,
-      open: recurring.filter((rec) => {
+      all: natureBase.length,
+      open: natureBase.filter((rec) => {
         const progress = getRecurringProgress(rec);
         return !progress || progress.open > 0;
       }).length,
-      paid: recurring.filter((rec) => {
+      paid: natureBase.filter((rec) => {
         const progress = getRecurringProgress(rec);
         return progress !== null && progress.open === 0 && progress.total > 0;
       }).length,
-      upcoming: recurring.filter((rec) => upcomingIds.has(rec.id)).length,
-      overdue: recurring.filter((rec) => overdueIds.has(rec.id)).length,
+      upcoming: natureBase.filter((rec) => upcomingIds.has(rec.id)).length,
+      overdue: natureBase.filter((rec) => overdueIds.has(rec.id)).length,
     } satisfies Record<RecurringFilter, number>;
-  }, [recurring, dueAlerts]);
+  }, [natureBase, dueAlerts]);
 
-  const filteredRecurring = useMemo(
-    () => filterRecurringList(recurring, activeFilter, dueAlerts),
-    [recurring, activeFilter, dueAlerts]
-  );
+  const filteredRecurring = useMemo(() => {
+    const byStatus = filterRecurringList(natureBase, activeFilter, dueAlerts);
+    return sortRecurringList(byStatus, sort);
+  }, [natureBase, activeFilter, dueAlerts, sort]);
 
   async function editRecurring(payload?: RecurringCreateRequest) {
     if (!selectedRecurring) return;
@@ -211,7 +234,7 @@ export default function Recurring() {
     setSearchParams(
       (prev) => {
         const params = new URLSearchParams(prev);
-        if (next === "lista") params.delete("tab");
+        if (next === "registros") params.delete("tab");
         else params.set("tab", "projecao");
         return params;
       },
@@ -263,16 +286,16 @@ export default function Recurring() {
         <Tabs
           value={tab}
           onValueChange={(value) =>
-            setTab(value === "projecao" ? "projecao" : "lista")
+            setTab(value === "projecao" ? "projecao" : "registros")
           }
           className="w-full"
         >
           <TabsList>
-            <TabsTrigger value="lista">Lista</TabsTrigger>
+            <TabsTrigger value="registros">Registros</TabsTrigger>
             <TabsTrigger value="projecao">Projeção</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="lista" className="mt-4 space-y-4">
+          <TabsContent value="registros" className="mt-4 space-y-4">
             <RecurringSummary
               totalFixesReceivable={totalFixesReceivable}
               totalFixesPay={totalFixesPay}
@@ -281,6 +304,12 @@ export default function Recurring() {
             <RecurringDueAlerts alerts={dueAlerts} />
 
             <section className="space-y-3">
+              <RecurringNatureFilters
+                activeFilter={natureFilter}
+                onFilterChange={setNatureFilter}
+                counts={natureCounts}
+              />
+
               <RecurringFilters
                 activeFilter={activeFilter}
                 onFilterChange={setActiveFilter}
@@ -291,6 +320,10 @@ export default function Recurring() {
                 <RecurringTable
                   recurring={filteredRecurring}
                   isMobile={isMobile}
+                  sort={sort}
+                  onSortChange={(key) =>
+                    setSort((prev) => toggleRecurringSort(prev, key))
+                  }
                   confirmOpen={confirmOpen}
                   setConfirmOpen={setConfirmOpen}
                   confirmOpenSoft={confirmOpenSoft}

@@ -1,0 +1,119 @@
+import { describe, expect, it } from "vitest";
+import {
+  countRecurringByNature,
+  filterRecurringByNature,
+  sortRecurringList,
+  toggleRecurringSort,
+} from "@/domain/recurring/listView";
+import type { Recurring } from "@/types/recurring";
+
+function makeRecurring(overrides: Partial<Recurring> = {}): Recurring {
+  return {
+    id: "1",
+    class: {
+      id: 1,
+      name: "Classe",
+      type: {
+        id: 1,
+        name: "Tipo",
+        hex_color: "#fff",
+        lucide_icon: "wallet",
+        nature: { id: 2, name: "Despesa" },
+      },
+    },
+    value: 100,
+    description: "Conta",
+    frequency: "Mensal",
+    validity: null,
+    due_day: 5,
+    installment_count: 2,
+    payment_start_date: "2026-07-01",
+    status: true,
+    created_at: "2026-07-01T00:00:00Z",
+    paid_parcels: [],
+    installments: [
+      { number: 1, dueDate: "2026-07-05", label: "Parcela 1" },
+      { number: 2, dueDate: "2026-08-05", label: "Parcela 2" },
+    ],
+    ...overrides,
+  };
+}
+
+describe("filterRecurringByNature", () => {
+  it("separa a receber e a pagar", () => {
+    const pay = makeRecurring({ id: "p" });
+    const receive = makeRecurring({
+      id: "r",
+      class: {
+        id: 2,
+        name: "Salário",
+        type: {
+          id: 2,
+          name: "Renda",
+          hex_color: "#0f0",
+          lucide_icon: "wallet",
+          nature: { id: 1, name: "Receita" },
+        },
+      },
+    });
+
+    expect(filterRecurringByNature([pay, receive], "pay").map((r) => r.id)).toEqual([
+      "p",
+    ]);
+    expect(
+      filterRecurringByNature([pay, receive], "receive").map((r) => r.id)
+    ).toEqual(["r"]);
+    expect(countRecurringByNature([pay, receive])).toEqual({
+      all: 2,
+      receive: 1,
+      pay: 1,
+    });
+  });
+});
+
+describe("sortRecurringList", () => {
+  it("ordena por tipo asc por padrão", () => {
+    const a = makeRecurring({
+      id: "a",
+      class: {
+        id: 1,
+        name: "X",
+        type: {
+          id: 1,
+          name: "Moradia",
+          hex_color: "#fff",
+          lucide_icon: "home",
+          nature: { id: 2, name: "Despesa" },
+        },
+      },
+    });
+    const b = makeRecurring({
+      id: "b",
+      class: {
+        id: 2,
+        name: "Y",
+        type: {
+          id: 2,
+          name: "Alimentação",
+          hex_color: "#fff",
+          lucide_icon: "utensils",
+          nature: { id: 2, name: "Despesa" },
+        },
+      },
+    });
+
+    const sorted = sortRecurringList([a, b], { key: "type", dir: "asc" });
+    expect(sorted.map((r) => r.id)).toEqual(["b", "a"]);
+  });
+
+  it("alterna direção no toggle", () => {
+    expect(toggleRecurringSort({ key: "type", dir: "asc" }, "type")).toEqual({
+      key: "type",
+      dir: "desc",
+    });
+    expect(toggleRecurringSort({ key: "type", dir: "asc" }, "value")).toEqual({
+      key: "value",
+      dir: "asc",
+    });
+  });
+});
