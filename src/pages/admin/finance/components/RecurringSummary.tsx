@@ -12,13 +12,13 @@ export function RecurringSummary({
 }: RecurringSummaryProps) {
   const data = [
     {
-      title: "Total a Receber",
+      title: "Total a receber (planos)",
       value: totalFixesReceivable,
       titleClass: "text-success border-success/50",
       valueClass: "text-success",
     },
     {
-      title: "Total a Pagar",
+      title: "Total a pagar (planos)",
       value: totalFixesPay,
       titleClass: "text-destructive border-destructive/50",
       valueClass: "text-destructive",

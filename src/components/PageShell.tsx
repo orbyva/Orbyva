@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
-import { useLocation } from "react-router-dom";
-import { BREADCRUMB_LABELS, BRAND } from "@/lib/brand";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { cn } from "@/lib/utils";
 
 interface PageShellProps {
@@ -13,21 +12,12 @@ interface PageShellProps {
   hideHeader?: boolean;
   /**
    * Label azul acima do título (efeito da home).
-   * Padrão: módulo da rota. `null` ou `""` esconde.
+   * Padrão: wordmark Orbyva (ORBYVɅ). Passe um módulo (ex. "Viagens") só quando fizer sentido.
+   * `null` ou `""` esconde.
    */
   eyebrow?: string | null;
   /** Classes extras na área de actions. */
   actionsClassName?: string;
-}
-
-function defaultEyebrow(pathname: string, title?: string): string {
-  const root = pathname.split("/").filter(Boolean)[0];
-  if (!root || root === "home") return BRAND.name;
-  const label = BREADCRUMB_LABELS[root] ?? BRAND.name;
-  if (title && label.toLowerCase() === title.toLowerCase()) {
-    return BRAND.name;
-  }
-  return label;
 }
 
 export function PageShell({
@@ -40,11 +30,9 @@ export function PageShell({
   eyebrow,
   actionsClassName,
 }: PageShellProps) {
-  const { pathname } = useLocation();
-  const resolvedEyebrow =
-    eyebrow === null || eyebrow === ""
-      ? null
-      : (eyebrow ?? defaultEyebrow(pathname, title));
+  const useBrandWordmark = eyebrow === undefined;
+  const customEyebrow =
+    eyebrow === null || eyebrow === "" || useBrandWordmark ? null : eyebrow;
 
   return (
     <main
@@ -56,15 +44,17 @@ export function PageShell({
       {!hideHeader && title ? (
         <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
           <div className="min-w-0">
-            {resolvedEyebrow ? (
+            {useBrandWordmark ? (
+              <BrandWordmark size="sm" showSubtitle={false} />
+            ) : customEyebrow ? (
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary sm:text-[11px]">
-                {resolvedEyebrow}
+                {customEyebrow}
               </p>
             ) : null}
             <h1
               className={cn(
                 "text-xl font-semibold tracking-tight sm:text-2xl sm:font-bold",
-                resolvedEyebrow && "mt-1"
+                (useBrandWordmark || customEyebrow) && "mt-1"
               )}
             >
               {title}

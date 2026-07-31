@@ -3,3 +3,4 @@ export * from "./installments";
 export * from "./values";
 export * from "./formatters";
 export * from "./alerts";
+export * from "./projection";

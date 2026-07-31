@@ -8,7 +8,11 @@ import { fetchMonthlyBudgetSummary } from "@/api/finance";
 import { fetchGoals } from "@/api/goals";
 import { fetchSeriesWithEpisodeNotify } from "@/api/movies";
 import { fetchEpisodesForSeries } from "@/api/movieEpisodes";
-import { getRecurringDueAlerts } from "@/domain/recurring";
+import {
+  calculateInstallments,
+  getRecurringDueAlerts,
+  resolvePaymentStartDate,
+} from "@/domain/recurring";
 import { getDocumentAlerts, getMaintenanceAlerts } from "@/domain/car";
 import { getCurrentUserId } from "@/lib/auth-user";
 import {
@@ -159,7 +163,16 @@ async function loadAppAlertsFresh(): Promise<AppAlert[]> {
     ]);
 
   if (recurringResult.status === "fulfilled") {
-    for (const a of getRecurringDueAlerts(recurringResult.value)) {
+    const withInstallments = recurringResult.value.map((rec) => ({
+      ...rec,
+      installments: calculateInstallments(
+        resolvePaymentStartDate(rec),
+        rec.due_day,
+        rec.installment_count,
+        rec.validity
+      ),
+    }));
+    for (const a of getRecurringDueAlerts(withInstallments)) {
       alerts.push(mapRecurringAlert(a));
     }
   }

@@ -1,7 +1,9 @@
 import { RecurringFormDialog } from "@/pages/admin/finance/components/RecurringFormDialog";
 import { RecurringTable } from "@/pages/admin/finance/components/RecurringTable";
 import { RecurringFilters } from "@/pages/admin/finance/components/RecurringFilters";
+import { RecurringProjection } from "@/pages/admin/finance/components/RecurringProjection";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   calculateInstallments,
   fetchRecurringTransactions,
@@ -23,13 +25,19 @@ import { PageShell } from "@/components/PageShell";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getErrorMessage } from "@/lib/errors";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Repeat } from "lucide-react";
 
+type RecurringTab = "lista" | "projecao";
+
 export default function Recurring() {
   const { isMobile } = useSidebar();
   const { dimensions } = useDimensions();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: RecurringTab =
+    searchParams.get("tab") === "projecao" ? "projecao" : "lista";
   const [recurring, setRecurring] = useState<Recurring[]>([]);
   const [activeFilter, setActiveFilter] = useState<RecurringFilter>("all");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -199,9 +207,21 @@ export default function Recurring() {
     setNewRecurring(new_recurring_default);
   }
 
+  function setTab(next: RecurringTab) {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (next === "lista") params.delete("tab");
+        else params.set("tab", "projecao");
+        return params;
+      },
+      { replace: true }
+    );
+  }
+
   return (
     <PageShell
-      title="Recorrências"
+      title="Parcelas"
       description="Gerencie receitas e despesas fixas do seu planejamento financeiro."
       actions={
         <>
@@ -220,12 +240,6 @@ export default function Recurring() {
       }
     >
       <ModuleGuide moduleId="finance" />
-      <RecurringSummary
-        totalFixesReceivable={totalFixesReceivable}
-        totalFixesPay={totalFixesPay}
-      />
-
-      <RecurringDueAlerts alerts={dueAlerts} />
 
       {recurring.length === 0 ? (
         <EmptyState
@@ -246,32 +260,61 @@ export default function Recurring() {
           }
         />
       ) : (
-        <section className="space-y-3">
-          <RecurringFilters
-            activeFilter={activeFilter}
-            onFilterChange={setActiveFilter}
-            counts={filterCounts}
-          />
+        <Tabs
+          value={tab}
+          onValueChange={(value) =>
+            setTab(value === "projecao" ? "projecao" : "lista")
+          }
+          className="w-full"
+        >
+          <TabsList>
+            <TabsTrigger value="lista">Lista</TabsTrigger>
+            <TabsTrigger value="projecao">Projeção</TabsTrigger>
+          </TabsList>
 
-          <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
-            <RecurringTable
-              recurring={filteredRecurring}
-              isMobile={isMobile}
-              confirmOpen={confirmOpen}
-              setConfirmOpen={setConfirmOpen}
-              confirmOpenSoft={confirmOpenSoft}
-              setConfirmOpenSoft={setConfirmOpenSoft}
-              confirmPaymentOpen={confirmPaymentOpen}
-              setConfirmPaymentOpen={setConfirmPaymentOpen}
-              selectedRecurring={selectedRecurring}
-              setSelectedRecurring={setSelectedRecurring}
-              selectedParcel={selectedParcel}
-              setSelectedParcel={setSelectedParcel}
-              reloadRecurring={reloadRecurring}
-              handleEditRecurring={handleEdit}
+          <TabsContent value="lista" className="mt-4 space-y-4">
+            <RecurringSummary
+              totalFixesReceivable={totalFixesReceivable}
+              totalFixesPay={totalFixesPay}
             />
-          </div>
-        </section>
+
+            <RecurringDueAlerts alerts={dueAlerts} />
+
+            <section className="space-y-3">
+              <RecurringFilters
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+                counts={filterCounts}
+              />
+
+              <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
+                <RecurringTable
+                  recurring={filteredRecurring}
+                  isMobile={isMobile}
+                  confirmOpen={confirmOpen}
+                  setConfirmOpen={setConfirmOpen}
+                  confirmOpenSoft={confirmOpenSoft}
+                  setConfirmOpenSoft={setConfirmOpenSoft}
+                  confirmPaymentOpen={confirmPaymentOpen}
+                  setConfirmPaymentOpen={setConfirmPaymentOpen}
+                  selectedRecurring={selectedRecurring}
+                  setSelectedRecurring={setSelectedRecurring}
+                  selectedParcel={selectedParcel}
+                  setSelectedParcel={setSelectedParcel}
+                  reloadRecurring={reloadRecurring}
+                  handleEditRecurring={handleEdit}
+                />
+              </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="projecao" className="mt-4">
+            <RecurringProjection
+              recurring={recurring}
+              onChanged={reloadRecurring}
+            />
+          </TabsContent>
+        </Tabs>
       )}
     </PageShell>
   );
