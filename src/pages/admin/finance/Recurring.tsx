@@ -17,6 +17,7 @@ import {
   sortRecurringList,
   toggleRecurringSort,
   getRecurringProgress,
+  buildFixedYearPlan,
   type RecurringFilter,
   type RecurringNatureFilter,
   type RecurringSortState,
@@ -37,6 +38,22 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { Repeat } from "lucide-react";
 
 type RecurringTab = "registros" | "projecao";
+
+function defaultRecurringCreateRequest(): RecurringCreateRequest {
+  const payment_start_date = new Date().toISOString().split("T")[0];
+  const plan = buildFixedYearPlan(payment_start_date);
+  return {
+    class_id: 0,
+    value: 0,
+    description: "",
+    frequency: "Mensal",
+    validity: plan.validity,
+    due_day: 10,
+    installment_count: plan.installment_count,
+    payment_start_date,
+    status: true,
+  };
+}
 
 export default function Recurring() {
   const { isMobile } = useSidebar();
@@ -60,20 +77,9 @@ export default function Recurring() {
   const [totalFixesPay, setTotalFixesPay] = useState(0);
   const [totalFixesReceivable, setTotalFixesReceivable] = useState(0);
 
-  const new_recurring_default: RecurringCreateRequest = {
-    class_id: 0,
-    value: 0,
-    description: "",
-    frequency: "",
-    validity: null,
-    due_day: null,
-    installment_count: null,
-    payment_start_date: new Date().toISOString().split("T")[0],
-    status: true,
-  };
-
-  const [newRecurring, setNewRecurring] =
-    useState<RecurringCreateRequest>(new_recurring_default);
+  const [newRecurring, setNewRecurring] = useState<RecurringCreateRequest>(
+    defaultRecurringCreateRequest
+  );
 
   const [isEditing, setIsEditing] = useState(false);
   const [selectedParcel, setSelectedParcel] = useState<{
@@ -211,7 +217,7 @@ export default function Recurring() {
 
       reloadRecurring();
       setOpen(false);
-      setNewRecurring(new_recurring_default);
+      setNewRecurring(defaultRecurringCreateRequest());
     } catch (error) {
       toast({
         title: "Erro",
@@ -226,7 +232,7 @@ export default function Recurring() {
     setOpen(false);
     setIsEditing(false);
     setSelectedRecurring(null);
-    setNewRecurring(new_recurring_default);
+    setNewRecurring(defaultRecurringCreateRequest());
   }
 
   function setTab(next: RecurringTab) {
@@ -273,7 +279,7 @@ export default function Recurring() {
               onClick={() => {
                 setIsEditing(false);
                 setSelectedRecurring(null);
-                setNewRecurring(new_recurring_default);
+                setNewRecurring(defaultRecurringCreateRequest());
                 setOpen(true);
               }}
             >

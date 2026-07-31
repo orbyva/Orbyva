@@ -2,7 +2,11 @@ import type { Dimension } from "@/types/dimensions";
 import type { RecurringCreateRequest } from "@/types/recurring";
 import { useEffect, useMemo, useState } from "react";
 import {
+  MAX_SPLIT_INSTALLMENTS,
+  buildFixedYearPlan,
+  countMonthsThroughYearEnd,
   getTotalFromInstallments,
+  isFixedRecurringPlan,
   splitInstallmentValue,
 } from "@/domain/recurring";
 import { formatBRL } from "@/lib/currency";
@@ -28,6 +32,8 @@ import { MoneyInput } from "@/components/MoneyInput";
 import { FormLabel } from "@/components/FormLabel";
 import { NoClassesForTypeHint } from "./NoClassesForTypeHint";
 
+type PlanMode = "fixed" | "split";
+
 interface RecurringFormDialogProps {
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -37,6 +43,40 @@ interface RecurringFormDialogProps {
   isEditing: boolean;
   onClose: () => void;
   dimensions: Dimension[];
+}
+
+function resolvePlanMode(rec: RecurringCreateRequest): PlanMode {
+  if (isFixedRecurringPlan(rec)) return "fixed";
+  if (rec.installment_count && rec.installment_count > 0) return "split";
+  return "fixed";
+}
+
+function withScheduleDefaults(
+  rec: RecurringCreateRequest,
+  overrides: Partial<RecurringCreateRequest> = {}
+): RecurringCreateRequest {
+  return {
+    ...rec,
+    payment_start_date:
+      rec.payment_start_date ?? new Date().toISOString().split("T")[0],
+    due_day: rec.due_day ?? 10,
+    frequency: rec.frequency || "Mensal",
+    ...overrides,
+  };
+}
+
+function applyFixedYearFields(
+  rec: RecurringCreateRequest
+): RecurringCreateRequest {
+  const start =
+    rec.payment_start_date ?? new Date().toISOString().split("T")[0];
+  const plan = buildFixedYearPlan(start);
+  return withScheduleDefaults(rec, {
+    payment_start_date: start,
+    installment_count: plan.installment_count,
+    validity: plan.validity,
+    frequency: "Mensal",
+  });
 }
 
 export function RecurringFormDialog({
@@ -53,32 +93,54 @@ export function RecurringFormDialog({
   const [selectedType, setSelectedType] = useState<number | null>(null);
   const [selectedNature, setSelectedNature] = useState<number | null>(null);
   const [totalValue, setTotalValue] = useState<number | "">("");
+  const [planMode, setPlanMode] = useState<PlanMode>("fixed");
 
-  const hasInstallments =
-    !!newRecurring.installment_count && newRecurring.installment_count > 0;
+  const isSplit = planMode === "split";
+
+  const fixedMonthPreview = useMemo(() => {
+    if (isSplit) return null;
+    const start =
+      newRecurring.payment_start_date ??
+      new Date().toISOString().split("T")[0];
+    const count = countMonthsThroughYearEnd(start);
+    const year = start.slice(0, 4);
+    return { count, year };
+  }, [isSplit, newRecurring.payment_start_date]);
 
   const installmentValue =
-    hasInstallments &&
+    isSplit &&
     typeof totalValue === "number" &&
     totalValue > 0 &&
-    newRecurring.installment_count
+    newRecurring.installment_count &&
+    newRecurring.installment_count > 0
       ? splitInstallmentValue(totalValue, newRecurring.installment_count)
       : null;
 
   useEffect(() => {
     if (!open) return;
+    const mode = resolvePlanMode(newRecurring);
+    setPlanMode(mode);
 
-    if (hasInstallments && newRecurring.value > 0 && newRecurring.installment_count) {
+    if (
+      mode === "split" &&
+      newRecurring.value > 0 &&
+      newRecurring.installment_count
+    ) {
       setTotalValue(
         getTotalFromInstallments(
           newRecurring.value,
           newRecurring.installment_count
         )
       );
-    } else if (!hasInstallments) {
+    } else {
       setTotalValue("");
     }
-  }, [open, hasInstallments, newRecurring.value, newRecurring.installment_count]);
+
+    if (mode === "fixed") {
+      setNewRecurring(applyFixedYearFields(newRecurring));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync once when dialog opens
+  }, [open]);
 
   useEffect(() => {
     if (isEditing && newRecurring.class_id && dimensions.length > 0) {
@@ -109,6 +171,28 @@ export function RecurringFormDialog({
     [selectedTypeObj]
   );
 
+  const switchToFixed = () => {
+    setPlanMode("fixed");
+    setTotalValue("");
+    setNewRecurring(applyFixedYearFields(newRecurring));
+  };
+
+  const switchToSplit = () => {
+    setPlanMode("split");
+    const nextCount =
+      newRecurring.installment_count &&
+      !isFixedRecurringPlan(newRecurring) &&
+      newRecurring.installment_count <= MAX_SPLIT_INSTALLMENTS
+        ? newRecurring.installment_count
+        : 12;
+    setNewRecurring(
+      withScheduleDefaults(newRecurring, {
+        installment_count: nextCount,
+        validity: null,
+      })
+    );
+  };
+
   const handleCreate = () => {
     if (!selectedNature) return setFormError("Selecione a Natureza.");
     if (!selectedType) return setFormError("Selecione o Tipo.");
@@ -122,9 +206,25 @@ export function RecurringFormDialog({
       return setFormError("Informe a Descrição.");
     if (!newRecurring.frequency) return setFormError("Selecione a Frequência.");
 
-    if (hasInstallments) {
+    if (!newRecurring.payment_start_date) {
+      return setFormError("Informe o início do pagamento.");
+    }
+    if (
+      !newRecurring.due_day ||
+      newRecurring.due_day < 1 ||
+      newRecurring.due_day > 31
+    ) {
+      return setFormError("Informe o dia de vencimento (1 a 31).");
+    }
+
+    if (isSplit) {
       if (!newRecurring.installment_count || newRecurring.installment_count < 1) {
         return setFormError("Informe o número de parcelas.");
+      }
+      if (newRecurring.installment_count > MAX_SPLIT_INSTALLMENTS) {
+        return setFormError(
+          `Use no máximo ${MAX_SPLIT_INSTALLMENTS} parcelas, ou escolha Mensal fixa.`
+        );
       }
       if (typeof totalValue !== "number" || totalValue <= 0) {
         return setFormError("Informe o valor total.");
@@ -133,31 +233,19 @@ export function RecurringFormDialog({
       return setFormError("Informe um Valor válido.");
     }
 
-    if (hasInstallments) {
-      if (!newRecurring.payment_start_date) {
-        return setFormError("Informe o início do pagamento.");
-      }
-      if (
-        !newRecurring.due_day ||
-        newRecurring.due_day < 1 ||
-        newRecurring.due_day > 31
-      ) {
-        return setFormError("Informe o dia de vencimento (1 a 31).");
-      }
-    }
-
     setFormError("");
 
-    const payload =
-      hasInstallments && typeof totalValue === "number"
-        ? {
-            ...newRecurring,
-            value: splitInstallmentValue(
-              totalValue,
-              newRecurring.installment_count!
-            ),
-          }
-        : newRecurring;
+    const payload = isSplit
+      ? {
+          ...newRecurring,
+          validity: null,
+          installment_count: newRecurring.installment_count!,
+          value: splitInstallmentValue(
+            totalValue as number,
+            newRecurring.installment_count!
+          ),
+        }
+      : applyFixedYearFields(newRecurring);
 
     setNewRecurring(payload);
     createRecurring(payload);
@@ -173,12 +261,13 @@ export function RecurringFormDialog({
           setSelectedType(null);
           setFormError("");
           setTotalValue("");
+          setPlanMode("fixed");
           onClose();
         }
       }}
     >
       {!isEditing && (
-          <DialogTrigger asChild>
+        <DialogTrigger asChild>
           <Button className="w-full sm:w-auto">Nova parcela</Button>
         </DialogTrigger>
       )}
@@ -188,9 +277,9 @@ export function RecurringFormDialog({
             {isEditing ? "Editar parcela" : "Nova parcela"}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            {hasInstallments
+            {isSplit
               ? "Compra parcelada — valor total dividido em N meses."
-              : "Conta ou receita fixa — o mesmo valor todo mês."}
+              : "Conta ou receita fixa — gera os meses até dezembro deste ano para marcar no ledger."}
           </p>
         </DialogHeader>
 
@@ -199,39 +288,23 @@ export function RecurringFormDialog({
             <Button
               type="button"
               size="sm"
-              variant={!hasInstallments ? "default" : "ghost"}
+              variant={!isSplit ? "default" : "ghost"}
               className="h-9"
-              onClick={() =>
-                setNewRecurring({
-                  ...newRecurring,
-                  installment_count: null,
-                  due_day: null,
-                  payment_start_date: null,
-                })
-              }
+              onClick={switchToFixed}
             >
               Mensal fixa
             </Button>
             <Button
               type="button"
               size="sm"
-              variant={hasInstallments ? "default" : "ghost"}
+              variant={isSplit ? "default" : "ghost"}
               className="h-9"
-              onClick={() =>
-                setNewRecurring({
-                  ...newRecurring,
-                  installment_count: newRecurring.installment_count || 12,
-                  payment_start_date:
-                    newRecurring.payment_start_date ||
-                    new Date().toISOString().split("T")[0],
-                  due_day: newRecurring.due_day || 10,
-                  frequency: newRecurring.frequency || "Mensal",
-                })
-              }
+              onClick={switchToSplit}
             >
               Parcelada (Nx)
             </Button>
           </div>
+
           <div className="space-y-1.5">
             <FormLabel required>Natureza</FormLabel>
             <Select
@@ -340,9 +413,9 @@ export function RecurringFormDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <FormLabel required>
-                {hasInstallments ? "Valor total" : "Valor mensal"}
+                {isSplit ? "Valor total" : "Valor mensal"}
               </FormLabel>
-              {hasInstallments ? (
+              {isSplit ? (
                 <MoneyInput
                   placeholder="0,00"
                   value={totalValue}
@@ -361,18 +434,19 @@ export function RecurringFormDialog({
                 />
               )}
               <p className="text-[11px] text-muted-foreground">
-                {hasInstallments
+                {isSplit
                   ? "Soma de todas as parcelas"
                   : "Cobrado a cada período"}
               </p>
             </div>
 
-            {hasInstallments ? (
+            {isSplit ? (
               <div className="space-y-1.5">
                 <FormLabel required>Nº de parcelas</FormLabel>
                 <Input
                   type="number"
                   min="1"
+                  max={MAX_SPLIT_INSTALLMENTS}
                   placeholder="Ex: 12"
                   value={newRecurring.installment_count ?? ""}
                   onChange={(e) =>
@@ -381,6 +455,7 @@ export function RecurringFormDialog({
                       installment_count: e.target.value
                         ? Number(e.target.value)
                         : null,
+                      validity: null,
                     })
                   }
                 />
@@ -390,14 +465,13 @@ export function RecurringFormDialog({
             )}
 
             <div className="space-y-1.5">
-              <FormLabel required>
-                {hasInstallments ? "Frequência" : "Frequência"}
-              </FormLabel>
+              <FormLabel required>Frequência</FormLabel>
               <Select
                 onValueChange={(value: string) =>
                   setNewRecurring({ ...newRecurring, frequency: value })
                 }
                 value={newRecurring.frequency}
+                disabled={!isSplit}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Frequência" />
@@ -421,56 +495,83 @@ export function RecurringFormDialog({
             </p>
           ) : null}
 
-          {hasInstallments ? (
-            <div className="grid grid-cols-1 gap-3 rounded-lg border border-border/50 bg-muted/15 p-3 sm:grid-cols-2">
-              <div className="space-y-1.5 sm:col-span-2">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Quando começa a pagar
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <FormLabel required>1ª parcela em</FormLabel>
-                <DatePicker
-                  date={
-                    newRecurring.payment_start_date
-                      ? new Date(`${newRecurring.payment_start_date}T12:00:00`)
-                      : undefined
-                  }
-                  onSelect={(date: Date | undefined) =>
-                    setNewRecurring({
-                      ...newRecurring,
-                      payment_start_date: date
-                        ? date.toISOString().split("T")[0]
-                        : null,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <FormLabel required>Dia de vencimento</FormLabel>
-                <Input
-                  type="number"
-                  min="1"
-                  max="31"
-                  placeholder="Ex: 10"
-                  value={newRecurring.due_day ?? ""}
-                  onChange={(e) =>
-                    setNewRecurring({
-                      ...newRecurring,
-                      due_day: e.target.value ? Number(e.target.value) : null,
-                    })
-                  }
-                />
-              </div>
-            </div>
+          {fixedMonthPreview ? (
+            <p className="-mt-1 text-sm text-muted-foreground">
+              Gera{" "}
+              <span className="font-medium text-foreground">
+                {fixedMonthPreview.count}{" "}
+                {fixedMonthPreview.count === 1 ? "mês" : "meses"}
+              </span>
+              {" · "}
+              até dez/{fixedMonthPreview.year}
+            </p>
           ) : null}
+
+          <div className="grid grid-cols-1 gap-3 rounded-lg border border-border/50 bg-muted/15 p-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                {isSplit
+                  ? "Quando começa a pagar"
+                  : "Vencimento (meses até dezembro deste ano)"}
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <FormLabel required>
+                {isSplit ? "1ª parcela em" : "A partir de"}
+              </FormLabel>
+              <DatePicker
+                date={
+                  newRecurring.payment_start_date
+                    ? new Date(`${newRecurring.payment_start_date}T12:00:00`)
+                    : undefined
+                }
+                onSelect={(date: Date | undefined) => {
+                  const nextStart = date
+                    ? date.toISOString().split("T")[0]
+                    : null;
+                  if (!isSplit && nextStart) {
+                    setNewRecurring(
+                      applyFixedYearFields({
+                        ...newRecurring,
+                        payment_start_date: nextStart,
+                      })
+                    );
+                    return;
+                  }
+                  setNewRecurring({
+                    ...newRecurring,
+                    payment_start_date: nextStart,
+                  });
+                }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <FormLabel required>Dia de vencimento</FormLabel>
+              <Input
+                type="number"
+                min="1"
+                max="31"
+                placeholder="Ex: 10"
+                value={newRecurring.due_day ?? ""}
+                onChange={(e) =>
+                  setNewRecurring({
+                    ...newRecurring,
+                    due_day: e.target.value ? Number(e.target.value) : null,
+                  })
+                }
+              />
+            </div>
+          </div>
 
           {formError ? (
             <p className="text-sm text-destructive">{formError}</p>
           ) : null}
 
-          <Button onClick={handleCreate} className="w-full sm:w-auto sm:justify-self-start">
+          <Button
+            onClick={handleCreate}
+            className="w-full sm:w-auto sm:justify-self-start"
+          >
             {isEditing ? "Salvar alterações" : "Salvar parcela"}
           </Button>
         </div>

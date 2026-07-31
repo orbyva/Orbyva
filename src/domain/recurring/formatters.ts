@@ -1,4 +1,5 @@
 import type { Installments } from "@/types/recurring";
+import { isFixedRecurringPlan } from "./constants";
 
 export function formatInstallmentCount(count: number): string {
   return count === 1 ? "1 parcela" : `${count} parcelas`;
@@ -23,23 +24,31 @@ export interface InstallmentPlanSummary {
 export function formatInstallmentPlanSummary(rec: {
   installment_count: number | null;
   due_day: number | null;
+  validity?: string | null;
   installments?: Installments;
 }): InstallmentPlanSummary | null {
   if (!rec.installment_count || !rec.due_day) return null;
 
   const dueDayText =
     rec.due_day === 1 ? "Vence todo dia 1º" : `Vence todo dia ${rec.due_day}`;
+  const fixed = isFixedRecurringPlan(rec);
 
   let subtitle = dueDayText;
 
   if (Array.isArray(rec.installments) && rec.installments.length > 0) {
     const first = rec.installments[0].dueDate;
     const last = rec.installments[rec.installments.length - 1].dueDate;
-    subtitle = `${dueDayText} · ${formatMonthYearShort(first)} a ${formatMonthYearShort(last)}`;
+    if (fixed) {
+      subtitle = `${dueDayText} · até ${formatMonthYearShort(last)}`;
+    } else {
+      subtitle = `${dueDayText} · ${formatMonthYearShort(first)} a ${formatMonthYearShort(last)}`;
+    }
+  } else if (fixed && rec.validity) {
+    subtitle = `${dueDayText} · até ${formatMonthYearShort(rec.validity)}`;
   }
 
   return {
-    title: formatInstallmentCount(rec.installment_count),
+    title: fixed ? "Mensal fixa" : formatInstallmentCount(rec.installment_count),
     subtitle,
   };
 }
