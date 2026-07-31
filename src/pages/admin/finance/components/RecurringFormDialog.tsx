@@ -391,7 +391,7 @@ export function RecurringFormDialog({
 
             <div className="space-y-1.5">
               <FormLabel required>
-                {hasInstallments ? "Frequência das parcelas" : "Frequência"}
+                {hasInstallments ? "Frequência" : "Frequência"}
               </FormLabel>
               <Select
                 onValueChange={(value: string) =>
