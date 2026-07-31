@@ -1,6 +1,5 @@
 import { RecurringFormDialog } from "@/pages/admin/finance/components/RecurringFormDialog";
 import { RecurringTable } from "@/pages/admin/finance/components/RecurringTable";
-import { RecurringFilters } from "@/pages/admin/finance/components/RecurringFilters";
 import { RecurringProjection } from "@/pages/admin/finance/components/RecurringProjection";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -25,7 +24,7 @@ import {
 import { useDimensions } from "@/hooks/useDimensions";
 import { RecurringSummary } from "./components/RecurringSummary";
 import { RecurringDueAlerts } from "./components/RecurringDueAlerts";
-import { RecurringNatureFilters } from "./components/RecurringNatureFilters";
+import { RecurringListFilters } from "./components/RecurringListFilters";
 import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
 import { toast } from "@/hooks/use-toast";
 import { PageShell } from "@/components/PageShell";
@@ -245,7 +244,7 @@ export default function Recurring() {
   return (
     <PageShell
       title="Parcelas"
-      description="Gerencie receitas e despesas fixas do seu planejamento financeiro."
+      description="Fixas e 12x no radar — lista, projeção do mês e simular compra."
       actions={
         <>
           <ModuleGuideButton moduleId="finance" />
@@ -267,8 +266,8 @@ export default function Recurring() {
       {recurring.length === 0 ? (
         <EmptyState
           icon={Repeat}
-          title="Nenhuma parcela ou recorrência"
-          description="Cadastre receitas e despesas fixas para o ledger avisar vencimentos — continua o onboarding do life OS."
+          title="Nenhuma parcela cadastrada"
+          description="Cadastre contas e receitas fixas ou um 12x — o app avisa vencimentos e monta a projeção do mês."
           action={
             <Button
               onClick={() => {
@@ -278,7 +277,7 @@ export default function Recurring() {
                 setOpen(true);
               }}
             >
-              Nova recorrência
+              Nova parcela
             </Button>
           }
         />
@@ -304,16 +303,13 @@ export default function Recurring() {
             <RecurringDueAlerts alerts={dueAlerts} />
 
             <section className="space-y-3">
-              <RecurringNatureFilters
-                activeFilter={natureFilter}
-                onFilterChange={setNatureFilter}
-                counts={natureCounts}
-              />
-
-              <RecurringFilters
-                activeFilter={activeFilter}
-                onFilterChange={setActiveFilter}
-                counts={filterCounts}
+              <RecurringListFilters
+                natureFilter={natureFilter}
+                onNatureChange={setNatureFilter}
+                natureCounts={natureCounts}
+                statusFilter={activeFilter}
+                onStatusChange={setActiveFilter}
+                statusCounts={filterCounts}
               />
 
               <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">

@@ -322,13 +322,17 @@ export function BudgetTable({
           const children = items.filter((budget) => budget.class_id !== null);
 
           return (
-            <div key={typeName} className="space-y-3 p-4">
-              <div className="space-y-2 rounded-lg bg-muted/40 p-3">
+            <div key={typeName} className="space-y-2 p-4">
+              <div className="space-y-2 rounded-xl bg-muted/50 p-3 ring-1 ring-border/40">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-bold">{typeName}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Tipo
+                    </p>
+                    <p className="font-bold tracking-tight">{typeName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {children.length} classe(s)
+                      {children.length}{" "}
+                      {children.length === 1 ? "classe" : "classes"}
                     </p>
                   </div>
                   <StatusBadge status={parent.status ?? "OK"} />
@@ -337,7 +341,7 @@ export function BudgetTable({
                 <div className="grid grid-cols-3 gap-2 text-center text-sm">
                   <div>
                     <p className="text-xs text-muted-foreground">Orçado</p>
-                    <p className="font-medium tabular-nums">
+                    <p className="font-semibold tabular-nums">
                       {formatBRL(parent.planned_value)}
                     </p>
                   </div>
@@ -364,21 +368,6 @@ export function BudgetTable({
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">
-                      {Number(parent.percentage_used || 0).toFixed(0)}%
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {parent.nature_name === "Receita" ? "recebido" : "usado"}
-                    </span>
-                  </div>
-                  <ProgressBar
-                    value={Number(parent.percentage_used || 0)}
-                    status={parent.status ?? "OK"}
-                  />
-                </div>
-
                 {items.some((budget) => budget.class_id === null) && (
                   <BudgetActions
                     budget={parent}
@@ -396,10 +385,17 @@ export function BudgetTable({
               {children.map((budget) => (
                 <div
                   key={budget.id}
-                  className="ml-2 space-y-2 rounded-lg border border-border/50 p-3"
+                  className="ml-1 space-y-2 rounded-lg border border-l-2 border-border/50 border-l-primary/30 bg-card/40 p-3"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium">{budget.class_name ?? "Sem classe"}</p>
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Classe · {typeName}
+                      </p>
+                      <p className="font-medium">
+                        {budget.class_name ?? "Sem classe"}
+                      </p>
+                    </div>
                     <StatusBadge status={budget.status} />
                   </div>
 
@@ -470,7 +466,7 @@ export function BudgetTable({
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-[240px]">Categoria</TableHead>
+              <TableHead className="min-w-[240px]">Tipo / Classe</TableHead>
               <TableHead className="text-right">Orçado</TableHead>
               <TableHead className="text-right">Realizado</TableHead>
               <TableHead className="text-right">Saldo</TableHead>
@@ -502,65 +498,67 @@ export function BudgetTable({
 
                 return (
                   <Fragment key={typeName}>
-                    <TableRow className="bg-muted/40 font-semibold hover:bg-muted/40">
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold">{typeName}</span>
+                    <TableRow className="border-b-0 bg-muted/50 hover:bg-muted/50">
+                      <TableCell className="py-3">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Tipo
+                          </span>
+                          <span className="text-sm font-bold tracking-tight">
+                            {typeName}
+                          </span>
                           <span className="text-xs font-normal text-muted-foreground">
-                            {children.length} classe(s)
+                            {children.length}{" "}
+                            {children.length === 1 ? "classe" : "classes"}
                           </span>
                         </div>
                       </TableCell>
 
-                      <TableCell className="text-right">
+                      <TableCell className="py-3 text-right text-sm font-semibold tabular-nums">
                         {formatBRL(parent.planned_value)}
                       </TableCell>
 
-                      <TableCell className="text-right">
-                        <BudgetValueCell
-                          budget={parent}
-                          value={getRealizedValue(parent)}
-                          label={getRealizedLabel(parent)}
-                        />
+                      <TableCell className="py-3 text-right text-sm tabular-nums text-muted-foreground">
+                        {formatBRL(getRealizedValue(parent))}
                       </TableCell>
 
                       <TableCell
-                        className={`text-right font-semibold ${getRemainingClass(
-                          parent
-                        )}`}
+                        className={cn(
+                          "py-3 text-right text-sm font-semibold tabular-nums",
+                          getRemainingClass(parent)
+                        )}
                       >
-                        <BudgetValueCell
-                          budget={parent}
-                          value={Number(parent.remaining_value || 0)}
-                          label={getRemainingLabel(parent)}
-                        />
+                        {formatBRL(Number(parent.remaining_value || 0))}
                       </TableCell>
 
-                      <TableCell>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium">
-                              {Number(parent.percentage_used || 0).toFixed(0)}%
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {parent.nature_name === "Receita"
-                                ? "recebido"
-                                : "usado"}
-                            </span>
+                      <TableCell className="py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium tabular-nums">
+                            {Number(parent.percentage_used || 0).toFixed(0)}%
+                          </span>
+                          <div className="h-1.5 min-w-[72px] flex-1 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={cn(
+                                "h-full rounded-full",
+                                statusProgressStyles[parent.status ?? "OK"] ??
+                                  "bg-muted-foreground"
+                              )}
+                              style={{
+                                width: `${Math.min(
+                                  Number(parent.percentage_used || 0),
+                                  100
+                                )}%`,
+                              }}
+                            />
                           </div>
-
-                          <ProgressBar
-                            value={Number(parent.percentage_used || 0)}
-                            status={parent.status ?? "OK"}
-                          />
                         </div>
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="py-3">
                         <StatusBadge status={parent.status ?? "OK"} />
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="py-3">
                         {items.some((budget) => budget.class_id === null) && (
                           <BudgetActions
                             budget={parent}
@@ -579,14 +577,19 @@ export function BudgetTable({
                     {children.map((budget) => (
                       <TableRow
                         key={budget.id}
-                        className="transition-colors odd:bg-muted/10 hover:bg-muted/40"
+                        className="border-l-2 border-l-primary/25 transition-colors odd:bg-background hover:bg-muted/30"
                       >
-                        <TableCell>
-                          <div className="flex items-center gap-3 pl-6">
-                            <div className="h-8 w-0.5 rounded-full bg-muted-foreground/30" />
-                            <span className="font-medium">
-                              {budget.class_name ?? "Sem classe"}
-                            </span>
+                        <TableCell className="py-3.5">
+                          <div className="flex items-start gap-3 pl-4">
+                            <div className="mt-1 h-5 w-0.5 shrink-0 rounded-full bg-primary/40" />
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                Classe · {typeName}
+                              </span>
+                              <p className="font-medium leading-snug">
+                                {budget.class_name ?? "Sem classe"}
+                              </p>
+                            </div>
                           </div>
                         </TableCell>
 

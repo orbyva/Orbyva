@@ -234,62 +234,70 @@ export function RecurringTableMobile({
                 </div>
 
                 {isExpanded && (
-                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="overflow-hidden rounded-lg border border-border/50 bg-background/60">
+                    <div className="border-b border-border/40 px-3 py-2 text-xs text-muted-foreground">
+                      {remainingInfo ? (
+                        <span>
+                          {remainingInfo.paid}/{remainingInfo.total}{" "}
+                          {copy.progressPaidLabel} · resto{" "}
+                          <span className="font-medium tabular-nums text-foreground">
+                            {formatBRL(remainingInfo.remainingAmount)}
+                          </span>
+                        </span>
+                      ) : (
+                        "Parcelas"
+                      )}
+                    </div>
                     {typeof installments === "string" ? (
-                      <p className="text-sm text-muted-foreground">{installments}</p>
+                      <p className="px-3 py-3 text-sm text-muted-foreground">{installments}</p>
                     ) : Array.isArray(installments) ? (
-                      <div className="space-y-2">
+                      <div className="divide-y divide-border/40">
                         {installments.map((installment: Installment) => {
                           const isPaid = paidParcels.includes(installment.number);
                           return (
                             <div
                               key={installment.number}
-                              className="flex flex-col gap-3 rounded-md border border-border/40 bg-background/40 px-3 py-3"
+                              className="flex items-center gap-2 px-3 py-2.5 text-sm"
                             >
-                              <div className="min-w-0 space-y-1">
-                                <p className="text-sm font-medium">
-                                  Parcela {installment.number}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Vence em{" "}
-                                  {installment.dueDate.split("-").reverse().join("/")}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    "font-normal",
-                                    isPaid
-                                      ? "border-success/30 text-success"
-                                      : "border-border text-muted-foreground"
-                                  )}
-                                >
-                                  {isPaid ? copy.doneBadge : copy.openBadge}
-                                </Badge>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-10 flex-1 text-sm"
-                                  onClick={() => {
-                                    setSelectedParcel({
-                                      transactionId: item.id,
-                                      installmentNumber: installment.number,
-                                    });
-                                    setPaymentAction(isPaid ? "unmark" : "mark");
-                                    setConfirmPaymentOpen(true);
-                                  }}
-                                >
-                                  {isPaid ? "Desfazer" : copy.markAction}
-                                </Button>
-                              </div>
+                              <span className="w-5 shrink-0 tabular-nums text-muted-foreground">
+                                {installment.number}
+                              </span>
+                              <span className="min-w-0 flex-1 text-muted-foreground">
+                                {installment.dueDate.split("-").reverse().join("/")}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "shrink-0 font-normal text-[10px]",
+                                  isPaid
+                                    ? "border-success/30 text-success"
+                                    : "border-border text-muted-foreground"
+                                )}
+                              >
+                                {isPaid ? copy.doneBadge : copy.openBadge}
+                              </Badge>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 shrink-0 px-2.5 text-xs"
+                                onClick={() => {
+                                  setSelectedParcel({
+                                    transactionId: item.id,
+                                    installmentNumber: installment.number,
+                                  });
+                                  setPaymentAction(isPaid ? "unmark" : "mark");
+                                  setConfirmPaymentOpen(true);
+                                }}
+                              >
+                                {isPaid ? "Desfazer" : copy.action}
+                              </Button>
                             </div>
                           );
                         })}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Sem parcelas calculadas.</p>
+                      <p className="px-3 py-3 text-sm text-muted-foreground">Sem parcelas calculadas.</p>
                     )}
                   </div>
                 )}

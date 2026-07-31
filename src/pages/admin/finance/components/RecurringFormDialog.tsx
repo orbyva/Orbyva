@@ -178,18 +178,60 @@ export function RecurringFormDialog({
       }}
     >
       {!isEditing && (
-        <DialogTrigger asChild>
-          <Button className="w-full sm:w-auto">Adicionar recorrência</Button>
+          <DialogTrigger asChild>
+          <Button className="w-full sm:w-auto">Nova parcela</Button>
         </DialogTrigger>
       )}
       <DialogContent className="max-h-[90vh] max-w-md gap-0 overflow-y-auto p-4 sm:max-w-xl sm:p-6">
         <DialogHeader className="pb-3">
           <DialogTitle>
-            {isEditing ? "Editar recorrência" : "Nova recorrência"}
+            {isEditing ? "Editar parcela" : "Nova parcela"}
           </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {hasInstallments
+              ? "Compra parcelada — valor total dividido em N meses."
+              : "Conta ou receita fixa — o mesmo valor todo mês."}
+          </p>
         </DialogHeader>
 
         <div className="grid gap-3">
+          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-muted/20 p-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={!hasInstallments ? "default" : "ghost"}
+              className="h-9"
+              onClick={() =>
+                setNewRecurring({
+                  ...newRecurring,
+                  installment_count: null,
+                  due_day: null,
+                  payment_start_date: null,
+                })
+              }
+            >
+              Mensal fixa
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={hasInstallments ? "default" : "ghost"}
+              className="h-9"
+              onClick={() =>
+                setNewRecurring({
+                  ...newRecurring,
+                  installment_count: newRecurring.installment_count || 12,
+                  payment_start_date:
+                    newRecurring.payment_start_date ||
+                    new Date().toISOString().split("T")[0],
+                  due_day: newRecurring.due_day || 10,
+                  frequency: newRecurring.frequency || "Mensal",
+                })
+              }
+            >
+              Parcelada (Nx)
+            </Button>
+          </div>
           <div className="space-y-1.5">
             <FormLabel required>Natureza</FormLabel>
             <Select
@@ -298,7 +340,7 @@ export function RecurringFormDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <FormLabel required>
-                {hasInstallments ? "Valor total" : "Valor"}
+                {hasInstallments ? "Valor total" : "Valor mensal"}
               </FormLabel>
               {hasInstallments ? (
                 <MoneyInput
@@ -318,28 +360,39 @@ export function RecurringFormDialog({
                   }
                 />
               )}
+              <p className="text-[11px] text-muted-foreground">
+                {hasInstallments
+                  ? "Soma de todas as parcelas"
+                  : "Cobrado a cada período"}
+              </p>
             </div>
 
-            <div className="space-y-1.5">
-              <FormLabel optional>Parcelas</FormLabel>
-              <Input
-                type="number"
-                min="1"
-                placeholder="Ex: 12"
-                value={newRecurring.installment_count ?? ""}
-                onChange={(e) =>
-                  setNewRecurring({
-                    ...newRecurring,
-                    installment_count: e.target.value
-                      ? Number(e.target.value)
-                      : null,
-                  })
-                }
-              />
-            </div>
+            {hasInstallments ? (
+              <div className="space-y-1.5">
+                <FormLabel required>Nº de parcelas</FormLabel>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="Ex: 12"
+                  value={newRecurring.installment_count ?? ""}
+                  onChange={(e) =>
+                    setNewRecurring({
+                      ...newRecurring,
+                      installment_count: e.target.value
+                        ? Number(e.target.value)
+                        : null,
+                    })
+                  }
+                />
+              </div>
+            ) : (
+              <div className="space-y-1.5 sm:col-span-1" />
+            )}
 
             <div className="space-y-1.5">
-              <FormLabel required>Frequência</FormLabel>
+              <FormLabel required>
+                {hasInstallments ? "Frequência das parcelas" : "Frequência"}
+              </FormLabel>
               <Select
                 onValueChange={(value: string) =>
                   setNewRecurring({ ...newRecurring, frequency: value })
@@ -359,17 +412,24 @@ export function RecurringFormDialog({
 
           {installmentValue != null && newRecurring.installment_count ? (
             <p className="-mt-1 text-sm text-muted-foreground">
-              {newRecurring.installment_count}x de{" "}
+              Cada parcela:{" "}
               <span className="font-medium text-foreground">
                 {formatBRL(installmentValue)}
               </span>
+              {" · "}
+              {newRecurring.installment_count}x
             </p>
           ) : null}
 
           {hasInstallments ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 rounded-lg border border-border/50 bg-muted/15 p-3 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Quando começa a pagar
+                </p>
+              </div>
               <div className="space-y-1.5">
-                <FormLabel required>Início do pagamento</FormLabel>
+                <FormLabel required>1ª parcela em</FormLabel>
                 <DatePicker
                   date={
                     newRecurring.payment_start_date
@@ -411,7 +471,7 @@ export function RecurringFormDialog({
           ) : null}
 
           <Button onClick={handleCreate} className="w-full sm:w-auto sm:justify-self-start">
-            {isEditing ? "Salvar alterações" : "Adicionar recorrência"}
+            {isEditing ? "Salvar alterações" : "Salvar parcela"}
           </Button>
         </div>
       </DialogContent>
