@@ -1,4 +1,4 @@
-import type { Class, Type } from "@/types/dimensions";
+import type { Class } from "@/types/dimensions";
 
 export const NATURE_RECEITA = "Receita";
 export const NATURE_DESPESA = "Despesa";
@@ -18,16 +18,19 @@ export function isInvestmentNature(name?: string | null): boolean {
   return (name ?? "").trim().toLowerCase() === "investimento";
 }
 
-export function typeExcludesFromSpend(
-  type?: Pick<Type, "exclude_from_spend"> | null
-): boolean {
+/** Aceita `null` (payloads aninhados do Supabase / ledger). */
+type SpendFlagType = {
+  exclude_from_spend?: boolean | null;
+};
+
+export function typeExcludesFromSpend(type?: SpendFlagType | null): boolean {
   return Boolean(type?.exclude_from_spend);
 }
 
 /** Conta no gasto do mês / teto? Receita e Investimento não; Despesa só se não for exclude_from_spend. */
 export function countsAsMonthlySpend(
   natureName?: string | null,
-  type?: Pick<Type, "exclude_from_spend"> | null
+  type?: SpendFlagType | null
 ): boolean {
   const n = (natureName ?? "").trim();
   if (!n || n === NATURE_RECEITA || isInvestmentNature(n)) return false;
