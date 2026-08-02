@@ -366,7 +366,8 @@
                 resolvePaymentStartDate(rec),
                 rec.due_day,
                 rec.installment_count,
-                rec.validity
+                rec.validity,
+                rec.frequency
               ),
             }))
           );

@@ -37,6 +37,34 @@ export type ProjectionSeriesPoint = {
   net: number;
 };
 
+/** Totais do livro-caixa por mês (já filtrados para gasto mensal). */
+export type LedgerMonthAmounts = {
+  receita: number;
+  despesa: number;
+};
+
+export type MonthCashBalance = {
+  year: number;
+  month: number;
+  ym: string;
+  ledgerReceita: number;
+  ledgerDespesa: number;
+  openReceive: number;
+  openPay: number;
+  receiveTotal: number;
+  payTotal: number;
+  net: number;
+};
+
+/** Linha de lançamento avulso do ledger (não vinculada a parcela). */
+export type LedgerProjectionLine = {
+  id: number;
+  description: string;
+  value: number;
+  date: string;
+  nature: ProjectionNature;
+};
+
 function padMonth(month: number): string {
   return String(month).padStart(2, "0");
 }
@@ -300,4 +328,149 @@ export function futureMonthsForSimulation(
   const needed = compareYm(simulation.end, anchor);
   if (needed <= 0) return baseFuture;
   return Math.min(maxFuture, Math.max(baseFuture, needed));
+}
+
+export function indexLedgerByYm(
+  rows: Array<{
+    year: number;
+    month: number;
+    receita_total: number;
+    despesa_total: number;
+  }>
+): Record<string, LedgerMonthAmounts> {
+  const map: Record<string, LedgerMonthAmounts> = {};
+  for (const row of rows) {
+    map[formatYm(row.year, row.month)] = {
+      receita: Number(row.receita_total) || 0,
+      despesa: Number(row.despesa_total) || 0,
+    };
+  }
+  return map;
+}
+
+/**
+ * Balanço do mês = ledger (realizado) + parcelas ainda em aberto (previsto).
+ * Evita contar duas vezes parcelas já liquidadas no livro-caixa.
+ */
+export function buildMonthCashBalance(
+  recurringList: Recurring[],
+  year: number,
+  month: number,
+  ledger?: LedgerMonthAmounts | null
+): MonthCashBalance {
+  const open = buildMonthProjection(recurringList, year, month, {
+    openOnly: true,
+  });
+  const ledgerReceita = ledger?.receita ?? 0;
+  const ledgerDespesa = ledger?.despesa ?? 0;
+  const receiveTotal = ledgerReceita + open.receiveTotal;
+  const payTotal = ledgerDespesa + open.payTotal;
+
+  return {
+    year,
+    month,
+    ym: formatYm(year, month),
+    ledgerReceita,
+    ledgerDespesa,
+    openReceive: open.receiveTotal,
+    openPay: open.payTotal,
+    receiveTotal,
+    payTotal,
+    net: receiveTotal - payTotal,
+  };
+}
+
+/**
+ * Série da janela com balanço de caixa (ledger + em aberto).
+ * Com `openOnly`, mantém só parcelas em aberto (sem ledger).
+ */
+export function buildBalanceSeriesWindow(
+  recurringList: Recurring[],
+  anchor: YearMonth,
+  ledgerByYm: Record<string, LedgerMonthAmounts> = {},
+  options: ProjectionSeriesWindowOptions = {}
+): ProjectionSeriesPoint[] {
+  const past = Math.max(0, options.past ?? 2);
+  const future = Math.max(0, options.future ?? 9);
+  const from = addMonths(anchor, -past);
+  const to = addMonths(anchor, future);
+
+  if (options.openOnly) {
+    return buildProjectionSeries(recurringList, from, to, { openOnly: true });
+  }
+
+  const points: ProjectionSeriesPoint[] = [];
+  let cursor = from;
+  while (compareYm(cursor, to) <= 0) {
+    const balance = buildMonthCashBalance(
+      recurringList,
+      cursor.year,
+      cursor.month,
+      ledgerByYm[formatYm(cursor.year, cursor.month)]
+    );
+    points.push({
+      year: balance.year,
+      month: balance.month,
+      ym: balance.ym,
+      receiveTotal: balance.receiveTotal,
+      payTotal: balance.payTotal,
+      net: balance.net,
+    });
+    cursor = addMonths(cursor, 1);
+  }
+  return points;
+}
+
+type LedgerTxLike = {
+  id: number;
+  value: number;
+  description: string;
+  transaction_at: string;
+  recurring_transaction_id?: string | null;
+  class?: {
+    type?: {
+      name?: string;
+      exclude_from_spend?: boolean | null;
+      nature?: { name?: string | null } | null;
+    } | null;
+  } | null;
+};
+
+/** Lançamentos avulsos do mês (ignora os gerados por parcela). */
+export function ledgerTransactionsToLines(transactions: LedgerTxLike[]): {
+  receiveLines: LedgerProjectionLine[];
+  payLines: LedgerProjectionLine[];
+} {
+  const receiveLines: LedgerProjectionLine[] = [];
+  const payLines: LedgerProjectionLine[] = [];
+
+  for (const tx of transactions) {
+    if (tx.recurring_transaction_id) continue;
+
+    const natureName = tx.class?.type?.nature?.name ?? null;
+    const type = tx.class?.type ?? null;
+    const date = tx.transaction_at.slice(0, 10);
+    const line: LedgerProjectionLine = {
+      id: tx.id,
+      description: tx.description?.trim() || "Lançamento",
+      value: Number(tx.value) || 0,
+      date,
+      nature: "pay",
+    };
+
+    if (natureName === NATURE_RECEITA) {
+      receiveLines.push({ ...line, nature: "receive" });
+    } else if (countsAsMonthlySpend(natureName, type)) {
+      payLines.push(line);
+    }
+  }
+
+  receiveLines.sort(
+    (a, b) => a.date.localeCompare(b.date) || a.description.localeCompare(b.description)
+  );
+  payLines.sort(
+    (a, b) => a.date.localeCompare(b.date) || a.description.localeCompare(b.description)
+  );
+
+  return { receiveLines, payLines };
 }

@@ -7,6 +7,7 @@ import {
   countMonthsThroughYearEnd,
   getTotalFromInstallments,
   isFixedRecurringPlan,
+  normalizeFixedFrequency,
   splitInstallmentValue,
 } from "@/domain/recurring";
 import { formatBRL } from "@/lib/currency";
@@ -70,12 +71,13 @@ function applyFixedYearFields(
 ): RecurringCreateRequest {
   const start =
     rec.payment_start_date ?? new Date().toISOString().split("T")[0];
-  const plan = buildFixedYearPlan(start);
+  const frequency = normalizeFixedFrequency(rec.frequency);
+  const plan = buildFixedYearPlan(start, frequency);
   return withScheduleDefaults(rec, {
     payment_start_date: start,
     installment_count: plan.installment_count,
     validity: plan.validity,
-    frequency: "Mensal",
+    frequency,
   });
 }
 
@@ -97,15 +99,25 @@ export function RecurringFormDialog({
 
   const isSplit = planMode === "split";
 
-  const fixedMonthPreview = useMemo(() => {
+  const isAnnualFixed =
+    !isSplit && normalizeFixedFrequency(newRecurring.frequency) === "Anual";
+
+  const fixedPreview = useMemo(() => {
     if (isSplit) return null;
     const start =
       newRecurring.payment_start_date ??
       new Date().toISOString().split("T")[0];
-    const count = countMonthsThroughYearEnd(start);
     const year = start.slice(0, 4);
-    return { count, year };
-  }, [isSplit, newRecurring.payment_start_date]);
+    const frequency = normalizeFixedFrequency(newRecurring.frequency);
+    if (frequency === "Anual") {
+      return { kind: "annual" as const, year };
+    }
+    return {
+      kind: "monthly" as const,
+      count: countMonthsThroughYearEnd(start),
+      year,
+    };
+  }, [isSplit, newRecurring.payment_start_date, newRecurring.frequency]);
 
   const installmentValue =
     isSplit &&
@@ -189,6 +201,7 @@ export function RecurringFormDialog({
       withScheduleDefaults(newRecurring, {
         installment_count: nextCount,
         validity: null,
+        frequency: "Mensal",
       })
     );
   };
@@ -204,8 +217,6 @@ export function RecurringFormDialog({
     if (!newRecurring.class_id) return setFormError("Selecione a Classe.");
     if (!newRecurring.description.trim())
       return setFormError("Informe a Descrição.");
-    if (!newRecurring.frequency) return setFormError("Selecione a Frequência.");
-
     if (!newRecurring.payment_start_date) {
       return setFormError("Informe o início do pagamento.");
     }
@@ -229,8 +240,11 @@ export function RecurringFormDialog({
       if (typeof totalValue !== "number" || totalValue <= 0) {
         return setFormError("Informe o valor total.");
       }
-    } else if (!newRecurring.value || newRecurring.value <= 0) {
-      return setFormError("Informe um Valor válido.");
+    } else {
+      if (!newRecurring.frequency) return setFormError("Selecione a Frequência.");
+      if (!newRecurring.value || newRecurring.value <= 0) {
+        return setFormError("Informe um Valor válido.");
+      }
     }
 
     setFormError("");
@@ -239,6 +253,7 @@ export function RecurringFormDialog({
       ? {
           ...newRecurring,
           validity: null,
+          frequency: "Mensal",
           installment_count: newRecurring.installment_count!,
           value: splitInstallmentValue(
             totalValue as number,
@@ -278,8 +293,8 @@ export function RecurringFormDialog({
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
             {isSplit
-              ? "Compra parcelada — valor total dividido em N meses."
-              : "Conta ou receita fixa — gera os meses até dezembro deste ano para marcar no ledger."}
+              ? "Compra parcelada mensal — valor total dividido em N meses."
+              : "Conta ou receita fixa (mensal ou anual) — gera cobranças até dezembro do ano da data de início."}
           </p>
         </DialogHeader>
 
@@ -410,10 +425,19 @@ export function RecurringFormDialog({
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div
+            className={cn(
+              "grid grid-cols-1 gap-3",
+              isSplit ? "sm:grid-cols-2" : "sm:grid-cols-3"
+            )}
+          >
             <div className="space-y-1.5">
               <FormLabel required>
-                {isSplit ? "Valor total" : "Valor mensal"}
+                {isSplit
+                  ? "Valor total"
+                  : isAnnualFixed
+                    ? "Valor anual"
+                    : "Valor mensal"}
               </FormLabel>
               {isSplit ? (
                 <MoneyInput
@@ -436,7 +460,9 @@ export function RecurringFormDialog({
               <p className="text-[11px] text-muted-foreground">
                 {isSplit
                   ? "Soma de todas as parcelas"
-                  : "Cobrado a cada período"}
+                  : isAnnualFixed
+                    ? "Cobrado uma vez no ano"
+                    : "Cobrado todo mês"}
               </p>
             </div>
 
@@ -456,32 +482,35 @@ export function RecurringFormDialog({
                         ? Number(e.target.value)
                         : null,
                       validity: null,
+                      frequency: "Mensal",
                     })
                   }
                 />
               </div>
             ) : (
-              <div className="space-y-1.5 sm:col-span-1" />
+              <div className="space-y-1.5 sm:col-span-2">
+                <FormLabel required>Frequência</FormLabel>
+                <Select
+                  value={normalizeFixedFrequency(newRecurring.frequency)}
+                  onValueChange={(value: string) =>
+                    setNewRecurring(
+                      applyFixedYearFields({
+                        ...newRecurring,
+                        frequency: value,
+                      })
+                    )
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Frequência" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Mensal">Mensal</SelectItem>
+                    <SelectItem value="Anual">Anual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             )}
-
-            <div className="space-y-1.5">
-              <FormLabel required>Frequência</FormLabel>
-              <Select
-                onValueChange={(value: string) =>
-                  setNewRecurring({ ...newRecurring, frequency: value })
-                }
-                value={newRecurring.frequency}
-                disabled={!isSplit}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Frequência" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Anual">Anual</SelectItem>
-                  <SelectItem value="Mensal">Mensal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           {installmentValue != null && newRecurring.installment_count ? (
@@ -491,19 +520,28 @@ export function RecurringFormDialog({
                 {formatBRL(installmentValue)}
               </span>
               {" · "}
-              {newRecurring.installment_count}x
+              {newRecurring.installment_count}x mensais
             </p>
           ) : null}
 
-          {fixedMonthPreview ? (
+          {fixedPreview?.kind === "monthly" ? (
             <p className="-mt-1 text-sm text-muted-foreground">
               Gera{" "}
               <span className="font-medium text-foreground">
-                {fixedMonthPreview.count}{" "}
-                {fixedMonthPreview.count === 1 ? "mês" : "meses"}
+                {fixedPreview.count}{" "}
+                {fixedPreview.count === 1 ? "mês" : "meses"}
               </span>
               {" · "}
-              até dez/{fixedMonthPreview.year}
+              até dez/{fixedPreview.year}
+            </p>
+          ) : null}
+
+          {fixedPreview?.kind === "annual" ? (
+            <p className="-mt-1 text-sm text-muted-foreground">
+              Gera{" "}
+              <span className="font-medium text-foreground">1 cobrança</span>
+              {" · "}
+              em {fixedPreview.year}
             </p>
           ) : null}
 
@@ -512,7 +550,9 @@ export function RecurringFormDialog({
               <p className="text-xs font-medium text-muted-foreground">
                 {isSplit
                   ? "Quando começa a pagar"
-                  : "Vencimento (meses até dezembro deste ano)"}
+                  : isAnnualFixed
+                    ? "Vencimento anual"
+                    : "Vencimento (até dezembro do ano da data de início)"}
               </p>
             </div>
             <div className="space-y-1.5">

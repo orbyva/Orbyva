@@ -62,7 +62,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Fixas e parceladas",
-        body: "Em Parcelas, escolha Mensal fixa (mesmo valor todo mês até dezembro do ano corrente, para marcar paga no ledger) ou Parcelada Nx (valor total ÷ N). A aba Registros lista e liquida; a Projeção mostra a receber × a pagar, gráfico e simulação de compra.",
+        body: "Em Parcelas, use Mensal fixa para contas mensais ou anuais (até dezembro do ano da data de início) ou Parcelada Nx (só mensal, valor total ÷ N). A aba Registros lista e liquida; a Projeção junta ledger do mês com parcelas em aberto, gráfico com saldo e simulação de compra.",
       },
       {
         title: "Leia o painel",

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildBalanceSeriesWindow,
+  buildMonthCashBalance,
   buildMonthProjection,
   buildProjectionSeries,
   buildProjectionSeriesWindow,
@@ -7,6 +9,8 @@ import {
   filterOpenProjectionLines,
   formatYm,
   futureMonthsForSimulation,
+  indexLedgerByYm,
+  ledgerTransactionsToLines,
   simulationAmountForYm,
 } from "@/domain/recurring/projection";
 import type { Recurring } from "@/types/recurring";
@@ -204,6 +208,82 @@ describe("buildProjectionSeriesWindow", () => {
       "2026-10",
     ]);
     expect(series[3].payTotal).toBe(100);
+  });
+});
+
+describe("buildMonthCashBalance", () => {
+  it("soma ledger com parcelas em aberto e não duplica pagas", () => {
+    const pay = makeRecurring({ paid_parcels: [1] });
+    const openPay = makeRecurring({
+      id: "2",
+      description: "Internet",
+      value: 120,
+      paid_parcels: [],
+    });
+    const balance = buildMonthCashBalance([pay, openPay], 2026, 7, {
+      receita: 5000,
+      despesa: 100,
+    });
+
+    expect(balance.ledgerReceita).toBe(5000);
+    expect(balance.ledgerDespesa).toBe(100);
+    expect(balance.openPay).toBe(120);
+    expect(balance.openReceive).toBe(0);
+    expect(balance.payTotal).toBe(220);
+    expect(balance.receiveTotal).toBe(5000);
+    expect(balance.net).toBe(4780);
+  });
+});
+
+describe("buildBalanceSeriesWindow", () => {
+  it("aplica ledger nos totais quando não é openOnly", () => {
+    const pay = makeRecurring();
+    const series = buildBalanceSeriesWindow(
+      [pay],
+      { year: 2026, month: 7 },
+      indexLedgerByYm([
+        { year: 2026, month: 7, receita_total: 1000, despesa_total: 50 },
+      ]),
+      { past: 0, future: 0 }
+    );
+    expect(series[0].receiveTotal).toBe(1000);
+    expect(series[0].payTotal).toBe(150);
+    expect(series[0].net).toBe(850);
+  });
+});
+
+describe("ledgerTransactionsToLines", () => {
+  it("ignora lançamentos gerados por parcela", () => {
+    const lines = ledgerTransactionsToLines([
+      {
+        id: 1,
+        value: 100,
+        description: "Parcela aluguel",
+        transaction_at: "2026-07-05",
+        recurring_transaction_id: "rec-1",
+        class: {
+          type: {
+            nature: { name: "Despesa" },
+            exclude_from_spend: false,
+          },
+        },
+      },
+      {
+        id: 2,
+        value: 40,
+        description: "Café",
+        transaction_at: "2026-07-10",
+        recurring_transaction_id: null,
+        class: {
+          type: {
+            nature: { name: "Despesa" },
+            exclude_from_spend: false,
+          },
+        },
+      },
+    ]);
+    expect(lines.payLines).toHaveLength(1);
+    expect(lines.payLines[0].description).toBe("Café");
   });
 });
 

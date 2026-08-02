@@ -1,6 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/table";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableHead,
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +23,13 @@ import { Class, ClassCreateRequest, ClassUpdateRequest, Type } from "@/types/fin
 import { FormLabel, ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
+import { SortableTableHead } from "@/components/SortableTableHead";
 import { repairOrphanClasses } from "@/domain/onboarding/defaults";
+import {
+  sortClassesList,
+  toggleSort,
+  type ClassSortState,
+} from "@/domain/dimensions/listView";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { cn, sortByNamePt } from "@/lib/utils";
@@ -41,7 +54,16 @@ function ClassManager({ types }: { types: Type[] }) {
   const [editingClass, setEditingClass] = useState<ClassUpdateRequest | null>(null);
   const [formError, setFormError] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [sort, setSort] = useState<ClassSortState>({
+    key: "type",
+    dir: "asc",
+  });
   const { toast } = useToast();
+
+  const sortedClasses = useMemo(
+    () => sortClassesList(classes, types, sort),
+    [classes, types, sort]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -183,14 +205,28 @@ function ClassManager({ types }: { types: Type[] }) {
           <div className="min-h-0 flex-1 overflow-y-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableCell>Nome</TableCell>
-                  <TableCell>Tipo</TableCell>
-                  <TableCell className="w-[100px]">Ações</TableCell>
+                <TableRow className="hover:bg-transparent">
+                  <SortableTableHead
+                    label="Nome da classe"
+                    sortKey="name"
+                    sort={sort}
+                    onSortChange={(key) =>
+                      setSort((prev) => toggleSort(prev, key))
+                    }
+                  />
+                  <SortableTableHead
+                    label="Tipo"
+                    sortKey="type"
+                    sort={sort}
+                    onSortChange={(key) =>
+                      setSort((prev) => toggleSort(prev, key))
+                    }
+                  />
+                  <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {classes.length === 0 ? (
+                {sortedClasses.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={3} className="p-0">
                       <EmptyState
@@ -206,7 +242,7 @@ function ClassManager({ types }: { types: Type[] }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  classes.map((cls) => {
+                  sortedClasses.map((cls) => {
                     const typeName = resolveTypeName(cls, types);
                     return (
                       <TableRow key={cls.id}>

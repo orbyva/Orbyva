@@ -30,6 +30,7 @@ import {
   getRemainingInfo,
   getRecurringActionCopy,
   getActionCopyBySide,
+  FixedPlanRenewButton,
 } from "./RecurringTableShared";
 
 export interface RecurringTableMobileProps {
@@ -148,6 +149,12 @@ export function RecurringTableMobile({
                   </Button>
 
                   <div className="flex shrink-0 gap-1">
+                    <FixedPlanRenewButton
+                      recurring={item}
+                      onRenewed={reloadRecurring}
+                      className="h-10 w-10"
+                    />
+
                     <Button
                       variant="ghost"
                       size="icon"
@@ -263,7 +270,12 @@ export function RecurringTableMobile({
                                 {installment.number}
                               </span>
                               <span className="min-w-0 flex-1 text-muted-foreground">
-                                {installment.dueDate.split("-").reverse().join("/")}
+                                {item.frequency === "Anual"
+                                  ? installment.dueDate.slice(0, 4)
+                                  : installment.dueDate
+                                      .split("-")
+                                      .reverse()
+                                      .join("/")}
                               </span>
                               <Badge
                                 variant="outline"

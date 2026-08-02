@@ -24,6 +24,27 @@ export function getInstallmentDueDate(
   return new Date(targetYear, normalizedMonth, day);
 }
 
+/** Parcela anual: mesmo mês/dia, avançando 1 ano por número. */
+export function getAnnualInstallmentDueDate(
+  startDate: string,
+  dueDay: number,
+  installmentNumber: number
+): Date {
+  const start = new Date(`${startDate.slice(0, 10)}T12:00:00`);
+  const targetYear = start.getFullYear() + (installmentNumber - 1);
+  const month = start.getMonth();
+  const lastDay = new Date(targetYear, month + 1, 0).getDate();
+  const day = Math.min(dueDay, lastDay);
+  return new Date(targetYear, month, day);
+}
+
+function toIsoDateLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function resolvePaymentStartDate(rec: {
   payment_start_date: string | null;
   created_at: string;
@@ -35,14 +56,18 @@ export function calculateInstallments(
   startDate: string,
   dueDay: number | null,
   installmentCount: number | null,
-  validity: string | null = null
+  validity: string | null = null,
+  frequency: string | null = null
 ): Installments {
   if (installmentCount && installmentCount > 0 && dueDay) {
     const installments: Installment[] = [];
+    const annual = frequency === "Anual";
 
     for (let i = 1; i <= installmentCount; i++) {
-      const dueDate = getInstallmentDueDate(startDate, dueDay, i);
-      const dueDateIso = dueDate.toISOString().split("T")[0];
+      const dueDate = annual
+        ? getAnnualInstallmentDueDate(startDate, dueDay, i)
+        : getInstallmentDueDate(startDate, dueDay, i);
+      const dueDateIso = toIsoDateLocal(dueDate);
 
       installments.push({
         label: formatInstallmentLabel(i, dueDateIso),
@@ -65,7 +90,7 @@ export function calculateInstallments(
   while (currentDate <= validityDate) {
     const installmentNumber = installments.length + 1;
     const dueDate = getInstallmentDueDate(startDate, legacyDueDay, installmentNumber);
-    const dueDateIso = dueDate.toISOString().split("T")[0];
+    const dueDateIso = toIsoDateLocal(dueDate);
 
     installments.push({
       label: formatInstallmentLabel(installmentNumber, dueDateIso),

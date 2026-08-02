@@ -15,6 +15,10 @@ import { BudgetAlerts } from "@/pages/admin/finance/components/BudgetAlerts";
 import { BudgetTable } from "@/pages/admin/finance/components/BudgetTable";
 import { BudgetFormDialog } from "@/pages/admin/finance/components/BudgetFormDialog";
 import { DuplicateBudgetDialog } from "@/pages/admin/finance/components/BudgetDuplicateFormDialog";
+import {
+  toggleSort,
+  type BudgetSortState,
+} from "@/domain/budget/listView";
 
 import type {
   MonthlyBudgetCreateRequest,
@@ -90,6 +94,10 @@ export default function Budget() {
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const [sort, setSort] = useState<BudgetSortState>({
+    key: "type",
+    dir: "asc",
+  });
 
   const expenseBudgets = useMemo(() => {
     return summary.filter((item) => item.nature_name === "Despesa");
@@ -501,6 +509,10 @@ export default function Budget() {
                   budgets={expenseBudgets}
                   isMobile={isMobile}
                   loading={loading}
+                  sort={sort}
+                  onSortChange={(key) =>
+                    setSort((prev) => toggleSort(prev, key))
+                  }
                   confirmOpen={confirmOpen}
                   setConfirmOpen={setConfirmOpen}
                   selectedBudget={selectedBudget}
@@ -518,6 +530,10 @@ export default function Budget() {
                   budgets={incomeBudgets}
                   isMobile={isMobile}
                   loading={loading}
+                  sort={sort}
+                  onSortChange={(key) =>
+                    setSort((prev) => toggleSort(prev, key))
+                  }
                   confirmOpen={confirmOpen}
                   setConfirmOpen={setConfirmOpen}
                   selectedBudget={selectedBudget}

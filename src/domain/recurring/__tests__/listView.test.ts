@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   countRecurringByNature,
   filterRecurringByNature,
+  filterRecurringByYearMonth,
   sortRecurringList,
+  sumRecurringActiveInMonth,
   toggleRecurringSort,
 } from "@/domain/recurring/listView";
 import type { Recurring } from "@/types/recurring";
@@ -106,6 +108,45 @@ describe("sortRecurringList", () => {
     expect(sorted.map((r) => r.id)).toEqual(["b", "a"]);
   });
 
+  it("ao ordenar por tipo, desempata por classe crescente", () => {
+    const zebra = makeRecurring({
+      id: "z",
+      description: "Z",
+      class: {
+        id: 1,
+        name: "Zebra",
+        type: {
+          id: 1,
+          name: "Moradia",
+          hex_color: "#fff",
+          lucide_icon: "home",
+          nature: { id: 2, name: "Despesa" },
+        },
+      },
+    });
+    const aluguel = makeRecurring({
+      id: "a",
+      description: "A",
+      class: {
+        id: 2,
+        name: "Aluguel",
+        type: {
+          id: 1,
+          name: "Moradia",
+          hex_color: "#fff",
+          lucide_icon: "home",
+          nature: { id: 2, name: "Despesa" },
+        },
+      },
+    });
+
+    const sorted = sortRecurringList([zebra, aluguel], {
+      key: "type",
+      dir: "desc",
+    });
+    expect(sorted.map((r) => r.id)).toEqual(["a", "z"]);
+  });
+
   it("alterna direção no toggle", () => {
     expect(toggleRecurringSort({ key: "type", dir: "asc" }, "type")).toEqual({
       key: "type",
@@ -114,6 +155,27 @@ describe("sortRecurringList", () => {
     expect(toggleRecurringSort({ key: "type", dir: "asc" }, "value")).toEqual({
       key: "value",
       dir: "asc",
+    });
+  });
+});
+
+describe("filterRecurringByYearMonth", () => {
+  it("mantém só recorrências com parcela no mês", () => {
+    const jul = makeRecurring({ id: "jul" });
+    const ago = makeRecurring({
+      id: "ago",
+      installments: [
+        { number: 1, dueDate: "2026-08-05", label: "1" },
+        { number: 2, dueDate: "2026-09-05", label: "2" },
+      ],
+    });
+
+    expect(
+      filterRecurringByYearMonth([jul, ago], 2026, 7).map((r) => r.id)
+    ).toEqual(["jul"]);
+    expect(sumRecurringActiveInMonth([jul, ago], 2026, 7)).toEqual({
+      receive: 0,
+      pay: 100,
     });
   });
 });

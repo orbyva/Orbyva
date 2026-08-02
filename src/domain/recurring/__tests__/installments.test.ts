@@ -29,6 +29,22 @@ describe("calculateInstallments", () => {
       expect(result[2].number).toBe(3);
     }
   });
+
+  it("anual avança um ano por parcela", () => {
+    const result = calculateInstallments(
+      "2026-03-15",
+      15,
+      2,
+      "2027-12-31",
+      "Anual"
+    );
+    expect(Array.isArray(result)).toBe(true);
+    if (Array.isArray(result)) {
+      expect(result).toHaveLength(2);
+      expect(result[0].dueDate).toBe("2026-03-15");
+      expect(result[1].dueDate).toBe("2027-03-15");
+    }
+  });
 });
 
 describe("resolvePaymentStartDate", () => {

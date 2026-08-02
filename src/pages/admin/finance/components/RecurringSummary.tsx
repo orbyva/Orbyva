@@ -4,21 +4,25 @@ import { formatBRL } from "@/lib/currency";
 interface RecurringSummaryProps {
   totalFixesReceivable: number;
   totalFixesPay: number;
+  /** Ex.: "Julho / 2026" — totais do mês em foco. */
+  periodLabel?: string;
 }
 
 export function RecurringSummary({
   totalFixesReceivable,
   totalFixesPay,
+  periodLabel,
 }: RecurringSummaryProps) {
+  const suffix = periodLabel ? ` · ${periodLabel}` : "";
   const data = [
     {
-      title: "Total a receber (planos)",
+      title: `A receber no mês${suffix}`,
       value: totalFixesReceivable,
       titleClass: "text-success border-success/50",
       valueClass: "text-success",
     },
     {
-      title: "Total a pagar (planos)",
+      title: `A pagar no mês${suffix}`,
       value: totalFixesPay,
       titleClass: "text-destructive border-destructive/50",
       valueClass: "text-destructive",

@@ -12,14 +12,16 @@ import {
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart";
 import { chartColors } from "@/lib/design-tokens";
+import { formatBRL } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 import {
-  buildProjectionSeriesWindow,
+  buildBalanceSeriesWindow,
   compareYearMonth,
   formatYm,
   futureMonthsForSimulation,
+  type LedgerMonthAmounts,
   type PurchaseSimulation,
   type YearMonth,
 } from "@/domain/recurring/projection";
@@ -50,6 +52,8 @@ type RecurringProjectionChartProps = {
   futureMonths?: number;
   openOnly?: boolean;
   simulation?: PurchaseSimulation | null;
+  /** Totais do livro-caixa por `yyyy-mm` (ignorado em “Só em aberto”). */
+  ledgerByYm?: Record<string, LedgerMonthAmounts>;
 };
 
 export function RecurringProjectionChart({
@@ -59,6 +63,7 @@ export function RecurringProjectionChart({
   futureMonths = 9,
   openOnly = false,
   simulation = null,
+  ledgerByYm = {},
 }: RecurringProjectionChartProps) {
   const todayYear = new Date().getFullYear();
   const todayMonth = new Date().getMonth() + 1;
@@ -72,7 +77,7 @@ export function RecurringProjectionChart({
       simulation,
       futureMonths
     );
-    return buildProjectionSeriesWindow(recurring, anchor, {
+    return buildBalanceSeriesWindow(recurring, anchor, ledgerByYm, {
       past,
       future,
       openOnly,
@@ -80,6 +85,7 @@ export function RecurringProjectionChart({
       const point: YearMonth = { year: p.year, month: p.month };
       const vsToday = compareYearMonth(point, today);
       const simular = simulation?.byYm[p.ym] ?? 0;
+      const saldo = p.net - simular;
       return {
         label: `${SHORT_MONTHS[p.month - 1]}/${String(p.year).slice(2)}`,
         ym: p.ym,
@@ -87,7 +93,7 @@ export function RecurringProjectionChart({
         pagar: p.payTotal,
         simular,
         pagarComSim: p.payTotal + simular,
-        saldo: p.net - simular,
+        saldo,
         isSelected: p.ym === anchorYm,
         isFuture: vsToday > 0,
         isPast: vsToday < 0,
@@ -100,14 +106,21 @@ export function RecurringProjectionChart({
     futureMonths,
     openOnly,
     simulation,
+    ledgerByYm,
     todayYear,
     todayMonth,
     anchorYm,
   ]);
 
   const chartConfig = {
-    receber: { label: "A receber", color: chartColors.income },
-    pagar: { label: "A pagar", color: chartColors.expense },
+    receber: {
+      label: openOnly ? "A receber" : "Receitas",
+      color: chartColors.income,
+    },
+    pagar: {
+      label: openOnly ? "A pagar" : "Despesas",
+      color: chartColors.expense,
+    },
     ...(simulation
       ? { simular: { label: "Simulação", color: SIM_COLOR } }
       : {}),
@@ -119,10 +132,10 @@ export function RecurringProjectionChart({
         <CardTitle className="text-base">Projeção mensal</CardTitle>
         <CardDescription>
           {simulation
-            ? `Com simulação de compra (${simulation.installmentCount}x) sobreposta em a pagar.`
+            ? `Com simulação de compra (${simulation.installmentCount}x) sobreposta nas despesas.`
             : openOnly
               ? `Só em aberto — mês em foco e próximos meses.`
-              : `Passado recente e próximos meses a partir do mês em foco — para ver se cabe um novo compromisso.`}
+              : `Ledger do mês + parcelas ainda em aberto — saldo realista para decidir novos compromissos.`}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -169,17 +182,8 @@ export function RecurringProjectionChart({
               }
             />
             <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(label) => {
-                    const point = data.find((d) => d.label === label);
-                    if (!point) return String(label);
-                    if (point.isSelected) return `${label} · mês em foco`;
-                    if (point.isFuture) return `${label} · futuro`;
-                    return `${label} · passado`;
-                  }}
-                />
-              }
+              cursor={{ fill: "hsl(var(--muted))", fillOpacity: 0.35 }}
+              content={<ProjectionChartTooltip openOnly={openOnly} />}
             />
             <ChartLegend content={<ChartLegendContent />} />
             <Bar dataKey="receber" radius={[4, 4, 0, 0]} maxBarSize={28}>
@@ -218,5 +222,99 @@ export function RecurringProjectionChart({
         </ChartContainer>
       </CardContent>
     </Card>
+  );
+}
+
+type TooltipPoint = {
+  label: string;
+  receber: number;
+  pagar: number;
+  simular: number;
+  saldo: number;
+  isSelected: boolean;
+  isFuture: boolean;
+  isPast: boolean;
+};
+
+function ProjectionChartTooltip({
+  active,
+  payload,
+  openOnly,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: TooltipPoint }>;
+  openOnly: boolean;
+}) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0]?.payload;
+  if (!point) return null;
+
+  const receiveLabel = openOnly ? "A receber" : "Receitas";
+  const payLabel = openOnly ? "A pagar" : "Despesas";
+  const context = point.isSelected
+    ? "mês em foco"
+    : point.isFuture
+      ? "futuro"
+      : "passado";
+
+  return (
+    <div className="grid min-w-[10.5rem] gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-2 text-xs shadow-xl">
+      <p className="font-medium">
+        {point.label} · {context}
+      </p>
+      <TooltipRow
+        label={receiveLabel}
+        value={point.receber}
+        swatch="var(--color-receber)"
+      />
+      <TooltipRow
+        label={payLabel}
+        value={point.pagar}
+        swatch="var(--color-pagar)"
+      />
+      {point.simular > 0 ? (
+        <TooltipRow
+          label="Simulação"
+          value={point.simular}
+          swatch="var(--color-simular)"
+        />
+      ) : null}
+      <div className="mt-0.5 flex items-center justify-between gap-3 border-t border-border/60 pt-1.5">
+        <span className="text-muted-foreground">Saldo</span>
+        <span
+          className={cn(
+            "font-mono font-semibold tabular-nums",
+            point.saldo >= 0 ? "text-success" : "text-destructive"
+          )}
+        >
+          {formatBRL(point.saldo)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function TooltipRow({
+  label,
+  value,
+  swatch,
+}: {
+  label: string;
+  value: number;
+  swatch: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        <span
+          className="h-2 w-2 shrink-0 rounded-[2px]"
+          style={{ background: swatch }}
+        />
+        {label}
+      </span>
+      <span className="font-mono font-medium tabular-nums text-foreground">
+        {formatBRL(value)}
+      </span>
+    </div>
   );
 }
