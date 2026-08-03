@@ -1,0 +1,23 @@
+- [ ] Agrupar cinema/leitura em um grupo, em que serão salvos também não só filmes, séries e livros, mas também vídeos, artigos, posts, álbums/músicas entre outros 
+  - colocar tags
+  - [ ] Extensão Chrome para Read Later / Marcar como Lido
+    -  para artigos/posts/vídeos/conteúdos no geral
+    -  o processamento no backend faz a diferenciação do tipo de conteúdo e pode criar categorias
+-  Melhoria da parte de tarefas / projetos
+   -  ✅ quero poder ter uma criação de um projeto
+   -  ✅ quero poder atribuir tarefas para o projeto
+   -  devo ser capaz de visualizar em formato de calendário, em formato de cronograma (adiado para v2, fora do escopo do núcleo)
+   -  ✅ devo ser capaz de adicionar tags para as tarefas
+   -  ✅ devo ser capaz de adicionar prazos para as tarefas
+   -  ✅ devo ser capaz de visualizar as tarefas que estão em andamento, em uma seção tipo 'live' que deve ser útil para gerenciamento de tempo e de organização das tarefas
+   -  ✅ deve ser possível tipo agrupar, as tarefas, pra poder encadear.
+
+   #### Tarefas de implementação — Núcleo de Tarefas/Projetos (v1)
+   - [ ] Migration: tabelas `projects`, `tasks`, `task_dependencies`, `task_time_entries` + RLS por `user_id`
+   - [ ] `domain/tasks`: `recurrence.ts`, `dependencies.ts` (detecção de ciclo, soft-block), `timeTracking.ts`, `filters.ts` + testes (Vitest)
+   - [ ] `api/tasks`: `projects.ts`, `tasks.ts` (materialização lazy de recorrência no fetch), `timeEntries.ts`, `dependencies.ts`
+   - [ ] Página Lista (`/tasks`) com filtro por tag/prazo/projeto
+   - [ ] Página Projetos (`/tasks/projects`) + Kanban do projeto (`/tasks/projects/:id`) com subtarefas
+   - [ ] Página Live (`/tasks/live`): timer start/pause/stop + histórico de tempo do dia
+   - [ ] Recorrência simples (diária/semanal/mensal) na criação/edição de tarefa
+   - [ ] Novo grupo de navegação "Produtividade" na sidebar

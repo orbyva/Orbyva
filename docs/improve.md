@@ -1,0 +1,6 @@
+- processo de criação de tipos e classes demorando
+  - melhorar feedback de interface
+  - explorar melhores formas
+- o botão de add (+) hoje está em todas as telas, porém o clique dele estão direcionando sempre pra criação de uma transação. imagino que, dependendo da área em que ele está (Finanças, Entretenimento, Vida) o adicionar possuir uma etapa antes, em Finanças, por exemplo ele pode adicionar uma Receita, uma Despesa, uma nova parcela criada no de Entretenimento, ele pode add um Filme, um Curta, uma Música, um Artigo uma Música
+- A importação da lista em csv é muito 'developer turned', deve ser removido a fim de atingir um usuário mais geral
+- 

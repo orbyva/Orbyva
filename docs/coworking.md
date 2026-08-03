@@ -1,0 +1,13 @@
+- será um sistema de gestão de tarefas, vida, atividades, meio que em tempo real. que consiga acompanhar as tarefas. organizar por projetos, organizar agenda, organizar divisão de tempo e organização de rotinas.
+- um projeto deve ter uma label, pertencendo a um grupo. exemplo (Projetos de Software, Projetos Pessoasis de Desenvolvimento)
+- caso de uso:
+  - quero poder gerenciar as minhas compras, coisas que preciso comprar, porque alguns projetos exigem que isso seja feito. ao mesmo temppo em que é uma tarefa, é uma 'coisa que eu preciso comprar'. em que eu possa planejar a compra, por exemplo já colocar o item/link de um provider. (nesse momento a extensão do chrome já identifica o item e salva o link na lista)
+    - imagina ele te lembrar de comprar, quando encontrar um encaixe na sua agenda, que possa sugerir (baseando-se no lugar em que a)
+    - caso de uso é eu conseguir adicionar um produto a partir dessa regra, tipo: 
+- eu devo conseguir ver um gantt de tudo que eu tenho pra fazer. de prazos, de metas, que eu posso testar
+- a extensão do chrome deve ser capaz, não só de salvar os livros, compras, ou filmes, mas também sites no geral. como um bom programador, eu sempre gosto de bons sites para rexploração. acreditoq ue diretores criativos, gestores de marketing também tem muita demanda por uma aplicação que organiza inspirações, bases de conhecimento, ou grupos curados de "sites interessantes", "sites de concorrentes da minha marca", etc
+- por exemplo, podemso ter um processo de criação de atividades que não seja convencional ( criar tarefa, definir hora, dia etc), mas metas que deverão ser cumpridas e encaixadas. por exemplo: quero dedicas 2 horas por semana para o projeto x, e eu poder clicar em 'sugerir', ou quando essa meta não estiver alocada na minha agenda, ela fica em uma seção (que precisa de atenção, em que eu preciso colocar onde vão acontecer. naqueal semana, ou posso repetir, e se eu falhar com ela eu posso solicitar uma outra sugestão, tudo isso falando com a ia)
+  - exemplo de caso de uso:
+    - quero pode começar a dedicar _x_ horas em _y_ frequência até _z_ data ou por um prazo de _w_ dias
+      - isso pode ser uma configuração de um projeto em si, em que significa dedicar esse tempo para aquele projeto. a fim de ter um acompanhamento, eu poderei tipo pedir pra IA sugerir e alocar tempo, e aceitar, e aí marca naminha agenda e a ideia é que eu consiga rastrear quanto desse tempo eu consegui cumprir, metrificando tanto a minha entrega, quanto a minha 'dívida com o projeto', e as métricas de cada semena/dia/mês
+      - é interessante ter um contador, tipo em que eu de fato dou início àquela tarefa, ou àquele projeto. 
