@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/MoneyInput";
 import { FormLabel } from "@/components/FormLabel";
-import { NoClassesForTypeHint } from "./NoClassesForTypeHint";
+import { NoClassesForTypeHint, DimensionsEmptyHint } from "./NoClassesForTypeHint";
 
 type PlanMode = "fixed" | "split";
 
@@ -208,6 +208,11 @@ export function RecurringFormDialog({
 
   const handleCreate = () => {
     if (!selectedNature) return setFormError("Selecione a Natureza.");
+    if (types.length === 0) {
+      return setFormError(
+        "Esta natureza não tem tipos. Cadastre um em Dimensões."
+      );
+    }
     if (!selectedType) return setFormError("Selecione o Tipo.");
     if (classes.length === 0) {
       return setFormError(
@@ -322,25 +327,29 @@ export function RecurringFormDialog({
 
           <div className="space-y-1.5">
             <FormLabel required>Natureza</FormLabel>
-            <Select
-              value={String(selectedNature)}
-              onValueChange={(value) => {
-                setSelectedNature(parseInt(value));
-                setSelectedType(null);
-                setNewRecurring({ ...newRecurring, class_id: 0 });
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Natureza" />
-              </SelectTrigger>
-              <SelectContent>
-                {naturesSorted.map((nature) => (
-                  <SelectItem key={nature.id} value={String(nature.id)}>
-                    {nature.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {naturesSorted.length === 0 ? (
+              <DimensionsEmptyHint missing="naturezas" />
+            ) : (
+              <Select
+                value={String(selectedNature)}
+                onValueChange={(value) => {
+                  setSelectedNature(parseInt(value));
+                  setSelectedType(null);
+                  setNewRecurring({ ...newRecurring, class_id: 0 });
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Natureza" />
+                </SelectTrigger>
+                <SelectContent>
+                  {naturesSorted.map((nature) => (
+                    <SelectItem key={nature.id} value={String(nature.id)}>
+                      {nature.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {selectedNature ? (
@@ -354,24 +363,31 @@ export function RecurringFormDialog({
             >
               <div className="space-y-1.5">
                 <FormLabel required>Tipo</FormLabel>
-                <Select
-                  value={String(selectedType)}
-                  onValueChange={(value) => {
-                    setSelectedType(parseInt(value));
-                    setNewRecurring({ ...newRecurring, class_id: 0 });
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {types.map((type) => (
-                      <SelectItem key={type.id} value={String(type.id)}>
-                        {type.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {types.length === 0 ? (
+                  <DimensionsEmptyHint
+                    subject={selectedNatureObj?.name}
+                    missing="tipos"
+                  />
+                ) : (
+                  <Select
+                    value={String(selectedType)}
+                    onValueChange={(value) => {
+                      setSelectedType(parseInt(value));
+                      setNewRecurring({ ...newRecurring, class_id: 0 });
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {types.map((type) => (
+                        <SelectItem key={type.id} value={String(type.id)}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               {selectedType ? (

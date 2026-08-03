@@ -23,7 +23,7 @@ import { FormLabel } from "@/components/FormLabel";
 import { FormSection } from "@/components/FormSection";
 import { Separator } from "@/components/ui/separator";
 import { sortByNamePt } from "@/lib/utils";
-import { NoClassesForTypeHint } from "./NoClassesForTypeHint";
+import { NoClassesForTypeHint, DimensionsEmptyHint } from "./NoClassesForTypeHint";
 
 interface TransactionFormDialogProps {
   open: boolean;
@@ -82,6 +82,12 @@ export function TransactionFormDialog({
   const handleSubmit = () => {
     if (!selectedNature) {
       setFormError("Selecione a Natureza.");
+      return;
+    }
+    if (types.length === 0) {
+      setFormError(
+        "Esta natureza não tem tipos. Cadastre um em Dimensões."
+      );
       return;
     }
     if (!selectedType) {
@@ -145,54 +151,65 @@ export function TransactionFormDialog({
         <div className="space-y-5 pt-2">
           <FormSection title="Classificação">
             <FormLabel required>Natureza</FormLabel>
-            <Select
-              value={String(selectedNature)}
-              onValueChange={(value) => {
-                setSelectedNature(parseInt(value));
-                setSelectedType(null);
-                setNewTransaction({ ...newTransaction, class_id: 0 });
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione a Natureza" />
-              </SelectTrigger>
-              <SelectContent>
-                {naturesSorted.map((nature) => (
-                  <SelectItem key={nature.id} value={String(nature.id)}>
-                    {nature.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {naturesSorted.length === 0 ? (
+              <DimensionsEmptyHint missing="naturezas" />
+            ) : (
+              <Select
+                value={String(selectedNature)}
+                onValueChange={(value) => {
+                  setSelectedNature(parseInt(value));
+                  setSelectedType(null);
+                  setNewTransaction({ ...newTransaction, class_id: 0 });
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione a Natureza" />
+                </SelectTrigger>
+                <SelectContent>
+                  {naturesSorted.map((nature) => (
+                    <SelectItem key={nature.id} value={String(nature.id)}>
+                      {nature.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             {selectedNature && (
               <div
                 className={
-                  selectedType
+                  selectedType && classes.length > 0
                     ? "grid grid-cols-2 gap-3"
                     : "grid grid-cols-1 gap-3"
                 }
               >
                 <div className="space-y-3">
                   <FormLabel required>Tipo</FormLabel>
-                  <Select
-                    value={String(selectedType)}
-                    onValueChange={(value) => {
-                      setSelectedType(parseInt(value));
-                      setNewTransaction({ ...newTransaction, class_id: 0 });
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione o Tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {types.map((type) => (
-                        <SelectItem key={type.id} value={String(type.id)}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {types.length === 0 ? (
+                    <DimensionsEmptyHint
+                      subject={selectedNatureObj?.name}
+                      missing="tipos"
+                    />
+                  ) : (
+                    <Select
+                      value={String(selectedType)}
+                      onValueChange={(value) => {
+                        setSelectedType(parseInt(value));
+                        setNewTransaction({ ...newTransaction, class_id: 0 });
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione o Tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {types.map((type) => (
+                          <SelectItem key={type.id} value={String(type.id)}>
+                            {type.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 {selectedType ? (
