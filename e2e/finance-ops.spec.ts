@@ -9,6 +9,11 @@ import { E2eCleanup, e2eStamp, firstId } from "./helpers/cleanup";
 
 const env = e2eEnv();
 
+/** Mês civil local (mesmo critério da tela de Orçamento) — evita UTC vs fuso. */
+function localBudgetMonth(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
 async function pickClassId(token: string): Promise<number | null> {
   const { res, json } = await rest("class", token, {
     method: "GET",
@@ -18,7 +23,7 @@ async function pickClassId(token: string): Promise<number | null> {
   return (json as { id: number }[])[0]?.id ?? null;
 }
 
-/** Prefere classe de Despesa (aba padrão do orçamento). */
+/** Prefere classe de Despesa (aba padrão do orçamento). Sem fallback para Receita. */
 async function pickExpenseClass(
   token: string
 ): Promise<{ id: number; type_id: number; name: string } | null> {
@@ -41,7 +46,7 @@ async function pickExpenseClass(
   const preferred = expenses.find((r) =>
     /^(Delivery|Mercado|Manutenção|Cinema)$/i.test(r.name)
   );
-  const row = preferred ?? expenses[0] ?? rows[0];
+  const row = preferred ?? expenses[0];
   return row
     ? { id: row.id, type_id: row.type_id, name: row.name }
     : null;
@@ -54,16 +59,18 @@ test.describe("orçamento e parcelas", () => {
     const session = await signInViaSupabaseApi(page);
     const cleanup = new E2eCleanup(session.access_token);
     const klass = await pickExpenseClass(session.access_token);
-    test.skip(!klass, "Sem classes/dimensões no usuário E2E");
+    test.skip(!klass, "Sem classe de Despesa no usuário E2E");
 
-    const month = new Date().toISOString().slice(0, 7) + "-01";
-    // Valor raro na UI formatada (R$ 777,77) — evita colisão com seed real.
+    const month = localBudgetMonth();
+    // Valor raro na UI (R$ 777,77) — evita colisão com seed real.
     const stamp = 777.77;
+    const amountRe = /777[,.]77/;
 
     try {
+      // Orçamento no tipo (class_id null) — mesmo padrão do activation e da aba Despesas.
       const existing = await rest("monthly_budget", session.access_token, {
         method: "GET",
-        query: `select=id,planned_value&class_id=eq.${klass!.id}&budget_month=eq.${month}&limit=1`,
+        query: `select=id,planned_value&type_id=eq.${klass!.type_id}&class_id=is.null&budget_month=eq.${month}&limit=1`,
       });
       const existingRow = (
         existing.json as { id: number; planned_value: number }[] | null
@@ -83,7 +90,7 @@ test.describe("orçamento e parcelas", () => {
           body: JSON.stringify({
             user_id: session.user.id,
             type_id: klass!.type_id,
-            class_id: klass!.id,
+            class_id: null,
             budget_month: month,
             planned_value: stamp,
           }),
@@ -97,19 +104,24 @@ test.describe("orçamento e parcelas", () => {
       await expect(page.locator("body")).toContainText(/Orçamento|orçamento/i, {
         timeout: 20_000,
       });
-      const receitas = page.getByRole("tab", { name: /Receitas/i });
-      if (await receitas.isVisible().catch(() => false)) {
-        const found = await page
-          .locator("body")
-          .getByText(/777,77/)
-          .first()
-          .isVisible()
-          .catch(() => false);
-        if (!found) {
-          await receitas.click();
+      await expect(page.getByText(/Carregando orçamento/i)).toHaveCount(0, {
+        timeout: 20_000,
+      });
+
+      const despesasTab = page.getByRole("tab", { name: /Despesas/i });
+      if (await despesasTab.isVisible().catch(() => false)) {
+        await despesasTab.click();
+      }
+
+      const amount = page.getByText(amountRe).first();
+      if (!(await amount.isVisible().catch(() => false))) {
+        const receitasTab = page.getByRole("tab", { name: /Receitas/i });
+        if (await receitasTab.isVisible().catch(() => false)) {
+          await receitasTab.click();
         }
       }
-      await expect(page.getByText(/777,77/).first()).toBeVisible({
+
+      await expect(page.getByText(amountRe).first()).toBeVisible({
         timeout: 15_000,
       });
     } finally {
