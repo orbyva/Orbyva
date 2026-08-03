@@ -46,15 +46,15 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "finance",
     icon: Wallet,
     title: "Como funcionam as Finanças",
-    hook: "Livro-caixa pessoal: classifique, registre, orce e acompanhe o mês sem planilha.",
+    hook: "Lançamentos pessoais: classifique, registre, orce e acompanhe o mês sem planilha.",
     steps: [
       {
         title: "Organize as dimensões",
         body: "Natureza (Receita, Despesa, Investimento) → Tipo (ex.: Alimentação) → Classe (ex.: Mercado). Em Dimensões você cria tipos e classes do seu jeito.",
       },
       {
-        title: "Lance no extrato",
-        body: "Em Transações, registre cada movimentação com valor, data e classificação. Dá para importar CSV e editar depois.",
+        title: "Registre os lançamentos",
+        body: "Em Transações, registre cada lançamento com valor, data e classificação. Dá para importar CSV e editar depois.",
       },
       {
         title: "Planeje o mês",
@@ -62,7 +62,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Fixas e parceladas",
-        body: "Em Parcelas, use Mensal fixa para contas mensais ou anuais (até dezembro do ano da data de início) ou Parcelada Nx (só mensal, valor total ÷ N). A aba Registros lista e liquida; a Projeção junta ledger do mês com parcelas em aberto, gráfico com saldo e simulação de compra.",
+        body: "Em Parcelas, use Mensal fixa para contas mensais ou anuais (até dezembro do ano da data de início) ou Parcelada Nx (só mensal, valor total ÷ N). A aba Registros lista e liquida; a Projeção soma parcelas do mês (incluindo pagas) com lançamentos avulsos — gráfico com saldo e simulação de compra.",
       },
       {
         title: "Leia o painel",
@@ -94,7 +94,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Controle o orçamento",
-        body: "Defina um teto e lance despesas — inclusive divididas. Tudo conversa com o seu livro-caixa.",
+        body: "Defina um teto e lance despesas — inclusive divididas. Tudo conversa com os seus lançamentos.",
       },
       {
         title: "Compartilhe e avalie",
@@ -182,7 +182,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Manutenções e documentos",
-        body: "Cronograma de revisões e prazos (IPVA, seguro). Gastos entram no seu livro-caixa.",
+        body: "Cronograma de revisões e prazos (IPVA, seguro). Gastos entram nos seus lançamentos.",
       },
     ],
   },

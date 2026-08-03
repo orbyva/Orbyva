@@ -161,8 +161,8 @@ export function FixedPlanRenewButton({
         <p className="text-sm text-muted-foreground">
           &quot;{displayName}&quot; estende o plano até{" "}
           {isAnnual ? schedule.year : `dez/${schedule.year}`}. As parcelas
-          anteriores continuam na lista para desfazer se precisar; o ledger
-          já lançado permanece.
+          anteriores continuam na lista para desfazer se precisar; os
+          lançamentos já registrados permanecem.
         </p>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>

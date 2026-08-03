@@ -3,8 +3,10 @@ import { deleteTransactionApi, insertTransaction } from "@/api/finance";
 import { getCurrentUserId } from "@/lib/auth-user";
 import {
   buildRenewedFixedSchedule,
+  calculateInstallments,
   canRenewFixedPlan,
   resolveFixedRenewalRollback,
+  resolvePaymentStartDate,
 } from "@/domain/recurring";
 import {
   Recurring,
@@ -224,11 +226,12 @@ async function registerParcelTransaction(
   installmentNumber: number
 ): Promise<number> {
   const userId = await getCurrentUserId();
-  const transactionAt = new Date().toISOString().slice(0, 10);
 
   const { data: recurring, error: fetchError } = await supabase
     .from("recurring_transaction")
-    .select("class_id, description, value")
+    .select(
+      "class_id, description, value, payment_start_date, created_at, due_day, installment_count, validity, frequency"
+    )
     .eq("id", recurringId)
     .eq("user_id", userId)
     .single();
@@ -238,6 +241,21 @@ async function registerParcelTransaction(
       fetchError?.message || "Erro ao buscar a transação recorrente."
     );
   }
+
+  // Usa o vencimento da parcela para o mês da projeção/ledger bater com a competência.
+  const installments = calculateInstallments(
+    resolvePaymentStartDate(recurring),
+    recurring.due_day,
+    recurring.installment_count,
+    recurring.validity,
+    recurring.frequency
+  );
+  const dueDate =
+    Array.isArray(installments)
+      ? installments.find((item) => item.number === installmentNumber)?.dueDate
+      : undefined;
+  const transactionAt =
+    dueDate?.slice(0, 10) || new Date().toISOString().slice(0, 10);
 
   return insertTransaction({
     class_id: recurring.class_id,

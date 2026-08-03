@@ -52,7 +52,7 @@ type RecurringProjectionChartProps = {
   futureMonths?: number;
   openOnly?: boolean;
   simulation?: PurchaseSimulation | null;
-  /** Totais do livro-caixa por `yyyy-mm` (ignorado em “Só em aberto”). */
+  /** Totais de lançamentos por `yyyy-mm` (ignorado em “Só em aberto”). */
   ledgerByYm?: Record<string, LedgerMonthAmounts>;
 };
 
@@ -135,7 +135,7 @@ export function RecurringProjectionChart({
             ? `Com simulação de compra (${simulation.installmentCount}x) sobreposta nas despesas.`
             : openOnly
               ? `Só em aberto — mês em foco e próximos meses.`
-              : `Ledger do mês + parcelas ainda em aberto — saldo realista para decidir novos compromissos.`}
+              : `Parcelas do mês (incluindo pagas) + lançamentos avulsos — saldo para decidir novos compromissos.`}
         </CardDescription>
       </CardHeader>
       <CardContent>

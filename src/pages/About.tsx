@@ -6,11 +6,11 @@ import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 const MODULES = [
   {
     title: "Início",
-    body: "O dia de hoje: alertas, hábitos, próximo marco e o pulso do ledger.",
+    body: "O dia de hoje: alertas, hábitos, próximo marco e o pulso dos lançamentos.",
   },
   {
     title: "Finanças",
-    body: "Livro-caixa, orçamento com teto e gerenciamento de parcelas — o diferencial do mês sob controle. CSV e card para compartilhar.",
+    body: "Lançamentos, orçamento com teto e gerenciamento de parcelas — o diferencial do mês sob controle. CSV e card para compartilhar.",
   },
   {
     title: "Metas e hábitos",

@@ -15,7 +15,7 @@ import type { LifeDashboardSummary, TimelineItem } from "@/types/timeline";
 export const HOME_MODULES = [
   {
     label: "Finanças",
-    subtitle: "Livro-caixa",
+    subtitle: "Lançamentos",
     href: "/finance/dashboard",
     icon: Wallet,
     tone: "bg-primary/10 text-primary",

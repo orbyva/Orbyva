@@ -491,7 +491,7 @@ export function PlaceFormDialog({
           {linkedToLedger && hasAmount ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                No extrato — salvar atualiza o lançamento
+                Nos lançamentos — salvar atualiza o registro
               </p>
               {dimensions.length > 0 ? (
                 <ExpenseCategoryPicker
@@ -511,7 +511,7 @@ export function PlaceFormDialog({
           !linkedToLedger ? (
             <p className="text-xs text-muted-foreground">
               O valor entra nos gastos da viagem
-              {showLedgerToggle ? " (e no extrato, se marcar abaixo)" : ""}.
+              {showLedgerToggle ? " (e nos lançamentos, se marcar abaixo)" : ""}.
             </p>
           ) : null}
 

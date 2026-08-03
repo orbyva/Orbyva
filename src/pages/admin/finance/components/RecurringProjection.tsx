@@ -22,11 +22,12 @@ import {
 import { formatBRL } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import {
-  buildMonthCashBalance,
   buildMonthProjection,
   buildPurchaseSimulation,
-  indexLedgerByYm,
+  futureMonthsForSimulation,
+  indexAvulsoLedgerByYm,
   ledgerTransactionsToLines,
+  shiftYearMonth,
   simulationAmountForYm,
   type LedgerMonthAmounts,
   type LedgerProjectionLine,
@@ -35,10 +36,7 @@ import {
 } from "@/domain/recurring/projection";
 import type { Recurring } from "@/types/recurring";
 import { updateRecurringParcelPayment } from "@/api/recurring";
-import {
-  fetchTransactions,
-  fetchValueByNatureYearMonth,
-} from "@/api/finance";
+import { fetchTransactions } from "@/api/finance";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { RecurringProjectionChart } from "./RecurringProjectionChart";
@@ -82,10 +80,10 @@ function projectionActionCopy(nature: ProjectionLine["nature"] | undefined) {
       ? "Recebimento desfeito"
       : "Pagamento desfeito",
     markHint: isReceive
-      ? "A receita correspondente será registrada automaticamente no livro-caixa."
-      : "A transação correspondente será registrada automaticamente no livro-caixa.",
+      ? "A receita correspondente será registrada automaticamente em Lançamentos."
+      : "O lançamento correspondente será registrado automaticamente.",
     unmarkHint:
-      "O status da parcela será revertido e a transação vinculada será excluída automaticamente.",
+      "O status da parcela será revertido e o lançamento vinculado será excluído automaticamente.",
   };
 }
 
@@ -129,47 +127,6 @@ export function RecurringProjection({
   const isCurrentMonth =
     ym.year === currentYm.year && ym.month === currentYm.month;
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const rows = await fetchValueByNatureYearMonth();
-        if (!cancelled) setLedgerByYm(indexLedgerByYm(rows));
-      } catch (error) {
-        console.error("Erro ao carregar ledger na projeção:", error);
-        if (!cancelled) setLedgerByYm({});
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [recurring]);
-
-  useEffect(() => {
-    if (openOnly) {
-      setLedgerLines({ receiveLines: [], payLines: [] });
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const lastDay = new Date(ym.year, ym.month, 0).getDate();
-        const mm = String(ym.month).padStart(2, "0");
-        const startDate = `${ym.year}-${mm}-01T00:00:00.000Z`;
-        const endDate = `${ym.year}-${mm}-${String(lastDay).padStart(2, "0")}T23:59:59.999Z`;
-        const txs = await fetchTransactions(1, 200, startDate, endDate);
-        if (!cancelled) setLedgerLines(ledgerTransactionsToLines(txs));
-      } catch (error) {
-        console.error("Erro ao carregar lançamentos do mês:", error);
-        if (!cancelled) setLedgerLines({ receiveLines: [], payLines: [] });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [ym.year, ym.month, openOnly, recurring]);
-
   const simulation = useMemo(() => {
     if (!simOpen) return null;
     const total = typeof simTotal === "number" ? simTotal : 0;
@@ -180,6 +137,54 @@ export function RecurringProjection({
     });
   }, [simOpen, simTotal, simCount, simStart]);
 
+  const chartFutureMonths = useMemo(
+    () => futureMonthsForSimulation(ym, simulation, 9),
+    [ym, simulation]
+  );
+
+  useEffect(() => {
+    if (openOnly) {
+      setLedgerByYm({});
+      setLedgerLines({ receiveLines: [], payLines: [] });
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const from = shiftYearMonth(ym, -2);
+        const to = shiftYearMonth(ym, chartFutureMonths);
+        const startDate = `${from.year}-${String(from.month).padStart(2, "0")}-01T00:00:00.000Z`;
+        const lastDay = new Date(to.year, to.month, 0).getDate();
+        const endDate = `${to.year}-${String(to.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}T23:59:59.999Z`;
+        const txs = await fetchTransactions(1, 1000, startDate, endDate);
+        if (cancelled) return;
+
+        const byYm = indexAvulsoLedgerByYm(txs);
+        setLedgerByYm(byYm);
+
+        const monthKey = `${ym.year}-${String(ym.month).padStart(2, "0")}`;
+        const monthStart = `${monthKey}-01`;
+        const monthEndDay = new Date(ym.year, ym.month, 0).getDate();
+        const monthEnd = `${monthKey}-${String(monthEndDay).padStart(2, "0")}`;
+        const monthTxs = txs.filter((tx) => {
+          const day = String(tx.transaction_at ?? "").slice(0, 10);
+          return day >= monthStart && day <= monthEnd;
+        });
+        setLedgerLines(ledgerTransactionsToLines(monthTxs));
+      } catch (error) {
+        console.error("Erro ao carregar lançamentos na projeção:", error);
+        if (!cancelled) {
+          setLedgerByYm({});
+          setLedgerLines({ receiveLines: [], payLines: [] });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ym.year, ym.month, openOnly, recurring, chartFutureMonths]);
+
   const simThisMonth = simulationAmountForYm(simulation, ym.year, ym.month);
 
   const projection = useMemo(
@@ -188,23 +193,22 @@ export function RecurringProjection({
     [recurring, ym.year, ym.month, openOnly]
   );
 
-  const cashBalance = useMemo(() => {
-    if (openOnly) return null;
-    const key = `${ym.year}-${String(ym.month).padStart(2, "0")}`;
-    return buildMonthCashBalance(
-      recurring,
-      ym.year,
-      ym.month,
-      ledgerByYm[key]
-    );
-  }, [openOnly, recurring, ym.year, ym.month, ledgerByYm]);
+  const avulsoReceive = useMemo(
+    () => ledgerLines.receiveLines.reduce((sum, line) => sum + line.value, 0),
+    [ledgerLines.receiveLines]
+  );
+  const avulsoPay = useMemo(
+    () => ledgerLines.payLines.reduce((sum, line) => sum + line.value, 0),
+    [ledgerLines.payLines]
+  );
 
+  // Modo completo: parcelas do mês (incl. pagas) + avulsos listados — mesma conta da lista.
   const receiveTotal = openOnly
     ? projection.receiveTotal
-    : (cashBalance?.receiveTotal ?? projection.receiveTotal);
+    : projection.receiveTotal + avulsoReceive;
   const payTotal = openOnly
     ? projection.payTotal
-    : (cashBalance?.payTotal ?? projection.payTotal);
+    : projection.payTotal + avulsoPay;
   const netTotal = receiveTotal - payTotal;
 
   const payWithSim = payTotal + simThisMonth;
@@ -226,8 +230,8 @@ export function RecurringProjection({
           ? projectionActionCopy(line.nature).unmarkToast
           : projectionActionCopy(line.nature).markToast,
         description: line.paid
-          ? "A parcela voltou ao previsto e a transação vinculada foi removida."
-          : "Registrada no livro-caixa automaticamente.",
+          ? "A parcela voltou ao previsto e o lançamento vinculado foi removido."
+          : "Registrada em Lançamentos automaticamente.",
       });
       await onChanged();
     } catch (error) {
@@ -449,9 +453,7 @@ export function RecurringProjection({
           hint={
             openOnly
               ? "Só em aberto"
-              : cashBalance
-                ? `Ledger ${formatBRL(cashBalance.ledgerReceita)} + em aberto ${formatBRL(cashBalance.openReceive)}`
-                : "Ledger + em aberto"
+              : `Parcelas ${formatBRL(projection.receiveTotal)} + avulso ${formatBRL(avulsoReceive)}`
           }
         />
         <SummaryCard
@@ -463,9 +465,7 @@ export function RecurringProjection({
               ? `Base ${formatBRL(payTotal)} + sim ${formatBRL(simThisMonth)}`
               : openOnly
                 ? "Só em aberto"
-                : cashBalance
-                  ? `Ledger ${formatBRL(cashBalance.ledgerDespesa)} + em aberto ${formatBRL(cashBalance.openPay)}`
-                  : "Ledger + em aberto"
+                : `Parcelas ${formatBRL(projection.payTotal)} + avulso ${formatBRL(avulsoPay)}`
           }
         />
         <SummaryCard
@@ -481,7 +481,7 @@ export function RecurringProjection({
               ? "Com simulação"
               : openOnly
                 ? "Receber − pagar em aberto"
-                : "Receitas − despesas (ledger + em aberto)"
+                : "Receitas − despesas (parcelas + lançamentos avulsos)"
           }
         />
       </div>
@@ -498,7 +498,7 @@ export function RecurringProjection({
                 ? "Projeção — com simulação de compra"
                 : openOnly
                   ? "Projeção — só em aberto (daqui pra frente)"
-                  : "Projeção — ledger + parcelas em aberto"}
+                  : "Projeção — parcelas do mês (incl. pagas) + lançamentos avulsos"}
             </span>
             <ChevronDown
               className={cn(
@@ -755,7 +755,7 @@ function ProjectionColumn({
                       )}
                     />
                     <span className="min-w-0 flex-1 font-medium">
-                      Transações deste mês
+                      Lançamentos avulsos deste mês
                       <span className="ml-1.5 text-xs font-normal text-muted-foreground">
                         ({ledgerLines.length})
                       </span>
@@ -781,7 +781,7 @@ function ProjectionColumn({
                             variant="outline"
                             className="mt-1 text-[10px]"
                           >
-                            Ledger
+                            Avulso
                           </Badge>
                         </div>
                         <span className="tabular-nums text-muted-foreground">
@@ -825,7 +825,7 @@ function ProjectionColumn({
               ? "Com simulação"
               : openOnly
                 ? "Em aberto no mês"
-                : "Ledger + parcelas em aberto"}
+                : "Parcelas do mês + lançamentos avulsos"}
           </p>
         </div>
       </div>

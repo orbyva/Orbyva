@@ -9,6 +9,7 @@ import {
   filterOpenProjectionLines,
   formatYm,
   futureMonthsForSimulation,
+  indexAvulsoLedgerByYm,
   indexLedgerByYm,
   ledgerTransactionsToLines,
   simulationAmountForYm,
@@ -212,7 +213,7 @@ describe("buildProjectionSeriesWindow", () => {
 });
 
 describe("buildMonthCashBalance", () => {
-  it("soma ledger com parcelas em aberto e não duplica pagas", () => {
+  it("mantém parcela paga e soma só avulsos do ledger", () => {
     const pay = makeRecurring({ paid_parcels: [1] });
     const openPay = makeRecurring({
       id: "2",
@@ -222,21 +223,85 @@ describe("buildMonthCashBalance", () => {
     });
     const balance = buildMonthCashBalance([pay, openPay], 2026, 7, {
       receita: 5000,
-      despesa: 100,
+      despesa: 30,
     });
 
-    expect(balance.ledgerReceita).toBe(5000);
-    expect(balance.ledgerDespesa).toBe(100);
+    expect(balance.parcelPay).toBe(220);
     expect(balance.openPay).toBe(120);
-    expect(balance.openReceive).toBe(0);
-    expect(balance.payTotal).toBe(220);
+    expect(balance.extraDespesa).toBe(30);
+    expect(balance.payTotal).toBe(250);
     expect(balance.receiveTotal).toBe(5000);
-    expect(balance.net).toBe(4780);
+    expect(balance.net).toBe(4750);
+  });
+
+  it("conta parcela paga mesmo sem ledger no mês", () => {
+    const pay = makeRecurring({ paid_parcels: [1] });
+    const balance = buildMonthCashBalance([pay], 2026, 7, null);
+
+    expect(balance.parcelPay).toBe(100);
+    expect(balance.openPay).toBe(0);
+    expect(balance.extraDespesa).toBe(0);
+    expect(balance.payTotal).toBe(100);
+  });
+
+  it("soma lançamentos avulsos além das parcelas", () => {
+    const pay = makeRecurring({ paid_parcels: [1] });
+    const balance = buildMonthCashBalance([pay], 2026, 7, {
+      receita: 0,
+      despesa: 50,
+    });
+
+    expect(balance.parcelPay).toBe(100);
+    expect(balance.extraDespesa).toBe(50);
+    expect(balance.payTotal).toBe(150);
+  });
+});
+
+describe("indexAvulsoLedgerByYm", () => {
+  it("agrupa avulsos e ignora liquidações de parcela", () => {
+    const map = indexAvulsoLedgerByYm([
+      {
+        id: 1,
+        value: 80,
+        description: "Mercado",
+        transaction_at: "2026-07-10",
+        class: {
+          type: {
+            nature: { name: "Despesa" },
+          },
+        },
+      },
+      {
+        id: 2,
+        value: 100,
+        description: "Parcela",
+        transaction_at: "2026-07-05",
+        recurring_transaction_id: "rec-1",
+        class: {
+          type: {
+            nature: { name: "Despesa" },
+          },
+        },
+      },
+      {
+        id: 3,
+        value: 3000,
+        description: "Freela",
+        transaction_at: "2026-07-01",
+        class: {
+          type: {
+            nature: { name: "Receita" },
+          },
+        },
+      },
+    ]);
+
+    expect(map["2026-07"]).toEqual({ receita: 3000, despesa: 80 });
   });
 });
 
 describe("buildBalanceSeriesWindow", () => {
-  it("aplica ledger nos totais quando não é openOnly", () => {
+  it("aplica ledger avulso nos totais quando não é openOnly", () => {
     const pay = makeRecurring();
     const series = buildBalanceSeriesWindow(
       [pay],
@@ -246,6 +311,7 @@ describe("buildBalanceSeriesWindow", () => {
       ]),
       { past: 0, future: 0 }
     );
+    // Parcela em aberto 100 + receita avulsa 1000 + despesa avulsa 50
     expect(series[0].receiveTotal).toBe(1000);
     expect(series[0].payTotal).toBe(150);
     expect(series[0].net).toBe(850);

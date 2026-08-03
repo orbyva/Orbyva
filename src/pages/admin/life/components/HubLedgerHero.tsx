@@ -56,7 +56,7 @@ export function HubLedgerHero({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary-foreground/70">
-              Ledger · {monthLabel(year, month)}
+              Lançamentos · {monthLabel(year, month)}
             </p>
             <p className="mt-1.5 text-xs text-primary-foreground/70">
               Saldo do mês

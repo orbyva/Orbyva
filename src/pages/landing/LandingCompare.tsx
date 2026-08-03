@@ -101,7 +101,7 @@ export function LandingCompare() {
           ))}
         </ul>
         <p className="mt-5 font-display text-sm font-medium text-sky-400">
-          → Orbyva: ledger + life OS no mesmo app
+          → Orbyva: lançamentos + life OS no mesmo app
         </p>
       </motion.div>
 

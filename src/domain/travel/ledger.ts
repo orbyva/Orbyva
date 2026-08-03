@@ -1,4 +1,4 @@
-/** Prefixo de lançamentos de viagem no livro-caixa. */
+/** Prefixo de lançamentos de viagem em Finanças. */
 export const TRIP_LEDGER_PREFIX = "Viagem";
 
 export function tripLedgerDescription(
