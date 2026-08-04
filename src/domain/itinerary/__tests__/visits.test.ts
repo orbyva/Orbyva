@@ -6,9 +6,15 @@ import {
   findNextPendingVisit,
   findPreviousVisit,
   formatDurationFriendly,
+  formatLeaveByInsight,
+  isVisitDone,
+  isVisitOpen,
+  normalizeVisitStatus,
+  parseHHmmToMinutes,
   resolveRouteOrigin,
   shouldComputeRoutesForDay,
   sortVisitsForDay,
+  visitHasCoordinates,
   type VisitLike,
 } from "@/domain/itinerary/visits";
 
@@ -21,6 +27,105 @@ function visit(partial: Partial<VisitLike> & { id: string; title: string }): Vis
     ...partial,
   };
 }
+
+describe("normalizeVisitStatus / open / done / coords", () => {
+  it("normaliza status", () => {
+    expect(normalizeVisitStatus("completed")).toBe("completed");
+    expect(normalizeVisitStatus("skipped")).toBe("skipped");
+    expect(normalizeVisitStatus(null)).toBe("pending");
+    expect(normalizeVisitStatus("weird")).toBe("pending");
+  });
+
+  it("open vs done", () => {
+    expect(isVisitOpen(visit({ id: "1", title: "A" }))).toBe(true);
+    expect(
+      isVisitDone(visit({ id: "1", title: "A", visit_status: "completed" }))
+    ).toBe(true);
+    expect(
+      isVisitDone(visit({ id: "1", title: "A", visit_status: "skipped" }))
+    ).toBe(true);
+  });
+
+  it("visitHasCoordinates", () => {
+    expect(visitHasCoordinates(visit({ id: "1", title: "A" }))).toBe(false);
+    expect(
+      visitHasCoordinates(visit({ id: "1", title: "A", lat: 1, lng: 2 }))
+    ).toBe(true);
+  });
+
+  it("parseHHmmToMinutes", () => {
+    expect(parseHHmmToMinutes("09:30")).toBe(9 * 60 + 30);
+    expect(parseHHmmToMinutes(null)).toBeNull();
+    expect(parseHHmmToMinutes("xx")).toBeNull();
+  });
+});
+
+describe("formatLeaveByInsight", () => {
+  it("monta texto de saída", () => {
+    expect(
+      formatLeaveByInsight({
+        destinationTitle: "Mané",
+        arrivalHHmm: "11:00",
+        originTitle: "Hotel",
+        leaveByHHmm: "10:26",
+        durationSeconds: 34 * 60,
+      })
+    ).toBe(
+      "Para chegar em Mané às 11:00 saindo de Hotel, saia às 10:26 (34 min)."
+    );
+  });
+});
+
+describe("resolveRouteOrigin fallbacks", () => {
+  it("usa visita anterior e depois origem da viagem", () => {
+    const visits = [
+      visit({
+        id: "1",
+        title: "A",
+        activity_time: "09:00",
+        visit_status: "pending",
+        lat: 1,
+        lng: 1,
+        sort_order: 0,
+      }),
+      visit({
+        id: "2",
+        title: "B",
+        activity_time: "11:00",
+        visit_status: "pending",
+        lat: 2,
+        lng: 2,
+        sort_order: 1,
+      }),
+    ];
+    expect(
+      resolveRouteOrigin({
+        userLocation: null,
+        visits,
+        nextVisit: visits[1],
+        tripOrigin: { lat: 9, lng: 9 },
+      })
+    ).toEqual({ lat: 1, lng: 1 });
+
+    expect(
+      resolveRouteOrigin({
+        userLocation: null,
+        visits: [visits[1]],
+        nextVisit: visits[1],
+        tripOrigin: { lat: 9, lng: 9 },
+      })
+    ).toEqual({ lat: 9, lng: 9 });
+
+    expect(
+      resolveRouteOrigin({
+        userLocation: null,
+        visits: [visits[1]],
+        nextVisit: visits[1],
+        tripOrigin: null,
+      })
+    ).toBeNull();
+  });
+});
 
 describe("sortVisitsForDay", () => {
   it("ordena por horário e sort_order", () => {

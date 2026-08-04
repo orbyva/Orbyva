@@ -2,116 +2,76 @@
  * Cotas freemium (fail-closed quando MAPS_QUOTA_ENFORCE≠false).
  *
  * Env:
- *   GEOAPIFY_DAILY_CREDIT_LIMIT=2800          (diário UTC)
- *   GOOGLE_ROUTES_ESSENTIALS_MONTHLY_LIMIT=9000  (WALK/BICYCLE/TRANSIT)
- *   GOOGLE_ROUTES_PRO_MONTHLY_LIMIT=4500         (DRIVE + TRAFFIC_AWARE*)
+ *   GEOAPIFY_DAILY_CREDIT_LIMIT=2800
+ *   GOOGLE_ROUTES_ESSENTIALS_MONTHLY_LIMIT=9000
+ *   GOOGLE_ROUTES_PRO_MONTHLY_LIMIT=4500
  *   MAPS_QUOTA_ENFORCE=true
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  isMapsQuotaEnforcedFromEnv,
+  limitForProvider,
+  looksLikeBillingOrQuotaError,
+  periodEndUtc,
+  periodKeyFor,
+  quotaDeniedPayload,
+  quotaProviderForTravelMode,
+  resolveGeoapifyDailyLimit,
+  resolveGoogleEssentialsMonthlyLimit,
+  resolveGoogleProMonthlyLimit,
+  type MapsProvider,
+  type QuotaConsumeFail,
+} from "./mapsQuotaRules.ts";
 
-export type MapsProvider =
-  | "geoapify"
-  | "google_routes_essentials"
-  | "google_routes_pro";
-
+export type { MapsProvider };
 export type QuotaConsumeResult =
   | { ok: true; used: number; limit: number; remaining: number }
-  | {
-      ok: false;
-      reason:
-        | "limit"
-        | "blocked"
-        | "error"
-        | "invalid_provider"
-        | "invalid_amount"
-        | "invalid_limit";
-      used?: number;
-      limit?: number;
-      blocked_until?: string;
-      message?: string;
-    };
+  | QuotaConsumeFail;
+
+export {
+  looksLikeBillingOrQuotaError,
+  periodEndUtc,
+  periodKeyFor,
+  quotaDeniedPayload,
+  quotaProviderForTravelMode,
+};
 
 type AdminClient = ReturnType<typeof createClient>;
 
-function envInt(name: string, fallback: number): number {
-  const raw = (Deno.env.get(name) ?? "").trim();
-  if (!raw) return fallback;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
+function envSnapshot(): Record<string, string | undefined> {
+  return {
+    GEOAPIFY_DAILY_CREDIT_LIMIT: Deno.env.get("GEOAPIFY_DAILY_CREDIT_LIMIT"),
+    GEOAPIFY_DAILY_FREE_LIMIT: Deno.env.get("GEOAPIFY_DAILY_FREE_LIMIT"),
+    GOOGLE_ROUTES_ESSENTIALS_MONTHLY_LIMIT: Deno.env.get(
+      "GOOGLE_ROUTES_ESSENTIALS_MONTHLY_LIMIT"
+    ),
+    GOOGLE_ROUTES_MONTHLY_FREE_LIMIT: Deno.env.get(
+      "GOOGLE_ROUTES_MONTHLY_FREE_LIMIT"
+    ),
+    GOOGLE_ROUTES_PRO_MONTHLY_LIMIT: Deno.env.get(
+      "GOOGLE_ROUTES_PRO_MONTHLY_LIMIT"
+    ),
+  };
 }
 
-/** false | 0 | off desliga. Default: ligado. */
 export function isMapsQuotaEnforced(): boolean {
-  const raw = (Deno.env.get("MAPS_QUOTA_ENFORCE") ?? "true").trim().toLowerCase();
-  return !(raw === "false" || raw === "0" || raw === "off");
+  return isMapsQuotaEnforcedFromEnv(Deno.env.get("MAPS_QUOTA_ENFORCE"));
 }
 
 export function geoapifyDailyCreditLimit(): number {
-  return envInt(
-    "GEOAPIFY_DAILY_CREDIT_LIMIT",
-    envInt("GEOAPIFY_DAILY_FREE_LIMIT", 2800) // legado
-  );
+  return resolveGeoapifyDailyLimit(envSnapshot());
 }
 
 export function googleRoutesEssentialsMonthlyLimit(): number {
-  return envInt(
-    "GOOGLE_ROUTES_ESSENTIALS_MONTHLY_LIMIT",
-    envInt("GOOGLE_ROUTES_MONTHLY_FREE_LIMIT", 9000) // legado
-  );
+  return resolveGoogleEssentialsMonthlyLimit(envSnapshot());
 }
 
 export function googleRoutesProMonthlyLimit(): number {
-  return envInt("GOOGLE_ROUTES_PRO_MONTHLY_LIMIT", 4500);
+  return resolveGoogleProMonthlyLimit(envSnapshot());
 }
 
 export function limitFor(provider: MapsProvider): number {
-  if (provider === "geoapify") return geoapifyDailyCreditLimit();
-  if (provider === "google_routes_pro") return googleRoutesProMonthlyLimit();
-  return googleRoutesEssentialsMonthlyLimit();
-}
-
-/** Geoapify = dia UTC; Google = mês UTC. */
-export function periodKeyFor(provider: MapsProvider, now = new Date()): string {
-  const y = now.getUTCFullYear();
-  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(now.getUTCDate()).padStart(2, "0");
-  if (provider === "geoapify") return `${y}-${m}-${d}`;
-  return `${y}-${m}`;
-}
-
-export function periodEndUtc(provider: MapsProvider, now = new Date()): Date {
-  if (provider === "geoapify") {
-    return new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate() + 1,
-        0,
-        0,
-        0,
-        0
-      )
-    );
-  }
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0)
-  );
-}
-
-/**
- * DRIVE + tráfego → Pro.
- * WALK / BICYCLE / TRANSIT → Essentials.
- * TWO_WHEELER não é suportado.
- */
-export function quotaProviderForTravelMode(
-  mode: string
-): MapsProvider | null {
-  const m = mode.toUpperCase();
-  if (m === "DRIVE") return "google_routes_pro";
-  if (m === "WALK" || m === "BICYCLE" || m === "TRANSIT") {
-    return "google_routes_essentials";
-  }
-  return null;
+  return limitForProvider(provider, envSnapshot());
 }
 
 export function createMapsAdminClient(): AdminClient {
@@ -165,10 +125,7 @@ export async function tryConsumeQuota(
   } | null;
 
   if (!row || row.ok !== true) {
-    const reason = (row?.reason ?? "limit") as Extract<
-      QuotaConsumeResult,
-      { ok: false }
-    >["reason"];
+    const reason = (row?.reason ?? "limit") as QuotaConsumeFail["reason"];
     return {
       ok: false,
       reason,
@@ -198,51 +155,4 @@ export async function blockProviderUntilPeriodEnd(
     p_period_key: periodKeyFor(provider),
     p_until: until,
   });
-}
-
-export function looksLikeBillingOrQuotaError(
-  status: number,
-  bodyText: string
-): boolean {
-  if (status === 429) return true;
-  if (status === 403) {
-    return /billing|quota|limit|payment|exceed|RESOURCE_EXHAUSTED|daily.?limit/i.test(
-      bodyText
-    );
-  }
-  return /RESOURCE_EXHAUSTED|quota.?exceed|billing|OVER_QUERY_LIMIT|daily.?limit|credit.?limit/i.test(
-    bodyText
-  );
-}
-
-export function quotaDeniedPayload(
-  result: Extract<QuotaConsumeResult, { ok: false }>,
-  provider?: MapsProvider
-) {
-  const bucket =
-    provider === "google_routes_pro"
-      ? "rotas com trânsito (Pro)"
-      : provider === "google_routes_essentials"
-        ? "rotas Essentials"
-        : provider === "geoapify"
-          ? "busca de lugares"
-          : "mapas";
-
-  const period =
-    result.reason === "blocked"
-      ? "bloqueado até o fim do período gratuito"
-      : "limite gratuito atingido";
-
-  return {
-    error:
-      result.reason === "error"
-        ? "Controle de cota indisponível — requisições bloqueadas por segurança."
-        : `Limite gratuito de ${bucket} atingido (${period}). Novas chamadas liberam no próximo período.`,
-    code: "MAPS_QUOTA_EXCEEDED" as const,
-    reason: result.reason,
-    provider: provider ?? null,
-    used: result.used ?? null,
-    limit: result.limit ?? null,
-    blocked_until: result.blocked_until ?? null,
-  };
 }
