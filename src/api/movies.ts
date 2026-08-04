@@ -33,6 +33,47 @@ export async function fetchMovies(
   };
 }
 
+/** Só total (+ opcionalmente 1 linha) — hub / summary sem baixar catálogo. */
+export async function fetchMovieListMeta(
+  status: MovieListFilter,
+  opts?: { includeLatest?: boolean }
+): Promise<{ total: number; latest: Movie | null }> {
+  const userId = await getCurrentUserId();
+  const countPromise = supabase
+    .from("movie")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("status", status);
+
+  if (!opts?.includeLatest) {
+    const { count, error } = await countPromise;
+    if (error) throw new Error(error.message);
+    return { total: count || 0, latest: null };
+  }
+
+  const [countRes, latestRes] = await Promise.all([
+    countPromise,
+    supabase
+      .from("movie")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", status)
+      .order(status === "watched" ? "watched_dates" : "year", {
+        ascending: false,
+        nullsFirst: false,
+      })
+      .limit(1),
+  ]);
+
+  if (countRes.error) throw new Error(countRes.error.message);
+  if (latestRes.error) throw new Error(latestRes.error.message);
+  const row = latestRes.data?.[0];
+  return {
+    total: countRes.count || 0,
+    latest: row ? normalizeMovie(row as Movie) : null,
+  };
+}
+
 /** Lista completa do usuário — filtro/paginação no cliente (UX mais rápida). */
 export async function fetchAllMovies(): Promise<Movie[]> {
   const userId = await getCurrentUserId();

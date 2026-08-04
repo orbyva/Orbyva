@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { fetchDimensions, type Dimension } from "@/api/finance";
+import type { Dimension } from "@/api/finance";
+import {
+  fetchDimensionsCached,
+  invalidateDimensionsCache,
+} from "@/api/finance/dimensionsCache";
 
 export function useDimensions(options?: { enabled?: boolean }) {
   const enabled = options?.enabled !== false;
@@ -8,14 +12,17 @@ export function useDimensions(options?: { enabled?: boolean }) {
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (force = false) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchDimensions();
+      if (force) invalidateDimensionsCache();
+      const data = await fetchDimensionsCached({ force });
       setDimensions(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar dimensões.");
+      setError(
+        err instanceof Error ? err.message : "Erro ao carregar categorias."
+      );
     } finally {
       setLoading(false);
     }
@@ -23,8 +30,13 @@ export function useDimensions(options?: { enabled?: boolean }) {
 
   useEffect(() => {
     if (!enabled) return;
-    void refetch();
+    void refetch(false);
   }, [enabled, refetch]);
 
-  return { dimensions, loading, error, refetch };
+  return {
+    dimensions,
+    loading,
+    error,
+    refetch: () => refetch(true),
+  };
 }

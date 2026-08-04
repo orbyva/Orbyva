@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Plane } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { TripFormDialog } from "@/components/TripFormDialog";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import { enrichTrip, fetchChecklistsForTrips, fetchTrips } from "@/api/travel";
+import { fetchTripsForList } from "@/api/travel";
 import { TRIP_STATUS_LABELS } from "@/domain/travel";
 import type { TripWithChecklist } from "@/types/travel";
 import { useToast } from "@/hooks/use-toast";
@@ -18,8 +18,8 @@ import { formatBRL, formatDateBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 function TripCard({ trip }: { trip: TripWithChecklist }) {
-  const checklistDone = trip.checklist.filter((c) => c.done).length;
-  const checklistTotal = trip.checklist.length;
+  const checklistDone = trip.checklistDone ?? trip.checklist.filter((c) => c.done).length;
+  const checklistTotal = trip.checklistTotal ?? trip.checklist.length;
 
   return (
     <Link to={`/travel/${trip.id}`}>
@@ -88,19 +88,12 @@ export default function Travel() {
   const [trips, setTrips] = useState<TripWithChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
 
   const load = useCallback(async () => {
     try {
-      const raw = await fetchTrips();
-      const items = await fetchChecklistsForTrips(raw.map((t) => t.id));
-      const enriched = raw.map((t) =>
-        enrichTrip(
-          t,
-          items.filter((i) => i.trip_id === t.id)
-        )
-      );
-      setTrips(enriched);
+      setTrips(await fetchTripsForList());
     } catch (error) {
       toast({
         title: "Erro",
@@ -115,6 +108,14 @@ export default function Travel() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const activeTrips = trips.filter(
     (t) => t.status !== "completed" && t.status !== "cancelled"

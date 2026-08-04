@@ -26,7 +26,7 @@ import { Transaction } from "@/types/finance";
 const columns: ColumnDef<Transaction>[] = [
   {
     accessorKey: "class",
-    header: "Classe",
+    header: "Subcategoria",
     cell: ({ row }) => <div className="text-sm sm:text-xs">{row.original.class.name}</div>,
   },
   {

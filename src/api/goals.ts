@@ -17,20 +17,32 @@ import type {
 export async function sumGoalAporteFromLedger(
   goalTitle: string
 ): Promise<number> {
+  const title = goalTitle.trim();
+  if (!title) return 0;
+
+  const { data, error } = await supabase.rpc("get_goal_aporte_sum", {
+    p_title: title,
+  });
+
+  if (!error) {
+    return Math.abs(Number(data) || 0);
+  }
+
+  // Fallback se a migration ainda não estiver aplicada.
   const userId = await getCurrentUserId();
-  const { data, error } = await supabase
+  const { data: rows, error: fallbackError } = await supabase
     .from("transaction")
     .select("value, description, class:class_id(name)")
     .eq("user_id", userId);
 
-  if (error) throw new Error(error.message);
+  if (fallbackError) throw new Error(fallbackError.message);
   return sumAporteProgress(
-    (data ?? []).map((row) => ({
+    (rows ?? []).map((row) => ({
       value: row.value,
       description: row.description,
       class: asOne(row.class as { name?: string } | { name?: string }[] | null),
     })),
-    goalTitle
+    title
   );
 }
 

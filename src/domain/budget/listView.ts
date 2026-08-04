@@ -102,8 +102,8 @@ function compareBudgetRows(
   switch (sort.key) {
     case "type": {
       const byType = compareText(
-        a.type_name?.trim() || "Sem tipo",
-        b.type_name?.trim() || "Sem tipo"
+        a.type_name?.trim() || "Sem categoria",
+        b.type_name?.trim() || "Sem categoria"
       );
       if (byType !== 0) return byType * mult;
       const classA = a.class_name?.trim() || "";
@@ -144,7 +144,7 @@ export function buildSortedBudgetGroups(
   const grouped = new Map<string, MonthlyBudgetSummary[]>();
 
   for (const budget of budgets) {
-    const key = budget.type_name?.trim() || "Sem tipo";
+    const key = budget.type_name?.trim() || "Sem categoria";
     const list = grouped.get(key) ?? [];
     list.push(budget);
     grouped.set(key, list);

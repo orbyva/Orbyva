@@ -13,13 +13,13 @@ import {
 import { goalClassName } from "@/domain/goals/finance";
 
 /**
- * Garante tipo Meta (natureza Investimento) + classe = título da meta.
- * Ex.: natureza Investimento → tipo Meta → classe Viajar.
+ * Garante categoria Meta (natureza Investimento) + subcategoria = título da meta.
+ * Ex.: natureza Investimento → categoria Meta → subcategoria Viajar.
  */
 export async function ensureGoalMetaClass(goalTitle: string): Promise<number> {
   const className = goalClassName(goalTitle);
   if (!className) {
-    throw new Error("Informe o título da meta para criar a classe.");
+    throw new Error("Informe o título da meta para criar a subcategoria.");
   }
 
   const [natures, types, classes] = await Promise.all([
@@ -67,7 +67,7 @@ export async function ensureGoalMetaClass(goalTitle: string): Promise<number> {
   }
 
   if (!type) {
-    throw new Error("Não foi possível criar o tipo Meta.");
+    throw new Error("Não foi possível criar o categoria Meta.");
   }
 
   const needle = className.toLowerCase();
@@ -91,7 +91,7 @@ export async function ensureGoalMetaClass(goalTitle: string): Promise<number> {
   }
 
   if (!metaClass) {
-    throw new Error(`Não foi possível criar a classe ${className}.`);
+    throw new Error(`Não foi possível criar a subcategoria ${className}.`);
   }
 
   return metaClass.id;

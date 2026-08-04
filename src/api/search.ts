@@ -1,14 +1,12 @@
+import { supabase } from "@/lib/supabase";
+import { getCurrentUserId } from "@/lib/auth-user";
 import { fetchTransactionsQuery } from "@/api/finance";
-import { fetchMovies } from "@/api/movies";
-import { fetchPlaces } from "@/api/places";
-import { fetchTrips } from "@/api/travel";
-import { fetchGoals } from "@/api/goals";
-import { fetchHabits } from "@/api/habits";
-import { fetchVehicles } from "@/api/car";
 
 export type GlobalSearchKind =
   | "transaction"
   | "movie"
+  | "book"
+  | "music"
   | "place"
   | "trip"
   | "goal"
@@ -23,37 +21,93 @@ export type GlobalSearchHit = {
   href: string;
 };
 
-export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
-  const q = query.trim().toLowerCase();
-  if (q.length < 2) return [];
+const PER_KIND = 12;
 
+/** Escapa valor para filtros `.or()` / `.ilike` do PostgREST. */
+function ilikePattern(raw: string): string {
+  const escaped = raw
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
+  return `"%${escaped.replace(/"/g, '""')}%"`;
+}
+
+function orIlike(columns: string[], pattern: string): string {
+  return columns.map((col) => `${col}.ilike.${pattern}`).join(",");
+}
+
+export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const q = trimmed.toLowerCase();
+  const pattern = ilikePattern(q);
+  const userId = await getCurrentUserId();
   const hits: GlobalSearchHit[] = [];
 
   const [
     tx,
-    moviesWatch,
-    moviesWatching,
-    moviesWatched,
-    moviesAbandoned,
-    places,
-    trips,
-    goals,
-    habits,
-    vehicles,
+    moviesRes,
+    booksRes,
+    albumsRes,
+    placesRes,
+    tripsRes,
+    goalsRes,
+    habitsRes,
+    vehiclesRes,
   ] = await Promise.all([
-      fetchTransactionsQuery({ page: 1, pageSize: 40, search: query }).catch(
-        () => null
-      ),
-      fetchMovies("to_watch", 1, 40).catch(() => null),
-      fetchMovies("watching", 1, 40).catch(() => null),
-      fetchMovies("watched", 1, 40).catch(() => null),
-      fetchMovies("abandoned", 1, 40).catch(() => null),
-      fetchPlaces().catch(() => []),
-      fetchTrips().catch(() => []),
-      fetchGoals().catch(() => []),
-      fetchHabits().catch(() => []),
-      fetchVehicles().catch(() => []),
-    ]);
+    fetchTransactionsQuery({ page: 1, pageSize: PER_KIND, search: trimmed }).catch(
+      () => null
+    ),
+    supabase
+      .from("movie")
+      .select("imdb_id, title, year, status, notes")
+      .eq("user_id", userId)
+      .or(orIlike(["title", "notes"], pattern))
+      .limit(PER_KIND),
+    supabase
+      .from("book")
+      .select("google_id, title, authors, notes, status")
+      .eq("user_id", userId)
+      .or(orIlike(["title", "notes"], pattern))
+      .limit(PER_KIND),
+    supabase
+      .from("album")
+      .select("musicbrainz_id, title, artists, notes, status")
+      .eq("user_id", userId)
+      .or(orIlike(["title", "notes"], pattern))
+      .limit(PER_KIND),
+    supabase
+      .from("place_visit")
+      .select("id, name, notes, address, status, visited_date")
+      .eq("user_id", userId)
+      .or(orIlike(["name", "notes", "address"], pattern))
+      .limit(PER_KIND),
+    supabase
+      .from("trip")
+      .select("id, title, destination, notes, start_date, end_date")
+      .eq("user_id", userId)
+      .or(orIlike(["title", "destination", "notes"], pattern))
+      .limit(PER_KIND),
+    supabase
+      .from("personal_goal")
+      .select("id, title, description, category, status, current_value, target_value, unit")
+      .eq("user_id", userId)
+      .or(orIlike(["title", "description", "category"], pattern))
+      .limit(PER_KIND),
+    supabase
+      .from("habit")
+      .select("id, name, description, frequency")
+      .eq("user_id", userId)
+      .or(orIlike(["name", "description"], pattern))
+      .limit(PER_KIND),
+    supabase
+      .from("vehicle")
+      .select("id, brand, model, plate, notes, current_km")
+      .eq("user_id", userId)
+      .or(orIlike(["brand", "model", "plate", "notes"], pattern))
+      .limit(PER_KIND),
+  ]);
 
   for (const t of tx?.data ?? []) {
     hits.push({
@@ -65,23 +119,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     });
   }
 
-  const movies = [
-    ...(moviesWatch?.data ?? []),
-    ...(moviesWatching?.data ?? []),
-    ...(moviesWatched?.data ?? []),
-    ...(moviesAbandoned?.data ?? []),
-  ];
-  for (const m of movies) {
-    const hay = [
-      m.title,
-      m.notes,
-      ...(Array.isArray(m.genre) ? m.genre : []),
-      ...(Array.isArray(m.actors) ? m.actors : []),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    if (!hay.includes(q)) continue;
+  for (const m of moviesRes.data ?? []) {
     const statusLabel =
       m.status === "watched"
         ? "Assistido"
@@ -94,14 +132,34 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       id: `movie-${m.imdb_id}`,
       kind: "movie",
       title: m.title,
-      subtitle: `${m.year} · ${statusLabel}`,
+      subtitle: `${m.year ?? ""} · ${statusLabel}`.replace(/^ · /, ""),
       href: "/movies",
     });
   }
 
-  for (const p of places) {
-    const hay = `${p.name} ${p.notes ?? ""} ${p.address ?? ""}`.toLowerCase();
-    if (!hay.includes(q)) continue;
+  for (const b of booksRes.data ?? []) {
+    const authors = Array.isArray(b.authors) ? b.authors : [];
+    hits.push({
+      id: `book-${b.google_id}`,
+      kind: "book",
+      title: b.title,
+      subtitle: authors.slice(0, 2).join(", ") || undefined,
+      href: "/books",
+    });
+  }
+
+  for (const a of albumsRes.data ?? []) {
+    const artists = Array.isArray(a.artists) ? a.artists : [];
+    hits.push({
+      id: `album-${a.musicbrainz_id}`,
+      kind: "music",
+      title: a.title,
+      subtitle: artists.slice(0, 2).join(", ") || undefined,
+      href: "/music",
+    });
+  }
+
+  for (const p of placesRes.data ?? []) {
     hits.push({
       id: `place-${p.id}`,
       kind: "place",
@@ -114,9 +172,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     });
   }
 
-  for (const t of trips) {
-    const hay = `${t.title} ${t.destination ?? ""} ${t.notes ?? ""}`.toLowerCase();
-    if (!hay.includes(q)) continue;
+  for (const t of tripsRes.data ?? []) {
     hits.push({
       id: `trip-${t.id}`,
       kind: "trip",
@@ -126,9 +182,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     });
   }
 
-  for (const g of goals) {
-    const hay = `${g.title} ${g.description ?? ""} ${g.category}`.toLowerCase();
-    if (!hay.includes(q)) continue;
+  for (const g of goalsRes.data ?? []) {
     hits.push({
       id: `goal-${g.id}`,
       kind: "goal",
@@ -138,9 +192,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     });
   }
 
-  for (const h of habits) {
-    const hay = `${h.name} ${h.description ?? ""}`.toLowerCase();
-    if (!hay.includes(q)) continue;
+  for (const h of habitsRes.data ?? []) {
     hits.push({
       id: `habit-${h.id}`,
       kind: "habit",
@@ -150,15 +202,13 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     });
   }
 
-  for (const v of vehicles) {
-    const label = `${v.brand} ${v.model}`.trim();
-    const hay = `${label} ${v.plate ?? ""} ${v.notes ?? ""}`.toLowerCase();
-    if (!hay.includes(q)) continue;
+  for (const v of vehiclesRes.data ?? []) {
+    const label = `${v.brand ?? ""} ${v.model ?? ""}`.trim();
     hits.push({
       id: `vehicle-${v.id}`,
       kind: "vehicle",
       title: label || "Veículo",
-      subtitle: v.plate ?? `${v.current_km} km`,
+      subtitle: v.plate ?? `${v.current_km ?? 0} km`,
       href: "/car",
     });
   }
@@ -169,6 +219,8 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
 export const SEARCH_KIND_LABEL: Record<GlobalSearchKind, string> = {
   transaction: "Transação",
   movie: "Cinema",
+  book: "Livro",
+  music: "Música",
   place: "Lugar",
   trip: "Viagem",
   goal: "Meta",

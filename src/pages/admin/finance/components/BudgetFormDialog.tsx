@@ -110,7 +110,7 @@ export function BudgetFormDialog({
     }
 
     if (!selectedType) {
-      setFormError("Selecione o Tipo.");
+      setFormError("Selecione a categoria.");
       return;
     }
 
@@ -214,7 +214,7 @@ export function BudgetFormDialog({
                 }
               >
                 <div className="space-y-3">
-                  <FormLabel required>Tipo</FormLabel>
+                  <FormLabel required>Categoria</FormLabel>
 
                   <Select
                     value={selectedType ? String(selectedType) : ""}
@@ -231,7 +231,7 @@ export function BudgetFormDialog({
                     }}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione o Tipo" />
+                      <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
 
                     <SelectContent>
@@ -246,7 +246,7 @@ export function BudgetFormDialog({
 
                 {selectedType ? (
                   <div className="space-y-3">
-                    <FormLabel optional>Classe</FormLabel>
+                    <FormLabel optional>Subcategoria</FormLabel>
 
                     <Select
                       value={
@@ -262,11 +262,11 @@ export function BudgetFormDialog({
                       }}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione a Classe" />
+                        <SelectValue placeholder="Selecione a subcategoria" />
                       </SelectTrigger>
 
                       <SelectContent>
-                        <SelectItem value="general">Geral do Tipo</SelectItem>
+                        <SelectItem value="general">Geral da categoria</SelectItem>
 
                         {classes.map((c) => (
                           <SelectItem key={c.id} value={String(c.id)}>

@@ -10,7 +10,7 @@ const MODULES = [
   },
   {
     title: "Finanças",
-    body: "Lançamentos, orçamento com teto e gerenciamento de parcelas — o diferencial do mês sob controle. CSV e card para compartilhar.",
+    body: "Lançamentos, orçamento com teto e recorrências — o diferencial do mês sob controle. Card para compartilhar.",
   },
   {
     title: "Metas e hábitos",
@@ -22,7 +22,7 @@ const MODULES = [
   },
   {
     title: "Cinema",
-    body: "Watchlist, notas e opinião — importe filmes e séries de um CSV e compartilhe o card.",
+    body: "Watchlist, notas e opinião — compartilhe o card.",
   },
   {
     title: "Veículos",
@@ -34,7 +34,7 @@ export function AboutPage() {
   useDocumentMeta({
     title: "Sobre o Orbyva",
     description:
-      "Life OS brasileiro: orçamento com teto, parcelas, hábitos, metas, viagens, cinema e veículos.",
+      "Life OS brasileiro: orçamento com teto, recorrências, hábitos, metas, viagens, cinema e veículos.",
     path: "/about",
     image: "https://orbyva.app/marketing/hub.png",
   });

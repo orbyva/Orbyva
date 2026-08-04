@@ -3,14 +3,18 @@ import {
   Transaction,
   TransactionCreateRequest,
   ValueByNatureYearMonth,
+  ValueByTypeMonth,
 } from "@/types/finance";
 import type { PaginatedResult } from "@/types/pagination";
-import { countsAsMonthlySpend } from "@/domain/finance/spendFlags";
-import { asOne, getCurrentUserId, supabase } from "./_shared";
-
+import { getCurrentUserId, supabase } from "./_shared";
+import { fetchDimensionsCached } from "./dimensionsCache";
 
 const TRANSACTION_SELECT =
-  "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))";
+  "id, value, description, transaction_at, recurring_transaction_id, installment_number, paid_at, class_id, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))";
+
+/** Select enxuto para projeção / agregados (sem campos de UI). */
+const LEDGER_LEAN_SELECT =
+  "id, value, description, transaction_at, recurring_transaction_id, class:class_id(type:type_id(name, exclude_from_spend, nature:nature_id(name)))";
 
 export interface TransactionQueryOptions {
   page?: number;
@@ -24,41 +28,27 @@ export interface TransactionQueryOptions {
 async function getClassIdsForNature(
   natureName: "Receita" | "Despesa" | "Investimento"
 ): Promise<number[]> {
-  const userId = await getCurrentUserId();
-  const { data, error } = await supabase
-    .from("class")
-    .select("id, type:type_id(nature:nature_id(name))")
-    .eq("user_id", userId);
-
-  if (error) throw new Error(error.message);
-
-  return (data ?? [])
-    .filter((item) => {
-      const type = item.type as { nature?: { name?: string } } | null;
-      return type?.nature?.name === natureName;
-    })
-    .map((item) => item.id);
+  const dims = await fetchDimensionsCached();
+  const nature = dims.find((d) => d.name === natureName);
+  if (!nature) return [];
+  return nature.types.flatMap((t) => t.classes.map((c) => c.id));
 }
 
 async function getClassIdsForSearch(term: string): Promise<number[]> {
-  const userId = await getCurrentUserId();
-  const { data, error } = await supabase
-    .from("class")
-    .select("id, name, type:type_id(name)")
-    .eq("user_id", userId);
-
-  if (error) throw new Error(error.message);
-
+  const dims = await fetchDimensionsCached();
   const lower = term.toLowerCase();
-  return (data ?? [])
-    .filter((item) => {
-      const type = item.type as { name?: string } | null;
-      return (
-        item.name.toLowerCase().includes(lower) ||
-        type?.name?.toLowerCase().includes(lower)
-      );
-    })
-    .map((item) => item.id);
+  const ids: number[] = [];
+  for (const nature of dims) {
+    for (const type of nature.types) {
+      const typeMatch = type.name.toLowerCase().includes(lower);
+      for (const cls of type.classes) {
+        if (typeMatch || cls.name.toLowerCase().includes(lower)) {
+          ids.push(cls.id);
+        }
+      }
+    }
+  }
+  return ids;
 }
 
 export async function fetchTransactionsQuery(
@@ -118,7 +108,7 @@ export async function fetchTransactionsQuery(
   const total = count ?? 0;
 
   return {
-    data: data || [],
+    data: (data || []) as unknown as Transaction[],
     total,
     page,
     pageSize,
@@ -161,21 +151,16 @@ export async function fetchValueByNatureYearMonth(): Promise<
 > {
   const { data, error } = await supabase
     .from("vw_value_by_nature_year_month")
-    .select("year, month, receita_total, despesa_total");
+    .select("year, month, receita_total, despesa_total")
+    .order("year", { ascending: true })
+    .order("month", { ascending: true });
 
   if (error) throw new Error(error.message);
-
-  const rows = data || [];
-  if (rows.length === 0) return [];
-
-  const spendByMonth = await sumSpendDespesaGrouped(
-    rows.map((row) => ({ year: row.year, month: row.month }))
-  );
-
-  return rows.map((row) => ({
-    ...row,
-    despesa_total:
-      spendByMonth.get(`${row.year}-${row.month}`) ?? 0,
+  return (data || []).map((row) => ({
+    year: Number(row.year),
+    month: Number(row.month),
+    receita_total: Number(row.receita_total) || 0,
+    despesa_total: Number(row.despesa_total) || 0,
   }));
 }
 
@@ -183,6 +168,23 @@ export async function fetchValueByNatureForMonth(
   year: number,
   month: number
 ): Promise<ValueByNatureYearMonth | null> {
+  // Prefer RPC (SQL) — fallback na view se a migration ainda não estiver aplicada.
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    "get_value_by_nature_for_month",
+    { p_year: year, p_month: month }
+  );
+
+  if (!rpcError) {
+    const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+    if (!row) return null;
+    return {
+      year: Number(row.year),
+      month: Number(row.month),
+      receita_total: Number(row.receita_total) || 0,
+      despesa_total: Number(row.despesa_total) || 0,
+    };
+  }
+
   const { data, error } = await supabase
     .from("vw_value_by_nature_year_month")
     .select("year, month, receita_total, despesa_total")
@@ -194,121 +196,119 @@ export async function fetchValueByNatureForMonth(
   if (!data) return null;
 
   return {
-    ...data,
-    despesa_total: await sumSpendDespesaForMonth(year, month),
+    year: Number(data.year),
+    month: Number(data.month),
+    receita_total: Number(data.receita_total) || 0,
+    despesa_total: Number(data.despesa_total) || 0,
   };
 }
 
-function monthKey(year: number, month: number): string {
-  return `${year}-${month}`;
-}
-
-/** Uma query para todos os meses do gráfico (evita N+1 no dashboard). */
-async function sumSpendDespesaGrouped(
-  months: { year: number; month: number }[]
-): Promise<Map<string, number>> {
-  const totals = new Map<string, number>();
-  if (months.length === 0) return totals;
-
-  const sorted = [...months].sort(
-    (a, b) => a.year - b.year || a.month - b.month
-  );
-  const first = sorted[0]!;
-  const last = sorted[sorted.length - 1]!;
-  const start = `${first.year}-${String(first.month).padStart(2, "0")}-01`;
-  const lastDay = new Date(last.year, last.month, 0).getDate();
-  const end = `${last.year}-${String(last.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-
-  const userId = await getCurrentUserId();
-  const { data, error } = await supabase
-    .from("transaction")
-    .select(
-      "value, transaction_at, class:class_id(type:type_id(exclude_from_spend, nature:nature_id(name)))"
-    )
-    .eq("user_id", userId)
-    .gte("transaction_at", start)
-    .lte("transaction_at", `${end}T23:59:59.999Z`);
+/** Totais por tipo (categoria) no mês — donuts do dashboard. */
+export async function fetchValueByTypeForMonth(
+  year: number,
+  month: number
+): Promise<ValueByTypeMonth[]> {
+  const { data, error } = await supabase.rpc("get_value_by_type_for_month", {
+    p_year: year,
+    p_month: month,
+  });
 
   if (error) {
-    if (/exclude_from_spend/i.test(error.message)) {
-      for (const m of months) {
-        totals.set(
-          monthKey(m.year, m.month),
-          await sumLegacyDespesaForMonth(
-            userId,
-            `${m.year}-${String(m.month).padStart(2, "0")}-01`,
-            `${m.year}-${String(m.month).padStart(2, "0")}-${String(new Date(m.year, m.month, 0).getDate()).padStart(2, "0")}`
-          )
-        );
+    // Fallback: agrega no client a partir das txs do mês (até 500).
+    const lastDay = new Date(year, month, 0).getDate();
+    const start = `${year}-${String(month).padStart(2, "0")}-01T00:00:00.000Z`;
+    const end = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}T23:59:59.999Z`;
+    const txs = await fetchTransactions(1, 500, start, end);
+    const map = new Map<string, ValueByTypeMonth>();
+    for (const tx of txs) {
+      const nature = tx.class?.type?.nature?.name;
+      const typeName = tx.class?.type?.name;
+      if (!nature || !typeName) continue;
+      if (
+        nature === "Despesa" &&
+        tx.class?.type?.exclude_from_spend
+      ) {
+        continue;
       }
-      return totals;
+      const key = `${nature}::${typeName}`;
+      const prev = map.get(key);
+      const raw = Number(tx.value) || 0;
+      const add = nature === "Despesa" ? Math.abs(raw) : raw;
+      if (prev) {
+        prev.total_value += add;
+      } else {
+        map.set(key, {
+          nature_name: nature,
+          type_name: typeName,
+          type_color: tx.class?.type?.hex_color ?? null,
+          total_value: add,
+        });
+      }
     }
-    throw new Error(error.message);
+    return Array.from(map.values());
   }
 
-  for (const row of data ?? []) {
-    const rawAt = String(row.transaction_at ?? "");
-    const datePart = rawAt.slice(0, 10);
-    const [y, mo] = datePart.split("-").map(Number);
-    if (!y || !mo) continue;
-
-    const cls = asOne(
-      row.class as
-        | {
-            type?: {
-              exclude_from_spend?: boolean;
-              nature?: { name?: string };
-            } | null;
-          }
-        | {
-            type?: {
-              exclude_from_spend?: boolean;
-              nature?: { name?: string };
-            } | null;
-          }[]
-        | null
-    );
-    const type = cls?.type ?? null;
-    if (!countsAsMonthlySpend(type?.nature?.name, type)) continue;
-
-    const key = monthKey(y, mo);
-    totals.set(key, (totals.get(key) ?? 0) + Math.abs(Number(row.value) || 0));
-  }
-
-  return totals;
+  return (data ?? []).map((row: {
+    nature_name: string;
+    type_name: string;
+    type_color: string | null;
+    total_value: number;
+  }) => ({
+    nature_name: String(row.nature_name),
+    type_name: String(row.type_name),
+    type_color: row.type_color,
+    total_value: Number(row.total_value) || 0,
+  }));
 }
 
 /**
- * Gasto do mês: só natureza Despesa que conta (Investimento e
- * exclude_from_spend ficam de fora).
+ * Lançamentos avulsos (sem recorrência) num intervalo — projeção.
+ * Pagina até esgotar; select enxuto.
  */
-async function sumSpendDespesaForMonth(
-  year: number,
-  month: number
-): Promise<number> {
-  const grouped = await sumSpendDespesaGrouped([{ year, month }]);
-  return grouped.get(monthKey(year, month)) ?? 0;
-}
+export async function fetchAvulsoLedgerInRange(
+  startDate: string,
+  endDate: string
+): Promise<
+  Array<{
+    id: number;
+    value: number;
+    description: string;
+    transaction_at: string;
+    recurring_transaction_id?: string | null;
+    class?: Transaction["class"];
+  }>
+> {
+  const userId = await getCurrentUserId();
+  const pageSize = 500;
+  const rows: Array<{
+    id: number;
+    value: number;
+    description: string;
+    transaction_at: string;
+    recurring_transaction_id?: string | null;
+    class?: Transaction["class"];
+  }> = [];
 
-async function sumLegacyDespesaForMonth(
-  userId: string,
-  start: string,
-  end: string
-): Promise<number> {
-  const { data, error } = await supabase
-    .from("transaction")
-    .select("value, class:class_id(type:type_id(nature:nature_id(name)))")
-    .eq("user_id", userId)
-    .gte("transaction_at", start)
-    .lte("transaction_at", `${end}T23:59:59.999Z`);
-  if (error) throw new Error(error.message);
-  return (data ?? []).reduce((sum, row) => {
-    const nature = (
-      row.class as { type?: { nature?: { name?: string } } | null } | null
-    )?.type?.nature?.name;
-    if (nature !== "Despesa") return sum;
-    return sum + Math.abs(Number(row.value) || 0);
-  }, 0);
+  for (let page = 0; ; page++) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("transaction")
+      .select(LEDGER_LEAN_SELECT)
+      .eq("user_id", userId)
+      .is("recurring_transaction_id", null)
+      .gte("transaction_at", startDate)
+      .lte("transaction_at", endDate)
+      .order("transaction_at", { ascending: true })
+      .range(from, to);
+
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as unknown as typeof rows;
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+
+  return rows;
 }
 
 export async function insertTransaction(
@@ -343,6 +343,48 @@ export async function fetchTransactionClassMeta(
     class_id: data.class_id as number,
     type_id: classRel?.type_id ?? null,
   };
+}
+
+/** Subcategorias mais usadas nos lançamentos (para sugestões do picker). */
+export async function fetchMostUsedClassIds(
+  limit = 12,
+  natureName?: string | null
+): Promise<number[]> {
+  const userId = await getCurrentUserId();
+  const natureFilter = natureName?.trim().toLowerCase() || null;
+
+  const { data, error } = await supabase
+    .from("transaction")
+    .select(
+      "class_id, class:class_id(type:type_id(nature:nature_id(name)))"
+    )
+    .eq("user_id", userId)
+    .not("class_id", "is", null)
+    .order("transaction_at", { ascending: false })
+    .limit(500);
+
+  if (error) throw new Error(error.message);
+
+  const counts = new Map<number, number>();
+  for (const row of data ?? []) {
+    const id = row.class_id as number | null;
+    if (id == null) continue;
+
+    if (natureFilter) {
+      const classRel = row.class as {
+        type?: { nature?: { name?: string } | null } | null;
+      } | null;
+      const name = classRel?.type?.nature?.name?.toLowerCase() ?? "";
+      if (name !== natureFilter) continue;
+    }
+
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id);
 }
 
 export async function createTransactionApi(

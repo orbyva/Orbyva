@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Car as CarIcon, Plus } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,8 +35,6 @@ import {
   fetchAllFuelLogs,
   fetchAllMaintenances,
   fetchDocuments,
-  fetchFuelLogs,
-  fetchMaintenances,
   fetchVehicles,
 } from "@/api/car";
 import type {
@@ -64,20 +63,18 @@ export default function Car() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [allMaintenances, setAllMaintenances] = useState<Maintenance[]>([]);
-  const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
-  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
   const [allFuelLogs, setAllFuelLogs] = useState<FuelLog[]>([]);
   const [documents, setDocuments] = useState<VehicleDocument[]>([]);
 
   const [maintPage, setMaintPage] = useState(1);
   const [maintPageSize, setMaintPageSize] = useState(10);
-  const [maintTotalPages, setMaintTotalPages] = useState(0);
 
   const [fuelPage, setFuelPage] = useState(1);
   const [fuelPageSize, setFuelPageSize] = useState(10);
-  const [fuelTotalPages, setFuelTotalPages] = useState(0);
 
   const [vehicleFormOpen, setVehicleFormOpen] = useState(false);
+  const [createVehicleOpen, setCreateVehicleOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editingMaintenance, setEditingMaintenance] =
     useState<Maintenance | null>(null);
   const [maintenanceFormOpen, setMaintenanceFormOpen] = useState(false);
@@ -103,35 +100,25 @@ export default function Car() {
     return list;
   }, []);
 
-  const loadMaintenances = useCallback(
-    async (vehicleId: string) => {
-      const [paginated, all] = await Promise.all([
-        fetchMaintenances(vehicleId, maintPage, maintPageSize),
-        fetchAllMaintenances(vehicleId),
-      ]);
-      setMaintenances(paginated.data);
-      setMaintTotalPages(Math.ceil(paginated.total / maintPageSize));
-      setAllMaintenances(all);
-    },
-    [maintPage, maintPageSize]
-  );
-
-  const loadFuelLogs = useCallback(
-    async (vehicleId: string) => {
-      const [paginated, all] = await Promise.all([
-        fetchFuelLogs(vehicleId, fuelPage, fuelPageSize),
-        fetchAllFuelLogs(vehicleId),
-      ]);
-      setFuelLogs(paginated.data);
-      setFuelTotalPages(Math.ceil(paginated.total / fuelPageSize));
-      setAllFuelLogs(all);
-    },
-    [fuelPage, fuelPageSize]
-  );
-
-  const loadDocuments = useCallback(async (vehicleId: string) => {
-    const docs = await fetchDocuments(vehicleId);
+  const loadVehicleChildren = useCallback(async (vehicleId: string) => {
+    const [allMaint, allFuel, docs] = await Promise.all([
+      fetchAllMaintenances(vehicleId),
+      fetchAllFuelLogs(vehicleId),
+      fetchDocuments(vehicleId),
+    ]);
+    setAllMaintenances(allMaint);
+    setAllFuelLogs(allFuel);
     setDocuments(docs);
+    setMaintPage(1);
+    setFuelPage(1);
+  }, []);
+
+  const clearVehicleChildren = useCallback(() => {
+    setAllMaintenances([]);
+    setAllFuelLogs([]);
+    setDocuments([]);
+    setMaintPage(1);
+    setFuelPage(1);
   }, []);
 
   const reloadAll = useCallback(async () => {
@@ -140,17 +127,9 @@ export default function Car() {
       const list = await loadVehicles();
       const selected = list.find((v) => v.id === selectedId) ?? list[0] ?? null;
       if (selected) {
-        await Promise.all([
-          loadMaintenances(selected.id),
-          loadFuelLogs(selected.id),
-          loadDocuments(selected.id),
-        ]);
+        await loadVehicleChildren(selected.id);
       } else {
-        setMaintenances([]);
-        setAllMaintenances([]);
-        setFuelLogs([]);
-        setAllFuelLogs([]);
-        setDocuments([]);
+        clearVehicleChildren();
       }
     } catch (error) {
       toast({
@@ -166,25 +145,113 @@ export default function Car() {
     }
   }, [
     loadVehicles,
-    loadMaintenances,
-    loadFuelLogs,
-    loadDocuments,
+    loadVehicleChildren,
+    clearVehicleChildren,
     selectedId,
     toast,
   ]);
 
+  // Boot: lista de veículos uma vez.
   useEffect(() => {
-    void reloadAll();
-  }, [reloadAll]);
+    let cancelled = false;
+    async function boot() {
+      try {
+        setLoading(true);
+        const list = await fetchVehicles();
+        if (cancelled) return;
+        setVehicles(list);
+        setSelectedId((current) => {
+          if (current && list.some((v) => v.id === current)) return current;
+          return list[0]?.id ?? null;
+        });
+      } catch (error) {
+        if (!cancelled) {
+          toast({
+            title: "Erro",
+            description: getErrorMessage(
+              error,
+              "Falha ao carregar dados do veículo."
+            ),
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void boot();
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
+
+  // Filhos do veículo selecionado (sem paginado+full duplicado).
+  useEffect(() => {
+    if (!selectedId) {
+      clearVehicleChildren();
+      return;
+    }
+    const vehicleId = selectedId;
+    let cancelled = false;
+    async function load() {
+      try {
+        setLoading(true);
+        await loadVehicleChildren(vehicleId);
+      } catch (error) {
+        if (!cancelled) {
+          toast({
+            title: "Erro",
+            description: getErrorMessage(
+              error,
+              "Falha ao carregar dados do veículo."
+            ),
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, loadVehicleChildren, clearVehicleChildren, toast]);
 
   useEffect(() => {
-    if (!vehicle) return;
-    void Promise.all([
-      loadMaintenances(vehicle.id),
-      loadFuelLogs(vehicle.id),
-      loadDocuments(vehicle.id),
-    ]);
-  }, [vehicle?.id, loadMaintenances, loadFuelLogs, loadDocuments]);
+    if (searchParams.get("new") !== "1") return;
+    setCreateVehicleOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const maintTotalPages = Math.max(
+    1,
+    Math.ceil(allMaintenances.length / maintPageSize) || 1
+  );
+  const maintenances = useMemo(() => {
+    const start = (maintPage - 1) * maintPageSize;
+    return allMaintenances.slice(start, start + maintPageSize);
+  }, [allMaintenances, maintPage, maintPageSize]);
+
+  const fuelLogsSorted = useMemo(
+    () =>
+      [...allFuelLogs].sort((a, b) => {
+        const byDate = (b.date ?? "").localeCompare(a.date ?? "");
+        if (byDate !== 0) return byDate;
+        return (b.km ?? 0) - (a.km ?? 0);
+      }),
+    [allFuelLogs]
+  );
+  const fuelTotalPages = Math.max(
+    1,
+    Math.ceil(fuelLogsSorted.length / fuelPageSize) || 1
+  );
+  const fuelLogs = useMemo(() => {
+    const start = (fuelPage - 1) * fuelPageSize;
+    return fuelLogsSorted.slice(start, start + fuelPageSize);
+  }, [fuelLogsSorted, fuelPage, fuelPageSize]);
 
   const schedule = useMemo(
     () => (vehicle ? getMaintenanceSchedule(vehicle, allMaintenances) : []),
@@ -258,7 +325,7 @@ export default function Car() {
         description: "A despesa vinculada em Finanças também foi removida, se havia.",
         duration: 2500,
       });
-      if (vehicle) await loadMaintenances(vehicle.id);
+      if (vehicle) await loadVehicleChildren(vehicle.id);
     } catch (error) {
       toast({
         title: "Erro",
@@ -279,7 +346,7 @@ export default function Car() {
         description: "A despesa vinculada em Finanças também foi removida, se havia.",
         duration: 2500,
       });
-      if (vehicle) await loadFuelLogs(vehicle.id);
+      if (vehicle) await loadVehicleChildren(vehicle.id);
     } catch (error) {
       toast({
         title: "Erro",
@@ -296,7 +363,7 @@ export default function Car() {
     try {
       await deleteDocument(id);
       toast({ title: "Documento excluído", duration: 2000 });
-      if (vehicle) await loadDocuments(vehicle.id);
+      if (vehicle) await loadVehicleChildren(vehicle.id);
     } catch (error) {
       toast({
         title: "Erro",
@@ -331,7 +398,13 @@ export default function Car() {
           icon={CarIcon}
           title="Nenhum veículo cadastrado"
           description="Cadastre um carro ou uma moto para começar a registrar manutenções e receber alertas."
-          action={<VehicleFormDialog onSaved={reloadAll} />}
+          action={
+            <VehicleFormDialog
+              open={createVehicleOpen}
+              onOpenChange={setCreateVehicleOpen}
+              onSaved={reloadAll}
+            />
+          }
         />
       </PageShell>
     );
@@ -345,6 +418,8 @@ export default function Car() {
         <>
           <ModuleGuideButton moduleId="car" />
           <VehicleFormDialog
+            open={createVehicleOpen}
+            onOpenChange={setCreateVehicleOpen}
             onSaved={reloadAll}
             trigger={
               <Button variant="outline" className="w-full gap-2 sm:w-auto">
@@ -356,7 +431,7 @@ export default function Car() {
           <MaintenanceFormDialog
             vehicle={vehicle}
             dimensions={dimensions}
-            onSaved={() => vehicle && loadMaintenances(vehicle.id)}
+            onSaved={() => vehicle && void loadVehicleChildren(vehicle.id)}
           />
         </>
       }
@@ -449,7 +524,7 @@ export default function Car() {
               onSaved={() => {
                 setEditingMaintenance(null);
                 setMaintenanceFormOpen(false);
-                void loadMaintenances(vehicle.id);
+                void loadVehicleChildren(vehicle.id);
               }}
             />
           )}
@@ -458,7 +533,10 @@ export default function Car() {
             pageSize={maintPageSize}
             totalPages={maintTotalPages}
             onSetPage={setMaintPage}
-            onSetPageSize={setMaintPageSize}
+            onSetPageSize={(size) => {
+              setMaintPageSize(size);
+              setMaintPage(1);
+            }}
           />
         </TabsContent>
 
@@ -469,7 +547,6 @@ export default function Car() {
               existingLogs={allFuelLogs}
               dimensions={dimensions}
               onSaved={() => {
-                void loadFuelLogs(vehicle.id);
                 void reloadAll();
               }}
             />
@@ -498,7 +575,6 @@ export default function Car() {
               onSaved={() => {
                 setEditingFuelLog(null);
                 setFuelFormOpen(false);
-                void loadFuelLogs(vehicle.id);
                 void reloadAll();
               }}
             />
@@ -508,7 +584,10 @@ export default function Car() {
             pageSize={fuelPageSize}
             totalPages={fuelTotalPages}
             onSetPage={setFuelPage}
-            onSetPageSize={setFuelPageSize}
+            onSetPageSize={(size) => {
+              setFuelPageSize(size);
+              setFuelPage(1);
+            }}
           />
         </TabsContent>
 
@@ -516,7 +595,7 @@ export default function Car() {
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
             <DocumentFormDialog
               vehicle={vehicle}
-              onSaved={() => void loadDocuments(vehicle.id)}
+              onSaved={() => void loadVehicleChildren(vehicle.id)}
             />
           </div>
           <DocumentList
@@ -540,7 +619,7 @@ export default function Car() {
               onSaved={() => {
                 setEditingDocument(null);
                 setDocumentFormOpen(false);
-                void loadDocuments(vehicle.id);
+                void loadVehicleChildren(vehicle.id);
               }}
             />
           )}

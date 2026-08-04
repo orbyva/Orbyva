@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -59,6 +59,7 @@ function ClassManager({ types }: { types: Type[] }) {
     dir: "asc",
   });
   const { toast } = useToast();
+  const classesBooted = useRef(false);
 
   const sortedClasses = useMemo(
     () => sortClassesList(classes, types, sort),
@@ -66,24 +67,42 @@ function ClassManager({ types }: { types: Type[] }) {
   );
 
   useEffect(() => {
-    let cancelled = false;
+    if (types.length === 0) {
+      setClasses([]);
+      return;
+    }
+    if (classesBooted.current) return;
 
-    async function load() {
-      if (types.length > 0) {
+    let cancelled = false;
+    void (async () => {
+      try {
         const repaired = await repairOrphanClasses(types);
-        if (repaired > 0 && !cancelled) {
+        if (cancelled) return;
+        if (repaired > 0) {
           toast({
-            title: "Classes religadas",
-            description: `${repaired} classe(s) órfã(s) foram associadas a um tipo válido.`,
+            title: "Subcategorias religadas",
+            description: `${repaired} subcategoria(s) órfã(s) foram associadas a uma categoria válida.`,
             duration: 3500,
           });
         }
+        const list = await fetchClasses();
+        if (cancelled) return;
+        setClasses(list);
+        classesBooted.current = true;
+      } catch (error) {
+        if (!cancelled) {
+          toast({
+            title: "Erro",
+            description: getErrorMessage(
+              error,
+              "Não foi possível carregar as subcategorias."
+            ),
+            variant: "destructive",
+          });
+        }
       }
-      const list = await fetchClasses();
-      if (!cancelled) setClasses(list);
-    }
+    })();
 
-    void load();
     return () => {
       cancelled = true;
     };
@@ -95,13 +114,13 @@ function ClassManager({ types }: { types: Type[] }) {
       await deleteClassApi(id);
       setClasses(await fetchClasses());
       toast({
-        title: "Classe excluída",
+        title: "Subcategoria excluída",
         duration: 2000,
       });
     } catch (error) {
       toast({
-        title: "Não foi possível excluir a classe",
-        description: getErrorMessage(error, "Não foi possível atualizar a classe."),
+        title: "Não foi possível excluir a subcategoria",
+        description: getErrorMessage(error, "Não foi possível atualizar a subcategoria."),
         variant: "destructive",
       });
     } finally {
@@ -111,11 +130,11 @@ function ClassManager({ types }: { types: Type[] }) {
 
   async function handleCreate() {
     if (!newClass.name.trim()) {
-      setFormError("Informe o nome da classe.");
+      setFormError("Informe o nome da subcategoria.");
       return;
     }
     if (!newClass.type_id) {
-      setFormError("Selecione o Tipo.");
+      setFormError("Selecione a categoria.");
       return;
     }
 
@@ -151,7 +170,7 @@ function ClassManager({ types }: { types: Type[] }) {
   return (
     <Card className="flex h-full min-h-0 flex-col border-0 shadow-none">
       <CardHeader className="shrink-0 px-0 pt-0">
-        <CardTitle className="text-base">Classes</CardTitle>
+        <CardTitle className="text-base">Subcategorias</CardTitle>
         <p className="text-sm text-muted-foreground">
           Detalham o gasto ou receita (ex.: Supermercado, Uber).
         </p>
@@ -168,7 +187,7 @@ function ClassManager({ types }: { types: Type[] }) {
           </div>
 
           <div className="space-y-2">
-            <FormLabel required>Tipo</FormLabel>
+            <FormLabel required>Categoria</FormLabel>
             <Select
               value={newClass.type_id ? String(newClass.type_id) : ""}
               onValueChange={(value) =>
@@ -176,7 +195,7 @@ function ClassManager({ types }: { types: Type[] }) {
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione o Tipo" />
+                <SelectValue placeholder="Selecione a categoria" />
               </SelectTrigger>
               <SelectContent>
                 {typesByNature.map((type) => (
@@ -198,7 +217,7 @@ function ClassManager({ types }: { types: Type[] }) {
           onClick={() => void handleCreate()}
           className="mt-4 w-full shrink-0 sm:w-auto"
         >
-          Adicionar classe
+          Adicionar subcategoria
         </Button>
 
         <div className="mt-6 flex min-h-0 flex-1 flex-col border-t pt-4">
@@ -207,7 +226,7 @@ function ClassManager({ types }: { types: Type[] }) {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <SortableTableHead
-                    label="Nome da classe"
+                    label="Nome da subcategoria"
                     sortKey="name"
                     sort={sort}
                     onSortChange={(key) =>
@@ -215,7 +234,7 @@ function ClassManager({ types }: { types: Type[] }) {
                     }
                   />
                   <SortableTableHead
-                    label="Tipo"
+                    label="Categoria"
                     sortKey="type"
                     sort={sort}
                     onSortChange={(key) =>
@@ -231,11 +250,11 @@ function ClassManager({ types }: { types: Type[] }) {
                     <TableCell colSpan={3} className="p-0">
                       <EmptyState
                         icon={Tags}
-                        title="Nenhuma classe ainda"
+                        title="Nenhuma subcategoria ainda"
                         description={
                           types.length === 0
-                            ? "Crie um tipo primeiro; depois adicione classes (ex.: Mercado, Uber)."
-                            : "Crie a primeira classe acima para classificar suas transações."
+                            ? "Crie uma categoria primeiro; depois adicione subcategorias (ex.: Mercado, Uber)."
+                            : "Crie a primeira subcategoria acima para classificar suas transações."
                         }
                         className="py-10"
                       />
@@ -256,7 +275,7 @@ function ClassManager({ types }: { types: Type[] }) {
                                   name: e.target.value,
                                 })
                               }
-                              placeholder="Nome da classe"
+                              placeholder="Nome da subcategoria"
                             />
                           ) : (
                             cls.name
@@ -278,7 +297,7 @@ function ClassManager({ types }: { types: Type[] }) {
                               }
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="Selecione o Tipo" />
+                                <SelectValue placeholder="Selecione a categoria" />
                               </SelectTrigger>
                               <SelectContent>
                                 {typesByNature.map((type) => (
@@ -297,7 +316,7 @@ function ClassManager({ types }: { types: Type[] }) {
                           ) : typeName ? (
                             typeName
                           ) : (
-                            <span className="text-muted-foreground">Sem tipo</span>
+                            <span className="text-muted-foreground">Sem categoria</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -328,7 +347,7 @@ function ClassManager({ types }: { types: Type[] }) {
                                 <Pen size={16} />
                               </Button>
                               <ConfirmDeleteDialog
-                                title="Excluir esta classe?"
+                                title="Excluir esta subcategoria?"
                                 description={`"${cls.name}" será removida. Transações antigas podem ficar sem essa classificação.`}
                                 loading={deletingId === cls.id}
                                 onConfirm={() => confirmDelete(cls.id)}

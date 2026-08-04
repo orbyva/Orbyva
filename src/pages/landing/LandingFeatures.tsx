@@ -22,18 +22,18 @@ const MONEY_FEATURES = [
     reverse: false,
   },
   {
-    id: "parcelas",
-    eyebrow: "Parcelas",
+    id: "recorrencias",
+    eyebrow: "Recorrências",
     title: "Nunca mais esquecer o que vence",
     body: "Lista de recorrências e 12x, mais a aba Projeção: a receber × a pagar, gráfico dos próximos meses e simular compra antes de comprometer o mês.",
     points: [
       "Alertas de contas atrasadas e vencimentos próximos",
       "Projeção mensal — saldo previsto e horizonte à frente",
-      "Simular compra (valor, parcelas, 1ª parcela) sem gravar",
+      "Simular compra (valor, parcelas Nx, 1ª parcela) sem gravar",
     ],
     src: "/marketing/parcelas.png",
     detailSrc: "/marketing/parcelas-lista.png",
-    alt: "Parcelas com alertas, projeção e simulação",
+    alt: "Recorrências com alertas, projeção e simulação",
     reverse: true,
   },
 ] as const;
@@ -67,7 +67,7 @@ const LIFE_MODULES = [
   {
     id: "cinema",
     label: "Cinema",
-    body: "Watchlist, notas e card para compartilhar. Importe uma lista em CSV.",
+    body: "Watchlist, notas e card para compartilhar.",
     src: "/marketing/cinema.png",
   },
   {
@@ -93,7 +93,7 @@ export function LandingFeatures() {
             O que faz alguém assinar
           </h2>
           <p className="mt-3 text-zinc-400">
-            Orçamento e parcelas — o diferencial. O resto do life OS vem junto.
+            Orçamento e recorrências — o diferencial. O resto do life OS vem junto.
           </p>
         </motion.div>
 
@@ -155,7 +155,7 @@ export function LandingFeatures() {
               O mês inteiro, com alertas
             </h3>
             <p className="mt-3 max-w-md text-base leading-relaxed text-zinc-400">
-              Receita, despesa e saldo — e as parcelas atrasadas ou próximas já
+              Receita, despesa e saldo — e as recorrências atrasadas ou próximas já
               no dashboard. Compartilhe o mês ou exporte CSV.
             </p>
           </div>
@@ -169,7 +169,7 @@ export function LandingFeatures() {
             <div className="w-full max-w-[260px] sm:w-[58%] sm:max-w-[240px]">
               <LandingPhoneFrame
                 src="/marketing/financas.png"
-                alt="Dashboard de Finanças com alertas de parcelas"
+                alt="Dashboard de Finanças com alertas de recorrências"
               />
             </div>
           </div>

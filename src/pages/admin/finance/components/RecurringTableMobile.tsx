@@ -18,7 +18,7 @@ import {
   formatInstallmentPlanSummary,
   getRecurringProgress,
 } from "@/api/recurring";
-import { formatBRL } from "@/lib/currency";
+import { formatBRL, formatDateBR } from "@/lib/currency";
 import { Installment, Recurring } from "@/types/recurring";
 import { cn } from "@/lib/utils";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
@@ -35,6 +35,7 @@ import {
 
 export interface RecurringTableMobileProps {
   recurring: Recurring[];
+  lastPaidAtById?: Record<string, string>;
   confirmOpen: boolean;
   setConfirmOpen: (open: boolean) => void;
   confirmOpenSoft: boolean;
@@ -57,6 +58,7 @@ export interface RecurringTableMobileProps {
 
 export function RecurringTableMobile({
   recurring,
+  lastPaidAtById = {},
   confirmOpen,
   setConfirmOpen,
   confirmOpenSoft,
@@ -94,6 +96,11 @@ export function RecurringTableMobile({
                   <RecurringIcon recurring={item} />
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="font-medium leading-snug">{displayName}</p>
+                    {lastPaidAtById[item.id] ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Pago em {formatDateBR(lastPaidAtById[item.id])}
+                      </p>
+                    ) : null}
                     <p className="text-sm text-muted-foreground">
                       {item.class?.type?.name} · {item.class?.name}
                     </p>
@@ -351,7 +358,10 @@ export function RecurringTableMobile({
                               recurring.find(
                                 (transaction) =>
                                   transaction.id === selectedParcel.transactionId
-                              )?.paid_parcels || []
+                              )?.paid_parcels || [],
+                              paymentAction === "mark"
+                                ? new Date().toISOString().slice(0, 10)
+                                : undefined
                             );
                             await reloadRecurring();
                             toast({

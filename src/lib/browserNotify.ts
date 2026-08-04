@@ -38,12 +38,12 @@ export const ALERT_KIND_OPTIONS: Array<{
 }> = [
   {
     kind: "recurring_overdue",
-    label: "Parcelas atrasadas",
+    label: "Recorrências atrasadas",
     description: "Recorrentes vencidas",
   },
   {
     kind: "recurring_upcoming",
-    label: "Parcelas próximas",
+    label: "Recorrências próximas",
     description: "Vencimentos nos próximos dias",
   },
   {

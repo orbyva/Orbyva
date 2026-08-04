@@ -117,8 +117,11 @@ function mapKnownError(message: string, code: string): string | null {
     return "Cadastro indisponível no momento.";
   }
 
-  if (code === "23503" || /foreign key|referenced|vinculad/i.test(text)) {
-    return "Não é possível excluir: ainda há registros vinculados.";
+  if (
+    code === "23503" ||
+    /foreign key|violates foreign key|is still referenced/i.test(text)
+  ) {
+    return "Não é possível excluir: ainda há itens ligados a este registro.";
   }
   if (code === "23505" || /duplicate key|unique constraint/i.test(text)) {
     return "Já existe um registro igual.";

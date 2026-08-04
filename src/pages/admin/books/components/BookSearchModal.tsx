@@ -34,10 +34,25 @@ import { getErrorMessage } from "@/lib/errors";
 
 interface BookSearchModalProps {
   onBookAdded: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
-export function BookSearchModal({ onBookAdded }: BookSearchModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function BookSearchModal({
+  onBookAdded,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
+}: BookSearchModalProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const isOpen = isControlled ? controlledOpen : uncontrolledOpen;
+
+  function setIsOpen(next: boolean) {
+    if (!isControlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  }
   const [step, setStep] = useState<"search" | "details">("search");
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<BookSearchHit[]>([]);
@@ -168,12 +183,14 @@ export function BookSearchModal({ onBookAdded }: BookSearchModalProps) {
         if (!open) resetState();
       }}
     >
-      <DialogTrigger asChild>
-        <Button className="w-full gap-2 sm:w-auto">
-          <Plus className="h-4 w-4" />
-          Adicionar
-        </Button>
-      </DialogTrigger>
+      {!hideTrigger ? (
+        <DialogTrigger asChild>
+          <Button className="w-full gap-2 sm:w-auto">
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </Button>
+        </DialogTrigger>
+      ) : null}
 
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogTitle>

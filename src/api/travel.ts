@@ -4,7 +4,6 @@ import type { TransactionCreateRequest } from "@/types/finance";
 import {
   generateItineraryDays,
 } from "@/domain/travel";
-import { countPlacesByTrip } from "@/api/places";
 import type {
   Trip,
   TripChecklistCreateRequest,
@@ -23,8 +22,11 @@ import type {
   TripMilestoneCreateRequest,
   TripMilestoneUpdateRequest,
   TripUpdateRequest,
+  TripWithChecklist,
 } from "@/types/travel";
-import { enrichTripFull } from "@/domain/travel";
+import type { PlaceVisit } from "@/types/places";
+import type { TripMember, TripMemberRole } from "@/types/tripSharing";
+import { enrichTrip, enrichTripFull } from "@/domain/travel";
 import { tripLedgerDescription } from "@/domain/travel/ledger";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { assertTripAccess, fetchMemberTripIds } from "@/lib/tripAccess";
@@ -32,34 +34,73 @@ import { ensureTripOwnerMember } from "@/api/tripMembers";
 
 // ── Trips ────────────────────────────────────────────────────────────
 
+const TRIP_LIST_SELECT =
+  "id, user_id, title, destination, start_date, end_date, budget, spent, status, notes, origin_lat, origin_lng, origin_label, created_at, updated_at";
+
 export async function fetchTrips(): Promise<Trip[]> {
   const userId = await getCurrentUserId();
-  const { data: owned, error: ownedError } = await supabase
-    .from("trip")
-    .select("*")
-    .eq("user_id", userId)
-    .order("start_date", { ascending: true });
-  if (ownedError) throw new Error(ownedError.message);
 
-  const memberIds = await fetchMemberTripIds(userId);
-  const ownedIds = new Set((owned ?? []).map((t) => t.id));
+  // Owned + membership em paralelo (antes era sequencial).
+  const [ownedRes, memberIds] = await Promise.all([
+    supabase
+      .from("trip")
+      .select(TRIP_LIST_SELECT)
+      .eq("user_id", userId)
+      .order("start_date", { ascending: true }),
+    fetchMemberTripIds(userId),
+  ]);
+  if (ownedRes.error) throw new Error(ownedRes.error.message);
+
+  const owned = (ownedRes.data ?? []) as Trip[];
+  const ownedIds = new Set(owned.map((t) => t.id));
   const sharedIds = memberIds.filter((id) => !ownedIds.has(id));
 
   let shared: Trip[] = [];
   if (sharedIds.length > 0) {
     const { data, error } = await supabase
       .from("trip")
-      .select("*")
+      .select(TRIP_LIST_SELECT)
       .in("id", sharedIds)
       .order("start_date", { ascending: true });
     if (error) throw new Error(error.message);
-    shared = data ?? [];
+    shared = (data ?? []) as Trip[];
   }
 
   const byId = new Map<string, Trip>();
-  for (const t of [...(owned ?? []), ...shared]) byId.set(t.id, t);
+  for (const t of [...owned, ...shared]) byId.set(t.id, t);
   return Array.from(byId.values()).sort((a, b) =>
     a.start_date.localeCompare(b.start_date)
+  );
+}
+
+/** Progresso de checklist por viagem (só trip_id + done — lista). */
+export async function fetchChecklistProgressForTrips(
+  tripIds: string[]
+): Promise<Map<string, { done: number; total: number }>> {
+  const map = new Map<string, { done: number; total: number }>();
+  if (tripIds.length === 0) return map;
+
+  const { data, error } = await supabase
+    .from("trip_checklist_item")
+    .select("trip_id, done")
+    .in("trip_id", tripIds);
+  if (error) throw new Error(error.message);
+
+  for (const row of data ?? []) {
+    const cur = map.get(row.trip_id) ?? { done: 0, total: 0 };
+    cur.total += 1;
+    if (row.done) cur.done += 1;
+    map.set(row.trip_id, cur);
+  }
+  return map;
+}
+
+/** Lista pronta para /travel: viagens + progresso de checklist. */
+export async function fetchTripsForList(): Promise<TripWithChecklist[]> {
+  const raw = await fetchTrips();
+  const progress = await fetchChecklistProgressForTrips(raw.map((t) => t.id));
+  return raw.map((t) =>
+    enrichTrip(t, [], progress.get(t.id) ?? { done: 0, total: 0 })
   );
 }
 
@@ -78,44 +119,179 @@ export async function fetchTripById(id: string): Promise<Trip | null> {
   return data;
 }
 
-export async function fetchTripFull(id: string): Promise<TripFull | null> {
-  const access = await assertTripAccess(id).catch(() => null);
-  if (!access) return null;
+/** Places no detalhe — sem embed de trip (já temos a viagem). */
+const PLACE_DETAIL_SELECT =
+  "id, user_id, trip_id, name, type, status, rating, notes, visited_date, amount, transaction_id, address, lat, lng, geoapify_place_id, google_place_id, would_recommend, created_at";
 
-  const trip = await fetchTripById(id);
-  if (!trip) return null;
+const EXPENSE_SELECT =
+  "id, trip_id, description, amount, category, expense_date, transaction_id, visibility, created_by_user_id, paid_by_user_id, place_visit_id, created_at";
 
-  const [checklist, expenses, itinerary, milestones, placesCount] =
+const DAY_SELECT = "id, trip_id, day_number, date, title, notes";
+
+const ACTIVITY_SELECT =
+  "id, day_id, title, activity_time, notes, place_visit_id, sort_order, link_url, is_reserved, category, visit_status, completed_at, skipped_at, created_by_user_id, created_by_name, created_by_avatar";
+
+const MILESTONE_SELECT =
+  "id, trip_id, title, type, due_date, done, notes";
+
+const MEMBER_SELECT =
+  "id, trip_id, user_id, role, display_name, avatar_url, joined_at";
+
+const SPLIT_SELECT = "id, expense_id, user_id, amount, transaction_id, display_name";
+
+export type TripDetailBundle = {
+  trip: TripFull;
+  places: PlaceVisit[];
+  members: TripMember[];
+};
+
+/**
+ * Cold load do detalhe: trip + filhos na mesma wave; activities/splits depois.
+ * Sem checklist (não usado na tela). Sem assertTripAccess separado.
+ */
+export async function fetchTripDetailBundle(
+  id: string
+): Promise<TripDetailBundle | null> {
+  const userId = await getCurrentUserId();
+
+  // Wave 1: trip + tudo que depende só de trip_id (RLS filtra o resto).
+  const [tripRes, expensesRes, daysRes, milestonesRes, placesRes, membersRes] =
     await Promise.all([
-      fetchTripChecklist(id),
-      fetchTripExpenses(id),
-      fetchTripItinerary(id),
-      fetchTripMilestones(id),
-      countPlacesByTrip(id),
+      supabase.from("trip").select(TRIP_LIST_SELECT).eq("id", id).maybeSingle(),
+      supabase
+        .from("trip_expense")
+        .select(EXPENSE_SELECT)
+        .eq("trip_id", id)
+        .order("expense_date", { ascending: false }),
+      supabase
+        .from("trip_itinerary_day")
+        .select(DAY_SELECT)
+        .eq("trip_id", id)
+        .order("day_number", { ascending: true }),
+      supabase
+        .from("trip_milestone")
+        .select(MILESTONE_SELECT)
+        .eq("trip_id", id)
+        .order("due_date", { ascending: true }),
+      supabase
+        .from("place_visit")
+        .select(PLACE_DETAIL_SELECT)
+        .eq("trip_id", id)
+        .order("visited_date", { ascending: false, nullsFirst: false }),
+      supabase
+        .from("trip_member")
+        .select(MEMBER_SELECT)
+        .eq("trip_id", id)
+        .order("joined_at", { ascending: true }),
     ]);
 
-  const { count: memberCount } = await supabase
-    .from("trip_member")
-    .select("*", { count: "exact", head: true })
-    .eq("trip_id", id);
+  if (tripRes.error) throw new Error(tripRes.error.message);
+  if (!tripRes.data) return null;
 
-  const isShared = (memberCount ?? 0) > 1 || access.role === "editor";
+  const trip = tripRes.data as Trip;
+  const members = (membersRes.error ? [] : (membersRes.data ?? [])) as TripMember[];
 
+  let role: TripMemberRole = "owner";
+  if (trip.user_id !== userId) {
+    const me = members.find((m) => m.user_id === userId);
+    if (!me) return null;
+    role = me.role;
+  }
+
+  if (expensesRes.error) throw new Error(expensesRes.error.message);
+  if (daysRes.error) throw new Error(daysRes.error.message);
+  if (milestonesRes.error) throw new Error(milestonesRes.error.message);
+  if (placesRes.error) throw new Error(placesRes.error.message);
+  if (membersRes.error) {
+    if (
+      !String(membersRes.error.message).includes("trip_member") &&
+      membersRes.error.code !== "42P01"
+    ) {
+      throw new Error(membersRes.error.message);
+    }
+  }
+
+  const days = (daysRes.data ?? []) as TripItineraryDay[];
+  const milestones = (milestonesRes.data ?? []) as TripMilestone[];
+  const places = (placesRes.data ?? []) as unknown as PlaceVisit[];
+
+  const expensesRaw = ((expensesRes.data ?? []) as TripExpense[]).filter((e) => {
+    const visibility = e.visibility ?? "personal";
+    if (visibility === "shared") return true;
+    if (!e.created_by_user_id) return false;
+    return e.created_by_user_id === userId;
+  });
+
+  const dayIds = days.map((d) => d.id);
+  const expenseIds = expensesRaw.map((e) => e.id);
+
+  // Wave 2: filhos de day/expense.
+  const [activitiesRes, splitsRes] = await Promise.all([
+    dayIds.length > 0
+      ? supabase
+          .from("trip_itinerary_activity")
+          .select(ACTIVITY_SELECT)
+          .in("day_id", dayIds)
+          .order("sort_order", { ascending: true })
+      : Promise.resolve({ data: [] as TripItineraryActivity[], error: null }),
+    expenseIds.length > 0
+      ? supabase
+          .from("trip_expense_split")
+          .select(SPLIT_SELECT)
+          .in("expense_id", expenseIds)
+      : Promise.resolve({
+          data: [] as NonNullable<TripExpense["splits"]>,
+          error: null,
+        }),
+  ]);
+
+  if (activitiesRes.error) throw new Error(activitiesRes.error.message);
+  if (
+    splitsRes.error &&
+    !String(splitsRes.error.message ?? "").includes("trip_expense_split")
+  ) {
+    throw new Error(splitsRes.error.message);
+  }
+
+  const activities = (activitiesRes.data ?? []) as TripItineraryActivity[];
+  const splits = splitsRes.error ? [] : (splitsRes.data ?? []);
+
+  const itinerary: TripItineraryDay[] = days.map((day) => ({
+    ...day,
+    activities: activities.filter((a) => a.day_id === day.id),
+  }));
+
+  const expenses: TripExpense[] = expensesRaw.map((e) => ({
+    ...e,
+    splits: splits.filter((s) => s.expense_id === e.id),
+  }));
+
+  const isShared = members.length > 1 || role === "editor";
   const full = enrichTripFull(
     trip,
-    checklist,
+    [], // checklist não entra no detalhe
     expenses,
     itinerary,
     milestones,
-    placesCount,
+    places.length,
     isShared
   );
 
   return {
-    ...full,
-    myRole: access.role,
-    isShared,
+    trip: {
+      ...full,
+      myRole: role,
+      isShared,
+    },
+    places,
+    members,
   };
+}
+
+/** @deprecated Prefer `fetchTripDetailBundle` no detalhe. */
+export async function fetchTripFull(id: string): Promise<TripFull | null> {
+  const bundle = await fetchTripDetailBundle(id);
+  return bundle?.trip ?? null;
 }
 
 export async function createTrip(trip: TripCreateRequest): Promise<Trip> {
@@ -692,6 +868,39 @@ export async function updateItineraryActivity(
   if (error) throw new Error(error.message);
 }
 
+/** Checklist da visita: completed | skipped | pending (desfazer). */
+export async function setItineraryVisitStatus(
+  id: string,
+  status: "pending" | "completed" | "skipped"
+): Promise<void> {
+  const now = new Date().toISOString();
+  const patch =
+    status === "completed"
+      ? {
+          visit_status: "completed" as const,
+          completed_at: now,
+          skipped_at: null,
+        }
+      : status === "skipped"
+        ? {
+            visit_status: "skipped" as const,
+            skipped_at: now,
+            completed_at: null,
+          }
+        : {
+            visit_status: "pending" as const,
+            completed_at: null,
+            skipped_at: null,
+          };
+
+  // Update direto (RLS cobre acesso) — sem assert + fetches extras.
+  const { error } = await supabase
+    .from("trip_itinerary_activity")
+    .update(patch)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteItineraryActivity(id: string): Promise<void> {
   const { data: existing, error: fetchError } = await supabase
     .from("trip_itinerary_activity")
@@ -746,6 +955,20 @@ export async function fetchTripMilestones(tripId: string): Promise<TripMilestone
     .from("trip_milestone")
     .select("*")
     .eq("trip_id", tripId)
+    .order("due_date", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** Milestones de várias viagens em uma query (timeline / hub). */
+export async function fetchMilestonesForTrips(
+  tripIds: string[]
+): Promise<TripMilestone[]> {
+  if (tripIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("trip_milestone")
+    .select("*")
+    .in("trip_id", tripIds)
     .order("due_date", { ascending: true });
   if (error) throw new Error(error.message);
   return data ?? [];

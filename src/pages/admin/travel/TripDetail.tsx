@@ -19,21 +19,21 @@ import {
   createTripExpense,
   createTripMilestone,
   deleteTrip,
-  fetchTripFull,
+  fetchTripDetailBundle,
   registerMyExpenseSplit,
   updateItineraryActivity,
   updateItineraryDayNotes,
   updateTripExpense,
   updateTripMilestone,
 } from "@/api/travel";
-import { listTripMembers, ensureTripOwnerMember } from "@/api/tripMembers";
-import { deletePlace, enrichPlacesWithOpinions, fetchPlaces } from "@/api/places";
+import { ensureTripOwnerMember } from "@/api/tripMembers";
+import { createPlace, deletePlace, enrichPlacesWithOpinions } from "@/api/places";
 import { fetchTransactionClassMeta } from "@/api/finance";
 import { useDimensions } from "@/hooks/useDimensions";
 import { useAuth } from "@/hooks/useAuth";
 import type { TripMember } from "@/types/tripSharing";
 import type { TripExpenseVisibility } from "@/types/travel";
-import { TRIP_STATUS_LABELS } from "@/domain/travel";
+import { TRIP_STATUS_LABELS, normalizeTripActivityCategory } from "@/domain/travel";
 import { tripLedgerDescription } from "@/domain/travel/ledger";
 import type {
   TripExpense,
@@ -49,7 +49,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
 import { formatDateBR } from "@/lib/currency";
-import { cn, sortByNamePt } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { TripBudgetSummary } from "./components/TripBudgetSummary";
 import { TripItineraryTab } from "./components/TripItineraryTab";
 import { TripExpensesTab } from "./components/TripExpensesTab";
@@ -84,7 +84,6 @@ export default function TripDetail() {
   const [loading, setLoading] = useState(true);
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [registerExpense, setRegisterExpense] = useState(false);
-  const [financeTypeId, setFinanceTypeId] = useState(0);
   const [classId, setClassId] = useState(0);
   const [splitRegisterExpense, setSplitRegisterExpense] =
     useState<TripExpense | null>(null);
@@ -101,10 +100,27 @@ export default function TripDetail() {
   const [dayForm, setDayForm] = useState({ title: "", notes: "" });
   const [editingActivity, setEditingActivity] =
     useState<TripItineraryActivity | null>(null);
-  const [activityForm, setActivityForm] = useState({
+  const [addingDayId, setAddingDayId] = useState<string | null>(null);
+  const [activityForm, setActivityForm] = useState<{
+    title: string;
+    activity_time: string;
+    notes: string;
+    link_url: string;
+    is_reserved: boolean;
+    category: import("@/types/travel").TripActivityCategory;
+    place_visit_id: string | null;
+    linked_place_label: string | null;
+    pending_catalog: import("@/components/PlaceCatalogSearch").PlaceCatalogPick | null;
+  }>({
     title: "",
     activity_time: "",
     notes: "",
+    link_url: "",
+    is_reserved: false,
+    category: "attraction",
+    place_visit_id: null,
+    linked_place_label: null,
+    pending_catalog: null,
   });
 
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm());
@@ -126,20 +142,28 @@ export default function TripDetail() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [t, p] = await Promise.all([fetchTripFull(id), fetchPlaces(id)]);
-      setTrip(t);
-      try {
-        setPlaces(await enrichPlacesWithOpinions(p));
-      } catch {
-        setPlaces(p);
-      }
-      try {
-        if (t?.user_id) {
-          await ensureTripOwnerMember(id, t.user_id);
-        }
-        setMembers(await listTripMembers(id));
-      } catch {
+      const bundle = await fetchTripDetailBundle(id);
+      if (!bundle) {
+        setTrip(null);
+        setPlaces([]);
         setMembers([]);
+        setLoading(false);
+        return;
+      }
+
+      // First paint: viagem + lugares + membros (sem opiniões / ensure).
+      setTrip(bundle.trip);
+      setPlaces(bundle.places);
+      setMembers(bundle.members);
+      setLoading(false);
+
+      if (bundle.trip.user_id) {
+        void ensureTripOwnerMember(id, bundle.trip.user_id).catch(() => undefined);
+      }
+      if (bundle.places.length > 0) {
+        void enrichPlacesWithOpinions(bundle.places)
+          .then(setPlaces)
+          .catch(() => undefined);
       }
     } catch (error) {
       toast({
@@ -147,7 +171,6 @@ export default function TripDetail() {
         description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   }, [id, toast]);
@@ -156,15 +179,19 @@ export default function TripDetail() {
     load();
   }, [load]);
 
-  const expenseNature = dimensions.find((n) => n.name === "Despesa");
-  const expenseTypes = sortByNamePt(expenseNature?.types ?? []);
-  const selectedExpenseType = expenseTypes.find((t) => t.id === financeTypeId);
-  const expenseClasses = sortByNamePt(selectedExpenseType?.classes ?? []);
-
   if (loading) {
     return (
       <PageShell title="Viagem">
-        <TableLoadingSkeleton rows={8} />
+        <div className="space-y-4">
+          <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
+          <div className="h-4 w-64 animate-pulse rounded-md bg-muted/70" />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="h-20 animate-pulse rounded-xl bg-muted/50" />
+            <div className="h-20 animate-pulse rounded-xl bg-muted/50" />
+            <div className="h-20 animate-pulse rounded-xl bg-muted/50" />
+          </div>
+          <TableLoadingSkeleton rows={6} />
+        </div>
       </PageShell>
     );
   }
@@ -193,7 +220,6 @@ export default function TripDetail() {
     setEditingExpense(null);
     setExpenseForm(emptyExpenseForm());
     setRegisterExpense(false);
-    setFinanceTypeId(0);
     setClassId(0);
     setExpenseDialogOpen(true);
   }
@@ -208,7 +234,6 @@ export default function TripDetail() {
       visibility: exp.visibility ?? "personal",
     });
     setRegisterExpense(false);
-    setFinanceTypeId(0);
     setClassId(0);
     setExpenseDialogOpen(true);
     if (exp.transaction_id) {
@@ -216,7 +241,6 @@ export default function TripDetail() {
         .then((meta) => {
           if (!meta) return;
           setClassId(meta.class_id);
-          if (meta.type_id) setFinanceTypeId(meta.type_id);
         })
         .catch(() => undefined);
     }
@@ -237,23 +261,20 @@ export default function TripDetail() {
   async function handleSaveExpense() {
     if (!expenseForm.description || expenseForm.amount <= 0) return;
 
-    if (!editingExpense && registerExpense && (!financeTypeId || !classId)) {
+    if (!editingExpense && registerExpense && !classId) {
       toast({
-        title: "Selecione tipo e classe",
+        title: "Selecione a categoria",
         description:
-          "Para registrar em Finanças, escolha o tipo e a classe da despesa.",
+          "Para registrar em Finanças, escolha a categoria da despesa.",
         variant: "destructive",
       });
       return;
     }
 
-    if (
-      editingExpense?.transaction_id &&
-      (!financeTypeId || !classId)
-    ) {
+    if (editingExpense?.transaction_id && !classId) {
       toast({
-        title: "Selecione tipo e classe",
-        description: "Este gasto está no extrato — escolha tipo e classe.",
+        title: "Selecione a categoria",
+        description: "Este gasto está no extrato — escolha a categoria.",
         variant: "destructive",
       });
       return;
@@ -396,15 +417,106 @@ export default function TripDetail() {
     }
   }
 
-  async function handleAddActivity(dayId: string, title: string) {
-    if (!title.trim()) return;
-    try {
-      const day = trip!.itinerary.find((d) => d.id === dayId);
-      await createItineraryActivity({
-        day_id: dayId,
-        title,
-        sort_order: (day?.activities?.length ?? 0) + 1,
+  function emptyActivityForm() {
+    return {
+      title: "",
+      activity_time: "",
+      notes: "",
+      link_url: "",
+      is_reserved: false,
+      category: "attraction" as const,
+      place_visit_id: null as string | null,
+      linked_place_label: null as string | null,
+      pending_catalog: null as import("@/components/PlaceCatalogSearch").PlaceCatalogPick | null,
+    };
+  }
+
+  function openAddActivity(dayId: string) {
+    setEditingActivity(null);
+    setAddingDayId(dayId);
+    setActivityForm(emptyActivityForm());
+  }
+
+  function openActivityEdit(act: TripItineraryActivity) {
+    setAddingDayId(null);
+    setEditingActivity(act);
+    const linked = places.find((p) => p.id === act.place_visit_id);
+    setActivityForm({
+      title: act.title,
+      activity_time: act.activity_time ?? "",
+      notes: act.notes ?? "",
+      link_url: act.link_url ?? "",
+      is_reserved: Boolean(act.is_reserved),
+      category: normalizeTripActivityCategory(act.category),
+      place_visit_id: act.place_visit_id ?? null,
+      linked_place_label: linked?.name ?? null,
+      pending_catalog: null,
+    });
+  }
+
+  async function resolvePlaceVisitId(): Promise<string | null> {
+    if (activityForm.place_visit_id) return activityForm.place_visit_id;
+    const pick = activityForm.pending_catalog;
+    if (!pick || !trip) return null;
+    const created = await createPlace({
+      trip_id: trip.id,
+      name: pick.name,
+      type: pick.type,
+      status: "to_visit",
+      rating: null,
+      notes: null,
+      visited_date: null,
+      amount: null,
+      transaction_id: null,
+      address: pick.address,
+      lat: pick.lat,
+      lng: pick.lng,
+      geoapify_place_id: pick.geoapify_place_id,
+      would_recommend: true,
+    });
+    setPlaces((prev) => [created, ...prev]);
+    return created.id;
+  }
+
+  async function handleSaveActivity() {
+    if (!activityForm.title.trim()) {
+      toast({
+        title: "Informe o título da visita",
+        variant: "destructive",
       });
+      return;
+    }
+    try {
+      const placeVisitId = await resolvePlaceVisitId();
+      if (addingDayId) {
+        const day = trip!.itinerary.find((d) => d.id === addingDayId);
+        await createItineraryActivity({
+          day_id: addingDayId,
+          title: activityForm.title.trim(),
+          activity_time: activityForm.activity_time.trim() || null,
+          notes: activityForm.notes.trim() || null,
+          link_url: activityForm.link_url.trim() || null,
+          is_reserved: activityForm.is_reserved,
+          category: normalizeTripActivityCategory(activityForm.category),
+          place_visit_id: placeVisitId,
+          sort_order: (day?.activities?.length ?? 0) + 1,
+        });
+        toast({ title: "Visita adicionada!", duration: 2000 });
+        setAddingDayId(null);
+      } else if (editingActivity) {
+        await updateItineraryActivity({
+          id: editingActivity.id,
+          title: activityForm.title.trim(),
+          activity_time: activityForm.activity_time.trim() || null,
+          notes: activityForm.notes.trim() || null,
+          link_url: activityForm.link_url.trim() || null,
+          is_reserved: activityForm.is_reserved,
+          category: normalizeTripActivityCategory(activityForm.category),
+          place_visit_id: placeVisitId,
+        });
+        toast({ title: "Visita atualizada!", duration: 2000 });
+        setEditingActivity(null);
+      }
       load();
     } catch (error) {
       toast({
@@ -413,6 +525,32 @@ export default function TripDetail() {
         variant: "destructive",
       });
     }
+  }
+
+  function patchVisitStatusLocal(
+    actId: string,
+    status: "pending" | "completed" | "skipped"
+  ) {
+    const now = new Date().toISOString();
+    setTrip((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        itinerary: prev.itinerary.map((day) => ({
+          ...day,
+          activities: (day.activities ?? []).map((act) =>
+            act.id !== actId
+              ? act
+              : {
+                  ...act,
+                  visit_status: status,
+                  completed_at: status === "completed" ? now : null,
+                  skipped_at: status === "skipped" ? now : null,
+                }
+          ),
+        })),
+      };
+    });
   }
 
   function openDayEdit(day: TripItineraryDay) {
@@ -433,36 +571,6 @@ export default function TripDetail() {
       );
       toast({ title: "Dia atualizado!", duration: 2000 });
       setEditingDay(null);
-      load();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
-        variant: "destructive",
-      });
-    }
-  }
-
-  function openActivityEdit(act: TripItineraryActivity) {
-    setEditingActivity(act);
-    setActivityForm({
-      title: act.title,
-      activity_time: act.activity_time ?? "",
-      notes: act.notes ?? "",
-    });
-  }
-
-  async function handleSaveActivity() {
-    if (!editingActivity || !activityForm.title.trim()) return;
-    try {
-      await updateItineraryActivity({
-        id: editingActivity.id,
-        title: activityForm.title.trim(),
-        activity_time: activityForm.activity_time.trim() || null,
-        notes: activityForm.notes.trim() || null,
-      });
-      toast({ title: "Atividade atualizada!", duration: 2000 });
-      setEditingActivity(null);
       load();
     } catch (error) {
       toast({
@@ -610,12 +718,20 @@ export default function TripDetail() {
 
         <TripItineraryTab
           itinerary={trip.itinerary}
+          places={places}
           members={members}
           user={user}
+          tripOrigin={
+            trip.origin_lat != null && trip.origin_lng != null
+              ? { lat: trip.origin_lat, lng: trip.origin_lng }
+              : null
+          }
+          originLabel={trip.origin_label}
           onEditDay={openDayEdit}
           onEditActivity={openActivityEdit}
-          onAddActivity={handleAddActivity}
+          onAddActivity={openAddActivity}
           onReload={load}
+          onVisitStatusChange={patchVisitStatusLocal}
         />
 
         <TripExpensesTab
@@ -626,7 +742,6 @@ export default function TripDetail() {
           onEdit={openExpenseEdit}
           onRegisterSplit={(exp) => {
             setSplitRegisterExpense(exp);
-            setFinanceTypeId(0);
             setClassId(0);
           }}
           onReload={load}
@@ -693,12 +808,17 @@ export default function TripDetail() {
       />
 
       <TripEditActivityDialog
-        open={!!editingActivity}
+        open={!!editingActivity || !!addingDayId}
+        mode={addingDayId ? "create" : "edit"}
         onOpenChange={(open) => {
-          if (!open) setEditingActivity(null);
+          if (!open) {
+            setEditingActivity(null);
+            setAddingDayId(null);
+          }
         }}
         form={activityForm}
         onChange={setActivityForm}
+        places={places}
         onSave={() => void handleSaveActivity()}
       />
 
@@ -714,19 +834,12 @@ export default function TripDetail() {
         onRegisterExpenseChange={(checked) => {
           setRegisterExpense(checked);
           if (!checked) {
-            setFinanceTypeId(0);
             setClassId(0);
           }
         }}
-        financeTypeId={financeTypeId}
         classId={classId}
-        onFinanceTypeIdChange={(id) => {
-          setFinanceTypeId(id);
-          setClassId(0);
-        }}
         onClassIdChange={setClassId}
-        expenseTypes={expenseTypes}
-        expenseClasses={expenseClasses}
+        dimensions={dimensions}
         onSave={() => void handleSaveExpense()}
       />
 
@@ -736,15 +849,9 @@ export default function TripDetail() {
           if (!open) setSplitRegisterExpense(null);
         }}
         userId={user?.id}
-        financeTypeId={financeTypeId}
         classId={classId}
-        onFinanceTypeIdChange={(id) => {
-          setFinanceTypeId(id);
-          setClassId(0);
-        }}
         onClassIdChange={setClassId}
-        expenseTypes={expenseTypes}
-        expenseClasses={expenseClasses}
+        dimensions={dimensions}
         onConfirm={() =>
           void (async () => {
             if (!splitRegisterExpense) return;

@@ -74,7 +74,7 @@ export function OnboardingDialog() {
         } else if (result.createdTypes || result.createdClasses) {
           toast({
             title: "Categorias prontas",
-            description: `${result.createdTypes} tipos e ${result.createdClasses} classes criados.`,
+            description: `${result.createdTypes} categorias e ${result.createdClasses} subcategorias criadas.`,
             duration: 2500,
           });
         }
@@ -152,9 +152,9 @@ export function OnboardingDialog() {
             {current.id !== "first-tx" && current.id !== "budget" ? (
               <Button onClick={() => void handleNext()} disabled={busy}>
                 {busy
-                  ? "Criando tipos e classes..."
+                  ? "Criando categorias e subcategorias..."
                   : current.id === "dimensions"
-                    ? "Criar tipos e classes"
+                    ? "Criar categorias e subcategorias"
                     : "Continuar"}
               </Button>
             ) : null}

@@ -10,7 +10,7 @@ import { E2eCleanup, e2eStamp, firstId } from "./helpers/cleanup";
 /**
  * Ativação completa: login → 1ª tx → orçamento.
  * Cria dados via REST (estável no CI) e valida na UI.
- * Requer tipos/classes no usuário E2E (onboarding dimensions ou seed).
+ * Requer categorias/subcategorias no usuário E2E (onboarding de categorias ou seed).
  */
 const env = e2eEnv();
 
@@ -52,7 +52,7 @@ test.describe("ativação completa", () => {
       const typeId = await pickTypeId(token);
       test.skip(
         !classId || !typeId,
-        "Usuário E2E sem dimensões — complete o onboarding uma vez ou rode seed"
+        "Usuário E2E sem categorias — complete o onboarding uma vez ou rode seed"
       );
 
       const tx = await rest("transaction", token, {

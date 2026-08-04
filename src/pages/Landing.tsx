@@ -80,7 +80,7 @@ export default function Landing() {
   useDocumentMeta({
     title: "Orbyva — Saiba o que cabe no mês",
     description:
-      "O que você espalha em vários apps — orçamento, parcelas, hábitos, viagens e cinema — numa só órbita. 7 dias grátis.",
+      "O que você espalha em vários apps — orçamento, recorrências, hábitos, viagens e cinema — numa só órbita. 7 dias grátis.",
     path: "/",
     image: "https://orbyva.app/marketing/hub.png",
     brandSuffix: false,
@@ -201,7 +201,7 @@ export default function Landing() {
             </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-zinc-400 sm:text-lg">
               Em vez de planilha + hábitos + cinema + viagem em apps
-              separados: orçamento, parcelas e o resto da vida — tudo no
+              separados: orçamento, recorrências e o resto da vida — tudo no
               Orbyva, desde o primeiro dia.
             </p>
             <div className="mt-8">
@@ -256,7 +256,7 @@ export default function Landing() {
                 Pronto para juntar tudo numa órbita?
               </h2>
               <p className="mx-auto mt-3 max-w-md text-zinc-400">
-                7 dias grátis com orçamento, parcelas e life OS no mesmo app.
+                7 dias grátis com orçamento, recorrências e life OS no mesmo app.
                 Depois, Pro por {PLANS.pro.priceLabel}.
               </p>
               <Button size="lg" className="mt-8 rounded-full px-8" asChild>

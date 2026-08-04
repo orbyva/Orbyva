@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Target, Trash2, Wallet, Pen, Plus, Repeat, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,6 +92,7 @@ export default function Goals() {
   const [destinarGoal, setDestinarGoal] = useState<PersonalGoal | null>(null);
   const [destinarAmount, setDestinarAmount] = useState<number | "">("");
   const [destinarBusy, setDestinarBusy] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
 
   const destinarFit = useMemo(() => {
@@ -141,6 +142,16 @@ export default function Goals() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setEditing(null);
+    setForm(emptyGoal());
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   function openEdit(goal: PersonalGoal) {
     setEditing(goal);
@@ -345,7 +356,7 @@ export default function Goals() {
       if (already) {
         toast({
           title: "Rotina já existe",
-          description: "Há uma parcela/recorrência com essa descrição em Parcelas.",
+          description: "Há uma recorrência com essa descrição em Recorrências.",
         });
         setPoupancaGoal(null);
         return;
@@ -365,7 +376,7 @@ export default function Goals() {
 
       toast({
         title: "Rotina de investimento criada",
-        description: `${formatBRL(monthly)} × ${months} em Parcelas (tipo Meta · ${poupancaGoal.title.trim()}).`,
+        description: `${formatBRL(monthly)} × ${months} em Recorrências (categoria Meta · ${poupancaGoal.title.trim()}).`,
         duration: 3500,
       });
       setPoupancaGoal(null);
@@ -538,7 +549,7 @@ export default function Goals() {
                           onClick={() => openRoutine(goal)}
                         >
                           <Repeat className="mr-1 h-3 w-3" />
-                          Rotina em Parcelas (meta)
+                          Rotina em Recorrências (meta)
                         </Button>
                       ) : null}
                       <Button
@@ -686,8 +697,8 @@ export default function Goals() {
               <p className="text-sm text-muted-foreground">
                 Lança um aporte na natureza{" "}
                 <span className="font-medium text-foreground">Investimento</span>
-                , tipo{" "}
-                <span className="font-medium text-foreground">Meta</span>, classe{" "}
+                , categoria{" "}
+                <span className="font-medium text-foreground">Meta</span>, subcategoria{" "}
                 <span className="font-medium text-foreground">
                   {destinarGoal.title.trim()}
                 </span>{" "}
@@ -758,7 +769,7 @@ export default function Goals() {
       >
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
           <DialogHeader>
-            <DialogTitle>Rotina em Parcelas (Meta)</DialogTitle>
+            <DialogTitle>Rotina em Recorrências (Meta)</DialogTitle>
           </DialogHeader>
           {poupancaGoal && routineDraft ? (
             <div className={FORM_FIELDS_CLASS}>
@@ -767,7 +778,7 @@ export default function Goals() {
                 <span className="font-medium text-foreground">
                   falta atual da meta ({formatBRL(routineDraft.remaining)})
                 </span>{" "}
-                para calcular quantas parcelas criar no tipo Meta ·{" "}
+                para calcular quantas parcelas criar no categoria Meta ·{" "}
                 {poupancaGoal.title.trim()} (descrição{" "}
                 {goalMetaClassName(poupancaGoal.title)}).
               </p>
@@ -824,10 +835,10 @@ export default function Goals() {
                 }
                 className="w-full"
               >
-                {poupancaBusy ? "Criando…" : "Criar em parcelas"}
+                {poupancaBusy ? "Criando…" : "Criar em recorrências"}
               </Button>
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
-                <Link to="/finance/recurring">Abrir Parcelas</Link>
+                <Link to="/finance/recurring">Abrir Recorrências</Link>
               </Button>
             </div>
           ) : null}

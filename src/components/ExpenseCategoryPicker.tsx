@@ -1,93 +1,32 @@
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { FormLabel } from "@/components/FormLabel";
-import { sortByNamePt } from "@/lib/utils";
+import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import type { Dimension } from "@/types/dimensions";
 
 interface ExpenseCategoryPickerProps {
   dimensions: Dimension[];
-  selectedType: number | null;
+  /** @deprecated Mantido por compatibilidade; a busca usa só classId. */
+  selectedType?: number | null;
   classId: number;
-  onTypeChange: (typeId: number | null) => void;
+  onTypeChange?: (typeId: number | null) => void;
   onClassChange: (classId: number) => void;
 }
 
-/** Seletor Tipo → Categoria já filtrado em Despesa (sem pedir natureza de novo). */
+/** Busca de categoria/subcategoria filtrada em Despesa (mesmo fluxo de Transações). */
 export function ExpenseCategoryPicker({
   dimensions,
-  selectedType,
   classId,
   onTypeChange,
   onClassChange,
 }: ExpenseCategoryPickerProps) {
-  const expenseNature =
-    dimensions.find((n) => n.name.toLowerCase() === "despesa") ?? null;
-  const types = sortByNamePt(expenseNature?.types ?? []);
-  const selectedTypeObj = types.find((t) => t.id === selectedType);
-  const classes = sortByNamePt(selectedTypeObj?.classes ?? []);
-
-  if (!expenseNature) {
-    return (
-      <p className="text-sm text-destructive">
-        Natureza “Despesa” não encontrada. Cadastre-a em Finanças → Dimensões.
-      </p>
-    );
-  }
-
   return (
-    <div
-      className={
-        selectedType != null
-          ? "grid grid-cols-2 gap-3"
-          : "grid grid-cols-1 gap-3"
-      }
-    >
-      <div>
-        <FormLabel required>Tipo</FormLabel>
-        <Select
-          value={selectedType ? String(selectedType) : ""}
-          onValueChange={(v) => {
-            onTypeChange(Number(v));
-            onClassChange(0);
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecionar tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            {types.map((t) => (
-              <SelectItem key={t.id} value={String(t.id)}>
-                {t.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {selectedType != null && (
-        <div>
-          <FormLabel required>Categoria</FormLabel>
-          <Select
-            value={classId ? String(classId) : ""}
-            onValueChange={(v) => onClassChange(Number(v))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecionar categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              {classes.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-    </div>
+    <ClassSearchPicker
+      dimensions={dimensions}
+      value={classId > 0 ? classId : null}
+      preferredNatureName="Despesa"
+      autoFocus={false}
+      onChange={(opt) => {
+        onClassChange(opt?.id ?? 0);
+        onTypeChange?.(opt?.typeId ?? null);
+      }}
+    />
   );
 }

@@ -16,7 +16,7 @@ const SOCIAL_SIGNALS = [
   },
   {
     title: "7 dias, tudo liberado",
-    body: "Orçamento, parcelas e life OS — sem cartão no início.",
+    body: "Orçamento, recorrências e life OS — sem cartão no início.",
   },
   {
     title: "Seus dados são seus",

@@ -24,6 +24,7 @@ import {
 } from "@/components/FormLabel";
 import { MoneyInput } from "@/components/MoneyInput";
 import { StarRating } from "@/components/StarRating";
+import { PlaceCatalogSearch } from "@/components/PlaceCatalogSearch";
 import {
   PLACE_TYPE_LABELS,
   normalizePlaceStatus,
@@ -60,6 +61,10 @@ function emptyPlace(
     amount: null,
     transaction_id: null,
     address: "",
+    lat: null,
+    lng: null,
+    google_place_id: null,
+    geoapify_place_id: null,
     would_recommend: true,
   };
 }
@@ -73,6 +78,8 @@ interface PlaceFormDialogProps {
   onOpenChange?: (open: boolean) => void;
   onSaved: () => void;
   trigger?: React.ReactNode;
+  /** Força o botão padrão quando o dialog é controlado (ex.: módulo Lugares). */
+  showTrigger?: boolean;
 }
 
 export function PlaceFormDialog({
@@ -83,6 +90,7 @@ export function PlaceFormDialog({
   onOpenChange,
   onSaved,
   trigger,
+  showTrigger = false,
 }: PlaceFormDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -122,6 +130,10 @@ export function PlaceFormDialog({
           amount: place.amount ?? null,
           transaction_id: place.transaction_id ?? null,
           address: place.address,
+          lat: place.lat ?? null,
+          lng: place.lng ?? null,
+          google_place_id: place.google_place_id ?? null,
+          geoapify_place_id: place.geoapify_place_id ?? null,
           would_recommend: place.would_recommend,
         });
         setRegisterExpense(false);
@@ -179,7 +191,7 @@ export function PlaceFormDialog({
       !linkedToLedger && registerExpense && amount != null;
     if ((wantsNewLedger || (linkedToLedger && amount != null)) && !classId) {
       toast({
-        title: "Selecione a categoria da despesa",
+        title: "Selecione a subcategoria da despesa",
         variant: "destructive",
       });
       return;
@@ -284,10 +296,20 @@ export function PlaceFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-      {!trigger && !isEditing && !isControlled ? (
-        <DialogTrigger asChild>
-          <Button className="w-full sm:w-auto">Adicionar lugar</Button>
-        </DialogTrigger>
+      {!trigger && !isEditing && (!isControlled || showTrigger) ? (
+        isControlled ? (
+          <Button
+            className="w-full sm:w-auto"
+            type="button"
+            onClick={() => setOpen(true)}
+          >
+            Adicionar lugar
+          </Button>
+        ) : (
+          <DialogTrigger asChild>
+            <Button className="w-full sm:w-auto">Adicionar lugar</Button>
+          </DialogTrigger>
+        )
       ) : null}
       <DialogContent
         className={cn(FORM_DIALOG_CONTENT_CLASS, "max-w-md sm:max-w-md gap-3")}
@@ -327,11 +349,51 @@ export function PlaceFormDialog({
           </div>
 
           <div>
+            <PlaceCatalogSearch
+              selectedLabel={
+                form.geoapify_place_id || form.lat != null
+                  ? form.name || null
+                  : null
+              }
+              onClear={() =>
+                setForm((prev) => ({
+                  ...prev,
+                  geoapify_place_id: null,
+                  google_place_id: null,
+                  lat: null,
+                  lng: null,
+                }))
+              }
+              onPick={(hit) =>
+                setForm((prev) => ({
+                  ...prev,
+                  name: hit.name,
+                  address: hit.address ?? "",
+                  lat: hit.lat,
+                  lng: hit.lng,
+                  geoapify_place_id: hit.geoapify_place_id,
+                  google_place_id: null,
+                  type: hit.type,
+                }))
+              }
+            />
+          </div>
+
+          <div>
             <FormLabel required>Nome</FormLabel>
             <Input
-              placeholder="Ex: Restaurante X..."
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  name: e.target.value,
+                  // Digitação manual invalida o vínculo de mapa.
+                  google_place_id: null,
+                  geoapify_place_id: null,
+                  lat: null,
+                  lng: null,
+                })
+              }
             />
           </div>
 

@@ -37,6 +37,8 @@ export interface TransactionCreateRequest {
   transaction_at: string;
   recurring_transaction_id?: string | null;
   installment_number?: number | null;
+  /** Data efetiva do pagamento (recorrências). */
+  paid_at?: string | null;
 }
 
 // Class
@@ -108,4 +110,11 @@ export interface ValueByNatureYearMonth {
   month: number;
   receita_total: number;
   despesa_total: number;
+}
+
+export interface ValueByTypeMonth {
+  nature_name: string;
+  type_name: string;
+  type_color: string | null;
+  total_value: number;
 }

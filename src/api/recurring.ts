@@ -15,6 +15,9 @@ import {
 
 export * from "@/domain/recurring";
 
+const RECURRING_SELECT =
+  "id, user_id, class_id, value, description, frequency, validity, due_day, installment_count, payment_start_date, status, created_at, paid_parcels, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))";
+
 export async function fetchRecurringTransactions(
   startDateTZString: string | null = null,
   endDateTZString: string | null = null
@@ -22,9 +25,7 @@ export async function fetchRecurringTransactions(
   const userId = await getCurrentUserId();
   let query = supabase
     .from("recurring_transaction")
-    .select(
-      "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))"
-    )
+    .select(RECURRING_SELECT)
     .eq("user_id", userId)
     .eq("status", true)
     .order("id", { ascending: false });
@@ -39,7 +40,7 @@ export async function fetchRecurringTransactions(
   const { data, error } = await query;
 
   if (error) throw error;
-  return data || [];
+  return (data || []) as unknown as Recurring[];
 }
 
 export async function createRecurringApi(
@@ -49,13 +50,11 @@ export async function createRecurringApi(
   const { data, error } = await supabase
     .from("recurring_transaction")
     .insert([{ ...newRecurring, user_id: userId }])
-    .select(
-      "*, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))"
-    )
+    .select(RECURRING_SELECT)
     .single();
 
   if (error) throw error;
-  return data;
+  return data as unknown as Recurring;
 }
 
 export async function updateRecurringApi(
@@ -134,10 +133,40 @@ export async function deleteRecurringApi(recurringId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Última data efetiva de pagamento (`paid_at`) por recorrência. */
+export async function fetchLastPaidAtByRecurring(
+  recurringIds: string[]
+): Promise<Record<string, string>> {
+  if (recurringIds.length === 0) return {};
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("transaction")
+    .select("recurring_transaction_id, paid_at, transaction_at, created_at")
+    .eq("user_id", userId)
+    .in("recurring_transaction_id", recurringIds)
+    .not("recurring_transaction_id", "is", null);
+
+  if (error) throw error;
+
+  const out: Record<string, string> = {};
+  for (const row of data ?? []) {
+    const id = row.recurring_transaction_id as string | null;
+    if (!id) continue;
+    const paid =
+      (row.paid_at as string | null)?.slice(0, 10) ||
+      (row.created_at as string | null)?.slice(0, 10) ||
+      (row.transaction_at as string | null)?.slice(0, 10);
+    if (!paid) continue;
+    if (!out[id] || paid > out[id]!) out[id] = paid;
+  }
+  return out;
+}
+
 export async function updateRecurringParcelPayment(
   recurringId: string,
   installmentNumber: number,
-  currentPaidParcels: number[]
+  currentPaidParcels: number[],
+  paidAt?: string | null
 ): Promise<number[]> {
   const userId = await getCurrentUserId();
   const isUndo = currentPaidParcels.includes(installmentNumber);
@@ -188,7 +217,8 @@ export async function updateRecurringParcelPayment(
 
   const transactionId = await registerParcelTransaction(
     recurringId,
-    installmentNumber
+    installmentNumber,
+    paidAt
   );
 
   const updatedParcels = [...currentPaidParcels, installmentNumber];
@@ -223,7 +253,8 @@ export async function updateRecurringParcelPayment(
 
 async function registerParcelTransaction(
   recurringId: string,
-  installmentNumber: number
+  installmentNumber: number,
+  paidAt?: string | null
 ): Promise<number> {
   const userId = await getCurrentUserId();
 
@@ -256,12 +287,15 @@ async function registerParcelTransaction(
       : undefined;
   const transactionAt =
     dueDate?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const paidDate =
+    paidAt?.slice(0, 10) || new Date().toISOString().slice(0, 10);
 
   return insertTransaction({
     class_id: recurring.class_id,
     description: recurring.description,
     value: recurring.value,
     transaction_at: transactionAt,
+    paid_at: paidDate,
     recurring_transaction_id: recurringId,
     installment_number: installmentNumber,
   });

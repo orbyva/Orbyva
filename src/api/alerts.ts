@@ -33,6 +33,14 @@ export type AppAlertKind =
   | "goal_overdue"
   | "series_episode";
 
+/** Disparado quando o cache do sino muda (ex.: séries após first paint). */
+export const APP_ALERTS_UPDATED_EVENT = "orbyva:app-alerts-updated";
+
+function notifyAppAlertsUpdated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(APP_ALERTS_UPDATED_EVENT));
+}
+
 export type AppAlert = {
   id: string;
   kind: AppAlertKind;
@@ -51,6 +59,54 @@ let alertsCache: { userId: string; at: number; data: AppAlert[] } | null =
   null;
 let alertsInflight: { userId: string; promise: Promise<AppAlert[]> } | null =
   null;
+let seriesEnrichInflight: Promise<AppAlert[]> | null = null;
+
+function loadSeriesEpisodeAlertsOnce(): Promise<AppAlert[]> {
+  if (!seriesEnrichInflight) {
+    seriesEnrichInflight = loadSeriesEpisodeAlerts().finally(() => {
+      seriesEnrichInflight = null;
+    });
+  }
+  return seriesEnrichInflight;
+}
+
+/** TMDB depois — não bloqueia o cold path do sino/nav. */
+function scheduleSeriesAlertsEnrichment(userId: string) {
+  void loadSeriesEpisodeAlertsOnce()
+    .then((seriesAlerts) => {
+      if (!alertsCache || alertsCache.userId !== userId) return;
+      alertsCache = {
+        userId,
+        at: Date.now(),
+        data: mergeSeriesAlerts(alertsCache.data, seriesAlerts),
+      };
+      notifyAppAlertsUpdated();
+    })
+    .catch(() => undefined);
+}
+
+/**
+ * Depois do first paint: busca TMDB e atualiza cache + sino.
+ * Preferir isto no hub em vez de bloquear o cold load.
+ */
+export async function enrichAppAlertsWithSeries(
+  domains: {
+    recurring: Awaited<ReturnType<typeof fetchRecurringTransactions>>;
+    vehicles: Awaited<ReturnType<typeof fetchVehicles>>;
+    maintenances: Awaited<ReturnType<typeof fetchMaintenancesForVehicles>>;
+    documents: Awaited<ReturnType<typeof fetchDocumentsForVehicles>>;
+    budgets: Awaited<ReturnType<typeof fetchMonthlyBudgetSummary>>;
+    goals: Awaited<ReturnType<typeof fetchGoals>>;
+  }
+): Promise<AppAlert[]> {
+  const seriesAlerts = await loadSeriesEpisodeAlertsOnce().catch(() => []);
+  const merged = buildAppAlertsFromDomains({
+    ...domains,
+    seriesAlerts,
+  });
+  await seedAppAlertsCache(merged);
+  return merged;
+}
 
 function budgetMonthIso(d = new Date()): string {
   const y = d.getFullYear();
@@ -89,9 +145,10 @@ function pickEpisodeForAlert(
 export function invalidateAppAlertsCache() {
   alertsCache = null;
   alertsInflight = null;
+  seriesEnrichInflight = null;
 }
 
-async function loadSeriesEpisodeAlerts(): Promise<AppAlert[]> {
+export async function loadSeriesEpisodeAlerts(): Promise<AppAlert[]> {
   if (!isTmdbConfigured()) return [];
 
   try {
@@ -150,127 +207,166 @@ async function loadSeriesEpisodeAlerts(): Promise<AppAlert[]> {
   }
 }
 
-async function loadAppAlertsFresh(): Promise<AppAlert[]> {
-  const alerts: AppAlert[] = [];
+function mergeSeriesAlerts(
+  base: AppAlert[],
+  seriesAlerts: AppAlert[]
+): AppAlert[] {
+  const withoutSeries = base.filter((a) => a.kind !== "series_episode");
+  const order = { danger: 0, warning: 1, info: 2, success: 3 };
+  return [...withoutSeries, ...seriesAlerts].sort(
+    (a, b) => order[a.severity] - order[b.severity]
+  );
+}
 
-  const [recurringResult, vehiclesResult, budgetResult, goalsResult, seriesResult] =
+async function loadAppAlertsFresh(): Promise<AppAlert[]> {
+  // Sem TMDB no caminho crítico — séries entram via scheduleSeriesAlertsEnrichment.
+  const [recurringResult, vehiclesResult, budgetResult, goalsResult] =
     await Promise.allSettled([
       fetchRecurringTransactions(),
       fetchVehicles(),
       fetchMonthlyBudgetSummary(budgetMonthIso()),
       fetchGoals(),
-      loadSeriesEpisodeAlerts(),
     ]);
 
-  if (recurringResult.status === "fulfilled") {
-    const withInstallments = recurringResult.value.map((rec) => ({
-      ...rec,
-      installments: calculateInstallments(
-        resolvePaymentStartDate(rec),
-        rec.due_day,
-        rec.installment_count,
-        rec.validity,
-        rec.frequency
-      ),
-    }));
-    for (const a of getRecurringDueAlerts(withInstallments)) {
-      alerts.push(mapRecurringAlert(a));
-    }
+  const vehicles =
+    vehiclesResult.status === "fulfilled" ? vehiclesResult.value : [];
+  const vehicleIds = vehicles.map((v) => v.id);
+  const [maintenances, documents] =
+    vehicles.length > 0
+      ? await Promise.all([
+          fetchMaintenancesForVehicles(vehicleIds),
+          fetchDocumentsForVehicles(vehicleIds),
+        ])
+      : [[], []];
+
+  return buildAppAlertsFromDomains({
+    recurring:
+      recurringResult.status === "fulfilled" ? recurringResult.value : [],
+    vehicles,
+    maintenances,
+    documents,
+    budgets: budgetResult.status === "fulfilled" ? budgetResult.value : [],
+    goals: goalsResult.status === "fulfilled" ? goalsResult.value : [],
+    seriesAlerts: [],
+  });
+}
+
+/** Monta alertas a partir de dados já carregados (hub). */
+export function buildAppAlertsFromDomains(input: {
+  recurring: Awaited<ReturnType<typeof fetchRecurringTransactions>>;
+  vehicles: Awaited<ReturnType<typeof fetchVehicles>>;
+  maintenances: Awaited<ReturnType<typeof fetchMaintenancesForVehicles>>;
+  documents: Awaited<ReturnType<typeof fetchDocumentsForVehicles>>;
+  budgets: Awaited<ReturnType<typeof fetchMonthlyBudgetSummary>>;
+  goals: Awaited<ReturnType<typeof fetchGoals>>;
+  seriesAlerts?: AppAlert[];
+}): AppAlert[] {
+  const alerts: AppAlert[] = [];
+
+  const withInstallments = input.recurring.map((rec) => ({
+    ...rec,
+    installments: calculateInstallments(
+      resolvePaymentStartDate(rec),
+      rec.due_day,
+      rec.installment_count,
+      rec.validity,
+      rec.frequency
+    ),
+  }));
+  for (const a of getRecurringDueAlerts(withInstallments)) {
+    alerts.push(mapRecurringAlert(a));
   }
 
-  if (vehiclesResult.status === "fulfilled") {
-    const vehicles = vehiclesResult.value;
-    const vehicleIds = vehicles.map((v) => v.id);
-    const [maintenances, documents] = await Promise.all([
-      fetchMaintenancesForVehicles(vehicleIds),
-      fetchDocumentsForVehicles(vehicleIds),
-    ]);
+  for (const v of input.vehicles) {
+    const label = `${v.brand} ${v.model}`.trim();
+    const vehicleMaint = input.maintenances.filter(
+      (m) => m.vehicle_id === v.id
+    );
+    const vehicleDocs = input.documents.filter((d) => d.vehicle_id === v.id);
 
-    for (const v of vehicles) {
-      const label = `${v.brand} ${v.model}`.trim();
-      const vehicleMaint = maintenances.filter((m) => m.vehicle_id === v.id);
-      const vehicleDocs = documents.filter((d) => d.vehicle_id === v.id);
-
-      for (const m of getMaintenanceAlerts(v, vehicleMaint)) {
-        alerts.push({
-          id: `maint-${v.id}-${m.type}`,
-          kind: "maintenance",
-          severity: m.status === "overdue" ? "danger" : "warning",
-          title: `${label}: manutenção`,
-          message: m.message,
-          href: "/car",
-        });
-      }
-      for (const d of getDocumentAlerts(vehicleDocs)) {
-        alerts.push({
-          id: `doc-${d.document.id}`,
-          kind: "document",
-          severity: d.status === "overdue" ? "danger" : "warning",
-          title: `${label}: documento`,
-          message: d.message,
-          href: "/car",
-        });
-      }
-    }
-  }
-
-  if (budgetResult.status === "fulfilled") {
-    for (const row of budgetResult.value) {
-      if (Number(row.remaining_value) >= 0) continue;
-      const name = row.class_name
-        ? `${row.type_name} / ${row.class_name}`
-        : row.type_name;
-      const isIncome = row.nature_name === "Receita";
+    for (const m of getMaintenanceAlerts(v, vehicleMaint)) {
       alerts.push({
-        id: `budget-${row.id}`,
-        kind: "budget",
-        severity: isIncome ? "success" : "danger",
-        title: isIncome
-          ? "Receita acima do previsto"
-          : "Orçamento estourado",
-        message: isIncome
-          ? `${name} superou a meta — ótimo sinal.`
-          : `${name} passou do planejado.`,
-        href: "/finance/budget",
+        id: `maint-${v.id}-${m.type}`,
+        kind: "maintenance",
+        severity: m.status === "overdue" ? "danger" : "warning",
+        title: `${label}: manutenção`,
+        message: m.message,
+        href: "/car",
+      });
+    }
+    for (const d of getDocumentAlerts(vehicleDocs)) {
+      alerts.push({
+        id: `doc-${d.document.id}`,
+        kind: "document",
+        severity: d.status === "overdue" ? "danger" : "warning",
+        title: `${label}: documento`,
+        message: d.message,
+        href: "/car",
       });
     }
   }
 
-  if (goalsResult.status === "fulfilled") {
-    for (const goal of goalsResult.value) {
-      if (goal.status !== "active" || !goal.deadline) continue;
-      const d = daysUntil(goal.deadline);
-      if (d < 0) {
-        alerts.push({
-          id: `goal-overdue-${goal.id}`,
-          kind: "goal_overdue",
-          severity: "danger",
-          title: goal.title,
-          message: `Meta atrasada (${Math.abs(d)} dia${Math.abs(d) === 1 ? "" : "s"}).`,
-          href: "/goals",
-        });
-      } else if (d <= 7) {
-        alerts.push({
-          id: `goal-due-${goal.id}`,
-          kind: "goal_due",
-          severity: d <= 2 ? "warning" : "info",
-          title: goal.title,
-          message:
-            d === 0
-              ? "Prazo da meta é hoje."
-              : `Prazo em ${d} dia${d === 1 ? "" : "s"}.`,
-          href: "/goals",
-        });
-      }
+  for (const row of input.budgets) {
+    if (Number(row.remaining_value) >= 0) continue;
+    const name = row.class_name
+      ? `${row.type_name} / ${row.class_name}`
+      : row.type_name;
+    const isIncome = row.nature_name === "Receita";
+    alerts.push({
+      id: `budget-${row.id}`,
+      kind: "budget",
+      severity: isIncome ? "success" : "danger",
+      title: isIncome
+        ? "Receita acima do previsto"
+        : "Orçamento estourado",
+      message: isIncome
+        ? `${name} superou a meta — ótimo sinal.`
+        : `${name} passou do planejado.`,
+      href: "/finance/budget",
+    });
+  }
+
+  for (const goal of input.goals) {
+    if (goal.status !== "active" || !goal.deadline) continue;
+    const d = daysUntil(goal.deadline);
+    if (d < 0) {
+      alerts.push({
+        id: `goal-overdue-${goal.id}`,
+        kind: "goal_overdue",
+        severity: "danger",
+        title: goal.title,
+        message: `Meta atrasada (${Math.abs(d)} dia${Math.abs(d) === 1 ? "" : "s"}).`,
+        href: "/goals",
+      });
+    } else if (d <= 7) {
+      alerts.push({
+        id: `goal-due-${goal.id}`,
+        kind: "goal_due",
+        severity: d <= 2 ? "warning" : "info",
+        title: goal.title,
+        message:
+          d === 0
+            ? "Prazo da meta é hoje."
+            : `Prazo em ${d} dia${d === 1 ? "" : "s"}.`,
+        href: "/goals",
+      });
     }
   }
 
-  if (seriesResult.status === "fulfilled") {
-    alerts.push(...seriesResult.value);
+  if (input.seriesAlerts?.length) {
+    alerts.push(...input.seriesAlerts);
   }
 
   const order = { danger: 0, warning: 1, info: 2, success: 3 };
   return alerts.sort((a, b) => order[a.severity] - order[b.severity]);
+}
+
+/** Alimenta o cache do sino após o hub montar os alertas (sem refetch). */
+export async function seedAppAlertsCache(data: AppAlert[]): Promise<void> {
+  const userId = await getCurrentUserId();
+  alertsCache = { userId, at: Date.now(), data };
+  alertsInflight = null;
+  notifyAppAlertsUpdated();
 }
 
 export async function fetchAppAlerts(opts?: {
@@ -299,6 +395,8 @@ export async function fetchAppAlerts(opts?: {
   const promise = loadAppAlertsFresh()
     .then((data) => {
       alertsCache = { userId, at: Date.now(), data };
+      scheduleSeriesAlertsEnrichment(userId);
+      notifyAppAlertsUpdated();
       return data;
     })
     .finally(() => {

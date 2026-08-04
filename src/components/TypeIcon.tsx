@@ -75,7 +75,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Catálogo de ícones de tipo — `id` = valor no banco; `label` = PT-BR na UI. */
+/** Catálogo de ícones de categoria — `id` = valor no banco; `label` = PT-BR na UI. */
 const TYPE_ICONS_RAW = [
   { id: "wallet", label: "Carteira" },
   { id: "piggy-bank", label: "Poupança" },

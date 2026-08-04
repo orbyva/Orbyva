@@ -33,7 +33,7 @@ import type {
   RecurringSortKey,
   RecurringSortState,
 } from "@/domain/recurring/listView";
-import { formatBRL } from "@/lib/currency";
+import { formatBRL, formatDateBR } from "@/lib/currency";
 import { Fragment, useState } from "react";
 import { Installment, Recurring } from "@/types/recurring";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,7 @@ import { RecurringTableMobile } from "./RecurringTableMobile";
 
 interface RecurringTableProps {
   recurring: Recurring[];
+  lastPaidAtById?: Record<string, string>;
   isMobile?: boolean;
   sort: RecurringSortState;
   onSortChange: (key: RecurringSortKey) => void;
@@ -117,6 +118,7 @@ function SortableHead({
 
 export function RecurringTable({
   recurring,
+  lastPaidAtById = {},
   isMobile = false,
   sort,
   onSortChange,
@@ -147,7 +149,7 @@ export function RecurringTable({
       <EmptyState
         icon={Repeat}
         title="Nenhuma recorrência neste filtro"
-        description="Ajuste o filtro ou cadastre uma parcela/recorrência para acompanhar o mês."
+        description="Ajuste o filtro ou cadastre uma recorrência para acompanhar o mês."
       />
     );
   }
@@ -156,6 +158,7 @@ export function RecurringTable({
     return (
       <RecurringTableMobile
         recurring={recurring}
+        lastPaidAtById={lastPaidAtById}
         confirmOpen={confirmOpen}
         setConfirmOpen={setConfirmOpen}
         confirmOpenSoft={confirmOpenSoft}
@@ -184,12 +187,12 @@ export function RecurringTable({
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-10" />
               <SortableHead
-                label="Tipo"
+                label="Categoria"
                 sortKey="type"
                 sort={sort}
                 onSortChange={onSortChange}
               />
-              <TableHead>Classe</TableHead>
+              <TableHead>Subcategoria</TableHead>
               <SortableHead
                 label="Valor"
                 sortKey="value"
@@ -241,11 +244,11 @@ export function RecurringTable({
                     </TableCell>
 
                     <TableCell className="font-medium">
-                      {item.class?.type?.name || "Sem Tipo"}
+                      {item.class?.type?.name || "Sem categoria"}
                     </TableCell>
 
                     <TableCell className="text-muted-foreground">
-                      {item.class?.name || "Sem Classe"}
+                      {item.class?.name || "Sem subcategoria"}
                     </TableCell>
 
                     <TableCell className="whitespace-nowrap font-medium tabular-nums">
@@ -256,6 +259,11 @@ export function RecurringTable({
                       <span className="line-clamp-2 font-medium leading-snug">
                         {displayName}
                       </span>
+                      {lastPaidAtById[item.id] ? (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          Pago em {formatDateBR(lastPaidAtById[item.id])}
+                        </p>
+                      ) : null}
                     </TableCell>
 
                     <TableCell className="text-muted-foreground">
@@ -571,7 +579,10 @@ export function RecurringTable({
                               recurring.find(
                                 (transaction) =>
                                   transaction.id === selectedParcel.transactionId
-                              )?.paid_parcels || []
+                              )?.paid_parcels || [],
+                              paymentAction === "mark"
+                                ? new Date().toISOString().slice(0, 10)
+                                : undefined
                             );
                             await reloadRecurring();
                             toast({

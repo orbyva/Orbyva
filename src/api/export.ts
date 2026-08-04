@@ -1,8 +1,12 @@
 import { fetchTransactionsQuery } from "@/api/finance";
 import { fetchMovies } from "@/api/movies";
-import { fetchAllFuelLogs, fetchAllMaintenances, fetchVehicles } from "@/api/car";
+import {
+  fetchFuelLogsForVehicles,
+  fetchMaintenancesForVehicles,
+  fetchVehicles,
+} from "@/api/car";
 import { fetchGoals } from "@/api/goals";
-import { fetchHabits, fetchAllHabitLogs } from "@/api/habits";
+import { fetchHabitsWithLogs } from "@/api/habits";
 import { fetchPlaces } from "@/api/places";
 import { fetchTrips } from "@/api/travel";
 import { downloadCsv, rowsToCsv, stampFilename } from "@/lib/csv";
@@ -35,8 +39,8 @@ export async function exportFinanceCsv(): Promise<void> {
       "data",
       "descricao",
       "valor",
-      "classe",
-      "tipo",
+      "subcategoria",
+      "categoria",
       "natureza",
     ],
     rows
@@ -101,50 +105,47 @@ export async function exportMoviesCsv(): Promise<void> {
 
 export async function exportVehiclesCsv(): Promise<void> {
   const vehicles = await fetchVehicles();
-  const vehicleRows: Array<Array<unknown>> = [];
-  const maintenanceRows: Array<Array<unknown>> = [];
-  const fuelRows: Array<Array<unknown>> = [];
+  const vehicleIds = vehicles.map((v) => v.id);
+  const [maintenances, fuels] = await Promise.all([
+    fetchMaintenancesForVehicles(vehicleIds),
+    fetchFuelLogsForVehicles(vehicleIds),
+  ]);
 
-  for (const v of vehicles) {
-    const vehicleLabel = `${v.brand} ${v.model}`.trim();
-    vehicleRows.push([
-      v.id,
-      v.kind,
-      vehicleLabel,
-      v.brand,
-      v.model,
-      v.year,
-      v.plate,
-      v.current_km,
-    ]);
+  const labelById = new Map(
+    vehicles.map((v) => [v.id, `${v.brand} ${v.model}`.trim()] as const)
+  );
 
-    const maintenances = await fetchAllMaintenances(v.id);
-    for (const m of maintenances) {
-      maintenanceRows.push([
-        m.id,
-        vehicleLabel,
-        m.type,
-        m.service_date,
-        m.km_at_service,
-        m.cost,
-        m.notes ?? "",
-      ]);
-    }
+  const vehicleRows: Array<Array<unknown>> = vehicles.map((v) => [
+    v.id,
+    v.kind,
+    `${v.brand} ${v.model}`.trim(),
+    v.brand,
+    v.model,
+    v.year,
+    v.plate,
+    v.current_km,
+  ]);
 
-    const fuels = await fetchAllFuelLogs(v.id);
-    for (const f of fuels) {
-      fuelRows.push([
-        f.id,
-        vehicleLabel,
-        f.date,
-        f.km,
-        f.liters,
-        f.total_cost,
-        f.station ?? "",
-        f.notes ?? "",
-      ]);
-    }
-  }
+  const maintenanceRows: Array<Array<unknown>> = maintenances.map((m) => [
+    m.id,
+    labelById.get(m.vehicle_id) ?? "",
+    m.type,
+    m.service_date,
+    m.km_at_service,
+    m.cost,
+    m.notes ?? "",
+  ]);
+
+  const fuelRows: Array<Array<unknown>> = fuels.map((f) => [
+    f.id,
+    labelById.get(f.vehicle_id) ?? "",
+    f.date,
+    f.km,
+    f.liters,
+    f.total_cost,
+    f.station ?? "",
+    f.notes ?? "",
+  ]);
 
   // Um arquivo “resumo” de veículos + abas via múltiplos downloads seria confuso;
   // exportamos três CSVs em sequência.
@@ -201,7 +202,7 @@ export async function exportGoalsCsv(): Promise<void> {
 }
 
 export async function exportHabitsCsv(): Promise<void> {
-  const [habits, logs] = await Promise.all([fetchHabits(), fetchAllHabitLogs()]);
+  const { habits, logs } = await fetchHabitsWithLogs();
   downloadCsv(
     stampFilename("orbyva-habitos"),
     rowsToCsv(

@@ -33,6 +33,7 @@ import {
   useBreadcrumbTitleValue,
 } from "@/hooks/useBreadcrumbTitle"
 import LoadingFallback from "@/components/LoadingFallback"
+import { PageSkeleton } from "@/components/PageSkeleton"
 
 function breadcrumbLabel(segment: string, override: string | null): string {
   if (override) return override
@@ -182,7 +183,7 @@ export default function AdminLayout() {
               <p>
                 {trialDaysLeft <= 1
                   ? "Último dia do teste — assine o Pro para não perder o acesso."
-                  : `Teste acaba em ${trialDaysLeft} dias — vale ativar orçamento e parcelas agora.`}
+                  : `Teste acaba em ${trialDaysLeft} dias — vale ativar orçamento e recorrências agora.`}
               </p>
               <Link
                 to="/account"
@@ -221,7 +222,7 @@ export default function AdminLayout() {
             <Toaster />
             {hasAccess ? <OnboardingDialog /> : null}
             {hasAccess ? <QuickAddExpenseFab /> : null}
-            <Suspense fallback={<LoadingFallback cover="viewport" />}>
+            <Suspense fallback={<PageSkeleton />}>
               <Outlet />
             </Suspense>
           </div>

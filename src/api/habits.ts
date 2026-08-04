@@ -35,24 +35,56 @@ export async function fetchHabitLogs(habitId: string): Promise<HabitLog[]> {
   await assertHabitOwned(habitId);
   const { data, error } = await supabase
     .from("habit_log")
-    .select("*")
+    .select("id, habit_id, date, completed")
     .eq("habit_id", habitId)
     .order("date", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
 }
 
-export async function fetchAllHabitLogs(): Promise<HabitLog[]> {
-  const habits = await fetchHabits();
-  if (habits.length === 0) return [];
-  const ids = habits.map((h) => h.id);
-  const { data, error } = await supabase
+export type FetchHabitLogsOptions = {
+  /** Se omitido, busca hábitos do usuário primeiro. */
+  habitIds?: string[];
+  /** ISO `YYYY-MM-DD` inclusive — evita baixar histórico inteiro. */
+  fromDate?: string;
+};
+
+/** Logs de vários hábitos sem refetchar a lista de hábitos se `habitIds` for passado. */
+export async function fetchAllHabitLogs(
+  options: FetchHabitLogsOptions = {}
+): Promise<HabitLog[]> {
+  let ids = options.habitIds;
+  if (!ids) {
+    const habits = await fetchHabits();
+    ids = habits.map((h) => h.id);
+  }
+  if (ids.length === 0) return [];
+
+  let query = supabase
     .from("habit_log")
-    .select("*")
+    .select("id, habit_id, date, completed")
     .in("habit_id", ids)
     .order("date", { ascending: false });
+
+  if (options.fromDate) {
+    query = query.gte("date", options.fromDate);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+/** Um round-trip de hábitos + logs (opcionalmente desde `fromDate`). */
+export async function fetchHabitsWithLogs(
+  options: { fromDate?: string } = {}
+): Promise<{ habits: Habit[]; logs: HabitLog[] }> {
+  const habits = await fetchHabits();
+  const logs = await fetchAllHabitLogs({
+    habitIds: habits.map((h) => h.id),
+    fromDate: options.fromDate,
+  });
+  return { habits, logs };
 }
 
 export async function createHabit(habit: HabitCreateRequest): Promise<Habit> {
