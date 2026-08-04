@@ -48,6 +48,7 @@ function LoginEntry() {
   return withSuspense(<Login />);
 }
 
+const OpsConsole = lazy(() => import("./pages/ops/OpsConsole"));
 const TermsPage = lazy(() =>
   import("./pages/legal/LegalPages").then((m) => ({ default: m.TermsPage }))
 );
@@ -80,6 +81,10 @@ const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      {
+        path: "ops",
+        element: withSuspense(<OpsConsole />),
+      },
       {
         element: withSuspense(<AdminLayout />),
         children: [

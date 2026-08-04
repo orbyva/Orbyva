@@ -12,7 +12,7 @@ export const PLANS = {
     blurb: "Acesso completo ao life OS durante o período de teste.",
     features: [
       `${TRIAL_DAYS} dias para explorar tudo`,
-      "Livro-caixa, orçamento com teto e parcelas",
+      "Lançamentos, orçamento com teto e parcelas",
       "Metas, hábitos, viagens e lugares",
       "Cinema, veículos, PWA e alertas",
       "Export CSV e exclusão de conta",
@@ -24,7 +24,7 @@ export const PLANS = {
     priceLabel: "R$ 19,90/mês",
     blurb: "Continue no controle do mês e do life OS — sem limite de tempo.",
     features: [
-      "Orçamento, parcelas e ledger sem prazo",
+      "Orçamento, parcelas e lançamentos sem prazo",
       "Life OS completo (hábitos, viagens, cinema…)",
       "Alertas, PWA e export CSV",
       "Privacidade (LGPD) e exclusão de conta",
@@ -37,7 +37,14 @@ export function isProPlan(plan: PlanId | string | null | undefined): boolean {
   return plan === "pro";
 }
 
-export function getTrialEndsAt(createdAt: string | Date): Date {
+/** Fim do teste: `trialEndsAt` explícito, senão createdAt + TRIAL_DAYS. */
+export function getTrialEndsAt(
+  createdAt: string | Date,
+  trialEndsAt?: string | Date | null
+): Date {
+  if (trialEndsAt) {
+    return new Date(trialEndsAt);
+  }
   const start = new Date(createdAt);
   const ends = new Date(start);
   ends.setDate(ends.getDate() + TRIAL_DAYS);
@@ -46,8 +53,12 @@ export function getTrialEndsAt(createdAt: string | Date): Date {
 
 export function isTrialActive(
   createdAt: string | null | undefined,
-  now: Date = new Date()
+  now: Date = new Date(),
+  trialEndsAt?: string | null
 ): boolean {
+  if (trialEndsAt) {
+    return now.getTime() < new Date(trialEndsAt).getTime();
+  }
   // Fail-closed: sem data de início conhecida, não libera acesso
   if (!createdAt) return false;
   return now.getTime() < getTrialEndsAt(createdAt).getTime();
@@ -55,10 +66,15 @@ export function isTrialActive(
 
 export function trialDaysRemaining(
   createdAt: string | null | undefined,
-  now: Date = new Date()
+  now: Date = new Date(),
+  trialEndsAt?: string | null
 ): number {
-  if (!createdAt) return 0;
-  const ms = getTrialEndsAt(createdAt).getTime() - now.getTime();
+  if (!trialEndsAt && !createdAt) return 0;
+  const ends = getTrialEndsAt(
+    createdAt ?? now.toISOString(),
+    trialEndsAt
+  );
+  const ms = ends.getTime() - now.getTime();
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 }
 
@@ -66,6 +82,7 @@ export function trialDaysRemaining(
 export function hasAppAccess(input: {
   plan: PlanId | string | null | undefined;
   createdAt?: string | null;
+  trialEndsAt?: string | null;
   subscriptionStatus?: string | null;
 }): boolean {
   if (isProPlan(input.plan)) return true;
@@ -75,5 +92,5 @@ export function hasAppAccess(input: {
   ) {
     return true;
   }
-  return isTrialActive(input.createdAt);
+  return isTrialActive(input.createdAt, new Date(), input.trialEndsAt);
 }

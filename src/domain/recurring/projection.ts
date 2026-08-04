@@ -37,6 +37,42 @@ export type ProjectionSeriesPoint = {
   net: number;
 };
 
+/** Totais de lançamentos por mês (já filtrados para gasto mensal). */
+export type LedgerMonthAmounts = {
+  receita: number;
+  despesa: number;
+};
+
+export type MonthCashBalance = {
+  year: number;
+  month: number;
+  ym: string;
+  /** Totais brutos de lançamentos no mês (podem incluir liquidações de parcela). */
+  ledgerReceita: number;
+  ledgerDespesa: number;
+  /** Parcelas do mês ainda em aberto. */
+  openReceive: number;
+  openPay: number;
+  /** Parcelas do mês (pagas + em aberto) — o gasto/receita comprometido. */
+  parcelReceive: number;
+  parcelPay: number;
+  /** Lançamentos avulsos, sem a parte já coberta pelas parcelas pagas do mês. */
+  extraReceita: number;
+  extraDespesa: number;
+  receiveTotal: number;
+  payTotal: number;
+  net: number;
+};
+
+/** Linha de lançamento avulso do ledger (não vinculada a parcela). */
+export type LedgerProjectionLine = {
+  id: number;
+  description: string;
+  value: number;
+  date: string;
+  nature: ProjectionNature;
+};
+
 function padMonth(month: number): string {
   return String(month).padStart(2, "0");
 }
@@ -84,7 +120,9 @@ export function buildMonthProjection(
     for (const installment of rec.installments) {
       if (!dueInMonth(installment.dueDate, year, month)) continue;
 
-      const paid = paidParcels.includes(installment.number);
+      const paid = paidParcels.some(
+        (n) => Number(n) === Number(installment.number)
+      );
       if (options.openOnly && paid) continue;
 
       const line: ProjectionLine = {
@@ -300,4 +338,197 @@ export function futureMonthsForSimulation(
   const needed = compareYm(simulation.end, anchor);
   if (needed <= 0) return baseFuture;
   return Math.min(maxFuture, Math.max(baseFuture, needed));
+}
+
+export function indexLedgerByYm(
+  rows: Array<{
+    year: number;
+    month: number;
+    receita_total: number;
+    despesa_total: number;
+  }>
+): Record<string, LedgerMonthAmounts> {
+  const map: Record<string, LedgerMonthAmounts> = {};
+  for (const row of rows) {
+    map[formatYm(row.year, row.month)] = {
+      receita: Number(row.receita_total) || 0,
+      despesa: Number(row.despesa_total) || 0,
+    };
+  }
+  return map;
+}
+
+type LedgerTxLike = {
+  id: number;
+  value: number;
+  description: string;
+  transaction_at: string;
+  recurring_transaction_id?: string | null;
+  class?: {
+    type?: {
+      name?: string;
+      exclude_from_spend?: boolean | null;
+      nature?: { name?: string | null } | null;
+    } | null;
+  } | null;
+};
+
+/**
+ * Soma lançamentos avulsos (sem vínculo com parcela) por mês.
+ * Use este mapa no gráfico — já é a fatia “avulsa”, sem liquidação de parcela.
+ */
+export function indexAvulsoLedgerByYm(
+  transactions: LedgerTxLike[]
+): Record<string, LedgerMonthAmounts> {
+  const map: Record<string, LedgerMonthAmounts> = {};
+
+  for (const tx of transactions) {
+    if (tx.recurring_transaction_id) continue;
+
+    const natureName = tx.class?.type?.nature?.name ?? null;
+    const type = tx.class?.type ?? null;
+    const date = String(tx.transaction_at ?? "").slice(0, 10);
+    if (date.length < 7) continue;
+    const ym = date.slice(0, 7);
+    const value = Math.abs(Number(tx.value) || 0);
+    if (value <= 0) continue;
+
+    const bucket = map[ym] ?? { receita: 0, despesa: 0 };
+
+    if (natureName === NATURE_RECEITA) {
+      bucket.receita += value;
+      map[ym] = bucket;
+    } else if (countsAsMonthlySpend(natureName, type)) {
+      bucket.despesa += value;
+      map[ym] = bucket;
+    }
+  }
+
+  return map;
+}
+
+/**
+ * Balanço do mês na projeção:
+ * parcelas do mês (pagas + em aberto) + lançamentos avulsos.
+ *
+ * `ledger` deve ser só a fatia avulsa (sem liquidações de parcela).
+ * Parcelas pagas continuam contando via `parcel*`.
+ */
+export function buildMonthCashBalance(
+  recurringList: Recurring[],
+  year: number,
+  month: number,
+  ledger?: LedgerMonthAmounts | null
+): MonthCashBalance {
+  const committed = buildMonthProjection(recurringList, year, month, {
+    openOnly: false,
+  });
+  const open = buildMonthProjection(recurringList, year, month, {
+    openOnly: true,
+  });
+
+  const parcelReceive = committed.receiveTotal;
+  const parcelPay = committed.payTotal;
+  const extraReceita = Number(ledger?.receita) || 0;
+  const extraDespesa = Number(ledger?.despesa) || 0;
+
+  const receiveTotal = parcelReceive + extraReceita;
+  const payTotal = parcelPay + extraDespesa;
+
+  return {
+    year,
+    month,
+    ym: formatYm(year, month),
+    ledgerReceita: extraReceita,
+    ledgerDespesa: extraDespesa,
+    openReceive: open.receiveTotal,
+    openPay: open.payTotal,
+    parcelReceive,
+    parcelPay,
+    extraReceita,
+    extraDespesa,
+    receiveTotal,
+    payTotal,
+    net: receiveTotal - payTotal,
+  };
+}
+
+/**
+ * Série da janela com balanço (parcelas do mês + lançamentos avulsos).
+ * Com `openOnly`, mantém só parcelas em aberto (sem lançamentos).
+ */
+export function buildBalanceSeriesWindow(
+  recurringList: Recurring[],
+  anchor: YearMonth,
+  ledgerByYm: Record<string, LedgerMonthAmounts> = {},
+  options: ProjectionSeriesWindowOptions = {}
+): ProjectionSeriesPoint[] {
+  const past = Math.max(0, options.past ?? 2);
+  const future = Math.max(0, options.future ?? 9);
+  const from = addMonths(anchor, -past);
+  const to = addMonths(anchor, future);
+
+  if (options.openOnly) {
+    return buildProjectionSeries(recurringList, from, to, { openOnly: true });
+  }
+
+  const points: ProjectionSeriesPoint[] = [];
+  let cursor = from;
+  while (compareYm(cursor, to) <= 0) {
+    const balance = buildMonthCashBalance(
+      recurringList,
+      cursor.year,
+      cursor.month,
+      ledgerByYm[formatYm(cursor.year, cursor.month)]
+    );
+    points.push({
+      year: balance.year,
+      month: balance.month,
+      ym: balance.ym,
+      receiveTotal: balance.receiveTotal,
+      payTotal: balance.payTotal,
+      net: balance.net,
+    });
+    cursor = addMonths(cursor, 1);
+  }
+  return points;
+}
+
+/** Lançamentos avulsos do mês (ignora os gerados por parcela). */
+export function ledgerTransactionsToLines(transactions: LedgerTxLike[]): {
+  receiveLines: LedgerProjectionLine[];
+  payLines: LedgerProjectionLine[];
+} {
+  const receiveLines: LedgerProjectionLine[] = [];
+  const payLines: LedgerProjectionLine[] = [];
+
+  for (const tx of transactions) {
+    if (tx.recurring_transaction_id) continue;
+
+    const natureName = tx.class?.type?.nature?.name ?? null;
+    const type = tx.class?.type ?? null;
+    const date = tx.transaction_at.slice(0, 10);
+    const line: LedgerProjectionLine = {
+      id: tx.id,
+      description: tx.description?.trim() || "Lançamento",
+      value: Number(tx.value) || 0,
+      date,
+      nature: "pay",
+    };
+
+    if (natureName === NATURE_RECEITA) {
+      receiveLines.push({ ...line, nature: "receive" });
+    } else if (countsAsMonthlySpend(natureName, type)) {
+      payLines.push(line);
+    }
+  }
+
+  receiveLines.sort(
+    (a, b) => a.date.localeCompare(b.date) || a.description.localeCompare(b.description)
+  );
+  payLines.sort(
+    (a, b) => a.date.localeCompare(b.date) || a.description.localeCompare(b.description)
+  );
+
+  return { receiveLines, payLines };
 }

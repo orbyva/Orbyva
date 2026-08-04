@@ -246,7 +246,7 @@ export default function Transactions() {
       <section className="space-y-3">
         {fromCache ? (
           <p className="text-xs text-muted-foreground">
-            Sem conexão — mostrando o último ledger salvo neste dispositivo.
+            Sem conexão — mostrando os últimos lançamentos salvos neste dispositivo.
           </p>
         ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

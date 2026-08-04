@@ -193,7 +193,7 @@ export function getFinancialGoalInsight(
   } else {
     monthlyTarget = remaining / monthsRemaining;
     monthlyLabel = money
-      ? `Para o prazo: ${formatBRL(monthlyTarget)}/mês por ${monthsRemaining} mês${monthsRemaining === 1 ? "" : "es"} — pago com o saldo do ledger, sem virar despesa.`
+      ? `Para o prazo: ${formatBRL(monthlyTarget)}/mês por ${monthsRemaining} mês${monthsRemaining === 1 ? "" : "es"} — pago com o saldo dos lançamentos, sem virar despesa.`
       : `Avance ${formatAmount(monthlyTarget, false, goal.unit ?? "")}/mês por ${monthsRemaining} mês${monthsRemaining === 1 ? "" : "es"}.`;
   }
 

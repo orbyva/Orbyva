@@ -6,22 +6,24 @@ import { useSearchParams } from "react-router-dom";
 import {
   calculateInstallments,
   fetchRecurringTransactions,
-  sumRecurringByNature,
   updateRecurringApi,
   createRecurringApi,
   getRecurringDueAlerts,
   resolvePaymentStartDate,
   filterRecurringList,
   filterRecurringByNature,
+  filterRecurringByYearMonth,
   countRecurringByNature,
   sortRecurringList,
   toggleRecurringSort,
   getRecurringProgress,
   buildFixedYearPlan,
+  sumRecurringActiveInMonth,
   type RecurringFilter,
   type RecurringNatureFilter,
   type RecurringSortState,
 } from "@/api/recurring";
+import type { YearMonth } from "@/domain/recurring/projection";
 import { useDimensions } from "@/hooks/useDimensions";
 import { RecurringSummary } from "./components/RecurringSummary";
 import { RecurringDueAlerts } from "./components/RecurringDueAlerts";
@@ -35,9 +37,29 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getErrorMessage } from "@/lib/errors";
 import { useSidebar } from "@/components/ui/sidebar";
-import { Repeat } from "lucide-react";
+import { ChevronLeft, ChevronRight, Repeat } from "lucide-react";
 
 type RecurringTab = "registros" | "projecao";
+
+const MONTH_LABELS = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+] as const;
+
+function shiftYm(ym: YearMonth, delta: number): YearMonth {
+  const idx = ym.year * 12 + (ym.month - 1) + delta;
+  return { year: Math.floor(idx / 12), month: (idx % 12) + 1 };
+}
 
 function defaultRecurringCreateRequest(): RecurringCreateRequest {
   const payment_start_date = new Date().toISOString().split("T")[0];
@@ -62,6 +84,11 @@ export default function Recurring() {
   const tab: RecurringTab =
     searchParams.get("tab") === "projecao" ? "projecao" : "registros";
   const [recurring, setRecurring] = useState<Recurring[]>([]);
+  const now = new Date();
+  const [listYm, setListYm] = useState<YearMonth>({
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+  });
   const [activeFilter, setActiveFilter] = useState<RecurringFilter>("all");
   const [natureFilter, setNatureFilter] =
     useState<RecurringNatureFilter>("all");
@@ -74,8 +101,6 @@ export default function Recurring() {
   const [confirmPaymentOpen, setConfirmPaymentOpen] = useState(false);
   const [selectedRecurring, setSelectedRecurring] = useState<Recurring | null>(null);
   const [open, setOpen] = useState(false);
-  const [totalFixesPay, setTotalFixesPay] = useState(0);
-  const [totalFixesReceivable, setTotalFixesReceivable] = useState(0);
 
   const [newRecurring, setNewRecurring] = useState<RecurringCreateRequest>(
     defaultRecurringCreateRequest
@@ -96,15 +121,12 @@ export default function Recurring() {
           resolvePaymentStartDate(rec),
           rec.due_day,
           rec.installment_count,
-          rec.validity
+          rec.validity,
+          rec.frequency
         ),
       }));
 
       setRecurring(withInstallments);
-
-      const summary = await sumRecurringByNature();
-      setTotalFixesPay(summary.totalFixesPay);
-      setTotalFixesReceivable(summary.totalFixesReceivable);
     } catch (err) {
       console.error("Erro ao buscar recorrências:", err);
       toast({
@@ -119,19 +141,29 @@ export default function Recurring() {
     reloadRecurring();
   }, []);
 
+  const monthBase = useMemo(
+    () => filterRecurringByYearMonth(recurring, listYm.year, listYm.month),
+    [recurring, listYm.year, listYm.month]
+  );
+
+  const monthTotals = useMemo(
+    () => sumRecurringActiveInMonth(recurring, listYm.year, listYm.month),
+    [recurring, listYm.year, listYm.month]
+  );
+
   const dueAlerts = useMemo(
-    () => getRecurringDueAlerts(recurring),
-    [recurring]
+    () => getRecurringDueAlerts(monthBase),
+    [monthBase]
   );
 
   const natureBase = useMemo(
-    () => filterRecurringByNature(recurring, natureFilter),
-    [recurring, natureFilter]
+    () => filterRecurringByNature(monthBase, natureFilter),
+    [monthBase, natureFilter]
   );
 
   const natureCounts = useMemo(
-    () => countRecurringByNature(recurring),
-    [recurring]
+    () => countRecurringByNature(monthBase),
+    [monthBase]
   );
 
   const filterCounts = useMemo(() => {
@@ -161,6 +193,15 @@ export default function Recurring() {
     const byStatus = filterRecurringList(natureBase, activeFilter, dueAlerts);
     return sortRecurringList(byStatus, sort);
   }, [natureBase, activeFilter, dueAlerts, sort]);
+
+  const listMonthTitle = `${MONTH_LABELS[listYm.month - 1]} / ${listYm.year}`;
+  const listMonthLabel = `${MONTH_LABELS[listYm.month - 1].slice(0, 3)}/${listYm.year}`;
+  const currentYm: YearMonth = {
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+  };
+  const isListCurrentMonth =
+    listYm.year === currentYm.year && listYm.month === currentYm.month;
 
   async function editRecurring(payload?: RecurringCreateRequest) {
     if (!selectedRecurring) return;
@@ -300,10 +341,45 @@ export default function Recurring() {
             <TabsTrigger value="projecao">Projeção</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="registros" className="mt-4 space-y-4">
+          <TabsContent value="registros" className="mt-4 space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Mês anterior"
+                onClick={() => setListYm((prev) => shiftYm(prev, -1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <p className="min-w-[10rem] text-center text-sm font-semibold sm:text-base">
+                {listMonthTitle}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Próximo mês"
+                onClick={() => setListYm((prev) => shiftYm(prev, 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              {!isListCurrentMonth ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setListYm(currentYm)}
+                >
+                  Hoje
+                </Button>
+              ) : null}
+            </div>
+
             <RecurringSummary
-              totalFixesReceivable={totalFixesReceivable}
-              totalFixesPay={totalFixesPay}
+              totalFixesReceivable={monthTotals.receive}
+              totalFixesPay={monthTotals.pay}
+              periodLabel={listMonthLabel}
             />
 
             <RecurringDueAlerts alerts={dueAlerts} />

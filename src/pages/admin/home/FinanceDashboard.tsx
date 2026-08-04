@@ -366,7 +366,8 @@
                 resolvePaymentStartDate(rec),
                 rec.due_day,
                 rec.installment_count,
-                rec.validity
+                rec.validity,
+                rec.frequency
               ),
             }))
           );
@@ -514,7 +515,7 @@
         despesaTotal === 0 ? (
           <EmptyState
             icon={Wallet}
-            title="Ledger ainda vazio neste mês"
+            title="Nenhum lançamento neste mês"
             description="Registre a primeira receita ou despesa para o dashboard acompanhar o life OS — o mesmo passo do onboarding."
             action={
               <Button asChild>
@@ -586,7 +587,7 @@
 
             {tripSpend > 0 ? (
               <p className="text-sm text-muted-foreground">
-                Viagens no ledger deste mês:{" "}
+                Viagens nos lançamentos deste mês:{" "}
                 <span className="font-medium text-foreground tabular-nums">
                   {formatBRL(tripSpend)}
                 </span>

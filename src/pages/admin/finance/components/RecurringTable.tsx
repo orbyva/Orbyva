@@ -43,6 +43,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   RecurringIcon,
   ProgressBar,
+  FixedPlanRenewButton,
   getRemainingInfo,
   getRecurringActionCopy,
   getActionCopyBySide,
@@ -188,12 +189,7 @@ export function RecurringTable({
                 sort={sort}
                 onSortChange={onSortChange}
               />
-              <SortableHead
-                label="Classe"
-                sortKey="class"
-                sort={sort}
-                onSortChange={onSortChange}
-              />
+              <TableHead>Classe</TableHead>
               <SortableHead
                 label="Valor"
                 sortKey="value"
@@ -310,6 +306,12 @@ export function RecurringTable({
 
                     <TableCell>
                       <div className="flex items-center justify-end gap-0.5">
+                        <FixedPlanRenewButton
+                          recurring={item}
+                          onRenewed={reloadRecurring}
+                          className="focus-visible:ring-primary"
+                        />
+
                         <ActionTooltip label="Editar">
                           <Button
                             variant="ghost"
@@ -473,10 +475,12 @@ export function RecurringTable({
                                       {installment.number}
                                     </span>
                                     <span className="min-w-0 flex-1 text-muted-foreground">
-                                      {installment.dueDate
-                                        .split("-")
-                                        .reverse()
-                                        .join("/")}
+                                      {item.frequency === "Anual"
+                                        ? installment.dueDate.slice(0, 4)
+                                        : installment.dueDate
+                                            .split("-")
+                                            .reverse()
+                                            .join("/")}
                                     </span>
                                     <Badge
                                       variant="outline"

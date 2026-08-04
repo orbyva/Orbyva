@@ -2,6 +2,13 @@ import { supabase } from "@/lib/supabase";
 import { deleteTransactionApi, insertTransaction } from "@/api/finance";
 import { getCurrentUserId } from "@/lib/auth-user";
 import {
+  buildRenewedFixedSchedule,
+  calculateInstallments,
+  canRenewFixedPlan,
+  resolveFixedRenewalRollback,
+  resolvePaymentStartDate,
+} from "@/domain/recurring";
+import {
   Recurring,
   RecurringCreateRequest,
 } from "@/types/recurring";
@@ -77,6 +84,34 @@ export async function updateRecurringApi(
   if (error) throw error;
 }
 
+/**
+ * Estende conta/receita fixa até o próximo ano.
+ * Mantém paid_parcels e a data de início para continuar desfazendo parcelas passadas.
+ */
+export async function renewFixedRecurringApi(
+  recurring: Recurring
+): Promise<{ year: number }> {
+  if (!canRenewFixedPlan(recurring)) {
+    throw new Error("Esta parcela fixa ainda não pode ser renovada.");
+  }
+
+  const schedule = buildRenewedFixedSchedule(recurring);
+  const userId = await getCurrentUserId();
+
+  const { error } = await supabase
+    .from("recurring_transaction")
+    .update({
+      payment_start_date: schedule.payment_start_date,
+      installment_count: schedule.installment_count,
+      validity: schedule.validity,
+    })
+    .eq("id", recurring.id)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+  return { year: schedule.year };
+}
+
 export async function softDeleteRecurring(id: string): Promise<void> {
   const userId = await getCurrentUserId();
   const { error } = await supabase
@@ -114,15 +149,41 @@ export async function updateRecurringParcelPayment(
       (parcel) => parcel !== installmentNumber
     );
 
+    const { data: recurringRow, error: fetchError } = await supabase
+      .from("recurring_transaction")
+      .select(
+        "frequency, validity, payment_start_date, installment_count, due_day"
+      )
+      .eq("id", recurringId)
+      .eq("user_id", userId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const rollback = resolveFixedRenewalRollback(
+      recurringRow,
+      installmentNumber,
+      updatedParcels
+    );
+
     const { error } = await supabase
       .from("recurring_transaction")
-      .update({ paid_parcels: updatedParcels })
+      .update(
+        rollback
+          ? {
+              paid_parcels: rollback.paid_parcels,
+              payment_start_date: rollback.payment_start_date,
+              installment_count: rollback.installment_count,
+              validity: rollback.validity,
+            }
+          : { paid_parcels: updatedParcels }
+      )
       .eq("id", recurringId)
       .eq("user_id", userId);
 
     if (error) throw error;
 
-    return updatedParcels;
+    return rollback?.paid_parcels ?? updatedParcels;
   }
 
   const transactionId = await registerParcelTransaction(
@@ -165,11 +226,12 @@ async function registerParcelTransaction(
   installmentNumber: number
 ): Promise<number> {
   const userId = await getCurrentUserId();
-  const transactionAt = new Date().toISOString().slice(0, 10);
 
   const { data: recurring, error: fetchError } = await supabase
     .from("recurring_transaction")
-    .select("class_id, description, value")
+    .select(
+      "class_id, description, value, payment_start_date, created_at, due_day, installment_count, validity, frequency"
+    )
     .eq("id", recurringId)
     .eq("user_id", userId)
     .single();
@@ -179,6 +241,21 @@ async function registerParcelTransaction(
       fetchError?.message || "Erro ao buscar a transação recorrente."
     );
   }
+
+  // Usa o vencimento da parcela para o mês da projeção/ledger bater com a competência.
+  const installments = calculateInstallments(
+    resolvePaymentStartDate(recurring),
+    recurring.due_day,
+    recurring.installment_count,
+    recurring.validity,
+    recurring.frequency
+  );
+  const dueDate =
+    Array.isArray(installments)
+      ? installments.find((item) => item.number === installmentNumber)?.dueDate
+      : undefined;
+  const transactionAt =
+    dueDate?.slice(0, 10) || new Date().toISOString().slice(0, 10);
 
   return insertTransaction({
     class_id: recurring.class_id,

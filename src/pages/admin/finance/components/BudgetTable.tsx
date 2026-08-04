@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useMemo } from "react";
 import { Pen, Trash2 } from "lucide-react";
 
 import {
@@ -24,8 +24,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/SortableTableHead";
 
 import type { MonthlyBudgetSummary } from "@/types/finance";
+import {
+  buildSortedBudgetGroups,
+  getBudgetRealizedValue,
+  type BudgetSortKey,
+  type BudgetSortState,
+} from "@/domain/budget/listView";
 import { formatBRL } from "@/lib/currency";
 import { statusBadgeStyles, statusProgressStyles } from "@/lib/design-tokens";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
@@ -35,6 +42,8 @@ interface BudgetTableProps {
   budgets: MonthlyBudgetSummary[];
   isMobile?: boolean;
   loading?: boolean;
+  sort: BudgetSortState;
+  onSortChange: (key: BudgetSortKey) => void;
   confirmOpen: boolean;
   setConfirmOpen: (open: boolean) => void;
   selectedBudget: MonthlyBudgetSummary | null;
@@ -45,11 +54,7 @@ interface BudgetTableProps {
 }
 
 function getRealizedValue(budget?: MonthlyBudgetSummary | null) {
-  if (!budget) return 0;
-
-  return budget.nature_name === "Receita"
-    ? Number(budget.income_value || 0)
-    : Number(budget.expense_value ?? budget.spent_value ?? 0);
+  return getBudgetRealizedValue(budget);
 }
 
 function getRealizedLabel(budget?: MonthlyBudgetSummary | null) {
@@ -75,56 +80,6 @@ function getRemainingClass(budget?: MonthlyBudgetSummary | null) {
   if (remaining < 0) return "text-destructive";
   if (planned > 0 && remaining <= planned * 0.3) return "text-warning";
   return "text-success";
-}
-
-function getStatusFromPercentage(value: number, natureName?: string) {
-  if (natureName === "Receita") {
-    if (value >= 100) return "OK";
-    if (value >= 70) return "QUASE";
-    return "ATENCAO";
-  }
-
-  if (value > 100) return "ESTOUROU";
-  if (value >= 90) return "CRITICO";
-  if (value >= 70) return "ATENCAO";
-  return "OK";
-}
-
-function createGroupSummary(
-  typeName: string,
-  items: MonthlyBudgetSummary[]
-): MonthlyBudgetSummary {
-  const first = items[0];
-
-  const planned = items.reduce(
-    (sum, item) => sum + Number(item.planned_value || 0),
-    0
-  );
-
-  const realized = items.reduce(
-    (sum, item) => sum + getRealizedValue(item),
-    0
-  );
-
-  const remaining =
-    first?.nature_name === "Receita" ? planned - realized : planned - realized;
-
-  const percentage = planned > 0 ? (realized / planned) * 100 : 0;
-
-  return {
-    ...first,
-    id: first?.id ?? typeName,
-    type_name: typeName,
-    class_id: null,
-    class_name: null,
-    planned_value: planned,
-    income_value: first?.nature_name === "Receita" ? realized : 0,
-    expense_value: first?.nature_name === "Receita" ? 0 : realized,
-    spent_value: first?.nature_name === "Receita" ? 0 : realized,
-    remaining_value: remaining,
-    percentage_used: percentage,
-    status: getStatusFromPercentage(percentage, first?.nature_name),
-  } as MonthlyBudgetSummary;
 }
 
 function ProgressBar({ value, status }: { value: number; status: string }) {
@@ -264,6 +219,8 @@ export function BudgetTable({
   budgets,
   isMobile = false,
   loading = false,
+  sort,
+  onSortChange,
   confirmOpen,
   setConfirmOpen,
   selectedBudget,
@@ -272,28 +229,9 @@ export function BudgetTable({
   deleteLoading,
   handleEdit,
 }: BudgetTableProps) {
-  const groupedBudgets = budgets.reduce<Record<string, MonthlyBudgetSummary[]>>(
-    (acc, budget) => {
-      const key = budget.type_name ?? "Sem tipo";
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(budget);
-      return acc;
-    },
-    {}
-  );
-
-  const orderedGroups = Object.entries(groupedBudgets).sort(
-    ([typeA], [typeB]) => {
-      const order = ["Receita", "Despesa", "Despesas"];
-      const indexA = order.indexOf(typeA);
-      const indexB = order.indexOf(typeB);
-
-      if (indexA === -1 && indexB === -1) return typeA.localeCompare(typeB);
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
-
-      return indexA - indexB;
-    }
+  const orderedGroups = useMemo(
+    () => buildSortedBudgetGroups(budgets, sort),
+    [budgets, sort]
   );
 
   if (isMobile) {
@@ -315,11 +253,11 @@ export function BudgetTable({
 
     return (
       <div className="divide-y divide-border/60">
-        {orderedGroups.map(([typeName, items]) => {
-          const parent =
-            items.find((budget) => budget.class_id === null) ??
-            createGroupSummary(typeName, items);
-          const children = items.filter((budget) => budget.class_id !== null);
+        {orderedGroups.map(({ typeName, parent, children }) => {
+          const hasEditableParent = budgets.some(
+            (budget) =>
+              budget.type_name === typeName && budget.class_id === null
+          );
 
           return (
             <div key={typeName} className="space-y-2 p-4">
@@ -368,7 +306,7 @@ export function BudgetTable({
                   </div>
                 </div>
 
-                {items.some((budget) => budget.class_id === null) && (
+                {hasEditableParent && (
                   <BudgetActions
                     budget={parent}
                     confirmOpen={confirmOpen}
@@ -466,12 +404,50 @@ export function BudgetTable({
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-[240px]">Tipo / Classe</TableHead>
-              <TableHead className="text-right">Orçado</TableHead>
-              <TableHead className="text-right">Realizado</TableHead>
-              <TableHead className="text-right">Saldo</TableHead>
-              <TableHead className="min-w-[180px]">Uso</TableHead>
-              <TableHead>Status</TableHead>
+              <SortableTableHead
+                label="Tipo"
+                sortKey="type"
+                sort={sort}
+                onSortChange={onSortChange}
+                className="min-w-[220px]"
+              />
+              <SortableTableHead
+                label="Valor orçado"
+                sortKey="planned"
+                sort={sort}
+                onSortChange={onSortChange}
+                className="text-right"
+                align="right"
+              />
+              <SortableTableHead
+                label="Valor realizado"
+                sortKey="realized"
+                sort={sort}
+                onSortChange={onSortChange}
+                className="text-right"
+                align="right"
+              />
+              <SortableTableHead
+                label="Saldo restante"
+                sortKey="remaining"
+                sort={sort}
+                onSortChange={onSortChange}
+                className="text-right"
+                align="right"
+              />
+              <SortableTableHead
+                label="% de uso"
+                sortKey="usage"
+                sort={sort}
+                onSortChange={onSortChange}
+                className="min-w-[160px]"
+              />
+              <SortableTableHead
+                label="Situação"
+                sortKey="status"
+                sort={sort}
+                onSortChange={onSortChange}
+              />
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -487,13 +463,10 @@ export function BudgetTable({
                 </TableCell>
               </TableRow>
             ) : budgets.length ? (
-              orderedGroups.map(([typeName, items]) => {
-                const parent =
-                  items.find((budget) => budget.class_id === null) ??
-                  createGroupSummary(typeName, items);
-
-                const children = items.filter(
-                  (budget) => budget.class_id !== null
+              orderedGroups.map(({ typeName, parent, children }) => {
+                const hasEditableParent = budgets.some(
+                  (budget) =>
+                    budget.type_name === typeName && budget.class_id === null
                 );
 
                 return (
@@ -559,7 +532,7 @@ export function BudgetTable({
                       </TableCell>
 
                       <TableCell className="py-3">
-                        {items.some((budget) => budget.class_id === null) && (
+                        {hasEditableParent && (
                           <BudgetActions
                             budget={parent}
                             confirmOpen={confirmOpen}

@@ -97,7 +97,8 @@ async function collectFinanceTimeline(
         resolvePaymentStartDate(rec),
         rec.due_day,
         rec.installment_count,
-        rec.validity
+        rec.validity,
+        rec.frequency
       ),
     }));
     const alerts = getRecurringDueAlerts(withInstallments);

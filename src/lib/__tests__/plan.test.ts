@@ -30,6 +30,29 @@ describe("plan", () => {
     expect(TRIAL_DAYS).toBe(7);
   });
 
+  it("respeita trial_ends_at explícito", () => {
+    const created = "2026-01-01T00:00:00.000Z";
+    const extended = "2026-08-15T00:00:00.000Z";
+    expect(getTrialEndsAt(created, extended).toISOString().slice(0, 10)).toBe(
+      "2026-08-15"
+    );
+    expect(
+      isTrialActive(created, new Date("2026-08-10T00:00:00.000Z"), extended)
+    ).toBe(true);
+    expect(
+      isTrialActive(created, new Date("2026-08-20T00:00:00.000Z"), extended)
+    ).toBe(false);
+    expect(
+      hasAppAccess({
+        plan: "free",
+        createdAt: created,
+        trialEndsAt: extended,
+      })
+    ).toBe(
+      new Date() < new Date(extended)
+    );
+  });
+
   it("libera acesso no teste e no Pro", () => {
     const created = new Date();
     created.setDate(created.getDate() - 2);
@@ -59,5 +82,20 @@ describe("plan", () => {
     expect(isTrialActive(undefined)).toBe(false);
     expect(hasAppAccess({ plan: "free", createdAt: null })).toBe(false);
     expect(trialDaysRemaining(null)).toBe(0);
+  });
+
+  it("trial_ends_at sozinho basta para acesso", () => {
+    const future = new Date();
+    future.setDate(future.getDate() + 3);
+    expect(
+      hasAppAccess({
+        plan: "free",
+        createdAt: "2020-01-01",
+        trialEndsAt: future.toISOString(),
+      })
+    ).toBe(true);
+    expect(
+      trialDaysRemaining("2020-01-01", new Date(), future.toISOString())
+    ).toBeGreaterThan(0);
   });
 });

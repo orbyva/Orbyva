@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -6,11 +6,13 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  TableHead,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FormLabel, ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { SortableTableHead } from "@/components/SortableTableHead";
 import { cn, sortByNamePt } from "@/lib/utils";
 import {
   Select,
@@ -35,6 +37,11 @@ import { Type, Nature, TypeCreateRequest, TypeUpdateRequest } from "@/types/fina
 import { EmptyState } from "@/components/EmptyState";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  sortTypesList,
+  toggleSort,
+  type TypeSortState,
+} from "@/domain/dimensions/listView";
 
 function resolveNatureId(type: Type): number | null {
   return type.nature_id ?? type.nature?.id ?? null;
@@ -65,6 +72,15 @@ function TypeManager({
   const [editingType, setEditingType] = useState<TypeUpdateRequest | null>(null);
   const [formError, setFormError] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [sort, setSort] = useState<TypeSortState>({
+    key: "nature",
+    dir: "asc",
+  });
+
+  const sortedTypes = useMemo(
+    () => sortTypesList(types, natures, sort),
+    [types, natures, sort]
+  );
 
   async function confirmDelete(id: number) {
     setDeletingId(id);
@@ -260,14 +276,28 @@ function TypeManager({
           <div className="min-h-0 flex-1 overflow-y-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableCell>Nome</TableCell>
-                  <TableCell>Natureza</TableCell>
-                  <TableCell className="w-[100px]">Ações</TableCell>
+                <TableRow className="hover:bg-transparent">
+                  <SortableTableHead
+                    label="Nome do tipo"
+                    sortKey="name"
+                    sort={sort}
+                    onSortChange={(key) =>
+                      setSort((prev) => toggleSort(prev, key))
+                    }
+                  />
+                  <SortableTableHead
+                    label="Natureza"
+                    sortKey="nature"
+                    sort={sort}
+                    onSortChange={(key) =>
+                      setSort((prev) => toggleSort(prev, key))
+                    }
+                  />
+                  <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {types.length === 0 ? (
+                {sortedTypes.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={3} className="p-0">
                       <EmptyState
@@ -283,7 +313,7 @@ function TypeManager({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  types.map((type) => (
+                  sortedTypes.map((type) => (
                     <TableRow key={type.id}>
                       <TableCell>
                         {editingType && editingType.id === type.id ? (

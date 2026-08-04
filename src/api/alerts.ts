@@ -169,7 +169,8 @@ async function loadAppAlertsFresh(): Promise<AppAlert[]> {
         resolvePaymentStartDate(rec),
         rec.due_day,
         rec.installment_count,
-        rec.validity
+        rec.validity,
+        rec.frequency
       ),
     }));
     for (const a of getRecurringDueAlerts(withInstallments)) {

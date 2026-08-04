@@ -262,9 +262,9 @@ export default function Goals() {
 
       if (!resolved.foundLedger) {
         toast({
-          title: "Nenhum aporte no ledger",
+          title: "Nenhum aporte nos lançamentos",
           description:
-            "Não achei lançamentos desta meta no ledger — o progresso foi mantido.",
+            "Não achei lançamentos desta meta — o progresso foi mantido.",
           duration: 3200,
         });
         return;
@@ -279,7 +279,7 @@ export default function Goals() {
 
       toast({
         title: "Progresso sincronizado",
-        description: `${formatBRL(resolved.next)} a partir dos aportes no ledger.`,
+        description: `${formatBRL(resolved.next)} a partir dos aportes nos lançamentos.`,
         duration: 2800,
       });
       load();
@@ -387,7 +387,7 @@ export default function Goals() {
       title="Metas Pessoais"
       description={
         monthSurplus != null
-          ? `Saldo deste mês no ledger: ${formatBRL(monthSurplus)} — destino natural das metas financeiras.`
+          ? `Saldo deste mês nos lançamentos: ${formatBRL(monthSurplus)} — destino natural das metas financeiras.`
           : "Acompanhe seu progresso em objetivos de vida."
       }
       actions={
@@ -547,7 +547,7 @@ export default function Goals() {
                         onClick={() => void handleSyncFromLedger(goal)}
                       >
                         <RefreshCw className="mr-1 h-3 w-3" />
-                        Sincronizar do ledger
+                        Sincronizar dos lançamentos
                       </Button>
                       <Button
                         variant="link"
@@ -743,7 +743,7 @@ export default function Goals() {
                 disabled={destinarBusy || destinarMax <= 0}
                 className="w-full"
               >
-                {destinarBusy ? "Destinando…" : "Destinar e lançar no ledger"}
+                {destinarBusy ? "Destinando…" : "Destinar e registrar lançamento"}
               </Button>
             </div>
           ) : null}

@@ -13,6 +13,7 @@ export interface UserProfile {
   subscription_status: string | null;
   current_period_end: string | null;
   created_at: string;
+  trial_ends_at?: string | null;
   email_unsubscribed_at?: string | null;
   email_digest_enabled?: boolean;
   email_alerts_enabled?: boolean;
@@ -21,7 +22,7 @@ export interface UserProfile {
 }
 
 const PROFILE_SELECT =
-  "id, plan, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, created_at, email_unsubscribed_at, email_digest_enabled, email_alerts_enabled, email_habit_reminder_enabled, welcome_email_sent_at";
+  "id, plan, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, created_at, trial_ends_at, email_unsubscribed_at, email_digest_enabled, email_alerts_enabled, email_habit_reminder_enabled, welcome_email_sent_at";
 
 const LAST_SEEN_CLIENT_KEY = "orbyva_last_seen_touch_v1";
 
@@ -116,8 +117,11 @@ export async function ensureProfile(): Promise<UserProfile> {
     if (isMissingProfilesTable(error)) {
       return fallbackProfile(userId, authUser?.created_at);
     }
-    // Migration email_lifecycle ainda não aplicada — lê colunas base.
-    if ((error.message ?? "").toLowerCase().includes("email_")) {
+    // Migration email_lifecycle / trial_ends_at ainda não aplicada — lê colunas base.
+    if (
+      (error.message ?? "").toLowerCase().includes("email_") ||
+      (error.message ?? "").toLowerCase().includes("trial_ends_at")
+    ) {
       const legacy = await supabase
         .from("profiles")
         .select(

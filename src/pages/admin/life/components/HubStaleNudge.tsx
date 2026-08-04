@@ -19,7 +19,7 @@ export function HubStaleNudge({
           Sem lançamentos há {daysWithoutTx} dias.
         </span>{" "}
         <span className="text-muted-foreground">
-          Um registro rápido mantém o ledger vivo.
+          Um registro rápido mantém os lançamentos em dia.
         </span>
       </p>
       <div className="flex items-center gap-1.5">

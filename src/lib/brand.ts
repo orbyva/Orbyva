@@ -1,11 +1,11 @@
-/** Identidade do produto — Orbyva (life OS · ledger no núcleo). */
+/** Identidade do produto — Orbyva (life OS · lançamentos no núcleo). */
 export const BRAND = {
   name: "Orbyva",
   tagline: "Saiba o que cabe no mês — e organize o resto da vida",
   /** Slogan da lockup visual (logo.webp) — shares / exportações. */
   logoSlogan: "Tudo da sua vida em uma só órbita.",
   /** Cunha de diferenciação (landing / marketing). */
-  wedge: "Life OS com ledger",
+  wedge: "Life OS com lançamentos",
   shortDescription:
     "O que você espalha em vários apps — orçamento, parcelas, hábitos, metas, viagens e cinema — numa só órbita.",
   /** Uma linha para o hero — prova + proposta (conversão). */

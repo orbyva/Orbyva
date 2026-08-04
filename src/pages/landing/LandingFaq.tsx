@@ -11,7 +11,7 @@ import { PLANS } from "@/lib/plan";
 const FAQS = [
   {
     q: "O que é o Orbyva?",
-    a: "O app que junta o que você espalha em vários lugares: orçamento, parcelas e livro-caixa — e hábitos, metas, viagens, lugares, cinema e veículos na mesma órbita. Tudo liberado no primeiro acesso.",
+    a: "O app que junta o que você espalha em vários lugares: orçamento, parcelas e lançamentos — e hábitos, metas, viagens, lugares, cinema e veículos na mesma órbita. Tudo liberado no primeiro acesso.",
   },
   {
     q: "Orçamento e parcelas são o quê, na prática?",

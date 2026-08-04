@@ -225,6 +225,6 @@ export const ONBOARDING_STEPS = [
   {
     id: "budget",
     title: "Orçamento do mês (recomendado)",
-    body: "Defina o teto de despesa (e, se quiser, meta de receita). É o que transforma o ledger em controle de verdade — pode pular e fazer depois.",
+    body: "Defina o teto de despesa (e, se quiser, meta de receita). É o que transforma os lançamentos em controle de verdade — pode pular e fazer depois.",
   },
 ] as const;

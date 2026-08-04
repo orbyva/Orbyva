@@ -22,7 +22,7 @@ test.describe("ativação autenticada", () => {
     await expect(page).not.toHaveURL(/\/login/);
   });
 
-  test("abre ledger de transações", async ({ page }) => {
+  test("abre lançamentos / transações", async ({ page }) => {
     await signInViaSupabaseApi(page);
     await page.goto("/home");
     await dismissOnboardingIfPresent(page);

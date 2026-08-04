@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,12 +24,19 @@ import { cn } from "@/lib/utils";
 import {
   buildMonthProjection,
   buildPurchaseSimulation,
+  futureMonthsForSimulation,
+  indexAvulsoLedgerByYm,
+  ledgerTransactionsToLines,
+  shiftYearMonth,
   simulationAmountForYm,
+  type LedgerMonthAmounts,
+  type LedgerProjectionLine,
   type ProjectionLine,
   type YearMonth,
 } from "@/domain/recurring/projection";
 import type { Recurring } from "@/types/recurring";
 import { updateRecurringParcelPayment } from "@/api/recurring";
+import { fetchTransactions } from "@/api/finance";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { RecurringProjectionChart } from "./RecurringProjectionChart";
@@ -73,10 +80,10 @@ function projectionActionCopy(nature: ProjectionLine["nature"] | undefined) {
       ? "Recebimento desfeito"
       : "Pagamento desfeito",
     markHint: isReceive
-      ? "A receita correspondente será registrada automaticamente no livro-caixa."
-      : "A transação correspondente será registrada automaticamente no livro-caixa.",
+      ? "A receita correspondente será registrada automaticamente em Lançamentos."
+      : "O lançamento correspondente será registrado automaticamente.",
     unmarkHint:
-      "O status da parcela será revertido e a transação vinculada será excluída automaticamente.",
+      "O status da parcela será revertido e o lançamento vinculado será excluído automaticamente.",
   };
 }
 
@@ -105,6 +112,13 @@ export function RecurringProjection({
     year: now.getFullYear(),
     month: now.getMonth() + 1,
   });
+  const [ledgerByYm, setLedgerByYm] = useState<
+    Record<string, LedgerMonthAmounts>
+  >({});
+  const [ledgerLines, setLedgerLines] = useState<{
+    receiveLines: LedgerProjectionLine[];
+    payLines: LedgerProjectionLine[];
+  }>({ receiveLines: [], payLines: [] });
 
   const currentYm: YearMonth = {
     year: now.getFullYear(),
@@ -123,6 +137,54 @@ export function RecurringProjection({
     });
   }, [simOpen, simTotal, simCount, simStart]);
 
+  const chartFutureMonths = useMemo(
+    () => futureMonthsForSimulation(ym, simulation, 9),
+    [ym, simulation]
+  );
+
+  useEffect(() => {
+    if (openOnly) {
+      setLedgerByYm({});
+      setLedgerLines({ receiveLines: [], payLines: [] });
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const from = shiftYearMonth(ym, -2);
+        const to = shiftYearMonth(ym, chartFutureMonths);
+        const startDate = `${from.year}-${String(from.month).padStart(2, "0")}-01T00:00:00.000Z`;
+        const lastDay = new Date(to.year, to.month, 0).getDate();
+        const endDate = `${to.year}-${String(to.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}T23:59:59.999Z`;
+        const txs = await fetchTransactions(1, 1000, startDate, endDate);
+        if (cancelled) return;
+
+        const byYm = indexAvulsoLedgerByYm(txs);
+        setLedgerByYm(byYm);
+
+        const monthKey = `${ym.year}-${String(ym.month).padStart(2, "0")}`;
+        const monthStart = `${monthKey}-01`;
+        const monthEndDay = new Date(ym.year, ym.month, 0).getDate();
+        const monthEnd = `${monthKey}-${String(monthEndDay).padStart(2, "0")}`;
+        const monthTxs = txs.filter((tx) => {
+          const day = String(tx.transaction_at ?? "").slice(0, 10);
+          return day >= monthStart && day <= monthEnd;
+        });
+        setLedgerLines(ledgerTransactionsToLines(monthTxs));
+      } catch (error) {
+        console.error("Erro ao carregar lançamentos na projeção:", error);
+        if (!cancelled) {
+          setLedgerByYm({});
+          setLedgerLines({ receiveLines: [], payLines: [] });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ym.year, ym.month, openOnly, recurring, chartFutureMonths]);
+
   const simThisMonth = simulationAmountForYm(simulation, ym.year, ym.month);
 
   const projection = useMemo(
@@ -131,8 +193,26 @@ export function RecurringProjection({
     [recurring, ym.year, ym.month, openOnly]
   );
 
-  const payWithSim = projection.payTotal + simThisMonth;
-  const netWithSim = projection.receiveTotal - payWithSim;
+  const avulsoReceive = useMemo(
+    () => ledgerLines.receiveLines.reduce((sum, line) => sum + line.value, 0),
+    [ledgerLines.receiveLines]
+  );
+  const avulsoPay = useMemo(
+    () => ledgerLines.payLines.reduce((sum, line) => sum + line.value, 0),
+    [ledgerLines.payLines]
+  );
+
+  // Modo completo: parcelas do mês (incl. pagas) + avulsos listados — mesma conta da lista.
+  const receiveTotal = openOnly
+    ? projection.receiveTotal
+    : projection.receiveTotal + avulsoReceive;
+  const payTotal = openOnly
+    ? projection.payTotal
+    : projection.payTotal + avulsoPay;
+  const netTotal = receiveTotal - payTotal;
+
+  const payWithSim = payTotal + simThisMonth;
+  const netWithSim = receiveTotal - payWithSim;
 
   async function applyPayment(line: ProjectionLine) {
     const key = `${line.recurringId}:${line.installmentNumber}`;
@@ -150,8 +230,8 @@ export function RecurringProjection({
           ? projectionActionCopy(line.nature).unmarkToast
           : projectionActionCopy(line.nature).markToast,
         description: line.paid
-          ? "A parcela voltou ao previsto e a transação vinculada foi removida."
-          : "Registrada no livro-caixa automaticamente.",
+          ? "A parcela voltou ao previsto e o lançamento vinculado foi removido."
+          : "Registrada em Lançamentos automaticamente.",
       });
       await onChanged();
     } catch (error) {
@@ -367,28 +447,32 @@ export function RecurringProjection({
 
       <div className="grid gap-3 sm:grid-cols-3">
         <SummaryCard
-          title="A receber do mês"
-          value={projection.receiveTotal}
+          title={openOnly ? "A receber do mês" : "Receitas do mês"}
+          value={receiveTotal}
           tone="success"
-          hint={openOnly ? "Só em aberto" : "Comprometido"}
-        />
-        <SummaryCard
-          title="A pagar do mês"
-          value={simThisMonth > 0 ? payWithSim : projection.payTotal}
-          tone="danger"
           hint={
-            simThisMonth > 0
-              ? `Base ${formatBRL(projection.payTotal)} + sim ${formatBRL(simThisMonth)}`
-              : openOnly
-                ? "Só em aberto"
-                : "Comprometido"
+            openOnly
+              ? "Só em aberto"
+              : `Parcelas ${formatBRL(projection.receiveTotal)} + avulso ${formatBRL(avulsoReceive)}`
           }
         />
         <SummaryCard
-          title="Saldo previsto"
-          value={simThisMonth > 0 ? netWithSim : projection.net}
+          title={openOnly ? "A pagar do mês" : "Despesas do mês"}
+          value={simThisMonth > 0 ? payWithSim : payTotal}
+          tone="danger"
+          hint={
+            simThisMonth > 0
+              ? `Base ${formatBRL(payTotal)} + sim ${formatBRL(simThisMonth)}`
+              : openOnly
+                ? "Só em aberto"
+                : `Parcelas ${formatBRL(projection.payTotal)} + avulso ${formatBRL(avulsoPay)}`
+          }
+        />
+        <SummaryCard
+          title={openOnly ? "Saldo previsto" : "Saldo do mês"}
+          value={simThisMonth > 0 ? netWithSim : netTotal}
           tone={
-            (simThisMonth > 0 ? netWithSim : projection.net) >= 0
+            (simThisMonth > 0 ? netWithSim : netTotal) >= 0
               ? "success"
               : "danger"
           }
@@ -397,7 +481,7 @@ export function RecurringProjection({
               ? "Com simulação"
               : openOnly
                 ? "Receber − pagar em aberto"
-                : "Receber − pagar do mês"
+                : "Receitas − despesas (parcelas + lançamentos avulsos)"
           }
         />
       </div>
@@ -414,7 +498,7 @@ export function RecurringProjection({
                 ? "Projeção — com simulação de compra"
                 : openOnly
                   ? "Projeção — só em aberto (daqui pra frente)"
-                  : "Projeção — passado recente e próximos meses"}
+                  : "Projeção — parcelas do mês (incl. pagas) + lançamentos avulsos"}
             </span>
             <ChevronDown
               className={cn(
@@ -430,25 +514,28 @@ export function RecurringProjection({
             anchor={ym}
             openOnly={openOnly}
             simulation={simulation}
+            ledgerByYm={ledgerByYm}
           />
         </CollapsibleContent>
       </Collapsible>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ProjectionColumn
-          title="A receber"
+          title={openOnly ? "A receber" : "Receitas"}
           tone="success"
           lines={projection.receiveLines}
-          total={projection.receiveTotal}
+          ledgerLines={openOnly ? [] : ledgerLines.receiveLines}
+          total={receiveTotal}
           openOnly={openOnly}
           busyKey={busyKey}
           onRequestToggle={setPendingLine}
         />
         <ProjectionColumn
-          title="A pagar"
+          title={openOnly ? "A pagar" : "Despesas"}
           tone="danger"
           lines={projection.payLines}
-          total={projection.payTotal}
+          ledgerLines={openOnly ? [] : ledgerLines.payLines}
+          total={simThisMonth > 0 ? payWithSim : payTotal}
           openOnly={openOnly}
           busyKey={busyKey}
           onRequestToggle={setPendingLine}
@@ -556,6 +643,7 @@ function ProjectionColumn({
   title,
   tone,
   lines,
+  ledgerLines = [],
   total,
   openOnly,
   busyKey,
@@ -565,15 +653,19 @@ function ProjectionColumn({
   title: string;
   tone: "success" | "danger";
   lines: ProjectionLine[];
+  ledgerLines?: LedgerProjectionLine[];
   total: number;
   openOnly: boolean;
   busyKey: string | null;
   onRequestToggle: (line: ProjectionLine) => void;
   simulationExtra?: { label: string; value: number } | null;
 }) {
-  const displayTotal = total + (simulationExtra?.value ?? 0);
+  const [ledgerOpen, setLedgerOpen] = useState(false);
   const isReceive = tone === "success";
   const copy = projectionActionCopy(isReceive ? "receive" : "pay");
+  const ledgerTotal = ledgerLines.reduce((sum, line) => sum + line.value, 0);
+  const empty =
+    lines.length === 0 && ledgerLines.length === 0 && !simulationExtra;
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/60 bg-card/30">
@@ -593,7 +685,7 @@ function ProjectionColumn({
           <span className="text-right">Valor</span>
           <span className="w-[5.5rem] text-right">Ação</span>
         </div>
-        {lines.length === 0 && !simulationExtra ? (
+        {empty ? (
           <p className="px-4 py-6 text-center text-sm text-muted-foreground">
             {openOnly
               ? isReceive
@@ -601,52 +693,108 @@ function ProjectionColumn({
                 : "Nenhuma conta em aberto neste mês."
               : isReceive
                 ? "Nenhuma receita neste mês."
-                : "Nenhuma conta neste mês."}
+                : "Nenhuma despesa neste mês."}
           </p>
         ) : (
-          lines.map((line) => {
-            const key = `${line.recurringId}:${line.installmentNumber}`;
-            return (
-              <div
-                key={key}
-                className={cn(
-                  "grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-2.5 text-sm",
-                  line.paid && "opacity-55"
-                )}
-              >
-                <div className="min-w-0">
-                  <p
-                    className={cn(
-                      "truncate font-medium",
-                      line.paid && "line-through"
-                    )}
-                  >
-                    {line.description}
-                  </p>
-                  {line.paid ? (
-                    <Badge variant="secondary" className="mt-1 text-[10px]">
-                      {copy.doneBadge}
-                    </Badge>
-                  ) : null}
+          <>
+            {lines.map((line) => {
+              const key = `${line.recurringId}:${line.installmentNumber}`;
+              return (
+                <div
+                  key={key}
+                  className={cn(
+                    "grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-2.5 text-sm",
+                    line.paid && "opacity-55"
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p
+                      className={cn(
+                        "truncate font-medium",
+                        line.paid && "line-through"
+                      )}
+                    >
+                      {line.description}
+                    </p>
+                    {line.paid ? (
+                      <Badge variant="secondary" className="mt-1 text-[10px]">
+                        {copy.doneBadge}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <span className="tabular-nums text-muted-foreground">
+                    {formatBRL(line.value)}
+                  </span>
+                  <div className="flex w-[5.5rem] justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      disabled={busyKey === key}
+                      onClick={() => onRequestToggle(line)}
+                    >
+                      {line.paid ? "Desfazer" : copy.action}
+                    </Button>
+                  </div>
                 </div>
-                <span className="tabular-nums text-muted-foreground">
-                  {formatBRL(line.value)}
-                </span>
-                <div className="flex w-[5.5rem] justify-end">
-                  <Button
+              );
+            })}
+
+            {ledgerLines.length > 0 ? (
+              <Collapsible open={ledgerOpen} onOpenChange={setLedgerOpen}>
+                <CollapsibleTrigger asChild>
+                  <button
                     type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2 text-xs"
-                    disabled={busyKey === key}
-                    onClick={() => onRequestToggle(line)}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-muted/40"
                   >
-                    {line.paid ? "Desfazer" : copy.action}
-                  </Button>
-                </div>
-              </div>
-            );
-          })
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                        ledgerOpen && "rotate-180"
+                      )}
+                    />
+                    <span className="min-w-0 flex-1 font-medium">
+                      Lançamentos avulsos deste mês
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                        ({ledgerLines.length})
+                      </span>
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {formatBRL(ledgerTotal)}
+                    </span>
+                    <span className="w-[5.5rem]" />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="divide-y divide-border/40 border-t border-border/40 bg-muted/10">
+                    {ledgerLines.map((line) => (
+                      <div
+                        key={`ledger-${line.id}`}
+                        className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-2 text-sm"
+                      >
+                        <div className="min-w-0 pl-6">
+                          <p className="truncate font-medium">
+                            {line.description}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className="mt-1 text-[10px]"
+                          >
+                            Avulso
+                          </Badge>
+                        </div>
+                        <span className="tabular-nums text-muted-foreground">
+                          {formatBRL(line.value)}
+                        </span>
+                        <span className="w-[5.5rem]" />
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            ) : null}
+          </>
         )}
         {simulationExtra ? (
           <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 bg-amber-500/5 px-4 py-2.5 text-sm">
@@ -670,14 +818,14 @@ function ProjectionColumn({
         <div className="space-y-1 bg-muted/30 px-4 py-3">
           <div className="flex items-baseline justify-between gap-2 text-sm font-semibold">
             <span>TOTAL</span>
-            <span className="tabular-nums">{formatBRL(displayTotal)}</span>
+            <span className="tabular-nums">{formatBRL(total)}</span>
           </div>
           <p className="text-[11px] text-muted-foreground">
             {simulationExtra
               ? "Com simulação"
               : openOnly
                 ? "Em aberto no mês"
-                : "Comprometido do mês"}
+                : "Parcelas do mês + lançamentos avulsos"}
           </p>
         </div>
       </div>

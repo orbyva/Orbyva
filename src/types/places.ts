@@ -25,7 +25,7 @@ export interface PlaceVisit {
   visited_date?: string | null;
   /** Valor gasto no local (opcional; só em visitados). */
   amount?: number | null;
-  /** Transação no livro-caixa, se registrada. */
+  /** Lançamento em Finanças, se registrado. */
   transaction_id?: number | null;
   address?: string | null;
   would_recommend: boolean;

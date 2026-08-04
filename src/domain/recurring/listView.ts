@@ -1,12 +1,12 @@
 import type { Recurring } from "@/types/recurring";
 import { countsAsMonthlySpend, NATURE_RECEITA } from "@/domain/finance/spendFlags";
 import { getRecurringProgress } from "./alerts";
+import { formatYm } from "./projection";
 
 export type RecurringNatureFilter = "all" | "receive" | "pay";
 
 export type RecurringSortKey =
   | "type"
-  | "class"
   | "value"
   | "frequency"
   | "installments"
@@ -71,12 +71,18 @@ function compareText(a: string, b: string): number {
   return a.localeCompare(b, "pt-BR", { sensitivity: "base" });
 }
 
+function typeLabel(rec: Recurring): string {
+  return rec.class?.type?.name?.trim() || "Sem Tipo";
+}
+
+function classLabel(rec: Recurring): string {
+  return rec.class?.name?.trim() || "Sem Classe";
+}
+
 function sortValue(rec: Recurring, key: RecurringSortKey): string | number {
   switch (key) {
     case "type":
-      return rec.class?.type?.name?.trim() || "Sem Tipo";
-    case "class":
-      return rec.class?.name?.trim() || "Sem Classe";
+      return typeLabel(rec);
     case "value":
       return Number(rec.value) || 0;
     case "frequency":
@@ -103,6 +109,13 @@ export function sortRecurringList(
       cmp = compareText(String(va), String(vb));
     }
     if (cmp !== 0) return cmp * mult;
+
+    // Por tipo: desempate sempre por classe crescente.
+    if (sort.key === "type") {
+      const byClass = compareText(classLabel(a), classLabel(b));
+      if (byClass !== 0) return byClass;
+    }
+
     return compareText(
       a.description?.trim() || a.class?.name || "",
       b.description?.trim() || b.class?.name || ""
@@ -118,4 +131,48 @@ export function toggleRecurringSort(
     return { key, dir: current.dir === "asc" ? "desc" : "asc" };
   }
   return { key, dir: "asc" };
+}
+
+export function recurringActiveInMonth(
+  rec: Recurring,
+  year: number,
+  month: number
+): boolean {
+  if (!Array.isArray(rec.installments)) return false;
+  const ym = formatYm(year, month);
+  return rec.installments.some((inst) => inst.dueDate.slice(0, 7) === ym);
+}
+
+export function filterRecurringByYearMonth(
+  list: Recurring[],
+  year: number,
+  month: number
+): Recurring[] {
+  return list.filter((rec) => recurringActiveInMonth(rec, year, month));
+}
+
+/** Totais das parcelas com vencimento no mês (por natureza). */
+export function sumRecurringActiveInMonth(
+  list: Recurring[],
+  year: number,
+  month: number
+): { receive: number; pay: number } {
+  let receive = 0;
+  let pay = 0;
+  const ym = formatYm(year, month);
+
+  for (const rec of list) {
+    if (!Array.isArray(rec.installments)) continue;
+    const hasInMonth = rec.installments.some(
+      (inst) => inst.dueDate.slice(0, 7) === ym
+    );
+    if (!hasInMonth) continue;
+
+    const side = recurringNatureSide(rec);
+    const value = Number(rec.value) || 0;
+    if (side === "receive") receive += value;
+    else if (side === "pay") pay += value;
+  }
+
+  return { receive, pay };
 }

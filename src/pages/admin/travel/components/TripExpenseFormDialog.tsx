@@ -188,7 +188,7 @@ export function TripExpenseFormDialog({
             </label>
           ) : linkedToLedger ? (
             <p className="text-xs text-muted-foreground">
-              No extrato — salvar atualiza o lançamento
+              Nos lançamentos — salvar atualiza o registro
             </p>
           ) : null}
           {showFinancePicker ? (

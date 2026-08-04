@@ -84,7 +84,7 @@ function contentFor(
       return emailShell({
         eyebrow: "Orbyva · Teste encerrado",
         title: `${greet} — continue de onde parou`,
-        bodyHtml: `<p style="margin:0;">O período de teste terminou. Seus dados continuam salvos — assine o Pro para voltar ao ledger e ao life OS.</p>`,
+        bodyHtml: `<p style="margin:0;">O período de teste terminou. Seus dados continuam salvos — assine o Pro para voltar aos lançamentos e ao life OS.</p>`,
         ctaLabel: "Assinar Pro",
         ctaUrl: `${siteUrl}/account?trial=expired`,
       });
@@ -92,7 +92,7 @@ function contentFor(
       return emailShell({
         eyebrow: "Orbyva · Ativação",
         title: `${greet} — ainda sem a 1ª despesa`,
-        bodyHtml: `<p style="margin:0;">O hub fica vivo quando o livro-caixa começa. Dois minutos: uma categoria e um valor.</p>`,
+        bodyHtml: `<p style="margin:0;">O hub fica vivo quando os lançamentos começam. Dois minutos: uma categoria e um valor.</p>`,
         ctaLabel: "Lançar transação",
         ctaUrl: `${siteUrl}/finance/transactions`,
       });

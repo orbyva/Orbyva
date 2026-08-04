@@ -69,12 +69,16 @@ export function usePlan() {
 
   const plan: PlanId = profile?.plan ?? "free";
   const createdAt = profile?.created_at ?? null;
+  const trialEndsAt = profile?.trial_ends_at ?? null;
   const isPro = isProPlan(plan);
-  const trialActive = !isPro && isTrialActive(createdAt);
-  const daysLeft = isPro ? 0 : trialDaysRemaining(createdAt);
+  const trialActive = !isPro && isTrialActive(createdAt, new Date(), trialEndsAt);
+  const daysLeft = isPro
+    ? 0
+    : trialDaysRemaining(createdAt, new Date(), trialEndsAt);
   const canUseApp = hasAppAccess({
     plan,
     createdAt,
+    trialEndsAt,
     subscriptionStatus: profile?.subscription_status,
   });
 

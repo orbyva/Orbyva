@@ -255,6 +255,10 @@ npm run ci:local     # espelha o CI
 
 Assinatura mensal BR: **cartão** (PIX não cobre recorrência no Checkout).
 
+### Ops interno (não é produto)
+
+Console em `/ops` (fora do menu): conceder Pro / estender teste. Requer migration `trial_ends_at`, deploy da Edge `ops-admin` e secret `OPS_ADMIN_EMAILS` (csv). Allowlist só no servidor.
+
 ---
 
 ## E-mails

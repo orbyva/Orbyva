@@ -14,7 +14,7 @@ const MONEY_FEATURES = [
     points: [
       "Resumo: resultado, gasto e receita do mês",
       "Categorias com % usado e status OK / atenção / estourado",
-      "Aparece no hub junto com o saldo do ledger",
+      "Aparece no hub junto com o saldo dos lançamentos",
     ],
     src: "/marketing/orcamento.png",
     detailSrc: "/marketing/orcamento-categorias.png",
@@ -190,7 +190,7 @@ export function LandingFeatures() {
             </h2>
             <p className="mt-3 text-zinc-400">
               Hábitos, metas, viagens, lugares, cinema e veículos — na mesma
-              órbita do ledger. Liberado desde o dia 1.
+              órbita dos lançamentos. Liberado desde o dia 1.
             </p>
           </motion.div>
 

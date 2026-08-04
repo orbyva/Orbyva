@@ -1,5 +1,5 @@
 import type { Installments } from "@/types/recurring";
-import { isFixedRecurringPlan } from "./constants";
+import { isFixedRecurringPlan, normalizeFixedFrequency } from "./constants";
 
 export function formatInstallmentCount(count: number): string {
   return count === 1 ? "1 parcela" : `${count} parcelas`;
@@ -25,13 +25,20 @@ export function formatInstallmentPlanSummary(rec: {
   installment_count: number | null;
   due_day: number | null;
   validity?: string | null;
+  frequency?: string | null;
   installments?: Installments;
 }): InstallmentPlanSummary | null {
   if (!rec.installment_count || !rec.due_day) return null;
 
-  const dueDayText =
-    rec.due_day === 1 ? "Vence todo dia 1º" : `Vence todo dia ${rec.due_day}`;
   const fixed = isFixedRecurringPlan(rec);
+  const annual = fixed && normalizeFixedFrequency(rec.frequency) === "Anual";
+  const dueDayText = annual
+    ? rec.due_day === 1
+      ? "Vence no dia 1º"
+      : `Vence no dia ${rec.due_day}`
+    : rec.due_day === 1
+      ? "Vence todo dia 1º"
+      : `Vence todo dia ${rec.due_day}`;
 
   let subtitle = dueDayText;
 
@@ -39,16 +46,24 @@ export function formatInstallmentPlanSummary(rec: {
     const first = rec.installments[0].dueDate;
     const last = rec.installments[rec.installments.length - 1].dueDate;
     if (fixed) {
-      subtitle = `${dueDayText} · até ${formatMonthYearShort(last)}`;
+      subtitle = annual
+        ? `${dueDayText} · ${first.slice(0, 4)}`
+        : `${dueDayText} · até ${formatMonthYearShort(last)}`;
     } else {
       subtitle = `${dueDayText} · ${formatMonthYearShort(first)} a ${formatMonthYearShort(last)}`;
     }
   } else if (fixed && rec.validity) {
-    subtitle = `${dueDayText} · até ${formatMonthYearShort(rec.validity)}`;
+    subtitle = annual
+      ? `${dueDayText} · ${rec.validity.slice(0, 4)}`
+      : `${dueDayText} · até ${formatMonthYearShort(rec.validity)}`;
   }
 
   return {
-    title: fixed ? "Mensal fixa" : formatInstallmentCount(rec.installment_count),
+    title: fixed
+      ? annual
+        ? "Anual fixa"
+        : "Mensal fixa"
+      : formatInstallmentCount(rec.installment_count),
     subtitle,
   };
 }
