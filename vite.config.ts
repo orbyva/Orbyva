@@ -213,6 +213,7 @@ export default defineConfig({
         rewrite: (p) => p.replace(/^\/spotify-media/, ""),
       },
     },
+    allowedHosts: ["localhost", "upswing-repose-easter.ngrok-free.dev"]
   },
   test: {
     globals: true,
