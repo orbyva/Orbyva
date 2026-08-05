@@ -240,10 +240,18 @@ export function pickRandomMovie(movies: Movie[]): Movie | null {
   return pickRandomItem(movies);
 }
 
-export function pickRandomToWatchMovie(movies: Movie[]): Movie | null {
-  return pickRandomItem(
-    movies.filter((m) => m.status === MovieStatus.TO_WATCH)
-  );
+export function pickRandomToWatchMovie(
+  movies: Movie[],
+  genre?: string | null
+): Movie | null {
+  let pool = movies.filter((m) => m.status === MovieStatus.TO_WATCH);
+  if (genre && genre !== "all") {
+    const needle = genre.toLowerCase();
+    pool = pool.filter((m) =>
+      asStringList(m.genre).some((g) => g.toLowerCase() === needle)
+    );
+  }
+  return pickRandomItem(pool);
 }
 
 /** Soma episode_count das temporadas TMDB (exclui especiais). */

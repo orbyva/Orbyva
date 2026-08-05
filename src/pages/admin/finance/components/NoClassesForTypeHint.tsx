@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 type DimensionsEmptyHintProps = {
-  /** Nome em destaque (natureza ou tipo). */
+  /** Nome em destaque (natureza ou categoria). */
   subject?: string | null;
   /** O que falta cadastrar. */
   missing: "tipos" | "classes" | "naturezas";
@@ -26,19 +26,19 @@ export function DimensionsEmptyHint({
     message = label ? (
       <>
         <span className="font-medium text-foreground">{label}</span> ainda não
-        tem tipos.{" "}
+        tem categorias.{" "}
       </>
     ) : (
-      <>Ainda não há tipos nesta natureza. </>
+      <>Ainda não há categorias nesta natureza. </>
     );
   } else {
     message = label ? (
       <>
         <span className="font-medium text-foreground">{label}</span> ainda não
-        tem classes.{" "}
+        tem subcategorias.{" "}
       </>
     ) : (
-      <>Este tipo ainda não tem classes. </>
+      <>Esta categoria ainda não tem subcategorias. </>
     );
   }
 
@@ -46,10 +46,10 @@ export function DimensionsEmptyHint({
     <p className="rounded-md border border-dashed border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
       {message}
       <Link
-        to="/finance/dimensions"
+        to="/finance/categories"
         className="font-medium text-primary underline-offset-4 hover:underline"
       >
-        Cadastre em Dimensões
+        Cadastre em Categorias
       </Link>
       .
     </p>

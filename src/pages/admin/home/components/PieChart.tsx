@@ -158,8 +158,8 @@ const renderActiveShape = (isMobile: boolean) => (props: unknown) => {
 };
 
 export function DonutChart({
-  title = "Percentual por Tipo",
-  description = "Análise percentual por tipo de transação",
+  title = "Percentual por categoria",
+  description = "Análise percentual por categoria de transação",
   data,
   onSliceClick,
 }: DonutChartProps) {

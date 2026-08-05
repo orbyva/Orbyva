@@ -22,6 +22,7 @@
     fetchTransactions,
     fetchValueByNatureForMonth,
     fetchValueByNatureYearMonth,
+    fetchValueByTypeForMonth,
     fetchMonthlyBudgetSummary,
   } from "@/api/finance";
   import { Button } from "@/components/ui/button";
@@ -76,33 +77,17 @@
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
 
-  function buildDonutChartData(
-    transactions: Transaction[],
+  function buildDonutFromTypeRows(
+    rows: { nature_name: string; type_name: string; type_color: string | null; total_value: number }[],
     nature: string
   ): DonutChartData[] {
-    const groupedData: Record<string, DonutChartData> = {};
-
-    transactions.forEach((transaction) => {
-      const natureName = transaction.class?.type?.nature?.name;
-      const typeName = transaction.class?.type?.name;
-      const typeColor = transaction.class?.type?.hex_color;
-      const value = transaction.value;
-
-      if (!natureName || natureName !== nature) return;
-      if (!typeName) return;
-
-      if (!groupedData[typeName]) {
-        groupedData[typeName] = {
-          type: typeName,
-          total_value: 0,
-          fill: typeColor || chartColors.fallback,
-        };
-      }
-
-      groupedData[typeName].total_value += value;
-    });
-
-    return Object.values(groupedData);
+    return rows
+      .filter((r) => r.nature_name === nature && r.type_name)
+      .map((r) => ({
+        type: r.type_name,
+        total_value: r.total_value,
+        fill: r.type_color || chartColors.fallback,
+      }));
   }
 
   export default function FinanceDashboard() {
@@ -280,8 +265,8 @@
           "0"
         )}-${lastDayOfMonth}T23:59:59.999Z`;
 
-        const transactions = await fetchTransactions(1, 100, startDate, endDate);
-        return transactions;
+        // Tabela / tripSpend — página maior; donuts vêm de SQL.
+        return await fetchTransactions(1, 500, startDate, endDate);
       } catch (error) {
         console.error("Error fetching transactions:", error);
         return [];
@@ -289,12 +274,17 @@
     }, [selectedMonth, selectedYear]);
 
     useEffect(() => {
-      async function getCardsData() {
+      async function loadMonthBundle() {
         setCardsLoading(true);
         const prev = previousYearMonth(selectedYear, selectedMonth);
-        const [data, prevData] = await Promise.all([
+        const monthIso = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
+
+        const [data, prevData, typeRows, txs, budgetRows] = await Promise.all([
           fetchCardsData(),
           fetchValueByNatureForMonth(prev.year, prev.month).catch(() => null),
+          fetchValueByTypeForMonth(selectedYear, selectedMonth).catch(() => []),
+          fetchTransactionsData(),
+          fetchMonthlyBudgetSummary(monthIso).catch(() => []),
         ]);
 
         if (data) {
@@ -313,37 +303,18 @@
           setPrevDespesaTotal(null);
         }
 
+        setDonutChartDataReceita(buildDonutFromTypeRows(typeRows, "Receita"));
+        setDonutChartDataDespesa(buildDonutFromTypeRows(typeRows, "Despesa"));
+        setTransactions(txs);
+
+        const ceiling = sumExpenseBudgetCeiling(budgetRows);
+        setBudgetPlanned(ceiling > 0 ? ceiling : null);
+
         setCardsLoading(false);
       }
 
-      async function getTransactions() {
-        const data = await fetchTransactionsData();
-        setTransactions(data);
-
-        const receitaData = buildDonutChartData(data, "Receita");
-        const despesaData = buildDonutChartData(data, "Despesa");
-
-        setDonutChartDataReceita(receitaData);
-        setDonutChartDataDespesa(despesaData);
-      }
-
-      getTransactions();
-      getCardsData();
+      void loadMonthBundle();
     }, [fetchCardsData, fetchTransactionsData, selectedYear, selectedMonth]);
-
-    useEffect(() => {
-      async function loadBudgetCeiling() {
-        try {
-          const monthIso = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
-          const rows = await fetchMonthlyBudgetSummary(monthIso);
-          const ceiling = sumExpenseBudgetCeiling(rows);
-          setBudgetPlanned(ceiling > 0 ? ceiling : null);
-        } catch {
-          setBudgetPlanned(null);
-        }
-      }
-      void loadBudgetCeiling();
-    }, [selectedYear, selectedMonth]);
 
     useEffect(() => {
       void fetchGoals()

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ArrowUpDown, Heart, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { deleteMovie, fetchAllMovies, updateMovie } from "@/api/movies";
 import { fetchWatchedEpisodeCounts } from "@/api/movieEpisodes";
@@ -20,7 +28,6 @@ import { MovieSearchModal } from "./components/MovieSearchModal";
 import { MovieEditModal, type MovieEditIntent } from "./components/MovieEditModal";
 import { MovieDetailDialog } from "./components/MovieDetailDialog";
 import { MovieShareDialog } from "./components/MovieShareDialog";
-import { MovieImportDialog } from "./components/MovieImportDialog";
 import Pagination from "../finance/components/Pagination";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/EmptyState";
@@ -45,10 +52,12 @@ import {
   type CatalogSort,
 } from "@/domain/entertainment/sort";
 import { cn } from "@/lib/utils";
+import { MovieStatus } from "@/types/movies";
 
 const moviesCatalogCache = createMemoryCache<Movie[]>();
 
 export default function Movies() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const fetchAll = useCallback(() => fetchAllMovies(), []);
   const { items: allMovies, reload, replace } = useCachedCatalog(
     moviesCatalogCache,
@@ -73,6 +82,9 @@ export default function Movies() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editIntent, setEditIntent] = useState<MovieEditIntent | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [surpriseOpen, setSurpriseOpen] = useState(false);
+  const [surpriseGenre, setSurpriseGenre] = useState<string>("all");
 
   const { toast } = useToast();
 
@@ -86,6 +98,13 @@ export default function Movies() {
   const genres = useMemo(
     () => collectMovieGenres(statusMovies),
     [statusMovies]
+  );
+  const toWatchGenres = useMemo(
+    () =>
+      collectMovieGenres(
+        allMovies.filter((m) => m.status === MovieStatus.TO_WATCH)
+      ),
+    [allMovies]
   );
   const libraryStats = useMemo(
     () => getCinemaLibraryStats(allMovies),
@@ -177,6 +196,14 @@ export default function Movies() {
     };
   }, [pageMovies]);
 
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setAddOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   async function handleDeleteMovie(imdbId: string) {
     try {
       await deleteMovie(imdbId);
@@ -234,17 +261,30 @@ export default function Movies() {
     setIsDetailOpen(true);
   }
 
-  function handleSurprise() {
-    const pick = pickRandomToWatchMovie(allMovies);
+  function confirmSurprise(genre: string | null) {
+    const pick = pickRandomToWatchMovie(allMovies, genre);
     if (!pick) {
       toast({
-        title: "Lista vazia",
-        description: "Adicione títulos em Para assistir para surpreender.",
+        title: genre && genre !== "all" ? "Nada neste gênero" : "Lista vazia",
+        description:
+          genre && genre !== "all"
+            ? "Nenhum título em Para assistir com esse gênero."
+            : "Adicione títulos em Para assistir para surpreender.",
         duration: 2500,
       });
       return;
     }
+    setSurpriseOpen(false);
     openDetail(pick);
+  }
+
+  function handleSurprise() {
+    if (toWatchGenres.length > 0) {
+      setSurpriseGenre("all");
+      setSurpriseOpen(true);
+      return;
+    }
+    confirmSurprise(null);
   }
 
   const description =
@@ -265,8 +305,11 @@ export default function Movies() {
       actions={
         <>
           <ModuleGuideButton moduleId="movies" />
-          <MovieImportDialog onImported={loadMovies} />
-          <MovieSearchModal onMovieAdded={loadMovies} />
+          <MovieSearchModal
+            onMovieAdded={loadMovies}
+            open={addOpen}
+            onOpenChange={setAddOpen}
+          />
         </>
       }
     >
@@ -434,14 +477,11 @@ export default function Movies() {
             description={
               hasClientFilters
                 ? "Tente outro filtro ou termo de busca."
-                : "Adicione títulos ou importe uma lista em CSV."
+                : "Adicione títulos pela busca."
             }
             action={
               hasClientFilters ? undefined : (
-                <div className="flex flex-wrap justify-center gap-2">
-                  <MovieSearchModal onMovieAdded={loadMovies} />
-                  <MovieImportDialog onImported={loadMovies} />
-                </div>
+                <Button onClick={() => setAddOpen(true)}>Adicionar</Button>
               )
             }
           />
@@ -501,6 +541,40 @@ export default function Movies() {
           />
         </>
       )}
+
+      <Dialog open={surpriseOpen} onOpenChange={setSurpriseOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Surpreenda-me</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Escolha um gênero ou deixe em qualquer um.
+            </p>
+            <Select value={surpriseGenre} onValueChange={setSurpriseGenre}>
+              <SelectTrigger>
+                <SelectValue placeholder="Gênero" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Qualquer gênero</SelectItem>
+                {toWatchGenres.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setSurpriseOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => confirmSurprise(surpriseGenre)}>
+              Sortear
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Pagination
         pageSizes={[6, 12, 36, 60]}

@@ -11,7 +11,7 @@ import {
   splitInstallmentValue,
 } from "@/domain/recurring";
 import { formatBRL } from "@/lib/currency";
-import { cn, sortByNamePt } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/MoneyInput";
 import { FormLabel } from "@/components/FormLabel";
-import { NoClassesForTypeHint, DimensionsEmptyHint } from "./NoClassesForTypeHint";
+import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 
 type PlanMode = "fixed" | "split";
 
@@ -92,8 +92,6 @@ export function RecurringFormDialog({
   dimensions,
 }: RecurringFormDialogProps) {
   const [formError, setFormError] = useState<string>("");
-  const [selectedType, setSelectedType] = useState<number | null>(null);
-  const [selectedNature, setSelectedNature] = useState<number | null>(null);
   const [totalValue, setTotalValue] = useState<number | "">("");
   const [planMode, setPlanMode] = useState<PlanMode>("fixed");
 
@@ -154,34 +152,6 @@ export function RecurringFormDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync once when dialog opens
   }, [open]);
 
-  useEffect(() => {
-    if (isEditing && newRecurring.class_id && dimensions.length > 0) {
-      for (const nature of dimensions) {
-        for (const type of nature.types) {
-          const found = type.classes.find(
-            (c) => c.id === newRecurring.class_id
-          );
-          if (found) {
-            setSelectedNature(nature.id);
-            setSelectedType(type.id);
-            return;
-          }
-        }
-      }
-    }
-  }, [isEditing, newRecurring.class_id, dimensions]);
-
-  const naturesSorted = useMemo(() => sortByNamePt(dimensions), [dimensions]);
-  const selectedNatureObj = dimensions.find((n) => n.id === selectedNature);
-  const types = useMemo(
-    () => sortByNamePt(selectedNatureObj?.types ?? []),
-    [selectedNatureObj]
-  );
-  const selectedTypeObj = types.find((t) => t.id === selectedType);
-  const classes = useMemo(
-    () => sortByNamePt(selectedTypeObj?.classes ?? []),
-    [selectedTypeObj]
-  );
 
   const switchToFixed = () => {
     setPlanMode("fixed");
@@ -207,19 +177,7 @@ export function RecurringFormDialog({
   };
 
   const handleCreate = () => {
-    if (!selectedNature) return setFormError("Selecione a Natureza.");
-    if (types.length === 0) {
-      return setFormError(
-        "Esta natureza não tem tipos. Cadastre um em Dimensões."
-      );
-    }
-    if (!selectedType) return setFormError("Selecione o Tipo.");
-    if (classes.length === 0) {
-      return setFormError(
-        "Este tipo não tem classes. Cadastre uma em Dimensões."
-      );
-    }
-    if (!newRecurring.class_id) return setFormError("Selecione a Classe.");
+    if (!newRecurring.class_id) return setFormError("Selecione a subcategoria.");
     if (!newRecurring.description.trim())
       return setFormError("Informe a Descrição.");
     if (!newRecurring.payment_start_date) {
@@ -277,8 +235,6 @@ export function RecurringFormDialog({
       onOpenChange={(openVal) => {
         setOpen(openVal);
         if (!openVal) {
-          setSelectedNature(null);
-          setSelectedType(null);
           setFormError("");
           setTotalValue("");
           setPlanMode("fixed");
@@ -288,13 +244,13 @@ export function RecurringFormDialog({
     >
       {!isEditing && (
         <DialogTrigger asChild>
-          <Button className="w-full sm:w-auto">Nova parcela</Button>
+          <Button className="w-full sm:w-auto">Nova recorrência</Button>
         </DialogTrigger>
       )}
       <DialogContent className="max-h-[90vh] max-w-md gap-0 overflow-y-auto p-4 sm:max-w-xl sm:p-6">
         <DialogHeader className="pb-3">
           <DialogTitle>
-            {isEditing ? "Editar parcela" : "Nova parcela"}
+            {isEditing ? "Editar recorrência" : "Nova recorrência"}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
             {isSplit
@@ -325,106 +281,16 @@ export function RecurringFormDialog({
             </Button>
           </div>
 
-          <div className="space-y-1.5">
-            <FormLabel required>Natureza</FormLabel>
-            {naturesSorted.length === 0 ? (
-              <DimensionsEmptyHint missing="naturezas" />
-            ) : (
-              <Select
-                value={String(selectedNature)}
-                onValueChange={(value) => {
-                  setSelectedNature(parseInt(value));
-                  setSelectedType(null);
-                  setNewRecurring({ ...newRecurring, class_id: 0 });
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Natureza" />
-                </SelectTrigger>
-                <SelectContent>
-                  {naturesSorted.map((nature) => (
-                    <SelectItem key={nature.id} value={String(nature.id)}>
-                      {nature.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          {selectedNature ? (
-            <div
-              className={cn(
-                "grid gap-3",
-                selectedType && classes.length > 0
-                  ? "grid-cols-2"
-                  : "grid-cols-1"
-              )}
-            >
-              <div className="space-y-1.5">
-                <FormLabel required>Tipo</FormLabel>
-                {types.length === 0 ? (
-                  <DimensionsEmptyHint
-                    subject={selectedNatureObj?.name}
-                    missing="tipos"
-                  />
-                ) : (
-                  <Select
-                    value={String(selectedType)}
-                    onValueChange={(value) => {
-                      setSelectedType(parseInt(value));
-                      setNewRecurring({ ...newRecurring, class_id: 0 });
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {types.map((type) => (
-                        <SelectItem key={type.id} value={String(type.id)}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
-              {selectedType ? (
-                <div className="space-y-1.5">
-                  <FormLabel required>Classe</FormLabel>
-                  {classes.length === 0 ? (
-                    <NoClassesForTypeHint typeName={selectedTypeObj?.name} />
-                  ) : (
-                    <Select
-                      value={
-                        newRecurring.class_id
-                          ? String(newRecurring.class_id)
-                          : undefined
-                      }
-                      onValueChange={(value) =>
-                        setNewRecurring({
-                          ...newRecurring,
-                          class_id: Number(value),
-                        })
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Classe" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {classes.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          <ClassSearchPicker
+            dimensions={dimensions}
+            value={newRecurring.class_id || null}
+            onChange={(opt) =>
+              setNewRecurring({
+                ...newRecurring,
+                class_id: opt?.id ?? 0,
+              })
+            }
+          />
 
           <div className="space-y-1.5">
             <FormLabel required>Descrição</FormLabel>
@@ -628,7 +494,7 @@ export function RecurringFormDialog({
             onClick={handleCreate}
             className="w-full sm:w-auto sm:justify-self-start"
           >
-            {isEditing ? "Salvar alterações" : "Salvar parcela"}
+            {isEditing ? "Salvar alterações" : "Salvar recorrência"}
           </Button>
         </div>
       </DialogContent>

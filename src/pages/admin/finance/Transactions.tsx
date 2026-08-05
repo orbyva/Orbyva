@@ -13,7 +13,6 @@ import { Transaction, TransactionCreateRequest } from "@/types/finance";
 import { TransactionsTable } from "./components/TransactionsTable";
 import { useTransactions } from "@/hooks/database/useTransactions";
 import { TransactionFormDialog } from "./components/TransactionFormDialog";
-import { FinanceImportDialog } from "./components/FinanceImportDialog";
 import {
   createTransactionApi,
   deleteTransactionApi,
@@ -72,6 +71,7 @@ export default function Transactions() {
     useState<TransactionCreateRequest>(new_transaction_default);
 
   const [formOpen, setOpen] = useState(false);
+  const [preferredNature, setPreferredNature] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
@@ -82,6 +82,7 @@ export default function Transactions() {
     if (searchParams.get("new") !== "1") return;
     const prefillDesc = searchParams.get("desc") ?? "";
     const prefillValue = Number(searchParams.get("value"));
+    const naturePref = (searchParams.get("nature") ?? "").toLowerCase();
     setIsEditing(false);
     setSelectedTransaction(null);
     setNewTransaction({
@@ -93,11 +94,21 @@ export default function Transactions() {
       description: prefillDesc,
       transaction_at: new Date().toISOString(),
     });
+    setPreferredNature(
+      naturePref === "receita"
+        ? "Receita"
+        : naturePref === "investimento"
+          ? "Investimento"
+          : naturePref === "despesa"
+            ? "Despesa"
+            : null
+    );
     setOpen(true);
     const next = new URLSearchParams(searchParams);
     next.delete("new");
     next.delete("desc");
     next.delete("value");
+    next.delete("nature");
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
@@ -198,6 +209,7 @@ export default function Transactions() {
     setIsEditing(false);
     setSelectedTransaction(null);
     setNewTransaction(new_transaction_default);
+    setPreferredNature(null);
   }
 
   const natureFilters: { id: NatureFilter; label: string }[] = [
@@ -227,8 +239,6 @@ export default function Transactions() {
             Atualizar
           </Button>
 
-          <FinanceImportDialog onImported={refetchTransactions} />
-
           <TransactionFormDialog
             open={formOpen}
             setOpen={setOpen}
@@ -238,6 +248,7 @@ export default function Transactions() {
             dimensions={dimensions}
             isEditing={isEditing}
             onClose={handleCloseForm}
+            preferredNatureName={preferredNature}
           />
         </>
       }
@@ -253,7 +264,7 @@ export default function Transactions() {
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por descrição, tipo ou classe..."
+              placeholder="Buscar por descrição, categoria ou subcategoria..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"

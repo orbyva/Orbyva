@@ -28,6 +28,14 @@ export interface PlaceVisit {
   /** Lançamento em Finanças, se registrado. */
   transaction_id?: number | null;
   address?: string | null;
+  /** Latitude WGS84 (Places / rota). */
+  lat?: number | null;
+  /** Longitude WGS84 (Places / rota). */
+  lng?: number | null;
+  /** Place ID Google (legado). */
+  google_place_id?: string | null;
+  /** Place ID Geoapify. */
+  geoapify_place_id?: string | null;
   would_recommend: boolean;
   created_at?: string;
   trip?: { id: string; title: string; destination?: string | null } | null;

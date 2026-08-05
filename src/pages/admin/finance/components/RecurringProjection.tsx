@@ -36,7 +36,7 @@ import {
 } from "@/domain/recurring/projection";
 import type { Recurring } from "@/types/recurring";
 import { updateRecurringParcelPayment } from "@/api/recurring";
-import { fetchTransactions } from "@/api/finance";
+import { fetchAvulsoLedgerInRange } from "@/api/finance";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { RecurringProjectionChart } from "./RecurringProjectionChart";
@@ -157,7 +157,7 @@ export function RecurringProjection({
         const startDate = `${from.year}-${String(from.month).padStart(2, "0")}-01T00:00:00.000Z`;
         const lastDay = new Date(to.year, to.month, 0).getDate();
         const endDate = `${to.year}-${String(to.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}T23:59:59.999Z`;
-        const txs = await fetchTransactions(1, 1000, startDate, endDate);
+        const txs = await fetchAvulsoLedgerInRange(startDate, endDate);
         if (cancelled) return;
 
         const byYm = indexAvulsoLedgerByYm(txs);
@@ -223,7 +223,8 @@ export function RecurringProjection({
       await updateRecurringParcelPayment(
         line.recurringId,
         line.installmentNumber,
-        rec?.paid_parcels || []
+        rec?.paid_parcels || [],
+        line.paid ? undefined : new Date().toISOString().slice(0, 10)
       );
       toast({
         title: line.paid

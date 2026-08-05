@@ -38,6 +38,10 @@ export interface Trip {
   spent?: number | null;
   notes?: string | null;
   status: TripStatus;
+  /** Origem inicial do roteiro (fallback sem GPS). */
+  origin_lat?: number | null;
+  origin_lng?: number | null;
+  origin_label?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -90,6 +94,8 @@ export interface TripItineraryDay {
   activities?: TripItineraryActivity[];
 }
 
+export type TripVisitStatus = "pending" | "completed" | "skipped";
+
 export interface TripItineraryActivity {
   id: string;
   day_id: string;
@@ -98,10 +104,30 @@ export interface TripItineraryActivity {
   notes?: string | null;
   place_visit_id?: string | null;
   sort_order: number;
+  link_url?: string | null;
+  is_reserved?: boolean;
+  /** Tipo do lugar (mesmo conjunto de PlaceType). */
+  category?: TripActivityCategory;
+  /** Checklist da visita — nunca auto por horário. */
+  visit_status?: TripVisitStatus;
+  completed_at?: string | null;
+  skipped_at?: string | null;
   created_by_user_id?: string | null;
   created_by_name?: string | null;
   created_by_avatar?: string | null;
 }
+
+/** Tipos de visita no roteiro — alinhados a lugares. */
+export type TripActivityCategory =
+  | "restaurant"
+  | "cafe"
+  | "bar"
+  | "attraction"
+  | "hotel"
+  | "park"
+  | "museum"
+  | "shop"
+  | "other";
 
 export interface TripMilestone {
   id: string;
@@ -116,6 +142,9 @@ export interface TripMilestone {
 export interface TripWithChecklist extends Trip {
   checklist: TripChecklistItem[];
   checklistProgress: number;
+  /** Contagens para cards da lista (evita baixar checklist inteiro). */
+  checklistDone?: number;
+  checklistTotal?: number;
   daysUntilStart: number | null;
 }
 

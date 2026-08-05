@@ -20,8 +20,8 @@ const DEFAULT_SCREENS: PhoneScreen[] = [
   },
   {
     src: "/marketing/parcelas.png",
-    alt: "Parcelas e recorrências sob controle",
-    label: "Parcelas",
+    alt: "Recorrências: contas fixas e parceladas sob controle",
+    label: "Recorrências",
   },
   {
     src: "/marketing/financas.png",

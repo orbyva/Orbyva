@@ -6,32 +6,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
+import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import { formatBRL } from "@/lib/currency";
+import type { Dimension } from "@/types/dimensions";
 import type { TripExpense } from "@/types/travel";
-
-type DimItem = { id: number; name: string };
 
 type Props = {
   expense: TripExpense | null;
   onOpenChange: (open: boolean) => void;
   userId: string | undefined;
-  financeTypeId: number;
   classId: number;
-  onFinanceTypeIdChange: (id: number) => void;
   onClassIdChange: (id: number) => void;
-  expenseTypes: DimItem[];
-  expenseClasses: DimItem[];
+  dimensions: Dimension[];
   onConfirm: () => void;
 };
 
@@ -39,12 +28,9 @@ export function TripSplitRegisterDialog({
   expense,
   onOpenChange,
   userId,
-  financeTypeId,
   classId,
-  onFinanceTypeIdChange,
   onClassIdChange,
-  expenseTypes,
-  expenseClasses,
+  dimensions,
   onConfirm,
 }: Props) {
   return (
@@ -66,52 +52,13 @@ export function TripSplitRegisterDialog({
                 expense.splits?.find((s) => s.user_id === userId)?.amount ?? 0
               )}
             </p>
-            <div
-              className={
-                financeTypeId
-                  ? "grid grid-cols-2 gap-3"
-                  : "grid grid-cols-1 gap-3"
-              }
-            >
-              <div>
-                <FormLabel required>Tipo</FormLabel>
-                <Select
-                  value={financeTypeId ? String(financeTypeId) : ""}
-                  onValueChange={(v) => onFinanceTypeIdChange(Number(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {expenseTypes.map((type) => (
-                      <SelectItem key={type.id} value={String(type.id)}>
-                        {type.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {financeTypeId ? (
-                <div>
-                  <FormLabel required>Classe</FormLabel>
-                  <Select
-                    value={classId ? String(classId) : ""}
-                    onValueChange={(v) => onClassIdChange(Number(v))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Classe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {expenseClasses.map((cls) => (
-                        <SelectItem key={cls.id} value={String(cls.id)}>
-                          {cls.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
-            </div>
+            <ClassSearchPicker
+              dimensions={dimensions}
+              value={classId > 0 ? classId : null}
+              preferredNatureName="Despesa"
+              autoFocus={false}
+              onChange={(opt) => onClassIdChange(opt?.id ?? 0)}
+            />
             <Button
               className="w-full"
               disabled={!classId}

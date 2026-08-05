@@ -22,6 +22,9 @@ import type {
 import type { TransactionCreateRequest } from "@/types/finance";
 import type { TripPlaceOpinion } from "@/types/tripSharing";
 
+const PLACE_LIST_SELECT =
+  "id, user_id, trip_id, name, type, status, rating, notes, visited_date, amount, transaction_id, address, lat, lng, geoapify_place_id, google_place_id, would_recommend, created_at, trip:trip_id(id, title, destination)";
+
 function normalizeRows(rows: PlaceVisit[] | null): PlaceVisit[] {
   return (rows ?? []).map(withNormalizedPlaceStatus);
 }
@@ -171,33 +174,44 @@ export async function fetchPlaces(
     await assertTripAccess(tripId);
     const { data, error } = await supabase
       .from("place_visit")
-      .select("*, trip:trip_id(id, title, destination)")
+      .select(PLACE_LIST_SELECT)
       .eq("trip_id", tripId)
       .order("visited_date", { ascending: false, nullsFirst: false });
     if (error) throw new Error(error.message);
-    return normalizeRows(data);
+    return normalizeRows(data as unknown as PlaceVisit[]);
   }
 
   const { data, error } = await supabase
     .from("place_visit")
-    .select("*, trip:trip_id(id, title, destination)")
+    .select(PLACE_LIST_SELECT)
     .eq("user_id", userId)
     .order("visited_date", { ascending: false, nullsFirst: false });
   if (error) throw new Error(error.message);
-  return normalizeRows(data);
+  return normalizeRows(data as unknown as PlaceVisit[]);
+}
+
+/** Contagem leve para hub — sem baixar visitas. */
+export async function fetchPlacesCount(): Promise<number> {
+  const userId = await getCurrentUserId();
+  const { count, error } = await supabase
+    .from("place_visit")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  return count || 0;
 }
 
 export async function fetchPlaceById(id: string): Promise<PlaceVisit | null> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("place_visit")
-    .select("*, trip:trip_id(id, title, destination)")
+    .select(PLACE_LIST_SELECT)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
 
-  const place = withNormalizedPlaceStatus(data);
+  const place = withNormalizedPlaceStatus(data as unknown as PlaceVisit);
   if (place.user_id === userId) return place;
   if (place.trip_id) {
     try {
@@ -254,13 +268,19 @@ export async function createPlace(
   if (error) {
     // Migration ainda não aplicada — salva sem colunas novas.
     if (
-      /status|amount|transaction_id/i.test(error.message) ||
+      /status|amount|transaction_id|lat|lng|google_place_id|geoapify_place_id/i.test(
+        error.message
+      ) ||
       error.code === "PGRST204"
     ) {
       const legacy = { ...payload } as Record<string, unknown>;
       delete legacy.status;
       delete legacy.amount;
       delete legacy.transaction_id;
+      delete legacy.lat;
+      delete legacy.lng;
+      delete legacy.google_place_id;
+      delete legacy.geoapify_place_id;
       const retry = await supabase
         .from("place_visit")
         .insert([{ ...legacy, user_id: userId }])
@@ -450,7 +470,7 @@ export async function countPlacesByTrip(tripId: string): Promise<number> {
   await assertTripAccess(tripId);
   const { count, error } = await supabase
     .from("place_visit")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("trip_id", tripId);
   if (error) throw new Error(error.message);
   return count ?? 0;

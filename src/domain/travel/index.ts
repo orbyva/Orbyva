@@ -1,5 +1,6 @@
 import type {
   Trip,
+  TripActivityCategory,
   TripChecklistCategory,
   TripChecklistItem,
   TripExpense,
@@ -8,6 +9,7 @@ import type {
   TripMilestone,
   TripWithChecklist,
 } from "@/types/travel";
+import { PLACE_TYPE_LABELS } from "@/domain/places";
 import { sumTripSpent } from "./spent";
 
 export { sumTripSpent } from "./spent";
@@ -25,6 +27,22 @@ export const TRIP_STATUS_LABELS: Record<string, string> = {
   completed: "Concluída",
   cancelled: "Cancelada",
 };
+
+/**
+ * Viagem encerrada: concluída, cancelada ou com data final anterior a hoje.
+ * Roteiro vira somente leitura e não calcula deslocamentos.
+ */
+export function isTripFinished(params: {
+  endDate: string | null | undefined;
+  status?: string | null;
+  todayIso: string;
+}): boolean {
+  if (params.status === "completed" || params.status === "cancelled") {
+    return true;
+  }
+  if (!params.endDate) return false;
+  return params.endDate.slice(0, 10) < params.todayIso.slice(0, 10);
+}
 
 export const CHECKLIST_CATEGORY_LABELS: Record<string, string> = {
   documents: "Documentos",
@@ -50,6 +68,29 @@ export const MILESTONE_TYPE_LABELS: Record<string, string> = {
   activity: "Atividade",
   other: "Outro",
 };
+
+/** Tipos de visita no roteiro — mesmos rótulos de lugares. */
+export const ACTIVITY_CATEGORY_LABELS = PLACE_TYPE_LABELS;
+
+const LEGACY_ACTIVITY_CATEGORY: Record<string, TripActivityCategory> = {
+  flight: "other",
+  transport: "other",
+  activity: "attraction",
+};
+
+/** Normaliza categoria salva (inclui valores legados flight/transport/activity). */
+export function normalizeTripActivityCategory(
+  value: string | null | undefined
+): TripActivityCategory {
+  if (!value) return "attraction";
+  if (value in LEGACY_ACTIVITY_CATEGORY) {
+    return LEGACY_ACTIVITY_CATEGORY[value]!;
+  }
+  if (value in PLACE_TYPE_LABELS) {
+    return value as TripActivityCategory;
+  }
+  return "attraction";
+}
 
 export const DEFAULT_CHECKLIST_TEMPLATE: {
   title: string;
@@ -104,9 +145,11 @@ export function generateItineraryDays(
 
 export function enrichTrip(
   trip: Trip,
-  checklist: TripChecklistItem[]
+  checklist: TripChecklistItem[],
+  progress?: { done: number; total: number }
 ): TripWithChecklist {
-  const done = checklist.filter((c) => c.done).length;
+  const done = progress?.done ?? checklist.filter((c) => c.done).length;
+  const total = progress?.total ?? checklist.length;
   const daysUntilStart = getDaysUntil(trip.start_date);
 
   let status = trip.status;
@@ -121,8 +164,9 @@ export function enrichTrip(
     ...trip,
     status,
     checklist,
-    checklistProgress:
-      checklist.length > 0 ? Math.round((done / checklist.length) * 100) : 0,
+    checklistDone: done,
+    checklistTotal: total,
+    checklistProgress: total > 0 ? Math.round((done / total) * 100) : 0,
     daysUntilStart: daysUntilStart >= 0 ? daysUntilStart : null,
   };
 }

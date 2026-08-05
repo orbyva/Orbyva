@@ -21,10 +21,10 @@ A sidebar agrupa o app em quatro blocos:
 
 ### Finanças
 - **Dashboard** (`/finance/dashboard`) — KPIs, gráficos e alertas de vencimento
-- **Transações** — CRUD com dimensões (Tipo/Classe), busca e paginação
-- **Parcelas** — lista de recorrências/12x; aba **Projeção** (a receber × a pagar, gráfico e simular compra); marcar/desfazer pagamento
+- **Transações** — CRUD com categoria/subcategoria, busca e paginação
+- **Recorrências** (`/finance/recurring`) — contas/parcelas e custos previstos; aba **Projeção**; marcar/desfazer pagamento (`paid_at`)
 - **Orçamento mensal** — planejado vs gasto, alertas e duplicação entre meses
-- **Dimensões** — tipos e classes com cor e ícone
+- **Categorias** — categorias e subcategorias com cor e ícone
 
 ### Entretenimento
 - **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); episódios com nota; import Letterboxd / TV Time; card Stories
@@ -34,15 +34,15 @@ A sidebar agrupa o app em quatro blocos:
 ### Vida
 - **Hábitos** (`/habits`) — check-in do dia, faixa da semana, heatmap mensal (aba **Hoje | Mês**), anti-hábitos e vínculo com metas
 - **Metas** (`/goals`) — progresso, categorias e prazos
-- **Lugares** (`/places`) — restaurantes, cafés, passeios; nota e opinião
-- **Viagens** (`/travel`) — checklist, roteiro, gastos, lugares e prazos (`/travel/:id`); convites compartilhados
+- **Lugares** (`/places`) — para visitar / visitados; busca Geoapify; nota e opinião
+- **Viagens** (`/travel`) — checklist, roteiro de visitas (próximo destino + rotas), gastos, lugares e prazos (`/travel/:id`); convites compartilhados
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
 
 ---
 
 ## Arquitetura
 
-Orbyva é um **SPA multi-módulo** com backend BaaS. O front não fala SQL direto: passa por uma camada de API tipada; regras de negócio ficam em funções puras testáveis; segredos de terceiros (Stripe, Spotify, Resend) ficam em **Edge Functions**, não em `VITE_*`.
+Orbyva é um **SPA multi-módulo** com backend BaaS. O front não fala SQL direto: passa por uma camada de API tipada; regras de negócio ficam em funções puras testáveis; segredos de terceiros (Stripe, Spotify, Geoapify, Google Routes, Resend) ficam em **Edge Functions**, não em `VITE_*`.
 
 ### Camadas (`src/`)
 
@@ -93,7 +93,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 | Postgres + migrations | Schema versionado em `supabase/migrations/` |
 | Auth | Google OAuth (+ e-mail via hook `auth-send-email`) |
 | Storage | Capas manuais (`album-covers`), avatares, etc. |
-| Edge Functions | Stripe, e-mails lifecycle/retenção/digest, `spotify-catalog`, convites de viagem |
+| Edge Functions | Stripe, e-mails lifecycle/retenção/digest, `spotify-catalog`, `places-catalog`, convites de viagem |
 
 ---
 
@@ -122,7 +122,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 /supabase
   ├─ migrations/        Schema / RLS / seeds (fonte da verdade)
   ├─ config.toml
-  └─ functions/         stripe-*, spotify-catalog, e-mails, waitlist…
+  └─ functions/         stripe-*, spotify-catalog, places-catalog, e-mails, waitlist…
 /src
   ├─ api/               Cliente Supabase por domínio
   ├─ domain/            Regras puras + testes
@@ -150,7 +150,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 | `/home` | Hub / dashboard geral |
 | `/timeline` | Timeline |
 | `/account` | Conta (plano, export, preferências de e-mail) |
-| `/finance/*` | Dashboard, transações, parcelas, orçamento, dimensões |
+| `/finance/*` | Dashboard, transações, recorrências, orçamento, categorias |
 | `/movies` | Cinema |
 | `/books` | Livros |
 | `/music` | Música |
@@ -176,7 +176,7 @@ Gates importantes:
 | Tema | Migration (prefixo) |
 |------|---------------------|
 | Tenancy + RLS | `20240101000100_tenancy_rls` |
-| Dimensões / billing / naturezas | `20240101000200` … `00400` |
+| Categorias / billing / naturezas | `20240101000200` … `00400` |
 | Cinema / veículos / viagens | `20240101000500` … `01100` |
 | Security hardening | `20240101001200_security_hardening` |
 | Gate trial/Pro | `20260723120000_app_access_enforce` |
@@ -185,6 +185,9 @@ Gates importantes:
 | Livros | `20260728120000_books` (+ bookmark, notes, score) |
 | Música (álbum + faixas + Spotify source) | `20260728160000_albums` … `20260728210000_album_source_spotify` |
 | Cinema watching/abandoned | `20260728200000_movie_watching_abandoned` |
+| Roteiro (link / reservado / categoria) | `20260804120000_improve_md_features` |
+| Lugares geo + checklist de visita | `20260804200000_place_visit_geo` |
+| Quota Maps (Geoapify / Google Routes) | `20260804210000` … `20260804220000_maps_api_quota*` |
 
 > Sem tenancy/RLS, o app filtra no cliente, mas o banco ainda pode vazar. Teste com **2 contas** (E2E RLS opcional).
 
@@ -196,7 +199,7 @@ Gates importantes:
 
 - **Node.js 20+**
 - Projeto **Supabase** (URL + Anon Key)
-- Opcionais: TMDB / OMDb (cinema), Google Books, Spotify (música), Stripe, Resend
+- Opcionais: TMDB / OMDb (cinema), Google Books, Spotify (música), Geoapify + Google Routes (lugares/roteiro), Stripe, Resend
 
 ### Variáveis
 
@@ -228,6 +231,22 @@ supabase db push
 ```
 
 Fluxo: Client Credentials na Edge `spotify-catalog` → busca/capa/tracklist **sem login Spotify do usuário**. Fallback: MusicBrainz + Cover Art Archive (`/mb-api`, `/caa-media`). Capas Spotify: `/spotify-media`. Em Development Mode a cota é limitada; produção comercial precisa de Extended Quota. Depois de mudar proxies no Vite, reinicie `npm run dev`.
+
+**Lugares / rotas — secrets no Supabase (não no Vite):**
+
+```bash
+supabase secrets set \
+  GEOAPIFY_API_KEY=… \
+  GOOGLE_ROUTES_API_KEY=… \
+  MAPS_QUOTA_ENFORCE=true \
+  GEOAPIFY_DAILY_CREDIT_LIMIT=2800 \
+  GOOGLE_ROUTES_ESSENTIALS_MONTHLY_LIMIT=9000 \
+  GOOGLE_ROUTES_PRO_MONTHLY_LIMIT=4500
+supabase functions deploy places-catalog
+supabase db push
+```
+
+Edge `places-catalog`: busca Geoapify (Brasil) + Google Routes. WALK/BICYCLE/TRANSIT usam cota Essentials; DRIVE com tráfego usa Pro. Ver `.env.example`.
 
 ### Instalar e rodar
 
@@ -290,7 +309,7 @@ Secrets comuns: `RESEND_API_KEY`, `RESEND_FROM`, `SITE_URL`, `CRON_SECRET`. Pref
 2. Env: `VITE_SUPABASE_*`, chaves de catálogo, Stripe publishable se cobrar
 3. Build: `npm run build` · Output: `dist`
 4. `vercel.json` — SPA rewrite + proxies de mídia + CSP
-5. Deploy das Edge Functions no Supabase (Stripe / Spotify / e-mails)
+5. Deploy das Edge Functions no Supabase (Stripe / Spotify / places-catalog / e-mails)
 
 > Só **Anon Key** no front. Nunca service role no browser.
 

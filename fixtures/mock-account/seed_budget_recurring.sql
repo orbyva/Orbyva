@@ -2,7 +2,7 @@
 -- Orbyva — seed Orçamento + Parcelas (demo prints)
 -- Conta: 19f584d5-8649-4770-8569-cce62cf74b7f
 --
--- Pré-requisito: dimensões padrão já criadas (tour / ensureDefaultDimensions)
+-- Pré-requisito: categorias padrão já criadas (tour / ensureDefaultDimensions)
 -- e, de preferência, 01-financas.csv importado (jul/2026).
 --
 -- Como usar:
@@ -44,7 +44,7 @@ begin
     raise exception 'Usuário % não existe em auth.users', uid;
   end if;
 
-  -- ── Resolver dimensões do user ────────────────────────────────────────────
+  -- ── Resolver categorias do user ───────────────────────────────────────────
   select id into t_salario from public.type
   where user_id = uid and lower(name) = 'salário' limit 1;
   select id into t_moradia from public.type
@@ -58,7 +58,7 @@ begin
 
   if t_moradia is null or t_alim is null or t_transp is null or t_lazer is null then
     raise exception
-      'Dimensões padrão não encontradas. Faça login na conta demo e conclua o tour (criar tipos/classes) antes.';
+      'Categorias padrão não encontradas. Faça login na conta demo e conclua o tour (criar categorias/subcategorias) antes.';
   end if;
 
   select id into c_aluguel from public.class

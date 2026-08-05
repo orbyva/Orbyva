@@ -4,17 +4,26 @@ import {
   getRecurringDueAlerts,
   resolvePaymentStartDate,
 } from "@/api/recurring";
-import { fetchVehicles, fetchMaintenancesForVehicles, fetchDocumentsForVehicles } from "@/api/car";
+import {
+  fetchVehicles,
+  fetchMaintenancesForVehicles,
+  fetchDocumentsForVehicles,
+} from "@/api/car";
 import { fetchGoals } from "@/api/goals";
-import { fetchHabits, fetchAllHabitLogs } from "@/api/habits";
+import { fetchHabitsWithLogs } from "@/api/habits";
 import { fetchPlaces } from "@/api/places";
-import { fetchTrips, fetchTripMilestones } from "@/api/travel";
-import { fetchMovies } from "@/api/movies";
+import { fetchTrips, fetchMilestonesForTrips } from "@/api/travel";
+import { fetchMovieListMeta } from "@/api/movies";
 import { getMaintenanceAlerts, getDocumentAlerts } from "@/domain/car";
 import { getTodayIso, isCompletedToday } from "@/domain/habits";
 import { getDaysUntil } from "@/domain/travel";
 import { GOAL_CATEGORY_LABELS } from "@/domain/goals";
 import type { TimelineItem, LifeDashboardSummary } from "@/types/timeline";
+import type { Habit, HabitLog } from "@/types/habits";
+import type { PersonalGoal } from "@/types/goals";
+import type { Trip, TripMilestone } from "@/types/travel";
+import type { Vehicle, Maintenance, VehicleDocument } from "@/types/car";
+import type { Recurring } from "@/types/recurring";
 import { fetchValueByNatureForMonth } from "@/api/finance";
 
 const MODULE_LABELS: Record<string, string> = {
@@ -39,9 +48,65 @@ function resolveStatus(
   return "upcoming";
 }
 
+/** Dados de domínio já carregados — evita refetch no hub. */
+export type TimelinePrefetch = {
+  recurring?: Recurring[];
+  vehicles?: Vehicle[];
+  maintenances?: Maintenance[];
+  documents?: VehicleDocument[];
+  goals?: PersonalGoal[];
+  trips?: Trip[];
+  milestones?: TripMilestone[];
+  habits?: Habit[];
+  habitLogs?: HabitLog[];
+};
+
+/** Carrega domínios uma vez para Timeline / hub (sem TMDB). */
+export async function loadTimelineDomains(): Promise<TimelinePrefetch> {
+  const todayIso = getTodayIso();
+  const [recurring, vehicles, goals, trips, habitsBundle] = await Promise.all([
+    fetchRecurringTransactions().catch(() => [] as Recurring[]),
+    fetchVehicles().catch(() => [] as Vehicle[]),
+    fetchGoals().catch(() => [] as PersonalGoal[]),
+    fetchTrips().catch(() => [] as Trip[]),
+    fetchHabitsWithLogs({ fromDate: todayIso }).catch(() => ({
+      habits: [] as Habit[],
+      logs: [] as HabitLog[],
+    })),
+  ]);
+
+  const vehicleIds = vehicles.map((v) => v.id);
+  const activeTripIds = trips
+    .filter((t) => t.status !== "cancelled" && t.status !== "completed")
+    .map((t) => t.id);
+
+  const [maintenances, documents, milestones] = await Promise.all([
+    vehicleIds.length
+      ? fetchMaintenancesForVehicles(vehicleIds).catch(() => [])
+      : Promise.resolve([] as Maintenance[]),
+    vehicleIds.length
+      ? fetchDocumentsForVehicles(vehicleIds).catch(() => [])
+      : Promise.resolve([] as VehicleDocument[]),
+    fetchMilestonesForTrips(activeTripIds).catch(() => [] as TripMilestone[]),
+  ]);
+
+  return {
+    recurring,
+    vehicles,
+    maintenances,
+    documents,
+    goals,
+    trips,
+    milestones,
+    habits: habitsBundle.habits,
+    habitLogs: habitsBundle.logs,
+  };
+}
+
 export async function fetchTimelineItems(
   daysAhead = 60,
-  daysBehind = 14
+  daysBehind = 14,
+  prefetch?: TimelinePrefetch
 ): Promise<TimelineItem[]> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -57,11 +122,27 @@ export async function fetchTimelineItems(
 
   const [financeItems, carItems, goalItems, travelItems, habitItems] =
     await Promise.all([
-      collectFinanceTimeline(inRange, todayIso),
-      collectCarTimeline(inRange, todayIso),
-      collectGoalsTimeline(inRange, todayIso),
-      collectTravelTimeline(inRange, todayIso),
-      collectHabitsTimeline(todayIso),
+      collectFinanceTimeline(inRange, todayIso, prefetch?.recurring),
+      collectCarTimeline(
+        inRange,
+        todayIso,
+        prefetch
+          ? {
+              vehicles: prefetch.vehicles,
+              maintenances: prefetch.maintenances,
+              documents: prefetch.documents,
+            }
+          : undefined
+      ),
+      collectGoalsTimeline(inRange, todayIso, prefetch?.goals),
+      collectTravelTimeline(
+        inRange,
+        todayIso,
+        prefetch
+          ? { trips: prefetch.trips, milestones: prefetch.milestones }
+          : undefined
+      ),
+      collectHabitsTimeline(todayIso, prefetch),
     ]);
 
   const items = [
@@ -87,10 +168,12 @@ export async function fetchTimelineItems(
 
 async function collectFinanceTimeline(
   inRange: (date: string) => boolean,
-  todayIso: string
+  todayIso: string,
+  recurringPrefetch?: Recurring[]
 ): Promise<TimelineItem[]> {
   try {
-    const recurring = await fetchRecurringTransactions();
+    const recurring =
+      recurringPrefetch ?? (await fetchRecurringTransactions());
     const withInstallments = recurring.map((rec) => ({
       ...rec,
       installments: calculateInstallments(
@@ -126,20 +209,31 @@ async function collectFinanceTimeline(
 
 async function collectCarTimeline(
   inRange: (date: string) => boolean,
-  todayIso: string
+  todayIso: string,
+  prefetch?: {
+    vehicles?: Vehicle[];
+    maintenances?: Maintenance[];
+    documents?: VehicleDocument[];
+  }
 ): Promise<TimelineItem[]> {
   try {
-    const vehicles = await fetchVehicles();
+    const vehicles = prefetch?.vehicles ?? (await fetchVehicles());
     if (vehicles.length === 0) return [];
     const vehicleIds = vehicles.map((v) => v.id);
     const [maintenances, documents] = await Promise.all([
-      fetchMaintenancesForVehicles(vehicleIds),
-      fetchDocumentsForVehicles(vehicleIds),
+      prefetch?.maintenances
+        ? Promise.resolve(prefetch.maintenances)
+        : fetchMaintenancesForVehicles(vehicleIds),
+      prefetch?.documents
+        ? Promise.resolve(prefetch.documents)
+        : fetchDocumentsForVehicles(vehicleIds),
     ]);
 
     const items: TimelineItem[] = [];
     for (const vehicle of vehicles) {
-      const vehicleMaint = maintenances.filter((m) => m.vehicle_id === vehicle.id);
+      const vehicleMaint = maintenances.filter(
+        (m) => m.vehicle_id === vehicle.id
+      );
       const vehicleDocs = documents.filter((d) => d.vehicle_id === vehicle.id);
       const maintAlerts = getMaintenanceAlerts(vehicle, vehicleMaint);
       const docAlerts = getDocumentAlerts(vehicleDocs);
@@ -184,10 +278,11 @@ async function collectCarTimeline(
 
 async function collectGoalsTimeline(
   inRange: (date: string) => boolean,
-  todayIso: string
+  todayIso: string,
+  goalsPrefetch?: PersonalGoal[]
 ): Promise<TimelineItem[]> {
   try {
-    const goals = await fetchGoals();
+    const goals = goalsPrefetch ?? (await fetchGoals());
     const items: TimelineItem[] = [];
     for (const goal of goals.filter(
       (g) => g.status === "active" && g.deadline
@@ -212,68 +307,85 @@ async function collectGoalsTimeline(
 
 async function collectTravelTimeline(
   inRange: (date: string) => boolean,
-  todayIso: string
+  todayIso: string,
+  prefetch?: { trips?: Trip[]; milestones?: TripMilestone[] }
 ): Promise<TimelineItem[]> {
   try {
-    const trips = (await fetchTrips()).filter(
+    const trips = (
+      prefetch?.trips ?? (await fetchTrips())
+    ).filter(
       (trip) => trip.status !== "cancelled" && trip.status !== "completed"
     );
-    const perTrip = await Promise.all(
-      trips.map(async (trip) => {
-        const items: TimelineItem[] = [];
-        if (inRange(trip.start_date)) {
-          items.push({
-            id: `trip-start-${trip.id}`,
-            date: trip.start_date,
-            module: "travel",
-            title: `Início: ${trip.title}`,
-            subtitle: trip.destination ?? undefined,
-            status: resolveStatus(trip.start_date, todayIso),
-            link: `/travel/${trip.id}`,
-          });
-        }
-        if (inRange(trip.end_date)) {
-          items.push({
-            id: `trip-end-${trip.id}`,
-            date: trip.end_date,
-            module: "travel",
-            title: `Fim: ${trip.title}`,
-            subtitle: trip.destination ?? undefined,
-            status: resolveStatus(trip.end_date, todayIso),
-            link: `/travel/${trip.id}`,
-          });
-        }
-        const milestones = await fetchTripMilestones(trip.id);
-        for (const m of milestones.filter((ms) => !ms.done)) {
-          if (!inRange(m.due_date)) continue;
-          const overdue = m.due_date < todayIso;
-          items.push({
-            id: `trip-ms-${m.id}`,
-            date: m.due_date,
-            module: "travel",
-            title: m.title,
-            subtitle: trip.title,
-            status: overdue ? "overdue" : resolveStatus(m.due_date, todayIso),
-            link: `/travel/${trip.id}`,
-          });
-        }
-        return items;
-      })
-    );
-    return perTrip.flat();
+
+    const milestones =
+      prefetch?.milestones ??
+      (await fetchMilestonesForTrips(trips.map((t) => t.id)));
+
+    const milestonesByTrip = new Map<string, TripMilestone[]>();
+    for (const m of milestones) {
+      const list = milestonesByTrip.get(m.trip_id) ?? [];
+      list.push(m);
+      milestonesByTrip.set(m.trip_id, list);
+    }
+
+    const items: TimelineItem[] = [];
+    for (const trip of trips) {
+      if (inRange(trip.start_date)) {
+        items.push({
+          id: `trip-start-${trip.id}`,
+          date: trip.start_date,
+          module: "travel",
+          title: `Início: ${trip.title}`,
+          subtitle: trip.destination ?? undefined,
+          status: resolveStatus(trip.start_date, todayIso),
+          link: `/travel/${trip.id}`,
+        });
+      }
+      if (inRange(trip.end_date)) {
+        items.push({
+          id: `trip-end-${trip.id}`,
+          date: trip.end_date,
+          module: "travel",
+          title: `Fim: ${trip.title}`,
+          subtitle: trip.destination ?? undefined,
+          status: resolveStatus(trip.end_date, todayIso),
+          link: `/travel/${trip.id}`,
+        });
+      }
+      for (const m of (milestonesByTrip.get(trip.id) ?? []).filter(
+        (ms) => !ms.done
+      )) {
+        if (!inRange(m.due_date)) continue;
+        const overdue = m.due_date < todayIso;
+        items.push({
+          id: `trip-ms-${m.id}`,
+          date: m.due_date,
+          module: "travel",
+          title: m.title,
+          subtitle: trip.title,
+          status: overdue ? "overdue" : resolveStatus(m.due_date, todayIso),
+          link: `/travel/${trip.id}`,
+        });
+      }
+    }
+    return items;
   } catch {
     return [];
   }
 }
 
 async function collectHabitsTimeline(
-  todayIso: string
+  todayIso: string,
+  prefetch?: TimelinePrefetch
 ): Promise<TimelineItem[]> {
   try {
-    const [habits, logs] = await Promise.all([
-      fetchHabits(),
-      fetchAllHabitLogs(),
-    ]);
+    let habits = prefetch?.habits;
+    let logs = prefetch?.habitLogs;
+    if (!habits || !logs) {
+      const bundle = await fetchHabitsWithLogs({ fromDate: todayIso });
+      habits = bundle.habits;
+      logs = bundle.logs;
+    }
     const items: TimelineItem[] = [];
     for (const habit of habits) {
       const habitLogs = logs.filter((l) => l.habit_id === habit.id);
@@ -295,10 +407,53 @@ async function collectHabitsTimeline(
   }
 }
 
+export function buildLifeDashboardSummary(input: {
+  goals: PersonalGoal[];
+  habits: Habit[];
+  habitLogs: HabitLog[];
+  trips: Trip[];
+  placesCount: number;
+  moviesToWatch: number;
+  finance: { receita_total: number; despesa_total: number } | null;
+}): LifeDashboardSummary {
+  const activeGoals = input.goals.filter((g) => g.status === "active").length;
+  const habitsTodayTotal = input.habits.length;
+  const habitsTodayDone = input.habits.filter((h) =>
+    isCompletedToday(input.habitLogs.filter((l) => l.habit_id === h.id))
+  ).length;
+  const upcomingTrips = input.trips.filter(
+    (t) =>
+      t.status !== "cancelled" &&
+      t.status !== "completed" &&
+      getDaysUntil(t.start_date) >= 0
+  ).length;
+
+  let balance: number | undefined;
+  let expenseTotal: number | undefined;
+  if (input.finance) {
+    balance = input.finance.receita_total - input.finance.despesa_total;
+    expenseTotal = input.finance.despesa_total;
+  }
+
+  return {
+    activeGoals,
+    habitsTodayTotal,
+    habitsTodayDone,
+    upcomingTrips,
+    totalPlaces: input.placesCount,
+    moviesToWatch: input.moviesToWatch,
+    overdueAlerts: 0,
+    upcomingAlerts: 0,
+    balance,
+    expenseTotal,
+  };
+}
+
 export async function fetchLifeDashboardSummary(): Promise<LifeDashboardSummary> {
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
+  const todayIso = getTodayIso(now);
 
   const [
     goalsResult,
@@ -309,64 +464,27 @@ export async function fetchLifeDashboardSummary(): Promise<LifeDashboardSummary>
     financeResult,
   ] = await Promise.allSettled([
     fetchGoals(),
-    Promise.all([fetchHabits(), fetchAllHabitLogs()]),
+    fetchHabitsWithLogs({ fromDate: todayIso }),
     fetchTrips(),
     fetchPlaces(),
-    fetchMovies("to_watch", 1, 1),
+    fetchMovieListMeta("to_watch"),
     fetchValueByNatureForMonth(year, month),
   ]);
 
-  let activeGoals = 0;
-  if (goalsResult.status === "fulfilled") {
-    activeGoals = goalsResult.value.filter((g) => g.status === "active").length;
-  }
-
-  let habitsTodayTotal = 0;
-  let habitsTodayDone = 0;
-  if (habitsResult.status === "fulfilled") {
-    const [habits, logs] = habitsResult.value;
-    habitsTodayTotal = habits.length;
-    habitsTodayDone = habits.filter((h) =>
-      isCompletedToday(logs.filter((l) => l.habit_id === h.id))
-    ).length;
-  }
-
-  let upcomingTrips = 0;
-  if (tripsResult.status === "fulfilled") {
-    upcomingTrips = tripsResult.value.filter(
-      (t) =>
-        t.status !== "cancelled" &&
-        t.status !== "completed" &&
-        getDaysUntil(t.start_date) >= 0
-    ).length;
-  }
-
-  const totalPlaces =
-    placesResult.status === "fulfilled" ? placesResult.value.length : 0;
-  const moviesToWatch =
-    moviesResult.status === "fulfilled" ? moviesResult.value.total : 0;
-
-  let balance: number | undefined;
-  let expenseTotal: number | undefined;
-  if (financeResult.status === "fulfilled" && financeResult.value) {
-    balance =
-      financeResult.value.receita_total - financeResult.value.despesa_total;
-    expenseTotal = financeResult.value.despesa_total;
-  }
-
-  // Alertas vêm do timeline na página — evita segundo fetch pesado aqui
-  return {
-    activeGoals,
-    habitsTodayTotal,
-    habitsTodayDone,
-    upcomingTrips,
-    totalPlaces,
-    moviesToWatch,
-    overdueAlerts: 0,
-    upcomingAlerts: 0,
-    balance,
-    expenseTotal,
-  };
+  return buildLifeDashboardSummary({
+    goals: goalsResult.status === "fulfilled" ? goalsResult.value : [],
+    habits:
+      habitsResult.status === "fulfilled" ? habitsResult.value.habits : [],
+    habitLogs:
+      habitsResult.status === "fulfilled" ? habitsResult.value.logs : [],
+    trips: tripsResult.status === "fulfilled" ? tripsResult.value : [],
+    placesCount:
+      placesResult.status === "fulfilled" ? placesResult.value.length : 0,
+    moviesToWatch:
+      moviesResult.status === "fulfilled" ? moviesResult.value.total : 0,
+    finance:
+      financeResult.status === "fulfilled" ? financeResult.value : null,
+  });
 }
 
 export function groupTimelineByDate(

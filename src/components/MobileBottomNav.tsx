@@ -8,8 +8,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { fetchAppAlerts, type AppAlert } from "@/api/alerts";
+import { QuickAddSheet } from "@/components/QuickAddSheet";
+import { fetchAppAlerts, APP_ALERTS_UPDATED_EVENT, type AppAlert } from "@/api/alerts";
 import { getEnabledAlertKinds } from "@/lib/browserNotify";
+import { resolveAppArea, type AppArea } from "@/lib/quickAdd";
 import { cn } from "@/lib/utils";
 
 function severityDot(severity: AppAlert["severity"]) {
@@ -18,13 +20,23 @@ function severityDot(severity: AppAlert["severity"]) {
   return "bg-muted-foreground";
 }
 
+const AREA_PLUS_CLASS: Record<AppArea, string> = {
+  finance: "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]",
+  entertainment:
+    "bg-[hsl(var(--cinema))] text-[hsl(var(--cinema-foreground))]",
+  life: "bg-[hsl(var(--life))] text-[hsl(var(--life-foreground))]",
+  home: "bg-[hsl(var(--hub))] text-[hsl(var(--hub-foreground))]",
+};
+
 /**
  * Barra mobile: Início · Nova tx · Alertas.
  * Hábitos ficam no hub — aqui só o atalho diário de ledger + atenção.
  */
 export function MobileBottomNav() {
   const location = useLocation();
+  const area = resolveAppArea(location.pathname);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(false);
 
@@ -39,6 +51,13 @@ export function MobileBottomNav() {
 
   useEffect(() => {
     void fetchAppAlerts().then(setAlerts).catch(() => undefined);
+    const onAlertsUpdated = () => {
+      void fetchAppAlerts().then(setAlerts).catch(() => undefined);
+    };
+    window.addEventListener(APP_ALERTS_UPDATED_EVENT, onAlertsUpdated);
+    return () => {
+      window.removeEventListener(APP_ALERTS_UPDATED_EVENT, onAlertsUpdated);
+    };
   }, []);
 
   useEffect(() => {
@@ -79,19 +98,16 @@ export function MobileBottomNav() {
             Início
           </Link>
 
-          <Link
-            to="/finance/transactions?new=1"
-            onClick={() => {
-              void import("@/lib/analytics").then(({ track }) =>
-                track("quick_add_open", { source: "mobile_nav" })
-              );
-            }}
+          <button
+            type="button"
+            onClick={() => setQuickAddOpen(true)}
             className="flex flex-col items-center justify-center gap-0.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-            aria-label="Nova transação"
+            aria-label="Adicionar"
           >
             <span
               className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground",
+                "flex h-9 w-9 items-center justify-center rounded-full",
+                AREA_PLUS_CLASS[area],
                 isTx &&
                   "ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
               )}
@@ -99,7 +115,7 @@ export function MobileBottomNav() {
               <Plus className="h-4 w-4" />
             </span>
             Nova
-          </Link>
+          </button>
 
           <button
             type="button"
@@ -118,6 +134,13 @@ export function MobileBottomNav() {
           </button>
         </div>
       </nav>
+
+      <QuickAddSheet
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        area={area}
+        source="mobile_nav"
+      />
 
       <Sheet open={alertsOpen} onOpenChange={setAlertsOpen}>
         <SheetContent

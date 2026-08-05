@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MapPin, Search } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ const CATEGORY_FILTERS: { id: PlaceFilter; label: string }[] = [
 ];
 
 export default function Places() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [places, setPlaces] = useState<PlaceVisit[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<PlaceStatus>("to_visit");
@@ -60,6 +62,7 @@ export default function Places() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [editing, setEditing] = useState<PlaceVisit | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const { toast } = useToast();
 
   const load = useCallback(async () => {
@@ -78,6 +81,14 @@ export default function Places() {
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setCreateOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const filtered = useMemo(
     () =>
@@ -159,7 +170,13 @@ export default function Places() {
       actions={
         <>
           <ModuleGuideButton moduleId="places" />
-          <PlaceFormDialog onSaved={load} defaultStatus={statusFilter} />
+          <PlaceFormDialog
+            onSaved={load}
+            defaultStatus={statusFilter}
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            showTrigger
+          />
         </>
       }
     >

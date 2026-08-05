@@ -49,7 +49,7 @@ export function LandingPricing({
             Teste tudo. Depois, Pro simples.
           </h2>
           <p className="mt-3 text-zinc-400">
-            Orçamento, parcelas e life OS inclusos. Sem asteriscos.
+            Orçamento, recorrências e life OS inclusos. Sem asteriscos.
           </p>
         </motion.div>
 

@@ -26,7 +26,7 @@ const TripInviteAccept = lazy(
 const Places = lazy(() => import("./pages/admin/places/Places"));
 const Transactions = lazy(() => import("./pages/admin/finance/Transactions"));
 const Recurring = lazy(() => import("./pages/admin/finance/Recurring"));
-const Dimensions = lazy(() => import("./pages/admin/finance/Dimensions"));
+const Categories = lazy(() => import("./pages/admin/finance/Categories"));
 const Budget = lazy(() => import("./pages/admin/finance/Budget"));
 const Account = lazy(() => import("./pages/admin/Account"));
 
@@ -56,6 +56,7 @@ const PrivacyPage = lazy(() =>
   import("./pages/legal/LegalPages").then((m) => ({ default: m.PrivacyPage }))
 );
 const AboutPage = lazy(() => import("./pages/About"));
+const InviteAccept = lazy(() => import("./pages/InviteAccept"));
 
 const router = createBrowserRouter([
   {
@@ -65,6 +66,10 @@ const router = createBrowserRouter([
   {
     path: "/login",
     element: <LoginEntry />,
+  },
+  {
+    path: "/invite/:code",
+    element: withSuspense(<InviteAccept />),
   },
   {
     path: "/about",
@@ -108,7 +113,11 @@ const router = createBrowserRouter([
               { path: "dashboard", element: <FinanceDashboard /> },
               { path: "recurring", element: <Recurring /> },
               { path: "transactions", element: <Transactions /> },
-              { path: "dimensions", element: <Dimensions /> },
+              { path: "categories", element: <Categories /> },
+              {
+                path: "dimensions",
+                element: <Navigate to="/finance/categories" replace />,
+              },
               { path: "budget", element: <Budget /> },
             ],
           },

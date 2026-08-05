@@ -11,15 +11,15 @@ import { PLANS } from "@/lib/plan";
 const FAQS = [
   {
     q: "O que é o Orbyva?",
-    a: "O app que junta o que você espalha em vários lugares: orçamento, parcelas e lançamentos — e hábitos, metas, viagens, lugares, cinema e veículos na mesma órbita. Tudo liberado no primeiro acesso.",
+    a: "O app que junta o que você espalha em vários lugares: orçamento, recorrências e lançamentos — e hábitos, metas, viagens, lugares, cinema e veículos na mesma órbita. Tudo liberado no primeiro acesso.",
   },
   {
-    q: "Orçamento e parcelas são o quê, na prática?",
-    a: "Orçamento: você define o teto e vê gasto vs. planejado por categoria. Parcelas: o que vence (atrasadas, 12x) e a aba Projeção — a receber × a pagar, gráfico à frente e simular compra antes de fechar um compromisso.",
+    q: "Orçamento e recorrências são o quê, na prática?",
+    a: "Orçamento: você define o teto e vê gasto vs. planejado por categoria. Recorrências: contas fixas e parceladas (atrasadas, 12x) e a aba Projeção — a receber × a pagar, gráfico à frente e simular compra antes de fechar um compromisso.",
   },
   {
     q: "Precisa conectar conta do banco?",
-    a: "Não. Você digita (ou importa CSV onde existir). Controle consciente: cada lançamento é seu.",
+    a: "Não. Você digita manualmente. Controle consciente: cada lançamento é seu.",
   },
   {
     q: "Como funciona o teste?",

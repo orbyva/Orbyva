@@ -21,7 +21,6 @@ import {
 
 import { MonthYearPicker } from "@/components/MonthYearPicker";
 import { FormLabel } from "@/components/FormLabel";
-import { FormSection } from "@/components/FormSection";
 import { Separator } from "@/components/ui/separator";
 import { sortByNamePt } from "@/lib/utils";
 
@@ -110,7 +109,7 @@ export function BudgetFormDialog({
     }
 
     if (!selectedType) {
-      setFormError("Selecione o Tipo.");
+      setFormError("Selecione a categoria.");
       return;
     }
 
@@ -177,7 +176,6 @@ export function BudgetFormDialog({
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
-          <FormSection title="Classificação">
             <FormLabel required>Natureza</FormLabel>
 
             <Select
@@ -214,7 +212,7 @@ export function BudgetFormDialog({
                 }
               >
                 <div className="space-y-3">
-                  <FormLabel required>Tipo</FormLabel>
+                  <FormLabel required>Categoria</FormLabel>
 
                   <Select
                     value={selectedType ? String(selectedType) : ""}
@@ -231,7 +229,7 @@ export function BudgetFormDialog({
                     }}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione o Tipo" />
+                      <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
 
                     <SelectContent>
@@ -246,7 +244,7 @@ export function BudgetFormDialog({
 
                 {selectedType ? (
                   <div className="space-y-3">
-                    <FormLabel optional>Classe</FormLabel>
+                    <FormLabel optional>Subcategoria</FormLabel>
 
                     <Select
                       value={
@@ -262,11 +260,11 @@ export function BudgetFormDialog({
                       }}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione a Classe" />
+                        <SelectValue placeholder="Selecione a subcategoria" />
                       </SelectTrigger>
 
                       <SelectContent>
-                        <SelectItem value="general">Geral do Tipo</SelectItem>
+                        <SelectItem value="general">Geral da categoria</SelectItem>
 
                         {classes.map((c) => (
                           <SelectItem key={c.id} value={String(c.id)}>
@@ -279,11 +277,9 @@ export function BudgetFormDialog({
                 ) : null}
               </div>
             )}
-          </FormSection>
 
           <Separator />
 
-          <FormSection title="Valores e período">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-3">
                 <FormLabel required>Valor planejado</FormLabel>
@@ -333,7 +329,6 @@ export function BudgetFormDialog({
                 </label>
               ) : null}
             </div>
-          </FormSection>
 
           {formError && <p className="text-sm text-destructive">{formError}</p>}
 

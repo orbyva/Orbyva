@@ -265,12 +265,12 @@ export function BudgetTable({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Tipo
+                      Categoria
                     </p>
                     <p className="font-bold tracking-tight">{typeName}</p>
                     <p className="text-xs text-muted-foreground">
                       {children.length}{" "}
-                      {children.length === 1 ? "classe" : "classes"}
+                      {children.length === 1 ? "subcategoria" : "subcategorias"}
                     </p>
                   </div>
                   <StatusBadge status={parent.status ?? "OK"} />
@@ -328,10 +328,10 @@ export function BudgetTable({
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Classe · {typeName}
+                        Subcategoria · {typeName}
                       </p>
                       <p className="font-medium">
-                        {budget.class_name ?? "Sem classe"}
+                        {budget.class_name ?? "Sem subcategoria"}
                       </p>
                     </div>
                     <StatusBadge status={budget.status} />
@@ -405,7 +405,7 @@ export function BudgetTable({
           <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow className="hover:bg-transparent">
               <SortableTableHead
-                label="Tipo"
+                label="Categoria"
                 sortKey="type"
                 sort={sort}
                 onSortChange={onSortChange}
@@ -475,14 +475,14 @@ export function BudgetTable({
                       <TableCell className="py-3">
                         <div className="flex flex-col gap-0.5">
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Tipo
+                            Categoria
                           </span>
                           <span className="text-sm font-bold tracking-tight">
                             {typeName}
                           </span>
                           <span className="text-xs font-normal text-muted-foreground">
                             {children.length}{" "}
-                            {children.length === 1 ? "classe" : "classes"}
+                            {children.length === 1 ? "subcategoria" : "subcategorias"}
                           </span>
                         </div>
                       </TableCell>
@@ -557,10 +557,10 @@ export function BudgetTable({
                             <div className="mt-1 h-5 w-0.5 shrink-0 rounded-full bg-primary/40" />
                             <div className="min-w-0">
                               <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                Classe · {typeName}
+                                Subcategoria · {typeName}
                               </span>
                               <p className="font-medium leading-snug">
-                                {budget.class_name ?? "Sem classe"}
+                                {budget.class_name ?? "Sem subcategoria"}
                               </p>
                             </div>
                           </div>

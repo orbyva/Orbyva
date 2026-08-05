@@ -43,6 +43,7 @@
     "framer-motion": "^12.4.7",
     "lucide": "^0.544.0",
     "lucide-react": "^0.475.0",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-colorful": "^5.6.1",
     "react-day-picker": "^9.6.2",
@@ -57,6 +58,7 @@
     "@eslint/js": "^9.19.0",
     "@playwright/test": "^1.61.1",
     "@types/node": "^22.13.4",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
@@ -65,7 +67,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.18",
     "globals": "^15.14.0",
-    "postcss": "^8.5.3",
+    "postcss": "^8.5.25",
     "supabase": "^2.109.1",
     "tailwindcss": "3",
     "typescript": "~5.7.2",
@@ -76,10 +78,12 @@
   },
   "overrides": {
     "react-router": "8.3.0",
-    "brace-expansion": "5.0.8",
+    "brace-expansion": "5.0.9",
     "minimatch": "^10.0.3",
     "filelist": "^2.0.2",
     "jake": "^12.10.1",
-    "ejs": "^6.0.1"
+    "ejs": "^6.0.1",
+    "postcss": "^8.5.25",
+    "fast-uri": "^4.1.2"
   }
 }

@@ -6,6 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   calculateInstallments,
   fetchRecurringTransactions,
+  fetchLastPaidAtByRecurring,
   updateRecurringApi,
   createRecurringApi,
   getRecurringDueAlerts,
@@ -111,6 +112,9 @@ export default function Recurring() {
     transactionId: string;
     installmentNumber: number;
   } | null>(null);
+  const [lastPaidAtById, setLastPaidAtById] = useState<Record<string, string>>(
+    {}
+  );
 
   const reloadRecurring = async () => {
     try {
@@ -127,6 +131,10 @@ export default function Recurring() {
       }));
 
       setRecurring(withInstallments);
+      const paidMap = await fetchLastPaidAtByRecurring(
+        withInstallments.map((r) => r.id)
+      );
+      setLastPaidAtById(paidMap);
     } catch (err) {
       console.error("Erro ao buscar recorrências:", err);
       toast({
@@ -140,6 +148,17 @@ export default function Recurring() {
   useEffect(() => {
     reloadRecurring();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setIsEditing(false);
+    setSelectedRecurring(null);
+    setNewRecurring(defaultRecurringCreateRequest());
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const monthBase = useMemo(
     () => filterRecurringByYearMonth(recurring, listYm.year, listYm.month),
@@ -290,8 +309,8 @@ export default function Recurring() {
 
   return (
     <PageShell
-      title="Parcelas"
-      description="Fixas e 12x no radar — lista, projeção do mês e simular compra."
+      title="Recorrências"
+      description="Contas fixas (água, luz) e compras parceladas (10x, 12x) — lista, projeção do mês e simular compra."
       actions={
         <>
           <ModuleGuideButton moduleId="finance" />
@@ -313,8 +332,8 @@ export default function Recurring() {
       {recurring.length === 0 ? (
         <EmptyState
           icon={Repeat}
-          title="Nenhuma parcela cadastrada"
-          description="Cadastre contas e receitas fixas ou um 12x — o app avisa vencimentos e monta a projeção do mês."
+          title="Nenhuma recorrência cadastrada"
+          description="Cadastre contas fixas (água, luz) ou compras parceladas (12x) — o app avisa vencimentos e monta a projeção do mês."
           action={
             <Button
               onClick={() => {
@@ -324,7 +343,7 @@ export default function Recurring() {
                 setOpen(true);
               }}
             >
-              Nova parcela
+              Nova recorrência
             </Button>
           }
         />
@@ -397,6 +416,7 @@ export default function Recurring() {
               <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
                 <RecurringTable
                   recurring={filteredRecurring}
+                  lastPaidAtById={lastPaidAtById}
                   isMobile={isMobile}
                   sort={sort}
                   onSortChange={(key) =>

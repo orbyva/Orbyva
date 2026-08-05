@@ -34,7 +34,7 @@ describe("getErrorMessage", () => {
         code: "23503",
         message: "update or delete on table violates foreign key constraint",
       })
-    ).toMatch(/vinculados/i);
+    ).toMatch(/itens ligados|vinculados/i);
     expect(
       getErrorMessage({
         code: "23505",
@@ -50,6 +50,16 @@ describe("getErrorMessage", () => {
         message: "JSON object requested, multiple (or no) rows returned",
       })
     ).toMatch(/não encontrado/i);
+  });
+
+  it("preserva mensagem de categoria com subcategorias", () => {
+    expect(
+      getErrorMessage(
+        new Error(
+          "Esta categoria ainda tem 2 subcategorias. Exclua ou mova as subcategorias antes de apagar a categoria."
+        )
+      )
+    ).toMatch(/2 subcategorias/i);
   });
 
   it("esconde config e stack técnicos com fallback", () => {

@@ -330,6 +330,31 @@ export async function fetchAllFuelLogs(vehicleId: string): Promise<FuelLog[]> {
   return data ?? [];
 }
 
+/** Uma query de abastecimentos para vários veículos (export / hub). */
+export async function fetchFuelLogsForVehicles(
+  vehicleIds: string[]
+): Promise<FuelLog[]> {
+  if (vehicleIds.length === 0) return [];
+  const userId = await getCurrentUserId();
+  const { data: owned, error: ownedError } = await supabase
+    .from("vehicle")
+    .select("id")
+    .eq("user_id", userId)
+    .in("id", vehicleIds);
+  if (ownedError) throw new Error(ownedError.message);
+  const ids = (owned ?? []).map((v) => v.id);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("vehicle_fuel_log")
+    .select("*")
+    .in("vehicle_id", ids)
+    .order("km", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 export async function createFuelLog(
   fuelLog: FuelLogCreateRequest,
   options?: {

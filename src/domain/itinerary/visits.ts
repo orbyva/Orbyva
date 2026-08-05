@@ -1,0 +1,301 @@
+import type { TripItineraryActivity } from "@/types/travel";
+
+export type VisitStatus = "pending" | "completed" | "skipped";
+
+export type VisitLike = Pick<
+  TripItineraryActivity,
+  | "id"
+  | "title"
+  | "activity_time"
+  | "sort_order"
+  | "place_visit_id"
+  | "visit_status"
+  | "completed_at"
+  | "skipped_at"
+> & {
+  lat?: number | null;
+  lng?: number | null;
+  day_date?: string | null;
+};
+
+export function normalizeVisitStatus(
+  status: string | null | undefined
+): VisitStatus {
+  if (status === "completed" || status === "skipped") return status;
+  return "pending";
+}
+
+export function isVisitOpen(visit: VisitLike): boolean {
+  return normalizeVisitStatus(visit.visit_status) === "pending";
+}
+
+export function isVisitDone(visit: VisitLike): boolean {
+  const s = normalizeVisitStatus(visit.visit_status);
+  return s === "completed" || s === "skipped";
+}
+
+/** Ordena por horário (HH:mm) e depois sort_order. */
+export function sortVisitsForDay<T extends VisitLike>(visits: T[]): T[] {
+  return [...visits].sort((a, b) => {
+    const ta = parseHHmmToMinutes(a.activity_time);
+    const tb = parseHHmmToMinutes(b.activity_time);
+    if (ta != null && tb != null && ta !== tb) return ta - tb;
+    if (ta != null && tb == null) return -1;
+    if (ta == null && tb != null) return 1;
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+  });
+}
+
+/**
+ * Próxima visita pendente do dia (fonte de verdade = checklist).
+ * Não usa “horário já passou”.
+ */
+export function findNextPendingVisit(
+  visits: VisitLike[]
+): VisitLike | null {
+  const sorted = sortVisitsForDay(visits);
+  return sorted.find((v) => isVisitOpen(v)) ?? null;
+}
+
+/** Última visita concluída (não pulada), para origem do próximo trecho. */
+export function findLastCompletedVisit(
+  visits: VisitLike[]
+): VisitLike | null {
+  const sorted = sortVisitsForDay(visits);
+  for (let i = sorted.length - 1; i >= 0; i -= 1) {
+    if (normalizeVisitStatus(sorted[i].visit_status) === "completed") {
+      return sorted[i];
+    }
+  }
+  return null;
+}
+
+/**
+ * Visita imediatamente anterior na ordem do dia (qualquer status),
+ * usada como fallback de origem.
+ */
+export function findPreviousVisit(
+  visits: VisitLike[],
+  currentId: string
+): VisitLike | null {
+  const sorted = sortVisitsForDay(visits);
+  const idx = sorted.findIndex((v) => v.id === currentId);
+  if (idx <= 0) return null;
+  return sorted[idx - 1] ?? null;
+}
+
+export function parseHHmmToMinutes(
+  value: string | null | undefined
+): number | null {
+  if (!value) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
+export function minutesToHHmm(totalMinutes: number): string {
+  const wrapped =
+    ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const h = Math.floor(wrapped / 60);
+  const m = wrapped % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * Horário recomendado de saída =
+ * horário programado de chegada − duração estimada.
+ */
+export function computeLeaveByHHmm(params: {
+  arrivalHHmm: string;
+  durationSeconds: number;
+}): string | null {
+  const arrival = parseHHmmToMinutes(params.arrivalHHmm);
+  if (arrival == null) return null;
+  if (!Number.isFinite(params.durationSeconds) || params.durationSeconds < 0) {
+    return null;
+  }
+  const travelMinutes = Math.ceil(params.durationSeconds / 60);
+  return minutesToHHmm(arrival - travelMinutes);
+}
+
+/**
+ * Formato amigável de duração:
+ * - < 60 min → "34 min"
+ * - < 24 h → "1h12" / "2h"
+ * - ≥ 24 h → "1d 2h" / "2d"
+ */
+export function formatDurationFriendly(
+  totalSeconds: number | null | undefined
+): string {
+  if (totalSeconds == null || !Number.isFinite(totalSeconds) || totalSeconds < 0) {
+    return "—";
+  }
+  const totalMinutes = Math.round(totalSeconds / 60);
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+
+  const totalHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (totalHours < 24) {
+    if (minutes === 0) return `${totalHours}h`;
+    return `${totalHours}h${String(minutes).padStart(2, "0")}`;
+  }
+
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  if (hours === 0 && minutes === 0) return `${days}d`;
+  if (minutes === 0) return `${days}d ${hours}h`;
+  if (hours === 0) return `${days}d ${minutes} min`;
+  return `${days}d ${hours}h${String(minutes).padStart(2, "0")}`;
+}
+
+export const formatDurationSeconds = formatDurationFriendly;
+
+/** Texto de insight: saída recomendada entre origem e destino. */
+export function formatLeaveByInsight(params: {
+  destinationTitle: string;
+  arrivalHHmm: string;
+  originTitle: string;
+  leaveByHHmm: string;
+  durationSeconds: number;
+}): string {
+  const duration = formatDurationFriendly(params.durationSeconds);
+  return `Para chegar em ${params.destinationTitle} às ${params.arrivalHHmm} saindo de ${params.originTitle}, saia às ${params.leaveByHHmm} (${duration}).`;
+}
+
+
+export type DelayInsight =
+  | {
+      kind: "on_time";
+      leaveByHHmm: string;
+      etaHHmm: string;
+      durationSeconds: number;
+    }
+  | {
+      kind: "leave_now_late";
+      delayMinutes: number;
+      etaHHmm: string;
+      durationSeconds: number;
+    }
+  | {
+      kind: "leave_now_ok";
+      etaHHmm: string;
+      durationSeconds: number;
+    };
+
+/**
+ * Compara leave-by com “agora” (minutos desde meia-noite local).
+ */
+export function buildDelayInsight(params: {
+  arrivalHHmm: string;
+  durationSeconds: number;
+  nowMinutes: number;
+}): DelayInsight | null {
+  const arrival = parseHHmmToMinutes(params.arrivalHHmm);
+  if (arrival == null) return null;
+  if (!Number.isFinite(params.durationSeconds) || params.durationSeconds < 0) {
+    return null;
+  }
+
+  const travelMinutes = Math.ceil(params.durationSeconds / 60);
+  const leaveBy = arrival - travelMinutes;
+  const etaFromNow = params.nowMinutes + travelMinutes;
+  const etaHHmm = minutesToHHmm(etaFromNow);
+
+  if (params.nowMinutes <= leaveBy) {
+    return {
+      kind: "on_time",
+      leaveByHHmm: minutesToHHmm(leaveBy),
+      etaHHmm: params.arrivalHHmm.trim().length === 5
+        ? params.arrivalHHmm.trim()
+        : minutesToHHmm(arrival),
+      durationSeconds: params.durationSeconds,
+    };
+  }
+
+  if (etaFromNow <= arrival) {
+    return {
+      kind: "leave_now_ok",
+      etaHHmm,
+      durationSeconds: params.durationSeconds,
+    };
+  }
+
+  return {
+    kind: "leave_now_late",
+    delayMinutes: etaFromNow - arrival,
+    etaHHmm,
+    durationSeconds: params.durationSeconds,
+  };
+}
+
+/**
+ * Só calcula rotas no dia do roteiro (calendário local YYYY-MM-DD).
+ */
+export function shouldComputeRoutesForDay(params: {
+  dayDate: string | null | undefined;
+  todayIso: string;
+}): boolean {
+  if (!params.dayDate) return false;
+  return params.dayDate.slice(0, 10) === params.todayIso.slice(0, 10);
+}
+
+/** Dia do roteiro anterior a hoje (calendário local YYYY-MM-DD). */
+export function isPastDay(params: {
+  dayDate: string | null | undefined;
+  todayIso: string;
+}): boolean {
+  if (!params.dayDate) return false;
+  return params.dayDate.slice(0, 10) < params.todayIso.slice(0, 10);
+}
+
+export type LatLng = { lat: number; lng: number };
+
+/**
+ * Origem do próximo trecho:
+ * 1. GPS do usuário
+ * 2. última visita concluída com coords
+ * 3. visita anterior com coords
+ * 4. origem inicial do roteiro
+ */
+export function resolveRouteOrigin(params: {
+  userLocation?: LatLng | null;
+  visits: VisitLike[];
+  nextVisit: VisitLike;
+  tripOrigin?: LatLng | null;
+}): LatLng | null {
+  if (params.userLocation) return params.userLocation;
+
+  const lastCompleted = findLastCompletedVisit(params.visits);
+  if (
+    lastCompleted &&
+    typeof lastCompleted.lat === "number" &&
+    typeof lastCompleted.lng === "number"
+  ) {
+    return { lat: lastCompleted.lat, lng: lastCompleted.lng };
+  }
+
+  const previous = findPreviousVisit(params.visits, params.nextVisit.id);
+  if (
+    previous &&
+    typeof previous.lat === "number" &&
+    typeof previous.lng === "number"
+  ) {
+    return { lat: previous.lat, lng: previous.lng };
+  }
+
+  if (params.tripOrigin) return params.tripOrigin;
+  return null;
+}
+
+export function visitHasCoordinates(visit: VisitLike): boolean {
+  return (
+    typeof visit.lat === "number" &&
+    typeof visit.lng === "number" &&
+    Number.isFinite(visit.lat) &&
+    Number.isFinite(visit.lng)
+  );
+}

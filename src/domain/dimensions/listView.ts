@@ -25,7 +25,7 @@ function typeName(cls: Class, types: Type[]): string {
   const typeId = cls.type?.id ?? cls.type_id ?? null;
   const fromList =
     typeId != null ? types.find((t) => t.id === typeId) : undefined;
-  return fromList?.name ?? cls.type?.name ?? "Sem tipo";
+  return fromList?.name ?? cls.type?.name ?? "Sem categoria";
 }
 
 export function sortTypesList(

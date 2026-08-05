@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { parseMovieImportCsv } from "@/lib/movieImport";
 import {
   asStringList,
   formatMovieRating,
@@ -60,39 +59,5 @@ describe("MOVIE_STATUS_LABELS", () => {
   it("covers watching and abandoned", () => {
     expect(MOVIE_STATUS_LABELS.watching).toBe("Assistindo");
     expect(MOVIE_STATUS_LABELS.abandoned).toBe("Abandonei");
-  });
-});
-
-describe("parseMovieImportCsv", () => {
-  it("parses Letterboxd-like diary CSV", () => {
-    const csv = `Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date
-2024-01-15,Inception,2010,https://boxd.it/abc,4.5,,,2024-01-15
-2024-02-01,The Matrix,1999,https://boxd.it/def,5,,,2024-02-01`;
-
-    const result = parseMovieImportCsv(csv);
-    expect(result.source).toBe("letterboxd");
-    expect(result.rows).toHaveLength(2);
-    expect(result.rows[0]).toMatchObject({
-      title: "Inception",
-      year: 2010,
-      rating: 9,
-      watchedDate: "2024-01-15",
-    });
-    expect(result.rows[1].rating).toBe(10);
-  });
-
-  it("parses generic / TV Time style CSV", () => {
-    const csv = `Title,Year,Score,Watched Date,Notes
-Breaking Bad,2008,9.5,2023-05-01,Best show ever`;
-
-    const result = parseMovieImportCsv(csv);
-    expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]).toMatchObject({
-      title: "Breaking Bad",
-      year: 2008,
-      rating: 9.5,
-      watchedDate: "2023-05-01",
-      notes: "Best show ever",
-    });
   });
 });

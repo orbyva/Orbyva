@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Flame, Trash2, Check, Pen, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +30,7 @@ import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
   createHabit,
   deleteHabit,
-  fetchAllHabitLogs,
-  fetchHabits,
+  fetchHabitsWithLogs,
   toggleHabitLog,
   updateHabit,
 } from "@/api/habits";
@@ -41,6 +40,7 @@ import {
   frequencyLabel,
   getWeekProgress,
   getWeekStrip,
+  getTodayIso,
   isAvoidHabit,
   isCompletedToday,
   buildHabitMonthHeatmap,
@@ -48,7 +48,7 @@ import {
   shiftMonth,
 } from "@/domain/habits";
 import { getHabitInsights } from "@/domain/habits/insights";
-import type { Habit, HabitCreateRequest, HabitKind } from "@/types/habits";
+import type { Habit, HabitCreateRequest, HabitKind, HabitLog } from "@/types/habits";
 import type { PersonalGoal } from "@/types/goals";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalDay } from "@/hooks/useLocalDay";
@@ -59,6 +59,16 @@ import { HabitWeekStrip } from "./components/HabitWeekStrip";
 import { HabitMonthHeatmap } from "./components/HabitMonthHeatmap";
 
 type HabitsView = "today" | "month";
+
+/** Logs desde o mês do heatmap ou ~13 meses atrás (streak), o que for mais antigo. */
+function habitLogsFromDate(heatYear: number, heatMonth: number): string {
+  const monthStart = `${heatYear}-${String(heatMonth).padStart(2, "0")}-01`;
+  const floor = new Date();
+  floor.setHours(12, 0, 0, 0);
+  floor.setDate(floor.getDate() - 400);
+  const floorIso = getTodayIso(floor);
+  return monthStart < floorIso ? monthStart : floorIso;
+}
 
 const emptyHabit = (): HabitCreateRequest => ({
   name: "",
@@ -73,14 +83,16 @@ const emptyHabit = (): HabitCreateRequest => ({
 
 export default function Habits() {
   const [habits, setHabits] = useState<Habit[]>([]);
-  const [logs, setLogs] = useState<
-    Awaited<ReturnType<typeof fetchAllHabitLogs>>
-  >([]);
+  const [logs, setLogs] = useState<HabitLog[]>([]);
+  const [logsFromDate, setLogsFromDate] = useState(() =>
+    habitLogsFromDate(new Date().getFullYear(), new Date().getMonth() + 1)
+  );
   const [goals, setGoals] = useState<PersonalGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyHabit());
+  const [searchParams, setSearchParams] = useSearchParams();
   const today = useLocalDay();
   const { toast } = useToast();
   const insights = useMemo(() => getHabitInsights(habits, logs), [habits, logs]);
@@ -121,15 +133,16 @@ export default function Habits() {
     setHeatMonth(next.month);
   }
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fromDate?: string) => {
+    const from = fromDate ?? habitLogsFromDate(heatYear, heatMonth);
     try {
-      const [h, l, g] = await Promise.all([
-        fetchHabits(),
-        fetchAllHabitLogs(),
+      const [{ habits: h, logs: l }, g] = await Promise.all([
+        fetchHabitsWithLogs({ fromDate: from }),
         fetchGoals().catch(() => [] as PersonalGoal[]),
       ]);
       setHabits(h);
       setLogs(l);
+      setLogsFromDate(from);
       setGoals(g.filter((goal) => goal.status === "active"));
     } catch (error) {
       toast({
@@ -140,11 +153,28 @@ export default function Habits() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, heatYear, heatMonth]);
 
   useEffect(() => {
-    void load();
-  }, [load, today]);
+    void load(habitLogsFromDate(heatYear, heatMonth));
+  }, [today]); // eslint-disable-line react-hooks/exhaustive-deps -- boot + day roll
+
+  useEffect(() => {
+    const needed = habitLogsFromDate(heatYear, heatMonth);
+    if (needed < logsFromDate) {
+      void load(needed);
+    }
+  }, [heatYear, heatMonth, logsFromDate, load]);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setEditingId(null);
+    setForm(emptyHabit());
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   function openCreate() {
     setEditingId(null);

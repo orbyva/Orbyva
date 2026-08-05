@@ -215,7 +215,7 @@ export const ONBOARDING_STEPS = [
   {
     id: "dimensions",
     title: "Categorias prontas",
-    body: "Criamos tipos e classes iniciais (ex.: Alimentação → Mercado) só na sua conta, para registrar despesas sem fricção quando quiser.",
+    body: "Criamos categorias e subcategorias iniciais (ex.: Alimentação → Mercado) só na sua conta, para registrar despesas sem fricção quando quiser.",
   },
   {
     id: "first-tx",

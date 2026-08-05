@@ -36,10 +36,25 @@ import { AlbumManualModal } from "./AlbumManualModal";
 
 interface AlbumSearchModalProps {
   onAlbumAdded: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
-export function AlbumSearchModal({ onAlbumAdded }: AlbumSearchModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function AlbumSearchModal({
+  onAlbumAdded,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
+}: AlbumSearchModalProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const isOpen = isControlled ? controlledOpen : uncontrolledOpen;
+
+  function setIsOpen(next: boolean) {
+    if (!isControlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  }
   const [step, setStep] = useState<"search" | "details">("search");
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<AlbumSearchHit[]>([]);
@@ -198,12 +213,14 @@ export function AlbumSearchModal({ onAlbumAdded }: AlbumSearchModalProps) {
           if (!open) resetState();
         }}
       >
-        <DialogTrigger asChild>
-          <Button className="w-full gap-2 sm:w-auto">
-            <Plus className="h-4 w-4" />
-            Adicionar
-          </Button>
-        </DialogTrigger>
+        {!hideTrigger ? (
+          <DialogTrigger asChild>
+            <Button className="w-full gap-2 sm:w-auto">
+              <Plus className="h-4 w-4" />
+              Adicionar
+            </Button>
+          </DialogTrigger>
+        ) : null}
 
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
           <DialogTitle>

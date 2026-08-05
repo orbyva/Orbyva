@@ -47,9 +47,9 @@ const NAV_FINANCE: NavItem = {
   icon: PiggyBank,
   items: [
     { title: "Dashboard", url: "/finance/dashboard" },
-    { title: "Dimensões", url: "/finance/dimensions" },
+    { title: "Categorias", url: "/finance/categories" },
     { title: "Orçamento", url: "/finance/budget" },
-    { title: "Parcelas", url: "/finance/recurring" },
+    { title: "Recorrências", url: "/finance/recurring" },
     { title: "Transações", url: "/finance/transactions" },
   ],
 }

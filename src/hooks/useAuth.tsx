@@ -9,7 +9,9 @@ import {
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import { invalidateAppAlertsCache } from "@/api/alerts";
+import { invalidateDimensionsCache } from "@/api/finance/dimensionsCache";
 import { identifyAnalytics } from "@/lib/analytics";
+import { applyPendingReferral } from "@/api/referral";
 
 type AuthState = {
   user: User | null;
@@ -31,6 +33,7 @@ function sameUser(a: User | null, b: User | null): boolean {
 
 function clearUserScopedCaches() {
   invalidateAppAlertsCache();
+  invalidateDimensionsCache();
   if (typeof localStorage === "undefined") return;
   try {
     const keys: string[] = [];
@@ -62,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
       if (data.user) {
         identifyAnalytics(data.user.id);
+        void applyPendingReferral().catch(() => undefined);
       }
       setLoading(false);
     });
@@ -79,6 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         if (next && (event === "SIGNED_IN" || event === "USER_UPDATED")) {
           identifyAnalytics(next.id);
+          if (event === "SIGNED_IN") {
+            void applyPendingReferral().catch(() => undefined);
+          }
         }
         setLoading(false);
       }

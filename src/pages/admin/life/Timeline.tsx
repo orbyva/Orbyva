@@ -6,6 +6,7 @@ import { TimelineList } from "@/components/TimelineList";
 import {
   fetchTimelineItems,
   groupTimelineByDate,
+  loadTimelineDomains,
   MODULE_LABELS,
 } from "@/api/timeline";
 import type { TimelineItem, TimelineModule } from "@/types/timeline";
@@ -31,7 +32,8 @@ export default function Timeline() {
     async function load() {
       try {
         setLoading(true);
-        const data = await fetchTimelineItems(90, 30);
+        const domains = await loadTimelineDomains();
+        const data = await fetchTimelineItems(90, 30, domains);
         setItems(data);
       } catch (error) {
         toast({

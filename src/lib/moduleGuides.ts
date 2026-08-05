@@ -49,12 +49,12 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     hook: "Lançamentos pessoais: classifique, registre, orce e acompanhe o mês sem planilha.",
     steps: [
       {
-        title: "Organize as dimensões",
-        body: "Natureza (Receita, Despesa, Investimento) → Tipo (ex.: Alimentação) → Classe (ex.: Mercado). Em Dimensões você cria tipos e classes do seu jeito.",
+        title: "Organize as categorias",
+        body: "Natureza (Receita, Despesa, Investimento) → Categoria (ex.: Alimentação) → Subcategoria (ex.: Mercado). Em Categorias você cria do seu jeito.",
       },
       {
         title: "Registre os lançamentos",
-        body: "Em Transações, registre cada lançamento com valor, data e classificação. Dá para importar CSV e editar depois.",
+        body: "Em Transações, registre cada lançamento com valor, data e classificação. Edite quando precisar.",
       },
       {
         title: "Planeje o mês",
@@ -62,7 +62,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Fixas e parceladas",
-        body: "Em Parcelas, use Mensal fixa para contas mensais ou anuais (até dezembro do ano da data de início) ou Parcelada Nx (só mensal, valor total ÷ N). A aba Registros lista e liquida; a Projeção soma parcelas do mês (incluindo pagas) com lançamentos avulsos — gráfico com saldo e simulação de compra.",
+        body: "Em Recorrências, use Mensal fixa para contas mensais ou anuais (até dezembro do ano da data de início) ou Parcelada Nx (só mensal, valor total ÷ N). A aba Registros lista e liquida; a Projeção soma parcelas do mês (incluindo pagas) com lançamentos avulsos — gráfico com saldo e simulação de compra.",
       },
       {
         title: "Leia o painel",
@@ -137,8 +137,8 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
         body: "Registre o valor atual quando avançar. A barra mostra quanto falta até o alvo.",
       },
       {
-        title: "Metas financeiras ↔ saldo + tipo Meta",
-        body: "Destinar valor = aporte avulso (natureza Investimento → tipo Meta → classe = nome da meta). Rotina em Parcelas: você informa o valor planejado por mês; o app calcula a falta atual da meta e cria as parcelas (falta ÷ aporte). Com prazo, o valor mensal vem sugerido.",
+        title: "Metas financeiras ↔ saldo + categoria Meta",
+        body: "Destinar valor = aporte avulso (natureza Investimento → categoria Meta → subcategoria = nome da meta). Rotina em Recorrências: você informa o valor planejado por mês; o app calcula a falta atual da meta e cria as parcelas (falta ÷ aporte). Com prazo, o valor mensal vem sugerido.",
       },
     ],
   },

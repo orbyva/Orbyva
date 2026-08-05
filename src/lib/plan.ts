@@ -12,7 +12,7 @@ export const PLANS = {
     blurb: "Acesso completo ao life OS durante o período de teste.",
     features: [
       `${TRIAL_DAYS} dias para explorar tudo`,
-      "Lançamentos, orçamento com teto e parcelas",
+      "Lançamentos, orçamento com teto e recorrências",
       "Metas, hábitos, viagens e lugares",
       "Cinema, veículos, PWA e alertas",
       "Export CSV e exclusão de conta",
@@ -24,7 +24,7 @@ export const PLANS = {
     priceLabel: "R$ 19,90/mês",
     blurb: "Continue no controle do mês e do life OS — sem limite de tempo.",
     features: [
-      "Orçamento, parcelas e lançamentos sem prazo",
+      "Orçamento, recorrências e lançamentos sem prazo",
       "Life OS completo (hábitos, viagens, cinema…)",
       "Alertas, PWA e export CSV",
       "Privacidade (LGPD) e exclusão de conta",

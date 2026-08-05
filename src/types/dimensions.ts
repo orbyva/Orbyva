@@ -11,6 +11,7 @@ export interface Type {
   nature: Nature;
   hex_color: string | null;
   lucide_icon: string | null;
+  order?: number;
   /** Poupança/transferência: não entra no gasto do mês nem no teto. */
   exclude_from_spend?: boolean;
 }
@@ -29,6 +30,8 @@ export interface Dimension {
   types: {
     id: number;
     name: string;
+    hex_color?: string | null;
+    lucide_icon?: string | null;
     classes: {
       id: number;
       name: string;

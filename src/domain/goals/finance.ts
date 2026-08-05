@@ -45,7 +45,7 @@ export function goalMetaDescription(title: string): string {
   return `Meta - ${title.trim()}`;
 }
 
-/** Classe sob o tipo Meta: só o título (ex.: Viajar). */
+/** Classe sob a categoria Meta: só o título (ex.: Viajar). */
 export function goalClassName(title: string): string {
   return title.trim();
 }

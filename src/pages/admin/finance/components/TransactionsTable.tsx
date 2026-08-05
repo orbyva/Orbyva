@@ -264,8 +264,8 @@ export function TransactionsTable({
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-10" />
               <TableHead>Natureza</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Classe</TableHead>
+              <TableHead>Categoria</TableHead>
+              <TableHead>Subcategoria</TableHead>
               <TableHead>Valor</TableHead>
               <TableHead className="min-w-[120px]">Descrição</TableHead>
               <TableHead>Data</TableHead>

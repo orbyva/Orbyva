@@ -9,7 +9,7 @@ Datas centradas em mai–jul/2026.
 
 ## Passo a passo
 
-1. Login nessa conta e deixe o onboarding criar as **dimensões** padrão.
+1. Login nessa conta e deixe o onboarding criar as **categorias** padrão.
 2. **Finanças** → Importar `01-financas.csv`
 3. **Cinema** → Importar `02-cinema-letterboxd.csv`
 4. Supabase → **SQL Editor** → rode `seed_demo_user.sql` (metas, hábitos, lugares, viagens, veículo)

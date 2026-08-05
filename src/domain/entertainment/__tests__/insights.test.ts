@@ -111,6 +111,35 @@ describe("getCinemaLibraryStats", () => {
     expect(pick?.imdb_id).toBe("2");
     expect(pickRandomToWatchMovie([])).toBeNull();
   });
+
+  it("filtra por gênero antes de sortear", () => {
+    const withGenres = [
+      ...movies,
+      {
+        imdb_id: "5",
+        title: "Drama",
+        year: 2023,
+        genre: ["Drama"],
+        actors: [],
+        type: "movie",
+        status: MovieStatus.TO_WATCH,
+        watched_dates: [],
+      },
+      {
+        imdb_id: "6",
+        title: "Comédia",
+        year: 2023,
+        genre: ["Comédia"],
+        actors: [],
+        type: "movie",
+        status: MovieStatus.TO_WATCH,
+        watched_dates: [],
+      },
+    ] as Movie[];
+    expect(pickRandomToWatchMovie(withGenres, "Drama")?.imdb_id).toBe("5");
+    expect(pickRandomToWatchMovie(withGenres, "drama")?.imdb_id).toBe("5");
+    expect(pickRandomToWatchMovie(withGenres, "Terror")).toBeNull();
+  });
 });
 
 describe("getBookLibraryStats", () => {

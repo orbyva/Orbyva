@@ -88,15 +88,15 @@ function TypeManager({
       await deleteTypeApi(id);
       refetchTypes();
       toast({
-        title: "Tipo excluído",
+        title: "Categoria excluída",
         duration: 2000,
       });
     } catch (error) {
       toast({
-        title: "Não foi possível excluir o tipo",
+        title: "Não foi possível excluir a categoria",
         description: getErrorMessage(
           error,
-          "Não foi possível excluir o tipo. Tente de novo."
+          "Não foi possível excluir a categoria. Tente de novo."
         ),
         variant: "destructive",
       });
@@ -107,7 +107,7 @@ function TypeManager({
 
   async function handleCreate() {
     if (!newType.name.trim()) {
-      setFormError("Informe o nome do tipo.");
+      setFormError("Informe o nome da categoria.");
       return;
     }
     if (!newType.nature_id) {
@@ -162,9 +162,9 @@ function TypeManager({
   return (
     <Card className="flex h-full min-h-0 flex-col border-0 shadow-none">
       <CardHeader className="shrink-0 px-0 pt-0">
-        <CardTitle className="text-base">Tipos</CardTitle>
+        <CardTitle className="text-base">Categorias</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Agrupam suas classes (ex.: Alimentação, Transporte).
+          Agrupam suas subcategorias (ex.: Alimentação, Transporte).
         </p>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col px-0 pb-0">
@@ -269,7 +269,7 @@ function TypeManager({
           onClick={() => void handleCreate()}
           className="mt-4 w-full shrink-0 sm:w-auto"
         >
-          Adicionar tipo
+          Adicionar categoria
         </Button>
 
         <div className="mt-6 flex min-h-0 flex-1 flex-col border-t pt-4">
@@ -278,7 +278,7 @@ function TypeManager({
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <SortableTableHead
-                    label="Nome do tipo"
+                    label="Nome da categoria"
                     sortKey="name"
                     sort={sort}
                     onSortChange={(key) =>
@@ -302,11 +302,11 @@ function TypeManager({
                     <TableCell colSpan={3} className="p-0">
                       <EmptyState
                         icon={Layers}
-                        title="Nenhum tipo ainda"
+                        title="Nenhuma categoria ainda"
                         description={
                           natures.length === 0
                             ? "As categorias básicas ainda não estão prontas. Recarregue a página ou refaça o tour inicial em Conta."
-                            : "Crie o primeiro tipo acima (ex.: Alimentação, Transporte)."
+                            : "Crie a primeira categoria acima (ex.: Alimentação, Transporte)."
                         }
                         className="py-10"
                       />
@@ -326,7 +326,7 @@ function TypeManager({
                                   name: e.target.value,
                                 })
                               }
-                              placeholder="Nome do tipo"
+                              placeholder="Nome da categoria"
                             />
                             <div className="flex flex-wrap items-center gap-2">
                               <button
@@ -482,8 +482,8 @@ function TypeManager({
                               <Pen size={16} />
                             </Button>
                             <ConfirmDeleteDialog
-                              title="Excluir este tipo?"
-                              description={`"${type.name}" e o vínculo com classes podem ser afetados. Essa ação não pode ser desfeita.`}
+                              title="Excluir esta categoria?"
+                              description={`"${type.name}" e o vínculo com subcategorias podem ser afetados. Essa ação não pode ser desfeita.`}
                               loading={deletingId === type.id}
                               onConfirm={() => confirmDelete(type.id)}
                             >

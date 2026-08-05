@@ -140,7 +140,7 @@ export function MaintenanceFormDialog({
       );
     }
     if (registerExpense && !isEditing) {
-      if (!classId) return setFormError("Selecione a categoria da despesa.");
+      if (!classId) return setFormError("Selecione a subcategoria da despesa.");
       if (!form.cost || form.cost <= 0) {
         return setFormError("Informe o custo para registrar a despesa.");
       }

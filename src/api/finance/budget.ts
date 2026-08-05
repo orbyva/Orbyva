@@ -158,7 +158,9 @@ export async function fetchMonthlyBudgetSummary(
 ): Promise<MonthlyBudgetSummary[]> {
   const { data, error } = await supabase
     .from("vw_monthly_budget_summary")
-    .select("*")
+    .select(
+      "id, user_id, type_id, type_name, class_id, class_name, nature_name, expense_value, income_value, budget_month, planned_value, spent_value, remaining_value, percentage_used, status"
+    )
     .eq("budget_month", budgetMonth)
     .order("type_name", { ascending: true });
 

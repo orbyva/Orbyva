@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ArrowUpDown, Heart, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ import { cn } from "@/lib/utils";
 const albumsCatalogCache = createMemoryCache<Album[]>();
 
 export default function Music() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const fetchAll = useCallback(() => fetchAllAlbums(), []);
   const { items: allAlbums, reload, replace } = useCachedCatalog(
     albumsCatalogCache,
@@ -67,6 +69,7 @@ export default function Music() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -147,6 +150,14 @@ export default function Music() {
       );
     });
   }, [allAlbums]);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setAddOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   async function handleDelete(id: string) {
     try {
@@ -236,7 +247,11 @@ export default function Music() {
       actions={
         <>
           <ModuleGuideButton moduleId="music" />
-          <AlbumSearchModal onAlbumAdded={loadAlbums} />
+          <AlbumSearchModal
+            onAlbumAdded={loadAlbums}
+            open={addOpen}
+            onOpenChange={setAddOpen}
+          />
         </>
       }
     >
@@ -414,7 +429,7 @@ export default function Music() {
             }
             action={
               hasFilters ? undefined : (
-                <AlbumSearchModal onAlbumAdded={loadAlbums} />
+                <Button onClick={() => setAddOpen(true)}>Adicionar</Button>
               )
             }
           />

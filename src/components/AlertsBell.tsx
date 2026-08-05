@@ -7,7 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { fetchAppAlerts, type AppAlert } from "@/api/alerts";
+import { fetchAppAlerts, APP_ALERTS_UPDATED_EVENT, type AppAlert } from "@/api/alerts";
 import {
   ALERT_PREFS_EVENT,
   LEGACY_ALERT_PREFS_EVENT,
@@ -82,14 +82,17 @@ export function AlertsBell() {
       setKindTick((t) => t + 1);
       setNotifyOn(isBrowserNotifyEnabled());
     };
+    const onAlertsUpdated = () => void load({ soft: true });
     window.addEventListener(ALERT_PREFS_EVENT, syncPrefs);
     window.addEventListener(LEGACY_ALERT_PREFS_EVENT, syncPrefs);
     window.addEventListener("storage", syncPrefs);
+    window.addEventListener(APP_ALERTS_UPDATED_EVENT, onAlertsUpdated);
     return () => {
       window.clearInterval(id);
       window.removeEventListener(ALERT_PREFS_EVENT, syncPrefs);
       window.removeEventListener(LEGACY_ALERT_PREFS_EVENT, syncPrefs);
       window.removeEventListener("storage", syncPrefs);
+      window.removeEventListener(APP_ALERTS_UPDATED_EVENT, onAlertsUpdated);
     };
   }, [load]);
 

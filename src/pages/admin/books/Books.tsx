@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ArrowUpDown, Heart, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ import { cn } from "@/lib/utils";
 const booksCatalogCache = createMemoryCache<Book[]>();
 
 export default function Books() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const fetchAll = useCallback(() => fetchAllBooks(), []);
   const { items: allBooks, reload, replace } = useCachedCatalog(
     booksCatalogCache,
@@ -67,6 +69,7 @@ export default function Books() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editIntent, setEditIntent] = useState<BookEditIntent | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -155,6 +158,14 @@ export default function Books() {
       );
     });
   }, [allBooks]);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setAddOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   async function handleDeleteBook(googleId: string) {
     try {
@@ -245,7 +256,11 @@ export default function Books() {
       actions={
         <>
           <ModuleGuideButton moduleId="books" />
-          <BookSearchModal onBookAdded={loadBooks} />
+          <BookSearchModal
+            onBookAdded={loadBooks}
+            open={addOpen}
+            onOpenChange={setAddOpen}
+          />
         </>
       }
     >
@@ -422,7 +437,7 @@ export default function Books() {
             }
             action={
               hasClientFilters ? undefined : (
-                <BookSearchModal onBookAdded={loadBooks} />
+                <Button onClick={() => setAddOpen(true)}>Adicionar</Button>
               )
             }
           />

@@ -123,7 +123,7 @@ export function FuelLogFormDialog({
       );
     }
     if (registerExpense && !isEditing) {
-      if (!classId) return setFormError("Selecione a categoria da despesa.");
+      if (!classId) return setFormError("Selecione a subcategoria da despesa.");
     }
 
     setFormError("");

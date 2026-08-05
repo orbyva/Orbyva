@@ -72,11 +72,11 @@ function compareText(a: string, b: string): number {
 }
 
 function typeLabel(rec: Recurring): string {
-  return rec.class?.type?.name?.trim() || "Sem Tipo";
+  return rec.class?.type?.name?.trim() || "Sem categoria";
 }
 
 function classLabel(rec: Recurring): string {
-  return rec.class?.name?.trim() || "Sem Classe";
+  return rec.class?.name?.trim() || "Sem subcategoria";
 }
 
 function sortValue(rec: Recurring, key: RecurringSortKey): string | number {

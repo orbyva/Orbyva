@@ -1,25 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  fetchLifeDashboardSummary,
-  fetchTimelineItems,
-  getUpcomingTimeline,
-} from "@/api/timeline";
-import { fetchAppAlerts, type AppAlert } from "@/api/alerts";
-import {
-  fetchHabits,
-  fetchAllHabitLogs,
-  toggleHabitLog,
-} from "@/api/habits";
-import {
-  fetchLatestTransactionAt,
-  fetchMonthlyBudgetSummary,
-  fetchValueByNatureForMonth,
-} from "@/api/finance";
-import {
-  fetchRecurringTransactions,
-  getRecurringDueAlerts,
-} from "@/api/recurring";
-import { fetchMovies } from "@/api/movies";
+import { loadHomeBundle, enrichHomeAlertsWithSeries } from "@/api/hub";
+import type { AppAlert } from "@/api/alerts";
+import { toggleHabitLog } from "@/api/habits";
 import type { LifeDashboardSummary, TimelineItem } from "@/types/timeline";
 import type { Habit, HabitLog } from "@/types/habits";
 import type { MonthlyBudgetSummary } from "@/types/finance";
@@ -61,7 +43,6 @@ import { ShareImageDialog } from "@/components/ShareImageDialog";
 import { HubModulesGrid } from "./HubModulesGrid";
 import {
   type HubCache,
-  budgetMonthIso,
   daysUntilIso,
   firstNameFromUser,
   hubCacheKey,
@@ -94,7 +75,6 @@ export default function LifeDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
   const today = useLocalDay();
-
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
@@ -107,71 +87,46 @@ export default function LifeDashboard() {
     async function load() {
       try {
         setLoading(true);
-        const [
-          sum,
-          timeline,
-          appAlerts,
-          habitsBundle,
-          budgets,
-          recurring,
-          latestAt,
-          watchedPage,
-          prevMonthTotals,
-        ] = await Promise.all([
-          fetchLifeDashboardSummary(),
-          fetchTimelineItems(30, 7),
-          fetchAppAlerts(),
-          Promise.all([fetchHabits(), fetchAllHabitLogs()]),
-          fetchMonthlyBudgetSummary(budgetMonthIso()).catch(() => []),
-          fetchRecurringTransactions().catch(() => []),
-          fetchLatestTransactionAt().catch(() => null),
-          fetchMovies("watched", 1, 1).catch(() => ({ data: [], total: 0 })),
-          (() => {
-            const prev = previousYearMonth(year, month);
-            return fetchValueByNatureForMonth(prev.year, prev.month).catch(
-              () => null
-            );
-          })(),
-        ]);
-        const upcomingItems = getUpcomingTimeline(timeline, 7);
-        const withAlerts: LifeDashboardSummary = {
-          ...sum,
-          overdueAlerts: timeline.filter((t) => t.status === "overdue").length,
-          upcomingAlerts: timeline.filter(
-            (t) => t.status === "upcoming" || t.status === "today"
-          ).length,
-        };
-        const [h, l] = habitsBundle;
-        setSummary(withAlerts);
-        const prevYm = previousYearMonth(year, month);
-        setMomDespesa(
-          formatMomTrend(
-            withAlerts.expenseTotal ?? 0,
-            prevMonthTotals?.despesa_total,
-            prevYm.month
-          )
-        );
-        setUpcoming(upcomingItems);
-        setAlerts(appAlerts.slice(0, 6));
-        setHabits(h);
-        setHabitLogs(l);
-        setBudgetRows(budgets);
-        setRecurringAlerts(getRecurringDueAlerts(recurring).slice(0, 3));
-        setLastMovie(watchedPage.data[0] ?? null);
-        const days = daysSinceIsoDate(latestAt);
+        const bundle = await loadHomeBundle();
+        setSummary(bundle.summary);
+        setUpcoming(bundle.upcoming);
+        setAlerts(bundle.alerts.slice(0, 6));
+        setHabits(bundle.habits);
+        setHabitLogs(bundle.habitLogs);
+        setBudgetRows(bundle.budgetRows);
+        setRecurringAlerts(bundle.recurringAlerts);
+        setLastMovie(bundle.lastMovie);
+        const days = daysSinceIsoDate(bundle.latestTransactionAt);
         setDaysWithoutTx(days);
         if (days != null && days >= 3) {
           track("day_without_tx", { days });
         }
+        const prevYm = previousYearMonth(bundle.year, bundle.month);
+        setMomDespesa(
+          formatMomTrend(
+            bundle.summary.expenseTotal ?? 0,
+            bundle.prevMonthTotals?.despesa_total,
+            prevYm.month
+          )
+        );
         setFromCache(false);
         saveOfflineSnapshot<HubCache>(hubCacheKey(user?.id), {
-          summary: withAlerts,
-          upcoming: upcomingItems,
-          alerts: appAlerts.slice(0, 6),
+          summary: bundle.summary,
+          upcoming: bundle.upcoming,
+          alerts: bundle.alerts.slice(0, 6),
+        });
+
+        // TMDB / séries depois do first paint — não bloqueia o hub.
+        const domains = bundle.alertDomains;
+        void enrichHomeAlertsWithSeries(domains).then((merged) => {
+          setAlerts(merged.slice(0, 6));
+          saveOfflineSnapshot<HubCache>(hubCacheKey(user?.id), {
+            summary: bundle.summary,
+            upcoming: bundle.upcoming,
+            alerts: merged.slice(0, 6),
+          });
         });
       } catch (error) {
-        // Fallback para o snapshot mesmo com navigator.onLine true
-        // (rede instável / captive portal também derruba o fetch).
         const cached = loadOfflineSnapshot<HubCache>(hubCacheKey(user?.id));
         if (cached) {
           setSummary(cached.data.summary);
@@ -197,7 +152,7 @@ export default function LifeDashboard() {
       }
     }
     void load();
-  }, [toast, user?.id, year, month]);
+  }, [toast, user?.id]);
 
   useEffect(() => {
     if (!user?.id || !summary) return;
@@ -331,22 +286,22 @@ export default function LifeDashboard() {
     return Math.max(0, urgent - 2);
   }, [alerts]);
 
-  const firstName = firstNameFromUser(user);
-
-  if (loading) {
+  if (loading && !summary) {
     return (
       <PageShell hideHeader className="space-y-4 pb-20 md:pb-6">
-        <div className="space-y-1">
-          <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
-          <div className="h-4 w-56 animate-pulse rounded-md bg-muted" />
-        </div>
+        <HubGreeting firstName={firstNameFromUser(user)} />
         <div className="h-52 animate-pulse rounded-3xl bg-muted" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="h-24 animate-pulse rounded-xl bg-muted/60" />
+          <div className="h-24 animate-pulse rounded-xl bg-muted/60" />
+        </div>
         <TableLoadingSkeleton rows={5} />
       </PageShell>
     );
   }
 
   const s = summary!;
+  const firstName = firstNameFromUser(user);
   const receita =
     s.balance != null && s.expenseTotal != null
       ? s.balance + s.expenseTotal
