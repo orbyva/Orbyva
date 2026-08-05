@@ -33,7 +33,12 @@ import { useDimensions } from "@/hooks/useDimensions";
 import { useAuth } from "@/hooks/useAuth";
 import type { TripMember } from "@/types/tripSharing";
 import type { TripExpenseVisibility } from "@/types/travel";
-import { TRIP_STATUS_LABELS, normalizeTripActivityCategory } from "@/domain/travel";
+import {
+  TRIP_STATUS_LABELS,
+  isTripFinished,
+  normalizeTripActivityCategory,
+} from "@/domain/travel";
+import { sortVisitsForDay } from "@/domain/itinerary/visits";
 import { tripLedgerDescription } from "@/domain/travel/ledger";
 import type {
   TripExpense,
@@ -49,6 +54,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
 import { formatDateBR } from "@/lib/currency";
+import { formatLocalIsoDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { TripBudgetSummary } from "./components/TripBudgetSummary";
 import { TripItineraryTab } from "./components/TripItineraryTab";
@@ -210,6 +216,11 @@ export default function TripDetail() {
   }
 
   const isOngoing = trip.status === "ongoing";
+  const tripFinished = isTripFinished({
+    endDate: trip.end_date,
+    status: trip.status,
+    todayIso: formatLocalIsoDate(new Date()),
+  });
   const hasBudget = trip.budget != null && trip.budget > 0;
   const budgetProgress = hasBudget
     ? Math.min(100, (trip.expenseTotal / (trip.budget as number)) * 100)
@@ -553,6 +564,94 @@ export default function TripDetail() {
     });
   }
 
+  function moveVisitToDay(
+    actId: string,
+    targetDayId: string,
+    targetIndex: number
+  ) {
+    if (!trip) return;
+    const sourceDay = trip.itinerary.find((day) =>
+      (day.activities ?? []).some((activity) => activity.id === actId)
+    );
+    const targetDay = trip.itinerary.find((day) => day.id === targetDayId);
+    const moving = sourceDay?.activities?.find(
+      (activity) => activity.id === actId
+    );
+    if (!sourceDay || !targetDay || !moving) return;
+
+    const sortActivities = (activities: TripItineraryActivity[]) =>
+      sortVisitsForDay(activities);
+    const sourceWithoutMoving = sortActivities(
+      (sourceDay.activities ?? []).filter((activity) => activity.id !== actId)
+    );
+    const targetWithoutMoving =
+      sourceDay.id === targetDayId
+        ? sourceWithoutMoving
+        : sortActivities(
+            (targetDay.activities ?? []).filter(
+              (activity) => activity.id !== actId
+            )
+          );
+    const movedActivity: TripItineraryActivity = {
+      ...moving,
+      day_id: targetDayId,
+    };
+    const targetActivities = [...targetWithoutMoving];
+    targetActivities.splice(
+      Math.max(0, Math.min(targetIndex, targetActivities.length)),
+      0,
+      movedActivity
+    );
+    const normalizedTarget = targetActivities.map((activity, index) => ({
+      ...activity,
+      sort_order: index,
+    }));
+    const normalizedSource =
+      sourceDay.id === targetDayId
+        ? normalizedTarget
+        : sourceWithoutMoving.map((activity, index) => ({
+            ...activity,
+            sort_order: index,
+          }));
+
+    setTrip((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        itinerary: prev.itinerary.map((day) => {
+          if (day.id === targetDayId) {
+            return { ...day, activities: normalizedTarget };
+          }
+          if (day.id === sourceDay.id) {
+            return { ...day, activities: normalizedSource };
+          }
+          return day;
+        }),
+      };
+    });
+
+    const affectedActivities =
+      sourceDay.id === targetDayId
+        ? normalizedTarget
+        : [...normalizedSource, ...normalizedTarget];
+    void Promise.all(
+      affectedActivities.map((activity) =>
+        updateItineraryActivity({
+          id: activity.id,
+          day_id: activity.day_id,
+          sort_order: activity.sort_order,
+        })
+      )
+    ).catch(() => {
+      toast({
+        title: "Erro ao mover visita",
+        description: "Não foi possível salvar a nova ordem. Recarregando…",
+        variant: "destructive",
+      });
+      load();
+    });
+  }
+
   function openDayEdit(day: TripItineraryDay) {
     setEditingDay(day);
     setDayForm({
@@ -727,11 +826,13 @@ export default function TripDetail() {
               : null
           }
           originLabel={trip.origin_label}
+          disableRoutes={tripFinished}
           onEditDay={openDayEdit}
           onEditActivity={openActivityEdit}
           onAddActivity={openAddActivity}
           onReload={load}
           onVisitStatusChange={patchVisitStatusLocal}
+          onMoveVisit={moveVisitToDay}
         />
 
         <TripExpensesTab

@@ -242,6 +242,49 @@ export default function Account() {
       title="Conta"
       description={`${BRAND.tagline} — perfil, plano, export e exclusão.`}
     >
+      {trialExpired ? (
+        <div className="overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-b from-amber-500/10 via-background to-background p-6 text-center sm:p-8">
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10">
+            <Sparkles className="size-7 text-primary" />
+          </div>
+          <p className="text-lg font-semibold tracking-tight">
+            Seu teste de 7 dias terminou
+          </p>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Seus dados continuam salvos na órbita. Com o Pro (
+            {PLANS.pro.priceLabel}) você volta a usar finanças, hábitos, cinema
+            e o resto do life OS sem limite de tempo.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            {isBillingConfigured() ? (
+              <Button
+                size="lg"
+                disabled={billingBusy}
+                onClick={() => void handleUpgrade()}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                {billingBusy
+                  ? "Abrindo..."
+                  : `Continuar com Pro · ${PLANS.pro.priceLabel}`}
+              </Button>
+            ) : (
+              <Button size="lg" asChild>
+                <a
+                  href={`mailto:${BRAND.email}?subject=${encodeURIComponent(`${BRAND.name} Pro`)}`}
+                  onClick={() => track("paywall_contact_cta")}
+                >
+                  Falar conosco
+                </a>
+              </Button>
+            )}
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Nada foi apagado. Quando assinar, tudo volta exatamente como
+            deixou.
+          </p>
+        </div>
+      ) : null}
+
       <section className="rounded-xl border bg-card p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <Avatar className="h-12 w-12 rounded-xl sm:h-14 sm:w-14">
@@ -411,48 +454,6 @@ export default function Account() {
                 Assinar Pro · {PLANS.pro.priceLabel}
               </Button>
             ) : null}
-          </div>
-        ) : null}
-        {trialExpired ? (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-b from-amber-500/10 via-background to-background p-6 text-center sm:p-8">
-            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10">
-              <Sparkles className="size-7 text-primary" />
-            </div>
-            <p className="text-lg font-semibold tracking-tight">
-              Seu teste de 7 dias terminou
-            </p>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Seus dados continuam salvos na órbita. Com o Pro (
-              {PLANS.pro.priceLabel}) você volta a usar finanças, hábitos, cinema
-              e o resto do life OS sem limite de tempo.
-            </p>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-              {isBillingConfigured() ? (
-                <Button
-                  size="lg"
-                  disabled={billingBusy}
-                  onClick={() => void handleUpgrade()}
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {billingBusy
-                    ? "Abrindo..."
-                    : `Continuar com Pro · ${PLANS.pro.priceLabel}`}
-                </Button>
-              ) : (
-                <Button size="lg" asChild>
-                  <a
-                    href={`mailto:${BRAND.email}?subject=${encodeURIComponent(`${BRAND.name} Pro`)}`}
-                    onClick={() => track("paywall_contact_cta")}
-                  >
-                    Falar conosco
-                  </a>
-                </Button>
-              )}
-            </div>
-            <p className="mt-4 text-xs text-muted-foreground">
-              Nada foi apagado. Quando assinar, tudo volta exatamente como
-              deixou.
-            </p>
           </div>
         ) : null}
         <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground">

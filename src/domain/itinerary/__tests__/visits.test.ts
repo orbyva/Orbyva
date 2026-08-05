@@ -7,6 +7,7 @@ import {
   findPreviousVisit,
   formatDurationFriendly,
   formatLeaveByInsight,
+  isPastDay,
   isVisitDone,
   isVisitOpen,
   normalizeVisitStatus,
@@ -232,6 +233,27 @@ describe("shouldComputeRoutesForDay", () => {
     expect(
       shouldComputeRoutesForDay({ dayDate: null, todayIso: "2026-08-05" })
     ).toBe(false);
+  });
+});
+
+describe("isPastDay", () => {
+  it("marca apenas dias anteriores a hoje", () => {
+    expect(isPastDay({ dayDate: "2026-08-04", todayIso: "2026-08-05" })).toBe(
+      true
+    );
+    expect(isPastDay({ dayDate: "2026-08-05", todayIso: "2026-08-05" })).toBe(
+      false
+    );
+    expect(isPastDay({ dayDate: "2026-08-06", todayIso: "2026-08-05" })).toBe(
+      false
+    );
+    expect(isPastDay({ dayDate: null, todayIso: "2026-08-05" })).toBe(false);
+  });
+
+  it("ignora a parte de hora do timestamp", () => {
+    expect(
+      isPastDay({ dayDate: "2026-08-04T23:00:00Z", todayIso: "2026-08-05" })
+    ).toBe(true);
   });
 });
 

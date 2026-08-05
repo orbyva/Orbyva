@@ -8,6 +8,7 @@ import {
   findNextPendingVisit,
   findPreviousVisit,
   formatDurationFriendly,
+  isPastDay,
   resolveRouteOrigin,
   shouldComputeRoutesForDay,
   visitHasCoordinates,
@@ -26,6 +27,7 @@ import {
   fetchTravelRoutes,
   type RouteLegResult,
 } from "@/lib/googleRoutes";
+import { formatDateBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -34,6 +36,8 @@ type Props = {
   tripOrigin?: { lat: number; lng: number } | null;
   originLabel?: string | null;
   refreshKey?: number;
+  /** Viagem encerrada: não calcula deslocamento. */
+  disabled?: boolean;
 };
 
 function todayIsoLocal(): string {
@@ -79,6 +83,7 @@ export function ItineraryNextRoutePanel({
   tripOrigin,
   originLabel,
   refreshKey = 0,
+  disabled = false,
 }: Props) {
   const [userLocation, setUserLocation] = useState<{
     lat: number;
@@ -91,10 +96,10 @@ export function ItineraryNextRoutePanel({
   const [manualTick, setManualTick] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
-  const canCompute = shouldComputeRoutesForDay({
-    dayDate,
-    todayIso: todayIsoLocal(),
-  });
+  const todayIso = todayIsoLocal();
+  const dayIsPast = disabled || isPastDay({ dayDate, todayIso });
+  const canCompute =
+    !dayIsPast && shouldComputeRoutesForDay({ dayDate, todayIso });
 
   const nextVisit = useMemo(() => findNextPendingVisit(visits), [visits]);
 
@@ -208,11 +213,13 @@ export function ItineraryNextRoutePanel({
     manualTick,
   ]);
 
+  if (dayIsPast) return null;
+
   if (!canCompute) {
     return (
       <div className="rounded-lg border border-dashed bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
         Rotas disponíveis no dia do roteiro
-        {dayDate ? ` (${dayDate.slice(0, 10)})` : ""}.
+        {dayDate ? ` (${formatDateBR(dayDate)})` : ""}.
       </div>
     );
   }

@@ -21,7 +21,6 @@ import {
 
 import { MonthYearPicker } from "@/components/MonthYearPicker";
 import { FormLabel } from "@/components/FormLabel";
-import { FormSection } from "@/components/FormSection";
 import { Separator } from "@/components/ui/separator";
 import { sortByNamePt } from "@/lib/utils";
 
@@ -177,7 +176,6 @@ export function BudgetFormDialog({
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
-          <FormSection title="Classificação">
             <FormLabel required>Natureza</FormLabel>
 
             <Select
@@ -279,11 +277,9 @@ export function BudgetFormDialog({
                 ) : null}
               </div>
             )}
-          </FormSection>
 
           <Separator />
 
-          <FormSection title="Valores e período">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-3">
                 <FormLabel required>Valor planejado</FormLabel>
@@ -333,7 +329,6 @@ export function BudgetFormDialog({
                 </label>
               ) : null}
             </div>
-          </FormSection>
 
           {formError && <p className="text-sm text-destructive">{formError}</p>}
 

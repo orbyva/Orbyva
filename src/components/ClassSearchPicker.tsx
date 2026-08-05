@@ -3,6 +3,11 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { TypeIcon } from "@/components/TypeIcon";
 import { FormLabel } from "@/components/FormLabel";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { DimensionsEmptyHint } from "@/pages/admin/finance/components/NoClassesForTypeHint";
 import type { Dimension } from "@/types/dimensions";
 import { cn } from "@/lib/utils";
@@ -60,7 +65,6 @@ function buildSuggestions(
   const byId = new Map(options.map((o) => [o.id, o]));
   const suggested: ClassPickOption[] = [];
 
-  // Só subcategorias com uso — ordenadas pela frequência (já vem ranqueada).
   for (const id of frequentIds) {
     const opt = byId.get(id);
     if (!opt) continue;
@@ -68,7 +72,6 @@ function buildSuggestions(
     if (suggested.length >= limit) return suggested;
   }
 
-  // Sem histórico ainda: fallback alfabético limitado.
   if (suggested.length === 0) {
     return options.slice(0, limit);
   }
@@ -113,6 +116,7 @@ export function ClassSearchPicker({
 }: ClassSearchPickerProps) {
   const [query, setQuery] = useState("");
   const [frequentIds, setFrequentIds] = useState<number[]>([]);
+  const [listOpen, setListOpen] = useState(false);
 
   const options = useMemo(
     () => flattenClassOptions(dimensions, preferredNatureName),
@@ -137,6 +141,10 @@ export function ClassSearchPicker({
   }, [preferredNatureName]);
 
   const selected = options.find((o) => o.id === value) ?? null;
+
+  useEffect(() => {
+    if (!selected) setListOpen(true);
+  }, [selected]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -187,6 +195,7 @@ export function ClassSearchPicker({
           onClick={() => {
             onChange(null);
             setQuery("");
+            setListOpen(true);
           }}
           className="flex w-full items-center gap-3 rounded-xl border bg-card px-3 py-2.5 text-left transition hover:bg-accent/40"
         >
@@ -223,73 +232,100 @@ export function ClassSearchPicker({
           <span className="text-xs text-muted-foreground">Trocar</span>
         </button>
       ) : (
-        <>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar categoria ou subcategoria (ex: Aluguel)"
-              className="pl-9"
-              autoFocus={autoFocus}
-            />
-          </div>
-          {showFrequentHint ? (
-            <p className="text-[11px] text-muted-foreground">
-              Subcategorias mais usadas
-            </p>
-          ) : null}
-          <div className="max-h-56 space-y-1.5 overflow-y-auto rounded-xl border bg-muted/20 p-1.5">
+        <Popover
+          open={listOpen}
+          onOpenChange={(next) => {
+            if (!next) setListOpen(false);
+          }}
+          modal={false}
+        >
+          <PopoverAnchor asChild>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setListOpen(true);
+                }}
+                onFocus={() => setListOpen(true)}
+                onClick={() => setListOpen(true)}
+                placeholder="Buscar categoria ou subcategoria (ex: Aluguel)"
+                className="pl-9"
+                autoFocus={autoFocus}
+                autoComplete="off"
+              />
+            </div>
+          </PopoverAnchor>
+          <PopoverContent
+            align="start"
+            side="bottom"
+            sideOffset={6}
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+            className="w-[var(--radix-popover-trigger-width)] max-h-[min(14rem,40dvh)] overflow-y-auto overscroll-contain p-1.5 touch-pan-y"
+            onWheel={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
+            {showFrequentHint ? (
+              <p className="px-2 pb-1.5 pt-0.5 text-[11px] text-muted-foreground">
+                Subcategorias mais usadas
+              </p>
+            ) : null}
             {filtered.length === 0 ? (
               <p className="px-2 py-3 text-center text-xs text-muted-foreground">
                 Nenhuma subcategoria encontrada.
               </p>
             ) : (
-              filtered.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt);
-                    setQuery("");
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-lg border border-transparent bg-background px-2.5 py-2 text-left transition hover:border-border hover:bg-accent/40"
-                  )}
-                >
-                  <span
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full"
-                    style={{
-                      backgroundColor: opt.hexColor
-                        ? `${opt.hexColor}33`
-                        : "hsl(var(--muted))",
+              <div className="space-y-1.5">
+                {filtered.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onChange(opt);
+                      setQuery("");
+                      setListOpen(false);
                     }}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg border border-transparent bg-background px-2.5 py-2 text-left transition hover:border-border hover:bg-accent/40"
+                    )}
                   >
-                    <TypeIcon
-                      name={opt.lucideIcon}
-                      className="size-4"
-                      style={
-                        opt.hexColor ? { color: opt.hexColor } : undefined
-                      }
-                    />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[11px] text-muted-foreground">
-                      {opt.typeName}
-                      <span className="text-muted-foreground/70">
-                        {" "}
-                        · {opt.natureName}
+                    <span
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full"
+                      style={{
+                        backgroundColor: opt.hexColor
+                          ? `${opt.hexColor}33`
+                          : "hsl(var(--muted))",
+                      }}
+                    >
+                      <TypeIcon
+                        name={opt.lucideIcon}
+                        className="size-4"
+                        style={
+                          opt.hexColor ? { color: opt.hexColor } : undefined
+                        }
+                      />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[11px] text-muted-foreground">
+                        {opt.typeName}
+                        <span className="text-muted-foreground/70">
+                          {" "}
+                          · {opt.natureName}
+                        </span>
+                      </span>
+                      <span className="block truncate text-sm font-medium">
+                        {opt.name}
                       </span>
                     </span>
-                    <span className="block truncate text-sm font-medium">
-                      {opt.name}
-                    </span>
-                  </span>
-                </button>
-              ))
+                  </button>
+                ))}
+              </div>
             )}
-          </div>
-        </>
+          </PopoverContent>
+        </Popover>
       )}
     </div>
   );

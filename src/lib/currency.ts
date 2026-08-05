@@ -48,5 +48,7 @@ export function moneyFromDigits(digits: string): number | null {
 
 export function formatDateBR(isoDate: string | null | undefined): string {
   if (!isoDate) return "—";
-  return isoDate.split("-").reverse().join("/");
+  const datePart = isoDate.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return isoDate;
+  return datePart.split("-").reverse().join("/");
 }

@@ -49,5 +49,6 @@ describe("moneyFromDigits", () => {
 describe("formatDateBR", () => {
   it("converte ISO para dd/mm/aaaa", () => {
     expect(formatDateBR("2026-07-03")).toBe("03/07/2026");
+    expect(formatDateBR("2026-07-03T12:00:00.000Z")).toBe("03/07/2026");
   });
 });

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   Check,
+  GripVertical,
   Pencil,
   Plus,
   SkipForward,
@@ -12,6 +13,15 @@ import { TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import {
@@ -46,6 +56,8 @@ type TripItineraryTabProps = {
   user: User | null;
   tripOrigin?: { lat: number; lng: number } | null;
   originLabel?: string | null;
+  /** Desativa somente o cálculo de deslocamentos. */
+  disableRoutes?: boolean;
   onEditDay: (day: TripItineraryDay) => void;
   onEditActivity: (act: TripItineraryActivity) => void;
   onAddActivity: (dayId: string) => void;
@@ -54,6 +66,16 @@ type TripItineraryTabProps = {
     actId: string,
     status: "pending" | "completed" | "skipped"
   ) => void;
+  onMoveVisit: (
+    actId: string,
+    targetDayId: string,
+    targetIndex: number
+  ) => void;
+};
+
+type TimedMoveAttempt = {
+  title: string;
+  activityTime: string;
 };
 
 function enrichVisits(
@@ -95,20 +117,25 @@ export function TripItineraryTab({
   user,
   tripOrigin,
   originLabel,
+  disableRoutes = false,
   onEditDay,
   onEditActivity,
   onAddActivity,
   onReload,
   onVisitStatusChange,
+  onMoveVisit,
 }: TripItineraryTabProps) {
   const [routeRefresh, setRouteRefresh] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [dragVisitId, setDragVisitId] = useState<string | null>(null);
+  const [dropDayId, setDropDayId] = useState<string | null>(null);
+  const [timedMoveAttempt, setTimedMoveAttempt] =
+    useState<TimedMoveAttempt | null>(null);
 
   async function setStatus(
     actId: string,
     status: "pending" | "completed" | "skipped"
   ) {
-    // UI otimista — não espera reload do bundle.
     onVisitStatusChange(actId, status);
     setRouteRefresh((n) => n + 1);
     setBusyId(actId);
@@ -121,8 +148,69 @@ export function TripItineraryTab({
     }
   }
 
+  function handleDrop(targetDayId: string, targetIndex: number) {
+    if (!dragVisitId) return;
+    const fromDay = itinerary.find((d) =>
+      (d.activities ?? []).some((a) => a.id === dragVisitId)
+    );
+    const targetDay = itinerary.find((day) => day.id === targetDayId);
+    const moving = fromDay?.activities?.find((a) => a.id === dragVisitId);
+    setDragVisitId(null);
+    setDropDayId(null);
+    if (!fromDay || !targetDay || !moving) return;
+
+    const orderedTarget = sortVisitsForDay(targetDay.activities ?? []);
+    const originalIndex = orderedTarget.findIndex((a) => a.id === dragVisitId);
+    const withoutMoving = orderedTarget.filter((a) => a.id !== dragVisitId);
+    const adjustedIndex =
+      fromDay.id === targetDayId &&
+      originalIndex >= 0 &&
+      originalIndex < targetIndex
+        ? targetIndex - 1
+        : targetIndex;
+    const baseInsertionIndex = Math.max(
+      0,
+      Math.min(adjustedIndex, withoutMoving.length)
+    );
+    const firstUntimedIndex = withoutMoving.findIndex(
+      (activity) => !activity.activity_time
+    );
+    const minimumUntimedIndex =
+      firstUntimedIndex < 0 ? withoutMoving.length : firstUntimedIndex;
+    const insertionIndex = moving.activity_time
+      ? baseInsertionIndex
+      : Math.max(minimumUntimedIndex, baseInsertionIndex);
+    const reordered = [...withoutMoving];
+    reordered.splice(insertionIndex, 0, moving);
+
+    if (
+      fromDay.id === targetDayId &&
+      reordered.every((activity, index) => activity.id === orderedTarget[index]?.id)
+    ) {
+      return;
+    }
+
+    if (fromDay.id === targetDayId && moving.activity_time) {
+      setTimedMoveAttempt({
+        title: moving.title,
+        activityTime: moving.activity_time,
+      });
+      return;
+    }
+
+    onMoveVisit(moving.id, targetDayId, insertionIndex);
+    setRouteRefresh((n) => n + 1);
+  }
+
   return (
     <TabsContent value="itinerary" className="mt-4 space-y-4">
+      {itinerary.length > 1 ||
+        itinerary.some((day) => (day.activities?.length ?? 0) > 1) ? (
+        <p className="text-xs text-muted-foreground">
+          Arraste visitas para mudar sua ordem ou seu dia. As que possuem
+          horário podem mudar de dia, mas mantêm a ordem cronológica.
+        </p>
+      ) : null}
       {itinerary.map((day) => (
         <DayBlock
           key={day.id}
@@ -134,13 +222,55 @@ export function TripItineraryTab({
           originLabel={originLabel}
           routeRefresh={routeRefresh}
           busyId={busyId}
+          disableRoutes={disableRoutes}
+          dragVisitId={dragVisitId}
+          isDropTarget={dropDayId === day.id && dragVisitId != null}
           onEditDay={onEditDay}
           onEditActivity={onEditActivity}
           onAddActivity={onAddActivity}
           onReload={onReload}
           onSetStatus={setStatus}
+          onDragVisitStart={setDragVisitId}
+          onDragVisitEnd={() => {
+            setDragVisitId(null);
+            setDropDayId(null);
+          }}
+          onDragOverDay={() => setDropDayId(day.id)}
+          onDragLeaveDay={() =>
+            setDropDayId((cur) => (cur === day.id ? null : cur))
+          }
+          onDropOnDay={() =>
+            handleDrop(day.id, day.activities?.length ?? 0)
+          }
+          onDropBeforeVisit={(index) => handleDrop(day.id, index)}
         />
       ))}
+      <AlertDialog
+        open={timedMoveAttempt != null}
+        onOpenChange={(open) => {
+          if (!open) setTimedMoveAttempt(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Esta visita tem horário definido</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{timedMoveAttempt?.title}” está marcada para{" "}
+              {timedMoveAttempt?.activityTime}. Visitas com horário são
+              ordenadas automaticamente dentro do mesmo dia. Você pode
+              movê-la para outro dia ou remover o horário na edição para
+              ordená-la manualmente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => setTimedMoveAttempt(null)}
+            >
+              Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TabsContent>
   );
 }
@@ -154,11 +284,20 @@ function DayBlock({
   originLabel,
   routeRefresh,
   busyId,
+  disableRoutes,
+  dragVisitId,
+  isDropTarget,
   onEditDay,
   onEditActivity,
   onAddActivity,
   onReload,
   onSetStatus,
+  onDragVisitStart,
+  onDragVisitEnd,
+  onDragOverDay,
+  onDragLeaveDay,
+  onDropOnDay,
+  onDropBeforeVisit,
 }: {
   day: TripItineraryDay;
   places: PlaceVisit[];
@@ -168,6 +307,9 @@ function DayBlock({
   originLabel?: string | null;
   routeRefresh: number;
   busyId: string | null;
+  disableRoutes: boolean;
+  dragVisitId: string | null;
+  isDropTarget: boolean;
   onEditDay: (day: TripItineraryDay) => void;
   onEditActivity: (act: TripItineraryActivity) => void;
   onAddActivity: (dayId: string) => void;
@@ -176,6 +318,12 @@ function DayBlock({
     id: string,
     status: "pending" | "completed" | "skipped"
   ) => Promise<void>;
+  onDragVisitStart: (id: string) => void;
+  onDragVisitEnd: () => void;
+  onDragOverDay: () => void;
+  onDragLeaveDay: () => void;
+  onDropOnDay: () => void;
+  onDropBeforeVisit: (index: number) => void;
 }) {
   const visits = useMemo(() => enrichVisits(day, places), [day, places]);
   const sortedActs = useMemo(() => {
@@ -188,7 +336,21 @@ function DayBlock({
   }, [day.activities, visits]);
 
   return (
-    <article className="rounded-lg border p-4 space-y-3">
+    <article
+      className={cn(
+        "rounded-lg border p-4 space-y-3 transition-colors",
+        isDropTarget && "border-primary bg-primary/5"
+      )}
+      onDragOver={(event) => {
+        event.preventDefault();
+        onDragOverDay();
+      }}
+      onDragLeave={onDragLeaveDay}
+      onDrop={(event) => {
+        event.preventDefault();
+        onDropOnDay();
+      }}
+    >
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">
           {day.date ? (
@@ -222,10 +384,11 @@ function DayBlock({
         tripOrigin={tripOrigin}
         originLabel={originLabel}
         refreshKey={routeRefresh}
+        disabled={disableRoutes}
       />
 
       <ul className="space-y-2">
-        {sortedActs.map((act) => {
+        {sortedActs.map((act, index) => {
           const status = normalizeVisitStatus(act.visit_status);
           const member = members.find(
             (m) => m.user_id === act.created_by_user_id
@@ -267,14 +430,39 @@ function DayBlock({
           return (
             <li
               key={act.id}
+              draggable
+              onDragStart={() => onDragVisitStart(act.id)}
+              onDragEnd={onDragVisitEnd}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onDragOverDay();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onDropBeforeVisit(index);
+              }}
               className={cn(
                 "rounded-md border px-2.5 py-2",
                 status === "completed" &&
                   "border-emerald-500/20 bg-emerald-500/5",
-                status === "skipped" && "bg-muted/40 opacity-80"
+                status === "skipped" && "bg-muted/40 opacity-80",
+                dragVisitId === act.id && "opacity-60"
               )}
             >
               <div className="flex items-start gap-2">
+                <span
+                  className="mt-0.5 shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+                  title={
+                    act.activity_time
+                      ? "Arrastar para outro dia; a ordem neste dia segue o horário"
+                      : "Arrastar para mudar a ordem ou o dia"
+                  }
+                  aria-hidden
+                >
+                  <GripVertical className="h-4 w-4" />
+                </span>
                 <span
                   className={cn(
                     "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px]",

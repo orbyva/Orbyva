@@ -28,6 +28,22 @@ export const TRIP_STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelada",
 };
 
+/**
+ * Viagem encerrada: concluída, cancelada ou com data final anterior a hoje.
+ * Roteiro vira somente leitura e não calcula deslocamentos.
+ */
+export function isTripFinished(params: {
+  endDate: string | null | undefined;
+  status?: string | null;
+  todayIso: string;
+}): boolean {
+  if (params.status === "completed" || params.status === "cancelled") {
+    return true;
+  }
+  if (!params.endDate) return false;
+  return params.endDate.slice(0, 10) < params.todayIso.slice(0, 10);
+}
+
 export const CHECKLIST_CATEGORY_LABELS: Record<string, string> = {
   documents: "Documentos",
   transport: "Transporte",

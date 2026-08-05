@@ -35,7 +35,7 @@ export function isVisitDone(visit: VisitLike): boolean {
 }
 
 /** Ordena por horário (HH:mm) e depois sort_order. */
-export function sortVisitsForDay(visits: VisitLike[]): VisitLike[] {
+export function sortVisitsForDay<T extends VisitLike>(visits: T[]): T[] {
   return [...visits].sort((a, b) => {
     const ta = parseHHmmToMinutes(a.activity_time);
     const tb = parseHHmmToMinutes(b.activity_time);
@@ -241,6 +241,15 @@ export function shouldComputeRoutesForDay(params: {
 }): boolean {
   if (!params.dayDate) return false;
   return params.dayDate.slice(0, 10) === params.todayIso.slice(0, 10);
+}
+
+/** Dia do roteiro anterior a hoje (calendário local YYYY-MM-DD). */
+export function isPastDay(params: {
+  dayDate: string | null | undefined;
+  todayIso: string;
+}): boolean {
+  if (!params.dayDate) return false;
+  return params.dayDate.slice(0, 10) < params.todayIso.slice(0, 10);
 }
 
 export type LatLng = { lat: number; lng: number };
