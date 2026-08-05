@@ -35,6 +35,8 @@ import {
   googleAvatarInitial,
 } from "@/lib/avatar";
 import { formatDateBR } from "@/lib/currency";
+import { dropZoneAttrs, readDropZone } from "@/lib/dropZone";
+import { useTouchDrag } from "@/hooks/useTouchDrag";
 import { cn } from "@/lib/utils";
 import {
   normalizeVisitStatus,
@@ -77,6 +79,14 @@ type TimedMoveAttempt = {
   title: string;
   activityTime: string;
 };
+
+/** `visit|<dayId>|<índice de inserção>` */
+const VISIT_ZONE = "visit";
+
+type DragHandleProps = (
+  itemId: string,
+  label: string
+) => Record<string, unknown>;
 
 function enrichVisits(
   day: TripItineraryDay,
@@ -132,6 +142,23 @@ export function TripItineraryTab({
   const [timedMoveAttempt, setTimedMoveAttempt] =
     useState<TimedMoveAttempt | null>(null);
 
+  const { handleProps: dragHandleProps, dragOverlay } = useTouchDrag({
+    onStart: setDragVisitId,
+    onZoneChange: (zone) => {
+      const target = readDropZone(zone);
+      setDropDayId(target?.kind === VISIT_ZONE ? target.parts[0] : null);
+    },
+    onDrop: (visitId, zone) => {
+      const target = readDropZone(zone);
+      if (target?.kind !== VISIT_ZONE) return;
+      handleDrop(target.parts[0], Number(target.parts[1]), visitId);
+    },
+    onCancel: () => {
+      setDragVisitId(null);
+      setDropDayId(null);
+    },
+  });
+
   async function setStatus(
     actId: string,
     status: "pending" | "completed" | "skipped"
@@ -148,20 +175,24 @@ export function TripItineraryTab({
     }
   }
 
-  function handleDrop(targetDayId: string, targetIndex: number) {
-    if (!dragVisitId) return;
+  function handleDrop(
+    targetDayId: string,
+    targetIndex: number,
+    visitId = dragVisitId
+  ) {
+    if (!visitId) return;
     const fromDay = itinerary.find((d) =>
-      (d.activities ?? []).some((a) => a.id === dragVisitId)
+      (d.activities ?? []).some((a) => a.id === visitId)
     );
     const targetDay = itinerary.find((day) => day.id === targetDayId);
-    const moving = fromDay?.activities?.find((a) => a.id === dragVisitId);
+    const moving = fromDay?.activities?.find((a) => a.id === visitId);
     setDragVisitId(null);
     setDropDayId(null);
     if (!fromDay || !targetDay || !moving) return;
 
     const orderedTarget = sortVisitsForDay(targetDay.activities ?? []);
-    const originalIndex = orderedTarget.findIndex((a) => a.id === dragVisitId);
-    const withoutMoving = orderedTarget.filter((a) => a.id !== dragVisitId);
+    const originalIndex = orderedTarget.findIndex((a) => a.id === visitId);
+    const withoutMoving = orderedTarget.filter((a) => a.id !== visitId);
     const adjustedIndex =
       fromDay.id === targetDayId &&
       originalIndex >= 0 &&
@@ -207,8 +238,8 @@ export function TripItineraryTab({
       {itinerary.length > 1 ||
         itinerary.some((day) => (day.activities?.length ?? 0) > 1) ? (
         <p className="text-xs text-muted-foreground">
-          Arraste visitas para mudar sua ordem ou seu dia. As que possuem
-          horário podem mudar de dia, mas mantêm a ordem cronológica.
+          Arraste visitas pelo punho para mudar sua ordem ou seu dia. As que
+          possuem horário podem mudar de dia, mas mantêm a ordem cronológica.
         </p>
       ) : null}
       {itinerary.map((day) => (
@@ -230,6 +261,7 @@ export function TripItineraryTab({
           onAddActivity={onAddActivity}
           onReload={onReload}
           onSetStatus={setStatus}
+          dragHandleProps={dragHandleProps}
           onDragVisitStart={setDragVisitId}
           onDragVisitEnd={() => {
             setDragVisitId(null);
@@ -271,6 +303,7 @@ export function TripItineraryTab({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {dragOverlay}
     </TabsContent>
   );
 }
@@ -292,6 +325,7 @@ function DayBlock({
   onAddActivity,
   onReload,
   onSetStatus,
+  dragHandleProps,
   onDragVisitStart,
   onDragVisitEnd,
   onDragOverDay,
@@ -318,6 +352,7 @@ function DayBlock({
     id: string,
     status: "pending" | "completed" | "skipped"
   ) => Promise<void>;
+  dragHandleProps: DragHandleProps;
   onDragVisitStart: (id: string) => void;
   onDragVisitEnd: () => void;
   onDragOverDay: () => void;
@@ -350,6 +385,7 @@ function DayBlock({
         event.preventDefault();
         onDropOnDay();
       }}
+      {...dropZoneAttrs(VISIT_ZONE, day.id, sortedActs.length)}
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">
@@ -443,6 +479,7 @@ function DayBlock({
                 event.stopPropagation();
                 onDropBeforeVisit(index);
               }}
+              {...dropZoneAttrs(VISIT_ZONE, day.id, index)}
               className={cn(
                 "rounded-md border px-2.5 py-2",
                 status === "completed" &&
@@ -453,7 +490,8 @@ function DayBlock({
             >
               <div className="flex items-start gap-2">
                 <span
-                  className="mt-0.5 shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+                  {...dragHandleProps(act.id, act.title)}
+                  className="-my-1 -ml-1 shrink-0 cursor-grab p-1 text-muted-foreground active:cursor-grabbing"
                   title={
                     act.activity_time
                       ? "Arrastar para outro dia; a ordem neste dia segue o horário"
@@ -461,7 +499,7 @@ function DayBlock({
                   }
                   aria-hidden
                 >
-                  <GripVertical className="h-4 w-4" />
+                  <GripVertical className="mt-0.5 h-4 w-4" />
                 </span>
                 <span
                   className={cn(
