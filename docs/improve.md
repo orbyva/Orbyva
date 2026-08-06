@@ -29,4 +29,6 @@
   - ✅ painel próximo destino + horário de saída / duração / chegada
   - ✅ link + “já reservado” + notas por visita
   - ✅ carregamento inicial do detalhe da viagem em bundle (menos round-trips)
+  - ✅ identidade visual do roteiro: cor por categoria de lugar (ícone Lucide + tom),
+    teal do módulo no dia de hoje, progresso por dia e ações da visita em menu
 - ✅ link com qr code para convidar amigos, se o convidado criar o cliente

@@ -10,17 +10,25 @@ export type QuickAddAction = {
 
 export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
   {
-    id: "expense",
-    label: "Nova despesa",
-    href: "/finance/transactions?new=1&nature=despesa",
-    keywords: ["despesa", "gasto", "financeiro", "transação", "gastei"],
+    id: "transaction",
+    label: "Registrar transação",
+    href: "/finance/transactions?new=1",
+    keywords: [
+      "despesa",
+      "receita",
+      "gasto",
+      "entrada",
+      "financeiro",
+      "transação",
+      "gastei",
+    ],
     area: "finance",
   },
   {
-    id: "income",
-    label: "Nova receita",
-    href: "/finance/transactions?new=1&nature=receita",
-    keywords: ["receita", "entrada", "financeiro", "transação"],
+    id: "budget",
+    label: "Criar orçamento",
+    href: "/finance/budget?new=1",
+    keywords: ["orçamento", "planejado", "budget", "limite"],
     area: "finance",
   },
   {
@@ -116,7 +124,7 @@ export function areaLabel(area: AppArea): string {
 /** Actions for the current area. On home, returns a curated mix of top actions. */
 export function quickAddActionsForArea(area: AppArea): QuickAddAction[] {
   if (area === "home") {
-    const ids = ["expense", "income", "movie", "habit", "place", "trip"];
+    const ids = ["transaction", "movie", "habit", "place", "trip"];
     return QUICK_ADD_ACTIONS.filter((a) => ids.includes(a.id));
   }
   return QUICK_ADD_ACTIONS.filter((a) => a.area === area);

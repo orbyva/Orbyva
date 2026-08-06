@@ -59,4 +59,25 @@ describe("searchPlaces (invoke)", () => {
       MapsQuotaExceededError
     );
   });
+
+  it("lê MAPS_QUOTA_EXCEEDED do corpo em FunctionsHttpError", async () => {
+    const { searchPlaces, MapsQuotaExceededError, clearPlaceSearchCache } =
+      await import("@/lib/geoapifyPlaces");
+    clearPlaceSearchCache();
+    const body = { code: "MAPS_QUOTA_EXCEEDED", error: "cota esgotada" };
+    invoke.mockResolvedValue({
+      data: null,
+      error: {
+        message: "Edge Function returned a non-2xx status code",
+        context: new Response(JSON.stringify(body), { status: 429 }),
+      },
+    });
+    await expect(
+      searchPlaces({ query: "quota-from-http-error" })
+    ).rejects.toMatchObject({
+      name: "MapsQuotaExceededError",
+      message: "cota esgotada",
+    });
+    expect(MapsQuotaExceededError).toBeDefined();
+  });
 });

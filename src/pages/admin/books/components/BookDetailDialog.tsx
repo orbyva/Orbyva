@@ -15,11 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ScoreRating } from "@/components/ScoreRating";
+import {
+  StatusPill,
+  type StatusPillTone,
+} from "@/components/StatusPill";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import { updateBook } from "@/api/books";
 import {
@@ -31,7 +34,7 @@ import {
   getReadingProgress,
   parsePageInput,
 } from "@/domain/books";
-import type { Book } from "@/types/books";
+import type { Book, BookStatus } from "@/types/books";
 import { formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
@@ -62,6 +65,21 @@ function DetailRow({
       <div className="text-sm">{children}</div>
     </div>
   );
+}
+
+function bookStatusTone(status: BookStatus): StatusPillTone {
+  switch (status) {
+    case "to_read":
+      return "warning";
+    case "reading":
+      return "primary";
+    case "read":
+      return "success";
+    case "abandoned":
+      return "muted";
+    default:
+      return "muted";
+  }
 }
 
 function ReadingLifecycleLinks({
@@ -300,25 +318,24 @@ export function BookDetailDialog({
                   />
                 </Button>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="text-[10px]">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <StatusPill tone={bookStatusTone(book.status)}>
                   {BOOK_STATUS_LABELS[book.status]}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {formatAuthors(book.authors)}
-                </span>
-                {book.published_year != null && (
-                  <span className="text-sm text-muted-foreground">
-                    · {book.published_year}
-                  </span>
-                )}
+                </StatusPill>
+                {book.status === "read" ? (
+                  recommend ? (
+                    <ThumbsUp className="h-3.5 w-3.5 shrink-0 text-success" />
+                  ) : (
+                    <ThumbsDown className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                  )
+                ) : null}
               </div>
-              {book.status === "read" &&
-                (recommend ? (
-                  <ThumbsUp className="h-5 w-5 text-success" />
-                ) : (
-                  <ThumbsDown className="h-5 w-5 text-destructive" />
-                ))}
+              <p className="text-sm text-muted-foreground">
+                {formatAuthors(book.authors)}
+                {book.published_year != null
+                  ? ` · ${book.published_year}`
+                  : ""}
+              </p>
             </div>
           </div>
         </DialogHeader>
@@ -365,9 +382,9 @@ export function BookDetailDialog({
             <DetailRow label="Categorias">
               <div className="flex flex-wrap gap-1.5">
                 {book.categories.map((c) => (
-                  <Badge key={c} variant="secondary" className="text-[10px]">
+                  <StatusPill key={c} tone="muted">
                     {c}
-                  </Badge>
+                  </StatusPill>
                 ))}
               </div>
             </DetailRow>

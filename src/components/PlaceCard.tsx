@@ -8,14 +8,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PlaceTypeIcon } from "@/components/PlaceTypeIcon";
+import { StatusPill, ToneChip } from "@/components/StatusPill";
 import { StarRating } from "@/components/StarRating";
 import {
-  PLACE_TYPE_EMOJI,
   PLACE_TYPE_LABELS,
   formatRating,
   getRatingLabel,
+  normalizePlaceStatus,
+  placeTypeMeta,
 } from "@/domain/places";
 import type { PlaceVisit } from "@/types/places";
 import { formatBRL, formatDateBR } from "@/lib/currency";
@@ -39,6 +41,9 @@ export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
       : summary?.avgRating;
   const starValue =
     displayRating != null ? Math.round(displayRating * 2) / 2 : null;
+  const isToVisit =
+    normalizePlaceStatus(place.status, place.visited_date) === "to_visit";
+  const typeMeta = placeTypeMeta(place.type);
 
   return (
     <article
@@ -64,33 +69,43 @@ export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
         tabIndex={onClick ? 0 : undefined}
       >
         <div className="flex items-start justify-between gap-2 pr-8">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-lg">{PLACE_TYPE_EMOJI[place.type]}</span>
-              <Badge variant="outline" className="text-[10px]">
-                {PLACE_TYPE_LABELS[place.type]}
-              </Badge>
-              {place.status === "to_visit" ? (
-                <Badge variant="secondary" className="text-[10px]">
-                  Para visitar
-                </Badge>
-              ) : null}
-              {multi ? (
-                <Badge variant="secondary" className="text-[10px]">
-                  {summary!.totalOpinions} opiniões
-                </Badge>
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <div
+              className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                typeMeta.tone
+              )}
+              aria-hidden
+            >
+              <PlaceTypeIcon type={place.type} className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                <ToneChip toneClassName={typeMeta.tone}>
+                  {PLACE_TYPE_LABELS[place.type]}
+                </ToneChip>
+                {isToVisit ? (
+                  <StatusPill tone="warning">Para visitar</StatusPill>
+                ) : (
+                  <StatusPill tone="success">Visitado</StatusPill>
+                )}
+                {multi ? (
+                  <StatusPill tone="muted">
+                    {summary!.totalOpinions} opiniões
+                  </StatusPill>
+                ) : null}
+              </div>
+              <h3 className="truncate font-semibold">{place.name}</h3>
+              {place.address ? (
+                <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{place.address}</span>
+                </p>
               ) : null}
             </div>
-            <h3 className="font-semibold truncate">{place.name}</h3>
-            {place.address && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                <MapPin className="h-3 w-3 shrink-0" />
-                <span className="truncate">{place.address}</span>
-              </p>
-            )}
           </div>
 
-          {place.status !== "to_visit" ? (
+          {!isToVisit ? (
             multi && summary ? (
               <div className="flex shrink-0 items-center gap-2 text-[11px] font-medium">
                 <span className="inline-flex items-center gap-1 text-success">
@@ -110,7 +125,7 @@ export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
           ) : null}
         </div>
 
-        {place.status !== "to_visit" &&
+        {!isToVisit &&
         starValue != null &&
         displayRating != null &&
         displayRating > 0 ? (
@@ -126,33 +141,31 @@ export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
         ) : null}
 
         {place.notes && !multi ? (
-          <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+          <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
             {place.notes}
           </p>
         ) : null}
 
         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            {place.status === "to_visit"
+            {isToVisit
               ? "Na lista"
               : formatDateBR(place.visited_date)}
-            {place.status !== "to_visit" &&
-            place.amount != null &&
-            place.amount > 0
+            {!isToVisit && place.amount != null && place.amount > 0
               ? ` · ${formatBRL(place.amount)}${
                   place.transaction_id != null ? " · extrato" : ""
                 }`
               : ""}
           </span>
-          {place.trip && (
-            <span className="text-primary truncate max-w-[140px]">
+          {place.trip ? (
+            <span className="max-w-[140px] truncate text-primary">
               {place.trip.title}
             </span>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {onDelete && (
+      {onDelete ? (
         <>
           <Button
             type="button"
@@ -191,7 +204,7 @@ export function PlaceCard({ place, onClick, onDelete }: PlaceCardProps) {
             </AlertDialogContent>
           </AlertDialog>
         </>
-      )}
+      ) : null}
     </article>
   );
 }

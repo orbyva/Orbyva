@@ -1005,6 +1005,17 @@ export default function TripDetail() {
           setPlaceDetailOpen(false);
           setPlaceEditOpen(true);
         }}
+        onMarkVisited={() => {
+          if (!selectedPlace) return;
+          const today = new Date().toISOString().split("T")[0];
+          setEditingPlace({
+            ...selectedPlace,
+            status: "visited",
+            visited_date: selectedPlace.visited_date || today,
+          });
+          setPlaceDetailOpen(false);
+          setPlaceEditOpen(true);
+        }}
         onDelete={() => {
           if (selectedPlace) handleDeletePlace(selectedPlace.id);
         }}

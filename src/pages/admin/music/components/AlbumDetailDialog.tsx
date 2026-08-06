@@ -3,7 +3,6 @@ import {
   Disc3,
   Heart,
   Pencil,
-  RefreshCw,
   Share2,
   ThumbsDown,
   ThumbsUp,
@@ -15,10 +14,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ScoreRating } from "@/components/ScoreRating";
+import {
+  CINEMA_TYPE_TONE,
+  StatusPill,
+  ToneChip,
+  type StatusPillTone,
+} from "@/components/StatusPill";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import {
   ALBUM_STATUS_LABELS,
@@ -30,10 +34,9 @@ import {
   getLatestListenedDate,
   trackRatingKey,
 } from "@/domain/music";
-import type { Album } from "@/types/music";
+import type { Album, AlbumStatus } from "@/types/music";
 import { formatDateBR } from "@/lib/currency";
 import {
-  fetchCatalogAlbumMeta,
   fetchCatalogTracklist,
   isCatalogSyncedSource,
   type AlbumTrack,
@@ -69,6 +72,10 @@ function DetailRow({
   );
 }
 
+function albumStatusTone(status: AlbumStatus): StatusPillTone {
+  return status === "listened" ? "success" : "warning";
+}
+
 export function AlbumDetailDialog({
   album,
   open,
@@ -86,7 +93,6 @@ export function AlbumDetailDialog({
   const [ratingSavingKey, setRatingSavingKey] = useState<string | null>(null);
   /** Nota inline (evita Popover flutuando no Dialog com scroll). */
   const [editingTrackKey, setEditingTrackKey] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const { toast } = useToast();
@@ -206,48 +212,6 @@ export function AlbumDetailDialog({
     }
   }
 
-  async function handleRefresh() {
-    if (!album || !fromCatalog) return;
-    setRefreshing(true);
-    try {
-      const meta = await fetchCatalogAlbumMeta(
-        album.musicbrainz_id,
-        album.source
-      );
-      if (!meta) {
-        toast({
-          title: "Não encontrado",
-          description: "O catálogo não retornou este lançamento.",
-          variant: "destructive",
-        });
-        return;
-      }
-      await updateAlbum({
-        musicbrainz_id: album.musicbrainz_id,
-        title: meta.title,
-        artists: meta.artists,
-        release_year: meta.release_year,
-        album_type: meta.album_type,
-        cover_url: meta.cover_url,
-        source: album.source,
-      });
-      toast({
-        title: "Atualizado",
-        description: "Metadados e capa sincronizados com o catálogo.",
-        duration: 2000,
-      });
-      onAlbumUpdated?.();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Falha ao atualizar."),
-        variant: "destructive",
-      });
-    } finally {
-      setRefreshing(false);
-    }
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={`${FORM_DIALOG_CONTENT_CLASS} sm:max-w-xl`}>
@@ -287,24 +251,25 @@ export function AlbumDetailDialog({
                   />
                 </Button>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="text-[10px]">
-                  {ALBUM_STATUS_LABELS[album.status]}
-                </Badge>
-                <Badge variant="secondary" className="text-[10px]">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <ToneChip toneClassName={CINEMA_TYPE_TONE}>
                   {ALBUM_TYPE_LABELS[album.album_type]}
-                </Badge>
+                </ToneChip>
+                <StatusPill tone={albumStatusTone(album.status)}>
+                  {ALBUM_STATUS_LABELS[album.status]}
+                </StatusPill>
+                {album.status === "listened" ? (
+                  recommend ? (
+                    <ThumbsUp className="h-3.5 w-3.5 shrink-0 text-success" />
+                  ) : (
+                    <ThumbsDown className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                  )
+                ) : null}
               </div>
               <p className="text-sm text-muted-foreground">
                 {formatArtists(album.artists)}
                 {album.release_year != null ? ` · ${album.release_year}` : ""}
               </p>
-              {album.status === "listened" &&
-                (recommend ? (
-                  <ThumbsUp className="h-5 w-5 text-success" />
-                ) : (
-                  <ThumbsDown className="h-5 w-5 text-destructive" />
-                ))}
             </div>
           </div>
         </DialogHeader>
@@ -446,18 +411,6 @@ export function AlbumDetailDialog({
                 Excluir
               </Button>
             </ConfirmDeleteDialog>
-          )}
-          {fromCatalog && (
-            <Button
-              variant="outline"
-              disabled={refreshing}
-              onClick={() => void handleRefresh()}
-            >
-              <RefreshCw
-                className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-              />
-              {refreshing ? "Atualizando…" : "Atualizar do catálogo"}
-            </Button>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Fechar

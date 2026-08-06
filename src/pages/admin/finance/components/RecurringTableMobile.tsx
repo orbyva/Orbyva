@@ -14,7 +14,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   deleteRecurringApi,
   softDeleteRecurring,
-  updateRecurringParcelPayment,
   formatInstallmentPlanSummary,
   getRecurringProgress,
 } from "@/api/recurring";
@@ -22,7 +21,6 @@ import { formatBRL, formatDateBR } from "@/lib/currency";
 import { Installment, Recurring } from "@/types/recurring";
 import { cn } from "@/lib/utils";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
-import { toast } from "@/hooks/use-toast";
 import { MobileStackList, MobileStackRow } from "@/components/MobileStackList";
 import {
   RecurringIcon,
@@ -49,6 +47,7 @@ export interface RecurringTableMobileProps {
     parcel: { transactionId: string; installmentNumber: number } | null
   ) => void;
   reloadRecurring: () => Promise<void>;
+  onConfirmParcelPayment: () => void | Promise<void>;
   handleEditRecurring: (recurring: Recurring) => void;
   expandedRows: Record<string, boolean>;
   toggleExpanded: (id: string) => void;
@@ -70,6 +69,7 @@ export function RecurringTableMobile({
   selectedParcel,
   setSelectedParcel,
   reloadRecurring,
+  onConfirmParcelPayment,
   handleEditRecurring,
   expandedRows,
   toggleExpanded,
@@ -349,46 +349,7 @@ export function RecurringTableMobile({
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
                     <AlertDialogAction
-                      onClick={async () => {
-                        if (selectedParcel) {
-                          try {
-                            await updateRecurringParcelPayment(
-                              selectedParcel.transactionId,
-                              selectedParcel.installmentNumber,
-                              recurring.find(
-                                (transaction) =>
-                                  transaction.id === selectedParcel.transactionId
-                              )?.paid_parcels || [],
-                              paymentAction === "mark"
-                                ? new Date().toISOString().slice(0, 10)
-                                : undefined
-                            );
-                            await reloadRecurring();
-                            toast({
-                              title:
-                                paymentAction === "mark"
-                                  ? parcelCopy.markToast
-                                  : parcelCopy.unmarkToast,
-                              description:
-                                paymentAction === "mark"
-                                  ? "A transação foi registrada automaticamente."
-                                  : "A parcela foi revertida e a transação vinculada foi excluída.",
-                            });
-                          } catch (error) {
-                            console.error(
-                              "Erro ao atualizar pagamento da parcela:",
-                              error
-                            );
-                            toast({
-                              variant: "destructive",
-                              title: "Erro ao atualizar parcela",
-                              description:
-                                "Não foi possível concluir a operação. Tente novamente.",
-                            });
-                          }
-                        }
-                        setConfirmPaymentOpen(false);
-                      }}
+                      onClick={() => void onConfirmParcelPayment()}
                     >
                       Confirmar
                     </AlertDialogAction>

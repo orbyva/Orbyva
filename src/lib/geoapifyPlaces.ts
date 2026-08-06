@@ -43,32 +43,65 @@ function publicError(raw: string | undefined, fallback: string): string {
   return raw;
 }
 
+function throwFromPayload(payload: InvokeErr | null, fallback: string): never {
+  if (payload?.code === "GEOAPIFY_NOT_CONFIGURED") {
+    throw new GeoapifyNotConfiguredError();
+  }
+  if (payload?.code === "MAPS_QUOTA_EXCEEDED") {
+    throw new MapsQuotaExceededError(
+      payload.error ||
+        "Limite gratuito de mapas atingido. Novas buscas liberam no próximo período."
+    );
+  }
+  throw new Error(publicError(payload?.error, fallback));
+}
+
+/** Lê o JSON do corpo quando a edge responde 4xx/5xx (supabase-js deixa em error.context). */
+async function payloadFromInvokeError(
+  error: { message?: string; context?: unknown } | null
+): Promise<InvokeErr | null> {
+  const ctx = error?.context;
+  if (!ctx || typeof ctx !== "object") return null;
+  if (typeof (ctx as Response).json === "function") {
+    try {
+      return (await (ctx as Response).clone().json()) as InvokeErr;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 async function invokeSearch(
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  signal?: AbortSignal
 ): Promise<{ places: PlaceSearchHit[] }> {
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
   const { data, error } = await supabase.functions.invoke("places-catalog", {
     body: { action: "search", ...body },
+    signal,
   });
 
+  // supabase-js não propaga AbortError — devolve FunctionsFetchError.
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
   if (error) {
-    throw new Error(publicError(error.message, "Não foi possível buscar lugares."));
+    const fromBody = await payloadFromInvokeError(error);
+    if (fromBody?.code || fromBody?.error) {
+      throwFromPayload(fromBody, "Não foi possível buscar lugares.");
+    }
+    throw new Error(
+      publicError(error.message, "Não foi possível buscar lugares.")
+    );
   }
 
   const payload = data as ({ places?: PlaceSearchHit[] } & InvokeErr) | null;
   if (!payload) {
     throw new Error("Não foi possível buscar lugares.");
   }
-  if (payload.code === "GEOAPIFY_NOT_CONFIGURED") {
-    throw new GeoapifyNotConfiguredError();
-  }
-  if (payload.code === "MAPS_QUOTA_EXCEEDED") {
-    throw new MapsQuotaExceededError(
-      payload.error ||
-        "Limite gratuito de mapas atingido. Novas buscas liberam no próximo período."
-    );
-  }
-  if (payload.error) {
-    throw new Error(publicError(payload.error, "Não foi possível buscar lugares."));
+  if (payload.code || payload.error) {
+    throwFromPayload(payload, "Não foi possível buscar lugares.");
   }
   return { places: payload.places ?? [] };
 }
@@ -105,15 +138,23 @@ export function formatDistanceMeters(
   return `${(meters / 1000).toFixed(meters < 10_000 ? 1 : 0)} km`;
 }
 
+export function clearPlaceSearchCache(): void {
+  searchCache.clear();
+}
+
 export async function searchPlaces(params: {
   query: string;
   category?: string | null;
   lat?: number | null;
   lng?: number | null;
+  signal?: AbortSignal;
 }): Promise<PlaceSearchHit[]> {
   const query = params.query.trim();
   const category = (params.category ?? "").trim();
   if (query.length < 2 && !category) return [];
+  if (params.signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
 
   const cacheKey = [
     query.toLowerCase(),
@@ -127,12 +168,19 @@ export async function searchPlaces(params: {
     return cached.hits;
   }
 
-  const { places } = await invokeSearch({
-    query,
-    category: category || undefined,
-    lat: params.lat ?? undefined,
-    lng: params.lng ?? undefined,
-  });
+  const { places } = await invokeSearch(
+    {
+      query,
+      category: category || undefined,
+      lat: params.lat ?? undefined,
+      lng: params.lng ?? undefined,
+    },
+    params.signal
+  );
+
+  if (params.signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
 
   const hits = places.slice(0, 10);
   searchCache.set(cacheKey, { at: Date.now(), hits });

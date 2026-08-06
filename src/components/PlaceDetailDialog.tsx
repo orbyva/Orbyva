@@ -1,23 +1,33 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Pencil, Plane, Share2, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import {
+  MapPin,
+  Pencil,
+  Plane,
+  Share2,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ShareImageDialog } from "@/components/ShareImageDialog";
 import { StarRating } from "@/components/StarRating";
+import { PlaceTypeIcon } from "@/components/PlaceTypeIcon";
+import { StatusPill, ToneChip } from "@/components/StatusPill";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import {
-  PLACE_TYPE_EMOJI,
   PLACE_TYPE_LABELS,
   formatRating,
   getRatingLabel,
+  normalizePlaceStatus,
+  placeTypeMeta,
 } from "@/domain/places";
 import type { PlaceVisit } from "@/types/places";
 import type { TripPlaceOpinion } from "@/types/tripSharing";
@@ -25,12 +35,15 @@ import { formatBRL, formatDateBR } from "@/lib/currency";
 import { generatePlaceShareImage, sharePlaceNative } from "@/lib/placeShare";
 import { fetchPlaceOpinions } from "@/api/places";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
 interface PlaceDetailDialogProps {
   place: PlaceVisit | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEdit?: () => void;
+  /** Abre o formulário já no status Visitado (para avaliar). */
+  onMarkVisited?: () => void;
   onDelete?: () => void;
   onOpinionSaved?: () => void;
   /** Viagem compartilhada — mostra médias/opiniões do grupo. */
@@ -57,6 +70,7 @@ export function PlaceDetailDialog({
   open,
   onOpenChange,
   onEdit,
+  onMarkVisited,
   onDelete,
   isSharedTrip,
 }: PlaceDetailDialogProps) {
@@ -136,32 +150,80 @@ export function PlaceDetailDialog({
         ? place.rating
         : null;
   const shareNotes = Boolean(displayNotes);
+  const isToVisit =
+    normalizePlaceStatus(place.status, place.visited_date) === "to_visit";
+  const typeMeta = placeTypeMeta(place.type);
+  const typeLabel = PLACE_TYPE_LABELS[place.type];
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <div className="flex items-start gap-3 pr-6">
-              <span className="text-3xl">{PLACE_TYPE_EMOJI[place.type]}</span>
-              <div className="min-w-0 flex-1">
-                <DialogTitle className="text-left leading-snug">
+        <DialogContent
+          className={cn(FORM_DIALOG_CONTENT_CLASS, "gap-0 overflow-hidden p-0")}
+        >
+          <DialogHeader className="space-y-0 px-4 pb-3 pt-4 pr-12 text-left sm:px-6 sm:pt-6">
+            <div className="flex items-start gap-3">
+              <div
+                className={cn(
+                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
+                  typeMeta.tone
+                )}
+                aria-hidden
+              >
+                <PlaceTypeIcon type={place.type} className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <DialogTitle className="text-left text-base leading-snug sm:text-lg">
                   {place.name}
                 </DialogTitle>
-                <Badge variant="outline" className="mt-2 text-[10px]">
-                  {PLACE_TYPE_LABELS[place.type]}
-                </Badge>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <ToneChip toneClassName={typeMeta.tone}>{typeLabel}</ToneChip>
+                  {isToVisit ? (
+                    <StatusPill tone="warning">Para visitar</StatusPill>
+                  ) : (
+                    <StatusPill tone="success">Visitado</StatusPill>
+                  )}
+                  {!isToVisit ? (
+                    displayRecommend ? (
+                      <ThumbsUp className="h-3.5 w-3.5 shrink-0 text-success" />
+                    ) : (
+                      <ThumbsDown className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                    )
+                  ) : null}
+                </div>
+                {place.trip ? (
+                  <Link
+                    to={`/travel/${place.trip.id}`}
+                    className="inline-flex max-w-full items-center gap-1.5 text-xs text-primary hover:underline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    <Plane className="h-3 w-3 shrink-0" />
+                    <span className="truncate">
+                      {place.trip.title}
+                      {place.trip.destination
+                        ? ` · ${place.trip.destination}`
+                        : ""}
+                    </span>
+                  </Link>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Passeio local</p>
+                )}
               </div>
-              {displayRecommend ? (
-                <ThumbsUp className="h-5 w-5 shrink-0 text-success" />
-              ) : (
-                <ThumbsDown className="h-5 w-5 shrink-0 text-destructive" />
-              )}
             </div>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {showGroupOpinions && groupAvg != null ? (
+          <div className="max-h-[50vh] space-y-3 overflow-y-auto px-4 py-3 sm:px-6">
+            {isToVisit ? (
+              <div className="rounded-lg border border-warning/25 bg-warning/5 px-3 py-2.5">
+                <p className="text-sm font-medium">Na lista · ainda não visitado</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Quando for, marque como visitado para avaliar e registrar o
+                  gasto.
+                </p>
+              </div>
+            ) : null}
+
+            {!isToVisit && showGroupOpinions && groupAvg != null ? (
               <DetailRow label="Média do grupo">
                 <div className="flex items-center gap-2">
                   <StarRating value={Math.round(groupAvg * 2) / 2} readonly />
@@ -171,7 +233,9 @@ export function PlaceDetailDialog({
                   </span>
                 </div>
               </DetailRow>
-            ) : displayRating != null ? (
+            ) : null}
+
+            {!isToVisit && !showGroupOpinions && displayRating != null ? (
               <DetailRow label="Avaliação">
                 <div className="flex items-center gap-2">
                   <StarRating value={displayRating} readonly />
@@ -183,15 +247,13 @@ export function PlaceDetailDialog({
               </DetailRow>
             ) : null}
 
-            <DetailRow label="Data da visita">
-              {place.status === "to_visit"
-                ? "Na lista · Para visitar"
-                : formatDateBR(place.visited_date)}
-            </DetailRow>
+            {!isToVisit && place.visited_date ? (
+              <DetailRow label="Data da visita">
+                {formatDateBR(place.visited_date)}
+              </DetailRow>
+            ) : null}
 
-            {place.status !== "to_visit" &&
-            place.amount != null &&
-            place.amount > 0 ? (
+            {!isToVisit && place.amount != null && place.amount > 0 ? (
               <DetailRow label="Valor gasto">
                 <span>
                   {formatBRL(place.amount)}
@@ -204,30 +266,14 @@ export function PlaceDetailDialog({
               </DetailRow>
             ) : null}
 
-            {place.address && (
+            {place.address ? (
               <DetailRow label="Endereço">
                 <p className="flex items-start gap-2">
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <span>{place.address}</span>
                 </p>
               </DetailRow>
-            )}
-
-            {place.trip ? (
-              <DetailRow label="Viagem">
-                <Link
-                  to={`/travel/${place.trip.id}`}
-                  className="inline-flex items-center gap-1.5 text-primary hover:underline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  <Plane className="h-3.5 w-3.5" />
-                  {place.trip.title}
-                  {place.trip.destination ? ` · ${place.trip.destination}` : ""}
-                </Link>
-              </DetailRow>
-            ) : (
-              <DetailRow label="Contexto">Passeio local</DetailRow>
-            )}
+            ) : null}
 
             {showGroupOpinions ? (
               <DetailRow label="Opiniões do grupo">
@@ -267,56 +313,77 @@ export function PlaceDetailDialog({
                   ) : null}
                 </ul>
               </DetailRow>
-            ) : (
-              <>
-                {displayNotes ? (
-                  <DetailRow label="Comentário">
-                    <p className="whitespace-pre-wrap text-muted-foreground">
-                      {displayNotes}
-                    </p>
-                  </DetailRow>
-                ) : null}
-                <DetailRow label="Recomendação">
-                  {displayRecommend ? "Recomendaria" : "Não recomendaria"}
-                </DetailRow>
-              </>
-            )}
+            ) : displayNotes ? (
+              <DetailRow label="Comentário">
+                <p className="whitespace-pre-wrap text-muted-foreground">
+                  {displayNotes}
+                </p>
+              </DetailRow>
+            ) : null}
           </div>
 
-          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-            {onDelete && (
-              <ConfirmDeleteDialog
-                title="Excluir este lugar?"
-                description={`A avaliação de "${place.name}" será removida.`}
-                onConfirm={() => {
-                  onDelete();
-                  onOpenChange(false);
-                }}
-              >
-                <Button variant="outline" className="text-destructive sm:mr-auto">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Excluir
+          <div className="border-t border-border/80 bg-muted/30 px-4 py-3 sm:px-6">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              {onDelete ? (
+                <ConfirmDeleteDialog
+                  title="Excluir este lugar?"
+                  description={`“${place.name}” será removido da lista.`}
+                  onConfirm={() => {
+                    onDelete();
+                    onOpenChange(false);
+                  }}
+                >
+                  <Button
+                    variant="outline"
+                    className="text-destructive sm:mr-auto"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Excluir
+                  </Button>
+                </ConfirmDeleteDialog>
+              ) : null}
+
+              {!isToVisit ? (
+                <Button variant="outline" onClick={() => setShareOpen(true)}>
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Compartilhar
                 </Button>
-              </ConfirmDeleteDialog>
-            )}
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Fechar
-            </Button>
-            <Button variant="outline" onClick={() => setShareOpen(true)}>
-              <Share2 className="mr-2 h-4 w-4" />
-              Compartilhar
-            </Button>
-            {onEdit && (
-              <Button
-                onClick={() => {
-                  onOpenChange(false);
-                  onEdit();
-                }}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Editar
-              </Button>
-            )}
+              ) : null}
+
+              {isToVisit && onEdit ? (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onOpenChange(false);
+                    onEdit();
+                  }}
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar
+                </Button>
+              ) : null}
+
+              {isToVisit && onMarkVisited ? (
+                <Button
+                  onClick={() => {
+                    onOpenChange(false);
+                    onMarkVisited();
+                  }}
+                >
+                  Marcar como visitado
+                </Button>
+              ) : onEdit ? (
+                <Button
+                  onClick={() => {
+                    onOpenChange(false);
+                    onEdit();
+                  }}
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar
+                </Button>
+              ) : null}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

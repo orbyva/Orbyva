@@ -20,6 +20,12 @@ import type { PlaceType } from "@/types/places";
 import { PLACE_TYPE_LABELS } from "@/domain/places";
 import { cn } from "@/lib/utils";
 
+function isSearchAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  if (err instanceof Error && err.name === "AbortError") return true;
+  return false;
+}
+
 export type PlaceCatalogPick = {
   name: string;
   address: string | null;
@@ -81,6 +87,9 @@ export function PlaceCatalogSearch({
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
+      // Invalida busca em voo (ex.: apagar o texto) — senão o abort
+      // vira "Não foi possível buscar lugares".
+      reqId.current += 1;
       setHits([]);
       setError(null);
       setLoading(false);
@@ -89,6 +98,7 @@ export function PlaceCatalogSearch({
     }
 
     const id = ++reqId.current;
+    const controller = new AbortController();
     const timer = window.setTimeout(() => {
       setLoading(true);
       setOpen(true);
@@ -96,6 +106,7 @@ export function PlaceCatalogSearch({
         query: q,
         lat: bias?.lat,
         lng: bias?.lng,
+        signal: controller.signal,
       })
         .then((results) => {
           if (reqId.current !== id) return;
@@ -104,6 +115,7 @@ export function PlaceCatalogSearch({
         })
         .catch((err) => {
           if (reqId.current !== id) return;
+          if (isSearchAbortError(err) || controller.signal.aborted) return;
           setHits([]);
           if (err instanceof GeoapifyNotConfiguredError) {
             setError("Busca de mapas ainda não configurada.");
@@ -120,9 +132,12 @@ export function PlaceCatalogSearch({
         .finally(() => {
           if (reqId.current === id) setLoading(false);
         });
-    }, 320);
+    }, 400);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- bias só na hora da busca; evita refetch ao GPS chegar
   }, [query]);
 

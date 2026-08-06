@@ -222,6 +222,27 @@ function serializeGeoFeature(
   };
 }
 
+async function fetchWithTimeout(
+  url: string,
+  ms = 8_000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw Object.assign(new Error("Geoapify timeout"), {
+        status: 504,
+        detail: "upstream timeout",
+      });
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function searchGeoapify(params: {
   apiKey: string;
   query: string;
@@ -254,7 +275,7 @@ async function searchGeoapify(params: {
       url.searchParams.set("name", params.query.trim());
     }
 
-    const res = await fetch(url.toString());
+    const res = await fetchWithTimeout(url.toString());
     if (!res.ok) {
       const text = await res.text();
       throw Object.assign(new Error(`Geoapify places: ${res.status}`), {
@@ -279,7 +300,7 @@ async function searchGeoapify(params: {
     url.searchParams.set("bias", `proximity:${bias.lng},${bias.lat}`);
   }
 
-  const res = await fetch(url.toString());
+  const res = await fetchWithTimeout(url.toString());
   if (!res.ok) {
     const text = await res.text();
     throw Object.assign(new Error(`Geoapify autocomplete: ${res.status}`), {

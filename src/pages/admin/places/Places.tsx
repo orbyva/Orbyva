@@ -337,6 +337,16 @@ export default function Places() {
           setEditing(selected);
           setEditOpen(true);
         }}
+        onMarkVisited={() => {
+          if (!selected) return;
+          const today = new Date().toISOString().split("T")[0];
+          setEditing({
+            ...selected,
+            status: "visited",
+            visited_date: selected.visited_date || today,
+          });
+          setEditOpen(true);
+        }}
         onDelete={() => selected && handleDelete(selected.id)}
       />
 
