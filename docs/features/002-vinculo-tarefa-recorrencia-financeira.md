@@ -23,9 +23,10 @@ Plano completo: `docs/superpowers/plans/2026-08-06-task-finance-recurrence-link.
 - [x] UI `ProjectKanban.tsx`: idem (ea94a33)
 - [x] UI `Live.tsx`: exclui tarefas-template do seletor (0719ee3)
 - [x] Fix: editar uma instância vinculada zerava `due_date` (bug encontrado na verificação manual, não estava no plano original) (2802313)
-- [ ] Verificação manual fim a fim: reparar a linha de teste corrompida pelo bug acima, testar "Lançar transação" ao vivo, revisão final de branch inteira — bloqueado no túnel ngrok do usuário
+- [x] Verificação manual fim a fim: materialização, sync nos dois sentidos (incluindo desfazer), reparo da linha corrompida pelo bug do `due_date`, "Lançar transação" ao vivo — tudo confirmado no navegador; dados de teste limpos
 
 ## Notas
 - Migration `20260803120000_tasks_projects.sql` (feature 001) e uma segunda migration do mesmo dia (`ops_trial_ends_at`) compartilhavam o mesmo timestamp — corrompeu o bookkeeping de migrations do Supabase CLI e mascarou por um tempo que a migration da feature 001 nunca tinha sido de fato aplicada ao banco remoto. Renomeada para `20260803121500` antes de aplicar. Lição: nunca duas migrations com o mesmo timestamp (ver `docs/stack.md`).
 - Bug real encontrado durante a verificação manual (não capturado pelo review por task, já que o bug atravessa como o dialog de edição interage com uma linha já materializada): `TaskList.tsx`/`ProjectKanban.tsx` zeravam `due_date` de qualquer edição em uma tarefa vinculada, mesmo quando a edição era só reatribuir o projeto. Corrigido distinguindo "editando o template" (zera `due_date`, correto) de "editando uma instância já materializada" (nunca deve zerar). Ver commit `2802313`.
 - Confirmado via query direta ao banco (não só pela UI) que o sync nas duas direções funciona, incluindo desfazer pagamento em Finanças reabrindo a tarefa.
+- Gap de UX descoberto durante a verificação, fora do escopo desta feature: a lista flat de Tarefas (`/tasks`) não tem nenhum jeito de marcar status — só o Kanban tem (e exige a tarefa pertencer a um projeto). Tarefas sem projeto (como "Pagar DAS"/"Pagar psicóloga" no mundo real) não têm como ser concluídas sem antes serem movidas para um projeto. Candidato a virar o círculo de conclusão pedido na visão agrupada de Tarefas (Hoje/Essa semana/Esse mês) ainda não especificada.
