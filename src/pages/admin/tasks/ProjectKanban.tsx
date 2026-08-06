@@ -195,32 +195,35 @@ export default function ProjectKanban() {
     }
   }
 
-  async function moveStatus(task: Task, direction: -1 | 1) {
-    const nextIndex = STATUSES.indexOf(task.status) + direction;
-    if (nextIndex < 0 || nextIndex >= STATUSES.length) return;
+  /** Atualiza o status localmente na hora (sem esperar um reload completo) e reverte se a chamada falhar. */
+  async function applyStatusChange(task: Task, nextStatus: TaskStatus, errorMessage: string) {
+    if (task.status === nextStatus) return;
+    const previous = tasks;
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t)));
     try {
-      await updateTask({ id: task.id, status: STATUSES[nextIndex] });
-      load();
+      await updateTask({ id: task.id, status: nextStatus });
     } catch (error) {
+      setTasks(previous);
       toast({
         title: "Erro",
-        description: getErrorMessage(error, "Não foi possível mover a tarefa."),
+        description: getErrorMessage(error, errorMessage),
         variant: "destructive",
       });
     }
   }
 
+  async function moveStatus(task: Task, direction: -1 | 1) {
+    const nextIndex = STATUSES.indexOf(task.status) + direction;
+    if (nextIndex < 0 || nextIndex >= STATUSES.length) return;
+    await applyStatusChange(task, STATUSES[nextIndex], "Não foi possível mover a tarefa.");
+  }
+
   async function toggleSubtask(subtask: Task) {
-    try {
-      await updateTask({ id: subtask.id, status: subtask.status === "done" ? "todo" : "done" });
-      load();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Não foi possível atualizar a subtarefa."),
-        variant: "destructive",
-      });
-    }
+    await applyStatusChange(
+      subtask,
+      subtask.status === "done" ? "todo" : "done",
+      "Não foi possível atualizar a subtarefa."
+    );
   }
 
   async function addSubtask(parent: Task) {
