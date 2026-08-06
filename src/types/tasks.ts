@@ -42,6 +42,8 @@ export interface Task {
   tags: string[];
   due_date: string | null;
   recurrence_rule: RecurrenceRule | null;
+  linked_recurring_id: string | null;
+  linked_installment_number: number | null;
   completed_at?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -55,6 +57,7 @@ export type TaskCreateRequest = Omit<
   | "updated_at"
   | "recurrence_origin_id"
   | "completed_at"
+  | "linked_installment_number"
 >;
 
 export type TaskUpdateRequest = Partial<TaskCreateRequest> & { id: string };
