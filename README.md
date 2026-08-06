@@ -35,12 +35,14 @@ A sidebar agrupa o app em quatro blocos:
 - **Hábitos** (`/habits`) — check-in do dia, faixa da semana, heatmap mensal (aba **Hoje | Mês**), anti-hábitos e vínculo com metas
 - **Metas** (`/goals`) — progresso, categorias e prazos
 - **Lugares** (`/places`) — para visitar / visitados; busca Google Places; nota e opinião
-- **Viagens** (`/travel`) — checklist, roteiro de visitas (próximo destino + rotas), gastos, lugares e prazos (`/travel/:id`); convites compartilhados
+- **Viagens** (`/travel`, `/travel/:id`) — paradas multi-cidade; clima + sugestão de roupa/mala (dia/noite e faixas horárias); roteiro por dia (mover atividades, status de visita, próximo destino + rotas Google); gastos (incl. rateio e vínculo com finanças); lugares da viagem; prazos; convites compartilhados
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
 
 ---
 
 ## Arquitetura
+
+Documentação detalhada das camadas, módulos, Edge Functions e fluxos: [`.cursor/ARCHITECTURE.md`](./.cursor/ARCHITECTURE.md).
 
 Orbyva é um **SPA multi-módulo** com backend BaaS. O front não fala SQL direto: passa por uma camada de API tipada; regras de negócio ficam em funções puras testáveis; segredos de terceiros (Stripe, Spotify, Google Maps/Places/Routes/Weather, Resend) ficam em **Edge Functions**, não em `VITE_*`.
 
@@ -329,3 +331,5 @@ Secrets comuns: `RESEND_API_KEY`, `RESEND_FROM`, `SITE_URL`, `CRON_SECRET`. Pref
 1. Fork → branch `feat/…`
 2. PR com o *porquê* da mudança
 3. `npm run lint && npm run test && npm run build` verdes (ideal: `ci:local`)
+
+Agentes de IA e revisão multidisciplinar: ver [`.cursor/AGENTS.md`](./.cursor/AGENTS.md) (ler [`.cursor/ARCHITECTURE.md`](./.cursor/ARCHITECTURE.md) antes de qualquer mudança; plano + aprovação antes de mudanças relevantes; manter este README sincronizado com o produto).
