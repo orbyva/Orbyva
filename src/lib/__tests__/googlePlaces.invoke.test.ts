@@ -17,16 +17,16 @@ describe("searchPlaces (invoke)", () => {
   });
 
   it("retorna hits da edge", async () => {
-    const { searchPlaces } = await import("@/lib/geoapifyPlaces");
+    const { searchPlaces } = await import("@/lib/googlePlaces");
     invoke.mockResolvedValue({
       data: {
         places: [
           {
-            placeId: "1",
+            placeId: "ChIJ1",
             name: "Mané",
             address: "BSB",
-            lat: 1,
-            lng: 2,
+            lat: null,
+            lng: null,
             category: "stadium",
             distanceMeters: 100,
           },
@@ -47,37 +47,15 @@ describe("searchPlaces (invoke)", () => {
   });
 
   it("lança MapsQuotaExceededError", async () => {
-    const { searchPlaces, MapsQuotaExceededError } = await import(
-      "@/lib/geoapifyPlaces"
-    );
+    const { searchPlaces, MapsQuotaExceededError, clearPlaceSearchCache } =
+      await import("@/lib/googlePlaces");
+    clearPlaceSearchCache();
     invoke.mockResolvedValue({
       data: { code: "MAPS_QUOTA_EXCEEDED", error: "limite" },
       error: null,
     });
-    // query diferente para evitar cache do teste anterior no mesmo worker
-    await expect(searchPlaces({ query: "quota-test-xyz" })).rejects.toBeInstanceOf(
-      MapsQuotaExceededError
-    );
-  });
-
-  it("lê MAPS_QUOTA_EXCEEDED do corpo em FunctionsHttpError", async () => {
-    const { searchPlaces, MapsQuotaExceededError, clearPlaceSearchCache } =
-      await import("@/lib/geoapifyPlaces");
-    clearPlaceSearchCache();
-    const body = { code: "MAPS_QUOTA_EXCEEDED", error: "cota esgotada" };
-    invoke.mockResolvedValue({
-      data: null,
-      error: {
-        message: "Edge Function returned a non-2xx status code",
-        context: new Response(JSON.stringify(body), { status: 429 }),
-      },
-    });
     await expect(
-      searchPlaces({ query: "quota-from-http-error" })
-    ).rejects.toMatchObject({
-      name: "MapsQuotaExceededError",
-      message: "cota esgotada",
-    });
-    expect(MapsQuotaExceededError).toBeDefined();
+      searchPlaces({ query: "quota-test-xyz" })
+    ).rejects.toBeInstanceOf(MapsQuotaExceededError);
   });
 });

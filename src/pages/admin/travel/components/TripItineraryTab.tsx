@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/EmptyState";
 import { PlaceTypeIcon } from "@/components/PlaceTypeIcon";
+import { ItineraryDayWeather } from "@/components/TripWeatherPanels";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import {
   deleteItineraryActivity,
@@ -76,8 +77,10 @@ import type { PlaceVisit } from "@/types/places";
 import type {
   TripItineraryActivity,
   TripItineraryDay,
+  TripStop,
 } from "@/types/travel";
 import { ItineraryNextRoutePanel } from "./ItineraryNextRoutePanel";
+import { stopForDate } from "@/domain/travel/tripStops";
 
 type TripItineraryTabProps = {
   itinerary: TripItineraryDay[];
@@ -86,6 +89,9 @@ type TripItineraryTabProps = {
   user: User | null;
   tripOrigin?: { lat: number; lng: number } | null;
   originLabel?: string | null;
+  destinationLat?: number | null;
+  destinationLng?: number | null;
+  stops?: TripStop[];
   /** Desativa somente o cálculo de deslocamentos. */
   disableRoutes?: boolean;
   onEditDay: (day: TripItineraryDay) => void;
@@ -136,6 +142,7 @@ function enrichVisits(
       skipped_at: act.skipped_at,
       lat: place?.lat ?? null,
       lng: place?.lng ?? null,
+      google_place_id: place?.google_place_id ?? null,
       day_date: day.date ?? null,
     };
   });
@@ -155,6 +162,9 @@ export function TripItineraryTab({
   user,
   tripOrigin,
   originLabel,
+  destinationLat,
+  destinationLng,
+  stops = [],
   disableRoutes = false,
   onEditDay,
   onEditActivity,
@@ -270,16 +280,18 @@ export function TripItineraryTab({
   return (
     <TabsContent value="itinerary" className="mt-4 space-y-3">
       {disableRoutes ? (
-        <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
+        <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 dark:border-amber-400/20 dark:bg-amber-500/15">
           <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 dark:bg-amber-400/20"
             aria-hidden
           >
-            <Flag className="h-4 w-4 text-muted-foreground" />
+            <Flag className="h-4 w-4 text-amber-700 dark:text-amber-400" />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-medium">Viagem encerrada</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+              Viagem encerrada
+            </p>
+            <p className="text-xs text-amber-800/80 dark:text-amber-200/75">
               Você ainda pode editar o roteiro; o cálculo de deslocamentos fica
               pausado.
             </p>
@@ -289,7 +301,7 @@ export function TripItineraryTab({
 
       {showDragHint ? (
         <p className="text-xs text-muted-foreground">
-          Arraste pelo punho{" "}
+          Arraste por {" "}
           <GripVertical className="inline h-3 w-3 align-text-bottom" /> para
           mudar a ordem ou o dia. Visitas com horário mudam de dia, mas a ordem
           no dia segue o relógio.
@@ -315,6 +327,9 @@ export function TripItineraryTab({
           todayIso={todayIso}
           tripOrigin={tripOrigin}
           originLabel={originLabel}
+          destinationLat={destinationLat}
+          destinationLng={destinationLng}
+          stops={stops}
           routeRefresh={routeRefresh}
           busyId={busyId}
           disableRoutes={disableRoutes}
@@ -380,6 +395,9 @@ function DayBlock({
   todayIso,
   tripOrigin,
   originLabel,
+  destinationLat,
+  destinationLng,
+  stops = [],
   routeRefresh,
   busyId,
   disableRoutes,
@@ -405,6 +423,9 @@ function DayBlock({
   todayIso: string;
   tripOrigin?: { lat: number; lng: number } | null;
   originLabel?: string | null;
+  destinationLat?: number | null;
+  destinationLng?: number | null;
+  stops?: TripStop[];
   routeRefresh: number;
   busyId: string | null;
   disableRoutes: boolean;
@@ -452,7 +473,11 @@ function DayBlock({
   const dayOfMonth = day.date ? day.date.slice(8, 10) : null;
   const dateLabel = day.date ? formatDateBR(day.date) : null;
   const dayTitle = day.title?.trim();
-  const heading = dayTitle || dateLabel || `Dia ${day.day_number}`;
+  const stop = day.date ? stopForDate(stops, day.date) : null;
+  const stopName = stop?.name?.trim() || null;
+  const heading = [dayTitle || `Dia ${day.day_number}`, stopName]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <article
@@ -525,8 +550,8 @@ function DayBlock({
             ) : null}
           </div>
           <p className="text-xs tabular-nums text-muted-foreground">
-            Dia {day.day_number}
-            {dayTitle && dateLabel ? ` · ${dateLabel}` : ""}
+            {dateLabel ?? `Dia ${day.day_number}`}
+            {dayTitle ? ` · Dia ${day.day_number}` : null}
           </p>
           {day.notes ? (
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
@@ -589,6 +614,18 @@ function DayBlock({
           disabled={disableRoutes}
         />
       ) : null}
+
+      {(() => {
+        const stop = day.date ? stopForDate(stops, day.date) : null;
+        return (
+          <ItineraryDayWeather
+            lat={stop?.lat ?? destinationLat}
+            lng={stop?.lng ?? destinationLng}
+            dayDate={day.date}
+            stopLabel={stop?.name ?? null}
+          />
+        );
+      })()}
 
       {sortedActs.length === 0 ? (
         <div className="rounded-lg border border-dashed bg-muted/20 px-3 py-6 text-center">

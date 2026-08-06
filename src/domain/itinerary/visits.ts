@@ -15,6 +15,7 @@ export type VisitLike = Pick<
 > & {
   lat?: number | null;
   lng?: number | null;
+  google_place_id?: string | null;
   day_date?: string | null;
 };
 
@@ -453,10 +454,27 @@ export function resolveRouteOrigin(params: {
 }
 
 export function visitHasCoordinates(visit: VisitLike): boolean {
+  if (visit.google_place_id?.trim()) return true;
   return (
     typeof visit.lat === "number" &&
     typeof visit.lng === "number" &&
     Number.isFinite(visit.lat) &&
     Number.isFinite(visit.lng)
   );
+}
+
+export function visitRouteDestination(
+  visit: VisitLike
+): { placeId: string } | { lat: number; lng: number } | null {
+  const pid = visit.google_place_id?.trim();
+  if (pid) return { placeId: pid };
+  if (
+    typeof visit.lat === "number" &&
+    typeof visit.lng === "number" &&
+    Number.isFinite(visit.lat) &&
+    Number.isFinite(visit.lng)
+  ) {
+    return { lat: visit.lat, lng: visit.lng };
+  }
+  return null;
 }

@@ -1,22 +1,17 @@
-/** @deprecated Use `@/lib/geoapifyPlaces` e `@/lib/googleRoutes`. */
+/** @deprecated Use `@/lib/googlePlaces` e `@/lib/googleRoutes`. */
 export {
   searchPlaces as searchPlacesCatalog,
-  GeoapifyNotConfiguredError as PlacesNotConfiguredError,
-  MapsQuotaExceededError,
-  mapGeoapifyCategoryToPlaceType as mapGoogleTypeToPlaceType,
+  PlacesNotConfiguredError,
+  mapPlaceCategoryToPlaceType as mapGoogleTypeToPlaceType,
   formatDistanceMeters,
   type PlaceSearchHit,
-} from "@/lib/geoapifyPlaces";
+} from "@/lib/googlePlaces";
 
 export {
   fetchTravelRoutes,
   clearRouteCache,
   RoutesNotConfiguredError,
+  MapsQuotaExceededError,
   type RouteLegResult,
   type LatLng,
 } from "@/lib/googleRoutes";
-
-export {
-  computeLeaveByHHmm,
-  formatDurationFriendly as formatDurationSeconds,
-} from "@/domain/itinerary/visits";

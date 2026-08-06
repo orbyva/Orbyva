@@ -21,12 +21,15 @@ import type {
   TripMilestone,
   TripMilestoneCreateRequest,
   TripMilestoneUpdateRequest,
+  TripStop,
   TripUpdateRequest,
   TripWithChecklist,
 } from "@/types/travel";
 import type { PlaceVisit } from "@/types/places";
 import type { TripMember, TripMemberRole } from "@/types/tripSharing";
 import { enrichTrip, enrichTripFull } from "@/domain/travel";
+import { destinationFieldsFromStops } from "@/domain/travel/tripStops";
+import type { TripStopInput } from "@/domain/travel/tripStops";
 import { tripLedgerDescription } from "@/domain/travel/ledger";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { assertTripAccess, fetchMemberTripIds } from "@/lib/tripAccess";
@@ -35,7 +38,10 @@ import { ensureTripOwnerMember } from "@/api/tripMembers";
 // ── Trips ────────────────────────────────────────────────────────────
 
 const TRIP_LIST_SELECT =
-  "id, user_id, title, destination, start_date, end_date, budget, spent, status, notes, origin_lat, origin_lng, origin_label, created_at, updated_at";
+  "id, user_id, title, destination, destination_lat, destination_lng, destination_place_id, start_date, end_date, budget, spent, status, notes, origin_lat, origin_lng, origin_label, created_at, updated_at";
+
+const STOP_SELECT =
+  "id, trip_id, name, place_id, lat, lng, start_date, end_date, sort_order, created_at";
 
 export async function fetchTrips(): Promise<Trip[]> {
   const userId = await getCurrentUserId();
@@ -155,7 +161,7 @@ export async function fetchTripDetailBundle(
   const userId = await getCurrentUserId();
 
   // Wave 1: trip + tudo que depende só de trip_id (RLS filtra o resto).
-  const [tripRes, expensesRes, daysRes, milestonesRes, placesRes, membersRes] =
+  const [tripRes, expensesRes, daysRes, milestonesRes, placesRes, membersRes, stopsRes] =
     await Promise.all([
       supabase.from("trip").select(TRIP_LIST_SELECT).eq("id", id).maybeSingle(),
       supabase
@@ -183,6 +189,11 @@ export async function fetchTripDetailBundle(
         .select(MEMBER_SELECT)
         .eq("trip_id", id)
         .order("joined_at", { ascending: true }),
+      supabase
+        .from("trip_stop")
+        .select(STOP_SELECT)
+        .eq("trip_id", id)
+        .order("sort_order", { ascending: true }),
     ]);
 
   if (tripRes.error) throw new Error(tripRes.error.message);
@@ -209,6 +220,18 @@ export async function fetchTripDetailBundle(
     ) {
       throw new Error(membersRes.error.message);
     }
+  }
+
+  let stops: TripStop[] = [];
+  if (stopsRes.error) {
+    if (
+      !String(stopsRes.error.message).includes("trip_stop") &&
+      stopsRes.error.code !== "42P01"
+    ) {
+      throw new Error(stopsRes.error.message);
+    }
+  } else {
+    stops = (stopsRes.data ?? []) as TripStop[];
   }
 
   const days = (daysRes.data ?? []) as TripItineraryDay[];
@@ -280,6 +303,7 @@ export async function fetchTripDetailBundle(
   return {
     trip: {
       ...full,
+      stops,
       myRole: role,
       isShared,
     },
@@ -294,21 +318,119 @@ export async function fetchTripFull(id: string): Promise<TripFull | null> {
   return bundle?.trip ?? null;
 }
 
+export async function fetchTripStops(tripId: string): Promise<TripStop[]> {
+  await assertTripAccess(tripId);
+  const { data, error } = await supabase
+    .from("trip_stop")
+    .select(STOP_SELECT)
+    .eq("trip_id", tripId)
+    .order("sort_order", { ascending: true });
+  if (error) {
+    if (
+      String(error.message).includes("trip_stop") ||
+      error.code === "42P01"
+    ) {
+      return [];
+    }
+    throw new Error(error.message);
+  }
+  return (data ?? []) as TripStop[];
+}
+
+export async function replaceTripStops(
+  tripId: string,
+  stops: TripStopInput[]
+): Promise<TripStop[]> {
+  await assertTripAccess(tripId);
+  const { error: delError } = await supabase
+    .from("trip_stop")
+    .delete()
+    .eq("trip_id", tripId);
+  if (delError) {
+    if (
+      String(delError.message).includes("trip_stop") ||
+      delError.code === "42P01"
+    ) {
+      return [];
+    }
+    throw new Error(delError.message);
+  }
+
+  if (stops.length === 0) return [];
+
+  const rows = stops.map((s, i) => ({
+    trip_id: tripId,
+    name: s.name.trim(),
+    place_id: s.place_id?.trim() || null,
+    lat: s.lat ?? null,
+    lng: s.lng ?? null,
+    start_date: s.start_date,
+    end_date: s.end_date,
+    sort_order: s.sort_order ?? i,
+  }));
+
+  const { data, error } = await supabase
+    .from("trip_stop")
+    .insert(rows)
+    .select(STOP_SELECT)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as TripStop[];
+}
+
+function normalizeStopInputs(
+  stops: TripCreateRequest["stops"] | undefined
+): TripStopInput[] {
+  if (!stops?.length) return [];
+  return stops.map((s, i) => ({
+    name: s.name,
+    place_id: s.place_id ?? null,
+    lat: s.lat ?? null,
+    lng: s.lng ?? null,
+    start_date: s.start_date,
+    end_date: s.end_date,
+    sort_order: s.sort_order ?? i,
+  }));
+}
+
 export async function createTrip(trip: TripCreateRequest): Promise<Trip> {
   const userId = await getCurrentUserId();
+  const stopInputs = normalizeStopInputs(trip.stops);
+  const fromStops = destinationFieldsFromStops(stopInputs);
+  const { stops, ...tripFields } = trip;
+  void stops;
+  const row = {
+    ...tripFields,
+    destination: fromStops.destination ?? tripFields.destination ?? null,
+    destination_lat:
+      fromStops.destination_lat ?? tripFields.destination_lat ?? null,
+    destination_lng:
+      fromStops.destination_lng ?? tripFields.destination_lng ?? null,
+    destination_place_id:
+      fromStops.destination_place_id ??
+      tripFields.destination_place_id ??
+      null,
+    user_id: userId,
+  };
+
   const { data, error } = await supabase
     .from("trip")
-    .insert([{ ...trip, user_id: userId }])
+    .insert([row])
     .select()
     .single();
   if (error) throw new Error(error.message);
 
-  await seedTripDefaults(data);
   try {
     await ensureTripOwnerMember(data.id, userId);
   } catch {
     // migration may not be applied yet
   }
+
+  if (stopInputs.length > 0) {
+    await replaceTripStops(data.id, stopInputs);
+  }
+
+  await seedTripDefaults(data);
   return data;
 }
 
@@ -320,18 +442,57 @@ async function seedTripDefaults(trip: Trip): Promise<void> {
 }
 
 export async function updateTrip(data: TripUpdateRequest): Promise<void> {
-  const { id, ...fields } = data;
+  const { id, stops, ...fields } = data;
   await assertTripAccess(id);
+
+  const stopInputs =
+    stops !== undefined ? normalizeStopInputs(stops) : undefined;
+  const patch = { ...fields };
+  if (stopInputs) {
+    const fromStops = destinationFieldsFromStops(stopInputs);
+    patch.destination = fromStops.destination;
+    patch.destination_lat = fromStops.destination_lat;
+    patch.destination_lng = fromStops.destination_lng;
+    patch.destination_place_id = fromStops.destination_place_id;
+  }
+
   const { error } = await supabase
     .from("trip")
-    .update({ ...fields, updated_at: new Date().toISOString() })
+    .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  if (stopInputs) {
+    await replaceTripStops(id, stopInputs);
+  }
 }
 
 export async function deleteTrip(id: string): Promise<void> {
   await assertTripAccess(id, "owner");
   const userId = await getCurrentUserId();
+
+  // Desvincula visitas do roteiro antes de apagar lugares (evita FK).
+  const { data: days, error: daysError } = await supabase
+    .from("trip_itinerary_day")
+    .select("id")
+    .eq("trip_id", id);
+  if (daysError) throw new Error(daysError.message);
+  const dayIds = (days ?? []).map((d) => d.id as string);
+  if (dayIds.length > 0) {
+    const { error: unlinkError } = await supabase
+      .from("trip_itinerary_activity")
+      .update({ place_visit_id: null })
+      .in("day_id", dayIds);
+    if (unlinkError) throw new Error(unlinkError.message);
+  }
+
+  // Lugares da viagem (para visitar / visitados) — alinhado ao diálogo de exclusão.
+  const { error: placesError } = await supabase
+    .from("place_visit")
+    .delete()
+    .eq("trip_id", id);
+  if (placesError) throw new Error(placesError.message);
+
   const { error } = await supabase
     .from("trip")
     .delete()

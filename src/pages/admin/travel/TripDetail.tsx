@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Pencil, Share2, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,6 +8,8 @@ import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { PlaceDetailDialog } from "@/components/PlaceDetailDialog";
 import { PlaceFormDialog } from "@/components/PlaceFormDialog";
 import { TripFormDialog } from "@/components/TripFormDialog";
+import { TripWeatherPackingPanel } from "@/components/TripWeatherPanels";
+import { TripWeatherProvider } from "@/components/TripWeatherContext";
 import { TripMembersDialog } from "@/components/TripMembersDialog";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ShareImageDialog } from "@/components/ShareImageDialog";
@@ -184,6 +186,44 @@ export default function TripDetail() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const weatherStops = useMemo(() => {
+    if (!trip) return [];
+    const fromStops =
+      trip.stops
+        ?.filter(
+          (s) =>
+            typeof s.lat === "number" &&
+            typeof s.lng === "number" &&
+            Number.isFinite(s.lat) &&
+            Number.isFinite(s.lng)
+        )
+        .map((s) => ({
+          name: s.name,
+          lat: s.lat as number,
+          lng: s.lng as number,
+          startDate: s.start_date,
+          endDate: s.end_date,
+        })) ?? [];
+    if (fromStops.length > 0) return fromStops;
+    if (
+      trip.destination_lat != null &&
+      trip.destination_lng != null &&
+      Number.isFinite(trip.destination_lat) &&
+      Number.isFinite(trip.destination_lng)
+    ) {
+      return [
+        {
+          name: trip.destination ?? undefined,
+          lat: trip.destination_lat,
+          lng: trip.destination_lng,
+          startDate: trip.start_date,
+          endDate: trip.end_date,
+        },
+      ];
+    }
+    return [];
+  }, [trip]);
 
   if (loading) {
     return (
@@ -482,7 +522,8 @@ export default function TripDetail() {
       address: pick.address,
       lat: pick.lat,
       lng: pick.lng,
-      geoapify_place_id: pick.geoapify_place_id,
+      google_place_id: pick.google_place_id,
+      geoapify_place_id: null,
       would_recommend: true,
     });
     setPlaces((prev) => [created, ...prev]);
@@ -711,6 +752,7 @@ export default function TripDetail() {
   }
 
   return (
+    <TripWeatherProvider stops={weatherStops}>
     <PageShell
       title={trip.title}
       description={trip.destination ?? undefined}
@@ -726,6 +768,12 @@ export default function TripDetail() {
         ) : null
       }
     >
+      {weatherStops.length > 0 ? (
+        <TripWeatherPackingPanel
+          stops={weatherStops}
+          className="mb-3"
+        />
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card/60 px-3 py-2.5 sm:px-4">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
@@ -826,6 +874,9 @@ export default function TripDetail() {
               : null
           }
           originLabel={trip.origin_label}
+          destinationLat={trip.destination_lat}
+          destinationLng={trip.destination_lng}
+          stops={trip.stops}
           disableRoutes={tripFinished}
           onEditDay={openDayEdit}
           onEditActivity={openActivityEdit}
@@ -1031,5 +1082,6 @@ export default function TripDetail() {
         onSaved={load}
       />
     </PageShell>
+    </TripWeatherProvider>
   );
 }

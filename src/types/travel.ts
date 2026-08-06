@@ -32,6 +32,9 @@ export interface Trip {
   user_id?: string;
   title: string;
   destination?: string | null;
+  destination_lat?: number | null;
+  destination_lng?: number | null;
+  destination_place_id?: string | null;
   start_date: string;
   end_date: string;
   budget?: number | null;
@@ -44,6 +47,21 @@ export interface Trip {
   origin_label?: string | null;
   created_at?: string;
   updated_at?: string;
+  /** Paradas multi-cidade (quando carregadas). */
+  stops?: TripStop[];
+}
+
+export interface TripStop {
+  id: string;
+  trip_id: string;
+  name: string;
+  place_id?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  start_date: string;
+  end_date: string;
+  sort_order: number;
+  created_at?: string;
 }
 
 export interface TripChecklistItem {
@@ -160,9 +178,19 @@ export interface TripFull extends TripWithChecklist {
   isShared?: boolean;
 }
 
-export type TripCreateRequest = Omit<Trip, "id" | "user_id" | "created_at" | "updated_at">;
+export type TripCreateRequest = Omit<
+  Trip,
+  "id" | "user_id" | "created_at" | "updated_at" | "stops"
+> & {
+  stops?: Omit<TripStop, "id" | "trip_id" | "created_at">[];
+};
 
-export type TripUpdateRequest = Partial<TripCreateRequest> & { id: string };
+export type TripUpdateRequest = Partial<
+  Omit<TripCreateRequest, "stops">
+> & {
+  id: string;
+  stops?: Omit<TripStop, "id" | "trip_id" | "created_at">[];
+};
 
 export type TripChecklistCreateRequest = Omit<TripChecklistItem, "id" | "created_at">;
 

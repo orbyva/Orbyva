@@ -32,9 +32,9 @@ export interface PlaceVisit {
   lat?: number | null;
   /** Longitude WGS84 (Places / rota). */
   lng?: number | null;
-  /** Place ID Google (legado). */
+  /** Place ID Google (Places Autocomplete New). */
   google_place_id?: string | null;
-  /** Place ID Geoapify. */
+  /** @deprecated Preferir google_place_id. */
   geoapify_place_id?: string | null;
   would_recommend: boolean;
   created_at?: string;

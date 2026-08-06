@@ -57,6 +57,11 @@ describe("normalizeVisitStatus / open / done / coords", () => {
     expect(
       visitHasCoordinates(visit({ id: "1", title: "A", lat: 1, lng: 2 }))
     ).toBe(true);
+    expect(
+      visitHasCoordinates(
+        visit({ id: "1", title: "A", google_place_id: "ChIJ" })
+      )
+    ).toBe(true);
   });
 
   it("parseHHmmToMinutes", () => {

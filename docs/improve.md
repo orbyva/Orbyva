@@ -1,34 +1,61 @@
-- ✅ processo de criação de tipos e classes demorando
-- ✅ carregamento de várias páginas também demorando
-  - ✅ melhorar feedback de interface
-  - ✅ explorar melhores formas
-- ✅ o botão de add (+) hoje está em todas as telas, porém o clique dele estão direcionando sempre pra criação de uma transação. imagino que, dependendo da área em que ele está (Finanças, Entretenimento, Vida) o adicionar possuir uma etapa antes, em Finanças, por exemplo ele pode adicionar uma Receita, uma Despesa, uma nova parcela criada no de Entretenimento, ele pode add um Filme, um Curta, uma Música, um Artigo uma Música
-- ✅ A importação da lista em csv é muito 'developer turned', deve ser removido a fim de atingir um usuário mais geral
-- ✅ feedback visual do trial expirado
-- ✅ central de comandos melhorar, e evoluir iodentificação de ação
-- ✅ adicionar escolha de gênero para surpreenda-me (filmes)
-- ✅ melhorar visualização de dimensões, e trocar nomenclatura
-  - ![](../docs/screenshot-example/dimensions-refactor-ui.png)
-- ✅ Conectar API de lugares (Geoapify Autocomplete + Google Routes)
-  - ✅ Edge Function `places-catalog` (chaves só no servidor)
-  - ✅ Busca no módulo Lugares e ao adicionar visita no roteiro
-  - ✅ Geo em `place_visit` (`lat`/`lng`/`geoapify_place_id`)
-  - ✅ Rotas A→B no painel “Próximo destino” (DRIVE / WALK / BICYCLE / TRANSIT)
-  - ✅ Quota Maps (Geoapify diária + Google Essentials/Pro mensal, fail-closed)
-- ✅ Mudar linguagem das Parcelas para 'Recorrências' a fim de englobar as parcelas abertas de finanças, mas também custos recorrentes que já são previstos (água, luz)
-- ✅ Adicionar flag (pago em) nas recorrências
-- ✅ melhorar linguagme das dimensões
-  - ✅ em criar transação ou parcela
-  - ✅ ele ao invés de selecionar a Natureza, e o Tipo, ele digitar em busca da classe
-    - ✅ no dropdown, já aparecer o tipo e natureza daquela classe
-  - ✅ melhorar seleção da classe 
-    - ![](../docs/screenshot-example/class-selecion-refactor-ui.png)
-- ✅ melhorar roteiros em viagens
-  - ✅ visitas de lugares no dia (busca Geoapify, tipo alinhado a Lugares)
-  - ✅ checklist da visita: concluir / pular / desfazer (otimista, sem reload completo)
-  - ✅ painel próximo destino + horário de saída / duração / chegada
-  - ✅ link + “já reservado” + notas por visita
-  - ✅ carregamento inicial do detalhe da viagem em bundle (menos round-trips)
-  - ✅ identidade visual do roteiro: cor por categoria de lugar (ícone Lucide + tom),
-    teal do módulo no dia de hoje, progresso por dia e ações da visita em menu
-- ✅ link com qr code para convidar amigos, se o convidado criar o cliente
+# Melhorias — Viagens: clima + roupa
+
+Referência de UX: app **Weat** (clima → o que vestir / o que levar).
+Stack: **Google Places Autocomplete (New)** + **Routes** + **Weather** (via Edge `places-catalog`).
+Destino precisa de **lat/lng** (resolvidos via Routes `endLocation` ao escolher no autocomplete).
+
+---
+
+## V1 — útil sem virar app meteorológico
+
+### Pré-requisito
+- [x] Destino da viagem com coordenadas (Places Autocomplete + resolve via Routes)
+- [x] Busca de lugares via Google Places (sem Geoapify)
+
+### Destino / mala
+- [x] Com destino + datas: resumo climático do período (máx/mín, chuva)
+- [x] Sugestão agregada do que **levar na mala** (PT-BR, regras simples)
+
+### Roteiro / dia
+- [x] Em cada dia: condição + máx/mín + sugestão do que vestir
+
+### Técnico V1
+- [x] Edge Function proxy (Places / Routes / Weather; chaves só no servidor)
+- [x] Cache: rotas 10 min · clima atual 15 min · previsão diária 1 h
+- [x] Cotas mensais fail-closed (Places / Routes Essentials+Pro / Weather)
+- [x] Clima mundial via coords
+
+---
+
+## V2 — nível Weat
+
+- [x] Atributos de peça: tecido, espessura, comprimento
+- [x] Faixas **hora a hora** (o que vestir / temperatura ao longo do dia)
+- [x] Diferenciar dia vs noite na sugestão
+- [x] Ícones de tipologias de roupa (camiseta, regata, casaco, etc.)
+- [x] Refinar regras (vento, umidade, “feels like”)
+
+### Técnico V2
+- [x] Edge `weather_hourly` (Google `forecast/hours`, cache 30 min)
+- [x] Diário com `daytime` / `nighttime` normalizados
+- [x] Domínio `clothing.ts` V2 + UI no roteiro / mala
+
+---
+
+## Destino multi-cidade
+
+- [x] Autocomplete do destino filtrado: país / estado / cidade (`includedPrimaryTypes`)
+- [x] Tabela `trip_stop` (paradas com datas)
+- [x] Form da viagem: várias paradas (eurotrip)
+- [x] Clima/mala agregado por parada; roteiro usa a parada do dia
+- [x] Share de clima: 1 daily + 1 hourly por cidade no detalhe (`TripWeatherProvider`)
+
+---
+
+## UX card do dia (altura)
+
+- [x] Clima colapsável: 1–2 linhas de resumo; detalhe ao expandir; **hoje** começa aberto
+- [x] Outfit em linha compacta (`algodão · fina`) em vez de tabela de atributos
+- [x] Popover nos slots hora a hora (mobile-friendly)
+- [x] Hoje: outfit pela janela restante (agora → fim do dia) + rótulo da janela
+- [x] Rotas compactas: modalidade recomendada no resumo; demais ao expandir (só no dia do roteiro)
