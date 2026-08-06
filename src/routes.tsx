@@ -29,6 +29,10 @@ const Recurring = lazy(() => import("./pages/admin/finance/Recurring"));
 const Categories = lazy(() => import("./pages/admin/finance/Categories"));
 const Budget = lazy(() => import("./pages/admin/finance/Budget"));
 const Account = lazy(() => import("./pages/admin/Account"));
+const TaskList = lazy(() => import("./pages/admin/tasks/TaskList"));
+const TaskProjects = lazy(() => import("./pages/admin/tasks/Projects"));
+const TaskProjectKanban = lazy(() => import("./pages/admin/tasks/ProjectKanban"));
+const TasksLive = lazy(() => import("./pages/admin/tasks/Live"));
 
 const withSuspense = (Component: React.ReactNode) => (
   <Suspense fallback={<LoadingFallback />}>{Component}</Suspense>
@@ -106,6 +110,16 @@ const router = createBrowserRouter([
           },
           { path: "travel/:id", element: <TripDetail /> },
           { path: "places", element: <Places /> },
+
+          {
+            path: "tasks",
+            children: [
+              { index: true, element: <TaskList /> },
+              { path: "projects", element: <TaskProjects /> },
+              { path: "projects/:id", element: <TaskProjectKanban /> },
+              { path: "live", element: <TasksLive /> },
+            ],
+          },
 
           {
             path: "finance",
