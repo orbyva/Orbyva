@@ -279,7 +279,11 @@ export async function updateRecurringParcelPayment(
 
     if (error) throw error;
 
-    await syncLinkedTaskFromInstallment(recurringId, installmentNumber, false);
+    try {
+      await syncLinkedTaskFromInstallment(recurringId, installmentNumber, false);
+    } catch (syncError) {
+      console.error("Falha ao sincronizar tarefa vinculada (undo):", syncError);
+    }
 
     return rollback?.paid_parcels ?? updatedParcels;
   }
@@ -317,7 +321,11 @@ export async function updateRecurringParcelPayment(
     /* progresso da meta é best-effort */
   }
 
-  await syncLinkedTaskFromInstallment(recurringId, installmentNumber, true);
+  try {
+    await syncLinkedTaskFromInstallment(recurringId, installmentNumber, true);
+  } catch (syncError) {
+    console.error("Falha ao sincronizar tarefa vinculada (pagamento):", syncError);
+  }
 
   return updatedParcels;
 }
