@@ -38,17 +38,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { DatePicker } from "@/components/DatePicker";
-import { formatLocalIsoDate } from "@/lib/dates";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
@@ -622,39 +614,15 @@ export default function ProjectKanban() {
                 placeholder="casa, urgente"
               />
             </div>
-            <div>
-              <FormLabel optional>Vincular a uma Recorrência Financeira</FormLabel>
-              <Select
-                value={form.linked_recurring_id ?? "none"}
-                onValueChange={(v) =>
-                  setForm({ ...form, linked_recurring_id: v === "none" ? null : v })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhuma</SelectItem>
-                  {recurrings.map((rec) => (
-                    <SelectItem key={rec.id} value={rec.id}>
-                      {rec.description}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {!form.linked_recurring_id && (
-              <div>
-                <FormLabel optional>Prazo</FormLabel>
-                <DatePicker
-                  clearable
-                  date={form.due_date ? new Date(`${form.due_date}T12:00:00`) : undefined}
-                  onSelect={(d) =>
-                    setForm({ ...form, due_date: d ? formatLocalIsoDate(d) : null })
-                  }
-                />
-              </div>
-            )}
+            <TaskRecurrenceField
+              value={{
+                due_date: form.due_date,
+                recurrence_rule: form.recurrence_rule,
+                linked_recurring_id: form.linked_recurring_id,
+              }}
+              recurrings={recurrings}
+              onChange={(next) => setForm({ ...form, ...next })}
+            />
             <Button onClick={handleSave} className="w-full">
               {editing ? "Salvar alterações" : "Criar tarefa"}
             </Button>

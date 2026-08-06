@@ -91,6 +91,13 @@ function seriesKey(task: SeriesTask): string | null {
   return null;
 }
 
+function compareByDueDateAsc(a: { due_date: string | null }, b: { due_date: string | null }) {
+  if (!a.due_date && !b.due_date) return 0;
+  if (!a.due_date) return 1;
+  if (!b.due_date) return -1;
+  return a.due_date.localeCompare(b.due_date);
+}
+
 /**
  * Reduz cada série recorrente (recorrência simples ou vinculada a uma Recorrência Financeira)
  * à sua próxima ocorrência em aberto (menor `due_date` com `status !== "done"`). Séries sem
@@ -115,12 +122,7 @@ export function collapseRecurringSeries<T extends SeriesTask>(tasks: T[]): T[] {
   for (const group of series.values()) {
     const open = group.filter((t) => t.status !== "done");
     if (open.length === 0) continue;
-    open.sort((a, b) => {
-      if (!a.due_date && !b.due_date) return 0;
-      if (!a.due_date) return 1;
-      if (!b.due_date) return -1;
-      return a.due_date.localeCompare(b.due_date);
-    });
+    open.sort(compareByDueDateAsc);
     representatives.push(open[0]);
   }
 
@@ -129,4 +131,11 @@ export function collapseRecurringSeries<T extends SeriesTask>(tasks: T[]): T[] {
 
 export function isRecurringTask(task: SeriesTask): boolean {
   return !!(task.recurrence_rule || task.recurrence_origin_id || task.linked_recurring_id);
+}
+
+/** Todas as ocorrências (passadas e futuras) da mesma série de `representative`, ordenadas por prazo. */
+export function findSeriesTasks<T extends SeriesTask>(allTasks: T[], representative: T): T[] {
+  const key = seriesKey(representative);
+  if (!key) return [representative];
+  return allTasks.filter((t) => seriesKey(t) === key).sort(compareByDueDateAsc);
 }

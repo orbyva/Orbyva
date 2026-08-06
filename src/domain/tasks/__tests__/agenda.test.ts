@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   bucketForDueDate,
   collapseRecurringSeries,
+  findSeriesTasks,
   groupTasksByAgendaBucket,
   isRecurringTask,
 } from "@/domain/tasks/agenda";
@@ -133,6 +134,37 @@ describe("collapseRecurringSeries", () => {
       status: "done",
     });
     expect(collapseRecurringSeries([origin, child])).toEqual([]);
+  });
+});
+
+describe("findSeriesTasks", () => {
+  it("retorna a própria tarefa quando não é recorrente", () => {
+    const solo = task({ id: "solo" });
+    expect(findSeriesTasks([solo], solo)).toEqual([solo]);
+  });
+
+  it("retorna todas as ocorrências da série, ordenadas por prazo", () => {
+    const origin = task({
+      id: "origin",
+      due_date: "2026-08-01",
+      recurrence_rule: { frequency: "weekly", interval: 1 },
+      status: "done",
+    });
+    const child1 = task({
+      id: "child1",
+      due_date: "2026-08-15",
+      recurrence_origin_id: "origin",
+      status: "todo",
+    });
+    const child2 = task({
+      id: "child2",
+      due_date: "2026-08-08",
+      recurrence_origin_id: "origin",
+      status: "done",
+    });
+    const other = task({ id: "other", recurrence_origin_id: "another-origin" });
+    const result = findSeriesTasks([origin, child1, child2, other], child1);
+    expect(result.map((t) => t.id)).toEqual(["origin", "child2", "child1"]);
   });
 });
 

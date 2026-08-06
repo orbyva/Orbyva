@@ -17,8 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DatePicker } from "@/components/DatePicker";
 import { formatLocalIsoDate } from "@/lib/dates";
+import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import {
@@ -47,13 +47,7 @@ import {
   isRecurringTask,
   sortTasksByDueDate,
 } from "@/domain/tasks";
-import type {
-  Project,
-  RecurrenceFrequency,
-  Task,
-  TaskCreateRequest,
-  TaskStatus,
-} from "@/types/tasks";
+import type { Project, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -145,8 +139,6 @@ export default function TaskList() {
   const [tagFilter, setTagFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [tagsInput, setTagsInput] = useState("");
-  const [repeats, setRepeats] = useState(false);
-  const [frequency, setFrequency] = useState<RecurrenceFrequency>("daily");
   const [activeTab, setActiveTab] = useState<"lista" | "agenda">("lista");
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const { toast } = useToast();
@@ -238,8 +230,6 @@ export default function TaskList() {
     setEditing(null);
     setForm(emptyTask());
     setTagsInput("");
-    setRepeats(false);
-    setFrequency("daily");
     setOpen(true);
   }
 
@@ -257,8 +247,6 @@ export default function TaskList() {
       linked_recurring_id: task.linked_recurring_id,
     });
     setTagsInput(task.tags.join(", "));
-    setRepeats(!!task.recurrence_rule);
-    setFrequency(task.recurrence_rule?.frequency ?? "daily");
     setOpen(true);
   }
 
@@ -274,8 +262,6 @@ export default function TaskList() {
       ...form,
       tags,
       due_date: isLinked && !isEditingInstance ? null : form.due_date,
-      recurrence_rule:
-        !isLinked && repeats && form.due_date ? { frequency, interval: 1 } : null,
     };
     try {
       if (editing) await updateTask({ id: editing.id, ...payload });
@@ -533,27 +519,6 @@ export default function TaskList() {
               </Select>
             </div>
             <div>
-              <FormLabel optional>Vincular a uma Recorrência Financeira</FormLabel>
-              <Select
-                value={form.linked_recurring_id ?? "none"}
-                onValueChange={(v) =>
-                  setForm({ ...form, linked_recurring_id: v === "none" ? null : v })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhuma</SelectItem>
-                  {recurrings.map((rec) => (
-                    <SelectItem key={rec.id} value={rec.id}>
-                      {rec.description}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
               <FormLabel optional>Tags (separadas por vírgula)</FormLabel>
               <Input
                 value={tagsInput}
@@ -561,46 +526,15 @@ export default function TaskList() {
                 placeholder="casa, urgente"
               />
             </div>
-            {!form.linked_recurring_id && (
-              <>
-                <div>
-                  <FormLabel optional>Prazo</FormLabel>
-                  <DatePicker
-                    clearable
-                    date={form.due_date ? new Date(`${form.due_date}T12:00:00`) : undefined}
-                    onSelect={(d) =>
-                      setForm({ ...form, due_date: d ? formatLocalIsoDate(d) : null })
-                    }
-                  />
-                </div>
-                {form.due_date && (
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="repeats"
-                      type="checkbox"
-                      checked={repeats}
-                      onChange={(e) => setRepeats(e.target.checked)}
-                    />
-                    <FormLabel htmlFor="repeats">Repetir</FormLabel>
-                    {repeats && (
-                      <Select
-                        value={frequency}
-                        onValueChange={(v) => setFrequency(v as RecurrenceFrequency)}
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="daily">Diária</SelectItem>
-                          <SelectItem value="weekly">Semanal</SelectItem>
-                          <SelectItem value="monthly">Mensal</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
+            <TaskRecurrenceField
+              value={{
+                due_date: form.due_date,
+                recurrence_rule: form.recurrence_rule,
+                linked_recurring_id: form.linked_recurring_id,
+              }}
+              recurrings={recurrings}
+              onChange={(next) => setForm({ ...form, ...next })}
+            />
             <Button onClick={handleSave} className="w-full">
               {editing ? "Salvar alterações" : "Criar tarefa"}
             </Button>
