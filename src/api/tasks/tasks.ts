@@ -168,7 +168,11 @@ export async function updateTask(data: TaskUpdateRequest): Promise<void> {
   if (error) throw new Error(error.message);
 
   if (fields.status) {
-    await syncLinkedInstallmentFromTask(id, userId, fields.status === "done");
+    try {
+      await syncLinkedInstallmentFromTask(id, userId, fields.status === "done");
+    } catch (syncError) {
+      console.error("Falha ao sincronizar parcela vinculada:", syncError);
+    }
   }
 }
 
