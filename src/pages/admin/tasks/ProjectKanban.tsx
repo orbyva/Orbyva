@@ -160,7 +160,12 @@ export default function ProjectKanban() {
       .map((t) => t.trim())
       .filter(Boolean);
     const isLinked = !!form.linked_recurring_id;
-    const payload = { ...form, tags, due_date: isLinked ? null : form.due_date };
+    const isEditingInstance = !!(editing && editing.linked_installment_number != null);
+    const payload = {
+      ...form,
+      tags,
+      due_date: isLinked && !isEditingInstance ? null : form.due_date,
+    };
     try {
       if (editing) await updateTask({ id: editing.id, ...payload });
       else await createTask(payload);

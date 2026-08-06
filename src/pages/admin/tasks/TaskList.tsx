@@ -157,10 +157,11 @@ export default function TaskList() {
       .map((t) => t.trim())
       .filter(Boolean);
     const isLinked = !!form.linked_recurring_id;
+    const isEditingInstance = !!(editing && editing.linked_installment_number != null);
     const payload: TaskCreateRequest = {
       ...form,
       tags,
-      due_date: isLinked ? null : form.due_date,
+      due_date: isLinked && !isEditingInstance ? null : form.due_date,
       recurrence_rule:
         !isLinked && repeats && form.due_date ? { frequency, interval: 1 } : null,
     };
