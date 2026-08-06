@@ -10,6 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { EmptyState } from "@/components/EmptyState";
@@ -29,7 +36,9 @@ import {
   fetchTasks,
   updateTask,
 } from "@/api/tasks";
+import { fetchRecurringTransactions } from "@/api/recurring";
 import type { Project, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
+import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
@@ -51,12 +60,14 @@ const emptyTask = (projectId: string): TaskCreateRequest => ({
   tags: [],
   due_date: null,
   recurrence_rule: null,
+  linked_recurring_id: null,
 });
 
 export default function ProjectKanban() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [recurrings, setRecurrings] = useState<Recurring[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
@@ -70,12 +81,14 @@ export default function ProjectKanban() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [projectData, taskList] = await Promise.all([
+      const [projectData, taskList, recurringList] = await Promise.all([
         fetchProjectById(id),
         fetchTasks(),
+        fetchRecurringTransactions(),
       ]);
       setProject(projectData);
       setTasks(taskList.filter((t) => t.project_id === id));
+      setRecurrings(recurringList);
     } catch (error) {
       toast({
         title: "Erro",
@@ -94,7 +107,12 @@ export default function ProjectKanban() {
   const topLevelByStatus = useMemo(() => {
     const map: Record<TaskStatus, Task[]> = { todo: [], doing: [], done: [] };
     for (const task of tasks) {
-      if (!task.parent_task_id) map[task.status].push(task);
+      if (
+        !task.parent_task_id &&
+        !(task.linked_recurring_id && task.linked_installment_number == null)
+      ) {
+        map[task.status].push(task);
+      }
     }
     return map;
   }, [tasks]);
@@ -129,6 +147,7 @@ export default function ProjectKanban() {
       tags: task.tags,
       due_date: task.due_date,
       recurrence_rule: task.recurrence_rule,
+      linked_recurring_id: task.linked_recurring_id,
     });
     setTagsInput(task.tags.join(", "));
     setOpen(true);
@@ -140,9 +159,11 @@ export default function ProjectKanban() {
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
+    const isLinked = !!form.linked_recurring_id;
+    const payload = { ...form, tags, due_date: isLinked ? null : form.due_date };
     try {
-      if (editing) await updateTask({ id: editing.id, ...form, tags });
-      else await createTask({ ...form, tags });
+      if (editing) await updateTask({ id: editing.id, ...payload });
+      else await createTask(payload);
       toast({ title: "Tarefa salva!", duration: 2000 });
       setOpen(false);
       load();
@@ -210,6 +231,7 @@ export default function ProjectKanban() {
         tags: [],
         due_date: null,
         recurrence_rule: null,
+        linked_recurring_id: null,
       });
       setSubtaskDrafts((prev) => ({ ...prev, [parent.id]: "" }));
       load();
@@ -324,6 +346,11 @@ export default function ProjectKanban() {
 
                         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                           {task.due_date && <span>Prazo: {task.due_date}</span>}
+                          {task.linked_recurring_id && (
+                            <Badge variant="outline" className="text-[10px]">
+                              Vinculada a Recorrência
+                            </Badge>
+                          )}
                           {subtasks.length > 0 && (
                             <Badge variant="outline" className="text-[10px]">
                               {doneSubtasks}/{subtasks.length} subtarefas
@@ -374,26 +401,37 @@ export default function ProjectKanban() {
                         </div>
 
                         <div className="flex justify-between border-t pt-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            disabled={colIndex === 0}
-                            onClick={() => moveStatus(task, -1)}
-                            aria-label="Mover para trás"
-                          >
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            disabled={colIndex === STATUSES.length - 1}
-                            onClick={() => moveStatus(task, 1)}
-                            aria-label="Mover para frente"
-                          >
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              disabled={colIndex === 0}
+                              onClick={() => moveStatus(task, -1)}
+                              aria-label="Mover para trás"
+                            >
+                              <ChevronLeft className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              disabled={colIndex === STATUSES.length - 1}
+                              onClick={() => moveStatus(task, 1)}
+                              aria-label="Mover para frente"
+                            >
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          {task.status === "done" && !task.linked_recurring_id && (
+                            <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]" asChild>
+                              <Link
+                                to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                              >
+                                Lançar transação
+                              </Link>
+                            </Button>
+                          )}
                         </div>
                       </article>
                     );
@@ -434,15 +472,38 @@ export default function ProjectKanban() {
               />
             </div>
             <div>
-              <FormLabel optional>Prazo</FormLabel>
-              <DatePicker
-                clearable
-                date={form.due_date ? new Date(`${form.due_date}T12:00:00`) : undefined}
-                onSelect={(d) =>
-                  setForm({ ...form, due_date: d ? formatLocalIsoDate(d) : null })
+              <FormLabel optional>Vincular a uma Recorrência Financeira</FormLabel>
+              <Select
+                value={form.linked_recurring_id ?? "none"}
+                onValueChange={(v) =>
+                  setForm({ ...form, linked_recurring_id: v === "none" ? null : v })
                 }
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
+                  {recurrings.map((rec) => (
+                    <SelectItem key={rec.id} value={rec.id}>
+                      {rec.description}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+            {!form.linked_recurring_id && (
+              <div>
+                <FormLabel optional>Prazo</FormLabel>
+                <DatePicker
+                  clearable
+                  date={form.due_date ? new Date(`${form.due_date}T12:00:00`) : undefined}
+                  onSelect={(d) =>
+                    setForm({ ...form, due_date: d ? formatLocalIsoDate(d) : null })
+                  }
+                />
+              </div>
+            )}
             <Button onClick={handleSave} className="w-full">
               {editing ? "Salvar alterações" : "Criar tarefa"}
             </Button>
