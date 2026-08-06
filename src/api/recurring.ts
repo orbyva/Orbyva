@@ -162,6 +162,73 @@ export async function fetchLastPaidAtByRecurring(
   return out;
 }
 
+export interface RecurringScheduleFields {
+  id: string;
+  payment_start_date: string | null;
+  due_day: number | null;
+  installment_count: number | null;
+  validity: string | null;
+  frequency: string;
+  paid_parcels: number[];
+  created_at: string;
+  status: boolean;
+}
+
+/** Campos mínimos para calcular parcelas — usado pela materialização de tarefas vinculadas. */
+export async function fetchRecurringTransactionsByIds(
+  ids: string[]
+): Promise<RecurringScheduleFields[]> {
+  if (ids.length === 0) return [];
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("recurring_transaction")
+    .select(
+      "id, payment_start_date, due_day, installment_count, validity, frequency, paid_parcels, created_at, status"
+    )
+    .eq("user_id", userId)
+    .in("id", ids);
+  if (error) throw error;
+  return (data ?? []) as RecurringScheduleFields[];
+}
+
+/**
+ * Sincroniza a tarefa vinculada (se houver) com o pagamento/estorno de uma
+ * parcela. Atualiza a tabela `task` diretamente (não chama `updateTask` de
+ * `@/api/tasks`) para evitar recursão entre os dois lados do vínculo.
+ */
+async function syncLinkedTaskFromInstallment(
+  recurringId: string,
+  installmentNumber: number,
+  paid: boolean
+): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { data: task, error: fetchError } = await supabase
+    .from("task")
+    .select("id, status")
+    .eq("user_id", userId)
+    .eq("linked_recurring_id", recurringId)
+    .eq("linked_installment_number", installmentNumber)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+  if (!task) return;
+
+  const targetStatus = paid ? "done" : "todo";
+  if (task.status === targetStatus) return;
+
+  const { error } = await supabase
+    .from("task")
+    .update({
+      status: targetStatus,
+      completed_at: paid ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", task.id)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}
+
 export async function updateRecurringParcelPayment(
   recurringId: string,
   installmentNumber: number,
@@ -212,6 +279,8 @@ export async function updateRecurringParcelPayment(
 
     if (error) throw error;
 
+    await syncLinkedTaskFromInstallment(recurringId, installmentNumber, false);
+
     return rollback?.paid_parcels ?? updatedParcels;
   }
 
@@ -247,6 +316,8 @@ export async function updateRecurringParcelPayment(
   } catch {
     /* progresso da meta é best-effort */
   }
+
+  await syncLinkedTaskFromInstallment(recurringId, installmentNumber, true);
 
   return updatedParcels;
 }
