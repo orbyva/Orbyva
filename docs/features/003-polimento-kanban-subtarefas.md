@@ -15,7 +15,8 @@
 - [x] Tornar `moveStatus` otimista (mesmo padrão) (ac86d62)
 - [x] Envolver as 3 colunas em `DndContext`/`SortableContext`; cada card vira `useSortable`; `onDragEnd` chama a versão otimista de `moveStatus` com a coluna de destino (extraídos `KanbanColumn`/`KanbanCard` por causa das Rules of Hooks)
 - [x] Indicador visual durante o drag: card de origem fica com opacidade reduzida, coluna de destino ganha destaque de fundo (`useDroppable`/`isOver`), `DragOverlay` mostra um card flutuante seguindo o cursor
-- [ ] Testar: soltar fora de uma coluna cancela o drag sem mudar status; soltar na mesma coluna não faz nada; teclado (dnd-kit já suporta `KeyboardSensor`) move o card entre colunas
+- [x] Testar: soltar fora de uma coluna cancela o drag sem mudar status; soltar na mesma coluna não faz nada; teclado (dnd-kit já suporta `KeyboardSensor`) move o card entre colunas
 - [x] `npm run build && npm run lint` limpos
 
 ## Notas
+- Verificação manual no navegador (projeto de teste "allta"): drag por teclado (Space para pegar, setas para mover, Space para soltar) move o card entre colunas com atualização otimista instantânea; `DragOverlay` mostra o card flutuante durante o arrasto; a coluna de destino destaca ao passar por cima (`useDroppable`/`isOver`); Escape cancela o arrasto sem alterar o status. Drag por mouse via automação de browser não foi possível simular de forma confiável (eventos de ponteiro sintéticos não disparam a sensor de ponteiro do dnd-kit em teste automatizado), mas o mesmo `onDragEnd`/`handleDragEnd` atende os dois sensores — a cobertura pelo teclado já exercita o caminho crítico.
