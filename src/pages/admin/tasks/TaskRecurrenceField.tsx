@@ -43,13 +43,14 @@ export function TaskRecurrenceField({
   recurrings: Recurring[];
   onChange: (next: TaskRecurrenceValue) => void;
 }) {
-  const mode = modeFor(value);
+  const [mode, setMode] = useState<RecurrenceMode>(() => modeFor(value));
   const [frequency, setFrequency] = useState<RecurrenceFrequency>(
     value.recurrence_rule?.frequency ?? "daily"
   );
 
   function selectMode(next: RecurrenceMode) {
     if (next === mode) return;
+    setMode(next);
     if (next === "none") {
       onChange({ due_date: value.due_date, recurrence_rule: null, linked_recurring_id: null });
     } else if (next === "simple") {
