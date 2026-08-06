@@ -17,14 +17,15 @@ A lista atual de Tarefas (`/tasks`, `TaskList.tsx`) é uma lista plana filtráve
 - Toggle de conclusão nesta tela usa atualização otimista no estado local (mesmo princípio da feature 003 — evita o delay de um `load()` completo por clique).
 
 ## Tarefas
-- [ ] Componente `TaskAgendaCard` (círculo de conclusão, prazo ou "Concluída em", badge de projeto, ícone de recorrência)
-- [ ] Função de domínio pura para os buckets Atrasadas/Hoje/Esta semana/Este mês/Mais tarde/Sem prazo (testável com Vitest, mesmo padrão de `domain/tasks/filters.ts`)
-- [ ] Função de domínio pura para colapsar instâncias de uma série recorrente na próxima ocorrência em aberto (testável)
-- [ ] Aba "Agenda" em `TaskList.tsx` (tabs "Lista"/"Agenda", só estado local — sem rota nova)
-- [ ] Drawer/dialog "Ver recorrências" listando todas as ocorrências de uma série (data + status de cada)
-- [ ] Círculo de conclusão com atualização otimista (reverte + toast se a chamada falhar)
-- [ ] `npm run build && npm run lint` limpos
+- [x] Componente `TaskAgendaCard` (círculo de conclusão, prazo ou "Concluída em", badge de projeto, ícone de recorrência)
+- [x] Função de domínio pura para os buckets Atrasadas/Hoje/Esta semana/Este mês/Mais tarde/Sem prazo (testável com Vitest, mesmo padrão de `domain/tasks/filters.ts`)
+- [x] Função de domínio pura para colapsar instâncias de uma série recorrente na próxima ocorrência em aberto (testável)
+- [x] Aba "Agenda" em `TaskList.tsx` (tabs "Lista"/"Agenda", só estado local — sem rota nova)
+- [x] Drawer/dialog "Ver recorrências" listando todas as ocorrências de uma série (data + status de cada)
+- [x] Círculo de conclusão com atualização otimista (reverte + toast se a chamada falhar)
+- [x] `npm run build && npm run lint` limpos
 
 ## Notas
-- Ambiguidade a confirmar com o usuário antes de implementar: "data de conclusão" no pedido original pode significar o prazo (`due_date`) ou a data em que foi de fato concluída (`completed_at`). Este plano assume os dois — prazo enquanto aberta, `completed_at` quando concluída — mas vale confirmar antes de codar.
-- Depende indiretamente da feature 003 (mesmo princípio de atualização otimista) mas não depende do código dela — pode ser implementada em paralelo ou depois, sem bloqueio real.
+- Ambiguidade resolvida na implementação: o bucket de urgência (`bucketForDueDate`) é calculado só a partir do `due_date`, ignorando `status` — uma tarefa concluída com prazo no passado continua no bucket cronológico do prazo dela em vez de ser tratada como "Atrasada", já que o card mostra "Concluída em `completed_at`" no lugar do prazo, o que já deixa claro que não está mais em aberto. Pequeno desvio do texto literal do plano ("Atrasadas: due_date no passado e status !== done"), que deixava em aberto o que fazer com uma tarefa concluída e com prazo vencido; a alternativa (esconder essas tarefas de todo bucket) parecia pior.
+- Depende indiretamente da feature 003 (mesmo princípio de atualização otimista) mas não depende do código dela — implementada em sequência, sem bloqueio real.
+- Verificação manual pendente no navegador antes de considerar a feature fechada.
