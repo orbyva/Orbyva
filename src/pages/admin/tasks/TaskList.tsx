@@ -1,4 +1,5 @@
 import { ListTodo, Pen, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ import {
   fetchTasks,
   updateTask,
 } from "@/api/tasks";
+import { fetchRecurringTransactions } from "@/api/recurring";
 import { filterTasks, sortTasksByDueDate } from "@/domain/tasks";
 import type {
   Project,
@@ -41,6 +43,7 @@ import type {
   Task,
   TaskCreateRequest,
 } from "@/types/tasks";
+import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
@@ -55,11 +58,13 @@ const emptyTask = (): TaskCreateRequest => ({
   tags: [],
   due_date: null,
   recurrence_rule: null,
+  linked_recurring_id: null,
 });
 
 export default function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [recurrings, setRecurrings] = useState<Recurring[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
@@ -73,12 +78,14 @@ export default function TaskList() {
 
   const load = useCallback(async () => {
     try {
-      const [taskList, projectList] = await Promise.all([
+      const [taskList, projectList, recurringList] = await Promise.all([
         fetchTasks(),
         fetchProjects(),
+        fetchRecurringTransactions(),
       ]);
       setTasks(taskList);
       setProjects(projectList);
+      setRecurrings(recurringList);
     } catch (error) {
       toast({
         title: "Erro",
@@ -101,7 +108,13 @@ export default function TaskList() {
       tag: tagFilter || undefined,
       projectId,
     });
-    return sortTasksByDueDate(filtered.filter((t) => !t.parent_task_id));
+    return sortTasksByDueDate(
+      filtered.filter(
+        (t) =>
+          !t.parent_task_id &&
+          !(t.linked_recurring_id && t.linked_installment_number == null)
+      )
+    );
   }, [tasks, tagFilter, projectFilter]);
 
   const allTags = useMemo(
@@ -129,6 +142,7 @@ export default function TaskList() {
       tags: task.tags,
       due_date: task.due_date,
       recurrence_rule: task.recurrence_rule,
+      linked_recurring_id: task.linked_recurring_id,
     });
     setTagsInput(task.tags.join(", "));
     setRepeats(!!task.recurrence_rule);
@@ -142,10 +156,13 @@ export default function TaskList() {
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
+    const isLinked = !!form.linked_recurring_id;
     const payload: TaskCreateRequest = {
       ...form,
       tags,
-      recurrence_rule: repeats && form.due_date ? { frequency, interval: 1 } : null,
+      due_date: isLinked ? null : form.due_date,
+      recurrence_rule:
+        !isLinked && repeats && form.due_date ? { frequency, interval: 1 } : null,
     };
     try {
       if (editing) await updateTask({ id: editing.id, ...payload });
@@ -241,6 +258,11 @@ export default function TaskList() {
                         ? "Fazendo"
                         : "Feito"}
                   </Badge>
+                  {task.linked_recurring_id && (
+                    <Badge variant="outline" className="text-[10px]">
+                      Vinculada a Recorrência
+                    </Badge>
+                  )}
                   {task.due_date && <span>Prazo: {task.due_date}</span>}
                   {task.tags.map((tag) => (
                     <Badge key={tag} variant="secondary" className="text-[10px]">
@@ -250,6 +272,15 @@ export default function TaskList() {
                 </div>
               </div>
               <div className="flex shrink-0 gap-1">
+                {task.status === "done" && !task.linked_recurring_id && (
+                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
+                    <Link
+                      to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                    >
+                      Lançar transação
+                    </Link>
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -318,6 +349,27 @@ export default function TaskList() {
               </Select>
             </div>
             <div>
+              <FormLabel optional>Vincular a uma Recorrência Financeira</FormLabel>
+              <Select
+                value={form.linked_recurring_id ?? "none"}
+                onValueChange={(v) =>
+                  setForm({ ...form, linked_recurring_id: v === "none" ? null : v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
+                  {recurrings.map((rec) => (
+                    <SelectItem key={rec.id} value={rec.id}>
+                      {rec.description}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <FormLabel optional>Tags (separadas por vírgula)</FormLabel>
               <Input
                 value={tagsInput}
@@ -325,41 +377,45 @@ export default function TaskList() {
                 placeholder="casa, urgente"
               />
             </div>
-            <div>
-              <FormLabel optional>Prazo</FormLabel>
-              <DatePicker
-                clearable
-                date={form.due_date ? new Date(`${form.due_date}T12:00:00`) : undefined}
-                onSelect={(d) =>
-                  setForm({ ...form, due_date: d ? formatLocalIsoDate(d) : null })
-                }
-              />
-            </div>
-            {form.due_date && (
-              <div className="flex items-center gap-2">
-                <input
-                  id="repeats"
-                  type="checkbox"
-                  checked={repeats}
-                  onChange={(e) => setRepeats(e.target.checked)}
-                />
-                <FormLabel htmlFor="repeats">Repetir</FormLabel>
-                {repeats && (
-                  <Select
-                    value={frequency}
-                    onValueChange={(v) => setFrequency(v as RecurrenceFrequency)}
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Diária</SelectItem>
-                      <SelectItem value="weekly">Semanal</SelectItem>
-                      <SelectItem value="monthly">Mensal</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {!form.linked_recurring_id && (
+              <>
+                <div>
+                  <FormLabel optional>Prazo</FormLabel>
+                  <DatePicker
+                    clearable
+                    date={form.due_date ? new Date(`${form.due_date}T12:00:00`) : undefined}
+                    onSelect={(d) =>
+                      setForm({ ...form, due_date: d ? formatLocalIsoDate(d) : null })
+                    }
+                  />
+                </div>
+                {form.due_date && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="repeats"
+                      type="checkbox"
+                      checked={repeats}
+                      onChange={(e) => setRepeats(e.target.checked)}
+                    />
+                    <FormLabel htmlFor="repeats">Repetir</FormLabel>
+                    {repeats && (
+                      <Select
+                        value={frequency}
+                        onValueChange={(v) => setFrequency(v as RecurrenceFrequency)}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Diária</SelectItem>
+                          <SelectItem value="weekly">Semanal</SelectItem>
+                          <SelectItem value="monthly">Mensal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
             <Button onClick={handleSave} className="w-full">
               {editing ? "Salvar alterações" : "Criar tarefa"}
