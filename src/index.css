@@ -56,6 +56,10 @@
     --hub: 239 84% 45%;
     --hub-foreground: 0 0% 100%;
 
+    /* Produtividade (Tarefas/Projetos) = violeta, distinto de hub (indigo) e cinema (fuchsia) */
+    --productivity: 266 78% 55%;
+    --productivity-foreground: 0 0% 100%;
+
     --border: 20 6% 90%;
     --input: 20 6% 90%;
     --ring: 199 89% 39%;
@@ -120,6 +124,9 @@
     /* Hub ≠ primary — indigo no dark */
     --hub: 239 84% 67%;
     --hub-foreground: 0 0% 100%;
+
+    --productivity: 266 78% 68%;
+    --productivity-foreground: 0 0% 100%;
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;

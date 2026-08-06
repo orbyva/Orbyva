@@ -13,6 +13,7 @@ export const moduleColors = {
   cinema: "hsl(var(--cinema))",
   travel: "hsl(var(--travel))",
   car: "hsl(var(--car))",
+  productivity: "hsl(var(--productivity))",
 } as const;
 
 export const statusBadgeStyles: Record<string, string> = {

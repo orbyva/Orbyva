@@ -2,6 +2,7 @@ import * as React from "react"
 import {
   Clapperboard,
   LayoutDashboard,
+  ListTodo,
   PiggyBank,
   Target,
   type LucideIcon,
@@ -80,11 +81,23 @@ const NAV_VIDA: NavItem = {
   ],
 }
 
+const NAV_PRODUTIVIDADE: NavItem = {
+  title: "Produtividade",
+  color: moduleColors.productivity,
+  url: "#",
+  icon: ListTodo,
+  items: [
+    { title: "Tarefas", url: "/tasks" },
+    { title: "Projetos", url: "/tasks/projects" },
+    { title: "Live", url: "/tasks/live" },
+  ],
+}
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
 
   const navItems = React.useMemo(
-    () => [NAV_INICIO, NAV_FINANCE, NAV_ENTRETENIMENTO, NAV_VIDA],
+    () => [NAV_INICIO, NAV_FINANCE, NAV_ENTRETENIMENTO, NAV_VIDA, NAV_PRODUTIVIDADE],
     []
   )
 

@@ -1,0 +1,74 @@
+export type ProjectStatus = "active" | "completed" | "archived";
+
+export interface Project {
+  id: string;
+  user_id?: string;
+  name: string;
+  description?: string | null;
+  color?: string | null;
+  goal_id?: string | null;
+  status: ProjectStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type ProjectCreateRequest = Omit<
+  Project,
+  "id" | "user_id" | "created_at" | "updated_at"
+>;
+
+export type ProjectUpdateRequest = Partial<ProjectCreateRequest> & {
+  id: string;
+};
+
+export type TaskStatus = "todo" | "doing" | "done";
+export type RecurrenceFrequency = "daily" | "weekly" | "monthly";
+
+export interface RecurrenceRule {
+  frequency: RecurrenceFrequency;
+  interval: number;
+  until?: string | null;
+}
+
+export interface Task {
+  id: string;
+  user_id?: string;
+  project_id: string | null;
+  parent_task_id: string | null;
+  recurrence_origin_id: string | null;
+  title: string;
+  description?: string | null;
+  status: TaskStatus;
+  tags: string[];
+  due_date: string | null;
+  recurrence_rule: RecurrenceRule | null;
+  completed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type TaskCreateRequest = Omit<
+  Task,
+  | "id"
+  | "user_id"
+  | "created_at"
+  | "updated_at"
+  | "recurrence_origin_id"
+  | "completed_at"
+>;
+
+export type TaskUpdateRequest = Partial<TaskCreateRequest> & { id: string };
+
+export interface TaskDependency {
+  task_id: string;
+  depends_on_task_id: string;
+}
+
+export interface TaskTimeEntry {
+  id: string;
+  user_id?: string;
+  task_id: string;
+  started_at: string;
+  ended_at: string | null;
+  created_at?: string;
+}
