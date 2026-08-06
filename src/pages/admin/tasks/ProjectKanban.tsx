@@ -1,6 +1,34 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronLeft, ChevronRight, Pen, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
+  Pen,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +91,185 @@ const emptyTask = (projectId: string): TaskCreateRequest => ({
   linked_recurring_id: null,
 });
 
+function KanbanColumn({ status, children }: { status: TaskStatus; children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn("space-y-2 rounded-lg p-1 transition-colors", isOver && "bg-muted/60")}
+    >
+      {children}
+    </div>
+  );
+}
+
+function KanbanCard({
+  task,
+  colIndex,
+  subtasks,
+  subtaskDraft,
+  onSubtaskDraftChange,
+  onAddSubtask,
+  onToggleSubtask,
+  onEdit,
+  onDelete,
+  onMoveStatus,
+}: {
+  task: Task;
+  colIndex: number;
+  subtasks: Task[];
+  subtaskDraft: string;
+  onSubtaskDraftChange: (value: string) => void;
+  onAddSubtask: () => void;
+  onToggleSubtask: (subtask: Task) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMoveStatus: (direction: -1 | 1) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  const doneSubtasks = subtasks.filter((s) => s.status === "done").length;
+
+  return (
+    <article
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "space-y-2 rounded-xl border bg-card p-3 shadow-sm",
+        isDragging && "opacity-40"
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1">
+          <button
+            type="button"
+            className="shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+            aria-label="Arrastar tarefa"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+          <p className="min-w-0 truncate text-sm font-medium">{task.title}</p>
+        </div>
+        <div className="flex shrink-0 gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("h-7 w-7", ICON_EDIT_BUTTON_CLASS)}
+            onClick={onEdit}
+          >
+            <Pen className="h-3 w-3" />
+          </Button>
+          <ConfirmDeleteDialog
+            title="Excluir esta tarefa?"
+            description={
+              subtasks.length > 0 ? "As subtarefas também serão excluídas." : undefined
+            }
+            onConfirm={onDelete}
+          >
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </ConfirmDeleteDialog>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+        {task.due_date && <span>Prazo: {task.due_date}</span>}
+        {task.linked_recurring_id && (
+          <Badge variant="outline" className="text-[10px]">
+            Vinculada a Recorrência
+          </Badge>
+        )}
+        {subtasks.length > 0 && (
+          <Badge variant="outline" className="text-[10px]">
+            {doneSubtasks}/{subtasks.length} subtarefas
+          </Badge>
+        )}
+        {task.tags.map((tag) => (
+          <Badge key={tag} variant="secondary" className="text-[10px]">
+            {tag}
+          </Badge>
+        ))}
+      </div>
+
+      {subtasks.length > 0 && (
+        <ul className="space-y-1 border-t pt-2">
+          {subtasks.map((subtask) => (
+            <li key={subtask.id} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={subtask.status === "done"}
+                onChange={() => onToggleSubtask(subtask)}
+              />
+              <span
+                className={cn(
+                  "truncate text-xs",
+                  subtask.status === "done" && "text-muted-foreground line-through"
+                )}
+              >
+                {subtask.title}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex gap-1">
+        <Input
+          value={subtaskDraft}
+          onChange={(e) => onSubtaskDraftChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onAddSubtask();
+          }}
+          placeholder="Adicionar subtarefa"
+          className="h-7 text-xs"
+        />
+      </div>
+
+      <div className="flex justify-between border-t pt-2">
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            disabled={colIndex === 0}
+            onClick={() => onMoveStatus(-1)}
+            aria-label="Mover para trás"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            disabled={colIndex === STATUSES.length - 1}
+            onClick={() => onMoveStatus(1)}
+            aria-label="Mover para frente"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        {task.status === "done" && !task.linked_recurring_id && (
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]" asChild>
+            <Link
+              to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+            >
+              Lançar transação
+            </Link>
+          </Button>
+        )}
+      </div>
+    </article>
+  );
+}
+
 export default function ProjectKanban() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
@@ -74,7 +281,13 @@ export default function ProjectKanban() {
   const [form, setForm] = useState(emptyTask(id ?? ""));
   const [tagsInput, setTagsInput] = useState("");
   const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const { toast } = useToast();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   useBreadcrumbTitle(project?.name);
 
@@ -226,6 +439,28 @@ export default function ProjectKanban() {
     );
   }
 
+  function handleDragStart(event: DragStartEvent) {
+    const task = tasks.find((t) => t.id === event.active.id);
+    setActiveTask(task ?? null);
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveTask(null);
+    if (!over) return;
+
+    const draggedTask = tasks.find((t) => t.id === active.id);
+    if (!draggedTask) return;
+
+    const overId = String(over.id);
+    const targetStatus = (STATUSES as string[]).includes(overId)
+      ? (overId as TaskStatus)
+      : tasks.find((t) => t.id === overId)?.status;
+    if (!targetStatus) return;
+
+    await applyStatusChange(draggedTask, targetStatus, "Não foi possível mover a tarefa.");
+  }
+
   async function addSubtask(parent: Task) {
     const title = (subtaskDrafts[parent.id] ?? "").trim();
     if (!title) return;
@@ -286,169 +521,77 @@ export default function ProjectKanban() {
       {loading ? (
         <TableLoadingSkeleton rows={4} columns={3} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-3">
-          {STATUSES.map((status, colIndex) => (
-            <div key={status} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">
-                  {STATUS_LABELS[status]}{" "}
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({topLevelByStatus[status].length})
-                  </span>
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => openCreate(status)}
-                  aria-label={`Nova tarefa em ${STATUS_LABELS[status]}`}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid gap-4 md:grid-cols-3">
+            {STATUSES.map((status, colIndex) => (
+              <div key={status} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">
+                    {STATUS_LABELS[status]}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({topLevelByStatus[status].length})
+                    </span>
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => openCreate(status)}
+                    aria-label={`Nova tarefa em ${STATUS_LABELS[status]}`}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <SortableContext
+                  items={topLevelByStatus[status].map((task) => task.id)}
+                  strategy={verticalListSortingStrategy}
                 >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {topLevelByStatus[status].length === 0 ? (
-                  <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-                    Nenhuma tarefa
-                  </p>
-                ) : (
-                  topLevelByStatus[status].map((task) => {
-                    const subtasks = subtasksByParent.get(task.id) ?? [];
-                    const doneSubtasks = subtasks.filter((s) => s.status === "done").length;
-                    return (
-                      <article
-                        key={task.id}
-                        className="space-y-2 rounded-xl border bg-card p-3 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="min-w-0 truncate text-sm font-medium">{task.title}</p>
-                          <div className="flex shrink-0 gap-0.5">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn("h-7 w-7", ICON_EDIT_BUTTON_CLASS)}
-                              onClick={() => openEdit(task)}
-                            >
-                              <Pen className="h-3 w-3" />
-                            </Button>
-                            <ConfirmDeleteDialog
-                              title="Excluir esta tarefa?"
-                              description={
-                                subtasks.length > 0
-                                  ? "As subtarefas também serão excluídas."
-                                  : undefined
-                              }
-                              onConfirm={() => handleDelete(task.id)}
-                            >
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </ConfirmDeleteDialog>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                          {task.due_date && <span>Prazo: {task.due_date}</span>}
-                          {task.linked_recurring_id && (
-                            <Badge variant="outline" className="text-[10px]">
-                              Vinculada a Recorrência
-                            </Badge>
-                          )}
-                          {subtasks.length > 0 && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {doneSubtasks}/{subtasks.length} subtarefas
-                            </Badge>
-                          )}
-                          {task.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-[10px]">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-
-                        {subtasks.length > 0 && (
-                          <ul className="space-y-1 border-t pt-2">
-                            {subtasks.map((subtask) => (
-                              <li key={subtask.id} className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={subtask.status === "done"}
-                                  onChange={() => toggleSubtask(subtask)}
-                                />
-                                <span
-                                  className={cn(
-                                    "truncate text-xs",
-                                    subtask.status === "done" &&
-                                      "text-muted-foreground line-through"
-                                  )}
-                                >
-                                  {subtask.title}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-
-                        <div className="flex gap-1">
-                          <Input
-                            value={subtaskDrafts[task.id] ?? ""}
-                            onChange={(e) =>
-                              setSubtaskDrafts((prev) => ({ ...prev, [task.id]: e.target.value }))
+                  <KanbanColumn status={status}>
+                    {topLevelByStatus[status].length === 0 ? (
+                      <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                        Nenhuma tarefa
+                      </p>
+                    ) : (
+                      topLevelByStatus[status].map((task) => {
+                        const subtasks = subtasksByParent.get(task.id) ?? [];
+                        return (
+                          <KanbanCard
+                            key={task.id}
+                            task={task}
+                            colIndex={colIndex}
+                            subtasks={subtasks}
+                            subtaskDraft={subtaskDrafts[task.id] ?? ""}
+                            onSubtaskDraftChange={(value) =>
+                              setSubtaskDrafts((prev) => ({ ...prev, [task.id]: value }))
                             }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") addSubtask(task);
-                            }}
-                            placeholder="Adicionar subtarefa"
-                            className="h-7 text-xs"
+                            onAddSubtask={() => addSubtask(task)}
+                            onToggleSubtask={toggleSubtask}
+                            onEdit={() => openEdit(task)}
+                            onDelete={() => handleDelete(task.id)}
+                            onMoveStatus={(direction) => moveStatus(task, direction)}
                           />
-                        </div>
-
-                        <div className="flex justify-between border-t pt-2">
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              disabled={colIndex === 0}
-                              onClick={() => moveStatus(task, -1)}
-                              aria-label="Mover para trás"
-                            >
-                              <ChevronLeft className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              disabled={colIndex === STATUSES.length - 1}
-                              onClick={() => moveStatus(task, 1)}
-                              aria-label="Mover para frente"
-                            >
-                              <ChevronRight className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                          {task.status === "done" && !task.linked_recurring_id && (
-                            <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]" asChild>
-                              <Link
-                                to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
-                              >
-                                Lançar transação
-                              </Link>
-                            </Button>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })
-                )}
+                        );
+                      })
+                    )}
+                  </KanbanColumn>
+                </SortableContext>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <DragOverlay>
+            {activeTask ? (
+              <article className="space-y-2 rounded-xl border bg-card p-3 shadow-lg">
+                <p className="truncate text-sm font-medium">{activeTask.title}</p>
+              </article>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
