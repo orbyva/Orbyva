@@ -13,11 +13,11 @@
    -  ✅ deve ser possível tipo agrupar, as tarefas, pra poder encadear.
 
    #### Tarefas de implementação — Núcleo de Tarefas/Projetos (v1)
-   - [ ] Migration: tabelas `projects`, `tasks`, `task_dependencies`, `task_time_entries` + RLS por `user_id`
-   - [ ] `domain/tasks`: `recurrence.ts`, `dependencies.ts` (detecção de ciclo, soft-block), `timeTracking.ts`, `filters.ts` + testes (Vitest)
-   - [ ] `api/tasks`: `projects.ts`, `tasks.ts` (materialização lazy de recorrência no fetch), `timeEntries.ts`, `dependencies.ts`
-   - [ ] Página Lista (`/tasks`) com filtro por tag/prazo/projeto
-   - [ ] Página Projetos (`/tasks/projects`) + Kanban do projeto (`/tasks/projects/:id`) com subtarefas
-   - [ ] Página Live (`/tasks/live`): timer start/pause/stop + histórico de tempo do dia
-   - [ ] Recorrência simples (diária/semanal/mensal) na criação/edição de tarefa
-   - [ ] Novo grupo de navegação "Produtividade" na sidebar
+   - [x] Migration: tabelas `projects`, `tasks`, `task_dependencies`, `task_time_entries` + RLS por `user_id` (e07348f; fix de FK task.project_id em 47679bc)
+   - [x] `domain/tasks`: `recurrence.ts`, `dependencies.ts` (detecção de ciclo, soft-block), `timeTracking.ts`, `filters.ts` + testes (Vitest) (e07348f)
+   - [x] `api/tasks`: `projects.ts`, `tasks.ts` (materialização lazy de recorrência no fetch), `timeEntries.ts`, `dependencies.ts` (e07348f)
+   - [x] Página Lista (`/tasks`) com filtro por tag/prazo/projeto (e07348f)
+   - [x] Página Projetos (`/tasks/projects`) + Kanban do projeto (`/tasks/projects/:id`) com subtarefas (e07348f; Kanban em e392ffb)
+   - [x] Página Live (`/tasks/live`): timer start/pause/stop + histórico de tempo do dia (e392ffb)
+   - [x] Recorrência simples (diária/semanal/mensal) na criação/edição de tarefa (e07348f)
+   - [x] Novo grupo de navegação "Produtividade" na sidebar (e07348f)
