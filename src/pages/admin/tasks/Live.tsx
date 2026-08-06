@@ -75,7 +75,12 @@ export default function Live() {
 
   const tasksById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
   const availableTasks = useMemo(
-    () => tasks.filter((t) => t.status !== "done"),
+    () =>
+      tasks.filter(
+        (t) =>
+          t.status !== "done" &&
+          !(t.linked_recurring_id && t.linked_installment_number == null)
+      ),
     [tasks]
   );
 
