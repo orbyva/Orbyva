@@ -35,9 +35,14 @@ import {
 } from "@/api/finance";
 import type { Class, Nature, Type } from "@/types/finance";
 import { useToast } from "@/hooks/use-toast";
+import { useTouchDrag } from "@/hooks/useTouchDrag";
 import { getErrorMessage } from "@/lib/errors";
+import { dropZoneAttrs, readDropZone } from "@/lib/dropZone";
 import { cn, sortByNamePt } from "@/lib/utils";
 import { repairOrphanClasses } from "@/domain/onboarding/defaults";
+
+/** `type|<typeId>` */
+const TYPE_ZONE = "type";
 
 type DimensionsBoardProps = {
   natures: Nature[];
@@ -72,8 +77,28 @@ export function DimensionsBoard({
   const [deletingTypeId, setDeletingTypeId] = useState<number | null>(null);
   const [deletingClassId, setDeletingClassId] = useState<number | null>(null);
   const [dragClassId, setDragClassId] = useState<number | null>(null);
+  const [dropTypeId, setDropTypeId] = useState<number | null>(null);
   const [natureFilter, setNatureFilter] = useState<"all" | number>("all");
   const classesBooted = useRef(false);
+
+  const { handleProps: dragHandleProps, dragOverlay } = useTouchDrag({
+    onStart: (classId) => setDragClassId(Number(classId)),
+    onZoneChange: (zone) => {
+      const target = readDropZone(zone);
+      setDropTypeId(
+        target?.kind === TYPE_ZONE ? Number(target.parts[0]) : null
+      );
+    },
+    onDrop: (classId, zone) => {
+      const target = readDropZone(zone);
+      if (target?.kind !== TYPE_ZONE) return;
+      onDropOnType(Number(target.parts[0]), Number(classId));
+    },
+    onCancel: () => {
+      setDragClassId(null);
+      setDropTypeId(null);
+    },
+  });
 
   // Carrega classes (e repara órfãs) uma vez — não a cada criação de categoria.
   // Marca `classesBooted` só após sucesso (Strict Mode cancela o 1º efeito).
@@ -318,11 +343,12 @@ export function DimensionsBoard({
     }
   }
 
-  function onDropOnType(targetTypeId: number) {
-    if (dragClassId == null) return;
-    const cls = classes.find((c) => c.id === dragClassId);
+  function onDropOnType(targetTypeId: number, classId = dragClassId) {
+    if (classId == null) return;
+    const cls = classes.find((c) => c.id === classId);
     const fromType = cls?.type_id ?? cls?.type?.id;
     setDragClassId(null);
+    setDropTypeId(null);
     if (!cls || fromType === targetTypeId) return;
     void (async () => {
       try {
@@ -353,8 +379,8 @@ export function DimensionsBoard({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            Categorias com subcategorias aninhadas. Arraste uma subcategoria para outra
-            categoria para reassociar.
+            Categorias com subcategorias aninhadas. Arraste uma subcategoria pelo
+            punho até outra categoria para reassociar.
           </p>
           <div
             className="flex max-w-full gap-1 overflow-x-auto pb-0.5"
@@ -545,9 +571,15 @@ export function DimensionsBoard({
             return (
               <article
                 key={type.id}
-                className="flex flex-col rounded-2xl border bg-card p-3 shadow-sm"
+                className={cn(
+                  "flex flex-col rounded-2xl border bg-card p-3 shadow-sm transition-colors",
+                  dragClassId != null &&
+                    dropTypeId === type.id &&
+                    "border-primary bg-primary/5"
+                )}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => onDropOnType(type.id)}
+                {...dropZoneAttrs(TYPE_ZONE, type.id)}
               >
                 <header className="mb-2 flex items-start justify-between gap-2">
                   <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -712,7 +744,13 @@ export function DimensionsBoard({
                         dragClassId === cls.id && "opacity-60"
                       )}
                     >
-                      <GripVertical className="size-3.5 shrink-0 cursor-grab text-muted-foreground" />
+                      <span
+                        {...dragHandleProps(String(cls.id), cls.name)}
+                        className="-my-1 -ml-1 shrink-0 cursor-grab p-1 text-muted-foreground active:cursor-grabbing"
+                        aria-hidden
+                      >
+                        <GripVertical className="size-3.5" />
+                      </span>
                       {editingClassId === cls.id ? (
                         <Input
                           value={editingClassName}
@@ -827,6 +865,7 @@ export function DimensionsBoard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {dragOverlay}
     </div>
   );
 }
