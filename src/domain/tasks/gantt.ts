@@ -1,67 +1,98 @@
-import { formatLocalIsoDate } from "@/lib/dates";
+export type GanttNodeType = "summary" | "task";
 
-function addDays(iso: string, n: number): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  dt.setDate(dt.getDate() + n);
-  return formatLocalIsoDate(dt);
-}
-
-function daysBetween(aIso: string, bIso: string): number {
-  const [ay, am, ad] = aIso.split("-").map(Number);
-  const [by, bm, bd] = bIso.split("-").map(Number);
-  const a = Date.UTC(ay, am - 1, ad);
-  const b = Date.UTC(by, bm - 1, bd);
-  return Math.round((b - a) / 86400000);
-}
-
-export interface GanttTask {
+export interface GanttTaskInput {
   id: string;
+  title: string;
+  status: "todo" | "doing" | "done";
+  parent_task_id: string | null;
+  project_id: string | null;
   start_date?: string | null;
   due_date: string | null;
 }
 
-/**
- * Lista de dias (ISO, um por coluna) cobrindo todas as tarefas com data, com folga de
- * `paddingDays` em cada ponta. Tarefas sem `start_date` nem `due_date` são ignoradas.
- */
-export function computeGanttDays(tasks: GanttTask[], paddingDays = 2): string[] {
-  const dated = tasks.filter((t) => t.start_date || t.due_date);
-  if (dated.length === 0) return [];
+export interface GanttProjectInput {
+  id: string;
+  name: string;
+}
 
-  let min = dated[0].start_date ?? dated[0].due_date!;
-  let max = dated[0].due_date ?? dated[0].start_date!;
-  for (const t of dated) {
-    const s = t.start_date ?? t.due_date!;
-    const e = t.due_date ?? t.start_date!;
-    if (s < min) min = s;
-    if (e > max) max = e;
+export interface GanttNode {
+  id: string;
+  text: string;
+  start?: Date;
+  end?: Date;
+  type: GanttNodeType;
+  parent: string | number;
+  open: boolean;
+  progress?: number;
+}
+
+function isoToLocalDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d, 12);
+}
+
+function taskNode(task: GanttTaskInput, parent: string | number): GanttNode {
+  const hasDate = !!(task.start_date || task.due_date);
+  return {
+    id: task.id,
+    text: task.title,
+    ...(hasDate
+      ? {
+          start: isoToLocalDate(task.start_date ?? task.due_date!),
+          end: isoToLocalDate(task.due_date ?? task.start_date!),
+        }
+      : {}),
+    type: "task",
+    parent,
+    open: true,
+    progress: task.status === "done" ? 100 : 0,
+  };
+}
+
+/**
+ * Converte tarefas (+ projetos, quando presentes) numa lista plana com hierarquia via `parent`
+ * pro formato que `@svar-ui/react-gantt` espera: Projeto (summary) → Tarefa de topo → Subtarefa.
+ * Uma tarefa de topo só aparece se tiver `start_date` ou `due_date`; um projeto só aparece se
+ * tiver ao menos uma tarefa de topo com data. Subtarefas aparecem indentadas sob uma tarefa-pai
+ * com data, mesmo sem data própria (sem barra, só a linha — mesmo comportamento da grade CSS
+ * anterior). Retorna também `untimedCount` (tarefas de topo sem nenhuma data).
+ */
+export function buildGanttNodes(
+  projects: GanttProjectInput[],
+  tasks: GanttTaskInput[]
+): { nodes: GanttNode[]; untimedCount: number } {
+  const topLevel = tasks.filter((t) => !t.parent_task_id);
+  const datedTopLevel = topLevel.filter((t) => t.start_date || t.due_date);
+  const untimedCount = topLevel.length - datedTopLevel.length;
+
+  const datedTopLevelIds = new Set(datedTopLevel.map((t) => t.id));
+  const projectIdsWithDatedTasks = new Set(
+    datedTopLevel.filter((t) => t.project_id).map((t) => t.project_id as string)
+  );
+
+  const nodes: GanttNode[] = [];
+
+  for (const project of projects) {
+    if (!projectIdsWithDatedTasks.has(project.id)) continue;
+    nodes.push({
+      id: `project:${project.id}`,
+      text: project.name,
+      type: "summary",
+      parent: 0,
+      open: true,
+    });
   }
 
-  min = addDays(min, -paddingDays);
-  max = addDays(max, paddingDays);
-  const totalDays = daysBetween(min, max) + 1;
-  const days: string[] = [];
-  for (let i = 0; i < totalDays; i++) days.push(addDays(min, i));
-  return days;
-}
+  for (const task of datedTopLevel) {
+    const parent = task.project_id ? `project:${task.project_id}` : 0;
+    nodes.push(taskNode(task, parent));
+  }
 
-export interface GanttBar {
-  taskId: string;
-  startCol: number;
-  span: number;
-}
+  for (const task of tasks) {
+    if (!task.parent_task_id) continue;
+    if (!datedTopLevelIds.has(task.parent_task_id)) continue;
+    nodes.push(taskNode(task, task.parent_task_id));
+  }
 
-/**
- * Posição da barra de uma tarefa dentro de `days` (coluna inicial 1-indexada + número de dias
- * que ela cobre). `null` se a tarefa não tem data ou cai fora do intervalo calculado.
- */
-export function computeGanttBar(task: GanttTask, days: string[]): GanttBar | null {
-  if (!task.start_date && !task.due_date) return null;
-  const start = task.start_date ?? task.due_date!;
-  const end = task.due_date ?? task.start_date!;
-  const startCol = days.indexOf(start) + 1;
-  if (startCol === 0) return null;
-  const span = Math.max(1, daysBetween(start, end) + 1);
-  return { taskId: task.id, startCol, span };
+  return { nodes, untimedCount };
 }

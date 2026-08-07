@@ -48,21 +48,49 @@ TypeScript. Fontes em Notas.
   (`task_dependency`, feature 001) desenhadas no Gantt — nice-to-have, não obrigatório.
 
 ## Tarefas
-- [ ] Confirmar com o usuário a adoção de `@svar-ui/react-gantt` (ou a alternativa DHTMLX) antes de
+- [x] Confirmar com o usuário a adoção de `@svar-ui/react-gantt` (ou a alternativa DHTMLX) antes de
       instalar — primeira lib de UI pesada desde `@dnd-kit`
-- [ ] Instalar a lib escolhida
-- [ ] Adaptador em `domain/tasks/gantt.ts`: `Task[]` (hierarquia projeto→tarefa→subtarefa) para o
+- [x] Instalar a lib escolhida
+- [x] Adaptador em `domain/tasks/gantt.ts`: `Task[]` (hierarquia projeto→tarefa→subtarefa) para o
       formato da lib; testes Vitest
-- [ ] Reescrever `GanttChart` sobre a lib, recebendo a lista de tarefas escopada (um projeto, ou
+- [x] Reescrever `GanttChart` sobre a lib, recebendo a lista de tarefas escopada (um projeto, ou
       todas) como prop
-- [ ] Página nova `/tasks/gantt` (Gantt global) + item na sidebar
-- [ ] `ProjectDetail.tsx` (aba Gantt) passa a usar o mesmo componente, escopado ao projeto
-- [ ] Colapsar/expandir por projeto, tarefa e subtarefa; zoom de escala de tempo (dia/semana/mês,
+- [x] Página nova `/tasks/gantt` (Gantt global) + item na sidebar
+- [x] `ProjectDetail.tsx` (aba Gantt) passa a usar o mesmo componente, escopado ao projeto
+- [x] Colapsar/expandir por projeto, tarefa e subtarefa; zoom de escala de tempo (dia/semana/mês,
       conforme a lib expuser)
 - [ ] `npm run build && npm run lint` limpos + verificação manual (colapsar/expandir em cada nível,
       zoom, Gantt global mostrando tarefas de múltiplos projetos)
 
 ## Notas
+- `npm run build && npm run lint` e `npx tsc -b` estão limpos (372 testes Vitest passando,
+  incluindo 8 novos para `buildGanttNodes`); a verificação manual no navegador (colapsar/expandir,
+  zoom, Gantt global com múltiplos projetos) ficou de fora por não haver sessão autenticada
+  disponível nesta rodada — mesma lacuna do restante do backlog desta sessão (009-016).
+- `domain/tasks/gantt.ts` foi reescrito do zero: `computeGanttDays`/`computeGanttBar`/`GanttTask`/
+  `GanttBar` (grade CSS antiga) saíram; entrou `buildGanttNodes(projects, tasks)`, que converte
+  `Task[]` pro formato `ITask[]` da lib (`id`, `text`, `start`/`end`, `type`, `parent`, `open`,
+  `progress`). Um projeto só vira nó "summary" se tiver ao menos uma tarefa de topo com data —
+  evita nós de projeto vazios poluindo a árvore no Gantt global.
+- `GanttChart.tsx` ganhou um `props.projects` opcional (default `[]`): em `ProjectDetail.tsx` (um
+  projeto só) não faz sentido agrupar por projeto, então tarefas de topo vão direto pra raiz; na
+  página nova `/tasks/gantt` a lista de projetos filtrados é passada, criando a hierarquia
+  Projeto → Tarefa → Subtarefa.
+- **Zoom**: em vez de montar a `Toolbar` da lib (precisa de `ref`/`api` do Gantt e mais estado),
+  usei a prop `zoom` direto no componente `<Gantt>` (`zoom?: boolean | IZoomConfig` do
+  `IConfig` da lib) — habilita zoom de escala por scroll/pinch sem UI extra. Mais simples e ainda
+  atende "zoom de escala de tempo" do plano.
+- **Cor por status ficou fora desta rodada** (como já previsto em Decisões): sem conseguir testar
+  no navegador, não dava pra confirmar com segurança um hook de estilo por tarefa na lib sem
+  arriscar CSS quebrado; a lib já colore por `type` (tarefa=azul, resumo=verde) via tema Willow, o
+  que é aceitável para v1. Fica como próximo passo se o usuário pedir.
+- **Tema escuro**: `GanttChart` detecta `dark` na classe de `document.documentElement` (mesmo sinal
+  que `nav-user.tsx` usa pro toggle de tema) via `MutationObserver`, e alterna entre os wrappers
+  `Willow`/`WillowDark` da lib. CSS importado é o `dist-full` (`@svar-ui/react-gantt/all.css`), que
+  inclui os dois temas.
+- `readonly` fica fixo em `true`: editar `start_date`/`due_date` arrastando a barra ficou
+  explicitamente fora de escopo nesta rodada (ver Decisões) — a lib suporta, é só tirar a prop
+  quando o usuário confirmar que quer esse comportamento.
 - Referências levantadas a pedido do usuário:
   - SVAR React Gantt — https://svar.dev/react/gantt/ (produto) e
     https://svar.dev/blog/top-react-gantt-charts/ (comparativo com outras libs)
