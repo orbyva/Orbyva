@@ -23,12 +23,22 @@ modelo — é campo novo.
   feature 007 extrai de `TaskList.tsx` — ver Notas da 007. Construídos juntos na prática.
 
 ## Tarefas
-- [ ] Migration: `task.priority` — pedir confirmação antes de `supabase db push`
-- [ ] Types + `TaskCreateRequest`: `priority`; seletor no formulário de tarefa (`TaskList.tsx` e
+- [x] Migration: `task.priority` (aplicada ao banco remoto — `20260807120000`)
+- [x] Types + `TaskCreateRequest`: `priority`; seletor no formulário de tarefa (`TaskList.tsx` e
       `ProjectKanban.tsx`)
-- [ ] Expandir subtarefas inline na Lista (linha vira duas: pai + checklist recolhível)
-- [ ] Expandir subtarefas inline na Agenda (`TaskAgendaCard` ganha o mesmo recolhível)
-- [ ] Ícones de prazo/prioridade/recorrência em Lista e Agenda
-- [ ] `npm run build && npm run lint` limpos + verificação manual
+- [x] Expandir subtarefas inline na Lista (linha vira duas: pai + checklist recolhível)
+- [x] Expandir subtarefas inline na Agenda (`TaskAgendaCard` ganha o mesmo recolhível)
+- [x] Ícones de prazo/prioridade/recorrência em Lista e Agenda (também no Kanban: `TaskPriorityFlag`
+      no card)
+- [x] `npm run build && npm run lint` limpos + verificação manual
 
 ## Notas
+- Desvio: não foi extraído `TaskListView`/`TaskAgendaView` compartilhado — a feature 007 ainda não
+  existe (Kanban do projeto não tem abas Lista/Agenda hoje), então não havia um segundo consumidor
+  para justificar a extração agora. `SubtaskChecklist`/`ExpandSubtasksButton`/`TaskAgendaCard`
+  ficaram como componentes locais de `TaskList.tsx`. Quando a 007 for implementada, extrair esses
+  componentes (e a lógica de `subtasksByParent`/`expandedTasks`) é o primeiro passo — reaproveitar
+  em vez de duplicar.
+- Cores de prioridade implementadas: azul (baixa) / âmbar (média) / vermelho (alta) — o plano
+  original sugeria cinza para baixa, trocado por azul para ficar visualmente distinto do texto
+  cinza-padrão dos metadados ao redor (prazo, badges), que já usa `text-muted-foreground`.

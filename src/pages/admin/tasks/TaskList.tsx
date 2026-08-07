@@ -1,4 +1,13 @@
-import { Check, ListTodo, Pen, Repeat, Trash2 } from "lucide-react";
+import {
+  Calendar,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ListTodo,
+  Pen,
+  Repeat,
+  Trash2,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +28,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
+import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import {
@@ -54,64 +64,137 @@ import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+function SubtaskChecklist({
+  subtasks,
+  onToggle,
+}: {
+  subtasks: Task[];
+  onToggle: (subtask: Task) => void;
+}) {
+  return (
+    <ul className="mt-2 space-y-1 border-t pt-2">
+      {subtasks.map((s) => (
+        <li key={s.id} className="flex items-center gap-2">
+          <input type="checkbox" checked={s.status === "done"} onChange={() => onToggle(s)} />
+          <span
+            className={cn(
+              "truncate text-xs",
+              s.status === "done" && "text-muted-foreground line-through"
+            )}
+          >
+            {s.title}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ExpandSubtasksButton({
+  count,
+  expanded,
+  onClick,
+}: {
+  count: number;
+  expanded: boolean;
+  onClick: () => void;
+}) {
+  if (count === 0) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-6 w-6 shrink-0"
+      onClick={onClick}
+      aria-label={expanded ? "Recolher subtarefas" : "Expandir subtarefas"}
+    >
+      {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+    </Button>
+  );
+}
+
 function TaskAgendaCard({
   task,
   projectName,
+  subtasks,
+  expanded,
   onToggleDone,
+  onToggleExpand,
+  onToggleSubtask,
   onOpenSeries,
 }: {
   task: Task;
   projectName: string;
+  subtasks: Task[];
+  expanded: boolean;
   onToggleDone: () => void;
+  onToggleExpand: () => void;
+  onToggleSubtask: (subtask: Task) => void;
   onOpenSeries: () => void;
 }) {
   const done = task.status === "done";
   const recurring = isRecurringTask(task);
   return (
-    <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
-      <button
-        type="button"
-        onClick={onToggleDone}
-        aria-label={done ? "Reabrir tarefa" : "Concluir tarefa"}
-        className={cn(
-          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-          done
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-muted-foreground/40 hover:border-primary"
-        )}
-      >
-        {done && <Check className="h-3 w-3" />}
-      </button>
-      <button
-        type="button"
-        className="min-w-0 flex-1 text-left"
-        onClick={recurring ? onOpenSeries : undefined}
-        disabled={!recurring}
-      >
-        <div className="flex items-center gap-1.5">
-          {recurring && (
-            <Repeat className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Recorrente" />
+    <div className="rounded-lg border bg-card p-3">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onToggleDone}
+          aria-label={done ? "Reabrir tarefa" : "Concluir tarefa"}
+          className={cn(
+            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+            done
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-muted-foreground/40 hover:border-primary"
           )}
-          <p
-            className={cn(
-              "truncate text-sm font-medium",
-              done && "text-muted-foreground line-through"
+        >
+          {done && <Check className="h-3 w-3" />}
+        </button>
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left"
+          onClick={recurring ? onOpenSeries : undefined}
+          disabled={!recurring}
+        >
+          <div className="flex items-center gap-1.5">
+            {recurring && (
+              <Repeat className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Recorrente" />
             )}
-          >
-            {task.title}
-          </p>
-        </div>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          <Badge variant="outline" className="text-[10px]">
-            {projectName}
-          </Badge>
-          {done && task.completed_at ? (
-            <span>Concluída em {task.completed_at.slice(0, 10)}</span>
-          ) : (
-            task.due_date && <span>Prazo: {task.due_date}</span>
-          )}
-        </div>
-      </button>
+            <TaskPriorityFlag priority={task.priority} />
+            <p
+              className={cn(
+                "truncate text-sm font-medium",
+                done && "text-muted-foreground line-through"
+              )}
+            >
+              {task.title}
+            </p>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <Badge variant="outline" className="text-[10px]">
+              {projectName}
+            </Badge>
+            {done && task.completed_at ? (
+              <span>Concluída em {task.completed_at.slice(0, 10)}</span>
+            ) : (
+              task.due_date && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {task.due_date}
+                </span>
+              )
+            )}
+          </div>
+        </button>
+        <ExpandSubtasksButton
+          count={subtasks.length}
+          expanded={expanded}
+          onClick={onToggleExpand}
+        />
+      </div>
+      {expanded && subtasks.length > 0 && (
+        <SubtaskChecklist subtasks={subtasks} onToggle={onToggleSubtask} />
+      )}
     </div>
   );
 }
@@ -124,6 +207,7 @@ const emptyTask = (): TaskCreateRequest => ({
   status: "todo",
   tags: [],
   due_date: null,
+  priority: null,
   recurrence_rule: null,
   linked_recurring_id: null,
 });
@@ -141,6 +225,7 @@ export default function TaskList() {
   const [tagsInput, setTagsInput] = useState("");
   const [activeTab, setActiveTab] = useState<"lista" | "agenda">("lista");
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const load = useCallback(async () => {
@@ -205,6 +290,26 @@ export default function TaskList() {
     [tasks, seriesTask]
   );
 
+  const subtasksByParent = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const t of tasks) {
+      if (!t.parent_task_id) continue;
+      const list = map.get(t.parent_task_id);
+      if (list) list.push(t);
+      else map.set(t.parent_task_id, [t]);
+    }
+    return map;
+  }, [tasks]);
+
+  function toggleExpanded(taskId: string) {
+    setExpandedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }
+
   /** Atualiza o status localmente na hora (sem esperar um reload completo) e reverte se a chamada falhar. */
   async function applyStatusChange(task: Task, nextStatus: TaskStatus) {
     if (task.status === nextStatus) return;
@@ -243,6 +348,7 @@ export default function TaskList() {
       status: task.status,
       tags: task.tags,
       due_date: task.due_date,
+      priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
     });
@@ -349,67 +455,93 @@ export default function TaskList() {
             />
           ) : (
             <div className="space-y-2">
-              {visibleTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{task.title}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      <Badge variant="outline" className="text-[10px]">
-                        {task.status === "todo"
-                          ? "A fazer"
-                          : task.status === "doing"
-                            ? "Fazendo"
-                            : "Feito"}
-                      </Badge>
-                      {task.linked_recurring_id && (
-                        <Badge variant="outline" className="text-[10px]">
-                          Vinculada a Recorrência
-                        </Badge>
-                      )}
-                      {task.due_date && <span>Prazo: {task.due_date}</span>}
-                      {task.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-[10px]">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 gap-1">
-                    {task.status === "done" && !task.linked_recurring_id && (
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
-                        <Link
-                          to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+              {visibleTasks.map((task) => {
+                const subtasks = subtasksByParent.get(task.id) ?? [];
+                const expanded = expandedTasks.has(task.id);
+                const recurring = isRecurringTask(task);
+                return (
+                  <div key={task.id} className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          {recurring && (
+                            <Repeat
+                              className="h-3 w-3 shrink-0 text-muted-foreground"
+                              aria-label="Recorrente"
+                            />
+                          )}
+                          <TaskPriorityFlag priority={task.priority} />
+                          <p className="truncate font-medium">{task.title}</p>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                          <Badge variant="outline" className="text-[10px]">
+                            {task.status === "todo"
+                              ? "A fazer"
+                              : task.status === "doing"
+                                ? "Fazendo"
+                                : "Feito"}
+                          </Badge>
+                          {task.linked_recurring_id && (
+                            <Badge variant="outline" className="text-[10px]">
+                              Vinculada a Recorrência
+                            </Badge>
+                          )}
+                          {task.due_date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {task.due_date}
+                            </span>
+                          )}
+                          {task.tags.map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-[10px]">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {task.status === "done" && !task.linked_recurring_id && (
+                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
+                            <Link
+                              to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                            >
+                              Lançar transação
+                            </Link>
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
+                          onClick={() => openEdit(task)}
                         >
-                          Lançar transação
-                        </Link>
-                      </Button>
+                          <Pen className="h-3.5 w-3.5" />
+                        </Button>
+                        <ConfirmDeleteDialog
+                          title="Excluir esta tarefa?"
+                          onConfirm={() => handleDelete(task.id)}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </ConfirmDeleteDialog>
+                        <ExpandSubtasksButton
+                          count={subtasks.length}
+                          expanded={expanded}
+                          onClick={() => toggleExpanded(task.id)}
+                        />
+                      </div>
+                    </div>
+                    {expanded && subtasks.length > 0 && (
+                      <SubtaskChecklist subtasks={subtasks} onToggle={toggleDone} />
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
-                      onClick={() => openEdit(task)}
-                    >
-                      <Pen className="h-3.5 w-3.5" />
-                    </Button>
-                    <ConfirmDeleteDialog
-                      title="Excluir esta tarefa?"
-                      onConfirm={() => handleDelete(task.id)}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </ConfirmDeleteDialog>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -444,7 +576,11 @@ export default function TaskList() {
                             ? (projectNameById.get(task.project_id) ?? "Sem projeto")
                             : "Sem projeto"
                         }
+                        subtasks={subtasksByParent.get(task.id) ?? []}
+                        expanded={expandedTasks.has(task.id)}
                         onToggleDone={() => toggleDone(task)}
+                        onToggleExpand={() => toggleExpanded(task.id)}
+                        onToggleSubtask={toggleDone}
                         onOpenSeries={() => setSeriesTask(task)}
                       />
                     ))}
@@ -526,6 +662,10 @@ export default function TaskList() {
                 placeholder="casa, urgente"
               />
             </div>
+            <TaskPriorityField
+              value={form.priority ?? null}
+              onChange={(priority) => setForm({ ...form, priority })}
+            />
             <TaskRecurrenceField
               value={{
                 due_date: form.due_date,

@@ -39,6 +39,7 @@ export type ProjectEventCreateRequest = Omit<
 
 export type TaskStatus = "todo" | "doing" | "done";
 export type RecurrenceFrequency = "daily" | "weekly" | "monthly";
+export type TaskPriority = "low" | "medium" | "high";
 
 export interface RecurrenceRule {
   frequency: RecurrenceFrequency;
@@ -57,6 +58,7 @@ export interface Task {
   status: TaskStatus;
   tags: string[];
   due_date: string | null;
+  priority?: TaskPriority | null;
   recurrence_rule: RecurrenceRule | null;
   linked_recurring_id: string | null;
   linked_installment_number: number | null;

@@ -41,6 +41,7 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
+import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
@@ -79,6 +80,7 @@ const emptyTask = (projectId: string): TaskCreateRequest => ({
   status: "todo",
   tags: [],
   due_date: null,
+  priority: null,
   recurrence_rule: null,
   linked_recurring_id: null,
 });
@@ -147,6 +149,7 @@ function KanbanCard({
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
+          <TaskPriorityFlag priority={task.priority} />
           <p className="min-w-0 truncate text-sm font-medium">{task.title}</p>
         </div>
         <div className="flex shrink-0 gap-0.5">
@@ -351,6 +354,7 @@ export default function ProjectKanban() {
       status: task.status,
       tags: task.tags,
       due_date: task.due_date,
+      priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
     });
@@ -614,6 +618,10 @@ export default function ProjectKanban() {
                 placeholder="casa, urgente"
               />
             </div>
+            <TaskPriorityField
+              value={form.priority ?? null}
+              onChange={(priority) => setForm({ ...form, priority })}
+            />
             <TaskRecurrenceField
               value={{
                 due_date: form.due_date,
