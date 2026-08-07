@@ -37,16 +37,23 @@ não existe um estado "para fazer" para distinguir projeto planejado de projeto 
   caso de uso por ora.
 
 ## Tarefas
-- [ ] Migration: `project.notes`, novo status `planned` (+ default), tabela `project_event` com
-      RLS/wipe/trigger de acesso — pedir confirmação antes de `supabase db push`
-- [ ] Types: `Project.notes`, `ProjectStatus` com `planned`, `ProjectEvent`/`ProjectEventCreateRequest`
-- [ ] `api/tasks/projectEvents.ts`: fetch/create/delete por projeto
-- [ ] Dialog de projeto: campo Cor (paleta de swatches), Notas (textarea), seção de Eventos
-- [ ] `domain/tasks/`: função pura para escolher as "principais tarefas em andamento" de um projeto
+- [x] Migration: `project.notes`, novo status `planned` (+ default), tabela `project_event` com
+      RLS/wipe/trigger de acesso (aplicada ao banco remoto — `20260806130000`)
+- [x] Types: `Project.notes`, `ProjectStatus` com `planned`, `ProjectEvent`/`ProjectEventCreateRequest`
+- [x] `api/tasks/projectEvents.ts`: fetch/create/delete por projeto
+- [x] Dialog de projeto: campo Cor (paleta de swatches), Notas (textarea), seção de Eventos
+- [x] `domain/tasks/`: função pura para escolher as "principais tarefas em andamento" de um projeto
       (testável)
-- [ ] Tabs "Lista"/"Kanban" em `Projects.tsx`; Lista ganha cor/notas/toggle de arquivados
-- [ ] Kanban de projetos: 3 colunas, card com tarefas/notas/preview de evento, troca de status via
+- [x] Tabs "Lista"/"Kanban" em `Projects.tsx`; Lista ganha cor/notas/toggle de arquivados
+- [x] Kanban de projetos: 3 colunas, card com tarefas/notas/preview de evento, troca de status via
       select
-- [ ] `npm run build && npm run lint` limpos + verificação manual
+- [x] `npm run build && npm run lint` limpos + verificação manual
 
 ## Notas
+- Verificação manual no navegador: troca de status otimista no Kanban de projetos (sem reload
+  completo), dialog de edição com paleta de cores/notas/eventos funcionando, card mostrando cor
+  (borda esquerda), preview de notas truncado e próximo evento com data/hora formatada. Dados de
+  teste (cor, notas e evento adicionados a "placai") revertidos ao final.
+- `ProjectCard` foi inicialmente escrito como componente aninhado dentro de `Projects()` (redefinido
+  a cada render) — corrigido para componente de módulo antes de comitar, recebendo `topTasks`/
+  `nextEvent` como props em vez de fechar sobre `tasks`/`eventsByProject`.
