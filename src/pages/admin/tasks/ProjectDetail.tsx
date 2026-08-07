@@ -8,7 +8,9 @@ import {
   GripVertical,
   ListTodo,
   Pen,
+  Play,
   Plus,
+  Square,
   Trash2,
 } from "lucide-react";
 import {
@@ -43,6 +45,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
+import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
 import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
 import { TaskListRow } from "./TaskViews";
 import { GanttChart } from "./GanttChart";
@@ -74,6 +77,7 @@ import {
 import type { Project, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
+import { useActiveTimer } from "@/hooks/useActiveTimer";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
 import { formatLocalIsoDate } from "@/lib/dates";
@@ -125,6 +129,8 @@ function KanbanCard({
   onEdit,
   onDelete,
   onMoveStatus,
+  isTimerRunning,
+  onToggleTimer,
 }: {
   task: Task;
   colIndex: number;
@@ -136,6 +142,8 @@ function KanbanCard({
   onEdit: () => void;
   onDelete: () => void;
   onMoveStatus: (direction: -1 | 1) => void;
+  isTimerRunning?: boolean;
+  onToggleTimer?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -151,9 +159,10 @@ function KanbanCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "space-y-2 rounded-xl border bg-card p-3 shadow-sm",
+        "cursor-pointer space-y-2 rounded-xl border bg-card p-3 shadow-sm transition-colors hover:border-primary/40",
         isDragging && "opacity-40"
       )}
+      onClick={onEdit}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1">
@@ -161,6 +170,7 @@ function KanbanCard({
             type="button"
             className="shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
             aria-label="Arrastar tarefa"
+            onClick={(e) => e.stopPropagation()}
             {...attributes}
             {...listeners}
           >
@@ -169,7 +179,18 @@ function KanbanCard({
           <TaskPriorityFlag priority={task.priority} />
           <p className="min-w-0 truncate text-sm font-medium">{task.title}</p>
         </div>
-        <div className="flex shrink-0 gap-0.5">
+        <div className="flex shrink-0 gap-0.5" onClick={(e) => e.stopPropagation()}>
+          {onToggleTimer && task.status !== "done" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn("h-7 w-7", isTimerRunning ? "text-primary" : "text-muted-foreground")}
+              onClick={onToggleTimer}
+              aria-label={isTimerRunning ? "Parar timer" : "Iniciar timer"}
+            >
+              {isTimerRunning ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -212,7 +233,7 @@ function KanbanCard({
       </div>
 
       {subtasks.length > 0 && (
-        <ul className="space-y-1 border-t pt-2">
+        <ul className="space-y-1 border-t pt-2" onClick={(e) => e.stopPropagation()}>
           {subtasks.map((subtask) => (
             <li key={subtask.id} className="flex items-center gap-2">
               <input
@@ -233,7 +254,7 @@ function KanbanCard({
         </ul>
       )}
 
-      <div className="flex gap-1">
+      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
         <Input
           value={subtaskDraft}
           onChange={(e) => onSubtaskDraftChange(e.target.value)}
@@ -245,7 +266,7 @@ function KanbanCard({
         />
       </div>
 
-      <div className="flex justify-between border-t pt-2">
+      <div className="flex justify-between border-t pt-2" onClick={(e) => e.stopPropagation()}>
         <div className="flex gap-1">
           <Button
             variant="ghost"
@@ -293,11 +314,26 @@ export default function ProjectDetail() {
   const [form, setForm] = useState(emptyTask(id ?? ""));
   const [tagsInput, setTagsInput] = useState("");
   const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
+  const [newTaskSubtasks, setNewTaskSubtasks] = useState<string[]>([]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [view, setView] = useState<"kanban" | "lista" | "gantt">("kanban");
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const { toast } = useToast();
+  const { runningEntry, start: startTimer, stop: stopTimer } = useActiveTimer();
+
+  async function toggleTimer(task: Task) {
+    try {
+      if (runningEntry?.task_id === task.id) await stopTimer();
+      else await startTimer(task.id);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível atualizar o timer."),
+        variant: "destructive",
+      });
+    }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -388,6 +424,7 @@ export default function ProjectDetail() {
     setEditing(null);
     setForm({ ...emptyTask(id), status });
     setTagsInput("");
+    setNewTaskSubtasks([]);
     setOpen(true);
   }
 
@@ -408,6 +445,7 @@ export default function ProjectDetail() {
       linked_recurring_id: task.linked_recurring_id,
     });
     setTagsInput(task.tags.join(", "));
+    setNewTaskSubtasks([]);
     setOpen(true);
   }
 
@@ -426,8 +464,19 @@ export default function ProjectDetail() {
       due_time: isLinked && !isEditingInstance ? null : form.due_time,
     };
     try {
-      if (editing) await updateTask({ id: editing.id, ...payload });
-      else await createTask(payload);
+      if (editing) {
+        await updateTask({ id: editing.id, ...payload });
+      } else {
+        const created = await createTask(payload);
+        for (const title of newTaskSubtasks) {
+          await createTask({
+            ...emptyTask(id!),
+            project_id: created.project_id,
+            parent_task_id: created.id,
+            title,
+          });
+        }
+      }
       toast({ title: "Tarefa salva!", duration: 2000 });
       setOpen(false);
       load();
@@ -435,6 +484,39 @@ export default function ProjectDetail() {
       toast({
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível salvar a tarefa."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function addSubtaskToEditing(title: string) {
+    if (!editing) return;
+    try {
+      await createTask({
+        ...emptyTask(id!),
+        project_id: editing.project_id,
+        parent_task_id: editing.id,
+        title,
+      });
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível adicionar a subtarefa."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function removeExistingSubtask(subtask: SubtaskDraft) {
+    if (!subtask.id) return;
+    try {
+      await deleteTask(subtask.id);
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível remover a subtarefa."),
         variant: "destructive",
       });
     }
@@ -554,6 +636,7 @@ export default function ProjectDetail() {
       title={project?.name ?? "Kanban"}
       description={project?.description ?? "Acompanhe o andamento das tarefas do projeto."}
       eyebrow="Produtividade"
+      actions={<Button onClick={() => openCreate("todo")}>Nova tarefa</Button>}
     >
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
@@ -629,6 +712,8 @@ export default function ProjectDetail() {
                                 onEdit={() => openEdit(task)}
                                 onDelete={() => handleDelete(task.id)}
                                 onMoveStatus={(direction) => moveStatus(task, direction)}
+                                isTimerRunning={runningEntry?.task_id === task.id}
+                                onToggleTimer={() => toggleTimer(task)}
                               />
                             );
                           })
@@ -678,6 +763,8 @@ export default function ProjectDetail() {
                           onOpenSeries={() => setSeriesTask(task)}
                           onEdit={() => openEdit(task)}
                           onDelete={() => handleDelete(task.id)}
+                          isTimerRunning={runningEntry?.task_id === task.id}
+                          onToggleTimer={() => toggleTimer(task)}
                           extraActions={
                             task.status === "done" && !task.linked_recurring_id ? (
                               <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
@@ -767,6 +854,21 @@ export default function ProjectDetail() {
               }}
               recurrings={recurrings}
               onChange={(next) => setForm({ ...form, ...next })}
+            />
+            <TaskSubtasksField
+              subtasks={
+                editing
+                  ? (subtasksByParent.get(editing.id) ?? []).map((s) => ({ id: s.id, title: s.title }))
+                  : newTaskSubtasks.map((title) => ({ title }))
+              }
+              onAdd={(title) =>
+                editing ? addSubtaskToEditing(title) : setNewTaskSubtasks((prev) => [...prev, title])
+              }
+              onRemove={(subtask, index) =>
+                editing
+                  ? removeExistingSubtask(subtask)
+                  : setNewTaskSubtasks((prev) => prev.filter((_, i) => i !== index))
+              }
             />
             <Button onClick={handleSave} className="w-full">
               {editing ? "Salvar alterações" : "Criar tarefa"}

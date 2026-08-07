@@ -32,6 +32,7 @@ import {
   looksLikeId,
   useBreadcrumbTitleValue,
 } from "@/hooks/useBreadcrumbTitle"
+import { ActiveTimerProvider } from "@/hooks/useActiveTimer"
 import LoadingFallback from "@/components/LoadingFallback"
 import { PageSkeleton } from "@/components/PageSkeleton"
 
@@ -170,6 +171,7 @@ export default function AdminLayout() {
       <AppSidebar />
       <SidebarMobileCloser />
       <BreadcrumbTitleProvider>
+      <ActiveTimerProvider>
         <SidebarInset>
           <OfflineOutboxHost />
           {isTrialActive && trialDaysLeft <= 2 && !onAccount ? (
@@ -228,6 +230,7 @@ export default function AdminLayout() {
           </div>
           {hasAccess ? <MobileBottomNav /> : null}
         </SidebarInset>
+      </ActiveTimerProvider>
       </BreadcrumbTitleProvider>
     </SidebarProvider>
   )

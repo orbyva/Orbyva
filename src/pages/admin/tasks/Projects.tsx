@@ -1,5 +1,25 @@
-import { Link } from "react-router-dom";
-import { FolderKanban, Pen, Plus, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import type { ReactNode } from "react";
+import { FolderKanban, GripVertical, Pen, Plus, Trash2 } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -101,10 +121,12 @@ function ProjectCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const navigate = useNavigate();
   return (
     <article
-      className="space-y-2 rounded-xl border bg-card p-3.5 shadow-sm sm:p-5"
+      className="cursor-pointer space-y-2 rounded-xl border bg-card p-3.5 shadow-sm transition-colors hover:border-primary/40 sm:p-5"
       style={project.color ? { borderLeft: `3px solid ${project.color}` } : undefined}
+      onClick={() => navigate(`/tasks/projects/${project.id}`)}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -116,7 +138,7 @@ function ProjectCard({
             <p className="mt-1 text-xs text-muted-foreground">{project.description}</p>
           )}
         </div>
-        <div className="flex shrink-0 gap-1">
+        <div className="flex shrink-0 gap-1" onClick={(e) => e.stopPropagation()}>
           <Button
             variant="ghost"
             size="icon"
@@ -157,10 +179,83 @@ function ProjectCard({
         </p>
       )}
 
-      <Button variant="link" className="h-auto p-0 text-xs" asChild>
+      <Button variant="link" className="h-auto p-0 text-xs" asChild onClick={(e) => e.stopPropagation()}>
         <Link to={`/tasks/projects/${project.id}`}>Ver projeto</Link>
       </Button>
     </article>
+  );
+}
+
+function ProjectKanbanColumn({ status, children }: { status: ProjectStatus; children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn("space-y-2 rounded-lg p-1 transition-colors", isOver && "bg-muted/60")}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ProjectKanbanItem({
+  project,
+  topTasks,
+  nextEvent,
+  onEdit,
+  onDelete,
+  onStatusChange,
+}: {
+  project: Project;
+  topTasks: Task[];
+  nextEvent: ProjectEvent | undefined;
+  onEdit: () => void;
+  onDelete: () => void;
+  onStatusChange: (status: ProjectStatus) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: project.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className={cn("space-y-1.5", isDragging && "opacity-40")}>
+      <div className="flex items-start gap-1">
+        <button
+          type="button"
+          className="mt-4 shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+          aria-label="Arrastar projeto"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <ProjectCard
+            project={project}
+            topTasks={topTasks}
+            nextEvent={nextEvent}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        </div>
+      </div>
+      <Select value={project.status} onValueChange={(v) => onStatusChange(v as ProjectStatus)}>
+        <SelectTrigger className="h-7 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {KANBAN_STATUSES.map((s) => (
+            <SelectItem key={s} value={s}>
+              {STATUS_LABELS[s]}
+            </SelectItem>
+          ))}
+          <SelectItem value="archived">{STATUS_LABELS.archived}</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -176,7 +271,13 @@ export default function Projects() {
   const [showArchived, setShowArchived] = useState(false);
   const [eventTitle, setEventTitle] = useState("");
   const [eventStartsAt, setEventStartsAt] = useState("");
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
   const { toast } = useToast();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const load = useCallback(async () => {
     try {
@@ -249,6 +350,28 @@ export default function Projects() {
         variant: "destructive",
       });
     }
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    const project = projects.find((p) => p.id === event.active.id);
+    setActiveProject(project ?? null);
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveProject(null);
+    if (!over) return;
+
+    const draggedProject = projects.find((p) => p.id === active.id);
+    if (!draggedProject) return;
+
+    const overId = String(over.id);
+    const targetStatus = (KANBAN_STATUSES as string[]).includes(overId)
+      ? (overId as ProjectStatus)
+      : projects.find((p) => p.id === overId)?.status;
+    if (!targetStatus) return;
+
+    await applyProjectStatusChange(draggedProject, targetStatus);
   }
 
   function openCreate() {
@@ -384,55 +507,56 @@ export default function Projects() {
           </TabsContent>
 
           <TabsContent value="kanban" className="mt-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              {KANBAN_STATUSES.map((status) => (
-                <div key={status} className="space-y-3">
-                  <h3 className="text-sm font-semibold">
-                    {STATUS_LABELS[status]}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      ({kanbanByStatus[status].length})
-                    </span>
-                  </h3>
-                  <div className="space-y-2">
-                    {kanbanByStatus[status].length === 0 ? (
-                      <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-                        Nenhum projeto
-                      </p>
-                    ) : (
-                      kanbanByStatus[status].map((project) => (
-                        <div key={project.id} className="space-y-1.5">
-                          <ProjectCard
-                            project={project}
-                            topTasks={topOngoingTasksForProject(tasks, project.id)}
-                            nextEvent={nextEventFor(project.id)}
-                            onEdit={() => openEdit(project)}
-                            onDelete={() => handleDelete(project.id)}
-                          />
-                          <Select
-                            value={project.status}
-                            onValueChange={(v) =>
-                              applyProjectStatusChange(project, v as ProjectStatus)
-                            }
-                          >
-                            <SelectTrigger className="h-7 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {KANBAN_STATUSES.map((s) => (
-                                <SelectItem key={s} value={s}>
-                                  {STATUS_LABELS[s]}
-                                </SelectItem>
-                              ))}
-                              <SelectItem value="archived">{STATUS_LABELS.archived}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ))
-                    )}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="grid gap-4 md:grid-cols-3">
+                {KANBAN_STATUSES.map((status) => (
+                  <div key={status} className="space-y-3">
+                    <h3 className="text-sm font-semibold">
+                      {STATUS_LABELS[status]}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({kanbanByStatus[status].length})
+                      </span>
+                    </h3>
+                    <SortableContext
+                      items={kanbanByStatus[status].map((project) => project.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <ProjectKanbanColumn status={status}>
+                        {kanbanByStatus[status].length === 0 ? (
+                          <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                            Nenhum projeto
+                          </p>
+                        ) : (
+                          kanbanByStatus[status].map((project) => (
+                            <ProjectKanbanItem
+                              key={project.id}
+                              project={project}
+                              topTasks={topOngoingTasksForProject(tasks, project.id)}
+                              nextEvent={nextEventFor(project.id)}
+                              onEdit={() => openEdit(project)}
+                              onDelete={() => handleDelete(project.id)}
+                              onStatusChange={(s) => applyProjectStatusChange(project, s)}
+                            />
+                          ))
+                        )}
+                      </ProjectKanbanColumn>
+                    </SortableContext>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              <DragOverlay>
+                {activeProject ? (
+                  <article className="space-y-2 rounded-xl border bg-card p-3.5 shadow-lg">
+                    <p className="truncate text-sm font-medium">{activeProject.name}</p>
+                  </article>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           </TabsContent>
         </Tabs>
       )}

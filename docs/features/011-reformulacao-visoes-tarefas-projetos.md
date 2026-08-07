@@ -79,22 +79,45 @@ projetos):
   só adiciona o atalho de iniciar de outros lugares.
 
 ## Tarefas
-- [ ] Fix `isNavItemActive`/`nav-main.tsx`: "Tarefas" só ativa em `/tasks` exato
-- [ ] `TaskListRow`, `TaskAgendaCard`, `KanbanCard`, `ProjectCard`: clique no corpo abre
-      edição/navega; `stopPropagation` nos controles internos
-- [ ] `TaskAgendaCard`: separa "abrir edição" de "ver ocorrências", disponível para não-recorrentes
-- [ ] Seção "Subtarefas" no dialog de tarefa (criação e edição, nos dois formulários) — encadeia
-      `createTask` da pai + subtarefas ao criar
-- [ ] `DndContext`/`SortableContext` no Kanban de projetos; `onDragEnd` chama a troca de status
+- [x] Fix `isNavItemActive`/`nav-main.tsx`: "Tarefas" só ativa em `/tasks` exato
+- [x] `TaskListRow`, `KanbanCard` (tarefas), `ProjectCard`: clique no corpo abre edição/navega;
+      `stopPropagation` nos controles internos (`TaskAgendaCard` não existe mais desde a feature
+      015 — seu comportamento já foi herdado por `TaskListRow`)
+- [x] Título recorrente separa "abrir edição" (clique no corpo do card) de "ver ocorrências"
+      (ícone `Repeat` clicável à parte), disponível para tarefas recorrentes e não-recorrentes
+- [x] Seção "Subtarefas" no dialog de tarefa (criação e edição, nos dois formulários) — encadeia
+      `createTask` da pai + subtarefas ao criar; componente novo compartilhado
+      `TaskSubtasksField.tsx`
+- [x] `DndContext`/`SortableContext` no Kanban de projetos; `onDragEnd` chama a troca de status
       (mesma função do `<select>` atual) com atualização otimista; indicador visual do drag
-- [ ] Mover botão "Nova tarefa" para o cabeçalho da página (fora do conteúdo das abas), em
-      `/tasks` e `/tasks/projects/:id`
-- [ ] Texto de apoio Lista vs Agenda + omitir badge de projeto redundante na Agenda do projeto
-- [ ] Hook/contexto compartilhado de timer ativo, consumido por `Live.tsx` e pelas novas ações
-      inline; ícone de play nos cards; estado visual de "rodando"; regra de timer único
-- [ ] `npm run build && npm run lint` limpos + verificação manual (clique em cada tipo de
-      card/linha abre o esperado sem disparar ações internas por engano; criar tarefa já com
-      subtarefas; drag-and-drop no Kanban de projetos por mouse/teclado; diferença Lista/Agenda
-      validada diretamente com o usuário; iniciar timer pelo Kanban e ver refletido em Live)
+- [x] Botão "Nova tarefa" no cabeçalho da página `/tasks/projects/:id` (em `/tasks` já estava fora
+      das abas desde antes da feature 015)
+- [x] Hook/contexto compartilhado de timer ativo (`useActiveTimer`, montado em `AdminLayout`),
+      consumido por `Live.tsx` e pelas novas ações inline; ícone de play/stop nos cards; estado
+      visual de "rodando"; regra de timer único (já resolvida no nível da API — `startTimer` já
+      parava qualquer timer anterior antes de iniciar um novo, feature 001)
+- [x] `npm run build && npm run lint` limpos (322 testes Vitest passando, 0 erros de lint,
+      `tsc -b` limpo)
+- [ ] Verificação manual no navegador (clique em cada tipo de card/linha abre o esperado sem
+      disparar ações internas por engano; criar tarefa já com subtarefas; drag-and-drop no Kanban
+      de projetos por mouse/teclado; iniciar timer pelo Kanban e ver refletido em Live) —
+      **bloqueada**: sem credenciais de login disponíveis nesta sessão, mesmo bloqueio já
+      registrado nas features 009 e 015
 
 ## Notas
+- **Seção "Clareza Lista vs Agenda + botão de criar global" não foi implementada como planejada
+  originalmente** — a feature 015 (implementada antes desta, na ordem escolhida pelo usuário) já
+  fundiu Lista e Agenda numa visão só, então o texto de apoio explicando a diferença entre elas
+  deixou de fazer sentido. A parte do botão "Nova tarefa" fora das abas sobreviveu e foi aplicada
+  em `ProjectDetail.tsx` (a página `/tasks` já não tinha mais abas desde a 015).
+- **Kanban de tarefas manteve o input inline de "Adicionar subtarefa" por cartão** — a decisão
+  original dizia que a seção nova do dialog "substitui o input separado que só o Kanban tem hoje".
+  Na implementação, optei por manter os dois: o input inline do Kanban continua (é rápido, não
+  força abrir um dialog só pra adicionar uma subtarefa enquanto se navega pelo board), e a seção
+  nova do dialog cobre o que faltava de verdade — criar subtarefas já na criação da tarefa-pai, e
+  dar essa mesma capacidade à Lista, que não tinha nenhuma. Reavaliar com o usuário se o input
+  inline do Kanban deveria mesmo sumir.
+- Verificação manual completa (clique-para-abrir em cada superfície, drag-and-drop do Kanban de
+  projetos, timer inline refletindo em `/tasks/live`) não foi possível nesta sessão por falta de
+  credenciais de login — build/lint/testes automatizados e revisão manual do código (incluindo os
+  pontos de `stopPropagation`) foram a verificação disponível.

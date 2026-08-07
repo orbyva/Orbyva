@@ -12,16 +12,11 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import {
-  fetchRunningEntry,
-  fetchTasks,
-  fetchTodayEntries,
-  startTimer,
-  stopTimer,
-} from "@/api/tasks";
+import { fetchTasks, fetchTodayEntries } from "@/api/tasks";
 import { elapsedSeconds, formatDuration, totalSecondsForTask } from "@/domain/tasks";
 import type { Task, TaskTimeEntry } from "@/types/tasks";
 import { useToast } from "@/hooks/use-toast";
+import { useActiveTimer } from "@/hooks/useActiveTimer";
 import { getErrorMessage } from "@/lib/errors";
 
 function formatClock(totalSeconds: number): string {
@@ -35,22 +30,17 @@ function formatClock(totalSeconds: number): string {
 
 export default function Live() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [running, setRunning] = useState<TaskTimeEntry | null>(null);
   const [todayEntries, setTodayEntries] = useState<TaskTimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [now, setNow] = useState(() => new Date());
   const { toast } = useToast();
+  const { runningEntry: running, start, stop } = useActiveTimer();
 
   const load = useCallback(async () => {
     try {
-      const [taskList, runningEntry, entries] = await Promise.all([
-        fetchTasks(),
-        fetchRunningEntry(),
-        fetchTodayEntries(),
-      ]);
+      const [taskList, entries] = await Promise.all([fetchTasks(), fetchTodayEntries()]);
       setTasks(taskList);
-      setRunning(runningEntry);
       setTodayEntries(entries);
     } catch (error) {
       toast({
@@ -111,7 +101,7 @@ export default function Live() {
   async function handleStart() {
     if (!selectedTaskId) return;
     try {
-      await startTimer(selectedTaskId);
+      await start(selectedTaskId);
       setSelectedTaskId("");
       load();
     } catch (error) {
@@ -126,7 +116,7 @@ export default function Live() {
   async function handleStop() {
     if (!running) return;
     try {
-      await stopTimer(running.id);
+      await stop();
       load();
     } catch (error) {
       toast({

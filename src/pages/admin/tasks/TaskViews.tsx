@@ -1,4 +1,14 @@
-import { Calendar, Check, ChevronDown, ChevronRight, Pen, Repeat, Trash2 } from "lucide-react";
+import {
+  Calendar,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Pen,
+  Play,
+  Repeat,
+  Square,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
@@ -68,6 +78,8 @@ export function TaskListRow({
   onOpenSeries,
   onEdit,
   onDelete,
+  isTimerRunning,
+  onToggleTimer,
   extraActions,
 }: {
   task: Task;
@@ -79,18 +91,27 @@ export function TaskListRow({
   onOpenSeries: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** Timer "Live" rodando pra esta tarefa agora. */
+  isTimerRunning?: boolean;
+  onToggleTimer?: () => void;
   /** Ações extras (ex.: "Lançar transação") renderizadas antes de editar/excluir. */
   extraActions?: ReactNode;
 }) {
   const recurring = isRecurringTask(task);
   const done = task.status === "done";
   return (
-    <div className="rounded-lg border bg-card p-3">
+    <div
+      className="cursor-pointer rounded-lg border bg-card p-3 transition-colors hover:border-primary/40"
+      onClick={onEdit}
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <button
             type="button"
-            onClick={onToggleDone}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleDone();
+            }}
             aria-label={done ? "Reabrir tarefa" : "Concluir tarefa"}
             className={cn(
               "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
@@ -101,15 +122,20 @@ export function TaskListRow({
           >
             {done && <Check className="h-3 w-3" />}
           </button>
-          <button
-            type="button"
-            className="min-w-0 flex-1 text-left"
-            onClick={recurring ? onOpenSeries : undefined}
-            disabled={!recurring}
-          >
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               {recurring && (
-                <Repeat className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Recorrente" />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenSeries();
+                  }}
+                  aria-label="Ver ocorrências"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                >
+                  <Repeat className="h-3 w-3" />
+                </button>
               )}
               <TaskPriorityFlag priority={task.priority} />
               <p
@@ -146,9 +172,20 @@ export function TaskListRow({
                 </Badge>
               ))}
             </div>
-          </button>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {onToggleTimer && !done && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn("h-8 w-8", isTimerRunning ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+              onClick={onToggleTimer}
+              aria-label={isTimerRunning ? "Parar timer" : "Iniciar timer"}
+            >
+              {isTimerRunning ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+            </Button>
+          )}
           {extraActions}
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={onEdit}>
             <Pen className="h-3.5 w-3.5" />
@@ -162,7 +199,9 @@ export function TaskListRow({
         </div>
       </div>
       {expanded && subtasks.length > 0 && (
-        <SubtaskChecklist subtasks={subtasks} onToggle={onToggleSubtask} />
+        <div onClick={(e) => e.stopPropagation()}>
+          <SubtaskChecklist subtasks={subtasks} onToggle={onToggleSubtask} />
+        </div>
       )}
     </div>
   );

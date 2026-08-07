@@ -20,6 +20,7 @@ import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateTimeBR } from "@/lib/currency";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskPriorityField } from "./TaskPriorityField";
+import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
 import { TaskListRow } from "./TaskViews";
 import { EmptyState } from "@/components/EmptyState";
 import {
@@ -50,6 +51,7 @@ import {
 import type { Project, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
+import { useActiveTimer } from "@/hooks/useActiveTimer";
 import { getErrorMessage } from "@/lib/errors";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -79,9 +81,24 @@ export default function TaskList() {
   const [tagFilter, setTagFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [tagsInput, setTagsInput] = useState("");
+  const [subtaskDrafts, setSubtaskDrafts] = useState<string[]>([]);
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const { runningEntry, start: startTimer, stop: stopTimer } = useActiveTimer();
+
+  async function toggleTimer(task: Task) {
+    try {
+      if (runningEntry?.task_id === task.id) await stopTimer();
+      else await startTimer(task.id);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível atualizar o timer."),
+        variant: "destructive",
+      });
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -175,6 +192,7 @@ export default function TaskList() {
     setEditing(null);
     setForm(emptyTask());
     setTagsInput("");
+    setSubtaskDrafts([]);
     setOpen(true);
   }
 
@@ -195,6 +213,7 @@ export default function TaskList() {
       linked_recurring_id: task.linked_recurring_id,
     });
     setTagsInput(task.tags.join(", "));
+    setSubtaskDrafts([]);
     setOpen(true);
   }
 
@@ -213,8 +232,19 @@ export default function TaskList() {
       due_time: isLinked && !isEditingInstance ? null : form.due_time,
     };
     try {
-      if (editing) await updateTask({ id: editing.id, ...payload });
-      else await createTask(payload);
+      if (editing) {
+        await updateTask({ id: editing.id, ...payload });
+      } else {
+        const created = await createTask(payload);
+        for (const title of subtaskDrafts) {
+          await createTask({
+            ...emptyTask(),
+            project_id: created.project_id,
+            parent_task_id: created.id,
+            title,
+          });
+        }
+      }
       toast({ title: "Tarefa salva!", duration: 2000 });
       setOpen(false);
       load();
@@ -222,6 +252,39 @@ export default function TaskList() {
       toast({
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível salvar a tarefa."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function addSubtaskToEditing(title: string) {
+    if (!editing) return;
+    try {
+      await createTask({
+        ...emptyTask(),
+        project_id: editing.project_id,
+        parent_task_id: editing.id,
+        title,
+      });
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível adicionar a subtarefa."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function removeExistingSubtask(subtask: SubtaskDraft) {
+    if (!subtask.id) return;
+    try {
+      await deleteTask(subtask.id);
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível remover a subtarefa."),
         variant: "destructive",
       });
     }
@@ -314,6 +377,8 @@ export default function TaskList() {
                         onOpenSeries={() => setSeriesTask(task)}
                         onEdit={() => openEdit(task)}
                         onDelete={() => handleDelete(task.id)}
+                        isTimerRunning={runningEntry?.task_id === task.id}
+                        onToggleTimer={() => toggleTimer(task)}
                         extraActions={
                           task.status === "done" && !task.linked_recurring_id ? (
                             <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
@@ -419,6 +484,21 @@ export default function TaskList() {
               }}
               recurrings={recurrings}
               onChange={(next) => setForm({ ...form, ...next })}
+            />
+            <TaskSubtasksField
+              subtasks={
+                editing
+                  ? (subtasksByParent.get(editing.id) ?? []).map((s) => ({ id: s.id, title: s.title }))
+                  : subtaskDrafts.map((title) => ({ title }))
+              }
+              onAdd={(title) =>
+                editing ? addSubtaskToEditing(title) : setSubtaskDrafts((prev) => [...prev, title])
+              }
+              onRemove={(subtask, index) =>
+                editing
+                  ? removeExistingSubtask(subtask)
+                  : setSubtaskDrafts((prev) => prev.filter((_, i) => i !== index))
+              }
             />
             <Button onClick={handleSave} className="w-full">
               {editing ? "Salvar alterações" : "Criar tarefa"}
