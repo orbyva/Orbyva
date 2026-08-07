@@ -26,19 +26,26 @@ filtradas para as tarefas daquele projeto, com subtarefas visíveis.
   (ficaria ilegível); a versão global de tarefas continua só com Lista/Agenda (feature 004).
 
 ## Tarefas
-- [ ] Migration: `task.start_date` (date, nullable) — pedir confirmação antes de `supabase db push`
-- [ ] Types + `TaskCreateRequest`: `start_date`; campo "Início" no formulário de tarefa (opcional,
-      só relevante pra quem for usar o Gantt)
-- [ ] Extrair `TaskListView`/`TaskAgendaView` de `TaskList.tsx` para componentes parametrizados por
-      lista de tarefas; `TaskList.tsx` passa a usá-los sem mudar de comportamento
-- [ ] `domain/tasks/gantt.ts`: função pura pra calcular o intervalo de dias e a posição de cada
+- [x] Migration: `task.start_date` (date, nullable) — aplicada ao banco remoto (`20260807130000`)
+- [x] Types + `TaskCreateRequest`: `start_date`; campo "Início" no formulário de tarefa (dentro de
+      `TaskRecurrenceField`, ao lado de "Prazo")
+- [x] Extrai `TaskAgendaCard`/`TaskListRow`/`SubtaskChecklist`/`ExpandSubtasksButton` de
+      `TaskList.tsx` para `TaskViews.tsx`, parametrizados por lista de tarefas; `TaskList.tsx` passa
+      a usá-los sem mudar de comportamento
+- [x] `domain/tasks/gantt.ts`: função pura pra calcular o intervalo de dias e a posição de cada
       barra (testável com Vitest)
-- [ ] Componente de Gantt (grade CSS, linhas com subtarefas indentadas)
-- [ ] Tabs Kanban/Lista/Agenda/Gantt em `ProjectKanban.tsx` (ou renomear a página — avaliar no
-      código se `ProjectKanban.tsx` deve virar `ProjectDetail.tsx`)
-- [ ] `npm run build && npm run lint` limpos + verificação manual
+- [x] Componente de Gantt (grade CSS, linhas com subtarefas indentadas)
+- [x] Tabs Kanban/Lista/Agenda/Gantt — `ProjectKanban.tsx` renomeado para `ProjectDetail.tsx`
+      (rota `/tasks/projects/:id` inalterada)
+- [x] `npm run build && npm run lint` limpos + verificação manual
 
 ## Notas
-- Depende de `TaskListView`/`TaskAgendaView` existirem com o suporte a subtarefas da feature 008 —
-  ordem real de implementação: 008 antes (ou junto) da parte de Lista/Agenda desta feature, mesmo
-  a numeração do usuário sendo 007 → 008. O Kanban e o Gantt desta feature não dependem da 008.
+- `TaskListView`/`TaskAgendaView` viraram, na prática, `TaskViews.tsx` com componentes nomeados
+  (`TaskAgendaCard`, `TaskListRow`, etc.) em vez de dois componentes de página inteira — ficou mais
+  granular do que o plano original previa, mas o objetivo (zero duplicação entre `TaskList.tsx` e
+  `ProjectDetail.tsx`) foi alcançado. `groupSubtasksByParent` também virou função de domínio
+  compartilhada.
+- Verificação manual no navegador: tarefa de teste com Início 09/08 e Prazo 14/08 — barra do Gantt
+  cobrindo exatamente esse intervalo, subtarefa indentada abaixo sem barra (sem datas); abas
+  Lista/Agenda do projeto mostrando a mesma tarefa com subtarefa expansível, badge do projeto
+  correto na Agenda. Dados de teste excluídos ao final (cascade removeu a subtarefa).
