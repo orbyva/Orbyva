@@ -58,6 +58,7 @@ export interface Task {
   status: TaskStatus;
   tags: string[];
   due_date: string | null;
+  start_date?: string | null;
   priority?: TaskPriority | null;
   recurrence_rule: RecurrenceRule | null;
   linked_recurring_id: string | null;
