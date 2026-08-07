@@ -21,6 +21,7 @@ import { formatDateTimeBR } from "@/lib/currency";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskPriorityField } from "./TaskPriorityField";
 import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
+import { TaskDescriptionField } from "./TaskDescriptionField";
 import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
 import { TagCombobox } from "./TagCombobox";
 import { TaskListRow } from "./TaskViews";
@@ -46,6 +47,7 @@ import {
   AGENDA_BUCKET_LABELS,
   AGENDA_BUCKET_ORDER,
   collapseRecurringSeries,
+  detectExternalProvider,
   filterTasks,
   findSeriesTasks,
   groupSubtasksByParent,
@@ -72,6 +74,8 @@ const emptyTask = (): TaskCreateRequest => ({
   priority: null,
   recurrence_rule: null,
   linked_recurring_id: null,
+  external_url: null,
+  external_provider: null,
 });
 
 export default function TaskList() {
@@ -231,6 +235,8 @@ export default function TaskList() {
       priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
+      external_url: task.external_url ?? null,
+      external_provider: task.external_provider ?? null,
     });
     setSubtaskDrafts([]);
     setOpen(true);
@@ -464,9 +470,9 @@ export default function TaskList() {
             </div>
             <div>
               <FormLabel optional>Descrição</FormLabel>
-              <Input
+              <TaskDescriptionField
                 value={form.description ?? ""}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(description) => setForm({ ...form, description })}
               />
             </div>
             <div>
@@ -497,6 +503,20 @@ export default function TaskList() {
                 selectedIds={form.tag_ids}
                 onChange={(tag_ids) => setForm({ ...form, tag_ids })}
                 onCreateTag={handleCreateTag}
+              />
+            </div>
+            <div>
+              <FormLabel optional>Link externo</FormLabel>
+              <Input
+                value={form.external_url ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    external_url: e.target.value || null,
+                    external_provider: detectExternalProvider(e.target.value),
+                  })
+                }
+                placeholder="https://github.com/owner/repo/issues/123"
               />
             </div>
             <TaskPriorityField

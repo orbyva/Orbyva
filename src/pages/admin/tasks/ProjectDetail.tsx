@@ -47,9 +47,10 @@ import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
+import { TaskDescriptionField } from "./TaskDescriptionField";
 import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
 import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
-import { TagBadge, TaskListRow } from "./TaskViews";
+import { ExternalLinkChip, TagBadge, TaskListRow } from "./TaskViews";
 import { TagCombobox } from "./TagCombobox";
 import { GanttChart } from "./GanttChart";
 import {
@@ -74,6 +75,7 @@ import {
   AGENDA_BUCKET_LABELS,
   AGENDA_BUCKET_ORDER,
   collapseRecurringSeries,
+  detectExternalProvider,
   findSeriesTasks,
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
@@ -87,6 +89,7 @@ import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateTimeBR } from "@/lib/currency";
+import { stripMarkdown } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 
 const STATUSES: TaskStatus[] = ["todo", "doing", "done"];
@@ -109,6 +112,8 @@ const emptyTask = (projectId: string): TaskCreateRequest => ({
   priority: null,
   recurrence_rule: null,
   linked_recurring_id: null,
+  external_url: null,
+  external_provider: null,
 });
 
 function KanbanColumn({ status, children }: { status: TaskStatus; children: ReactNode }) {
@@ -240,10 +245,13 @@ function KanbanCard({
         {taskTags.map((tag) => (
           <TagBadge key={tag.id} tag={tag} />
         ))}
+        {task.external_url && <ExternalLinkChip url={task.external_url} />}
       </div>
 
       {task.description && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">{task.description}</p>
+        <p className="line-clamp-2 text-xs text-muted-foreground">
+          {stripMarkdown(task.description)}
+        </p>
       )}
 
       {subtasks.length > 0 && (
@@ -279,7 +287,7 @@ function KanbanCard({
                 </div>
                 {subtask.description && (
                   <p className="truncate text-[10px] text-muted-foreground">
-                    {subtask.description}
+                    {stripMarkdown(subtask.description)}
                   </p>
                 )}
               </button>
@@ -479,6 +487,8 @@ export default function ProjectDetail() {
       priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
+      external_url: task.external_url ?? null,
+      external_provider: task.external_provider ?? null,
     });
     setNewTaskSubtasks([]);
     setOpen(true);
@@ -892,9 +902,9 @@ export default function ProjectDetail() {
             </div>
             <div>
               <FormLabel optional>Descrição</FormLabel>
-              <Input
+              <TaskDescriptionField
                 value={form.description ?? ""}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(description) => setForm({ ...form, description })}
               />
             </div>
             <div>
@@ -904,6 +914,20 @@ export default function ProjectDetail() {
                 selectedIds={form.tag_ids}
                 onChange={(tag_ids) => setForm({ ...form, tag_ids })}
                 onCreateTag={handleCreateTag}
+              />
+            </div>
+            <div>
+              <FormLabel optional>Link externo</FormLabel>
+              <Input
+                value={form.external_url ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    external_url: e.target.value || null,
+                    external_provider: detectExternalProvider(e.target.value),
+                  })
+                }
+                placeholder="https://github.com/owner/repo/issues/123"
               />
             </div>
             <TaskPriorityField
