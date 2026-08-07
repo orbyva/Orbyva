@@ -33,6 +33,7 @@ const TaskList = lazy(() => import("./pages/admin/tasks/TaskList"));
 const TaskProjects = lazy(() => import("./pages/admin/tasks/Projects"));
 const TaskProjectDetail = lazy(() => import("./pages/admin/tasks/ProjectDetail"));
 const TasksLive = lazy(() => import("./pages/admin/tasks/Live"));
+const TasksAgenda = lazy(() => import("./pages/admin/tasks/AgendaCalendar"));
 
 const withSuspense = (Component: React.ReactNode) => (
   <Suspense fallback={<LoadingFallback />}>{Component}</Suspense>
@@ -118,6 +119,7 @@ const router = createBrowserRouter([
               { path: "projects", element: <TaskProjects /> },
               { path: "projects/:id", element: <TaskProjectDetail /> },
               { path: "live", element: <TasksLive /> },
+              { path: "agenda", element: <TasksAgenda /> },
             ],
           },
 

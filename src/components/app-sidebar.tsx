@@ -88,6 +88,7 @@ const NAV_PRODUTIVIDADE: NavItem = {
   icon: ListTodo,
   items: [
     { title: "Tarefas", url: "/tasks" },
+    { title: "Agenda", url: "/tasks/agenda" },
     { title: "Projetos", url: "/tasks/projects" },
     { title: "Live", url: "/tasks/live" },
   ],

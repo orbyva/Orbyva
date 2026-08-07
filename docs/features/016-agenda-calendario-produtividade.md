@@ -61,24 +61,45 @@ lá, mas é visualmente a referência mais rica das duas.
   sincronizar com calendários externos (Google/Outlook) — nada disso foi pedido.
 
 ## Tarefas
-- [ ] Instalar `date-fns`
-- [ ] `domain/tasks/calendar.ts`: função pura que agrupa tarefas + eventos de projeto num mapa por
-      dia (`yyyy-MM-dd`), dado um mês e uma lista de projetos filtrados; testes Vitest
-- [ ] Página `/tasks/agenda`: grade mensal (cabeçalho de dias da semana, navegação de mês, destaque
-      do dia atual, até N chips por dia + "+N mais")
-- [ ] Modal/drawer de detalhe do dia (lista completa, ordenada por hora quando houver `due_time`)
-- [ ] Chip de tarefa (cor por status + ícone quando `linked_recurring_id` setado) — clique abre o
-      dialog de edição de tarefa já existente
-- [ ] Chip de evento de projeto (cor/rótulo do projeto) — clique abre o mini-formulário de evento,
-      promovido pra fora do dialog de projeto
-- [ ] Filtro por projeto acima da grade
-- [ ] Item novo "Agenda" na sidebar, grupo Produtividade
-- [ ] `npm run build && npm run lint` limpos + verificação manual (concluir pelo calendário uma
-      tarefa vinculada a Recorrência Financeira reflete em Finanças; evento de projeto visível e
-      editável pelo calendário; filtro por projeto funcionando)
+- [x] Instalar `date-fns` — já estava instalado (chegou via merge de `master`, provavelmente pela
+      feature de Viagens); só bump de versão
+- [x] `domain/tasks/calendar.ts`: `computeMonthGridDays` (grade de semanas completas) +
+      `groupCalendarItemsByDay` (agrupa tarefas por `due_date` + eventos por `starts_at` — convertido
+      pro dia local via `Date`, nunca fatiando a string ISO UTC crua — ordenados por horário); 5
+      testes Vitest, incluindo um caso específico de fuso horário
+- [x] Página `/tasks/agenda` (`AgendaCalendar.tsx`): grade mensal, cabeçalho de dias da semana,
+      navegação de mês + botão "Hoje", destaque do dia atual, até 3 chips por dia + "+N mais"
+- [x] Modal de detalhe do dia (lista completa, já ordenada por hora pela função de domínio)
+- [x] Chip de tarefa (bolinha colorida por status + ícone `DollarSign` quando `linked_recurring_id`
+      setado) — clique abre `CalendarTaskDialog`
+- [x] Chip de evento de projeto (bolinha na cor do projeto) — clique abre dialog de
+      visualizar/excluir + link "Ir para o projeto"
+- [x] Filtro por projeto acima da grade
+- [x] Item novo "Agenda" na sidebar (entre Tarefas e Projetos) + rota `/tasks/agenda`
+- [x] `npm run build && npm run lint` limpos (359 testes Vitest passando, 0 erros de lint, `tsc -b`
+      limpo)
+- [ ] Verificação manual no navegador (concluir pelo calendário uma tarefa vinculada a Recorrência
+      Financeira reflete em Finanças; evento de projeto visível e editável pelo calendário; filtro
+      por projeto funcionando) — **bloqueada**: sem credenciais de login disponíveis nesta sessão,
+      mesmo bloqueio já registrado nas features 009, 011, 012 e 015
 
 ## Notas
-- Depende da feature 015 já ter removido as abas Agenda antigas (ou pode ser implementada em
-  paralelo/antes — não há bloqueio técnico real entre as duas, só sobreposição de conceito).
-- `due_time` (ordenação por hora dentro do dia) depende da feature 009; sem ela, itens do mesmo dia
-  ficam em ordem estável mas sem hora.
+- Dependia da feature 015 já ter removido as abas Agenda antigas — implementada depois dela na
+  ordem escolhida, sem conflito.
+- `due_time` (feature 009, já implementada) já está disponível — ordenação por hora dentro do dia
+  funciona de verdade, não só "ordem estável sem hora" como a Nota original previa como cenário
+  alternativo.
+- **Dialog de edição de tarefa do calendário não é o dialog completo** (o mesmo usado em
+  `TaskList.tsx`/`ProjectDetail.tsx`, com projeto/tags/recorrência/subtarefas) — é um
+  `CalendarTaskDialog` enxuto (Título/Descrição/Prazo+Horário/Prioridade/círculo de conclusão), com
+  um link "edite em Tarefas" para o resto. A decisão original dizia "mesmo dialog de edição de
+  tarefa usado em todo o resto do app", que exigiria extrair um `TaskFormDialog` compartilhado (essa
+  seria a 3ª cópia do dialog completo, hoje duplicado entre `TaskList.tsx`/`ProjectDetail.tsx` por
+  decisão aceita desde a feature 002). Optei pela versão enxuta — menor risco de mexer nos dois
+  dialogs já em produção nesta rodada, ainda cobre a rastreabilidade bilateral pedida (ver e
+  concluir a tarefa, inclusive as vinculadas a Finanças, direto do calendário). Vale reavaliar com o
+  usuário se compensa extrair um `TaskFormDialog` de verdade agora que existem 3 variações do
+  formulário de tarefa (completo x2, enxuto de subtarefa, enxuto de calendário).
+- Evento de projeto no calendário é só visualizar + excluir (sem editar em linha) — mesma decisão
+  já tomada na feature 006 para o mini-formulário dentro do dialog de projeto ("excluir e recriar
+  cobre o caso de uso por ora"), mantida aqui por consistência.
