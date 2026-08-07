@@ -145,6 +145,15 @@ export default function Recurring() {
     }
   };
 
+  /** Atualiza paid_parcels localmente (feedback imediato ao marcar/desfazer pago). */
+  function patchPaidParcels(recurringId: string, paidParcels: number[]) {
+    setRecurring((prev) =>
+      prev.map((rec) =>
+        rec.id === recurringId ? { ...rec, paid_parcels: paidParcels } : rec
+      )
+    );
+  }
+
   useEffect(() => {
     reloadRecurring();
   }, []);
@@ -433,6 +442,7 @@ export default function Recurring() {
                   selectedParcel={selectedParcel}
                   setSelectedParcel={setSelectedParcel}
                   reloadRecurring={reloadRecurring}
+                  onPaidParcelsChange={patchPaidParcels}
                   handleEditRecurring={handleEdit}
                 />
               </div>
@@ -443,6 +453,7 @@ export default function Recurring() {
             <RecurringProjection
               recurring={recurring}
               onChanged={reloadRecurring}
+              onPaidParcelsChange={patchPaidParcels}
             />
           </TabsContent>
         </Tabs>

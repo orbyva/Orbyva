@@ -7,6 +7,8 @@ import type {
 } from "@/types/places";
 import type { TripExpenseCategory } from "@/types/travel";
 
+export * from "./placeTypeMeta";
+
 export const PLACE_TYPE_LABELS: Record<PlaceType, string> = {
   restaurant: "Restaurante",
   cafe: "Café",

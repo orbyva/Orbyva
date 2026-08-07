@@ -2,9 +2,10 @@
  * Cotas freemium (fail-closed quando MAPS_QUOTA_ENFORCE≠false).
  *
  * Env:
- *   GEOAPIFY_DAILY_CREDIT_LIMIT=2800
+ *   GOOGLE_PLACES_MONTHLY_LIMIT=9000
  *   GOOGLE_ROUTES_ESSENTIALS_MONTHLY_LIMIT=9000
  *   GOOGLE_ROUTES_PRO_MONTHLY_LIMIT=4500
+ *   GOOGLE_WEATHER_MONTHLY_LIMIT=9000
  *   MAPS_QUOTA_ENFORCE=true
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -16,9 +17,10 @@ import {
   periodKeyFor,
   quotaDeniedPayload,
   quotaProviderForTravelMode,
-  resolveGeoapifyDailyLimit,
   resolveGoogleEssentialsMonthlyLimit,
+  resolveGooglePlacesMonthlyLimit,
   resolveGoogleProMonthlyLimit,
+  resolveGoogleWeatherMonthlyLimit,
   type MapsProvider,
   type QuotaConsumeFail,
 } from "./mapsQuotaRules.ts";
@@ -40,8 +42,7 @@ type AdminClient = ReturnType<typeof createClient>;
 
 function envSnapshot(): Record<string, string | undefined> {
   return {
-    GEOAPIFY_DAILY_CREDIT_LIMIT: Deno.env.get("GEOAPIFY_DAILY_CREDIT_LIMIT"),
-    GEOAPIFY_DAILY_FREE_LIMIT: Deno.env.get("GEOAPIFY_DAILY_FREE_LIMIT"),
+    GOOGLE_PLACES_MONTHLY_LIMIT: Deno.env.get("GOOGLE_PLACES_MONTHLY_LIMIT"),
     GOOGLE_ROUTES_ESSENTIALS_MONTHLY_LIMIT: Deno.env.get(
       "GOOGLE_ROUTES_ESSENTIALS_MONTHLY_LIMIT"
     ),
@@ -51,6 +52,7 @@ function envSnapshot(): Record<string, string | undefined> {
     GOOGLE_ROUTES_PRO_MONTHLY_LIMIT: Deno.env.get(
       "GOOGLE_ROUTES_PRO_MONTHLY_LIMIT"
     ),
+    GOOGLE_WEATHER_MONTHLY_LIMIT: Deno.env.get("GOOGLE_WEATHER_MONTHLY_LIMIT"),
   };
 }
 
@@ -58,8 +60,8 @@ export function isMapsQuotaEnforced(): boolean {
   return isMapsQuotaEnforcedFromEnv(Deno.env.get("MAPS_QUOTA_ENFORCE"));
 }
 
-export function geoapifyDailyCreditLimit(): number {
-  return resolveGeoapifyDailyLimit(envSnapshot());
+export function googlePlacesMonthlyLimit(): number {
+  return resolveGooglePlacesMonthlyLimit(envSnapshot());
 }
 
 export function googleRoutesEssentialsMonthlyLimit(): number {
@@ -68,6 +70,10 @@ export function googleRoutesEssentialsMonthlyLimit(): number {
 
 export function googleRoutesProMonthlyLimit(): number {
   return resolveGoogleProMonthlyLimit(envSnapshot());
+}
+
+export function googleWeatherMonthlyLimit(): number {
+  return resolveGoogleWeatherMonthlyLimit(envSnapshot());
 }
 
 export function limitFor(provider: MapsProvider): number {

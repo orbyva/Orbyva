@@ -9,13 +9,15 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import {
-  GeoapifyNotConfiguredError,
+  DestinationNotFoundError,
   MapsQuotaExceededError,
+  PlacesNotConfiguredError,
   formatDistanceMeters,
-  mapGeoapifyCategoryToPlaceType,
+  mapPlaceCategoryToPlaceType,
+  resolvePlaceLocation,
   searchPlaces,
   type PlaceSearchHit,
-} from "@/lib/geoapifyPlaces";
+} from "@/lib/googlePlaces";
 import type { PlaceType } from "@/types/places";
 import { PLACE_TYPE_LABELS } from "@/domain/places";
 import { cn } from "@/lib/utils";
@@ -23,9 +25,9 @@ import { cn } from "@/lib/utils";
 export type PlaceCatalogPick = {
   name: string;
   address: string | null;
-  lat: number;
-  lng: number;
-  geoapify_place_id: string;
+  lat: number | null;
+  lng: number | null;
+  google_place_id: string;
   type: PlaceType;
   category: string | null;
   distanceMeters: number | null;
@@ -33,14 +35,22 @@ export type PlaceCatalogPick = {
 
 type PlaceCatalogSearchProps = {
   onPick: (place: PlaceCatalogPick) => void;
-  /** Local já escolhido — exibido no input até limpar ou buscar de novo. */
   selectedLabel?: string | null;
   onClear?: () => void;
   bias?: { lat: number; lng: number } | null;
   className?: string;
   requestUserLocation?: boolean;
   label?: string;
+  /** Destino de viagem: só país / estado / cidade. */
+  scope?: "all" | "regions";
+  placeholder?: string;
 };
+
+function isSearchAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  if (err instanceof Error && err.name === "AbortError") return true;
+  return false;
+}
 
 export function PlaceCatalogSearch({
   onPick,
@@ -50,15 +60,19 @@ export function PlaceCatalogSearch({
   className,
   requestUserLocation = true,
   label = "Buscar local",
+  scope = "all",
+  placeholder,
 }: PlaceCatalogSearchProps) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<PlaceSearchHit[]>([]);
   const [loading, setLoading] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [userBias, setUserBias] = useState<{ lat: number; lng: number } | null>(
     null
   );
+  const [locationDenied, setLocationDenied] = useState(false);
   const reqId = useRef(0);
   const bias = biasProp ?? userBias;
   const showingSelected = Boolean(selectedLabel) && query === "";
@@ -72,8 +86,11 @@ export function PlaceCatalogSearch({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
         });
+        setLocationDenied(false);
       },
-      () => undefined,
+      () => {
+        setLocationDenied(true);
+      },
       { enableHighAccuracy: false, timeout: 8_000, maximumAge: 60_000 }
     );
   }, [requestUserLocation, biasProp]);
@@ -81,6 +98,7 @@ export function PlaceCatalogSearch({
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
+      reqId.current += 1;
       setHits([]);
       setError(null);
       setLoading(false);
@@ -89,6 +107,7 @@ export function PlaceCatalogSearch({
     }
 
     const id = ++reqId.current;
+    const controller = new AbortController();
     const timer = window.setTimeout(() => {
       setLoading(true);
       setOpen(true);
@@ -96,18 +115,25 @@ export function PlaceCatalogSearch({
         query: q,
         lat: bias?.lat,
         lng: bias?.lng,
+        scope,
+        signal: controller.signal,
       })
         .then((results) => {
           if (reqId.current !== id) return;
           setHits(results);
-          setError(null);
+          setError(
+            results.length === 0 ? "Destino não encontrado" : null
+          );
         })
         .catch((err) => {
           if (reqId.current !== id) return;
+          if (isSearchAbortError(err) || controller.signal.aborted) return;
           setHits([]);
-          if (err instanceof GeoapifyNotConfiguredError) {
+          if (err instanceof PlacesNotConfiguredError) {
             setError("Busca de mapas ainda não configurada.");
           } else if (err instanceof MapsQuotaExceededError) {
+            setError(err.message);
+          } else if (err instanceof DestinationNotFoundError) {
             setError(err.message);
           } else {
             setError(
@@ -120,11 +146,14 @@ export function PlaceCatalogSearch({
         .finally(() => {
           if (reqId.current === id) setLoading(false);
         });
-    }, 320);
+    }, 400);
 
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- bias só na hora da busca; evita refetch ao GPS chegar
-  }, [query]);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- bias só na hora da busca
+  }, [query, scope]);
 
   function clearAll() {
     setQuery("");
@@ -135,29 +164,67 @@ export function PlaceCatalogSearch({
     onClear?.();
   }
 
-  function pick(hit: PlaceSearchHit) {
-    onPick({
-      name: hit.name,
-      address: hit.address,
-      lat: hit.lat,
-      lng: hit.lng,
-      geoapify_place_id: hit.placeId,
-      type: mapGeoapifyCategoryToPlaceType(hit.category),
-      category: hit.category,
-      distanceMeters: hit.distanceMeters,
-    });
-    setQuery("");
-    setHits([]);
-    setLoading(false);
-    setOpen(false);
+  async function pick(hit: PlaceSearchHit) {
+    setResolving(true);
+    setError(null);
+    try {
+      let lat = hit.lat;
+      let lng = hit.lng;
+      let placeId = hit.placeId;
+
+      if (lat == null || lng == null) {
+        const coords = await resolvePlaceLocation({
+          placeId: hit.placeId,
+        });
+        lat = coords.lat;
+        lng = coords.lng;
+        placeId = coords.placeId;
+      }
+
+      onPick({
+        name: hit.name,
+        address: hit.address,
+        lat,
+        lng,
+        google_place_id: placeId,
+        type: mapPlaceCategoryToPlaceType(hit.category),
+        category: hit.category,
+        distanceMeters: hit.distanceMeters,
+      });
+      setQuery("");
+      setHits([]);
+      setOpen(false);
+    } catch (err) {
+      if (err instanceof MapsQuotaExceededError) {
+        setError(err.message);
+      } else if (err instanceof DestinationNotFoundError) {
+        setError(err.message);
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Não foi possível confirmar o destino."
+        );
+      }
+      setOpen(true);
+    } finally {
+      setResolving(false);
+    }
   }
 
   const showMenu = open && query.trim().length >= 2;
   const showClear = Boolean(query || selectedLabel);
+  const busy = loading || resolving;
 
   return (
     <div className={cn("space-y-2", className)}>
       <FormLabel optional>{label}</FormLabel>
+      {locationDenied && !biasProp ? (
+        <p className="text-xs text-muted-foreground">
+          Localização negada — a busca funciona, mas sem priorizar lugares
+          próximos.
+        </p>
+      ) : null}
       <Popover
         open={showMenu}
         onOpenChange={(next) => {
@@ -180,18 +247,24 @@ export function PlaceCatalogSearch({
                 setQuery(next);
               }}
               onFocus={() => {
-                if (hits.length > 0 || error || loading) setOpen(true);
+                if (hits.length > 0 || error || busy) setOpen(true);
               }}
-              placeholder="Ex: Mané Garrincha"
+              placeholder={
+                placeholder ??
+                (scope === "regions"
+                  ? "Ex: Madrid, Espanha"
+                  : "Ex: Mané Garrincha")
+              }
               className={cn(
                 "pl-9",
-                showClear || loading ? "pr-16" : "pr-9",
+                showClear || busy ? "pr-16" : "pr-9",
                 showingSelected && "font-medium"
               )}
               autoComplete="off"
+              disabled={resolving}
             />
             <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center">
-              {loading ? (
+              {busy ? (
                 <Loader2
                   className="mx-1.5 h-4 w-4 shrink-0 animate-spin text-muted-foreground"
                   aria-hidden
@@ -220,25 +293,26 @@ export function PlaceCatalogSearch({
           className="w-[var(--radix-popover-trigger-width)] max-h-56 overflow-y-auto overscroll-contain p-1"
           onWheel={(e) => e.stopPropagation()}
         >
-          {loading ? (
+          {busy ? (
             <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-              Buscando…
+              {resolving ? "Confirmando destino…" : "Buscando…"}
             </div>
           ) : error ? (
             <p className="px-3 py-2 text-sm text-muted-foreground">{error}</p>
           ) : hits.length === 0 ? (
             <p className="px-3 py-2 text-sm text-muted-foreground">
-              Nenhum lugar encontrado
+              Destino não encontrado
             </p>
           ) : (
             <ul className="space-y-0.5 text-sm">
               {hits.map((hit) => {
                 const dist = formatDistanceMeters(hit.distanceMeters);
+                const mappedType = mapPlaceCategoryToPlaceType(hit.category);
                 const typeLabel =
-                  PLACE_TYPE_LABELS[
-                    mapGeoapifyCategoryToPlaceType(hit.category)
-                  ] ?? hit.category;
+                  mappedType === "other"
+                    ? null
+                    : PLACE_TYPE_LABELS[mappedType];
                 return (
                   <li key={hit.placeId}>
                     <button
@@ -246,7 +320,7 @@ export function PlaceCatalogSearch({
                       className="flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left hover:bg-accent"
                       onMouseDown={(e) => {
                         e.preventDefault();
-                        pick(hit);
+                        void pick(hit);
                       }}
                     >
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -259,9 +333,11 @@ export function PlaceCatalogSearch({
                             {hit.address}
                           </span>
                         ) : null}
-                        <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                          {[typeLabel, dist].filter(Boolean).join(" · ")}
-                        </span>
+                        {typeLabel || dist ? (
+                          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                            {[typeLabel, dist].filter(Boolean).join(" · ")}
+                          </span>
+                        ) : null}
                       </span>
                     </button>
                   </li>
@@ -269,6 +345,9 @@ export function PlaceCatalogSearch({
               })}
             </ul>
           )}
+          <p className="border-t px-2 py-1.5 text-[10px] text-muted-foreground">
+            Powered by Google
+          </p>
         </PopoverContent>
       </Popover>
     </div>

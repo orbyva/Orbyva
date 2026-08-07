@@ -18,12 +18,17 @@ export function isAuthRequiredError(error: unknown): boolean {
   return false;
 }
 
-/** ID do usuário autenticado (UUID). Lança AuthRequiredError se não houver sessão. */
+/**
+ * ID do usuário autenticado (UUID).
+ * Usa a sessão em cache (`getSession`) — `getUser()` força rede e atrasa
+ * ações otimistas (marcar parcela paga, etc.).
+ */
 export async function getCurrentUserId(): Promise<string> {
   const {
-    data: { user },
+    data: { session },
     error,
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getSession();
+  const user = session?.user;
   if (error || !user) throw new AuthRequiredError();
   return user.id;
 }

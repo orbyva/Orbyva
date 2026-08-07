@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { useDimensions } from "@/hooks/useDimensions";
 import {
@@ -56,6 +57,7 @@ export default function Budget() {
   const { toast } = useToast();
   const { isMobile } = useSidebar();
   const { dimensions } = useDimensions();
+  const [searchParams, setSearchParams] = useSearchParams();
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
@@ -250,6 +252,17 @@ export default function Budget() {
     loadBudgetData();
     loadSuggestions();
   }, [loadBudgetData, loadSuggestions]);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setIsEditing(false);
+    setEditingBudgetId(null);
+    setNewBudget({ ...getEmptyBudget(), budget_month: budgetMonth });
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, budgetMonth]);
 
   function resetForm() {
     setNewBudget(getEmptyBudget());

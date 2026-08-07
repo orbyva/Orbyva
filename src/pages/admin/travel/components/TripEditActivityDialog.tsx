@@ -93,14 +93,29 @@ export function TripEditActivityDialog({
               onPick={(hit) => {
                 const existing = places.find(
                   (p) =>
-                    p.geoapify_place_id === hit.geoapify_place_id ||
-                    (p.lat === hit.lat &&
+                    (hit.google_place_id &&
+                      p.google_place_id === hit.google_place_id) ||
+                    (p.lat != null &&
+                      p.lng != null &&
+                      p.lat === hit.lat &&
                       p.lng === hit.lng &&
                       p.name === hit.name)
                 );
+                const prevPlaceName = (
+                  form.linked_place_label ||
+                  places.find((p) => p.id === form.place_visit_id)?.name ||
+                  ""
+                ).trim();
+                const titleTrim = form.title.trim();
+                // Troca de local: alinha o título ao novo nome, a menos que
+                // o usuário tenha customizado (título ≠ nome do local anterior).
+                const syncTitle =
+                  !titleTrim ||
+                  !prevPlaceName ||
+                  titleTrim === prevPlaceName;
                 onChange({
                   ...form,
-                  title: form.title.trim() ? form.title : hit.name,
+                  title: syncTitle ? hit.name : form.title,
                   category: existing?.type ?? hit.type,
                   place_visit_id: existing?.id ?? null,
                   linked_place_label: hit.name,

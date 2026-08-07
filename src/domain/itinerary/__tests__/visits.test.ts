@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDelayInsight,
+  describeDayOffset,
+  describeRouteInsight,
+  formatWeekdayShortBR,
+  isScheduledTimePast,
+  summarizeDayVisits,
   computeLeaveByHHmm,
   findLastCompletedVisit,
   findNextPendingVisit,
@@ -51,6 +56,11 @@ describe("normalizeVisitStatus / open / done / coords", () => {
     expect(visitHasCoordinates(visit({ id: "1", title: "A" }))).toBe(false);
     expect(
       visitHasCoordinates(visit({ id: "1", title: "A", lat: 1, lng: 2 }))
+    ).toBe(true);
+    expect(
+      visitHasCoordinates(
+        visit({ id: "1", title: "A", google_place_id: "ChIJ" })
+      )
     ).toBe(true);
   });
 
@@ -292,6 +302,208 @@ describe("buildDelayInsight", () => {
       expect(insight.delayMinutes).toBe(6);
       expect(insight.etaHHmm).toBe("11:06");
     }
+  });
+});
+
+describe("describeRouteInsight", () => {
+  it("sem duração devolve null (modalidade indisponível)", () => {
+    expect(
+      describeRouteInsight({ durationSeconds: null, nowMinutes: 600 })
+    ).toBeNull();
+  });
+
+  it("sem horário na visita mostra só a duração", () => {
+    expect(
+      describeRouteInsight({ durationSeconds: 22 * 60, nowMinutes: 600 })
+    ).toEqual({
+      duration: "22 min",
+      leaveLabel: null,
+      etaHHmm: null,
+      status: null,
+    });
+  });
+
+  it("com folga informa a hora de sair", () => {
+    expect(
+      describeRouteInsight({
+        durationSeconds: 34 * 60,
+        arrivalHHmm: "11:00",
+        nowMinutes: 10 * 60,
+      })
+    ).toEqual({
+      duration: "34 min",
+      leaveLabel: "saia às 10:26",
+      etaHHmm: "11:00",
+      status: { tone: "ok", label: "no horário" },
+    });
+  });
+
+  it("em cima da hora quando a saída é iminente", () => {
+    expect(
+      describeRouteInsight({
+        durationSeconds: 34 * 60,
+        arrivalHHmm: "11:00",
+        nowMinutes: 10 * 60 + 24, // sair 10:26 → 2 min de margem
+      })
+    ).toEqual({
+      duration: "34 min",
+      leaveLabel: "saia às 10:26",
+      etaHHmm: "11:00",
+      status: { tone: "tight", label: "em cima da hora" },
+    });
+  });
+
+  it("passou da hora de sair já conta atraso", () => {
+    const view = describeRouteInsight({
+      durationSeconds: 34 * 60,
+      arrivalHHmm: "11:00",
+      nowMinutes: 10 * 60 + 27,
+    });
+    expect(view?.leaveLabel).toBe("saia agora");
+    expect(view?.status).toEqual({ tone: "late", label: "atraso de 1 min" });
+  });
+
+  it("atraso sai formatado em horas, não em minutos crus", () => {
+    const view = describeRouteInsight({
+      durationSeconds: 34 * 60,
+      arrivalHHmm: "11:00",
+      nowMinutes: 10 * 60 + 32,
+    });
+    expect(view?.status).toEqual({ tone: "late", label: "atraso de 6 min" });
+
+    const long = describeRouteInsight({
+      durationSeconds: 90 * 60,
+      arrivalHHmm: "11:00",
+      nowMinutes: 10 * 60 + 30,
+    });
+    expect(long?.status).toEqual({ tone: "late", label: "atraso de 1h" });
+  });
+
+  it("horário vencido não vira atraso gigante por modalidade", () => {
+    const view = describeRouteInsight({
+      durationSeconds: 22 * 60,
+      arrivalHHmm: "10:30",
+      nowMinutes: 17 * 60 + 27,
+    });
+    expect(view?.status).toBeNull();
+    expect(view?.etaHHmm).toBe("17:49");
+    expect(view?.duration).toBe("22 min");
+  });
+});
+
+describe("describeDayOffset", () => {
+  it("identifica hoje, ontem, amanhã e distância em dias", () => {
+    const todayIso = "2026-08-05";
+    expect(describeDayOffset({ dayDate: todayIso, todayIso })).toEqual({
+      kind: "today",
+      label: "Hoje",
+    });
+    expect(describeDayOffset({ dayDate: "2026-08-04", todayIso })).toEqual({
+      kind: "past",
+      label: "ontem",
+    });
+    expect(describeDayOffset({ dayDate: "2026-08-06", todayIso })).toEqual({
+      kind: "future",
+      label: "amanhã",
+    });
+    expect(describeDayOffset({ dayDate: "2026-08-09", todayIso })).toEqual({
+      kind: "future",
+      label: "em 4 dias",
+    });
+  });
+
+  it("dia passado distante não recebe rótulo", () => {
+    expect(
+      describeDayOffset({ dayDate: "2026-07-30", todayIso: "2026-08-05" })
+    ).toEqual({ kind: "past", label: null });
+  });
+
+  it("aceita timestamp e trata dia sem data", () => {
+    expect(
+      describeDayOffset({
+        dayDate: "2026-08-05T00:00:00Z",
+        todayIso: "2026-08-05",
+      }).kind
+    ).toBe("today");
+    expect(describeDayOffset({ dayDate: null, todayIso: "2026-08-05" })).toEqual(
+      { kind: "undated", label: null }
+    );
+  });
+
+  it("atravessa a virada do mês", () => {
+    expect(
+      describeDayOffset({ dayDate: "2026-09-01", todayIso: "2026-08-31" }).label
+    ).toBe("amanhã");
+  });
+});
+
+describe("formatWeekdayShortBR", () => {
+  it("abrevia sem ponto final", () => {
+    expect(formatWeekdayShortBR("2026-08-05")).toBe("qua");
+    expect(formatWeekdayShortBR("2026-08-08")).toBe("sáb");
+  });
+
+  it("devolve null sem data válida", () => {
+    expect(formatWeekdayShortBR(null)).toBeNull();
+    expect(formatWeekdayShortBR("data-ruim")).toBeNull();
+  });
+});
+
+describe("summarizeDayVisits", () => {
+  it("conta status e calcula o percentual resolvido", () => {
+    expect(
+      summarizeDayVisits([
+        { visit_status: "completed" },
+        { visit_status: "skipped" },
+        { visit_status: "pending" },
+        { visit_status: null },
+      ])
+    ).toEqual({
+      total: 4,
+      completed: 1,
+      skipped: 1,
+      pending: 2,
+      donePct: 50,
+    });
+  });
+
+  it("dia vazio não divide por zero", () => {
+    expect(summarizeDayVisits([])).toEqual({
+      total: 0,
+      completed: 0,
+      skipped: 0,
+      pending: 0,
+      donePct: 0,
+    });
+  });
+
+  it("dia inteiro resolvido chega a 100%", () => {
+    const summary = summarizeDayVisits([
+      { visit_status: "completed" },
+      { visit_status: "skipped" },
+    ]);
+    expect(summary.pending).toBe(0);
+    expect(summary.donePct).toBe(100);
+  });
+});
+
+describe("isScheduledTimePast", () => {
+  it("compara o horário da visita com agora", () => {
+    expect(
+      isScheduledTimePast({ arrivalHHmm: "10:30", nowMinutes: 17 * 60 })
+    ).toBe(true);
+    expect(
+      isScheduledTimePast({ arrivalHHmm: "10:30", nowMinutes: 10 * 60 + 30 })
+    ).toBe(false);
+    expect(
+      isScheduledTimePast({ arrivalHHmm: "10:30", nowMinutes: 9 * 60 })
+    ).toBe(false);
+  });
+
+  it("sem horário definido nunca está vencido", () => {
+    expect(isScheduledTimePast({ arrivalHHmm: null, nowMinutes: 1_400 })).toBe(
+      false
+    );
   });
 });
 

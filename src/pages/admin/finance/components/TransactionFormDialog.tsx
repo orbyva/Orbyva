@@ -154,7 +154,7 @@ export function TransactionFormDialog({
 
           {formError && <p className="text-sm text-destructive">{formError}</p>}
 
-          <Button onClick={handleSubmit} className="w-full sm:w-auto">
+          <Button onClick={handleSubmit} className="w-full">
             {isEditing ? "Salvar alterações" : "Adicionar transação"}
           </Button>
         </div>

@@ -307,19 +307,22 @@ export async function updateRecurringParcelPayment(
     throw error;
   }
 
-  try {
-    const { syncGoalsFromAporteDescription } = await import("@/api/goals");
-    const { data: rec } = await supabase
-      .from("recurring_transaction")
-      .select("description")
-      .eq("id", recurringId)
-      .maybeSingle();
-    if (rec?.description) {
-      await syncGoalsFromAporteDescription(rec.description);
+  // Meta: best-effort, não bloqueia o feedback de “pago”.
+  void (async () => {
+    try {
+      const { syncGoalsFromAporteDescription } = await import("@/api/goals");
+      const { data: rec } = await supabase
+        .from("recurring_transaction")
+        .select("description")
+        .eq("id", recurringId)
+        .maybeSingle();
+      if (rec?.description) {
+        await syncGoalsFromAporteDescription(rec.description);
+      }
+    } catch {
+      /* ignore */
     }
-  } catch {
-    /* progresso da meta é best-effort */
-  }
+  })();
 
   try {
     await syncLinkedTaskFromInstallment(recurringId, installmentNumber, true);

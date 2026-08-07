@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Clock, ExternalLink, Loader2, MapPin, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TravelModeIcon } from "@/components/TravelModeIcon";
+import { buildExternalMapsLinks } from "@/domain/itinerary/externalMaps";
 import {
-  buildDelayInsight,
+  describeRouteInsight,
+  isScheduledTimePast,
   findLastCompletedVisit,
   findNextPendingVisit,
   findPreviousVisit,
-  formatDurationFriendly,
   isPastDay,
   resolveRouteOrigin,
   shouldComputeRoutesForDay,
-  visitHasCoordinates,
+  visitRouteDestination,
+  type RouteInsightTone,
   type VisitLike,
 } from "@/domain/itinerary/visits";
 import {
@@ -22,6 +24,8 @@ import {
 } from "@/domain/itinerary/travelModes";
 import {
   MapsQuotaExceededError,
+  ModeUnavailableError,
+  RouteUnavailableError,
   RoutesNotConfiguredError,
   clearRouteCache,
   fetchTravelRoutes,
@@ -53,28 +57,22 @@ function nowMinutesLocal(): number {
   return d.getHours() * 60 + d.getMinutes();
 }
 
-function formatInsightLine(
-  route: RouteLegResult,
-  arrivalHHmm: string | null | undefined
-): string | null {
-  if (!route.available || route.durationSeconds == null) return null;
-  const duration = formatDurationFriendly(route.durationSeconds);
-  if (!arrivalHHmm) return duration;
+/** Tons em `-700`/`dark:-400`: mesmo padrão de contraste do resto do app. */
+const TONE_CLASS: Record<RouteInsightTone, string> = {
+  ok: "text-emerald-700 dark:text-emerald-400",
+  tight: "text-amber-700 dark:text-amber-400",
+  late: "text-rose-700 dark:text-rose-400",
+};
 
-  const insight = buildDelayInsight({
-    arrivalHHmm,
-    durationSeconds: route.durationSeconds,
-    nowMinutes: nowMinutesLocal(),
-  });
-  if (!insight) return duration;
-
-  if (insight.kind === "on_time") {
-    return `Saia às ${insight.leaveByHHmm} · ${duration} · chegada ${insight.etaHHmm}`;
+function fastestAvailableMode(routes: RouteLegResult[]): string | null {
+  let fastest: { mode: string; seconds: number } | null = null;
+  for (const route of routes) {
+    if (!route.available || route.durationSeconds == null) continue;
+    if (!fastest || route.durationSeconds < fastest.seconds) {
+      fastest = { mode: route.mode, seconds: route.durationSeconds };
+    }
   }
-  if (insight.kind === "leave_now_ok") {
-    return `Saia agora · ${duration} · chegada estimada ${insight.etaHHmm}`;
-  }
-  return `Saia agora · atraso estimado de ${insight.delayMinutes} min · chegada ${insight.etaHHmm}`;
+  return fastest?.mode ?? null;
 }
 
 export function ItineraryNextRoutePanel({
@@ -117,13 +115,50 @@ export function ItineraryNextRoutePanel({
     originLabel?.trim() ||
     "origem do roteiro";
 
-  const modes: TravelModeKey[] = showAll
-    ? TRAVEL_MODES.map((m) => m.mode)
-    : PREFERRED_TRAVEL_MODES;
+  const modes: TravelModeKey[] = useMemo(
+    () => (showAll ? TRAVEL_MODES.map((m) => m.mode) : PREFERRED_TRAVEL_MODES),
+    [showAll]
+  );
+
+  const mapsOrigin = useMemo(() => {
+    if (!nextVisit) return null;
+    return resolveRouteOrigin({
+      userLocation,
+      visits,
+      nextVisit,
+      tripOrigin: tripOrigin ?? null,
+    });
+  }, [userLocation, visits, nextVisit, tripOrigin]);
+
+  const mapsDestination = useMemo(() => {
+    if (!nextVisit) return null;
+    if (
+      typeof nextVisit.lat === "number" &&
+      typeof nextVisit.lng === "number" &&
+      Number.isFinite(nextVisit.lat) &&
+      Number.isFinite(nextVisit.lng)
+    ) {
+      return { lat: nextVisit.lat, lng: nextVisit.lng };
+    }
+    return null;
+  }, [nextVisit]);
+
+  const externalMapsLinks = useMemo(
+    () =>
+      buildExternalMapsLinks({
+        destination: mapsDestination,
+        origin: mapsOrigin,
+        mode: fastestAvailableMode(routes) ?? "DRIVE",
+      }),
+    [mapsDestination, mapsOrigin, routes]
+  );
 
   useEffect(() => {
     if (!canCompute || !nextVisit) return;
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setError("Localização indisponível neste dispositivo.");
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation({
@@ -131,10 +166,14 @@ export function ItineraryNextRoutePanel({
           lng: pos.coords.longitude,
         });
       },
-      () => undefined,
+      () => {
+        setError(
+          "Localização negada. Autorize o GPS ou configure a origem do roteiro."
+        );
+      },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 }
     );
-  }, [canCompute, nextVisit?.id, refreshKey, manualTick]);
+  }, [canCompute, nextVisit, refreshKey, manualTick]);
 
   useEffect(() => {
     if (!canCompute || !nextVisit) {
@@ -142,7 +181,8 @@ export function ItineraryNextRoutePanel({
       setError(null);
       return;
     }
-    if (!visitHasCoordinates(nextVisit)) {
+    const destination = visitRouteDestination(nextVisit);
+    if (!destination) {
       setRoutes([]);
       setError("Próximo destino sem coordenadas. Vincule um lugar no mapa.");
       return;
@@ -171,7 +211,7 @@ export function ItineraryNextRoutePanel({
 
     void fetchTravelRoutes({
       origin,
-      destination: { lat: nextVisit.lat!, lng: nextVisit.lng! },
+      destination,
       modes,
       signal: controller.signal,
     })
@@ -187,6 +227,10 @@ export function ItineraryNextRoutePanel({
         if (err instanceof RoutesNotConfiguredError) {
           setError("Cálculo de rotas ainda não configurado.");
         } else if (err instanceof MapsQuotaExceededError) {
+          setError(err.message);
+        } else if (err instanceof RouteUnavailableError) {
+          setError(err.message);
+        } else if (err instanceof ModeUnavailableError) {
           setError(err.message);
         } else {
           setError(
@@ -208,7 +252,7 @@ export function ItineraryNextRoutePanel({
     userLocation,
     visits,
     tripOrigin,
-    modes.join(","),
+    modes,
     refreshKey,
     manualTick,
   ]);
@@ -232,29 +276,65 @@ export function ItineraryNextRoutePanel({
     );
   }
 
+  const nowMinutes = nowMinutesLocal();
+  const fastestMode = fastestAvailableMode(routes);
+  const scheduleMissed = isScheduledTimePast({
+    arrivalHHmm: nextVisit.activity_time,
+    nowMinutes,
+  });
+
+  const recommended =
+    routes.find((r) => r.mode === fastestMode && r.available) ??
+    routes.find((r) => r.available) ??
+    null;
+  const recommendedView = recommended
+    ? describeRouteInsight({
+        durationSeconds: recommended.durationSeconds,
+        arrivalHHmm: nextVisit.activity_time,
+        nowMinutes,
+      })
+    : null;
+  const recommendedMeta = recommended
+    ? travelModeMeta(recommended.mode)
+    : null;
+
+  const visibleRoutes = showAll
+    ? routes
+    : recommended
+      ? [recommended]
+      : routes.slice(0, 1);
+
   return (
-    <section className="space-y-2.5 rounded-lg border bg-card/60 p-3">
+    <section className="rounded-lg border bg-card/60 px-3 py-2 shadow-sm">
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             Próximo destino
           </p>
-          <p className="text-sm font-semibold">
-            {nextVisit.title}
+          <p className="truncate text-sm font-semibold">{nextVisit.title}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
             {nextVisit.activity_time ? (
-              <span className="font-normal text-muted-foreground">
-                {" "}
-                · {nextVisit.activity_time}
+              <span className="inline-flex items-center gap-1 tabular-nums">
+                <Clock className="h-3 w-3 shrink-0" />
+                {nextVisit.activity_time}
               </span>
             ) : null}
-          </p>
-          <p className="text-xs text-muted-foreground">Saindo de {fromLabel}</p>
+            {scheduleMissed ? (
+              <span className="text-[10px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-400">
+                horário passou
+              </span>
+            ) : null}
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">de {fromLabel}</span>
+            </span>
+          </div>
         </div>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 shrink-0"
+          className="h-7 w-7 shrink-0"
           disabled={loading}
           onClick={() => {
             clearRouteCache();
@@ -264,49 +344,193 @@ export function ItineraryNextRoutePanel({
           title="Atualizar rotas"
         >
           {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3.5 w-3.5" />
           )}
         </Button>
       </div>
 
       {error ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">{error}</p>
+        <p className="mt-2 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">
+          {error}
+        </p>
       ) : null}
 
-      <ul className="space-y-1.5">
-        {routes.map((route) => {
-          const meta = travelModeMeta(route.mode);
-          const line = formatInsightLine(route, nextVisit.activity_time);
-          return (
-            <li key={route.mode} className="flex items-start gap-2.5 text-sm">
-              <span title={meta.label} className="mt-0.5">
-                <TravelModeIcon mode={route.mode} />
-              </span>
-              <span
-                className={cn(
-                  "min-w-0 leading-snug",
-                  (!route.available || !line) && "text-muted-foreground"
-                )}
-              >
-                {route.available && line ? line : "Indisponível"}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      {!showAll && !error && (recommendedView || loading) ? (
+        <div className="mt-2 flex items-center gap-2 rounded-md border bg-background/60 px-2 py-1.5">
+          {loading && !recommended ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : recommendedMeta ? (
+            <span
+              title={recommendedMeta.label}
+              className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted"
+            >
+              <TravelModeIcon mode={recommended!.mode} />
+            </span>
+          ) : null}
+          {recommendedView ? (
+            <div className="min-w-0 flex-1">
+              <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium tabular-nums text-foreground">
+                <span>{recommendedView.duration}</span>
+                {recommendedMeta ? (
+                  <>
+                    <span className="font-bold text-foreground/80" aria-hidden>
+                      ·
+                    </span>
+                    <span className="font-medium">{recommendedMeta.label}</span>
+                  </>
+                ) : null}
+                {recommendedView.etaHHmm ? (
+                  <>
+                    <span className="font-bold text-foreground/80" aria-hidden>
+                      ·
+                    </span>
+                    <span className="font-medium">
+                      chega {recommendedView.etaHHmm}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+              {recommendedView.status ? (
+                <p className={cn("text-xs", TONE_CLASS[recommendedView.status.tone])}>
+                  {recommendedView.leaveLabel
+                    ? `${recommendedView.leaveLabel} · `
+                    : ""}
+                  {recommendedView.status.label}
+                </p>
+              ) : recommendedView.leaveLabel ? (
+                <p className="text-xs text-muted-foreground">
+                  {recommendedView.leaveLabel}
+                </p>
+              ) : null}
+            </div>
+          ) : loading ? (
+            <p className="text-xs text-muted-foreground">Calculando…</p>
+          ) : null}
+        </div>
+      ) : null}
 
-      {!showAll ? (
+      {showAll ? (
+        loading && routes.length === 0 ? (
+          <ul className="mt-2 space-y-1.5">
+            {modes.map((mode) => (
+              <li
+                key={mode}
+                className="h-[44px] animate-pulse rounded-md border bg-muted/40"
+              />
+            ))}
+          </ul>
+        ) : (
+          <ul className="mt-2 space-y-1.5">
+            {visibleRoutes.map((route) => {
+              const meta = travelModeMeta(route.mode);
+              const view = describeRouteInsight({
+                durationSeconds: route.available ? route.durationSeconds : null,
+                arrivalHHmm: nextVisit.activity_time,
+                nowMinutes,
+              });
+              return (
+                <li
+                  key={route.mode}
+                  className="flex items-center gap-2 rounded-md border bg-background/60 px-2 py-1.5"
+                >
+                  <span
+                    title={meta.label}
+                    className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted"
+                  >
+                    <TravelModeIcon mode={route.mode} />
+                  </span>
+
+                  {view ? (
+                    <>
+                      <div className="min-w-0 flex-1">
+                        <p className="flex items-center gap-1.5 text-sm font-medium tabular-nums">
+                          {view.duration}
+                          {route.mode === fastestMode && routes.length > 1 ? (
+                            <span className="text-[10px] font-medium uppercase tracking-wide text-primary">
+                              mais rápido
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {view.leaveLabel ?? meta.label}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        {view.etaHHmm ? (
+                          <p className="text-sm font-medium tabular-nums">
+                            <span className="text-xs font-normal text-muted-foreground">
+                              chega{" "}
+                            </span>
+                            {view.etaHHmm}
+                          </p>
+                        ) : null}
+                        {view.status ? (
+                          <p
+                            className={cn(
+                              "text-xs",
+                              TONE_CLASS[view.status.tone]
+                            )}
+                          >
+                            {view.status.label}
+                          </p>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-muted-foreground">
+                        Indisponível
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {meta.label}
+                      </p>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )
+      ) : null}
+
+      {!showAll && !error ? (
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className="w-full"
+          className="mt-1 h-7 w-full text-xs text-muted-foreground"
           onClick={() => setShowAll(true)}
         >
-          Ver todas as opções
+          Ver outras modalidades
         </Button>
+      ) : null}
+
+      {externalMapsLinks.length > 0 ? (
+        <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1 font-medium text-foreground/80">
+            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+            Abrir trajeto:
+          </span>
+          {externalMapsLinks.map((link, i) => (
+            <span key={link.app} className="inline-flex items-center gap-1.5">
+              {i > 0 ? (
+                <span className="font-bold text-foreground/70" aria-hidden>
+                  ·
+                </span>
+              ) : null}
+              <a
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary underline-offset-2 hover:underline"
+              >
+                {link.label}
+              </a>
+            </span>
+          ))}
+        </p>
       ) : null}
     </section>
   );

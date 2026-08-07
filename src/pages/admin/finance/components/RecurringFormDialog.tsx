@@ -490,10 +490,7 @@ export function RecurringFormDialog({
             <p className="text-sm text-destructive">{formError}</p>
           ) : null}
 
-          <Button
-            onClick={handleCreate}
-            className="w-full sm:w-auto sm:justify-self-start"
-          >
+          <Button onClick={handleCreate} className="w-full">
             {isEditing ? "Salvar alterações" : "Salvar recorrência"}
           </Button>
         </div>
