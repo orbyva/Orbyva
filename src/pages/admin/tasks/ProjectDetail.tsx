@@ -44,7 +44,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
-import { TaskAgendaCard, TaskListRow } from "./TaskViews";
+import { TaskListRow } from "./TaskViews";
 import { GanttChart } from "./GanttChart";
 import {
   FormLabel,
@@ -294,7 +294,7 @@ export default function ProjectDetail() {
   const [tagsInput, setTagsInput] = useState("");
   const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [view, setView] = useState<"kanban" | "lista" | "agenda" | "gantt">("kanban");
+  const [view, setView] = useState<"kanban" | "lista" | "gantt">("kanban");
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const { toast } = useToast();
@@ -571,7 +571,6 @@ export default function ProjectDetail() {
           <TabsList>
             <TabsTrigger value="kanban">Kanban</TabsTrigger>
             <TabsTrigger value="lista">Lista</TabsTrigger>
-            <TabsTrigger value="agenda">Agenda</TabsTrigger>
             <TabsTrigger value="gantt">Gantt</TabsTrigger>
           </TabsList>
 
@@ -649,41 +648,7 @@ export default function ProjectDetail() {
             </DndContext>
           </TabsContent>
 
-          <TabsContent value="lista" className="mt-4 space-y-2">
-            {visibleTasks.length === 0 ? (
-              <EmptyState
-                icon={ListTodo}
-                title="Nenhuma tarefa"
-                description="Crie sua primeira tarefa neste projeto."
-              />
-            ) : (
-              visibleTasks.map((task) => (
-                <TaskListRow
-                  key={task.id}
-                  task={task}
-                  subtasks={subtasksByParent.get(task.id) ?? []}
-                  expanded={expandedTasks.has(task.id)}
-                  onToggleExpand={() => toggleExpanded(task.id)}
-                  onToggleSubtask={toggleSubtask}
-                  onEdit={() => openEdit(task)}
-                  onDelete={() => handleDelete(task.id)}
-                  extraActions={
-                    task.status === "done" && !task.linked_recurring_id ? (
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
-                        <Link
-                          to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
-                        >
-                          Lançar transação
-                        </Link>
-                      </Button>
-                    ) : undefined
-                  }
-                />
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent value="agenda" className="mt-4 space-y-5">
+          <TabsContent value="lista" className="mt-4 space-y-5">
             {visibleTasks.length === 0 ? (
               <EmptyState
                 icon={ListTodo}
@@ -702,16 +667,28 @@ export default function ProjectDetail() {
                     </h3>
                     <div className="space-y-2">
                       {agendaGroups[bucket].map((task) => (
-                        <TaskAgendaCard
+                        <TaskListRow
                           key={task.id}
                           task={task}
-                          projectName={project?.name ?? "Sem projeto"}
                           subtasks={subtasksByParent.get(task.id) ?? []}
                           expanded={expandedTasks.has(task.id)}
-                          onToggleDone={() => toggleSubtask(task)}
                           onToggleExpand={() => toggleExpanded(task.id)}
                           onToggleSubtask={toggleSubtask}
+                          onToggleDone={() => toggleSubtask(task)}
                           onOpenSeries={() => setSeriesTask(task)}
+                          onEdit={() => openEdit(task)}
+                          onDelete={() => handleDelete(task.id)}
+                          extraActions={
+                            task.status === "done" && !task.linked_recurring_id ? (
+                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
+                                <Link
+                                  to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                                >
+                                  Lançar transação
+                                </Link>
+                              </Button>
+                            ) : undefined
+                          }
                         />
                       ))}
                     </div>

@@ -58,98 +58,14 @@ export function ExpandSubtasksButton({
   );
 }
 
-export function TaskAgendaCard({
-  task,
-  projectName,
-  subtasks,
-  expanded,
-  onToggleDone,
-  onToggleExpand,
-  onToggleSubtask,
-  onOpenSeries,
-}: {
-  task: Task;
-  projectName: string;
-  subtasks: Task[];
-  expanded: boolean;
-  onToggleDone: () => void;
-  onToggleExpand: () => void;
-  onToggleSubtask: (subtask: Task) => void;
-  onOpenSeries: () => void;
-}) {
-  const done = task.status === "done";
-  const recurring = isRecurringTask(task);
-  return (
-    <div className="rounded-lg border bg-card p-3">
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onToggleDone}
-          aria-label={done ? "Reabrir tarefa" : "Concluir tarefa"}
-          className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-            done
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-muted-foreground/40 hover:border-primary"
-          )}
-        >
-          {done && <Check className="h-3 w-3" />}
-        </button>
-        <button
-          type="button"
-          className="min-w-0 flex-1 text-left"
-          onClick={recurring ? onOpenSeries : undefined}
-          disabled={!recurring}
-        >
-          <div className="flex items-center gap-1.5">
-            {recurring && (
-              <Repeat className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Recorrente" />
-            )}
-            <TaskPriorityFlag priority={task.priority} />
-            <p
-              className={cn(
-                "truncate text-sm font-medium",
-                done && "text-muted-foreground line-through"
-              )}
-            >
-              {task.title}
-            </p>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <Badge variant="outline" className="text-[10px]">
-              {projectName}
-            </Badge>
-            {done && task.completed_at ? (
-              <span>Concluída em {formatDateTimeBR(task.completed_at)}</span>
-            ) : (
-              task.due_date && (
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {formatDateTimeBR(task.due_date, task.due_time)}
-                </span>
-              )
-            )}
-          </div>
-        </button>
-        <ExpandSubtasksButton
-          count={subtasks.length}
-          expanded={expanded}
-          onClick={onToggleExpand}
-        />
-      </div>
-      {expanded && subtasks.length > 0 && (
-        <SubtaskChecklist subtasks={subtasks} onToggle={onToggleSubtask} />
-      )}
-    </div>
-  );
-}
-
 export function TaskListRow({
   task,
   subtasks,
   expanded,
   onToggleExpand,
   onToggleSubtask,
+  onToggleDone,
+  onOpenSeries,
   onEdit,
   onDelete,
   extraActions,
@@ -159,44 +75,78 @@ export function TaskListRow({
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleSubtask: (subtask: Task) => void;
+  onToggleDone: () => void;
+  onOpenSeries: () => void;
   onEdit: () => void;
   onDelete: () => void;
   /** Ações extras (ex.: "Lançar transação") renderizadas antes de editar/excluir. */
   extraActions?: ReactNode;
 }) {
   const recurring = isRecurringTask(task);
+  const done = task.status === "done";
   return (
     <div className="rounded-lg border bg-card p-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            {recurring && (
-              <Repeat className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Recorrente" />
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <button
+            type="button"
+            onClick={onToggleDone}
+            aria-label={done ? "Reabrir tarefa" : "Concluir tarefa"}
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+              done
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-muted-foreground/40 hover:border-primary"
             )}
-            <TaskPriorityFlag priority={task.priority} />
-            <p className="truncate font-medium">{task.title}</p>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <Badge variant="outline" className="text-[10px]">
-              {task.status === "todo" ? "A fazer" : task.status === "doing" ? "Fazendo" : "Feito"}
-            </Badge>
-            {task.linked_recurring_id && (
+          >
+            {done && <Check className="h-3 w-3" />}
+          </button>
+          <button
+            type="button"
+            className="min-w-0 flex-1 text-left"
+            onClick={recurring ? onOpenSeries : undefined}
+            disabled={!recurring}
+          >
+            <div className="flex items-center gap-1.5">
+              {recurring && (
+                <Repeat className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Recorrente" />
+              )}
+              <TaskPriorityFlag priority={task.priority} />
+              <p
+                className={cn(
+                  "truncate font-medium",
+                  done && "text-muted-foreground line-through"
+                )}
+              >
+                {task.title}
+              </p>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               <Badge variant="outline" className="text-[10px]">
-                Vinculada a Recorrência
+                {task.status === "todo" ? "A fazer" : task.status === "doing" ? "Fazendo" : "Feito"}
               </Badge>
-            )}
-            {task.due_date && (
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {formatDateTimeBR(task.due_date, task.due_time)}
-              </span>
-            )}
-            {task.tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-[10px]">
-                {tag}
-              </Badge>
-            ))}
-          </div>
+              {task.linked_recurring_id && (
+                <Badge variant="outline" className="text-[10px]">
+                  Vinculada a Recorrência
+                </Badge>
+              )}
+              {done && task.completed_at ? (
+                <span>Concluída em {formatDateTimeBR(task.completed_at)}</span>
+              ) : (
+                task.due_date && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {formatDateTimeBR(task.due_date, task.due_time)}
+                  </span>
+                )
+              )}
+              {task.tags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-[10px]">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          </button>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {extraActions}

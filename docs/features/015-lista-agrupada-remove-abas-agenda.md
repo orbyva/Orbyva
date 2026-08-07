@@ -35,15 +35,20 @@ depender só de texto explicativo (o que a feature 011, ainda não implementada,
 - Fora de escopo: a Agenda-calendário nova em si — vira a feature 016, separada e maior.
 
 ## Tarefas
-- [ ] `TaskListRow`: adicionar círculo de conclusão (mesmo padrão visual/otimista de
-      `TaskAgendaCard`)
-- [ ] `TaskList.tsx`: remover abas Lista/Agenda; lista única com agrupamento por `bucketForDueDate`
+- [x] `TaskListRow`: adicionar círculo de conclusão (mesmo padrão visual/otimista de
+      `TaskAgendaCard`) + "Concluída em X" no lugar do prazo quando feita + abrir "Ver ocorrências"
+      ao clicar no título de uma tarefa recorrente — `TaskAgendaCard` removido (ficou sem
+      chamadores depois que os dois lugares que a usavam migraram para `TaskListRow`)
+- [x] `TaskList.tsx`: remover abas Lista/Agenda; lista única com agrupamento por `bucketForDueDate`
       como cabeçalhos de seção + séries recorrentes colapsadas (reaproveita a lógica hoje só usada
       pela aba Agenda)
-- [ ] `ProjectDetail.tsx`: remover aba Agenda; aba Lista ganha o mesmo agrupamento/círculo
-- [ ] `npm run build && npm run lint` limpos + verificação manual (círculo conclui/reabre tarefa
-      direto na Lista global e na do projeto; agrupamento por prazo aparece corretamente; série
-      recorrente colapsada some da lista ao concluir a última ocorrência em aberto)
+- [x] `ProjectDetail.tsx`: remover aba Agenda; aba Lista ganha o mesmo agrupamento/círculo
+- [x] `npm run build && npm run lint` limpos (322 testes Vitest passando, 0 erros de lint,
+      `tsc -b` limpo)
+- [ ] Verificação manual no navegador (círculo conclui/reabre tarefa direto na Lista global e na
+      do projeto; agrupamento por prazo aparece corretamente; série recorrente colapsada some da
+      lista ao concluir a última ocorrência em aberto) — **bloqueada**: sem credenciais de login
+      disponíveis nesta sessão, mesmo bloqueio já registrado na feature 009
 
 ## Notas
 - Revoga a divisão de abas Lista/Agenda decidida nas features 004/007/008. Também deixa obsoleta a

@@ -16,12 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateTimeBR } from "@/lib/currency";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskPriorityField } from "./TaskPriorityField";
-import { TaskAgendaCard, TaskListRow } from "./TaskViews";
+import { TaskListRow } from "./TaskViews";
 import { EmptyState } from "@/components/EmptyState";
 import {
   FormLabel,
@@ -80,7 +79,6 @@ export default function TaskList() {
   const [tagFilter, setTagFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [tagsInput, setTagsInput] = useState("");
-  const [activeTab, setActiveTab] = useState<"lista" | "agenda">("lista");
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -130,12 +128,6 @@ export default function TaskList() {
     () => Array.from(new Set(tasks.flatMap((t) => t.tags))).sort(),
     [tasks]
   );
-
-  const projectNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of projects) map.set(p.id, p.name);
-    return map;
-  }, [projects]);
 
   const agendaGroups = useMemo(() => {
     const todayIso = formatLocalIsoDate(new Date());
@@ -255,96 +247,52 @@ export default function TaskList() {
       description="Todas as suas tarefas, com ou sem projeto."
       actions={<Button onClick={openCreate}>Nova tarefa</Button>}
     >
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v === "agenda" ? "agenda" : "lista")}>
-        <TabsList>
-          <TabsTrigger value="lista">Lista</TabsTrigger>
-          <TabsTrigger value="agenda">Agenda</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="lista" className="mt-4 space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Projeto" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os projetos</SelectItem>
-                <SelectItem value="null">Sem projeto</SelectItem>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={tagFilter || "all"}
-              onValueChange={(v) => setTagFilter(v === "all" ? "" : v)}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Tag" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as tags</SelectItem>
-                {allTags.map((tag) => (
-                  <SelectItem key={tag} value={tag}>
-                    {tag}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {loading ? (
-            <TableLoadingSkeleton rows={6} />
-          ) : visibleTasks.length === 0 ? (
-            <EmptyState
-              icon={ListTodo}
-              title="Nenhuma tarefa"
-              description="Crie sua primeira tarefa."
-              action={<Button onClick={openCreate}>Nova tarefa</Button>}
-            />
-          ) : (
-            <div className="space-y-2">
-              {visibleTasks.map((task) => (
-                <TaskListRow
-                  key={task.id}
-                  task={task}
-                  subtasks={subtasksByParent.get(task.id) ?? []}
-                  expanded={expandedTasks.has(task.id)}
-                  onToggleExpand={() => toggleExpanded(task.id)}
-                  onToggleSubtask={toggleDone}
-                  onEdit={() => openEdit(task)}
-                  onDelete={() => handleDelete(task.id)}
-                  extraActions={
-                    task.status === "done" && !task.linked_recurring_id ? (
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
-                        <Link
-                          to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
-                        >
-                          Lançar transação
-                        </Link>
-                      </Button>
-                    ) : undefined
-                  }
-                />
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Projeto" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os projetos</SelectItem>
+              <SelectItem value="null">Sem projeto</SelectItem>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
               ))}
-            </div>
-          )}
-        </TabsContent>
+            </SelectContent>
+          </Select>
+          <Select
+            value={tagFilter || "all"}
+            onValueChange={(v) => setTagFilter(v === "all" ? "" : v)}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Tag" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as tags</SelectItem>
+              {allTags.map((tag) => (
+                <SelectItem key={tag} value={tag}>
+                  {tag}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-        <TabsContent value="agenda" className="mt-4 space-y-5">
-          {loading ? (
-            <TableLoadingSkeleton rows={6} />
-          ) : visibleTasks.length === 0 ? (
-            <EmptyState
-              icon={ListTodo}
-              title="Nenhuma tarefa"
-              description="Crie sua primeira tarefa."
-              action={<Button onClick={openCreate}>Nova tarefa</Button>}
-            />
-          ) : (
-            AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
+        {loading ? (
+          <TableLoadingSkeleton rows={6} />
+        ) : visibleTasks.length === 0 ? (
+          <EmptyState
+            icon={ListTodo}
+            title="Nenhuma tarefa"
+            description="Crie sua primeira tarefa."
+            action={<Button onClick={openCreate}>Nova tarefa</Button>}
+          />
+        ) : (
+          <div className="space-y-5">
+            {AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
               (bucket) => (
                 <div key={bucket} className="space-y-2">
                   <h3 className="text-sm font-semibold">
@@ -355,29 +303,37 @@ export default function TaskList() {
                   </h3>
                   <div className="space-y-2">
                     {agendaGroups[bucket].map((task) => (
-                      <TaskAgendaCard
+                      <TaskListRow
                         key={task.id}
                         task={task}
-                        projectName={
-                          task.project_id
-                            ? (projectNameById.get(task.project_id) ?? "Sem projeto")
-                            : "Sem projeto"
-                        }
                         subtasks={subtasksByParent.get(task.id) ?? []}
                         expanded={expandedTasks.has(task.id)}
-                        onToggleDone={() => toggleDone(task)}
                         onToggleExpand={() => toggleExpanded(task.id)}
                         onToggleSubtask={toggleDone}
+                        onToggleDone={() => toggleDone(task)}
                         onOpenSeries={() => setSeriesTask(task)}
+                        onEdit={() => openEdit(task)}
+                        onDelete={() => handleDelete(task.id)}
+                        extraActions={
+                          task.status === "done" && !task.linked_recurring_id ? (
+                            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
+                              <Link
+                                to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                              >
+                                Lançar transação
+                              </Link>
+                            </Button>
+                          ) : undefined
+                        }
                       />
                     ))}
                   </div>
                 </div>
               )
-            )
-          )}
-        </TabsContent>
-      </Tabs>
+            )}
+          </div>
+        )}
+      </div>
 
       <Dialog open={!!seriesTask} onOpenChange={(v) => !v && setSeriesTask(null)}>
         <DialogContent>
