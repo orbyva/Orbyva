@@ -77,6 +77,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
 import { formatLocalIsoDate } from "@/lib/dates";
+import { formatDateTimeBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 const STATUSES: TaskStatus[] = ["todo", "doing", "done"];
@@ -94,6 +95,7 @@ const emptyTask = (projectId: string): TaskCreateRequest => ({
   status: "todo",
   tags: [],
   due_date: null,
+  due_time: null,
   start_date: null,
   priority: null,
   recurrence_rule: null,
@@ -191,7 +193,7 @@ function KanbanCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        {task.due_date && <span>Prazo: {task.due_date}</span>}
+        {task.due_date && <span>Prazo: {formatDateTimeBR(task.due_date, task.due_time)}</span>}
         {task.linked_recurring_id && (
           <Badge variant="outline" className="text-[10px]">
             Vinculada a Recorrência
@@ -399,6 +401,7 @@ export default function ProjectDetail() {
       status: task.status,
       tags: task.tags,
       due_date: task.due_date,
+      due_time: task.due_time ?? null,
       start_date: task.start_date ?? null,
       priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
@@ -420,6 +423,7 @@ export default function ProjectDetail() {
       ...form,
       tags,
       due_date: isLinked && !isEditingInstance ? null : form.due_date,
+      due_time: isLinked && !isEditingInstance ? null : form.due_time,
     };
     try {
       if (editing) await updateTask({ id: editing.id, ...payload });
@@ -734,7 +738,7 @@ export default function ProjectDetail() {
                 key={t.id}
                 className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 text-sm"
               >
-                <span>{t.due_date ?? "Sem prazo"}</span>
+                <span>{t.due_date ? formatDateTimeBR(t.due_date, t.due_time) : "Sem prazo"}</span>
                 <Badge variant="outline" className="text-[10px]">
                   {t.status === "todo" ? "A fazer" : t.status === "doing" ? "Fazendo" : "Feito"}
                 </Badge>
@@ -779,6 +783,7 @@ export default function ProjectDetail() {
             <TaskRecurrenceField
               value={{
                 due_date: form.due_date,
+                due_time: form.due_time,
                 start_date: form.start_date,
                 recurrence_rule: form.recurrence_rule,
                 linked_recurring_id: form.linked_recurring_id,

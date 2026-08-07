@@ -52,3 +52,13 @@ export function formatDateBR(isoDate: string | null | undefined): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return isoDate;
   return datePart.split("-").reverse().join("/");
 }
+
+/** `formatDateBR` + hora opcional (HH:mm ou HH:mm:ss) → "dd/mm/yyyy" ou "dd/mm/yyyy HH:mm". */
+export function formatDateTimeBR(
+  isoDate: string | null | undefined,
+  time?: string | null
+): string {
+  const datePart = formatDateBR(isoDate);
+  if (datePart === "—" || !time) return datePart;
+  return `${datePart} ${time.slice(0, 5)}`;
+}

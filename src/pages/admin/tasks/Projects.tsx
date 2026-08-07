@@ -47,6 +47,7 @@ import type {
 } from "@/types/tasks";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
+import { formatDateTimeBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -83,10 +84,8 @@ const emptyProject = (): ProjectCreateRequest => ({
 });
 
 function formatEventDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) +
-    " às " +
-    d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const time = new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return formatDateTimeBR(iso, time);
 }
 
 function ProjectCard({

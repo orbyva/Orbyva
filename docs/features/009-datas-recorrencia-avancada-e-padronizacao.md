@@ -51,21 +51,45 @@ pelo menos 14 arquivos fora de Tarefas (`car/*` — 4 arquivos, `finance/Budget.
   dependência nova (`date-fns` etc.) — `formatDateBR` já resolve com `Date`/`Intl` nativo.
 
 ## Tarefas
-- [ ] Migration: `task.due_time` (`time`, nullable) — aplicada ao banco remoto
-- [ ] Types: `RecurrenceRule.weekdays`/`time`, `Task.due_time`, `TaskCreateRequest.due_time`
-- [ ] `domain/tasks/recurrence.ts`: suportar `weekdays` no loop semanal + herdar `time`; testes
-      Vitest ("terça e quinta", intervalo de N semanas com `weekdays`, regressão sem `weekdays`)
-- [ ] `TaskRecurrenceField`: seletor de dias da semana (só quando Semanal) + input de horário
+- [ ] Migration: `task.due_time` (`time`, nullable) — escrita, **ainda não aplicada ao banco
+      remoto** (precisa de confirmação do usuário para `supabase db push`, ver Notas)
+- [x] Types: `RecurrenceRule.weekdays`/`time`, `Task.due_time`, `TaskCreateRequest.due_time`
+- [x] `domain/tasks/recurrence.ts`: suportar `weekdays` no loop semanal + herdar `time`; testes
+      Vitest ("terça e quinta", intervalo de N semanas com `weekdays`, regressão sem `weekdays`) —
+      12 testes, todos passando
+- [x] `TaskRecurrenceField`: seletor de dias da semana (só quando Semanal) + input de horário
       opcional, nos dois formulários (`TaskList.tsx`, `ProjectDetail.tsx`)
-- [ ] Exibir `due_time` junto da data em todos os pontos que já mostram `due_date`
-- [ ] Adicionar `formatDateTimeBR` (se necessário) ao lado de `formatDateBR`
-- [ ] Trocar formatação de data em `car/*`, `finance/*`, `home/*`, `life/hubMeta.ts`,
+- [x] Exibir `due_time` junto da data em todos os pontos que já mostram `due_date`
+- [x] Adicionar `formatDateTimeBR` (se necessário) ao lado de `formatDateBR`
+- [x] Trocar formatação de data em `car/*`, `finance/*`, `home/*`, `life/hubMeta.ts`,
       `ops/OpsConsole.tsx` para `formatDateBR`/`formatDateTimeBR`
-- [ ] Trocar formatação de data em todo o módulo de Tarefas (Lista, Agenda, Kanban de tarefas e de
+- [x] Trocar formatação de data em todo o módulo de Tarefas (Lista, Agenda, Kanban de tarefas e de
       projetos, Gantt, Live, dialogs de projeto/evento)
-- [ ] Varredura final (`grep -rn "toLocaleDateString\|toLocaleString"`) confirmando que só sobrou
+- [x] Varredura final (`grep -rn "toLocaleDateString\|toLocaleString"`) confirmando que só sobrou
       uso justificado
-- [ ] `npm run build && npm run lint` limpos + verificação manual (série "terça e quinta" gerando
-      as ocorrências certas, horário editável por instância, checagem visual em cada módulo tocado)
+- [x] `npm run build && npm run lint` limpos (314 testes Vitest passando, 0 erros de lint)
+- [ ] Verificação manual no navegador (série "terça e quinta" gerando as ocorrências certas,
+      horário editável por instância, checagem visual em cada módulo tocado) — **bloqueada**: sem
+      credenciais de login disponíveis nesta sessão para abrir o app logado, e a migration do
+      `due_time` ainda não está no banco remoto (salvar um prazo com horário erraria com "coluna
+      não encontrada" até a migration ser aplicada)
 
 ## Notas
+- **Migration pendente de aprovação**: `supabase db push` não foi executado — precisa de
+  confirmação explícita do usuário antes (regra do projeto, `docs/stack.md`). Até lá, a tarefa de
+  migration continua `[ ]` e a verificação manual fim a fim não é possível.
+- **Escopo real da padronização de datas foi bem menor que o previsto no Contexto original**: a
+  lista de "~14 arquivos fora de Tarefas" veio de um `grep` por `toLocaleDateString\|toLocaleString`
+  feito na etapa de planejamento, que também casava `Number.prototype.toLocaleString` (formatação
+  de km no módulo Carro, valores monetários) e `Date...toLocaleString({ month: "long" })` (nomes de
+  mês em seletores/cabeçalhos de Finanças, Home e no heatmap de Hábitos — texto correto como está,
+  não é uma data dd/mm/yyyy). Investigando arquivo por arquivo, `car/*` já usa `formatDateBR`
+  corretamente em todo lugar que mostra data; a única correção real fora do módulo de Tarefas foi
+  `ops/OpsConsole.tsx` (`formatTs`, trocado de `toLocaleString` com opções custom para
+  `formatDateBR`). Dentro de Tarefas, `Projects.tsx` (`formatEventDate`) foi a única função que
+  precisou de ajuste de verdade (agora usa `formatDateTimeBR` por baixo, mantendo a hora correta em
+  fuso local para o timestamptz `starts_at`).
+- Ao herdar `time` da regra de recorrência para instâncias materializadas, ajustei também
+  `materializeRecurringInstances` (`api/tasks/tasks.ts`) para gravar `due_time` a partir de
+  `origin.recurrence_rule?.time` — não estava explícito no plano original, mas é necessário para o
+  horário realmente aparecer nas ocorrências geradas, não só na tarefa-origem.

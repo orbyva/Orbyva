@@ -45,6 +45,10 @@ export interface RecurrenceRule {
   frequency: RecurrenceFrequency;
   interval: number;
   until?: string | null;
+  /** Só válido com frequency "weekly". 0=domingo…6=sábado. Sem isso, mantém o comportamento antigo. */
+  weekdays?: number[];
+  /** HH:mm, herdado por cada ocorrência gerada como due_time. */
+  time?: string | null;
 }
 
 export interface Task {
@@ -58,6 +62,7 @@ export interface Task {
   status: TaskStatus;
   tags: string[];
   due_date: string | null;
+  due_time?: string | null;
   start_date?: string | null;
   priority?: TaskPriority | null;
   recurrence_rule: RecurrenceRule | null;

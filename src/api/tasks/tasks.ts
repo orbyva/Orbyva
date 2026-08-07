@@ -43,6 +43,7 @@ async function materializeRecurringInstances(
         status: "todo",
         tags: origin.tags,
         due_date: date,
+        due_time: origin.recurrence_rule?.time ?? null,
         recurrence_rule: null,
         recurrence_origin_id: origin.id,
       });

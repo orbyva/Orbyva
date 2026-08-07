@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { formatDateBR } from "@/lib/currency";
 import { useAuth } from "@/hooks/useAuth";
 
 type Gate = "loading" | "denied" | "ok" | "misconfigured";
@@ -25,16 +26,7 @@ type Gate = "loading" | "denied" | "ok" | "misconfigured";
 type AccessKind = "pro" | "trial" | "expired" | "unknown";
 
 function formatTs(value: string | null | undefined): string {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return value;
-  }
+  return formatDateBR(value);
 }
 
 function accessKind(u: OpsListUser): AccessKind {

@@ -81,4 +81,53 @@ describe("computeMissingOccurrences", () => {
     );
     expect(result).toEqual([]);
   });
+
+  it("gera ocorrências semanais em dias da semana específicos (terça e quinta)", () => {
+    // 2026-08-01 é sábado; terça=2, quinta=4
+    const result = computeMissingOccurrences(
+      "2026-08-01",
+      { frequency: "weekly", interval: 1, weekdays: [2, 4] },
+      [],
+      "2026-08-20"
+    );
+    expect(result).toEqual([
+      "2026-08-04",
+      "2026-08-06",
+      "2026-08-11",
+      "2026-08-13",
+      "2026-08-18",
+      "2026-08-20",
+    ]);
+  });
+
+  it("respeita intervalo de N semanas com dias da semana específicos", () => {
+    // 2026-08-04 é terça; a cada 2 semanas, só terça
+    const result = computeMissingOccurrences(
+      "2026-08-04",
+      { frequency: "weekly", interval: 2, weekdays: [2] },
+      [],
+      "2026-09-01"
+    );
+    expect(result).toEqual(["2026-08-18", "2026-09-01"]);
+  });
+
+  it("sem weekdays, mantém o comportamento semanal antigo (regressão)", () => {
+    const result = computeMissingOccurrences(
+      "2026-08-01",
+      { frequency: "weekly", interval: 1, weekdays: [] },
+      [],
+      "2026-08-20"
+    );
+    expect(result).toEqual(["2026-08-08", "2026-08-15"]);
+  });
+
+  it("pula datas de dias da semana já existentes", () => {
+    const result = computeMissingOccurrences(
+      "2026-08-01",
+      { frequency: "weekly", interval: 1, weekdays: [2, 4] },
+      ["2026-08-04"],
+      "2026-08-06"
+    );
+    expect(result).toEqual(["2026-08-06"]);
+  });
 });

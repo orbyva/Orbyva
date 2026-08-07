@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatLocalIsoDate } from "@/lib/dates";
+import { formatDateTimeBR } from "@/lib/currency";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskPriorityField } from "./TaskPriorityField";
 import { TaskAgendaCard, TaskListRow } from "./TaskViews";
@@ -61,6 +62,7 @@ const emptyTask = (): TaskCreateRequest => ({
   status: "todo",
   tags: [],
   due_date: null,
+  due_time: null,
   start_date: null,
   priority: null,
   recurrence_rule: null,
@@ -194,6 +196,7 @@ export default function TaskList() {
       status: task.status,
       tags: task.tags,
       due_date: task.due_date,
+      due_time: task.due_time ?? null,
       start_date: task.start_date ?? null,
       priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
@@ -215,6 +218,7 @@ export default function TaskList() {
       ...form,
       tags,
       due_date: isLinked && !isEditingInstance ? null : form.due_date,
+      due_time: isLinked && !isEditingInstance ? null : form.due_time,
     };
     try {
       if (editing) await updateTask({ id: editing.id, ...payload });
@@ -386,7 +390,7 @@ export default function TaskList() {
                 key={t.id}
                 className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 text-sm"
               >
-                <span>{t.due_date ?? "Sem prazo"}</span>
+                <span>{t.due_date ? formatDateTimeBR(t.due_date, t.due_time) : "Sem prazo"}</span>
                 <Badge variant="outline" className="text-[10px]">
                   {t.status === "todo" ? "A fazer" : t.status === "doing" ? "Fazendo" : "Feito"}
                 </Badge>
@@ -452,6 +456,7 @@ export default function TaskList() {
             <TaskRecurrenceField
               value={{
                 due_date: form.due_date,
+                due_time: form.due_time,
                 start_date: form.start_date,
                 recurrence_rule: form.recurrence_rule,
                 linked_recurring_id: form.linked_recurring_id,

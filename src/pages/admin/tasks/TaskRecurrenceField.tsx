@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -22,8 +23,11 @@ const FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
   monthly: "Mensal",
 };
 
+const WEEKDAY_LABELS = ["D", "S", "T", "Q", "Q", "S", "S"];
+
 interface TaskRecurrenceValue {
   due_date: string | null;
+  due_time?: string | null;
   start_date?: string | null;
   recurrence_rule: RecurrenceRule | null;
   linked_recurring_id: string | null;
@@ -48,6 +52,16 @@ export function TaskRecurrenceField({
   const [frequency, setFrequency] = useState<RecurrenceFrequency>(
     value.recurrence_rule?.frequency ?? "daily"
   );
+  const [weekdays, setWeekdays] = useState<number[]>(value.recurrence_rule?.weekdays ?? []);
+
+  function buildRule(freq: RecurrenceFrequency, dueTime: string | null | undefined): RecurrenceRule {
+    return {
+      frequency: freq,
+      interval: 1,
+      ...(freq === "weekly" && weekdays.length > 0 ? { weekdays } : {}),
+      time: dueTime ?? null,
+    };
+  }
 
   function selectMode(next: RecurrenceMode) {
     if (next === mode) return;
@@ -55,6 +69,7 @@ export function TaskRecurrenceField({
     if (next === "none") {
       onChange({
         due_date: value.due_date,
+        due_time: value.due_time,
         start_date: value.start_date,
         recurrence_rule: null,
         linked_recurring_id: null,
@@ -62,19 +77,44 @@ export function TaskRecurrenceField({
     } else if (next === "simple") {
       onChange({
         due_date: value.due_date,
+        due_time: value.due_time,
         start_date: value.start_date,
-        recurrence_rule: value.due_date ? { frequency, interval: 1 } : null,
+        recurrence_rule: value.due_date ? buildRule(frequency, value.due_time) : null,
         linked_recurring_id: null,
       });
     } else {
-      onChange({ due_date: null, start_date: null, recurrence_rule: null, linked_recurring_id: null });
+      onChange({
+        due_date: null,
+        due_time: null,
+        start_date: null,
+        recurrence_rule: null,
+        linked_recurring_id: null,
+      });
     }
   }
 
   function selectFrequency(next: RecurrenceFrequency) {
     setFrequency(next);
     if (value.due_date) {
-      onChange({ ...value, recurrence_rule: { frequency: next, interval: 1 } });
+      onChange({ ...value, recurrence_rule: buildRule(next, value.due_time) });
+    }
+  }
+
+  function toggleWeekday(wd: number) {
+    const next = weekdays.includes(wd)
+      ? weekdays.filter((w) => w !== wd)
+      : [...weekdays, wd].sort((a, b) => a - b);
+    setWeekdays(next);
+    if (value.due_date) {
+      onChange({
+        ...value,
+        recurrence_rule: {
+          frequency,
+          interval: 1,
+          ...(next.length > 0 ? { weekdays: next } : {}),
+          time: value.due_time ?? null,
+        },
+      });
     }
   }
 
@@ -82,8 +122,15 @@ export function TaskRecurrenceField({
     onChange({
       ...value,
       due_date: nextDate,
-      recurrence_rule:
-        mode === "simple" && nextDate ? { frequency, interval: 1 } : null,
+      recurrence_rule: mode === "simple" && nextDate ? buildRule(frequency, value.due_time) : null,
+    });
+  }
+
+  function selectDueTime(nextTime: string | null) {
+    onChange({
+      ...value,
+      due_time: nextTime,
+      recurrence_rule: value.recurrence_rule ? { ...value.recurrence_rule, time: nextTime } : null,
     });
   }
 
@@ -133,25 +180,63 @@ export function TaskRecurrenceField({
               onSelect={(d) => selectDueDate(d ? formatLocalIsoDate(d) : null)}
             />
           </div>
+          {value.due_date && (
+            <div>
+              <FormLabel optional>Horário</FormLabel>
+              <Input
+                type="time"
+                value={value.due_time ?? ""}
+                onChange={(e) => selectDueTime(e.target.value || null)}
+                className="h-9"
+              />
+            </div>
+          )}
         </div>
       )}
 
       {mode === "simple" &&
         (value.due_date ? (
-          <div>
-            <FormLabel optional>Frequência</FormLabel>
-            <Select value={frequency} onValueChange={(v) => selectFrequency(v as RecurrenceFrequency)}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(FREQUENCY_LABELS) as RecurrenceFrequency[]).map((f) => (
-                  <SelectItem key={f} value={f}>
-                    {FREQUENCY_LABELS[f]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-2">
+            <div>
+              <FormLabel optional>Frequência</FormLabel>
+              <Select value={frequency} onValueChange={(v) => selectFrequency(v as RecurrenceFrequency)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(FREQUENCY_LABELS) as RecurrenceFrequency[]).map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {FREQUENCY_LABELS[f]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {frequency === "weekly" && (
+              <div>
+                <FormLabel optional>Dias da semana</FormLabel>
+                <div className="mt-1 flex gap-1">
+                  {WEEKDAY_LABELS.map((label, wd) => (
+                    <Button
+                      key={wd}
+                      type="button"
+                      size="sm"
+                      variant={weekdays.includes(wd) ? "secondary" : "outline"}
+                      className={cn(
+                        "h-7 w-7 p-0 text-xs",
+                        weekdays.includes(wd) && "border border-primary/40"
+                      )}
+                      onClick={() => toggleWeekday(wd)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Nenhum dia marcado repete no mesmo dia da semana do prazo, a cada intervalo.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">Defina um prazo para poder repetir.</p>

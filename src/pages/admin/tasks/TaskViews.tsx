@@ -6,6 +6,7 @@ import { isRecurringTask } from "@/domain/tasks";
 import type { Task } from "@/types/tasks";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { formatDateTimeBR } from "@/lib/currency";
 import { TaskPriorityFlag } from "./TaskPriorityField";
 
 export function SubtaskChecklist({
@@ -119,12 +120,12 @@ export function TaskAgendaCard({
               {projectName}
             </Badge>
             {done && task.completed_at ? (
-              <span>Concluída em {task.completed_at.slice(0, 10)}</span>
+              <span>Concluída em {formatDateTimeBR(task.completed_at)}</span>
             ) : (
               task.due_date && (
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
-                  {task.due_date}
+                  {formatDateTimeBR(task.due_date, task.due_time)}
                 </span>
               )
             )}
@@ -187,7 +188,7 @@ export function TaskListRow({
             {task.due_date && (
               <span className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                {task.due_date}
+                {formatDateTimeBR(task.due_date, task.due_time)}
               </span>
             )}
             {task.tags.map((tag) => (
