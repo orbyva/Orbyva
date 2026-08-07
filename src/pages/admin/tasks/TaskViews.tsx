@@ -22,23 +22,47 @@ import { TaskPriorityFlag } from "./TaskPriorityField";
 export function SubtaskChecklist({
   subtasks,
   onToggle,
+  onOpenSubtask,
 }: {
   subtasks: Task[];
   onToggle: (subtask: Task) => void;
+  onOpenSubtask: (subtask: Task) => void;
 }) {
   return (
     <ul className="mt-2 space-y-1 border-t pt-2">
       {subtasks.map((s) => (
-        <li key={s.id} className="flex items-center gap-2">
-          <input type="checkbox" checked={s.status === "done"} onChange={() => onToggle(s)} />
-          <span
-            className={cn(
-              "truncate text-xs",
-              s.status === "done" && "text-muted-foreground line-through"
-            )}
+        <li key={s.id} className="flex items-start gap-2 py-0.5">
+          <input
+            type="checkbox"
+            checked={s.status === "done"}
+            onChange={() => onToggle(s)}
+            className="mt-0.5 shrink-0"
+          />
+          <button
+            type="button"
+            className="min-w-0 flex-1 text-left"
+            onClick={() => onOpenSubtask(s)}
           >
-            {s.title}
-          </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span
+                className={cn(
+                  "truncate text-xs",
+                  s.status === "done" && "text-muted-foreground line-through"
+                )}
+              >
+                {s.title}
+              </span>
+              {s.due_date && (
+                <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground">
+                  <Calendar className="h-2.5 w-2.5" />
+                  {formatDateTimeBR(s.due_date, s.due_time)}
+                </span>
+              )}
+            </div>
+            {s.description && (
+              <p className="truncate text-[10px] text-muted-foreground">{s.description}</p>
+            )}
+          </button>
         </li>
       ))}
     </ul>
@@ -74,6 +98,7 @@ export function TaskListRow({
   expanded,
   onToggleExpand,
   onToggleSubtask,
+  onOpenSubtask,
   onToggleDone,
   onOpenSeries,
   onEdit,
@@ -87,6 +112,7 @@ export function TaskListRow({
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleSubtask: (subtask: Task) => void;
+  onOpenSubtask: (subtask: Task) => void;
   onToggleDone: () => void;
   onOpenSeries: () => void;
   onEdit: () => void;
@@ -172,6 +198,11 @@ export function TaskListRow({
                 </Badge>
               ))}
             </div>
+            {task.description && (
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                {task.description}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -200,7 +231,11 @@ export function TaskListRow({
       </div>
       {expanded && subtasks.length > 0 && (
         <div onClick={(e) => e.stopPropagation()}>
-          <SubtaskChecklist subtasks={subtasks} onToggle={onToggleSubtask} />
+          <SubtaskChecklist
+            subtasks={subtasks}
+            onToggle={onToggleSubtask}
+            onOpenSubtask={onOpenSubtask}
+          />
         </div>
       )}
     </div>

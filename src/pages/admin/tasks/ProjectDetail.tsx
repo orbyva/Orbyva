@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  Calendar,
   ChevronLeft,
   ChevronRight,
   GripVertical,
@@ -46,6 +47,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
+import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
 import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
 import { TaskListRow } from "./TaskViews";
 import { GanttChart } from "./GanttChart";
@@ -131,6 +133,7 @@ function KanbanCard({
   onMoveStatus,
   isTimerRunning,
   onToggleTimer,
+  onOpenSubtask,
 }: {
   task: Task;
   colIndex: number;
@@ -144,6 +147,7 @@ function KanbanCard({
   onMoveStatus: (direction: -1 | 1) => void;
   isTimerRunning?: boolean;
   onToggleTimer?: () => void;
+  onOpenSubtask: (subtask: Task) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -232,23 +236,47 @@ function KanbanCard({
         ))}
       </div>
 
+      {task.description && (
+        <p className="line-clamp-2 text-xs text-muted-foreground">{task.description}</p>
+      )}
+
       {subtasks.length > 0 && (
         <ul className="space-y-1 border-t pt-2" onClick={(e) => e.stopPropagation()}>
           {subtasks.map((subtask) => (
-            <li key={subtask.id} className="flex items-center gap-2">
+            <li key={subtask.id} className="flex items-start gap-2 py-0.5">
               <input
                 type="checkbox"
                 checked={subtask.status === "done"}
                 onChange={() => onToggleSubtask(subtask)}
+                className="mt-0.5 shrink-0"
               />
-              <span
-                className={cn(
-                  "truncate text-xs",
-                  subtask.status === "done" && "text-muted-foreground line-through"
-                )}
+              <button
+                type="button"
+                className="min-w-0 flex-1 text-left"
+                onClick={() => onOpenSubtask(subtask)}
               >
-                {subtask.title}
-              </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "truncate text-xs",
+                      subtask.status === "done" && "text-muted-foreground line-through"
+                    )}
+                  >
+                    {subtask.title}
+                  </span>
+                  {subtask.due_date && (
+                    <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground">
+                      <Calendar className="h-2.5 w-2.5" />
+                      {formatDateTimeBR(subtask.due_date, subtask.due_time)}
+                    </span>
+                  )}
+                </div>
+                {subtask.description && (
+                  <p className="truncate text-[10px] text-muted-foreground">
+                    {subtask.description}
+                  </p>
+                )}
+              </button>
             </li>
           ))}
         </ul>
@@ -319,6 +347,7 @@ export default function ProjectDetail() {
   const [view, setView] = useState<"kanban" | "lista" | "gantt">("kanban");
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
+  const [editingSubtask, setEditingSubtask] = useState<Task | null>(null);
   const { toast } = useToast();
   const { runningEntry, start: startTimer, stop: stopTimer } = useActiveTimer();
 
@@ -553,6 +582,25 @@ export default function ProjectDetail() {
     }
   }
 
+  /** Mesmo princípio de `applyStatusChange`: atualiza na hora, reverte se a chamada falhar. */
+  async function saveSubtaskEdit(payload: SubtaskEditPayload) {
+    if (!editingSubtask) return;
+    const id = editingSubtask.id;
+    const previous = tasks;
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...payload } : t)));
+    setEditingSubtask(null);
+    try {
+      await updateTask({ id, ...payload });
+    } catch (error) {
+      setTasks(previous);
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível salvar a subtarefa."),
+        variant: "destructive",
+      });
+    }
+  }
+
   async function moveStatus(task: Task, direction: -1 | 1) {
     const nextIndex = STATUSES.indexOf(task.status) + direction;
     if (nextIndex < 0 || nextIndex >= STATUSES.length) return;
@@ -709,6 +757,7 @@ export default function ProjectDetail() {
                                 }
                                 onAddSubtask={() => addSubtask(task)}
                                 onToggleSubtask={toggleSubtask}
+                                onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
                                 onEdit={() => openEdit(task)}
                                 onDelete={() => handleDelete(task.id)}
                                 onMoveStatus={(direction) => moveStatus(task, direction)}
@@ -759,6 +808,7 @@ export default function ProjectDetail() {
                           expanded={expandedTasks.has(task.id)}
                           onToggleExpand={() => toggleExpanded(task.id)}
                           onToggleSubtask={toggleSubtask}
+                          onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
                           onToggleDone={() => toggleSubtask(task)}
                           onOpenSeries={() => setSeriesTask(task)}
                           onEdit={() => openEdit(task)}
@@ -790,6 +840,12 @@ export default function ProjectDetail() {
           </TabsContent>
         </Tabs>
       )}
+
+      <SubtaskEditDialog
+        subtask={editingSubtask}
+        onOpenChange={(v) => !v && setEditingSubtask(null)}
+        onSave={saveSubtaskEdit}
+      />
 
       <Dialog open={!!seriesTask} onOpenChange={(v) => !v && setSeriesTask(null)}>
         <DialogContent>
