@@ -113,6 +113,8 @@ type TripItineraryTabProps = {
     actId: string,
     status: "pending" | "completed" | "skipped"
   ) => void;
+  /** Remove atividade do estado local (evita refetch do bundle). */
+  onActivityDeleted?: (actId: string) => void;
   onMoveVisit: (
     actId: string,
     targetDayId: string,
@@ -184,6 +186,7 @@ export function TripItineraryTab({
   onReload,
   onVisitStatusChange,
   onMoveVisit,
+  onActivityDeleted,
 }: TripItineraryTabProps) {
   const [routeRefresh, setRouteRefresh] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -352,8 +355,9 @@ export function TripItineraryTab({
             onEditActivity={onEditActivity}
             onAddActivity={onAddActivity}
             onAddTransfer={onAddTransfer}
-            onReload={onReload}
-            onSetStatus={setStatus}
+          onReload={onReload}
+          onActivityDeleted={onActivityDeleted}
+          onSetStatus={setStatus}
             dragHandleProps={dragHandleProps}
             onDragVisitStart={setDragVisitId}
             onDragVisitEnd={() => {
@@ -421,6 +425,7 @@ function DayBlock({
   onAddActivity,
   onAddTransfer,
   onReload,
+  onActivityDeleted,
   onSetStatus,
   dragHandleProps,
   onDragVisitStart,
@@ -450,6 +455,7 @@ function DayBlock({
   onAddActivity: (dayId: string) => void;
   onAddTransfer?: (dayId: string) => void;
   onReload: () => void;
+  onActivityDeleted?: (actId: string) => void;
   onSetStatus: (
     id: string,
     status: "pending" | "completed" | "skipped"
@@ -1028,11 +1034,9 @@ function DayBlock({
               onClick={() => {
                 const id = deleting?.id;
                 setDeleting(null);
-                if (id) {
-                  void deleteItineraryActivity(id)
-                    .then(onReload)
-                    .catch(() => onReload());
-                }
+                if (!id) return;
+                onActivityDeleted?.(id);
+                void deleteItineraryActivity(id).catch(() => onReload());
               }}
             >
               Excluir

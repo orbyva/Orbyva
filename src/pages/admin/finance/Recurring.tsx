@@ -118,7 +118,10 @@ export default function Recurring() {
 
   const reloadRecurring = async () => {
     try {
-      const data = await fetchRecurringTransactions();
+      const [data, paidMap] = await Promise.all([
+        fetchRecurringTransactions(),
+        fetchLastPaidAtByRecurring(),
+      ]);
       const withInstallments = data.map((rec) => ({
         ...rec,
         installments: calculateInstallments(
@@ -131,9 +134,6 @@ export default function Recurring() {
       }));
 
       setRecurring(withInstallments);
-      const paidMap = await fetchLastPaidAtByRecurring(
-        withInstallments.map((r) => r.id)
-      );
       setLastPaidAtById(paidMap);
     } catch (err) {
       console.error("Erro ao buscar recorrências:", err);

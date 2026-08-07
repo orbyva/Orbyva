@@ -5,6 +5,8 @@ const DEFAULT_DEBOUNCE_MS = 400;
 /**
  * Busca tipada com debounce (padrão lugares ~400ms).
  * Aborta a request anterior ao digitar de novo.
+ * Não re-dispara se a mesma query já foi buscada com sucesso
+ * (ex.: voltar do passo de detalhes sem mudar o texto).
  */
 export function useTypeaheadSearch(options: {
   query: string;
@@ -27,6 +29,7 @@ export function useTypeaheadSearch(options: {
   } = options;
   const runRef = useRef(run);
   const clearRef = useRef(onClear);
+  const lastSearchedRef = useRef<string | null>(null);
   runRef.current = run;
   clearRef.current = onClear;
 
@@ -35,15 +38,26 @@ export function useTypeaheadSearch(options: {
     const q = query.trim();
     const imdbOk = allowImdbId && /^tt\d+$/i.test(q);
     if (q.length < minChars && !imdbOk) {
+      lastSearchedRef.current = null;
       clearRef.current();
       return;
     }
 
+    // Mesma query já resolvida — evita “reload” ao reativar o passo de busca.
+    if (lastSearchedRef.current === q) return;
+
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      void runRef.current(q, controller.signal).catch(() => {
-        /* erros tratados no run */
-      });
+      void runRef
+        .current(q, controller.signal)
+        .then(() => {
+          if (!controller.signal.aborted) {
+            lastSearchedRef.current = q;
+          }
+        })
+        .catch(() => {
+          /* erros tratados no run */
+        });
     }, debounceMs);
 
     return () => {

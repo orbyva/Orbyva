@@ -88,7 +88,7 @@ export function sameDayTransferRouteEndpoints(
     return null;
   }
   const ordered = [...stops].sort((a, b) => a.sort_order - b.sort_order);
-  const idx = ordered.findIndex((s) => s.id === current.id);
+  const idx = ordered.findIndex((s) => s === current);
   const prev = idx > 0 ? ordered[idx - 1] : null;
   if (!prev) return null;
   const origin = { lat: current.lat, lng: current.lng };

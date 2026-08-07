@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -68,6 +68,7 @@ export function MovieSearchModal({
     "to_watch"
   );
   const { toast } = useToast();
+  const searchReqId = useRef(0);
 
   const clearSearchResults = useCallback(() => {
     setSearchResults([]);
@@ -77,13 +78,14 @@ export function MovieSearchModal({
 
   const runTypeahead = useCallback(
     async (q: string, signal: AbortSignal) => {
+      const reqId = ++searchReqId.current;
       setFormError("");
       setLoading(true);
       try {
         let results: CinemaSearchHit[] = [];
         if (/^tt\d+$/i.test(q)) {
           const movie = await fetchCinemaByImdbId(q);
-          if (signal.aborted) return;
+          if (signal.aborted || reqId !== searchReqId.current) return;
           if (movie) {
             results = [
               {
@@ -104,7 +106,7 @@ export function MovieSearchModal({
         } else {
           results = await searchCinema(q);
         }
-        if (signal.aborted) return;
+        if (signal.aborted || reqId !== searchReqId.current) return;
         setSearchResults(results);
         if (results.length === 0) {
           setFormError(
@@ -115,10 +117,11 @@ export function MovieSearchModal({
         }
       } catch (error) {
         if (signal.aborted || isAbortError(error)) return;
+        if (reqId !== searchReqId.current) return;
         setSearchResults([]);
         setFormError(getErrorMessage(error, "Falha na busca."));
       } finally {
-        if (!signal.aborted) setLoading(false);
+        if (reqId === searchReqId.current) setLoading(false);
       }
     },
     []
@@ -250,9 +253,15 @@ export function MovieSearchModal({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 autoComplete="off"
+                className={loading ? "pr-9" : undefined}
               />
               {loading ? (
-                <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2
+                    className="h-4 w-4 animate-spin text-muted-foreground"
+                    aria-hidden
+                  />
+                </div>
               ) : null}
             </div>
             <p className="text-xs text-muted-foreground">

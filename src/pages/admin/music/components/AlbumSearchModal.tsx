@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -79,6 +79,7 @@ export function AlbumSearchModal({
   const [manualDraft, setManualDraft] = useState({ title: "", artists: "" });
 
   const { toast } = useToast();
+  const searchReqId = useRef(0);
 
   const clearSearchResults = useCallback(() => {
     setSearchResults([]);
@@ -89,22 +90,24 @@ export function AlbumSearchModal({
   }, []);
 
   const runTypeahead = useCallback(async (q: string, signal: AbortSignal) => {
+    const reqId = ++searchReqId.current;
     setFormError("");
     setLoading(true);
     setHasSearched(false);
     try {
       const { hits, provider } = await searchAlbums(q, signal);
-      if (signal.aborted) return;
+      if (signal.aborted || reqId !== searchReqId.current) return;
       setSearchResults(hits);
       setSearchProvider(provider);
       setHasSearched(true);
     } catch (error) {
       if (signal.aborted || isAbortError(error)) return;
+      if (reqId !== searchReqId.current) return;
       setSearchResults([]);
       setHasSearched(true);
       setFormError(getErrorMessage(error, "Falha na busca."));
     } finally {
-      if (!signal.aborted) setLoading(false);
+      if (reqId === searchReqId.current) setLoading(false);
     }
   }, []);
 
@@ -235,9 +238,15 @@ export function AlbumSearchModal({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   autoComplete="off"
+                  className={loading ? "pr-9" : undefined}
                 />
                 {loading ? (
-                  <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2
+                      className="h-4 w-4 animate-spin text-muted-foreground"
+                      aria-hidden
+                    />
+                  </div>
                 ) : null}
               </div>
               <p className="text-xs text-muted-foreground">

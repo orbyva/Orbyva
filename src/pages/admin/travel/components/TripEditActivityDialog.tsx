@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,6 +41,7 @@ import {
   type TransferEndpoint,
   type TripTransportMode,
 } from "@/domain/travel/transportModes";
+import { useUserLocationBias } from "@/hooks/useUserLocationBias";
 import { fetchTravelRoutes } from "@/lib/googleRoutes";
 import { formatDurationFriendly } from "@/domain/itinerary/visits";
 import { getErrorMessage } from "@/lib/errors";
@@ -69,8 +70,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   form: ActivityForm;
-  onChange: (form: ActivityForm) => void;
-  onSave: () => void;
+  onSave: (form: ActivityForm) => void;
   places: PlaceVisit[];
   mode?: "create" | "edit";
 };
@@ -97,14 +97,22 @@ function syncTransferTitle(
 export function TripEditActivityDialog({
   open,
   onOpenChange,
-  form,
-  onChange,
+  form: seed,
   onSave,
   places,
   mode = "edit",
 }: Props) {
+  const [form, setForm] = useState(seed);
+  const { bias: geoBias } = useUserLocationBias(open);
   const [estimating, setEstimating] = useState(false);
   const [estimateNote, setEstimateNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(seed);
+    setEstimateNote(null);
+  }, [open, seed]);
+
   const isCreate = mode === "create";
   const linkedLabel =
     form.linked_place_label ||
@@ -168,7 +176,7 @@ export function TripEditActivityDialog({
           setEstimateNote("Informe um horário de saída válido (ex: 09:30).");
           return;
         }
-        onChange({ ...form, arrival_time: arrival });
+        setForm((prev) => ({ ...prev, arrival_time: arrival }));
         setEstimateNote(`~${durationLabel} de viagem → chegada ${arrival}.`);
         return;
       }
@@ -177,7 +185,7 @@ export function TripEditActivityDialog({
         setEstimateNote("Informe um horário de chegada válido (ex: 14:30).");
         return;
       }
-      onChange({ ...form, activity_time: depart });
+      setForm((prev) => ({ ...prev, activity_time: depart }));
       setEstimateNote(`~${durationLabel} de viagem → saída ${depart}.`);
     } catch (error) {
       setEstimateNote(
@@ -210,23 +218,25 @@ export function TripEditActivityDialog({
                   label="Origem"
                   required
                   scope="regions"
+                  bias={geoBias}
+                  requestUserLocation={false}
                   selectedLabel={form.origin?.label ?? null}
                   onClear={() => {
                     const origin = null;
-                    onChange({
-                      ...form,
+                    setForm((prev) => ({
+                      ...prev,
                       origin,
-                      title: syncTransferTitle(origin, form.destination),
-                    });
+                      title: syncTransferTitle(origin, prev.destination),
+                    }));
                     setEstimateNote(null);
                   }}
                   onPick={(hit) => {
                     const origin = pickToEndpoint(hit);
-                    onChange({
-                      ...form,
+                    setForm((prev) => ({
+                      ...prev,
                       origin,
-                      title: syncTransferTitle(origin, form.destination),
-                    });
+                      title: syncTransferTitle(origin, prev.destination),
+                    }));
                     setEstimateNote(null);
                   }}
                 />
@@ -236,23 +246,25 @@ export function TripEditActivityDialog({
                   label="Destino"
                   required
                   scope="regions"
+                  bias={geoBias}
+                  requestUserLocation={false}
                   selectedLabel={form.destination?.label ?? null}
                   onClear={() => {
                     const destination = null;
-                    onChange({
-                      ...form,
+                    setForm((prev) => ({
+                      ...prev,
                       destination,
-                      title: syncTransferTitle(form.origin, destination),
-                    });
+                      title: syncTransferTitle(prev.origin, destination),
+                    }));
                     setEstimateNote(null);
                   }}
                   onPick={(hit) => {
                     const destination = pickToEndpoint(hit);
-                    onChange({
-                      ...form,
+                    setForm((prev) => ({
+                      ...prev,
                       destination,
-                      title: syncTransferTitle(form.origin, destination),
-                    });
+                      title: syncTransferTitle(prev.origin, destination),
+                    }));
                     setEstimateNote(null);
                   }}
                 />
@@ -266,14 +278,16 @@ export function TripEditActivityDialog({
             <div className="space-y-1">
               <PlaceCatalogSearch
                 label="Local"
+                bias={geoBias}
+                requestUserLocation={false}
                 selectedLabel={linkedLabel}
                 onClear={() =>
-                  onChange({
-                    ...form,
+                  setForm((prev) => ({
+                    ...prev,
                     place_visit_id: null,
                     linked_place_label: null,
                     pending_catalog: null,
-                  })
+                  }))
                 }
                 onPick={(hit) => {
                   const existing = places.find(
@@ -286,23 +300,25 @@ export function TripEditActivityDialog({
                         p.lng === hit.lng &&
                         p.name === hit.name)
                   );
-                  const prevPlaceName = (
-                    form.linked_place_label ||
-                    places.find((p) => p.id === form.place_visit_id)?.name ||
-                    ""
-                  ).trim();
-                  const titleTrim = form.title.trim();
-                  const syncTitle =
-                    !titleTrim ||
-                    !prevPlaceName ||
-                    titleTrim === prevPlaceName;
-                  onChange({
-                    ...form,
-                    title: syncTitle ? hit.name : form.title,
-                    category: existing?.type ?? hit.type,
-                    place_visit_id: existing?.id ?? null,
-                    linked_place_label: hit.name,
-                    pending_catalog: existing ? null : hit,
+                  setForm((prev) => {
+                    const prevPlaceName = (
+                      prev.linked_place_label ||
+                      places.find((p) => p.id === prev.place_visit_id)?.name ||
+                      ""
+                    ).trim();
+                    const titleTrim = prev.title.trim();
+                    const syncTitle =
+                      !titleTrim ||
+                      !prevPlaceName ||
+                      titleTrim === prevPlaceName;
+                    return {
+                      ...prev,
+                      title: syncTitle ? hit.name : prev.title,
+                      category: existing?.type ?? hit.type,
+                      place_visit_id: existing?.id ?? null,
+                      linked_place_label: hit.name,
+                      pending_catalog: existing ? null : hit,
+                    };
                   });
                 }}
               />
@@ -319,7 +335,9 @@ export function TripEditActivityDialog({
               <FormLabel required>Título</FormLabel>
               <Input
                 value={form.title}
-                onChange={(e) => onChange({ ...form, title: e.target.value })}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, title: e.target.value }))
+                }
               />
             </div>
           ) : null}
@@ -331,10 +349,10 @@ export function TripEditActivityDialog({
                 value={transportMode}
                 onValueChange={(v) => {
                   setEstimateNote(null);
-                  onChange({
-                    ...form,
+                  setForm((prev) => ({
+                    ...prev,
                     transport_mode: v as TripTransportMode,
-                  });
+                  }));
                 }}
               >
                 <SelectTrigger>
@@ -363,7 +381,10 @@ export function TripEditActivityDialog({
                 value={form.activity_time}
                 onChange={(e) => {
                   setEstimateNote(null);
-                  onChange({ ...form, activity_time: e.target.value });
+                  setForm((prev) => ({
+                    ...prev,
+                    activity_time: e.target.value,
+                  }));
                 }}
                 placeholder="Ex: 09:30"
               />
@@ -375,7 +396,10 @@ export function TripEditActivityDialog({
                   value={form.arrival_time}
                   onChange={(e) => {
                     setEstimateNote(null);
-                    onChange({ ...form, arrival_time: e.target.value });
+                    setForm((prev) => ({
+                      ...prev,
+                      arrival_time: e.target.value,
+                    }));
                   }}
                   placeholder="Ex: 14:30"
                 />
@@ -386,10 +410,10 @@ export function TripEditActivityDialog({
                 <Select
                   value={category}
                   onValueChange={(v) =>
-                    onChange({
-                      ...form,
+                    setForm((prev) => ({
+                      ...prev,
                       category: v as TripActivityCategory,
-                    })
+                    }))
                   }
                 >
                   <SelectTrigger>
@@ -445,7 +469,9 @@ export function TripEditActivityDialog({
             </FormLabel>
             <Input
               value={form.link_url}
-              onChange={(e) => onChange({ ...form, link_url: e.target.value })}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, link_url: e.target.value }))
+              }
               placeholder={
                 category === "transport"
                   ? "https://… (voo, trem, ônibus)"
@@ -458,7 +484,10 @@ export function TripEditActivityDialog({
               type="checkbox"
               checked={form.is_reserved}
               onChange={(e) =>
-                onChange({ ...form, is_reserved: e.target.checked })
+                setForm((prev) => ({
+                  ...prev,
+                  is_reserved: e.target.checked,
+                }))
               }
               className="size-4 rounded border"
             />
@@ -468,10 +497,12 @@ export function TripEditActivityDialog({
             <FormLabel optional>Notas</FormLabel>
             <Input
               value={form.notes}
-              onChange={(e) => onChange({ ...form, notes: e.target.value })}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, notes: e.target.value }))
+              }
             />
           </div>
-          <Button onClick={onSave} className="w-full">
+          <Button onClick={() => onSave(form)} className="w-full">
             {isCreate ? "Adicionar" : "Salvar"}
           </Button>
         </div>

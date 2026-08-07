@@ -1211,23 +1211,7 @@ export async function setItineraryVisitStatus(
 }
 
 export async function deleteItineraryActivity(id: string): Promise<void> {
-  const { data: existing, error: fetchError } = await supabase
-    .from("trip_itinerary_activity")
-    .select("day_id")
-    .eq("id", id)
-    .maybeSingle();
-  if (fetchError) throw new Error(fetchError.message);
-  if (!existing) throw new Error("Atividade não encontrada.");
-
-  const { data: day, error: dayError } = await supabase
-    .from("trip_itinerary_day")
-    .select("trip_id")
-    .eq("id", existing.day_id)
-    .maybeSingle();
-  if (dayError) throw new Error(dayError.message);
-  if (!day) throw new Error("Dia do roteiro não encontrado.");
-  await assertTripAccess(day.trip_id);
-
+  // Delete direto (RLS cobre acesso) — sem assert + fetches extras.
   const { error } = await supabase
     .from("trip_itinerary_activity")
     .delete()
@@ -1240,15 +1224,7 @@ export async function updateItineraryDayNotes(
   notes: string | null,
   title?: string | null
 ): Promise<void> {
-  const { data: day, error: dayError } = await supabase
-    .from("trip_itinerary_day")
-    .select("trip_id")
-    .eq("id", id)
-    .maybeSingle();
-  if (dayError) throw new Error(dayError.message);
-  if (!day) throw new Error("Dia do roteiro não encontrado.");
-  await assertTripAccess(day.trip_id);
-
+  // Update direto (RLS cobre acesso).
   const { error } = await supabase
     .from("trip_itinerary_day")
     .update({ notes, ...(title !== undefined ? { title } : {}) })
