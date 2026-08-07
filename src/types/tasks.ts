@@ -1,4 +1,4 @@
-export type ProjectStatus = "active" | "completed" | "archived";
+export type ProjectStatus = "planned" | "active" | "completed" | "archived";
 
 export interface Project {
   id: string;
@@ -6,6 +6,7 @@ export interface Project {
   name: string;
   description?: string | null;
   color?: string | null;
+  notes?: string | null;
   goal_id?: string | null;
   status: ProjectStatus;
   created_at?: string;
@@ -20,6 +21,21 @@ export type ProjectCreateRequest = Omit<
 export type ProjectUpdateRequest = Partial<ProjectCreateRequest> & {
   id: string;
 };
+
+export interface ProjectEvent {
+  id: string;
+  user_id?: string;
+  project_id: string;
+  title: string;
+  starts_at: string;
+  ends_at?: string | null;
+  created_at?: string;
+}
+
+export type ProjectEventCreateRequest = Omit<
+  ProjectEvent,
+  "id" | "user_id" | "created_at"
+>;
 
 export type TaskStatus = "todo" | "doing" | "done";
 export type RecurrenceFrequency = "daily" | "weekly" | "monthly";
