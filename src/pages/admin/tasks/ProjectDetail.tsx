@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GripVertical,
+  ListTodo,
   Pen,
   Plus,
   Trash2,
@@ -38,10 +39,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
+import { TaskAgendaCard, TaskListRow } from "./TaskViews";
+import { GanttChart } from "./GanttChart";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
@@ -58,11 +62,21 @@ import {
   updateTask,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
+import {
+  AGENDA_BUCKET_LABELS,
+  AGENDA_BUCKET_ORDER,
+  collapseRecurringSeries,
+  findSeriesTasks,
+  groupSubtasksByParent,
+  groupTasksByAgendaBucket,
+  sortTasksByDueDate,
+} from "@/domain/tasks";
 import type { Project, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
+import { formatLocalIsoDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
 const STATUSES: TaskStatus[] = ["todo", "doing", "done"];
@@ -80,6 +94,7 @@ const emptyTask = (projectId: string): TaskCreateRequest => ({
   status: "todo",
   tags: [],
   due_date: null,
+  start_date: null,
   priority: null,
   recurrence_rule: null,
   linked_recurring_id: null,
@@ -265,7 +280,7 @@ function KanbanCard({
   );
 }
 
-export default function ProjectKanban() {
+export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -277,6 +292,9 @@ export default function ProjectKanban() {
   const [tagsInput, setTagsInput] = useState("");
   const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [view, setView] = useState<"kanban" | "lista" | "agenda" | "gantt">("kanban");
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -325,16 +343,43 @@ export default function ProjectKanban() {
     return map;
   }, [tasks]);
 
-  const subtasksByParent = useMemo(() => {
-    const map = new Map<string, Task[]>();
-    for (const task of tasks) {
-      if (!task.parent_task_id) continue;
-      const list = map.get(task.parent_task_id) ?? [];
-      list.push(task);
-      map.set(task.parent_task_id, list);
-    }
-    return map;
-  }, [tasks]);
+  const subtasksByParent = useMemo(() => groupSubtasksByParent(tasks), [tasks]);
+
+  const visibleTasks = useMemo(
+    () =>
+      sortTasksByDueDate(
+        tasks.filter(
+          (t) =>
+            !t.parent_task_id &&
+            !(t.linked_recurring_id && t.linked_installment_number == null)
+        )
+      ),
+    [tasks]
+  );
+
+  const agendaGroups = useMemo(() => {
+    const todayIso = formatLocalIsoDate(new Date());
+    return groupTasksByAgendaBucket(collapseRecurringSeries(visibleTasks), todayIso);
+  }, [visibleTasks]);
+
+  const seriesTasks = useMemo(
+    () => (seriesTask ? findSeriesTasks(tasks, seriesTask) : []),
+    [tasks, seriesTask]
+  );
+
+  const ganttTasks = useMemo(
+    () => tasks.filter((t) => !(t.linked_recurring_id && t.linked_installment_number == null)),
+    [tasks]
+  );
+
+  function toggleExpanded(taskId: string) {
+    setExpandedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }
 
   function openCreate(status: TaskStatus) {
     if (!id) return;
@@ -354,6 +399,7 @@ export default function ProjectKanban() {
       status: task.status,
       tags: task.tags,
       due_date: task.due_date,
+      start_date: task.start_date ?? null,
       priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
@@ -517,78 +563,186 @@ export default function ProjectKanban() {
       {loading ? (
         <TableLoadingSkeleton rows={4} columns={3} />
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="grid gap-4 md:grid-cols-3">
-            {STATUSES.map((status, colIndex) => (
-              <div key={status} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">
-                    {STATUS_LABELS[status]}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      ({topLevelByStatus[status].length})
-                    </span>
-                  </h3>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => openCreate(status)}
-                    aria-label={`Nova tarefa em ${STATUS_LABELS[status]}`}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+        <Tabs value={view} onValueChange={(v) => setView(v as typeof view)}>
+          <TabsList>
+            <TabsTrigger value="kanban">Kanban</TabsTrigger>
+            <TabsTrigger value="lista">Lista</TabsTrigger>
+            <TabsTrigger value="agenda">Agenda</TabsTrigger>
+            <TabsTrigger value="gantt">Gantt</TabsTrigger>
+          </TabsList>
 
-                <SortableContext
-                  items={topLevelByStatus[status].map((task) => task.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <KanbanColumn status={status}>
-                    {topLevelByStatus[status].length === 0 ? (
-                      <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-                        Nenhuma tarefa
-                      </p>
-                    ) : (
-                      topLevelByStatus[status].map((task) => {
-                        const subtasks = subtasksByParent.get(task.id) ?? [];
-                        return (
-                          <KanbanCard
-                            key={task.id}
-                            task={task}
-                            colIndex={colIndex}
-                            subtasks={subtasks}
-                            subtaskDraft={subtaskDrafts[task.id] ?? ""}
-                            onSubtaskDraftChange={(value) =>
-                              setSubtaskDrafts((prev) => ({ ...prev, [task.id]: value }))
-                            }
-                            onAddSubtask={() => addSubtask(task)}
-                            onToggleSubtask={toggleSubtask}
-                            onEdit={() => openEdit(task)}
-                            onDelete={() => handleDelete(task.id)}
-                            onMoveStatus={(direction) => moveStatus(task, direction)}
-                          />
-                        );
-                      })
-                    )}
-                  </KanbanColumn>
-                </SortableContext>
+          <TabsContent value="kanban" className="mt-4">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="grid gap-4 md:grid-cols-3">
+                {STATUSES.map((status, colIndex) => (
+                  <div key={status} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">
+                        {STATUS_LABELS[status]}{" "}
+                        <span className="text-xs font-normal text-muted-foreground">
+                          ({topLevelByStatus[status].length})
+                        </span>
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => openCreate(status)}
+                        aria-label={`Nova tarefa em ${STATUS_LABELS[status]}`}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <SortableContext
+                      items={topLevelByStatus[status].map((task) => task.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <KanbanColumn status={status}>
+                        {topLevelByStatus[status].length === 0 ? (
+                          <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                            Nenhuma tarefa
+                          </p>
+                        ) : (
+                          topLevelByStatus[status].map((task) => {
+                            const subtasks = subtasksByParent.get(task.id) ?? [];
+                            return (
+                              <KanbanCard
+                                key={task.id}
+                                task={task}
+                                colIndex={colIndex}
+                                subtasks={subtasks}
+                                subtaskDraft={subtaskDrafts[task.id] ?? ""}
+                                onSubtaskDraftChange={(value) =>
+                                  setSubtaskDrafts((prev) => ({ ...prev, [task.id]: value }))
+                                }
+                                onAddSubtask={() => addSubtask(task)}
+                                onToggleSubtask={toggleSubtask}
+                                onEdit={() => openEdit(task)}
+                                onDelete={() => handleDelete(task.id)}
+                                onMoveStatus={(direction) => moveStatus(task, direction)}
+                              />
+                            );
+                          })
+                        )}
+                      </KanbanColumn>
+                    </SortableContext>
+                  </div>
+                ))}
+              </div>
+              <DragOverlay>
+                {activeTask ? (
+                  <article className="space-y-2 rounded-xl border bg-card p-3 shadow-lg">
+                    <p className="truncate text-sm font-medium">{activeTask.title}</p>
+                  </article>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </TabsContent>
+
+          <TabsContent value="lista" className="mt-4 space-y-2">
+            {visibleTasks.length === 0 ? (
+              <EmptyState
+                icon={ListTodo}
+                title="Nenhuma tarefa"
+                description="Crie sua primeira tarefa neste projeto."
+              />
+            ) : (
+              visibleTasks.map((task) => (
+                <TaskListRow
+                  key={task.id}
+                  task={task}
+                  subtasks={subtasksByParent.get(task.id) ?? []}
+                  expanded={expandedTasks.has(task.id)}
+                  onToggleExpand={() => toggleExpanded(task.id)}
+                  onToggleSubtask={toggleSubtask}
+                  onEdit={() => openEdit(task)}
+                  onDelete={() => handleDelete(task.id)}
+                  extraActions={
+                    task.status === "done" && !task.linked_recurring_id ? (
+                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
+                        <Link
+                          to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                        >
+                          Lançar transação
+                        </Link>
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="agenda" className="mt-4 space-y-5">
+            {visibleTasks.length === 0 ? (
+              <EmptyState
+                icon={ListTodo}
+                title="Nenhuma tarefa"
+                description="Crie sua primeira tarefa neste projeto."
+              />
+            ) : (
+              AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
+                (bucket) => (
+                  <div key={bucket} className="space-y-2">
+                    <h3 className="text-sm font-semibold">
+                      {AGENDA_BUCKET_LABELS[bucket]}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({agendaGroups[bucket].length})
+                      </span>
+                    </h3>
+                    <div className="space-y-2">
+                      {agendaGroups[bucket].map((task) => (
+                        <TaskAgendaCard
+                          key={task.id}
+                          task={task}
+                          projectName={project?.name ?? "Sem projeto"}
+                          subtasks={subtasksByParent.get(task.id) ?? []}
+                          expanded={expandedTasks.has(task.id)}
+                          onToggleDone={() => toggleSubtask(task)}
+                          onToggleExpand={() => toggleExpanded(task.id)}
+                          onToggleSubtask={toggleSubtask}
+                          onOpenSeries={() => setSeriesTask(task)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )
+              )
+            )}
+          </TabsContent>
+
+          <TabsContent value="gantt" className="mt-4">
+            <GanttChart tasks={ganttTasks} />
+          </TabsContent>
+        </Tabs>
+      )}
+
+      <Dialog open={!!seriesTask} onOpenChange={(v) => !v && setSeriesTask(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ocorrências de "{seriesTask?.title}"</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            {seriesTasks.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 text-sm"
+              >
+                <span>{t.due_date ?? "Sem prazo"}</span>
+                <Badge variant="outline" className="text-[10px]">
+                  {t.status === "todo" ? "A fazer" : t.status === "doing" ? "Fazendo" : "Feito"}
+                </Badge>
               </div>
             ))}
           </div>
-          <DragOverlay>
-            {activeTask ? (
-              <article className="space-y-2 rounded-xl border bg-card p-3 shadow-lg">
-                <p className="truncate text-sm font-medium">{activeTask.title}</p>
-              </article>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
@@ -625,6 +779,7 @@ export default function ProjectKanban() {
             <TaskRecurrenceField
               value={{
                 due_date: form.due_date,
+                start_date: form.start_date,
                 recurrence_rule: form.recurrence_rule,
                 linked_recurring_id: form.linked_recurring_id,
               }}

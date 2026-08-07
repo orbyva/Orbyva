@@ -31,7 +31,7 @@ const Budget = lazy(() => import("./pages/admin/finance/Budget"));
 const Account = lazy(() => import("./pages/admin/Account"));
 const TaskList = lazy(() => import("./pages/admin/tasks/TaskList"));
 const TaskProjects = lazy(() => import("./pages/admin/tasks/Projects"));
-const TaskProjectKanban = lazy(() => import("./pages/admin/tasks/ProjectKanban"));
+const TaskProjectDetail = lazy(() => import("./pages/admin/tasks/ProjectDetail"));
 const TasksLive = lazy(() => import("./pages/admin/tasks/Live"));
 
 const withSuspense = (Component: React.ReactNode) => (
@@ -116,7 +116,7 @@ const router = createBrowserRouter([
             children: [
               { index: true, element: <TaskList /> },
               { path: "projects", element: <TaskProjects /> },
-              { path: "projects/:id", element: <TaskProjectKanban /> },
+              { path: "projects/:id", element: <TaskProjectDetail /> },
               { path: "live", element: <TasksLive /> },
             ],
           },

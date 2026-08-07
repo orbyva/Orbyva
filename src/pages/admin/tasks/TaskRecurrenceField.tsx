@@ -24,6 +24,7 @@ const FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
 
 interface TaskRecurrenceValue {
   due_date: string | null;
+  start_date?: string | null;
   recurrence_rule: RecurrenceRule | null;
   linked_recurring_id: string | null;
 }
@@ -52,15 +53,21 @@ export function TaskRecurrenceField({
     if (next === mode) return;
     setMode(next);
     if (next === "none") {
-      onChange({ due_date: value.due_date, recurrence_rule: null, linked_recurring_id: null });
+      onChange({
+        due_date: value.due_date,
+        start_date: value.start_date,
+        recurrence_rule: null,
+        linked_recurring_id: null,
+      });
     } else if (next === "simple") {
       onChange({
         due_date: value.due_date,
+        start_date: value.start_date,
         recurrence_rule: value.due_date ? { frequency, interval: 1 } : null,
         linked_recurring_id: null,
       });
     } else {
-      onChange({ due_date: null, recurrence_rule: null, linked_recurring_id: null });
+      onChange({ due_date: null, start_date: null, recurrence_rule: null, linked_recurring_id: null });
     }
   }
 
@@ -107,13 +114,25 @@ export function TaskRecurrenceField({
       </div>
 
       {mode !== "linked" && (
-        <div>
-          <FormLabel optional>Prazo</FormLabel>
-          <DatePicker
-            clearable
-            date={value.due_date ? new Date(`${value.due_date}T12:00:00`) : undefined}
-            onSelect={(d) => selectDueDate(d ? formatLocalIsoDate(d) : null)}
-          />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <FormLabel optional>Início</FormLabel>
+            <DatePicker
+              clearable
+              date={value.start_date ? new Date(`${value.start_date}T12:00:00`) : undefined}
+              onSelect={(d) =>
+                onChange({ ...value, start_date: d ? formatLocalIsoDate(d) : null })
+              }
+            />
+          </div>
+          <div>
+            <FormLabel optional>Prazo</FormLabel>
+            <DatePicker
+              clearable
+              date={value.due_date ? new Date(`${value.due_date}T12:00:00`) : undefined}
+              onSelect={(d) => selectDueDate(d ? formatLocalIsoDate(d) : null)}
+            />
+          </div>
         </div>
       )}
 

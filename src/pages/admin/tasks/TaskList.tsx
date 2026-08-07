@@ -61,6 +61,7 @@ const emptyTask = (): TaskCreateRequest => ({
   status: "todo",
   tags: [],
   due_date: null,
+  start_date: null,
   priority: null,
   recurrence_rule: null,
   linked_recurring_id: null,
@@ -193,6 +194,7 @@ export default function TaskList() {
       status: task.status,
       tags: task.tags,
       due_date: task.due_date,
+      start_date: task.start_date ?? null,
       priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
@@ -450,6 +452,7 @@ export default function TaskList() {
             <TaskRecurrenceField
               value={{
                 due_date: form.due_date,
+                start_date: form.start_date,
                 recurrence_rule: form.recurrence_rule,
                 linked_recurring_id: form.linked_recurring_id,
               }}
