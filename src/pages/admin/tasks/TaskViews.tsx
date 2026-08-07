@@ -3,6 +3,8 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
+  Github,
   Pen,
   Play,
   Repeat,
@@ -12,13 +14,41 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { isRecurringTask } from "@/domain/tasks";
+import { detectGitHubLink, isRecurringTask } from "@/domain/tasks";
 import type { Tag, Task } from "@/types/tasks";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { contrastTextColor } from "@/lib/color";
 import { formatDateTimeBR } from "@/lib/currency";
+import { stripMarkdown } from "@/lib/markdown";
 import { TaskPriorityFlag } from "./TaskPriorityField";
+
+/** Chip de link externo — reconhece issue/PR do GitHub pela URL (sem chamada de rede) e mostra
+ * "owner/repo#N"; qualquer outra URL vira um chip genérico "Link externo". */
+export function ExternalLinkChip({ url }: { url: string }) {
+  const github = detectGitHubLink(url);
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+    >
+      {github ? (
+        <>
+          <Github className="h-3 w-3" />
+          {github.owner}/{github.repo}#{github.number}
+        </>
+      ) : (
+        <>
+          <ExternalLink className="h-3 w-3" />
+          Link externo
+        </>
+      )}
+    </a>
+  );
+}
 
 /** Badge de tag colorida estilo GitHub labels (fundo na cor da tag, texto com melhor contraste). */
 export function TagBadge({ tag }: { tag: Tag }) {
@@ -73,7 +103,9 @@ export function SubtaskChecklist({
               )}
             </div>
             {s.description && (
-              <p className="truncate text-[10px] text-muted-foreground">{s.description}</p>
+              <p className="truncate text-[10px] text-muted-foreground">
+                {stripMarkdown(s.description)}
+              </p>
             )}
           </button>
         </li>
@@ -214,10 +246,11 @@ export function TaskListRow({
               {taskTags.map((tag) => (
                 <TagBadge key={tag.id} tag={tag} />
               ))}
+              {task.external_url && <ExternalLinkChip url={task.external_url} />}
             </div>
             {task.description && (
               <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                {task.description}
+                {stripMarkdown(task.description)}
               </p>
             )}
           </div>

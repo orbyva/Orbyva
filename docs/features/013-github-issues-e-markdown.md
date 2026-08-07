@@ -22,38 +22,51 @@ inexistentes no projeto). Não existe nenhum conceito de link externo em `task` 
   `external_provider text nullable` (texto livre; hoje só `"github"` tem tratamento especial na UI,
   mas o campo já está pronto pra outro provider amanhã sem migração nova). Qualquer URL sem provider
   reconhecido vira um chip de link simples.
-- **Issue do GitHub — metadados ao vivo, sem OAuth por usuário**: quando `external_provider ===
-  "github"` e a URL bate com `github.com/{owner}/{repo}/issues/{number}`, uma Edge Function nova
-  `github-issue` busca título/estado/labels via API do GitHub usando um token guardado como secret
-  do servidor — mesmo padrão já usado por `places-catalog`/`spotify-catalog` (chave só no backend,
-  nunca exposta ao cliente). Sem fluxo de OAuth por usuário: um único token de app, como as outras
-  integrações do projeto já fazem.
-- **Sem sincronização de volta**: fechar a issue no GitHub não fecha a tarefa no Orbyva — exigiria
-  webhook/infra própria, fora de escopo. O badge de estado (bolinha colorida: verde aberta / roxa
-  se for PR mesclado / cinza-vermelha fechada, mesma iconografia do próprio GitHub) é buscado ao
-  abrir a tarefa, com um botão manual de atualizar.
-- **UI**: chip "owner/repo#123" com a bolinha de estado nos cards de Lista/Agenda/Kanban; campo
-  "Link externo" no formulário de tarefa (cola a URL, preview busca ao perder o foco).
-- Fora de escopo: criar issues no GitHub a partir do Orbyva, notificação quando o estado muda,
-  qualquer provider além do GitHub nesta rodada (o campo fica pronto, só não é implementado).
+- **Revisão do usuário (sem Edge Function, sem token)**: a ideia original de buscar
+  título/estado/labels ao vivo via API do GitHub (Edge Function + Personal Access Token) foi
+  descartada — "não se prenda a precisar que o token de acesso seja oferecido". `external_provider`
+  é detectado só no cliente (regex sobre a URL: `github.com/{owner}/{repo}/issues/{number}` ou
+  `/pull/{number}`), sem nenhuma chamada de rede. O chip mostra "owner/repo#123" (extraído da própria
+  URL) com um ícone de GitHub — sem bolinha de estado (aberta/fechada), já que isso exigiria a API.
+  Clicar abre a issue em `github.com` numa aba nova. Cobre a rastreabilidade pedida (ver de qual
+  issue a tarefa veio, ir até lá) sem exigir credencial nenhuma.
+- **UI**: chip "owner/repo#123" com ícone de GitHub nos cards de Lista/Kanban de tarefas; campo
+  "Link externo" no formulário de tarefa (cola a URL, detecção é síncrona ao digitar/colar).
+- Fora de escopo: estado da issue (aberta/fechada/PR mesclado), criar issues no GitHub a partir do
+  Orbyva, notificação quando o estado muda, qualquer provider além da detecção de GitHub nesta
+  rodada (o campo fica pronto pra outro provider, só não é implementado).
 
 ## Tarefas
-- [ ] Instalar `react-markdown` + `remark-gfm`
-- [ ] Migration: `task.external_url`, `task.external_provider` (text, nullable) — aplicada ao banco
-      remoto
-- [ ] Types: `Task.external_url`/`external_provider`; `TaskCreateRequest` idem
-- [ ] Secret novo na Edge Function (token do GitHub) + Edge Function `github-issue`: dado
-      owner/repo/número, retorna título/estado/labels
-- [ ] Abas Escrever/Visualizar (Markdown+GFM) no campo de descrição, nos formulários de tarefa e no
-      dialog de subtarefa da feature 012
-- [ ] Strip de markdown na prévia truncada dos cards (ajusta o preview de descrição da feature 012)
-- [ ] Campo "Link externo" no formulário de tarefa + parsing de URL de issue do GitHub
-- [ ] Chip de issue do GitHub nos cards (estado colorido) + chip genérico para outras URLs
-- [ ] `npm run build && npm run lint` limpos + verificação manual (colar link de uma issue real e
-      ver o chip com estado correto; markdown com lista/checklist/tabela renderizando na prévia)
+- [x] Instalar `react-markdown` + `remark-gfm`
+- [x] Migration escrita (`20260807160000_task_external_link.sql`): `task.external_url`,
+      `task.external_provider` (text, nullable) — **aplicada ao banco remoto** (junto com o push
+      da feature 010)
+- [x] Types: `Task.external_url`/`external_provider`; `TaskCreateRequest` idem
+- [x] `domain/tasks/externalLink.ts`: `detectGitHubLink`/`detectExternalProvider`, função pura de
+      detecção de URL do GitHub (owner/repo/número, issue ou PR) — 7 testes Vitest
+- [x] `TaskDescriptionField.tsx`: abas Escrever/Visualizar (Markdown+GFM) compartilhado, usado nos
+      dois formulários de tarefa (`TaskList.tsx`, `ProjectDetail.tsx`), no dialog de subtarefa da
+      feature 012 e no dialog enxuto de tarefa da Agenda (feature 016)
+- [x] `stripMarkdown` (`lib/markdown.ts`) na prévia truncada dos cards (`TaskListRow`,
+      `KanbanCard`, checklist de subtarefas) — 4 testes Vitest
+- [x] Campo "Link externo" no formulário de tarefa (`TaskList.tsx`, `ProjectDetail.tsx`) + detecção
+      síncrona de URL do GitHub ao digitar
+- [x] `ExternalLinkChip` nos cards (ícone GitHub + "owner/repo#N", ou chip genérico "Link externo"
+      pra outras URLs) em `TaskListRow` e `KanbanCard`
+- [x] `npm run build && npm run lint` limpos (372 testes Vitest passando, 0 erros de lint, `tsc -b`
+      limpo)
+- [ ] Verificação manual no navegador (colar link de uma issue real e ver o chip; markdown com
+      lista/checklist/tabela renderizando na prévia) — **bloqueada**: sem credenciais de login
+      disponíveis nesta sessão, mesmo bloqueio já registrado nas features anteriores
 
 ## Notas
-- Depende de um Personal Access Token do GitHub configurado como secret da Edge Function —
-  confirmar com o usuário qual conta/token usar e o escopo mínimo necessário (`public_repo` cobre
-  repositórios públicos; `repo` só é necessário se algum link for para repositório privado) antes
-  de configurar.
+- Escopo revisado pelo usuário durante a implementação: removida a busca ao vivo de
+  título/estado via API do GitHub (e o token/Edge Function que isso exigiria). A rastreabilidade
+  pedida fica só com link + identificação visual de que é uma issue/PR do GitHub, sem estado.
+- `TaskDescriptionField` também foi aplicado ao dialog enxuto de tarefa da Agenda (feature 016,
+  `CalendarTaskDialog`), não previsto explicitamente no plano original, por consistência — não faria
+  sentido esse dialog continuar com textarea puro depois desta feature.
+- Prévia de markdown renderizada sem `@tailwindcss/typography` (plugin `prose`, não instalado no
+  projeto) — estilização manual via seletores `[&_tag]:classe` no Tailwind, cobrindo listas,
+  tabela, código inline, links e riscado. Suficiente pro conjunto de elementos GFM usado aqui, mas
+  é uma superfície menor que o plugin `prose` cobriria (ex.: blockquote sem estilo custom).

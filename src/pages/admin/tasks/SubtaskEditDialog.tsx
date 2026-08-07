@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/DatePicker";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS } from "@/components/FormLabel";
+import { TaskDescriptionField } from "./TaskDescriptionField";
 import { formatLocalIsoDate } from "@/lib/dates";
 import type { Task } from "@/types/tasks";
 
@@ -57,11 +58,7 @@ export function SubtaskEditDialog({
           </div>
           <div>
             <FormLabel optional>Descrição</FormLabel>
-            <textarea
-              className="flex min-h-[64px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+            <TaskDescriptionField value={description} onChange={setDescription} />
           </div>
           <div>
             <FormLabel optional>Prazo</FormLabel>

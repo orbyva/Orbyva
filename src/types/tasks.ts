@@ -90,6 +90,9 @@ export interface Task {
   recurrence_rule: RecurrenceRule | null;
   linked_recurring_id: string | null;
   linked_installment_number: number | null;
+  /** Link externo genérico (ex.: issue/PR do GitHub) — provider é detectado no cliente pela URL. */
+  external_url?: string | null;
+  external_provider?: string | null;
   completed_at?: string | null;
   created_at?: string;
   updated_at?: string;
