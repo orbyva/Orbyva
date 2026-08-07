@@ -44,6 +44,7 @@ type PlaceCatalogSearchProps = {
   /** Destino de viagem: só país / estado / cidade. */
   scope?: "all" | "regions";
   placeholder?: string;
+  required?: boolean;
 };
 
 function isSearchAbortError(err: unknown): boolean {
@@ -62,6 +63,7 @@ export function PlaceCatalogSearch({
   label = "Buscar local",
   scope = "all",
   placeholder,
+  required = false,
 }: PlaceCatalogSearchProps) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<PlaceSearchHit[]>([]);
@@ -218,7 +220,9 @@ export function PlaceCatalogSearch({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <FormLabel optional>{label}</FormLabel>
+      <FormLabel required={required} optional={!required}>
+        {label}
+      </FormLabel>
       {locationDenied && !biasProp ? (
         <p className="text-xs text-muted-foreground">
           Localização negada — a busca funciona, mas sem priorizar lugares

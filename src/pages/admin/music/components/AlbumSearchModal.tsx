@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,7 +14,7 @@ import {
 } from "@/lib/musicCatalog";
 import { createAlbum } from "@/api/albums";
 import type { Album, AlbumCreateRequest } from "@/types/music";
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
 import { ScoreRating } from "@/components/ScoreRating";
@@ -32,6 +32,10 @@ import {
 } from "@/domain/music";
 import { formatLocalIsoDate } from "@/domain/entertainment/insights";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  isAbortError,
+  useTypeaheadSearch,
+} from "@/hooks/useTypeaheadSearch";
 import { AlbumManualModal } from "./AlbumManualModal";
 
 interface AlbumSearchModalProps {
@@ -73,15 +77,43 @@ export function AlbumSearchModal({
   >(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualDraft, setManualDraft] = useState({ title: "", artists: "" });
-  const searchAbortRef = useRef<AbortController | null>(null);
 
   const { toast } = useToast();
 
-  useEffect(() => {
-    return () => {
-      searchAbortRef.current?.abort();
-    };
+  const clearSearchResults = useCallback(() => {
+    setSearchResults([]);
+    setSearchProvider(null);
+    setHasSearched(false);
+    setFormError("");
+    setLoading(false);
   }, []);
+
+  const runTypeahead = useCallback(async (q: string, signal: AbortSignal) => {
+    setFormError("");
+    setLoading(true);
+    setHasSearched(false);
+    try {
+      const { hits, provider } = await searchAlbums(q, signal);
+      if (signal.aborted) return;
+      setSearchResults(hits);
+      setSearchProvider(provider);
+      setHasSearched(true);
+    } catch (error) {
+      if (signal.aborted || isAbortError(error)) return;
+      setSearchResults([]);
+      setHasSearched(true);
+      setFormError(getErrorMessage(error, "Falha na busca."));
+    } finally {
+      if (!signal.aborted) setLoading(false);
+    }
+  }, []);
+
+  useTypeaheadSearch({
+    query,
+    enabled: isOpen && step === "search",
+    run: runTypeahead,
+    onClear: clearSearchResults,
+  });
 
   function openManual() {
     setManualDraft(parseAlbumSearchQuery(query));
@@ -94,39 +126,6 @@ export function AlbumSearchModal({
     setIsOpen(false);
     resetState();
     onAlbumAdded();
-  }
-
-  async function handleSearch() {
-    if (!query.trim()) {
-      setFormError("Digite o álbum ou artista.");
-      return;
-    }
-    setFormError("");
-    setLoading(true);
-    setHasSearched(false);
-
-    searchAbortRef.current?.abort();
-    const controller = new AbortController();
-    searchAbortRef.current = controller;
-
-    try {
-      const { hits, provider } = await searchAlbums(
-        query.trim(),
-        controller.signal
-      );
-      if (controller.signal.aborted) return;
-      setSearchResults(hits);
-      setSearchProvider(provider);
-      setHasSearched(true);
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setSearchResults([]);
-      setHasSearched(true);
-      setFormError(getErrorMessage(error, "Falha na busca."));
-    } finally {
-      if (!controller.signal.aborted) setLoading(false);
-    }
   }
 
   function handleSelect(hit: AlbumSearchHit) {
@@ -185,7 +184,6 @@ export function AlbumSearchModal({
   }
 
   function resetState() {
-    searchAbortRef.current?.abort();
     setStep("search");
     setQuery("");
     setSearchResults([]);
@@ -230,29 +228,24 @@ export function AlbumSearchModal({
           {step === "search" ? (
             <div className={FORM_FIELDS_CLASS}>
               <FormLabel required>Busca</FormLabel>
-              <Input
-                type="text"
-                placeholder="Álbum ou artista…"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setHasSearched(false);
-                  setSearchResults([]);
-                  setSearchProvider(null);
-                  setFormError("");
-                }}
-                onKeyDown={(e) => e.key === "Enter" && void handleSearch()}
-              />
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Digite álbum ou artista…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  autoComplete="off"
+                />
+                {loading ? (
+                  <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                ) : null}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Resultados aparecem conforme você digita.
+              </p>
               {formError && (
                 <p className="text-sm text-destructive">{formError}</p>
               )}
-              <Button
-                onClick={() => void handleSearch()}
-                disabled={loading}
-                className="w-full"
-              >
-                {loading ? "Consultando…" : "Buscar"}
-              </Button>
 
               {searchResults.length > 0 && (
                 <div className="max-h-[55vh] space-y-2 overflow-y-auto sm:max-h-[300px]">

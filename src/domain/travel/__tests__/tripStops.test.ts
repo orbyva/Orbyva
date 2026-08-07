@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assignStopToDate,
   destinationFieldsFromStops,
   stopForDate,
   validateTripStops,
@@ -75,5 +76,79 @@ describe("tripStops", () => {
         "2026-08-15"
       )
     ).toMatch(/dentro das datas/);
+  });
+
+  it("assignStopToDate parte intervalo e cria parada do dia", () => {
+    const next = assignStopToDate(
+      [
+        {
+          name: "Madrid",
+          place_id: "mad",
+          lat: 40.4,
+          lng: -3.7,
+          start_date: "2026-08-06",
+          end_date: "2026-08-12",
+          sort_order: 0,
+        },
+      ],
+      "2026-08-09",
+      { name: "Toledo", place_id: "tol", lat: 39.8, lng: -4.0 }
+    );
+    expect(next).toEqual([
+      {
+        name: "Madrid",
+        place_id: "mad",
+        lat: 40.4,
+        lng: -3.7,
+        start_date: "2026-08-06",
+        end_date: "2026-08-08",
+        sort_order: 0,
+      },
+      {
+        name: "Toledo",
+        place_id: "tol",
+        lat: 39.8,
+        lng: -4.0,
+        start_date: "2026-08-09",
+        end_date: "2026-08-09",
+        sort_order: 1,
+      },
+      {
+        name: "Madrid",
+        place_id: "mad",
+        lat: 40.4,
+        lng: -3.7,
+        start_date: "2026-08-10",
+        end_date: "2026-08-12",
+        sort_order: 2,
+      },
+    ]);
+  });
+
+  it("assignStopToDate substitui parada de um único dia", () => {
+    const next = assignStopToDate(
+      [
+        {
+          name: "Madrid",
+          start_date: "2026-08-09",
+          end_date: "2026-08-09",
+          sort_order: 0,
+        },
+        {
+          name: "Paris",
+          start_date: "2026-08-10",
+          end_date: "2026-08-12",
+          sort_order: 1,
+        },
+      ],
+      "2026-08-09",
+      { name: "Toledo" }
+    );
+    expect(next.map((s) => s.name)).toEqual(["Toledo", "Paris"]);
+    expect(next[0]).toMatchObject({
+      start_date: "2026-08-09",
+      end_date: "2026-08-09",
+      sort_order: 0,
+    });
   });
 });

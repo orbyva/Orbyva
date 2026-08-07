@@ -8,9 +8,9 @@ describe("normalizeTripActivityCategory", () => {
     expect(normalizeTripActivityCategory("")).toBe("attraction");
   });
 
-  it("mapeia legado flight/transport/activity", () => {
-    expect(normalizeTripActivityCategory("flight")).toBe("other");
-    expect(normalizeTripActivityCategory("transport")).toBe("other");
+  it("mapeia legado flight/activity; transport permanece", () => {
+    expect(normalizeTripActivityCategory("flight")).toBe("transport");
+    expect(normalizeTripActivityCategory("transport")).toBe("transport");
     expect(normalizeTripActivityCategory("activity")).toBe("attraction");
   });
 

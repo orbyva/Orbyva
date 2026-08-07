@@ -48,3 +48,6 @@ supabase/.branches/
 /playwright/.cache/
 .lighthouseci
 .venv-tts/
+
+docs/improve.md
+docs/superpowers

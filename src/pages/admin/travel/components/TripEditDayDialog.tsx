@@ -11,8 +11,14 @@ import {
   FORM_DIALOG_CONTENT_CLASS,
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
+import { PlaceCatalogSearch } from "@/components/PlaceCatalogSearch";
+import type { TripStopInput } from "@/domain/travel/tripStops";
 
-type DayForm = { title: string; notes: string };
+type DayForm = {
+  title: string;
+  notes: string;
+  stop: TripStopInput | null;
+};
 
 type Props = {
   open: boolean;
@@ -50,6 +56,31 @@ export function TripEditDayDialog({
               onChange={(e) => onChange({ ...form, notes: e.target.value })}
               placeholder="Observações do dia"
             />
+          </div>
+          <div className="space-y-1">
+            <PlaceCatalogSearch
+              label="Parada deste dia"
+              scope="regions"
+              selectedLabel={form.stop?.name ?? null}
+              onClear={() => onChange({ ...form, stop: null })}
+              onPick={(hit) =>
+                onChange({
+                  ...form,
+                  stop: {
+                    name: hit.name.trim(),
+                    place_id: hit.google_place_id?.trim() || null,
+                    lat: hit.lat ?? null,
+                    lng: hit.lng ?? null,
+                    start_date: form.stop?.start_date ?? "",
+                    end_date: form.stop?.end_date ?? "",
+                  },
+                })
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              País, estado ou cidade. Se a parada atual cobrir vários dias, o
+              intervalo é partido e este dia fica com a cidade escolhida.
+            </p>
           </div>
           <Button onClick={onSave} className="w-full">
             Salvar

@@ -25,6 +25,7 @@ import {
   registerMyExpenseSplit,
   updateItineraryActivity,
   updateItineraryDayNotes,
+  updateTrip,
   updateTripExpense,
   updateTripMilestone,
 } from "@/api/travel";
@@ -42,6 +43,24 @@ import {
 } from "@/domain/travel";
 import { sortVisitsForDay } from "@/domain/itinerary/visits";
 import { tripLedgerDescription } from "@/domain/travel/ledger";
+import {
+  assignStopToDate,
+  stopForDate,
+  type TripStopInput,
+} from "@/domain/travel/tripStops";
+import {
+  transferTimesConflictWithVisits,
+  visitTimeConflictsWithTransfers,
+  isTransportActivity,
+} from "@/domain/travel/interDayTransfers";
+import {
+  endpointsFromTransferTitle,
+  hasRequiredTransferEndpoints,
+  normalizeTripTransportMode,
+  transferEndpointsTitle,
+  type TransferEndpoint,
+  type TripTransportMode,
+} from "@/domain/travel/transportModes";
 import type {
   TripExpense,
   TripExpenseCategory,
@@ -105,13 +124,19 @@ export default function TripDetail() {
   const [shareOpen, setShareOpen] = useState(false);
 
   const [editingDay, setEditingDay] = useState<TripItineraryDay | null>(null);
-  const [dayForm, setDayForm] = useState({ title: "", notes: "" });
+  const [dayForm, setDayForm] = useState<{
+    title: string;
+    notes: string;
+    stop: TripStopInput | null;
+  }>({ title: "", notes: "", stop: null });
   const [editingActivity, setEditingActivity] =
     useState<TripItineraryActivity | null>(null);
   const [addingDayId, setAddingDayId] = useState<string | null>(null);
   const [activityForm, setActivityForm] = useState<{
     title: string;
     activity_time: string;
+    arrival_time: string;
+    transport_mode: TripTransportMode;
     notes: string;
     link_url: string;
     is_reserved: boolean;
@@ -119,9 +144,13 @@ export default function TripDetail() {
     place_visit_id: string | null;
     linked_place_label: string | null;
     pending_catalog: import("@/components/PlaceCatalogSearch").PlaceCatalogPick | null;
+    origin: TransferEndpoint | null;
+    destination: TransferEndpoint | null;
   }>({
     title: "",
     activity_time: "",
+    arrival_time: "",
+    transport_mode: "other",
     notes: "",
     link_url: "",
     is_reserved: false,
@@ -129,6 +158,8 @@ export default function TripDetail() {
     place_visit_id: null,
     linked_place_label: null,
     pending_catalog: null,
+    origin: null,
+    destination: null,
   });
 
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm());
@@ -472,6 +503,8 @@ export default function TripDetail() {
     return {
       title: "",
       activity_time: "",
+      arrival_time: "",
+      transport_mode: "other" as TripTransportMode,
       notes: "",
       link_url: "",
       is_reserved: false,
@@ -479,6 +512,8 @@ export default function TripDetail() {
       place_visit_id: null as string | null,
       linked_place_label: null as string | null,
       pending_catalog: null as import("@/components/PlaceCatalogSearch").PlaceCatalogPick | null,
+      origin: null as TransferEndpoint | null,
+      destination: null as TransferEndpoint | null,
     };
   }
 
@@ -488,13 +523,34 @@ export default function TripDetail() {
     setActivityForm(emptyActivityForm());
   }
 
+  function openAddTransfer(dayId: string) {
+    setEditingActivity(null);
+    setAddingDayId(dayId);
+    setActivityForm({
+      ...emptyActivityForm(),
+      category: "transport",
+      transport_mode: "car",
+      is_reserved: false,
+    });
+  }
+
   function openActivityEdit(act: TripItineraryActivity) {
     setAddingDayId(null);
     setEditingActivity(act);
     const linked = places.find((p) => p.id === act.place_visit_id);
+    const isTransfer =
+      normalizeTripActivityCategory(act.category) === "transport";
+    const fromTitle = isTransfer
+      ? endpointsFromTransferTitle(act.title)
+      : null;
+    const originLabel = act.origin_label?.trim() || fromTitle?.originLabel;
+    const destinationLabel =
+      act.destination_label?.trim() || fromTitle?.destinationLabel;
     setActivityForm({
       title: act.title,
       activity_time: act.activity_time ?? "",
+      arrival_time: act.arrival_time ?? "",
+      transport_mode: normalizeTripTransportMode(act.transport_mode),
       notes: act.notes ?? "",
       link_url: act.link_url ?? "",
       is_reserved: Boolean(act.is_reserved),
@@ -502,6 +558,22 @@ export default function TripDetail() {
       place_visit_id: act.place_visit_id ?? null,
       linked_place_label: linked?.name ?? null,
       pending_catalog: null,
+      origin: isTransfer && originLabel
+        ? {
+            label: originLabel,
+            lat: act.origin_lat ?? null,
+            lng: act.origin_lng ?? null,
+            place_id: act.origin_place_id ?? null,
+          }
+        : null,
+      destination: isTransfer && destinationLabel
+        ? {
+            label: destinationLabel,
+            lat: act.destination_lat ?? null,
+            lng: act.destination_lng ?? null,
+            place_id: act.destination_place_id ?? null,
+          }
+        : null,
     });
   }
 
@@ -531,20 +603,103 @@ export default function TripDetail() {
   }
 
   async function handleSaveActivity() {
-    if (!activityForm.title.trim()) {
+    const isTransfer = activityForm.category === "transport";
+    if (isTransfer) {
+      if (
+        !hasRequiredTransferEndpoints(
+          activityForm.origin?.label,
+          activityForm.destination?.label
+        )
+      ) {
+        toast({
+          title: "Origem e destino obrigatórios",
+          description: "Escolha país, estado ou cidade em ambos.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (!activityForm.title.trim()) {
       toast({
         title: "Informe o título da visita",
         variant: "destructive",
       });
       return;
     }
+    const dayId = addingDayId ?? editingActivity?.day_id ?? null;
+    if (!trip || !dayId) return;
+
+    if (isTransfer) {
+      const conflict = transferTimesConflictWithVisits({
+        dayId,
+        departTime: activityForm.activity_time,
+        arriveTime: activityForm.arrival_time,
+        days: trip.itinerary,
+        excludeActivityId: editingActivity?.id,
+      });
+      if (conflict) {
+        toast({
+          title: "Horário conflita com visita",
+          description: conflict.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      const conflict = visitTimeConflictsWithTransfers({
+        dayId,
+        activityTime: activityForm.activity_time,
+        days: trip.itinerary,
+        excludeActivityId: editingActivity?.id,
+      });
+      if (conflict) {
+        toast({
+          title: "Horário dentro do deslocamento",
+          description: conflict.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
-      const placeVisitId = await resolvePlaceVisitId();
+      const placeVisitId = isTransfer ? null : await resolvePlaceVisitId();
+      const title = isTransfer
+        ? transferEndpointsTitle(
+            activityForm.origin!.label,
+            activityForm.destination!.label
+          )
+        : activityForm.title.trim();
+      const transferFields = isTransfer
+        ? {
+            origin_label: activityForm.origin!.label.trim(),
+            origin_lat: activityForm.origin!.lat,
+            origin_lng: activityForm.origin!.lng,
+            origin_place_id: activityForm.origin!.place_id,
+            destination_label: activityForm.destination!.label.trim(),
+            destination_lat: activityForm.destination!.lat,
+            destination_lng: activityForm.destination!.lng,
+            destination_place_id: activityForm.destination!.place_id,
+            transport_mode: activityForm.transport_mode,
+            arrival_time: activityForm.arrival_time.trim() || null,
+          }
+        : {
+            origin_label: null,
+            origin_lat: null,
+            origin_lng: null,
+            origin_place_id: null,
+            destination_label: null,
+            destination_lat: null,
+            destination_lng: null,
+            destination_place_id: null,
+            transport_mode: null,
+            arrival_time: null,
+          };
+
       if (addingDayId) {
-        const day = trip!.itinerary.find((d) => d.id === addingDayId);
+        const day = trip.itinerary.find((d) => d.id === addingDayId);
         await createItineraryActivity({
           day_id: addingDayId,
-          title: activityForm.title.trim(),
+          title,
           activity_time: activityForm.activity_time.trim() || null,
           notes: activityForm.notes.trim() || null,
           link_url: activityForm.link_url.trim() || null,
@@ -552,21 +707,29 @@ export default function TripDetail() {
           category: normalizeTripActivityCategory(activityForm.category),
           place_visit_id: placeVisitId,
           sort_order: (day?.activities?.length ?? 0) + 1,
+          ...transferFields,
         });
-        toast({ title: "Visita adicionada!", duration: 2000 });
+        toast({
+          title: isTransfer ? "Deslocamento adicionado!" : "Visita adicionada!",
+          duration: 2000,
+        });
         setAddingDayId(null);
       } else if (editingActivity) {
         await updateItineraryActivity({
           id: editingActivity.id,
-          title: activityForm.title.trim(),
+          title,
           activity_time: activityForm.activity_time.trim() || null,
           notes: activityForm.notes.trim() || null,
           link_url: activityForm.link_url.trim() || null,
           is_reserved: activityForm.is_reserved,
           category: normalizeTripActivityCategory(activityForm.category),
           place_visit_id: placeVisitId,
+          ...transferFields,
         });
-        toast({ title: "Visita atualizada!", duration: 2000 });
+        toast({
+          title: isTransfer ? "Deslocamento atualizado!" : "Visita atualizada!",
+          duration: 2000,
+        });
         setEditingActivity(null);
       }
       load();
@@ -619,6 +782,22 @@ export default function TripDetail() {
       (activity) => activity.id === actId
     );
     if (!sourceDay || !targetDay || !moving) return;
+
+    if (!isTransportActivity(moving) && moving.activity_time) {
+      const conflict = visitTimeConflictsWithTransfers({
+        dayId: targetDayId,
+        activityTime: moving.activity_time,
+        days: trip.itinerary,
+      });
+      if (conflict) {
+        toast({
+          title: "Horário dentro do deslocamento",
+          description: conflict.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     const sortActivities = (activities: TripItineraryActivity[]) =>
       sortVisitsForDay(activities);
@@ -695,20 +874,73 @@ export default function TripDetail() {
 
   function openDayEdit(day: TripItineraryDay) {
     setEditingDay(day);
+    const currentStop =
+      day.date && trip?.stops?.length
+        ? stopForDate(trip.stops, day.date)
+        : null;
     setDayForm({
       title: day.title ?? `Dia ${day.day_number}`,
       notes: day.notes ?? "",
+      stop: currentStop
+        ? {
+            name: currentStop.name,
+            place_id: currentStop.place_id ?? null,
+            lat: currentStop.lat ?? null,
+            lng: currentStop.lng ?? null,
+            start_date: day.date!,
+            end_date: day.date!,
+          }
+        : null,
     });
   }
 
   async function handleSaveDay() {
-    if (!editingDay) return;
+    if (!editingDay || !trip) return;
     try {
       await updateItineraryDayNotes(
         editingDay.id,
         dayForm.notes.trim() || null,
         dayForm.title.trim() || null
       );
+
+      const stopName = dayForm.stop?.name.trim();
+      if (stopName && editingDay.date) {
+        const currentStop = trip.stops?.length
+          ? stopForDate(trip.stops, editingDay.date)
+          : null;
+        const stopChanged =
+          !currentStop ||
+          currentStop.name.trim() !== stopName ||
+          (currentStop.place_id ?? null) !==
+            (dayForm.stop?.place_id ?? null) ||
+          (currentStop.lat ?? null) !== (dayForm.stop?.lat ?? null) ||
+          (currentStop.lng ?? null) !== (dayForm.stop?.lng ?? null);
+
+        if (stopChanged) {
+          const currentInputs: TripStopInput[] = (trip.stops ?? []).map(
+            (s, i) => ({
+              name: s.name,
+              place_id: s.place_id ?? null,
+              lat: s.lat ?? null,
+              lng: s.lng ?? null,
+              start_date: s.start_date,
+              end_date: s.end_date,
+              sort_order: s.sort_order ?? i,
+            })
+          );
+          const nextStops = assignStopToDate(currentInputs, editingDay.date, {
+            name: stopName,
+            place_id: dayForm.stop?.place_id ?? null,
+            lat: dayForm.stop?.lat ?? null,
+            lng: dayForm.stop?.lng ?? null,
+          });
+          await updateTrip({
+            id: trip.id,
+            stops: nextStops,
+          });
+        }
+      }
+
       toast({ title: "Dia atualizado!", duration: 2000 });
       setEditingDay(null);
       load();
@@ -881,6 +1113,7 @@ export default function TripDetail() {
           onEditDay={openDayEdit}
           onEditActivity={openActivityEdit}
           onAddActivity={openAddActivity}
+          onAddTransfer={openAddTransfer}
           onReload={load}
           onVisitStatusChange={patchVisitStatusLocal}
           onMoveVisit={moveVisitToDay}

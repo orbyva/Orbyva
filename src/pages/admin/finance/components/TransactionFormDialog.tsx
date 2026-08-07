@@ -28,6 +28,8 @@ interface TransactionFormDialogProps {
   onClose: () => void;
   /** Prefill / filter Natureza by name (e.g. "Despesa") when creating. */
   preferredNatureName?: string | null;
+  /** Oculta o botão trigger (ex.: Quick Add host). */
+  hideTrigger?: boolean;
 }
 
 export function TransactionFormDialog({
@@ -40,6 +42,7 @@ export function TransactionFormDialog({
   isEditing,
   onClose,
   preferredNatureName = null,
+  hideTrigger = false,
 }: TransactionFormDialogProps) {
   const [formError, setFormError] = useState<string>("");
 
@@ -78,7 +81,7 @@ export function TransactionFormDialog({
         }
       }}
     >
-      {!isEditing && (
+      {!isEditing && !hideTrigger && (
         <DialogTrigger asChild>
           <Button className="w-full sm:w-auto">Adicionar transação</Button>
         </DialogTrigger>

@@ -181,6 +181,11 @@ export default defineConfig({
     },
   },
   server: {
+    // Em dev, evita o browser reusar chunk antigo de node_modules/.vite/deps
+    // depois de reiniciar o servidor (erro "file does not exist … chunk-*.js").
+    headers: {
+      "Cache-Control": "no-store",
+    },
     proxy: {
       "/tmdb-media": {
         target: "https://image.tmdb.org",

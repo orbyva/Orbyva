@@ -3,6 +3,7 @@ import { deleteTransactionApi, insertTransaction } from "@/api/finance";
 import type { TransactionCreateRequest } from "@/types/finance";
 import {
   generateItineraryDays,
+  planItineraryDateSync,
 } from "@/domain/travel";
 import type {
   Trip,
@@ -135,7 +136,7 @@ const EXPENSE_SELECT =
 const DAY_SELECT = "id, trip_id, day_number, date, title, notes";
 
 const ACTIVITY_SELECT =
-  "id, day_id, title, activity_time, notes, place_visit_id, sort_order, link_url, is_reserved, category, visit_status, completed_at, skipped_at, created_by_user_id, created_by_name, created_by_avatar";
+  "id, day_id, title, activity_time, arrival_time, notes, place_visit_id, sort_order, link_url, is_reserved, category, visit_status, completed_at, skipped_at, created_by_user_id, created_by_name, created_by_avatar";
 
 const MILESTONE_SELECT =
   "id, trip_id, title, type, due_date, done, notes";
@@ -441,9 +442,61 @@ async function seedTripDefaults(trip: Trip): Promise<void> {
   }
 }
 
+/** Alinha `trip_itinerary_day` ao intervalo atual da viagem. */
+async function syncItineraryDaysToTripDates(
+  tripId: string,
+  startDate: string,
+  endDate: string
+): Promise<void> {
+  const { data: days, error } = await supabase
+    .from("trip_itinerary_day")
+    .select("id, date, day_number, title")
+    .eq("trip_id", tripId);
+  if (error) throw new Error(error.message);
+
+  const plan = planItineraryDateSync(tripId, startDate, endDate, days ?? []);
+
+  if (plan.deleteIds.length > 0) {
+    const { error: actError } = await supabase
+      .from("trip_itinerary_activity")
+      .delete()
+      .in("day_id", plan.deleteIds);
+    if (actError) throw new Error(actError.message);
+
+    const { error: dayError } = await supabase
+      .from("trip_itinerary_day")
+      .delete()
+      .in("id", plan.deleteIds);
+    if (dayError) throw new Error(dayError.message);
+  }
+
+  for (const u of plan.updates) {
+    const { error: updError } = await supabase
+      .from("trip_itinerary_day")
+      .update({ day_number: u.day_number, title: u.title })
+      .eq("id", u.id);
+    if (updError) throw new Error(updError.message);
+  }
+
+  if (plan.insert.length > 0) {
+    const { error: insError } = await supabase
+      .from("trip_itinerary_day")
+      .insert(plan.insert);
+    if (insError) throw new Error(insError.message);
+  }
+}
+
 export async function updateTrip(data: TripUpdateRequest): Promise<void> {
   const { id, stops, ...fields } = data;
   await assertTripAccess(id);
+
+  const { data: before, error: beforeError } = await supabase
+    .from("trip")
+    .select("start_date, end_date")
+    .eq("id", id)
+    .maybeSingle();
+  if (beforeError) throw new Error(beforeError.message);
+  if (!before) throw new Error("Viagem não encontrada.");
 
   const stopInputs =
     stops !== undefined ? normalizeStopInputs(stops) : undefined;
@@ -464,6 +517,16 @@ export async function updateTrip(data: TripUpdateRequest): Promise<void> {
 
   if (stopInputs) {
     await replaceTripStops(id, stopInputs);
+  }
+
+  const nextStart =
+    typeof patch.start_date === "string" ? patch.start_date : before.start_date;
+  const nextEnd =
+    typeof patch.end_date === "string" ? patch.end_date : before.end_date;
+  const datesChanged =
+    nextStart !== before.start_date || nextEnd !== before.end_date;
+  if (datesChanged) {
+    await syncItineraryDaysToTripDates(id, nextStart, nextEnd);
   }
 }
 
@@ -912,6 +975,40 @@ export async function deleteTripExpense(
 
 // ── Itinerary ────────────────────────────────────────────────────────
 
+const TRANSFER_ENDPOINT_KEYS = [
+  "origin_label",
+  "origin_lat",
+  "origin_lng",
+  "origin_place_id",
+  "destination_label",
+  "destination_lat",
+  "destination_lng",
+  "destination_place_id",
+] as const;
+
+function stripMissingActivityColumns(
+  payload: Record<string, unknown>,
+  message: string
+): { payload: Record<string, unknown>; stripped: boolean } {
+  let next = { ...payload };
+  let stripped = false;
+  const drop = (key: string) => {
+    if (!(key in next)) return;
+    const { [key]: _removed, ...rest } = next;
+    void _removed;
+    next = rest;
+    stripped = true;
+  };
+  if (message.includes("arrival_time")) drop("arrival_time");
+  if (message.includes("transport_mode")) drop("transport_mode");
+  if (message.includes("transport_scope")) drop("transport_scope");
+  // Endpoints vão juntos: se o schema ainda não tem uma, remove o bloco todo.
+  if (TRANSFER_ENDPOINT_KEYS.some((key) => message.includes(key))) {
+    for (const key of TRANSFER_ENDPOINT_KEYS) drop(key);
+  }
+  return { payload: next, stripped };
+}
+
 export async function fetchTripItinerary(tripId: string): Promise<TripItineraryDay[]> {
   await assertTripAccess(tripId);
   const { data: days, error } = await supabase
@@ -981,20 +1078,58 @@ export async function createItineraryActivity(
 
   if (!first.error) return first.data;
 
-  // Colunas de autor ainda não migradas — cria sem elas
-  const missingAuthorCols =
-    first.error.message.includes("created_by") ||
-    first.error.code === "PGRST204";
-  if (!missingAuthorCols) throw new Error(first.error.message);
+  const msg = first.error.message;
+  const missingAuthor =
+    msg.includes("created_by") || first.error.code === "PGRST204";
+  const stripped = stripMissingActivityColumns({ ...withAuthor }, msg);
+  if (!stripped.stripped && !missingAuthor) throw new Error(msg);
 
-  const fallback = await supabase
+  const payload: Record<string, unknown> = stripped.payload;
+
+  let retry = await supabase
     .from("trip_itinerary_activity")
-    .insert([activity])
+    .insert([payload])
     .select()
     .single();
-  if (fallback.error) throw new Error(fallback.error.message);
+
+  if (
+    retry.error &&
+    (retry.error.message.includes("created_by") ||
+      retry.error.code === "PGRST204")
+  ) {
+    const {
+      created_by_user_id: _u,
+      created_by_name: _n,
+      created_by_avatar: _v,
+      ...rest
+    } = payload;
+    void _u;
+    void _n;
+    void _v;
+    retry = await supabase
+      .from("trip_itinerary_activity")
+      .insert([rest])
+      .select()
+      .single();
+  }
+
+  if (retry.error) {
+    const again = stripMissingActivityColumns(
+      payload,
+      retry.error.message
+    );
+    if (again.stripped) {
+      retry = await supabase
+        .from("trip_itinerary_activity")
+        .insert([again.payload])
+        .select()
+        .single();
+    }
+  }
+
+  if (retry.error) throw new Error(retry.error.message);
   return {
-    ...fallback.data,
+    ...retry.data,
     created_by_user_id: userId,
     created_by_name,
     created_by_avatar,
@@ -1026,7 +1161,20 @@ export async function updateItineraryActivity(
     .from("trip_itinerary_activity")
     .update(fields)
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (!error) return;
+
+  const msg = error.message;
+  const { payload: patch, stripped } = stripMissingActivityColumns(
+    { ...fields } as Record<string, unknown>,
+    msg
+  );
+  if (!stripped) throw new Error(msg);
+
+  const retry = await supabase
+    .from("trip_itinerary_activity")
+    .update(patch)
+    .eq("id", id);
+  if (retry.error) throw new Error(retry.error.message);
 }
 
 /** Checklist da visita: completed | skipped | pending (desfazer). */

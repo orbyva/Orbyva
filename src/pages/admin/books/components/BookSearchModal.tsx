@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,7 +15,7 @@ import {
 } from "@/lib/googleBooks";
 import { createBook } from "@/api/books";
 import type { Book, BookCreateRequest } from "@/types/books";
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
 import { ScoreRating } from "@/components/ScoreRating";
@@ -31,6 +31,10 @@ import {
 } from "@/domain/books";
 import { formatLocalIsoDate } from "@/domain/entertainment/insights";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  isAbortError,
+  useTypeaheadSearch,
+} from "@/hooks/useTypeaheadSearch";
 
 interface BookSearchModalProps {
   onBookAdded: () => void;
@@ -68,34 +72,44 @@ export function BookSearchModal({
   );
   const { toast } = useToast();
 
-  async function handleSearch() {
-    if (!query.trim()) {
-      setFormError("Digite o título ou autor.");
-      return;
-    }
+  const clearSearchResults = useCallback(() => {
+    setSearchResults([]);
+    setFormError("");
+    setLoading(false);
+  }, []);
 
+  const runTypeahead = useCallback(async (q: string, signal: AbortSignal) => {
     setFormError("");
     setLoading(true);
-
     try {
       if (!isGoogleBooksConfigured()) {
+        if (signal.aborted) return;
         setFormError(
           "Busca de livros temporariamente indisponível. Tente mais tarde."
         );
         return;
       }
-
-      const results = await searchGoogleBooks(query.trim());
+      const results = await searchGoogleBooks(q);
+      if (signal.aborted) return;
       setSearchResults(results);
       if (results.length === 0) {
         setFormError("Nenhum livro encontrado. Tente outro termo.");
       }
     } catch (error) {
+      if (signal.aborted || isAbortError(error)) return;
+      setSearchResults([]);
       setFormError(getErrorMessage(error, "Falha na busca."));
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  }
+  }, []);
+
+  useTypeaheadSearch({
+    query,
+    enabled: isOpen && step === "search",
+    run: runTypeahead,
+    onClear: clearSearchResults,
+  });
 
   async function handleSelectBook(hit: BookSearchHit) {
     setLoading(true);
@@ -200,21 +214,22 @@ export function BookSearchModal({
         {step === "search" ? (
           <div className={FORM_FIELDS_CLASS}>
             <FormLabel required>Busca</FormLabel>
-            <Input
-              type="text"
-              placeholder="Título, autor ou ISBN..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && void handleSearch()}
-            />
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Digite título, autor ou ISBN…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                autoComplete="off"
+              />
+              {loading ? (
+                <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Resultados aparecem conforme você digita.
+            </p>
             {formError && <p className="text-sm text-destructive">{formError}</p>}
-            <Button
-              onClick={() => void handleSearch()}
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? "Buscando..." : "Buscar"}
-            </Button>
 
             {searchResults.length > 0 && (
               <div className="max-h-[55vh] space-y-2 overflow-y-auto sm:max-h-[300px]">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,7 +16,7 @@ import {
 } from "@/lib/cinema";
 import { createMovie } from "@/api/movies";
 import { Movie, MovieCreateRequest, MovieStatus } from "@/types/movies";
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
 import { ScoreRating } from "@/components/ScoreRating";
@@ -28,6 +28,10 @@ import {
 import { formatMovieRating, getMovieRatingLabel } from "@/domain/movies";
 import { formatLocalIsoDate } from "@/domain/entertainment/insights";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  isAbortError,
+  useTypeaheadSearch,
+} from "@/hooks/useTypeaheadSearch";
 
 interface MovieSearchModalProps {
   onMovieAdded: () => void;
@@ -65,55 +69,68 @@ export function MovieSearchModal({
   );
   const { toast } = useToast();
 
-  async function handleSearch() {
-    if (!query.trim()) {
-      setFormError("Digite o IMDb ID ou o título.");
-      return;
-    }
-
+  const clearSearchResults = useCallback(() => {
+    setSearchResults([]);
     setFormError("");
-    setLoading(true);
+    setLoading(false);
+  }, []);
 
-    try {
-      let results: CinemaSearchHit[] = [];
-      if (/^tt\d+$/.test(query.trim())) {
-        const movie = await fetchCinemaByImdbId(query.trim());
-        if (movie) {
-          results = [
-            {
-              tmdb_id: 0,
-              media_type: movie.type === "series" ? "tv" : "movie",
-              title: movie.title,
-              year: movie.year,
-              poster: movie.poster ?? null,
-              overview: movie.plot,
-              imdb_id: movie.imdb_id,
-            },
-          ];
-          // Já temos detalhe completo — pula para details
-          setSelectedMovie(movie);
-          setSearchResults(results);
-          setStep("details");
-          return;
+  const runTypeahead = useCallback(
+    async (q: string, signal: AbortSignal) => {
+      setFormError("");
+      setLoading(true);
+      try {
+        let results: CinemaSearchHit[] = [];
+        if (/^tt\d+$/i.test(q)) {
+          const movie = await fetchCinemaByImdbId(q);
+          if (signal.aborted) return;
+          if (movie) {
+            results = [
+              {
+                tmdb_id: 0,
+                media_type: movie.type === "series" ? "tv" : "movie",
+                title: movie.title,
+                year: movie.year,
+                poster: movie.poster ?? null,
+                overview: movie.plot,
+                imdb_id: movie.imdb_id,
+              },
+            ];
+            setSelectedMovie(movie);
+            setSearchResults(results);
+            setStep("details");
+            return;
+          }
+        } else {
+          results = await searchCinema(q);
         }
-      } else {
-        results = await searchCinema(query.trim());
+        if (signal.aborted) return;
+        setSearchResults(results);
+        if (results.length === 0) {
+          setFormError(
+            isTmdbConfigured()
+              ? "Nenhum título encontrado. Tente outro nome."
+              : "Busca de cinema temporariamente indisponível. Tente mais tarde."
+          );
+        }
+      } catch (error) {
+        if (signal.aborted || isAbortError(error)) return;
+        setSearchResults([]);
+        setFormError(getErrorMessage(error, "Falha na busca."));
+      } finally {
+        if (!signal.aborted) setLoading(false);
       }
+    },
+    []
+  );
 
-      setSearchResults(results);
-      if (results.length === 0) {
-        setFormError(
-          isTmdbConfigured()
-            ? "Nenhum título encontrado. Tente outro nome."
-            : "Busca de cinema temporariamente indisponível. Tente mais tarde."
-        );
-      }
-    } catch (error) {
-      setFormError(getErrorMessage(error, "Falha na busca."));
-    } finally {
-      setLoading(false);
-    }
-  }
+  useTypeaheadSearch({
+    query,
+    enabled: isOpen && step === "search",
+    allowImdbId: true,
+    run: runTypeahead,
+    onClear: clearSearchResults,
+  });
 
   async function handleSelectMovie(hit: CinemaSearchHit) {
     setLoading(true);
@@ -226,17 +243,22 @@ export function MovieSearchModal({
         {step === "search" ? (
           <div className={FORM_FIELDS_CLASS}>
             <FormLabel required>Busca</FormLabel>
-            <Input
-              type="text"
-              placeholder="Título em português ou IMDb ID..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Digite o título ou IMDb ID…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                autoComplete="off"
+              />
+              {loading ? (
+                <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Resultados aparecem conforme você digita.
+            </p>
             {formError && <p className="text-sm text-destructive">{formError}</p>}
-            <Button onClick={handleSearch} disabled={loading} className="w-full">
-              {loading ? "Buscando..." : "Buscar"}
-            </Button>
 
             {searchResults.length > 0 && (
               <div className="max-h-[55vh] space-y-2 overflow-y-auto sm:max-h-[300px]">

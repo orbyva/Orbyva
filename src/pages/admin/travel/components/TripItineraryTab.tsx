@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import type { User } from "@supabase/supabase-js";
 import {
   CalendarCheck,
@@ -13,6 +14,7 @@ import {
   Minus,
   MoreHorizontal,
   Pencil,
+  Plane,
   Plus,
   SkipForward,
   Star,
@@ -56,6 +58,7 @@ import {
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { dropZoneAttrs, readDropZone } from "@/lib/dropZone";
+import { LIST_LAYOUT_TRANSITION } from "@/lib/layoutMotion";
 import { useTouchDrag } from "@/hooks/useTouchDrag";
 import { cn } from "@/lib/utils";
 import {
@@ -67,12 +70,19 @@ import {
   type VisitLike,
 } from "@/domain/itinerary/visits";
 import {
-  PLACE_TYPE_LABELS,
-  formatRating,
-  placeTypeMeta,
-} from "@/domain/places";
-import { normalizeTripActivityCategory } from "@/domain/travel";
+  ACTIVITY_CATEGORY_LABELS,
+  normalizeTripActivityCategory,
+} from "@/domain/travel";
+import {
+  isTransportActivity,
+} from "@/domain/travel/interDayTransfers";
+import {
+  TRIP_TRANSPORT_MODE_LABELS,
+  normalizeTripTransportMode,
+} from "@/domain/travel/transportModes";
+import { formatRating, placeTypeMeta } from "@/domain/places";
 import type { TripMember } from "@/types/tripSharing";
+import type { PlaceType } from "@/types/places";
 import type { PlaceVisit } from "@/types/places";
 import type {
   TripItineraryActivity,
@@ -81,7 +91,6 @@ import type {
 } from "@/types/travel";
 import { ItineraryNextRoutePanel } from "./ItineraryNextRoutePanel";
 import { stopForDate } from "@/domain/travel/tripStops";
-
 type TripItineraryTabProps = {
   itinerary: TripItineraryDay[];
   places: PlaceVisit[];
@@ -97,6 +106,8 @@ type TripItineraryTabProps = {
   onEditDay: (day: TripItineraryDay) => void;
   onEditActivity: (act: TripItineraryActivity) => void;
   onAddActivity: (dayId: string) => void;
+  /** Deslocamento como atividade do dia. */
+  onAddTransfer?: (dayId: string) => void;
   onReload: () => void;
   onVisitStatusChange: (
     actId: string,
@@ -169,6 +180,7 @@ export function TripItineraryTab({
   onEditDay,
   onEditActivity,
   onAddActivity,
+  onAddTransfer,
   onReload,
   onVisitStatusChange,
   onMoveVisit,
@@ -317,45 +329,46 @@ export function TripItineraryTab({
         />
       ) : null}
 
-      {itinerary.map((day) => (
-        <DayBlock
-          key={day.id}
-          day={day}
-          places={places}
-          members={members}
-          user={user}
-          todayIso={todayIso}
-          tripOrigin={tripOrigin}
-          originLabel={originLabel}
-          destinationLat={destinationLat}
-          destinationLng={destinationLng}
-          stops={stops}
-          routeRefresh={routeRefresh}
-          busyId={busyId}
-          disableRoutes={disableRoutes}
-          dragVisitId={dragVisitId}
-          isDropTarget={dropDayId === day.id && dragVisitId != null}
-          onEditDay={onEditDay}
-          onEditActivity={onEditActivity}
-          onAddActivity={onAddActivity}
-          onReload={onReload}
-          onSetStatus={setStatus}
-          dragHandleProps={dragHandleProps}
-          onDragVisitStart={setDragVisitId}
-          onDragVisitEnd={() => {
-            setDragVisitId(null);
-            setDropDayId(null);
-          }}
-          onDragOverDay={() => setDropDayId(day.id)}
-          onDragLeaveDay={() =>
-            setDropDayId((cur) => (cur === day.id ? null : cur))
-          }
-          onDropOnDay={() =>
-            handleDrop(day.id, day.activities?.length ?? 0)
-          }
-          onDropBeforeVisit={(index) => handleDrop(day.id, index)}
-        />
-      ))}
+      <LayoutGroup id="trip-itinerary-visits">
+        {itinerary.map((day) => (
+          <DayBlock
+            key={day.id}
+            day={day}
+            places={places}
+            members={members}
+            user={user}
+            todayIso={todayIso}
+            tripOrigin={tripOrigin}
+            originLabel={originLabel}
+            destinationLat={destinationLat}
+            destinationLng={destinationLng}
+            stops={stops}
+            routeRefresh={routeRefresh}
+            busyId={busyId}
+            disableRoutes={disableRoutes}
+            dragVisitId={dragVisitId}
+            isDropTarget={dropDayId === day.id && dragVisitId != null}
+            onEditDay={onEditDay}
+            onEditActivity={onEditActivity}
+            onAddActivity={onAddActivity}
+            onAddTransfer={onAddTransfer}
+            onReload={onReload}
+            onSetStatus={setStatus}
+            dragHandleProps={dragHandleProps}
+            onDragVisitStart={setDragVisitId}
+            onDragVisitEnd={() => {
+              setDragVisitId(null);
+              setDropDayId(null);
+            }}
+            onDragOverDay={() => setDropDayId(day.id)}
+            onDragLeaveDay={() =>
+              setDropDayId((cur) => (cur === day.id ? null : cur))
+            }
+            onDropOnDay={() => handleDrop(day.id, day.activities?.length ?? 0)}
+            onDropBeforeVisit={(index) => handleDrop(day.id, index)}
+          />
+        ))}
+      </LayoutGroup>
       <AlertDialog
         open={timedMoveAttempt != null}
         onOpenChange={(open) => {
@@ -406,6 +419,7 @@ function DayBlock({
   onEditDay,
   onEditActivity,
   onAddActivity,
+  onAddTransfer,
   onReload,
   onSetStatus,
   dragHandleProps,
@@ -434,6 +448,7 @@ function DayBlock({
   onEditDay: (day: TripItineraryDay) => void;
   onEditActivity: (act: TripItineraryActivity) => void;
   onAddActivity: (dayId: string) => void;
+  onAddTransfer?: (dayId: string) => void;
   onReload: () => void;
   onSetStatus: (
     id: string,
@@ -448,22 +463,39 @@ function DayBlock({
   onDropBeforeVisit: (index: number) => void;
 }) {
   const [deleting, setDeleting] = useState<TripItineraryActivity | null>(null);
+  const reduceMotion = useReducedMotion();
 
   const placeById = useMemo(
     () => new Map(places.map((place) => [place.id, place])),
     [places]
   );
-  const visits = useMemo(() => enrichVisits(day, places), [day, places]);
+  /** Rotas entre visitas — sem deslocamentos. */
+  const routeVisits = useMemo(
+    () =>
+      enrichVisits(
+        {
+          ...day,
+          activities: (day.activities ?? []).filter(
+            (a) => !isTransportActivity(a)
+          ),
+        },
+        places
+      ),
+    [day, places]
+  );
   const sortedActs = useMemo(() => {
-    const order = new Map(
-      sortVisitsForDay(visits).map((v, i) => [v.id, i])
+    return sortVisitsForDay(
+      (day.activities ?? []).map((a) => ({
+        ...a,
+        activity_time: a.activity_time,
+        sort_order: a.sort_order,
+      }))
     );
-    return [...(day.activities ?? [])].sort(
-      (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
-    );
-  }, [day.activities, visits]);
+  }, [day.activities]);
 
-  const summary = summarizeDayVisits(sortedActs);
+  const summary = summarizeDayVisits(
+    (day.activities ?? []).filter((a) => !isTransportActivity(a))
+  );
   const { kind, label: offsetLabel } = describeDayOffset({
     dayDate: day.date,
     todayIso,
@@ -604,10 +636,10 @@ function DayBlock({
         </Button>
       </header>
 
-      {sortedActs.length > 0 ? (
+      {routeVisits.length > 0 ? (
         <ItineraryNextRoutePanel
           dayDate={day.date}
-          visits={visits}
+          visits={routeVisits}
           tripOrigin={tripOrigin}
           originLabel={originLabel}
           refreshKey={routeRefresh}
@@ -630,17 +662,29 @@ function DayBlock({
       {sortedActs.length === 0 ? (
         <div className="rounded-lg border border-dashed bg-muted/20 px-3 py-6 text-center">
           <MapPin className="mx-auto mb-2 h-5 w-5 text-primary" aria-hidden />
-          <p className="text-sm font-medium">Nenhuma visita neste dia</p>
+          <p className="text-sm font-medium">Nada neste dia</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Adicione restaurantes, passeios ou o que estiver no plano.
+            Adicione visitas ou um deslocamento no plano do dia.
           </p>
         </div>
       ) : (
         <ul className="space-y-1.5">
           {sortedActs.map((act, index) => {
+            const isTransfer = isTransportActivity(act);
             const status = normalizeVisitStatus(act.visit_status);
             const category = normalizeTripActivityCategory(act.category);
-            const categoryLabel = PLACE_TYPE_LABELS[category];
+            const modeLabel = isTransfer
+              ? TRIP_TRANSPORT_MODE_LABELS[
+                  normalizeTripTransportMode(act.transport_mode)
+                ]
+              : null;
+            const categoryLabel = isTransfer
+              ? modeLabel
+              : ACTIVITY_CATEGORY_LABELS[category];
+            const placeTypeForUi: PlaceType =
+              category === "transport" ? "other" : category;
+            const categoryTone = placeTypeMeta(placeTypeForUi).tone;
+            const arrive = act.arrival_time?.trim() || null;
             const place = act.place_visit_id
               ? placeById.get(act.place_visit_id)
               : undefined;
@@ -680,8 +724,11 @@ function DayBlock({
             const busy = busyId === act.id;
 
             return (
-              <li
+              <motion.li
                 key={act.id}
+                layout={!reduceMotion ? "position" : false}
+                layoutId={!reduceMotion ? `visit-${act.id}` : undefined}
+                transition={LIST_LAYOUT_TRANSITION}
                 draggable
                 aria-busy={busy}
                 onDragStart={() => onDragVisitStart(act.id)}
@@ -699,7 +746,12 @@ function DayBlock({
                 {...dropZoneAttrs(VISIT_ZONE, day.id, index)}
                 className={cn(
                   "flex items-start gap-2 rounded-lg border px-2 py-2 transition-colors sm:px-2.5",
-                  status === "pending" && "border-border/70 bg-card",
+                  isTransfer &&
+                    status === "pending" &&
+                    "border-sky-500/25 bg-sky-500/[0.04]",
+                  !isTransfer &&
+                    status === "pending" &&
+                    "border-border/70 bg-card",
                   status === "completed" &&
                     "border-success/25 bg-success/[0.06] dark:bg-success/[0.1]",
                   status === "skipped" && "border-border/50 bg-muted/40",
@@ -720,44 +772,59 @@ function DayBlock({
                   <GripVertical className="h-4 w-4" />
                 </span>
 
-                <button
-                  type="button"
-                  disabled={busy}
-                  aria-pressed={status === "completed"}
-                  aria-label={
-                    status === "pending"
-                      ? `${act.title}: ${categoryLabel}. Marcar como concluída`
-                      : `${act.title}: reabrir visita`
-                  }
-                  onClick={() =>
-                    void onSetStatus(
-                      act.id,
-                      status === "pending" ? "completed" : "pending"
-                    )
-                  }
-                  className={cn(
-                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all active:scale-95",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                    status === "pending" &&
-                      cn("border-transparent", placeTypeMeta(category).tone),
-                    status === "completed" &&
-                      "border-success bg-success text-success-foreground",
-                    status === "skipped" &&
-                      "border-dashed border-muted-foreground/40 bg-muted text-muted-foreground"
-                  )}
-                >
-                  {busy ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : status === "completed" ? (
-                    <Check className="h-4 w-4" />
-                  ) : status === "skipped" ? (
-                    <Minus className="h-3.5 w-3.5" />
-                  ) : (
-                    <PlaceTypeIcon type={category} className="h-4 w-4" />
-                  )}
-                </button>
+                {isTransfer ? (
+                  <span
+                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400"
+                    aria-hidden
+                  >
+                    <Plane className="h-4 w-4" />
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    aria-pressed={status === "completed"}
+                    aria-label={
+                      status === "pending"
+                        ? `${act.title}: ${categoryLabel}. Marcar como concluída`
+                        : `${act.title}: reabrir visita`
+                    }
+                    onClick={() =>
+                      void onSetStatus(
+                        act.id,
+                        status === "pending" ? "completed" : "pending"
+                      )
+                    }
+                    className={cn(
+                      "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all active:scale-95",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      status === "pending" &&
+                        cn("border-transparent", categoryTone),
+                      status === "completed" &&
+                        "border-success bg-success text-success-foreground",
+                      status === "skipped" &&
+                        "border-dashed border-muted-foreground/40 bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {busy ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : status === "completed" ? (
+                      <Check className="h-4 w-4" />
+                    ) : status === "skipped" ? (
+                      <Minus className="h-3.5 w-3.5" />
+                    ) : (
+                      <PlaceTypeIcon type={placeTypeForUi} className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
 
                 <div className="min-w-0 flex-1">
+                  {isTransfer ? (
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700/80 dark:text-sky-400/90">
+                      Deslocamento
+                      {modeLabel ? ` · ${modeLabel}` : null}
+                    </p>
+                  ) : null}
                   <p
                     className={cn(
                       "line-clamp-2 text-sm font-semibold leading-snug",
@@ -772,17 +839,19 @@ function DayBlock({
                     {act.activity_time ? (
                       <span className="inline-flex items-center gap-1 font-medium tabular-nums text-foreground">
                         <Clock className="h-3 w-3" aria-hidden />
-                        {act.activity_time}
+                        {isTransfer && arrive
+                          ? `${act.activity_time} → ${arrive}`
+                          : act.activity_time}
                       </span>
                     ) : null}
-                    <span>{categoryLabel}</span>
+                    {!isTransfer ? <span>{categoryLabel}</span> : null}
                     {act.is_reserved ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-px font-medium text-primary">
                         <CalendarCheck className="h-3 w-3" aria-hidden />
                         Reservado
                       </span>
                     ) : null}
-                    {place?.rating ? (
+                    {!isTransfer && place?.rating ? (
                       <span className="inline-flex items-center gap-0.5 tabular-nums">
                         <Star
                           className="h-3 w-3 fill-warning text-warning"
@@ -791,15 +860,15 @@ function DayBlock({
                         {formatRating(place.rating)}
                       </span>
                     ) : null}
-                    {place?.amount ? (
+                    {!isTransfer && place?.amount ? (
                       <span className="tabular-nums">
                         {formatBRL(place.amount)}
                       </span>
                     ) : null}
-                    {status === "completed" && doneAt ? (
+                    {!isTransfer && status === "completed" && doneAt ? (
                       <span className="tabular-nums">concluída às {doneAt}</span>
                     ) : null}
-                    {status === "skipped" && skippedAt ? (
+                    {!isTransfer && status === "skipped" && skippedAt ? (
                       <span className="tabular-nums">pulada às {skippedAt}</span>
                     ) : null}
                   </div>
@@ -809,7 +878,7 @@ function DayBlock({
                       {act.notes}
                     </p>
                   ) : null}
-                  {place?.address ? (
+                  {!isTransfer && place?.address ? (
                     <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
                       <MapPin className="h-3 w-3 shrink-0" aria-hidden />
                       <span className="truncate">{place.address}</span>
@@ -854,7 +923,7 @@ function DayBlock({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    {status === "pending" ? (
+                    {!isTransfer && status === "pending" ? (
                       <>
                         <DropdownMenuItem
                           onClick={() =>
@@ -871,14 +940,15 @@ function DayBlock({
                           Pular
                         </DropdownMenuItem>
                       </>
-                    ) : (
+                    ) : null}
+                    {!isTransfer && status !== "pending" ? (
                       <DropdownMenuItem
                         onClick={() => void onSetStatus(act.id, "pending")}
                       >
                         <Undo2 className="h-3.5 w-3.5" />
                         Reabrir
                       </DropdownMenuItem>
-                    )}
+                    ) : null}
                     <DropdownMenuItem onClick={() => onEditActivity(act)}>
                       <Pencil className="h-3.5 w-3.5" />
                       Editar
@@ -905,21 +975,34 @@ function DayBlock({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </li>
+              </motion.li>
             );
           })}
         </ul>
       )}
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full border-dashed border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
-        onClick={() => onAddActivity(day.id)}
-      >
-        <Plus className="mr-1.5 h-4 w-4" />
-        Adicionar visita
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-dashed border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            Adicionar
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="center" className="w-56">
+          <DropdownMenuItem onClick={() => onAddActivity(day.id)}>
+            <MapPin className="h-3.5 w-3.5" />
+            Visita
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAddTransfer?.(day.id)}>
+            <Plane className="h-3.5 w-3.5" />
+            Deslocamento
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <AlertDialog
         open={deleting != null}
@@ -929,7 +1012,11 @@ function DayBlock({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir esta visita?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleting && isTransportActivity(deleting)
+                ? "Excluir este deslocamento?"
+                : "Excluir esta visita?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               “{deleting?.title}” sai do roteiro. Não é possível desfazer.
             </AlertDialogDescription>
