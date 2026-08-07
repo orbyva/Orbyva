@@ -42,3 +42,8 @@ modelo — é campo novo.
 - Cores de prioridade implementadas: azul (baixa) / âmbar (média) / vermelho (alta) — o plano
   original sugeria cinza para baixa, trocado por azul para ficar visualmente distinto do texto
   cinza-padrão dos metadados ao redor (prazo, badges), que já usa `text-muted-foreground`.
+- Verificação manual no navegador: tarefa de teste com prioridade Alta e prazo — bandeira vermelha e
+  ícone de calendário aparecem na Lista, no card do Kanban e na Agenda; subtarefa criada via Kanban
+  aparece corretamente ao expandir o chevron na Lista e na Agenda (o estado de expansão persiste ao
+  trocar de aba, já que é o mesmo componente); toggle da subtarefa otimista nos dois lugares. Dados
+  de teste excluídos ao final (cascade apagou a subtarefa junto).
