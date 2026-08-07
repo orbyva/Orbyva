@@ -13,11 +13,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { isRecurringTask } from "@/domain/tasks";
-import type { Task } from "@/types/tasks";
+import type { Tag, Task } from "@/types/tasks";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { contrastTextColor } from "@/lib/color";
 import { formatDateTimeBR } from "@/lib/currency";
 import { TaskPriorityFlag } from "./TaskPriorityField";
+
+/** Badge de tag colorida estilo GitHub labels (fundo na cor da tag, texto com melhor contraste). */
+export function TagBadge({ tag }: { tag: Tag }) {
+  return (
+    <Badge
+      className="border-none text-[10px]"
+      style={{ backgroundColor: tag.color, color: contrastTextColor(tag.color) }}
+    >
+      {tag.name}
+    </Badge>
+  );
+}
 
 export function SubtaskChecklist({
   subtasks,
@@ -95,6 +108,7 @@ export function ExpandSubtasksButton({
 export function TaskListRow({
   task,
   subtasks,
+  allTags,
   expanded,
   onToggleExpand,
   onToggleSubtask,
@@ -109,6 +123,8 @@ export function TaskListRow({
 }: {
   task: Task;
   subtasks: Task[];
+  /** Catálogo completo de tags do usuário — usado pra resolver `task.tag_ids` nos badges coloridos. */
+  allTags: Tag[];
   expanded: boolean;
   onToggleExpand: () => void;
   onToggleSubtask: (subtask: Task) => void;
@@ -123,6 +139,9 @@ export function TaskListRow({
   /** Ações extras (ex.: "Lançar transação") renderizadas antes de editar/excluir. */
   extraActions?: ReactNode;
 }) {
+  const taskTags = task.tag_ids
+    .map((id) => allTags.find((t) => t.id === id))
+    .filter((t): t is Tag => !!t);
   const recurring = isRecurringTask(task);
   const done = task.status === "done";
   return (
@@ -192,10 +211,8 @@ export function TaskListRow({
                   </span>
                 )
               )}
-              {task.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-[10px]">
-                  {tag}
-                </Badge>
+              {taskTags.map((tag) => (
+                <TagBadge key={tag.id} tag={tag} />
               ))}
             </div>
             {task.description && (

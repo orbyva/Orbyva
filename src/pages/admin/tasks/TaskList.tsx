@@ -22,6 +22,7 @@ import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskPriorityField } from "./TaskPriorityField";
 import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
 import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
+import { TagCombobox } from "./TagCombobox";
 import { TaskListRow } from "./TaskViews";
 import { EmptyState } from "@/components/EmptyState";
 import {
@@ -32,9 +33,11 @@ import {
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
+  createTag,
   createTask,
   deleteTask,
   fetchProjects,
+  fetchTags,
   fetchTasks,
   updateTask,
 } from "@/api/tasks";
@@ -49,7 +52,7 @@ import {
   groupTasksByAgendaBucket,
   sortTasksByDueDate,
 } from "@/domain/tasks";
-import type { Project, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
+import type { Project, Tag, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
@@ -62,7 +65,7 @@ const emptyTask = (): TaskCreateRequest => ({
   title: "",
   description: "",
   status: "todo",
-  tags: [],
+  tag_ids: [],
   due_date: null,
   due_time: null,
   start_date: null,
@@ -74,6 +77,7 @@ const emptyTask = (): TaskCreateRequest => ({
 export default function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [recurrings, setRecurrings] = useState<Recurring[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -81,7 +85,6 @@ export default function TaskList() {
   const [form, setForm] = useState(emptyTask());
   const [tagFilter, setTagFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
-  const [tagsInput, setTagsInput] = useState("");
   const [subtaskDrafts, setSubtaskDrafts] = useState<string[]>([]);
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [editingSubtask, setEditingSubtask] = useState<Task | null>(null);
@@ -104,13 +107,15 @@ export default function TaskList() {
 
   const load = useCallback(async () => {
     try {
-      const [taskList, projectList, recurringList] = await Promise.all([
+      const [taskList, projectList, tagList, recurringList] = await Promise.all([
         fetchTasks(),
         fetchProjects(),
+        fetchTags(),
         fetchRecurringTransactions(),
       ]);
       setTasks(taskList);
       setProjects(projectList);
+      setTags(tagList);
       setRecurrings(recurringList);
     } catch (error) {
       toast({
@@ -131,7 +136,7 @@ export default function TaskList() {
     const projectId =
       projectFilter === "all" ? undefined : projectFilter === "null" ? null : projectFilter;
     const filtered = filterTasks(tasks, {
-      tag: tagFilter || undefined,
+      tagId: tagFilter || undefined,
       projectId,
     });
     return sortTasksByDueDate(
@@ -142,11 +147,6 @@ export default function TaskList() {
       )
     );
   }, [tasks, tagFilter, projectFilter]);
-
-  const allTags = useMemo(
-    () => Array.from(new Set(tasks.flatMap((t) => t.tags))).sort(),
-    [tasks]
-  );
 
   const agendaGroups = useMemo(() => {
     const todayIso = formatLocalIsoDate(new Date());
@@ -212,7 +212,6 @@ export default function TaskList() {
   function openCreate() {
     setEditing(null);
     setForm(emptyTask());
-    setTagsInput("");
     setSubtaskDrafts([]);
     setOpen(true);
   }
@@ -225,7 +224,7 @@ export default function TaskList() {
       title: task.title,
       description: task.description ?? "",
       status: task.status,
-      tags: task.tags,
+      tag_ids: task.tag_ids,
       due_date: task.due_date,
       due_time: task.due_time ?? null,
       start_date: task.start_date ?? null,
@@ -233,22 +232,22 @@ export default function TaskList() {
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
     });
-    setTagsInput(task.tags.join(", "));
     setSubtaskDrafts([]);
     setOpen(true);
   }
 
+  async function handleCreateTag(name: string, color: string): Promise<Tag> {
+    const tag = await createTag({ name, color });
+    setTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
+    return tag;
+  }
+
   async function handleSave() {
     if (!form.title.trim()) return;
-    const tags = tagsInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
     const isLinked = !!form.linked_recurring_id;
     const isEditingInstance = !!(editing && editing.linked_installment_number != null);
     const payload: TaskCreateRequest = {
       ...form,
-      tags,
       due_date: isLinked && !isEditingInstance ? null : form.due_date,
       due_time: isLinked && !isEditingInstance ? null : form.due_time,
     };
@@ -356,9 +355,9 @@ export default function TaskList() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as tags</SelectItem>
-              {allTags.map((tag) => (
-                <SelectItem key={tag} value={tag}>
-                  {tag}
+              {tags.map((tag) => (
+                <SelectItem key={tag.id} value={tag.id}>
+                  {tag.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -391,6 +390,7 @@ export default function TaskList() {
                         key={task.id}
                         task={task}
                         subtasks={subtasksByParent.get(task.id) ?? []}
+                        allTags={tags}
                         expanded={expandedTasks.has(task.id)}
                         onToggleExpand={() => toggleExpanded(task.id)}
                         onToggleSubtask={toggleDone}
@@ -491,11 +491,12 @@ export default function TaskList() {
               </Select>
             </div>
             <div>
-              <FormLabel optional>Tags (separadas por vírgula)</FormLabel>
-              <Input
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                placeholder="casa, urgente"
+              <FormLabel optional>Tags</FormLabel>
+              <TagCombobox
+                allTags={tags}
+                selectedIds={form.tag_ids}
+                onChange={(tag_ids) => setForm({ ...form, tag_ids })}
+                onCreateTag={handleCreateTag}
               />
             </div>
             <TaskPriorityField

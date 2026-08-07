@@ -91,6 +91,7 @@ const NAV_PRODUTIVIDADE: NavItem = {
     { title: "Agenda", url: "/tasks/agenda" },
     { title: "Projetos", url: "/tasks/projects" },
     { title: "Live", url: "/tasks/live" },
+    { title: "Tags", url: "/tasks/tags" },
   ],
 }
 

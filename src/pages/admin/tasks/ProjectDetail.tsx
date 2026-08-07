@@ -49,7 +49,8 @@ import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
 import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
 import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
-import { TaskListRow } from "./TaskViews";
+import { TagBadge, TaskListRow } from "./TaskViews";
+import { TagCombobox } from "./TagCombobox";
 import { GanttChart } from "./GanttChart";
 import {
   FormLabel,
@@ -60,9 +61,11 @@ import {
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
+  createTag,
   createTask,
   deleteTask,
   fetchProjectById,
+  fetchTags,
   fetchTasks,
   updateTask,
 } from "@/api/tasks";
@@ -76,7 +79,7 @@ import {
   groupTasksByAgendaBucket,
   sortTasksByDueDate,
 } from "@/domain/tasks";
-import type { Project, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
+import type { Project, Tag, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
@@ -99,7 +102,7 @@ const emptyTask = (projectId: string): TaskCreateRequest => ({
   title: "",
   description: "",
   status: "todo",
-  tags: [],
+  tag_ids: [],
   due_date: null,
   due_time: null,
   start_date: null,
@@ -124,6 +127,7 @@ function KanbanCard({
   task,
   colIndex,
   subtasks,
+  allTags,
   subtaskDraft,
   onSubtaskDraftChange,
   onAddSubtask,
@@ -138,6 +142,7 @@ function KanbanCard({
   task: Task;
   colIndex: number;
   subtasks: Task[];
+  allTags: Tag[];
   subtaskDraft: string;
   onSubtaskDraftChange: (value: string) => void;
   onAddSubtask: () => void;
@@ -149,6 +154,9 @@ function KanbanCard({
   onToggleTimer?: () => void;
   onOpenSubtask: (subtask: Task) => void;
 }) {
+  const taskTags = task.tag_ids
+    .map((id) => allTags.find((t) => t.id === id))
+    .filter((t): t is Tag => !!t);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
@@ -229,10 +237,8 @@ function KanbanCard({
             {doneSubtasks}/{subtasks.length} subtarefas
           </Badge>
         )}
-        {task.tags.map((tag) => (
-          <Badge key={tag} variant="secondary" className="text-[10px]">
-            {tag}
-          </Badge>
+        {taskTags.map((tag) => (
+          <TagBadge key={tag.id} tag={tag} />
         ))}
       </div>
 
@@ -335,12 +341,12 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [recurrings, setRecurrings] = useState<Recurring[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [form, setForm] = useState(emptyTask(id ?? ""));
-  const [tagsInput, setTagsInput] = useState("");
   const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
   const [newTaskSubtasks, setNewTaskSubtasks] = useState<string[]>([]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -374,13 +380,15 @@ export default function ProjectDetail() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [projectData, taskList, recurringList] = await Promise.all([
+      const [projectData, taskList, tagList, recurringList] = await Promise.all([
         fetchProjectById(id),
         fetchTasks(),
+        fetchTags(),
         fetchRecurringTransactions(),
       ]);
       setProject(projectData);
       setTasks(taskList.filter((t) => t.project_id === id));
+      setTags(tagList);
       setRecurrings(recurringList);
     } catch (error) {
       toast({
@@ -452,7 +460,6 @@ export default function ProjectDetail() {
     if (!id) return;
     setEditing(null);
     setForm({ ...emptyTask(id), status });
-    setTagsInput("");
     setNewTaskSubtasks([]);
     setOpen(true);
   }
@@ -465,7 +472,7 @@ export default function ProjectDetail() {
       title: task.title,
       description: task.description ?? "",
       status: task.status,
-      tags: task.tags,
+      tag_ids: task.tag_ids,
       due_date: task.due_date,
       due_time: task.due_time ?? null,
       start_date: task.start_date ?? null,
@@ -473,22 +480,22 @@ export default function ProjectDetail() {
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
     });
-    setTagsInput(task.tags.join(", "));
     setNewTaskSubtasks([]);
     setOpen(true);
   }
 
+  async function handleCreateTag(name: string, color: string): Promise<Tag> {
+    const tag = await createTag({ name, color });
+    setTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
+    return tag;
+  }
+
   async function handleSave() {
     if (!form.title.trim()) return;
-    const tags = tagsInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
     const isLinked = !!form.linked_recurring_id;
     const isEditingInstance = !!(editing && editing.linked_installment_number != null);
     const payload = {
       ...form,
-      tags,
       due_date: isLinked && !isEditingInstance ? null : form.due_date,
       due_time: isLinked && !isEditingInstance ? null : form.due_time,
     };
@@ -647,7 +654,7 @@ export default function ProjectDetail() {
         title,
         description: "",
         status: "todo",
-        tags: [],
+        tag_ids: [],
         due_date: null,
         recurrence_rule: null,
         linked_recurring_id: null,
@@ -751,6 +758,7 @@ export default function ProjectDetail() {
                                 task={task}
                                 colIndex={colIndex}
                                 subtasks={subtasks}
+                                allTags={tags}
                                 subtaskDraft={subtaskDrafts[task.id] ?? ""}
                                 onSubtaskDraftChange={(value) =>
                                   setSubtaskDrafts((prev) => ({ ...prev, [task.id]: value }))
@@ -805,6 +813,7 @@ export default function ProjectDetail() {
                           key={task.id}
                           task={task}
                           subtasks={subtasksByParent.get(task.id) ?? []}
+                          allTags={tags}
                           expanded={expandedTasks.has(task.id)}
                           onToggleExpand={() => toggleExpanded(task.id)}
                           onToggleSubtask={toggleSubtask}
@@ -889,11 +898,12 @@ export default function ProjectDetail() {
               />
             </div>
             <div>
-              <FormLabel optional>Tags (separadas por vírgula)</FormLabel>
-              <Input
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                placeholder="casa, urgente"
+              <FormLabel optional>Tags</FormLabel>
+              <TagCombobox
+                allTags={tags}
+                selectedIds={form.tag_ids}
+                onChange={(tag_ids) => setForm({ ...form, tag_ids })}
+                onCreateTag={handleCreateTag}
               />
             </div>
             <TaskPriorityField

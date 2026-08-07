@@ -9,6 +9,7 @@ export interface Project {
   notes?: string | null;
   goal_id?: string | null;
   status: ProjectStatus;
+  tag_ids: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -36,6 +37,17 @@ export type ProjectEventCreateRequest = Omit<
   ProjectEvent,
   "id" | "user_id" | "created_at"
 >;
+
+export interface Tag {
+  id: string;
+  user_id?: string;
+  name: string;
+  color: string;
+  created_at?: string;
+}
+
+export type TagCreateRequest = Omit<Tag, "id" | "user_id" | "created_at">;
+export type TagUpdateRequest = Partial<TagCreateRequest> & { id: string };
 
 export type TaskStatus = "todo" | "doing" | "done";
 export type RecurrenceFrequency = "daily" | "weekly" | "monthly" | "yearly";
@@ -70,7 +82,7 @@ export interface Task {
   title: string;
   description?: string | null;
   status: TaskStatus;
-  tags: string[];
+  tag_ids: string[];
   due_date: string | null;
   due_time?: string | null;
   start_date?: string | null;

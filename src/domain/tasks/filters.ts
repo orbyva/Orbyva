@@ -1,12 +1,12 @@
 export interface TaskFilter {
   projectId?: string | null;
-  tag?: string;
+  tagId?: string;
   dueBefore?: string;
 }
 
 interface FilterableTask {
   project_id: string | null;
-  tags: string[];
+  tag_ids: string[];
   due_date: string | null;
 }
 
@@ -18,7 +18,7 @@ export function filterTasks<T extends FilterableTask>(
     if (filter.projectId !== undefined && task.project_id !== filter.projectId) {
       return false;
     }
-    if (filter.tag && !task.tags.includes(filter.tag)) return false;
+    if (filter.tagId && !task.tag_ids.includes(filter.tagId)) return false;
     if (filter.dueBefore && (!task.due_date || task.due_date > filter.dueBefore)) {
       return false;
     }

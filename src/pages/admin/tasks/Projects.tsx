@@ -50,10 +50,12 @@ import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
   createProject,
   createProjectEvent,
+  createTag,
   deleteProject,
   deleteProjectEvent,
   fetchProjectEvents,
   fetchProjects,
+  fetchTags,
   fetchTasks,
   updateProject,
 } from "@/api/tasks";
@@ -63,6 +65,7 @@ import type {
   ProjectCreateRequest,
   ProjectEvent,
   ProjectStatus,
+  Tag,
   Task,
 } from "@/types/tasks";
 import { useToast } from "@/hooks/use-toast";
@@ -70,6 +73,9 @@ import { getErrorMessage } from "@/lib/errors";
 import { formatDateTimeBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { LabelColorPicker } from "./LabelColorPicker";
+import { TagCombobox } from "./TagCombobox";
+import { TagBadge } from "./TaskViews";
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
   planned: "Planejado",
@@ -80,20 +86,6 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 
 const KANBAN_STATUSES: ProjectStatus[] = ["planned", "active", "completed"];
 
-const COLOR_SWATCHES = [
-  "#ef4444",
-  "#f97316",
-  "#f59e0b",
-  "#eab308",
-  "#84cc16",
-  "#22c55e",
-  "#14b8a6",
-  "#06b6d4",
-  "#3b82f6",
-  "#8b5cf6",
-  "#ec4899",
-];
-
 const emptyProject = (): ProjectCreateRequest => ({
   name: "",
   description: "",
@@ -101,6 +93,7 @@ const emptyProject = (): ProjectCreateRequest => ({
   notes: "",
   goal_id: null,
   status: "planned",
+  tag_ids: [],
 });
 
 function formatEventDate(iso: string): string {
@@ -112,16 +105,21 @@ function ProjectCard({
   project,
   topTasks,
   nextEvent,
+  allTags,
   onEdit,
   onDelete,
 }: {
   project: Project;
   topTasks: Task[];
   nextEvent: ProjectEvent | undefined;
+  allTags: Tag[];
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const navigate = useNavigate();
+  const projectTags = project.tag_ids
+    .map((id) => allTags.find((t) => t.id === id))
+    .filter((t): t is Tag => !!t);
   return (
     <article
       className="cursor-pointer space-y-2 rounded-xl border bg-card p-3.5 shadow-sm transition-colors hover:border-primary/40 sm:p-5"
@@ -158,6 +156,14 @@ function ProjectCard({
           </ConfirmDeleteDialog>
         </div>
       </div>
+
+      {projectTags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {projectTags.map((tag) => (
+            <TagBadge key={tag.id} tag={tag} />
+          ))}
+        </div>
+      )}
 
       {project.notes && (
         <p className="line-clamp-2 text-xs text-muted-foreground">{project.notes}</p>
@@ -202,6 +208,7 @@ function ProjectKanbanItem({
   project,
   topTasks,
   nextEvent,
+  allTags,
   onEdit,
   onDelete,
   onStatusChange,
@@ -209,6 +216,7 @@ function ProjectKanbanItem({
   project: Project;
   topTasks: Task[];
   nextEvent: ProjectEvent | undefined;
+  allTags: Tag[];
   onEdit: () => void;
   onDelete: () => void;
   onStatusChange: (status: ProjectStatus) => void;
@@ -237,6 +245,7 @@ function ProjectKanbanItem({
             project={project}
             topTasks={topTasks}
             nextEvent={nextEvent}
+            allTags={allTags}
             onEdit={onEdit}
             onDelete={onDelete}
           />
@@ -263,6 +272,7 @@ export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<ProjectEvent[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
@@ -281,14 +291,16 @@ export default function Projects() {
 
   const load = useCallback(async () => {
     try {
-      const [projectList, taskList, eventList] = await Promise.all([
+      const [projectList, taskList, eventList, tagList] = await Promise.all([
         fetchProjects(),
         fetchTasks(),
         fetchProjectEvents(),
+        fetchTags(),
       ]);
       setProjects(projectList);
       setTasks(taskList);
       setEvents(eventList);
+      setTags(tagList);
     } catch (error) {
       toast({
         title: "Erro",
@@ -389,10 +401,17 @@ export default function Projects() {
       notes: project.notes ?? "",
       goal_id: project.goal_id ?? null,
       status: project.status,
+      tag_ids: project.tag_ids,
     });
     setEventTitle("");
     setEventStartsAt("");
     setOpen(true);
+  }
+
+  async function handleCreateTag(name: string, color: string): Promise<Tag> {
+    const tag = await createTag({ name, color });
+    setTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
+    return tag;
   }
 
   async function handleSave() {
@@ -499,6 +518,7 @@ export default function Projects() {
                   project={project}
                   topTasks={topOngoingTasksForProject(tasks, project.id)}
                   nextEvent={nextEventFor(project.id)}
+                  allTags={tags}
                   onEdit={() => openEdit(project)}
                   onDelete={() => handleDelete(project.id)}
                 />
@@ -538,6 +558,7 @@ export default function Projects() {
                               project={project}
                               topTasks={topOngoingTasksForProject(tasks, project.id)}
                               nextEvent={nextEventFor(project.id)}
+                              allTags={tags}
                               onEdit={() => openEdit(project)}
                               onDelete={() => handleDelete(project.id)}
                               onStatusChange={(s) => applyProjectStatusChange(project, s)}
@@ -601,21 +622,21 @@ export default function Projects() {
             </div>
             <div>
               <FormLabel optional>Cor</FormLabel>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {COLOR_SWATCHES.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-label={`Cor ${c}`}
-                    className={cn(
-                      "h-6 w-6 rounded-full border-2",
-                      form.color === c ? "border-foreground" : "border-transparent"
-                    )}
-                    style={{ backgroundColor: c }}
-                    onClick={() => setForm({ ...form, color: form.color === c ? null : c })}
-                  />
-                ))}
+              <div className="mt-1.5">
+                <LabelColorPicker
+                  color={form.color ?? "#94a3b8"}
+                  onChange={(color) => setForm({ ...form, color })}
+                />
               </div>
+            </div>
+            <div>
+              <FormLabel optional>Labels</FormLabel>
+              <TagCombobox
+                allTags={tags}
+                selectedIds={form.tag_ids}
+                onChange={(tag_ids) => setForm({ ...form, tag_ids })}
+                onCreateTag={handleCreateTag}
+              />
             </div>
             <div>
               <FormLabel optional>Notas</FormLabel>

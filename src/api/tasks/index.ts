@@ -3,3 +3,4 @@ export * from "./projectEvents";
 export * from "./tasks";
 export * from "./dependencies";
 export * from "./timeEntries";
+export * from "./tags";

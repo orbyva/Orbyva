@@ -40,20 +40,51 @@ GitHub (aleatória ou definida) — e o mesmo modelo de cor para projetos, inclu
   todo o resto do app.
 
 ## Tarefas
-- [ ] Migration: tabela `tag` (+ RLS/wipe/trigger), `task.tag_ids uuid[]`, `project.tag_ids uuid[]`,
-      script de migração de dados (`task.tags` → linhas de `tag` + `tag_ids`), drop de `task.tags`
-      e de `COLOR_SWATCHES`-only — aplicada ao banco remoto
-- [ ] Types: `Tag`, `TagCreateRequest`; `Task.tag_ids`, `Project.tag_ids`
-- [ ] `api/tasks/tags.ts`: fetch/create/update/delete
-- [ ] Componente `LabelColorPicker` (aleatória + custom color input) compartilhado
-- [ ] Componente `TagCombobox` (busca + criação inline) usado nos formulários de tarefa e de projeto
-- [ ] Página `/tasks/tags` (gestão: renomear, cor, contagem de uso, excluir) + item na sidebar
-- [ ] Badges coloridos por tag em Lista/Agenda/Kanban de tarefas e Lista/Kanban de projetos
-- [ ] `npm run build && npm run lint` limpos + verificação manual (criar tag nova pelo formulário,
-      reaproveitar em outra tarefa/projeto, editar cor na página de gestão e ver refletir nos badges,
-      excluir tag e confirmar que só o vínculo some)
+- [x] Migration escrita (`20260807150000_tags_catalog.sql`): tabela `tag` (+ RLS/wipe/trigger),
+      `task.tag_ids uuid[]`, `project.tag_ids uuid[]`, script de migração de dados (`task.tags` →
+      linhas de `tag` + `tag_ids`) — **NÃO aplicada ao banco remoto ainda** (precisa de confirmação
+      do usuário para `supabase db push`, ver Notas) — e **NÃO derruba `task.tags`** (decisão
+      revista, ver Notas)
+- [x] Types: `Tag`, `TagCreateRequest`, `TagUpdateRequest`; `Task.tag_ids` substitui `Task.tags`;
+      `Project.tag_ids` novo
+- [x] `api/tasks/tags.ts`: fetch/create/update/delete (delete remove o vínculo de toda
+      tarefa/projeto que referencia a tag antes de excluir a linha)
+- [x] Componente `LabelColorPicker` (paleta curada + "Aleatória" + `<input type="color">`
+      customizado) compartilhado entre tag e projeto
+- [x] Componente `TagCombobox` (busca + seleção múltipla + criação inline com cor aleatória) usado
+      nos formulários de tarefa e de projeto — trocar a cor de uma tag recém-criada é feito na
+      página de gestão, não no combobox (ver Notas)
+- [x] Página `/tasks/tags` (gestão: renomear, cor, contagem de uso em tarefas + projetos, excluir)
+      + item na sidebar (entre Live e o fim do grupo Produtividade)
+- [x] Badges coloridos por tag (fundo na cor da tag, texto claro/escuro por luminância via
+      `contrastTextColor`) em `TaskListRow`, `KanbanCard` (tarefas) e `ProjectCard`
+- [x] `npm run build && npm run lint` limpos (361 testes Vitest passando, 0 erros de lint, `tsc -b`
+      limpo)
+- [ ] Verificação manual no navegador (criar tag nova pelo formulário, reaproveitar em outra
+      tarefa/projeto, editar cor na página de gestão e ver refletir nos badges, excluir tag e
+      confirmar que só o vínculo some) — **bloqueada**: sem credenciais de login disponíveis nesta
+      sessão, mesmo bloqueio já registrado nas features 009, 011, 012, 015 e 016. Também depende da
+      migration ter sido aplicada primeiro (ver acima).
 
 ## Notas
-- Maior mudança de schema do lote — migração de dados de `task.tags text[]` para `tag_ids` precisa
-  ser testada com cuidado (dados reais do usuário já têm tags hoje). Rodar `supabase db push` só
-  depois de revisar o script de migração de dados com o usuário.
+- **Maior mudança de schema do lote — migration escrita, não aplicada.** `task.tags` (dados reais
+  do usuário) precisa ser migrado com cuidado. **Antes de rodar `supabase db push`**, revisar:
+  1. O script de backfill em `20260807150000_tags_catalog.sql` (bloco `do $$ ... $$`): agrupa
+     valores distintos de `task.tags` por usuário (case-insensitive, `trim`), cria uma linha em
+     `tag` pra cada um com uma cor cíclica da paleta (não é aleatória de verdade — é só o
+     backfill; a cor pode ser trocada depois em `/tasks/tags`), e reescreve `task.tag_ids`.
+  2. **Decisão revista em relação ao plano original**: a migration **não derruba `task.tags`**
+     (o plano original prevа "drop de `task.tags`"). Deixei a coluna antiga no lugar, sem uso pela
+     aplicação daqui pra frente — é uma rede de segurança barata (nenhum código volta a escrever
+     nela) caso a migração de dados precise ser revisada depois de já aplicada. Dropar de vez fica
+     como decisão separada, depois de confirmar que os dados migraram certo em produção.
+- **`TagCombobox` não abre o `LabelColorPicker` na hora de criar** — o plano original previa abrir
+  o seletor de cor antes de confirmar a criação inline. Simplifiquei: criar já usa uma cor
+  aleatória da paleta direto (`randomLabelColor()`), sem popup extra no meio do fluxo de
+  digitar-e-criar; trocar a cor depois é feito na página `/tasks/tags`. Deixa o fluxo de criação
+  mais rápido (um clique/Enter, sem etapa extra) às custas de não poder escolher a cor exata no
+  momento da criação — avaliar com o usuário se vale a pena adicionar essa etapa depois.
+- **`Command`/`cmdk` do shadcn não existe neste projeto** (só `Popover` está instalado como
+  wrapper) — o plano original citava reaproveitar `Command`/`Popover`, mas `TagCombobox` seguiu o
+  padrão já usado em `ClassSearchPicker.tsx` (`Popover`/`PopoverAnchor`/`PopoverContent` + filtro
+  manual em JS), não o pacote `cmdk` diretamente (que só é usado hoje em `GlobalSearch.tsx`).

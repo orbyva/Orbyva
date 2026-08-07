@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { filterTasks, sortTasksByDueDate } from "@/domain/tasks/filters";
 
-type Row = { id: string; project_id: string | null; tags: string[]; due_date: string | null };
+type Row = { id: string; project_id: string | null; tag_ids: string[]; due_date: string | null };
 
 const rows: Row[] = [
-  { id: "1", project_id: "p1", tags: ["casa"], due_date: "2026-08-10" },
-  { id: "2", project_id: "p2", tags: ["trabalho"], due_date: "2026-08-05" },
-  { id: "3", project_id: null, tags: ["casa", "urgente"], due_date: null },
+  { id: "1", project_id: "p1", tag_ids: ["casa"], due_date: "2026-08-10" },
+  { id: "2", project_id: "p2", tag_ids: ["trabalho"], due_date: "2026-08-05" },
+  { id: "3", project_id: null, tag_ids: ["casa", "urgente"], due_date: null },
 ];
 
 describe("filterTasks", () => {
@@ -15,7 +15,7 @@ describe("filterTasks", () => {
   });
 
   it("filtra por tag", () => {
-    expect(filterTasks(rows, { tag: "casa" }).map((r) => r.id)).toEqual(["1", "3"]);
+    expect(filterTasks(rows, { tagId: "casa" }).map((r) => r.id)).toEqual(["1", "3"]);
   });
 
   it("filtra por prazo até uma data", () => {
