@@ -51,8 +51,8 @@ pelo menos 14 arquivos fora de Tarefas (`car/*` — 4 arquivos, `finance/Budget.
   dependência nova (`date-fns` etc.) — `formatDateBR` já resolve com `Date`/`Intl` nativo.
 
 ## Tarefas
-- [ ] Migration: `task.due_time` (`time`, nullable) — escrita, **ainda não aplicada ao banco
-      remoto** (precisa de confirmação do usuário para `supabase db push`, ver Notas)
+- [x] Migration: `task.due_time` (`time`, nullable) — aplicada ao banco remoto via
+      `supabase db push` (confirmado com o usuário antes de rodar, ver Notas)
 - [x] Types: `RecurrenceRule.weekdays`/`time`, `Task.due_time`, `TaskCreateRequest.due_time`
 - [x] `domain/tasks/recurrence.ts`: suportar `weekdays` no loop semanal + herdar `time`; testes
       Vitest ("terça e quinta", intervalo de N semanas com `weekdays`, regressão sem `weekdays`) —
