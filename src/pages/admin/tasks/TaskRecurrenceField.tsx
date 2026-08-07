@@ -11,19 +11,38 @@ import { DatePicker } from "@/components/DatePicker";
 import { FormLabel } from "@/components/FormLabel";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
-import type { RecurrenceFrequency, RecurrenceRule } from "@/types/tasks";
+import { weekdayOrdinalInMonth } from "@/domain/tasks";
+import type { RecurrenceFrequency, RecurrenceMonthlyMode, RecurrenceRule } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useState } from "react";
 
 type RecurrenceMode = "none" | "simple" | "linked";
+type EndMode = "never" | "until" | "count";
 
-const FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
-  daily: "Diária",
-  weekly: "Semanal",
-  monthly: "Mensal",
+const FREQUENCY_UNIT_LABELS: Record<RecurrenceFrequency, string> = {
+  daily: "dia(s)",
+  weekly: "semana(s)",
+  monthly: "mês(es)",
+  yearly: "ano(s)",
 };
 
 const WEEKDAY_LABELS = ["D", "S", "T", "Q", "Q", "S", "S"];
+const WEEKDAY_NAMES_LONG = [
+  "domingo",
+  "segunda-feira",
+  "terça-feira",
+  "quarta-feira",
+  "quinta-feira",
+  "sexta-feira",
+  "sábado",
+];
+const ORDINAL_LABELS: Record<number, string> = {
+  1: "primeira",
+  2: "segunda",
+  3: "terceira",
+  4: "quarta",
+  5: "quinta",
+};
 
 interface TaskRecurrenceValue {
   due_date: string | null;
@@ -39,6 +58,21 @@ function modeFor(value: TaskRecurrenceValue): RecurrenceMode {
   return "none";
 }
 
+function endModeFor(rule: RecurrenceRule | null): EndMode {
+  if (rule?.count) return "count";
+  if (rule?.until) return "until";
+  return "never";
+}
+
+/** "Na terceira terça-feira" — o dia/semana do mês são inferidos de `dueDate`, não escolhidos à parte. */
+function monthlyWeekdayLabel(dueDate: string): string {
+  const [y, m, d] = dueDate.split("-").map(Number);
+  const date = new Date(y, m - 1, d, 12);
+  const ordinal = weekdayOrdinalInMonth(date);
+  const ordinalLabel = ordinal === -1 ? "última" : (ORDINAL_LABELS[ordinal] ?? `${ordinal}ª`);
+  return `Na ${ordinalLabel} ${WEEKDAY_NAMES_LONG[date.getDay()]}`;
+}
+
 export function TaskRecurrenceField({
   value,
   recurrings,
@@ -52,14 +86,44 @@ export function TaskRecurrenceField({
   const [frequency, setFrequency] = useState<RecurrenceFrequency>(
     value.recurrence_rule?.frequency ?? "daily"
   );
+  const [intervalValue, setIntervalValue] = useState<number>(value.recurrence_rule?.interval ?? 1);
   const [weekdays, setWeekdays] = useState<number[]>(value.recurrence_rule?.weekdays ?? []);
+  const [monthlyMode, setMonthlyMode] = useState<RecurrenceMonthlyMode>(
+    value.recurrence_rule?.monthlyMode ?? "day"
+  );
+  const [endMode, setEndMode] = useState<EndMode>(() => endModeFor(value.recurrence_rule));
+  const [endUntil, setEndUntil] = useState<string | null>(value.recurrence_rule?.until ?? null);
+  const [endCount, setEndCount] = useState<number>(value.recurrence_rule?.count ?? 5);
 
-  function buildRule(freq: RecurrenceFrequency, dueTime: string | null | undefined): RecurrenceRule {
+  function buildRule(
+    overrides: Partial<{
+      freq: RecurrenceFrequency;
+      intervalVal: number;
+      weekdaysVal: number[];
+      monthlyModeVal: RecurrenceMonthlyMode;
+      endModeVal: EndMode;
+      endUntilVal: string | null;
+      endCountVal: number;
+      dueTimeVal: string | null | undefined;
+    }> = {}
+  ): RecurrenceRule {
+    const freq = overrides.freq ?? frequency;
+    const intervalV = Math.max(1, overrides.intervalVal ?? intervalValue);
+    const weekdaysV = overrides.weekdaysVal ?? weekdays;
+    const monthlyModeV = overrides.monthlyModeVal ?? monthlyMode;
+    const endModeV = overrides.endModeVal ?? endMode;
+    const endUntilV = overrides.endUntilVal !== undefined ? overrides.endUntilVal : endUntil;
+    const endCountV = overrides.endCountVal ?? endCount;
+    const dueTimeV = overrides.dueTimeVal !== undefined ? overrides.dueTimeVal : value.due_time;
+
     return {
       frequency: freq,
-      interval: 1,
-      ...(freq === "weekly" && weekdays.length > 0 ? { weekdays } : {}),
-      time: dueTime ?? null,
+      interval: intervalV,
+      ...(freq === "weekly" && weekdaysV.length > 0 ? { weekdays: weekdaysV } : {}),
+      ...(freq === "monthly" && monthlyModeV === "weekday" ? { monthlyMode: monthlyModeV } : {}),
+      ...(endModeV === "until" && endUntilV ? { until: endUntilV } : {}),
+      ...(endModeV === "count" && endCountV > 0 ? { count: endCountV } : {}),
+      time: dueTimeV ?? null,
     };
   }
 
@@ -79,7 +143,7 @@ export function TaskRecurrenceField({
         due_date: value.due_date,
         due_time: value.due_time,
         start_date: value.start_date,
-        recurrence_rule: value.due_date ? buildRule(frequency, value.due_time) : null,
+        recurrence_rule: value.due_date ? buildRule() : null,
         linked_recurring_id: null,
       });
     } else {
@@ -95,9 +159,12 @@ export function TaskRecurrenceField({
 
   function selectFrequency(next: RecurrenceFrequency) {
     setFrequency(next);
-    if (value.due_date) {
-      onChange({ ...value, recurrence_rule: buildRule(next, value.due_time) });
-    }
+    if (value.due_date) onChange({ ...value, recurrence_rule: buildRule({ freq: next }) });
+  }
+
+  function selectInterval(next: number) {
+    setIntervalValue(next);
+    if (value.due_date) onChange({ ...value, recurrence_rule: buildRule({ intervalVal: next }) });
   }
 
   function toggleWeekday(wd: number) {
@@ -105,24 +172,34 @@ export function TaskRecurrenceField({
       ? weekdays.filter((w) => w !== wd)
       : [...weekdays, wd].sort((a, b) => a - b);
     setWeekdays(next);
-    if (value.due_date) {
-      onChange({
-        ...value,
-        recurrence_rule: {
-          frequency,
-          interval: 1,
-          ...(next.length > 0 ? { weekdays: next } : {}),
-          time: value.due_time ?? null,
-        },
-      });
-    }
+    if (value.due_date) onChange({ ...value, recurrence_rule: buildRule({ weekdaysVal: next }) });
+  }
+
+  function selectMonthlyMode(next: RecurrenceMonthlyMode) {
+    setMonthlyMode(next);
+    if (value.due_date) onChange({ ...value, recurrence_rule: buildRule({ monthlyModeVal: next }) });
+  }
+
+  function selectEndMode(next: EndMode) {
+    setEndMode(next);
+    if (value.due_date) onChange({ ...value, recurrence_rule: buildRule({ endModeVal: next }) });
+  }
+
+  function selectEndUntil(next: string | null) {
+    setEndUntil(next);
+    if (value.due_date) onChange({ ...value, recurrence_rule: buildRule({ endUntilVal: next }) });
+  }
+
+  function selectEndCount(next: number) {
+    setEndCount(next);
+    if (value.due_date) onChange({ ...value, recurrence_rule: buildRule({ endCountVal: next }) });
   }
 
   function selectDueDate(nextDate: string | null) {
     onChange({
       ...value,
       due_date: nextDate,
-      recurrence_rule: mode === "simple" && nextDate ? buildRule(frequency, value.due_time) : null,
+      recurrence_rule: mode === "simple" && nextDate ? buildRule() : null,
     });
   }
 
@@ -130,7 +207,7 @@ export function TaskRecurrenceField({
     onChange({
       ...value,
       due_time: nextTime,
-      recurrence_rule: value.recurrence_rule ? { ...value.recurrence_rule, time: nextTime } : null,
+      recurrence_rule: value.recurrence_rule ? buildRule({ dueTimeVal: nextTime }) : null,
     });
   }
 
@@ -196,22 +273,32 @@ export function TaskRecurrenceField({
 
       {mode === "simple" &&
         (value.due_date ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div>
-              <FormLabel optional>Frequência</FormLabel>
-              <Select value={frequency} onValueChange={(v) => selectFrequency(v as RecurrenceFrequency)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(FREQUENCY_LABELS) as RecurrenceFrequency[]).map((f) => (
-                    <SelectItem key={f} value={f}>
-                      {FREQUENCY_LABELS[f]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormLabel optional>Repetir a cada</FormLabel>
+              <div className="mt-1 flex items-center gap-1.5">
+                <Input
+                  type="number"
+                  min={1}
+                  value={intervalValue}
+                  onChange={(e) => selectInterval(Math.max(1, Number(e.target.value) || 1))}
+                  className="h-9 w-16"
+                />
+                <Select value={frequency} onValueChange={(v) => selectFrequency(v as RecurrenceFrequency)}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(FREQUENCY_UNIT_LABELS) as RecurrenceFrequency[]).map((f) => (
+                      <SelectItem key={f} value={f}>
+                        {FREQUENCY_UNIT_LABELS[f]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
             {frequency === "weekly" && (
               <div>
                 <FormLabel optional>Dias da semana</FormLabel>
@@ -237,6 +324,80 @@ export function TaskRecurrenceField({
                 </p>
               </div>
             )}
+
+            {frequency === "monthly" && (
+              <div>
+                <FormLabel optional>Repetir</FormLabel>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={monthlyMode === "day" ? "secondary" : "outline"}
+                    className={cn("h-7 px-2.5 text-xs", monthlyMode === "day" && "border border-primary/40")}
+                    onClick={() => selectMonthlyMode("day")}
+                  >
+                    No dia {Number(value.due_date.slice(8, 10))}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={monthlyMode === "weekday" ? "secondary" : "outline"}
+                    className={cn(
+                      "h-7 px-2.5 text-xs",
+                      monthlyMode === "weekday" && "border border-primary/40"
+                    )}
+                    onClick={() => selectMonthlyMode("weekday")}
+                  >
+                    {monthlyWeekdayLabel(value.due_date)}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <FormLabel optional>Termina</FormLabel>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {(
+                  [
+                    ["never", "Nunca"],
+                    ["until", "Em uma data"],
+                    ["count", "Depois de N ocorrências"],
+                  ] as [EndMode, string][]
+                ).map(([m, label]) => (
+                  <Button
+                    key={m}
+                    type="button"
+                    size="sm"
+                    variant={endMode === m ? "secondary" : "outline"}
+                    className={cn("h-7 px-2.5 text-xs", endMode === m && "border border-primary/40")}
+                    onClick={() => selectEndMode(m)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              {endMode === "until" && (
+                <div className="mt-1.5 w-40">
+                  <DatePicker
+                    clearable
+                    date={endUntil ? new Date(`${endUntil}T12:00:00`) : undefined}
+                    onSelect={(d) => selectEndUntil(d ? formatLocalIsoDate(d) : null)}
+                  />
+                </div>
+              )}
+              {endMode === "count" && (
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={1}
+                    value={endCount}
+                    onChange={(e) => selectEndCount(Math.max(1, Number(e.target.value) || 1))}
+                    className="h-9 w-20"
+                  />
+                  <span className="text-xs text-muted-foreground">ocorrências</span>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">Defina um prazo para poder repetir.</p>

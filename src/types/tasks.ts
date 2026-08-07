@@ -38,15 +38,25 @@ export type ProjectEventCreateRequest = Omit<
 >;
 
 export type TaskStatus = "todo" | "doing" | "done";
-export type RecurrenceFrequency = "daily" | "weekly" | "monthly";
+export type RecurrenceFrequency = "daily" | "weekly" | "monthly" | "yearly";
 export type TaskPriority = "low" | "medium" | "high";
+export type RecurrenceMonthlyMode = "day" | "weekday";
 
 export interface RecurrenceRule {
   frequency: RecurrenceFrequency;
   interval: number;
+  /** Termina numa data (mutuamente exclusivo com `count` na UI; ambos podem coexistir sem erro). */
   until?: string | null;
+  /** Termina depois de N ocorrências (contando a tarefa-origem como a primeira). */
+  count?: number | null;
   /** Só válido com frequency "weekly". 0=domingo…6=sábado. Sem isso, mantém o comportamento antigo. */
   weekdays?: number[];
+  /**
+   * Só válido com frequency "monthly". "day" (padrão, comportamento antigo) repete no mesmo
+   * dia do mês; "weekday" repete no mesmo "enésimo dia da semana do mês" da tarefa-origem
+   * (ex.: "toda terceira terça-feira"), inferido de `originDueDate` — não é escolhido à parte.
+   */
+  monthlyMode?: RecurrenceMonthlyMode;
   /** HH:mm, herdado por cada ocorrência gerada como due_time. */
   time?: string | null;
 }

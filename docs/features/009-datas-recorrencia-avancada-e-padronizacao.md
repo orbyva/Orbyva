@@ -74,6 +74,31 @@ pelo menos 14 arquivos fora de Tarefas (`car/*` — 4 arquivos, `finance/Budget.
       `due_time` ainda não está no banco remoto (salvar um prazo com horário erraria com "coluna
       não encontrada" até a migration ser aplicada)
 
+### Extensão pedida pelo usuário após a primeira rodada: recorrência "estilo Google Calendar"
+O usuário achou o resultado inicial (só dias da semana específicos, dentro de Semanal) confuso e
+pediu algo mais completo — um construtor único "Repetir a cada N [dia/semana/mês/ano]", à
+Google Calendar/Outlook, com fim por data ou por número de ocorrências.
+- [x] `RecurrenceFrequency` ganha `yearly`; `RecurrenceRule` ganha `monthlyMode` (`"day"` — padrão,
+      mesmo dia do mês; `"weekday"` — enésimo dia da semana do mês, ex. "toda terceira
+      terça-feira", inferido de `due_date`, não escolhido à parte) e `count` (termina depois de N
+      ocorrências, contando a origem como a primeira)
+- [x] `domain/tasks/recurrence.ts`: `addOccurrence` ganha branch anual;
+      `computeMissingMonthlyWeekdayOccurrences` (+ `nthWeekdayOfMonth`/`weekdayOrdinalInMonth`
+      exportado) para o modo "enésimo dia da semana"; `computeMissingOccurrences` passa a aplicar
+      um corte genérico por `count` sobre o resultado de qualquer um dos três caminhos (semanal com
+      `weekdays`, mensal com `monthlyMode: "weekday"`, ou o caminho simples de sempre) — 8 testes
+      novos (anual, mensal enésimo-dia-da-semana com intervalo, último dia da semana do mês,
+      regressão do mensal por dia, `count` isolado e combinado com ocorrências já materializadas),
+      total 20 testes no arquivo, todos passando
+- [x] `TaskRecurrenceField` reconstruído: "Repetir a cada [N] [unidade]" no lugar do select de
+      frequência solto; toggle de dias da semana (só Semanal, como antes); toggle "No dia N" vs.
+      "Na enésima segunda/terça/etc" (só Mensal); grupo "Termina" com Nunca/Em uma data/Depois de N
+      ocorrências. Nenhuma mudança de schema — tudo dentro do `recurrence_rule` (jsonb), sem
+      migration nova.
+- [x] `npm run build && npm run lint` limpos (322 testes Vitest, 0 erros de lint, `tsc -b` limpo)
+- [ ] Verificação manual no navegador — mesmo bloqueio de antes (sem credenciais de login nesta
+      sessão)
+
 ## Notas
 - **Migration pendente de aprovação**: `supabase db push` não foi executado — precisa de
   confirmação explícita do usuário antes (regra do projeto, `docs/stack.md`). Até lá, a tarefa de

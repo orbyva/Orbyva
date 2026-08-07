@@ -7,6 +7,8 @@ function addOccurrence(iso: string, rule: RecurrenceRule): string {
     next.setDate(next.getDate() + rule.interval);
   } else if (rule.frequency === "weekly") {
     next.setDate(next.getDate() + 7 * rule.interval);
+  } else if (rule.frequency === "yearly") {
+    next.setFullYear(next.getFullYear() + rule.interval);
   } else {
     next.setMonth(next.getMonth() + rule.interval);
   }
@@ -69,6 +71,92 @@ function computeMissingWeekdayOccurrences(
   return missing.sort();
 }
 
+/** 1ª ocorrência do `weekday` (0=domingo…6=sábado) no mês, ou -1 se cai na última semana dele. */
+export function weekdayOrdinalInMonth(date: Date): number {
+  const day = date.getDate();
+  const ordinal = Math.ceil(day / 7);
+  const nextWeek = new Date(date);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  if (nextWeek.getMonth() !== date.getMonth()) return -1;
+  return ordinal;
+}
+
+/** Data do enésimo `weekday` do mês (`nth` 1-5, ou -1 para o último); `null` se não existir. */
+function nthWeekdayOfMonth(year: number, month: number, weekday: number, nth: number): Date | null {
+  if (nth === -1) {
+    const last = new Date(year, month + 1, 0, 12);
+    const offset = (last.getDay() - weekday + 7) % 7;
+    last.setDate(last.getDate() - offset);
+    return last;
+  }
+  const first = new Date(year, month, 1, 12);
+  const offset = (weekday - first.getDay() + 7) % 7;
+  const day = 1 + offset + (nth - 1) * 7;
+  const date = new Date(year, month, day, 12);
+  return date.getMonth() === month ? date : null;
+}
+
+/**
+ * Variante de `computeMissingOccurrences` para mensal no "enésimo dia da semana do mês"
+ * (ex.: "toda terceira terça-feira"), inferido do dia/semana de `originDueDate`.
+ */
+function computeMissingMonthlyWeekdayOccurrences(
+  originDueDate: string,
+  rule: RecurrenceRule,
+  existingDates: string[],
+  today: string
+): string[] {
+  const [oy, om, od] = originDueDate.split("-").map(Number);
+  const origin = new Date(oy, om - 1, od, 12);
+  const weekday = origin.getDay();
+  const ordinal = weekdayOrdinalInMonth(origin);
+
+  const existing = new Set(existingDates);
+  const missing: string[] = [];
+  let monthCursor = om - 1;
+  let yearCursor = oy;
+  let guard = 0;
+
+  while (guard < 1000) {
+    guard += 1;
+    monthCursor += rule.interval;
+    while (monthCursor > 11) {
+      monthCursor -= 12;
+      yearCursor += 1;
+    }
+
+    const candidateDate = nthWeekdayOfMonth(yearCursor, monthCursor, weekday, ordinal);
+    if (!candidateDate) continue;
+    const candidate = toIso(candidateDate);
+    if (candidate > today) break;
+    if (rule.until && candidate > rule.until) break;
+    if (!existing.has(candidate)) missing.push(candidate);
+  }
+
+  return missing;
+}
+
+function computeMissingSimpleOccurrences(
+  originDueDate: string,
+  rule: RecurrenceRule,
+  existingDates: string[],
+  today: string
+): string[] {
+  const existing = new Set(existingDates);
+  const missing: string[] = [];
+  let cursor = addOccurrence(originDueDate, rule);
+  let guard = 0;
+
+  while (cursor <= today && guard < 1000) {
+    guard += 1;
+    if (rule.until && cursor > rule.until) break;
+    if (!existing.has(cursor)) missing.push(cursor);
+    cursor = addOccurrence(cursor, rule);
+  }
+
+  return missing;
+}
+
 /**
  * Calcula quais ocorrências (datas ISO) de uma tarefa recorrente ainda faltam
  * gerar entre a origem e hoje. Puro — a materialização (insert no banco) fica
@@ -84,20 +172,19 @@ export function computeMissingOccurrences(
     return [];
   }
 
+  let missing: string[];
   if (rule.frequency === "weekly" && rule.weekdays && rule.weekdays.length > 0) {
-    return computeMissingWeekdayOccurrences(originDueDate, rule, existingDates, today);
+    missing = computeMissingWeekdayOccurrences(originDueDate, rule, existingDates, today);
+  } else if (rule.frequency === "monthly" && rule.monthlyMode === "weekday") {
+    missing = computeMissingMonthlyWeekdayOccurrences(originDueDate, rule, existingDates, today);
+  } else {
+    missing = computeMissingSimpleOccurrences(originDueDate, rule, existingDates, today);
   }
 
-  const existing = new Set(existingDates);
-  const missing: string[] = [];
-  let cursor = addOccurrence(originDueDate, rule);
-  let guard = 0;
-
-  while (cursor <= today && guard < 1000) {
-    guard += 1;
-    if (rule.until && cursor > rule.until) break;
-    if (!existing.has(cursor)) missing.push(cursor);
-    cursor = addOccurrence(cursor, rule);
+  if (rule.count != null && rule.count > 0) {
+    const alreadyGenerated = existingDates.length + 1;
+    const remaining = Math.max(0, rule.count - alreadyGenerated);
+    missing = missing.slice(0, remaining);
   }
 
   return missing;
