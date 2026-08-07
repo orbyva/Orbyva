@@ -38,17 +38,31 @@ que já existem.
   deliberadamente para subtarefas.
 
 ## Tarefas
-- [ ] `SubtaskChecklist` (`TaskViews.tsx`): título vira clicável (abre edição), badge de prazo
+- [x] `SubtaskChecklist` (`TaskViews.tsx`): título vira clicável (abre edição), badge de prazo
       (`Calendar` + data) quando `due_date` presente, linha de descrição truncada quando presente
-- [ ] Dialog de edição de subtarefa (Título/Descrição/Prazo) — novo componente compartilhado, usado
-      a partir do clique em `SubtaskChecklist` (tanto em `ProjectDetail.tsx`/Kanban quanto em
-      `TaskList.tsx`/`TaskViews.tsx` onde a checklist aparece expandida)
-- [ ] Salvar edição de subtarefa via `updateTask` existente; atualização otimista no estado local
-      (mesmo princípio das features 003/004 — sem reload completo por edição)
-- [ ] Preview de descrição (1-2 linhas truncadas) em `TaskListRow`, `TaskAgendaCard`, `KanbanCard`
-      quando a tarefa de topo tem `description` preenchida
-- [ ] `npm run build && npm run lint` limpos + verificação manual (editar descrição e prazo de uma
-      subtarefa existente e ver refletido no card; criar tarefa de topo com descrição e confirmar
-      que aparece no card em Lista/Agenda/Kanban)
+- [x] Dialog de edição de subtarefa (Título/Descrição/Prazo) — `SubtaskEditDialog.tsx`, novo
+      componente compartilhado, usado a partir do clique em `SubtaskChecklist` (`TaskListRow`,
+      usado tanto em `TaskList.tsx` quanto na aba Lista de `ProjectDetail.tsx`) e também a partir da
+      lista de subtarefas própria do `KanbanCard` — ver Notas
+- [x] Salvar edição de subtarefa via `updateTask` existente; atualização otimista no estado local
+      (mesmo princípio de `applyStatusChange`, já usado nas features 003/004/011)
+- [x] Preview de descrição (1-2 linhas truncadas) em `TaskListRow` e `KanbanCard` quando a tarefa
+      de topo tem `description` preenchida (`TaskAgendaCard` não existe mais desde a feature 015)
+- [x] `npm run build && npm run lint` limpos (322 testes Vitest passando, 0 erros de lint,
+      `tsc -b` limpo)
+- [ ] Verificação manual no navegador (editar descrição e prazo de uma subtarefa existente e ver
+      refletido no card; criar tarefa de topo com descrição e confirmar que aparece no card em
+      Lista/Kanban) — **bloqueada**: sem credenciais de login disponíveis nesta sessão, mesmo
+      bloqueio já registrado nas features 009, 011 e 015
 
 ## Notas
+- **`KanbanCard` não usa `SubtaskChecklist`** — ao contrário do que o Contexto original supunha, o
+  Kanban de tarefas (`ProjectDetail.tsx`) sempre teve sua própria lista de subtarefas duplicada
+  inline (não importa `SubtaskChecklist` de `TaskViews.tsx`). Segui o mesmo padrão de duplicação
+  já aceito entre `TaskList.tsx`/`ProjectDetail.tsx` desde a feature 002: apliquei a mesma
+  clicabilidade/badge/preview diretamente na lista do `KanbanCard`, sem forçar um refactor pra
+  compartilhar o componente (não pedido, risco maior que o benefício nesta rodada).
+- O campo Descrição do dialog de subtarefa usa `<textarea>` (mesmo estilo já usado em "Notas" de
+  projeto, `Projects.tsx`) — o formulário de tarefa principal na verdade usa um `Input` de uma
+  linha só para descrição, então "mesmo padrão do formulário de tarefa" do plano original não era
+  literalmente exato; textarea faz mais sentido pra um campo de texto livre.

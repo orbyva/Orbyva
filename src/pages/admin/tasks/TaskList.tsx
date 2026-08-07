@@ -21,6 +21,7 @@ import { formatDateTimeBR } from "@/lib/currency";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskPriorityField } from "./TaskPriorityField";
 import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
+import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
 import { TaskListRow } from "./TaskViews";
 import { EmptyState } from "@/components/EmptyState";
 import {
@@ -83,6 +84,7 @@ export default function TaskList() {
   const [tagsInput, setTagsInput] = useState("");
   const [subtaskDrafts, setSubtaskDrafts] = useState<string[]>([]);
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
+  const [editingSubtask, setEditingSubtask] = useState<Task | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { runningEntry, start: startTimer, stop: stopTimer } = useActiveTimer();
@@ -186,6 +188,25 @@ export default function TaskList() {
 
   function toggleDone(task: Task) {
     return applyStatusChange(task, task.status === "done" ? "todo" : "done");
+  }
+
+  /** Mesmo princípio de `applyStatusChange`: atualiza na hora, reverte se a chamada falhar. */
+  async function saveSubtaskEdit(payload: SubtaskEditPayload) {
+    if (!editingSubtask) return;
+    const id = editingSubtask.id;
+    const previous = tasks;
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...payload } : t)));
+    setEditingSubtask(null);
+    try {
+      await updateTask({ id, ...payload });
+    } catch (error) {
+      setTasks(previous);
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível salvar a subtarefa."),
+        variant: "destructive",
+      });
+    }
   }
 
   function openCreate() {
@@ -373,6 +394,7 @@ export default function TaskList() {
                         expanded={expandedTasks.has(task.id)}
                         onToggleExpand={() => toggleExpanded(task.id)}
                         onToggleSubtask={toggleDone}
+                        onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
                         onToggleDone={() => toggleDone(task)}
                         onOpenSeries={() => setSeriesTask(task)}
                         onEdit={() => openEdit(task)}
@@ -399,6 +421,12 @@ export default function TaskList() {
           </div>
         )}
       </div>
+
+      <SubtaskEditDialog
+        subtask={editingSubtask}
+        onOpenChange={(v) => !v && setEditingSubtask(null)}
+        onSave={saveSubtaskEdit}
+      />
 
       <Dialog open={!!seriesTask} onOpenChange={(v) => !v && setSeriesTask(null)}>
         <DialogContent>
