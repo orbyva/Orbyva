@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Bell, Home, Plus } from "lucide-react";
+import { Bell, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -8,7 +8,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { QuickAddSheet } from "@/components/QuickAddSheet";
+import { QuickAddMenu } from "@/components/QuickAddMenu";
+import { QuickAddToggleIcon } from "@/components/QuickAddToggleIcon";
 import { fetchAppAlerts, APP_ALERTS_UPDATED_EVENT, type AppAlert } from "@/api/alerts";
 import { getEnabledAlertKinds } from "@/lib/browserNotify";
 import { resolveAppArea, type AppArea } from "@/lib/quickAdd";
@@ -98,24 +99,39 @@ export function MobileBottomNav() {
             Início
           </Link>
 
-          <button
-            type="button"
-            onClick={() => setQuickAddOpen(true)}
-            className="flex flex-col items-center justify-center gap-0.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-            aria-label="Adicionar"
+          <QuickAddMenu
+            open={quickAddOpen}
+            onOpenChange={setQuickAddOpen}
+            area={area}
+            source="mobile_nav"
+            side="top"
+            align="center"
           >
-            <span
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-full",
-                AREA_PLUS_CLASS[area],
-                isTx &&
-                  "ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
-              )}
+            <button
+              type="button"
+              className="flex flex-col items-center justify-center gap-0.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+              aria-label={quickAddOpen ? "Fechar" : "Adicionar"}
+              aria-expanded={quickAddOpen}
             >
-              <Plus className="h-4 w-4" />
-            </span>
-            Nova
-          </button>
+              <span
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-full transition-transform duration-200 ease-out",
+                  AREA_PLUS_CLASS[area],
+                  quickAddOpen && "scale-95",
+                  isTx &&
+                    "ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
+                )}
+              >
+                <QuickAddToggleIcon
+                  open={quickAddOpen}
+                  iconClassName="h-4 w-4"
+                />
+              </span>
+              <span className="transition-opacity duration-200">
+                {quickAddOpen ? "Fechar" : "Nova"}
+              </span>
+            </button>
+          </QuickAddMenu>
 
           <button
             type="button"
@@ -134,13 +150,6 @@ export function MobileBottomNav() {
           </button>
         </div>
       </nav>
-
-      <QuickAddSheet
-        open={quickAddOpen}
-        onOpenChange={setQuickAddOpen}
-        area={area}
-        source="mobile_nav"
-      />
 
       <Sheet open={alertsOpen} onOpenChange={setAlertsOpen}>
         <SheetContent

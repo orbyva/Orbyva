@@ -118,13 +118,32 @@ export interface TripItineraryActivity {
   id: string;
   day_id: string;
   title: string;
+  /** Horário da visita ou saída do deslocamento. */
   activity_time?: string | null;
+  /** Chegada do deslocamento (quando category = transport). */
+  arrival_time?: string | null;
+  /**
+   * Modo do deslocamento: flight | train | bus | car | other.
+   */
+  transport_mode?: string | null;
+  /** @deprecated Escopo legado; conflitos usam só os horários. */
+  transport_scope?: string | null;
+  /** Origem do deslocamento (país / estado / cidade). */
+  origin_label?: string | null;
+  origin_lat?: number | null;
+  origin_lng?: number | null;
+  origin_place_id?: string | null;
+  /** Destino do deslocamento (país / estado / cidade). */
+  destination_label?: string | null;
+  destination_lat?: number | null;
+  destination_lng?: number | null;
+  destination_place_id?: string | null;
   notes?: string | null;
   place_visit_id?: string | null;
   sort_order: number;
   link_url?: string | null;
   is_reserved?: boolean;
-  /** Tipo do lugar (mesmo conjunto de PlaceType). */
+  /** Tipo do lugar (mesmo conjunto de PlaceType) ou transport. */
   category?: TripActivityCategory;
   /** Checklist da visita — nunca auto por horário. */
   visit_status?: TripVisitStatus;
@@ -135,7 +154,7 @@ export interface TripItineraryActivity {
   created_by_avatar?: string | null;
 }
 
-/** Tipos de visita no roteiro — alinhados a lugares. */
+/** Tipos de visita no roteiro — alinhados a lugares + transporte entre cidades. */
 export type TripActivityCategory =
   | "restaurant"
   | "cafe"
@@ -145,6 +164,7 @@ export type TripActivityCategory =
   | "park"
   | "museum"
   | "shop"
+  | "transport"
   | "other";
 
 export interface TripMilestone {

@@ -1,6 +1,7 @@
 /**
  * Paradas multi-cidade da viagem (país / estado / cidade).
  */
+import { formatLocalIsoDate } from "@/lib/dates";
 import type { TripStop } from "@/types/travel";
 
 export type TripStopInput = {
@@ -13,17 +14,94 @@ export type TripStopInput = {
   sort_order?: number;
 };
 
+export type AssignStopToDatePayload = {
+  name: string;
+  place_id?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+};
+
+function addDaysIso(isoDate: string, deltaDays: number): string {
+  const d = new Date(`${isoDate.slice(0, 10)}T12:00:00`);
+  d.setDate(d.getDate() + deltaDays);
+  return formatLocalIsoDate(d);
+}
+
 export type TripStopDraft = TripStopInput & {
   /** Chave local estável no formulário. */
   key: string;
   id?: string;
 };
 
+/**
+ * Atribui uma cidade a uma data: parte intervalos que cobrem o dia e
+ * reinsere uma parada só para aquela data; renumerar `sort_order`.
+ */
+export function assignStopToDate(
+  stops: TripStopInput[],
+  date: string,
+  newStop: AssignStopToDatePayload
+): TripStopInput[] {
+  const day = date.slice(0, 10);
+  const name = newStop.name.trim();
+  if (!day || !name) return stops.map((s) => ({ ...s }));
+
+  const remaining: TripStopInput[] = [];
+  for (const s of stops) {
+    if (day < s.start_date || day > s.end_date) {
+      remaining.push({ ...s });
+      continue;
+    }
+    if (s.start_date < day) {
+      remaining.push({
+        ...s,
+        end_date: addDaysIso(day, -1),
+      });
+    }
+    if (s.end_date > day) {
+      remaining.push({
+        ...s,
+        start_date: addDaysIso(day, 1),
+      });
+    }
+  }
+
+  remaining.push({
+    name,
+    place_id: newStop.place_id?.trim() || null,
+    lat:
+      typeof newStop.lat === "number" && Number.isFinite(newStop.lat)
+        ? newStop.lat
+        : null,
+    lng:
+      typeof newStop.lng === "number" && Number.isFinite(newStop.lng)
+        ? newStop.lng
+        : null,
+    start_date: day,
+    end_date: day,
+  });
+
+  remaining.sort((a, b) => {
+    if (a.start_date !== b.start_date) {
+      return a.start_date.localeCompare(b.start_date);
+    }
+    return a.end_date.localeCompare(b.end_date);
+  });
+
+  return remaining.map((s, i) => ({ ...s, sort_order: i }));
+}
+
 /** Parada ativa no dia do roteiro (intervalo inclusivo). */
 export function stopForDate(
   stops: Pick<
     TripStop,
-    "start_date" | "end_date" | "sort_order" | "name" | "lat" | "lng"
+    | "start_date"
+    | "end_date"
+    | "sort_order"
+    | "name"
+    | "lat"
+    | "lng"
+    | "place_id"
   >[],
   date: string
 ): (typeof stops)[number] | null {

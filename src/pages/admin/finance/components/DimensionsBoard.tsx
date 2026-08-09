@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Layers, Plus, Trash2 } from "lucide-react";
+import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
+import { GripVertical, Layers, Plus, Search, Trash2 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +39,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useTouchDrag } from "@/hooks/useTouchDrag";
 import { getErrorMessage } from "@/lib/errors";
 import { dropZoneAttrs, readDropZone } from "@/lib/dropZone";
+import { LIST_LAYOUT_TRANSITION } from "@/lib/layoutMotion";
 import { cn, sortByNamePt } from "@/lib/utils";
 import { repairOrphanClasses } from "@/domain/onboarding/defaults";
+import {
+  filterTypesBySearch,
+  visibleClassesForTypeSearch,
+} from "@/domain/dimensions/search";
 
 /** `type|<typeId>` */
 const TYPE_ZONE = "type";
@@ -79,7 +85,9 @@ export function DimensionsBoard({
   const [dragClassId, setDragClassId] = useState<number | null>(null);
   const [dropTypeId, setDropTypeId] = useState<number | null>(null);
   const [natureFilter, setNatureFilter] = useState<"all" | number>("all");
+  const [search, setSearch] = useState("");
   const classesBooted = useRef(false);
+  const reduceMotion = useReducedMotion();
 
   const { handleProps: dragHandleProps, dragOverlay } = useTouchDrag({
     onStart: (classId) => setDragClassId(Number(classId)),
@@ -185,12 +193,15 @@ export function DimensionsBoard({
   }, [natures]);
 
   const visibleTypes = useMemo(() => {
-    if (natureFilter === "all") return sortedTypes;
-    return sortedTypes.filter((t) => {
-      const nid = t.nature_id ?? t.nature?.id;
-      return nid === natureFilter;
-    });
-  }, [sortedTypes, natureFilter]);
+    const byNature =
+      natureFilter === "all"
+        ? sortedTypes
+        : sortedTypes.filter((t) => {
+            const nid = t.nature_id ?? t.nature?.id;
+            return nid === natureFilter;
+          });
+    return filterTypesBySearch(byNature, classes, search);
+  }, [sortedTypes, natureFilter, classes, search]);
 
   async function handleCreateType() {
     if (!newTypeName.trim() || !newTypeNatureId) return;
@@ -433,6 +444,17 @@ export function DimensionsBoard({
         </Button>
       </div>
 
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar categorias ou subcategorias…"
+          className="pl-9"
+          aria-label="Buscar categorias"
+        />
+      </div>
+
       {addingType ? (
         <div className="space-y-3 rounded-xl border bg-card p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -547,27 +569,42 @@ export function DimensionsBoard({
       ) : visibleTypes.length === 0 ? (
         <EmptyState
           icon={Layers}
-          title="Nada nesta natureza"
-          description="Não há categorias neste filtro. Crie uma nova ou escolha “Todas”."
+          title={
+            search.trim()
+              ? "Nenhuma categoria encontrada"
+              : "Nada nesta natureza"
+          }
+          description={
+            search.trim()
+              ? "Tente outro termo ou limpe a busca."
+              : "Não há categorias neste filtro. Crie uma nova ou escolha “Todas”."
+          }
           action={
-            <Button
-              onClick={() => {
-                if (natureFilter !== "all") setNewTypeNatureId(natureFilter);
-                setAddingType(true);
-              }}
-            >
-              Nova categoria
-            </Button>
+            search.trim() ? undefined : (
+              <Button
+                onClick={() => {
+                  if (natureFilter !== "all") setNewTypeNatureId(natureFilter);
+                  setAddingType(true);
+                }}
+              >
+                Nova categoria
+              </Button>
+            )
           }
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <LayoutGroup id="finance-dimension-classes">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visibleTypes.map((type) => {
             const natureName =
               type.nature?.name ??
               natures.find((n) => n.id === type.nature_id)?.name ??
               "";
-            const typeClasses = classesByType.get(type.id) ?? [];
+            const typeClasses = visibleClassesForTypeSearch(
+              type,
+              classesByType.get(type.id) ?? [],
+              search
+            );
             return (
               <article
                 key={type.id}
@@ -734,8 +771,13 @@ export function DimensionsBoard({
 
                 <ul className="min-h-[3rem] flex-1 space-y-1.5">
                   {typeClasses.map((cls) => (
-                    <li
+                    <motion.li
                       key={cls.id}
+                      layout={!reduceMotion ? "position" : false}
+                      layoutId={
+                        !reduceMotion ? `class-${cls.id}` : undefined
+                      }
+                      transition={LIST_LAYOUT_TRANSITION}
                       draggable
                       onDragStart={() => setDragClassId(cls.id)}
                       onDragEnd={() => setDragClassId(null)}
@@ -785,7 +827,7 @@ export function DimensionsBoard({
                       >
                         <Trash2 className="size-3.5" />
                       </Button>
-                    </li>
+                    </motion.li>
                   ))}
                   {addingClassForType === type.id ? (
                     <li className="flex gap-1.5">
@@ -818,7 +860,8 @@ export function DimensionsBoard({
             aria-hidden
             className="hidden min-h-[8rem] rounded-2xl border border-dashed bg-muted/20 sm:block"
           />
-        </div>
+          </div>
+        </LayoutGroup>
       )}
 
       <AlertDialog

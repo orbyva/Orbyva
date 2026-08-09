@@ -133,18 +133,24 @@ export async function deleteRecurringApi(recurringId: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Última data efetiva de pagamento (`paid_at`) por recorrência. */
+/** Última data efetiva de pagamento (`paid_at`) por recorrência.
+ * Sem `recurringIds` (ou lista vazia): todas as do usuário (permite paralelizar com o fetch da lista).
+ */
 export async function fetchLastPaidAtByRecurring(
-  recurringIds: string[]
+  recurringIds?: string[]
 ): Promise<Record<string, string>> {
-  if (recurringIds.length === 0) return {};
   const userId = await getCurrentUserId();
-  const { data, error } = await supabase
+  let query = supabase
     .from("transaction")
     .select("recurring_transaction_id, paid_at, transaction_at, created_at")
     .eq("user_id", userId)
-    .in("recurring_transaction_id", recurringIds)
     .not("recurring_transaction_id", "is", null);
+
+  if (recurringIds && recurringIds.length > 0) {
+    query = query.in("recurring_transaction_id", recurringIds);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
 

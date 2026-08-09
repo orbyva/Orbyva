@@ -23,8 +23,10 @@ import {
   deleteTrip,
   fetchTripDetailBundle,
   registerMyExpenseSplit,
+  replaceTripStops,
   updateItineraryActivity,
   updateItineraryDayNotes,
+  updateTrip,
   updateTripExpense,
   updateTripMilestone,
 } from "@/api/travel";
@@ -39,9 +41,27 @@ import {
   TRIP_STATUS_LABELS,
   isTripFinished,
   normalizeTripActivityCategory,
+  sumTripSpent,
 } from "@/domain/travel";
 import { sortVisitsForDay } from "@/domain/itinerary/visits";
 import { tripLedgerDescription } from "@/domain/travel/ledger";
+import {
+  assignStopToDate,
+  destinationFieldsFromStops,
+  stopForDate,
+  type TripStopInput,
+} from "@/domain/travel/tripStops";
+import {
+  transferTimesConflictWithVisits,
+  visitTimeConflictsWithTransfers,
+  isTransportActivity,
+} from "@/domain/travel/interDayTransfers";
+import {
+  endpointsFromTransferTitle,
+  hasRequiredTransferEndpoints,
+  normalizeTripTransportMode,
+  transferEndpointsTitle,
+} from "@/domain/travel/transportModes";
 import type {
   TripExpense,
   TripExpenseCategory,
@@ -63,8 +83,14 @@ import { TripItineraryTab } from "./components/TripItineraryTab";
 import { TripExpensesTab } from "./components/TripExpensesTab";
 import { TripPlacesTab } from "./components/TripPlacesTab";
 import { TripMilestonesTab } from "./components/TripMilestonesTab";
-import { TripEditDayDialog } from "./components/TripEditDayDialog";
-import { TripEditActivityDialog } from "./components/TripEditActivityDialog";
+import {
+  TripEditDayDialog,
+  type DayForm,
+} from "./components/TripEditDayDialog";
+import {
+  TripEditActivityDialog,
+  type ActivityForm,
+} from "./components/TripEditActivityDialog";
 import { TripExpenseFormDialog } from "./components/TripExpenseFormDialog";
 import { TripSplitRegisterDialog } from "./components/TripSplitRegisterDialog";
 import { TripMilestoneFormDialog } from "./components/TripMilestoneFormDialog";
@@ -105,23 +131,19 @@ export default function TripDetail() {
   const [shareOpen, setShareOpen] = useState(false);
 
   const [editingDay, setEditingDay] = useState<TripItineraryDay | null>(null);
-  const [dayForm, setDayForm] = useState({ title: "", notes: "" });
+  const [dayForm, setDayForm] = useState<DayForm>({
+    title: "",
+    notes: "",
+    stop: null,
+  });
   const [editingActivity, setEditingActivity] =
     useState<TripItineraryActivity | null>(null);
   const [addingDayId, setAddingDayId] = useState<string | null>(null);
-  const [activityForm, setActivityForm] = useState<{
-    title: string;
-    activity_time: string;
-    notes: string;
-    link_url: string;
-    is_reserved: boolean;
-    category: import("@/types/travel").TripActivityCategory;
-    place_visit_id: string | null;
-    linked_place_label: string | null;
-    pending_catalog: import("@/components/PlaceCatalogSearch").PlaceCatalogPick | null;
-  }>({
+  const [activityForm, setActivityForm] = useState<ActivityForm>({
     title: "",
     activity_time: "",
+    arrival_time: "",
+    transport_mode: "other",
     notes: "",
     link_url: "",
     is_reserved: false,
@@ -129,6 +151,8 @@ export default function TripDetail() {
     place_visit_id: null,
     linked_place_label: null,
     pending_catalog: null,
+    origin: null,
+    destination: null,
   });
 
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm());
@@ -376,6 +400,31 @@ export default function TripDetail() {
               }
             : undefined
         );
+        const nextExpenses = trip!.expenses.map((e) =>
+          e.id !== editingExpense.id
+            ? e
+            : {
+                ...e,
+                ...expenseForm,
+                visibility,
+              }
+        );
+        const expenseTotal = sumTripSpent(
+          nextExpenses,
+          Boolean(trip!.isShared)
+        );
+        setTrip((prev) =>
+          prev
+            ? {
+                ...prev,
+                expenses: nextExpenses,
+                expenseTotal,
+                budgetRemaining:
+                  prev.budget != null ? prev.budget - expenseTotal : null,
+                spent: expenseTotal,
+              }
+            : prev
+        );
         toast({
           title: linked ? "Gasto e extrato atualizados!" : "Gasto atualizado!",
           duration: 2000,
@@ -400,14 +449,30 @@ export default function TripDetail() {
               }
             : null;
 
-        await createTripExpense(
+        const created = await createTripExpense(
           { ...expenseForm, trip_id: trip!.id, splits },
           transaction
+        );
+        const nextExpenses = [...trip!.expenses, created];
+        const expenseTotal = sumTripSpent(
+          nextExpenses,
+          Boolean(trip!.isShared)
+        );
+        setTrip((prev) =>
+          prev
+            ? {
+                ...prev,
+                expenses: nextExpenses,
+                expenseTotal,
+                budgetRemaining:
+                  prev.budget != null ? prev.budget - expenseTotal : null,
+                spent: expenseTotal,
+              }
+            : prev
         );
         toast({ title: "Gasto registrado!", duration: 2000 });
       }
       setExpenseDialogOpen(false);
-      load();
     } catch (error) {
       toast({
         title: "Erro",
@@ -438,16 +503,29 @@ export default function TripDetail() {
     if (!milestoneForm.title.trim()) return;
     try {
       if (editingMilestone) {
-        await updateTripMilestone({
-          id: editingMilestone.id,
+        const patch = {
           title: milestoneForm.title.trim(),
           type: milestoneForm.type,
           due_date: milestoneForm.due_date,
           notes: milestoneForm.notes.trim() || null,
+        };
+        await updateTripMilestone({
+          id: editingMilestone.id,
+          ...patch,
         });
+        setTrip((prev) =>
+          prev
+            ? {
+                ...prev,
+                milestones: prev.milestones.map((m) =>
+                  m.id !== editingMilestone.id ? m : { ...m, ...patch }
+                ),
+              }
+            : prev
+        );
         toast({ title: "Prazo atualizado!", duration: 2000 });
       } else {
-        await createTripMilestone({
+        const created = await createTripMilestone({
           trip_id: trip!.id,
           title: milestoneForm.title.trim(),
           type: milestoneForm.type,
@@ -455,10 +533,14 @@ export default function TripDetail() {
           notes: milestoneForm.notes.trim() || null,
           done: false,
         });
+        setTrip((prev) =>
+          prev
+            ? { ...prev, milestones: [...prev.milestones, created] }
+            : prev
+        );
         toast({ title: "Prazo adicionado!", duration: 2000 });
       }
       setMilestoneDialogOpen(false);
-      load();
     } catch (error) {
       toast({
         title: "Erro",
@@ -468,17 +550,21 @@ export default function TripDetail() {
     }
   }
 
-  function emptyActivityForm() {
+  function emptyActivityForm(): ActivityForm {
     return {
       title: "",
       activity_time: "",
+      arrival_time: "",
+      transport_mode: "other",
       notes: "",
       link_url: "",
       is_reserved: false,
-      category: "attraction" as const,
-      place_visit_id: null as string | null,
-      linked_place_label: null as string | null,
-      pending_catalog: null as import("@/components/PlaceCatalogSearch").PlaceCatalogPick | null,
+      category: "attraction",
+      place_visit_id: null,
+      linked_place_label: null,
+      pending_catalog: null,
+      origin: null,
+      destination: null,
     };
   }
 
@@ -488,13 +574,34 @@ export default function TripDetail() {
     setActivityForm(emptyActivityForm());
   }
 
+  function openAddTransfer(dayId: string) {
+    setEditingActivity(null);
+    setAddingDayId(dayId);
+    setActivityForm({
+      ...emptyActivityForm(),
+      category: "transport",
+      transport_mode: "car",
+      is_reserved: false,
+    });
+  }
+
   function openActivityEdit(act: TripItineraryActivity) {
     setAddingDayId(null);
     setEditingActivity(act);
     const linked = places.find((p) => p.id === act.place_visit_id);
+    const isTransfer =
+      normalizeTripActivityCategory(act.category) === "transport";
+    const fromTitle = isTransfer
+      ? endpointsFromTransferTitle(act.title)
+      : null;
+    const originLabel = act.origin_label?.trim() || fromTitle?.originLabel;
+    const destinationLabel =
+      act.destination_label?.trim() || fromTitle?.destinationLabel;
     setActivityForm({
       title: act.title,
       activity_time: act.activity_time ?? "",
+      arrival_time: act.arrival_time ?? "",
+      transport_mode: normalizeTripTransportMode(act.transport_mode),
       notes: act.notes ?? "",
       link_url: act.link_url ?? "",
       is_reserved: Boolean(act.is_reserved),
@@ -502,12 +609,28 @@ export default function TripDetail() {
       place_visit_id: act.place_visit_id ?? null,
       linked_place_label: linked?.name ?? null,
       pending_catalog: null,
+      origin: isTransfer && originLabel
+        ? {
+            label: originLabel,
+            lat: act.origin_lat ?? null,
+            lng: act.origin_lng ?? null,
+            place_id: act.origin_place_id ?? null,
+          }
+        : null,
+      destination: isTransfer && destinationLabel
+        ? {
+            label: destinationLabel,
+            lat: act.destination_lat ?? null,
+            lng: act.destination_lng ?? null,
+            place_id: act.destination_place_id ?? null,
+          }
+        : null,
     });
   }
 
-  async function resolvePlaceVisitId(): Promise<string | null> {
-    if (activityForm.place_visit_id) return activityForm.place_visit_id;
-    const pick = activityForm.pending_catalog;
+  async function resolvePlaceVisitId(form: ActivityForm): Promise<string | null> {
+    if (form.place_visit_id) return form.place_visit_id;
+    const pick = form.pending_catalog;
     if (!pick || !trip) return null;
     const created = await createPlace({
       trip_id: trip.id,
@@ -530,46 +653,167 @@ export default function TripDetail() {
     return created.id;
   }
 
-  async function handleSaveActivity() {
-    if (!activityForm.title.trim()) {
+  async function handleSaveActivity(form: ActivityForm) {
+    const isTransfer = form.category === "transport";
+    if (isTransfer) {
+      if (
+        !hasRequiredTransferEndpoints(
+          form.origin?.label,
+          form.destination?.label
+        )
+      ) {
+        toast({
+          title: "Origem e destino obrigatórios",
+          description: "Escolha país, estado ou cidade em ambos.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (!form.title.trim()) {
       toast({
         title: "Informe o título da visita",
         variant: "destructive",
       });
       return;
     }
+    const dayId = addingDayId ?? editingActivity?.day_id ?? null;
+    if (!trip || !dayId) return;
+
+    if (isTransfer) {
+      const conflict = transferTimesConflictWithVisits({
+        dayId,
+        departTime: form.activity_time,
+        arriveTime: form.arrival_time,
+        days: trip.itinerary,
+        excludeActivityId: editingActivity?.id,
+      });
+      if (conflict) {
+        toast({
+          title: "Horário conflita com visita",
+          description: conflict.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      const conflict = visitTimeConflictsWithTransfers({
+        dayId,
+        activityTime: form.activity_time,
+        days: trip.itinerary,
+        excludeActivityId: editingActivity?.id,
+      });
+      if (conflict) {
+        toast({
+          title: "Horário dentro do deslocamento",
+          description: conflict.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
-      const placeVisitId = await resolvePlaceVisitId();
+      const placeVisitId = isTransfer ? null : await resolvePlaceVisitId(form);
+      const title = isTransfer
+        ? transferEndpointsTitle(
+            form.origin!.label,
+            form.destination!.label
+          )
+        : form.title.trim();
+      const transferFields = isTransfer
+        ? {
+            origin_label: form.origin!.label.trim(),
+            origin_lat: form.origin!.lat,
+            origin_lng: form.origin!.lng,
+            origin_place_id: form.origin!.place_id,
+            destination_label: form.destination!.label.trim(),
+            destination_lat: form.destination!.lat,
+            destination_lng: form.destination!.lng,
+            destination_place_id: form.destination!.place_id,
+            transport_mode: form.transport_mode,
+            arrival_time: form.arrival_time.trim() || null,
+          }
+        : {
+            origin_label: null,
+            origin_lat: null,
+            origin_lng: null,
+            origin_place_id: null,
+            destination_label: null,
+            destination_lat: null,
+            destination_lng: null,
+            destination_place_id: null,
+            transport_mode: null,
+            arrival_time: null,
+          };
+
       if (addingDayId) {
-        const day = trip!.itinerary.find((d) => d.id === addingDayId);
-        await createItineraryActivity({
+        const day = trip.itinerary.find((d) => d.id === addingDayId);
+        const created = await createItineraryActivity({
           day_id: addingDayId,
-          title: activityForm.title.trim(),
-          activity_time: activityForm.activity_time.trim() || null,
-          notes: activityForm.notes.trim() || null,
-          link_url: activityForm.link_url.trim() || null,
-          is_reserved: activityForm.is_reserved,
-          category: normalizeTripActivityCategory(activityForm.category),
+          title,
+          activity_time: form.activity_time.trim() || null,
+          notes: form.notes.trim() || null,
+          link_url: form.link_url.trim() || null,
+          is_reserved: form.is_reserved,
+          category: normalizeTripActivityCategory(form.category),
           place_visit_id: placeVisitId,
           sort_order: (day?.activities?.length ?? 0) + 1,
+          ...transferFields,
         });
-        toast({ title: "Visita adicionada!", duration: 2000 });
+        setTrip((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            itinerary: prev.itinerary.map((d) =>
+              d.id !== addingDayId
+                ? d
+                : {
+                    ...d,
+                    activities: [...(d.activities ?? []), created],
+                  }
+            ),
+          };
+        });
+        toast({
+          title: isTransfer ? "Deslocamento adicionado!" : "Visita adicionada!",
+          duration: 2000,
+        });
         setAddingDayId(null);
       } else if (editingActivity) {
+        const activityPatch = {
+          title,
+          activity_time: form.activity_time.trim() || null,
+          notes: form.notes.trim() || null,
+          link_url: form.link_url.trim() || null,
+          is_reserved: form.is_reserved,
+          category: normalizeTripActivityCategory(form.category),
+          place_visit_id: placeVisitId,
+          ...transferFields,
+        };
         await updateItineraryActivity({
           id: editingActivity.id,
-          title: activityForm.title.trim(),
-          activity_time: activityForm.activity_time.trim() || null,
-          notes: activityForm.notes.trim() || null,
-          link_url: activityForm.link_url.trim() || null,
-          is_reserved: activityForm.is_reserved,
-          category: normalizeTripActivityCategory(activityForm.category),
-          place_visit_id: placeVisitId,
+          ...activityPatch,
         });
-        toast({ title: "Visita atualizada!", duration: 2000 });
+        setTrip((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            itinerary: prev.itinerary.map((d) => ({
+              ...d,
+              activities: (d.activities ?? []).map((act) =>
+                act.id !== editingActivity.id
+                  ? act
+                  : { ...act, ...activityPatch }
+              ),
+            })),
+          };
+        });
+        toast({
+          title: isTransfer ? "Deslocamento atualizado!" : "Visita atualizada!",
+          duration: 2000,
+        });
         setEditingActivity(null);
       }
-      load();
     } catch (error) {
       toast({
         title: "Erro",
@@ -605,6 +849,19 @@ export default function TripDetail() {
     });
   }
 
+  function patchActivityDeletedLocal(actId: string) {
+    setTrip((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        itinerary: prev.itinerary.map((day) => ({
+          ...day,
+          activities: (day.activities ?? []).filter((act) => act.id !== actId),
+        })),
+      };
+    });
+  }
+
   function moveVisitToDay(
     actId: string,
     targetDayId: string,
@@ -619,6 +876,22 @@ export default function TripDetail() {
       (activity) => activity.id === actId
     );
     if (!sourceDay || !targetDay || !moving) return;
+
+    if (!isTransportActivity(moving) && moving.activity_time) {
+      const conflict = visitTimeConflictsWithTransfers({
+        dayId: targetDayId,
+        activityTime: moving.activity_time,
+        days: trip.itinerary,
+      });
+      if (conflict) {
+        toast({
+          title: "Horário dentro do deslocamento",
+          description: conflict.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     const sortActivities = (activities: TripItineraryActivity[]) =>
       sortVisitsForDay(activities);
@@ -695,29 +968,101 @@ export default function TripDetail() {
 
   function openDayEdit(day: TripItineraryDay) {
     setEditingDay(day);
+    const currentStop =
+      day.date && trip?.stops?.length
+        ? stopForDate(trip.stops, day.date)
+        : null;
     setDayForm({
       title: day.title ?? `Dia ${day.day_number}`,
       notes: day.notes ?? "",
+      stop: currentStop
+        ? {
+            name: currentStop.name,
+            place_id: currentStop.place_id ?? null,
+            lat: currentStop.lat ?? null,
+            lng: currentStop.lng ?? null,
+            start_date: day.date!,
+            end_date: day.date!,
+          }
+        : null,
     });
   }
 
-  async function handleSaveDay() {
-    if (!editingDay) return;
+  async function handleSaveDay(form: DayForm) {
+    if (!editingDay || !trip) return;
+    const dayId = editingDay.id;
+    const dayDate = editingDay.date;
+    const title = form.title.trim() || null;
+    const notes = form.notes.trim() || null;
+
+    // Fecha o diálogo na hora; persiste em background.
+    setTrip((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        itinerary: prev.itinerary.map((day) =>
+          day.id !== dayId ? day : { ...day, title, notes }
+        ),
+      };
+    });
+    setEditingDay(null);
+    toast({ title: "Dia atualizado!", duration: 2000 });
+
     try {
-      await updateItineraryDayNotes(
-        editingDay.id,
-        dayForm.notes.trim() || null,
-        dayForm.title.trim() || null
+      await updateItineraryDayNotes(dayId, notes, title);
+
+      const stopName = form.stop?.name.trim();
+      if (!stopName || !dayDate) return;
+
+      const currentStop = trip.stops?.length
+        ? stopForDate(trip.stops, dayDate)
+        : null;
+      const sameStop =
+        currentStop &&
+        currentStop.name.trim() === stopName &&
+        (currentStop.place_id ?? null) === (form.stop?.place_id ?? null) &&
+        (currentStop.lat ?? null) === (form.stop?.lat ?? null) &&
+        (currentStop.lng ?? null) === (form.stop?.lng ?? null);
+      if (sameStop) return;
+
+      const currentInputs: TripStopInput[] = (trip.stops ?? []).map(
+        (s, i) => ({
+          name: s.name,
+          place_id: s.place_id ?? null,
+          lat: s.lat ?? null,
+          lng: s.lng ?? null,
+          start_date: s.start_date,
+          end_date: s.end_date,
+          sort_order: s.sort_order ?? i,
+        })
       );
-      toast({ title: "Dia atualizado!", duration: 2000 });
-      setEditingDay(null);
-      load();
+      const nextStops = assignStopToDate(currentInputs, dayDate, {
+        name: stopName,
+        place_id: form.stop?.place_id ?? null,
+        lat: form.stop?.lat ?? null,
+        lng: form.stop?.lng ?? null,
+      });
+      const savedStops = await replaceTripStops(trip.id, nextStops);
+      const dest = destinationFieldsFromStops(nextStops);
+      await updateTrip({
+        id: trip.id,
+        ...dest,
+      });
+      setTrip((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          ...dest,
+          stops: savedStops.length > 0 ? savedStops : prev.stops,
+        };
+      });
     } catch (error) {
       toast({
-        title: "Erro",
+        title: "Erro ao salvar o dia",
         description: getErrorMessage(error, "Não foi possível atualizar a viagem."),
         variant: "destructive",
       });
+      load();
     }
   }
 
@@ -881,8 +1226,10 @@ export default function TripDetail() {
           onEditDay={openDayEdit}
           onEditActivity={openActivityEdit}
           onAddActivity={openAddActivity}
+          onAddTransfer={openAddTransfer}
           onReload={load}
           onVisitStatusChange={patchVisitStatusLocal}
+          onActivityDeleted={patchActivityDeletedLocal}
           onMoveVisit={moveVisitToDay}
         />
 
@@ -955,8 +1302,7 @@ export default function TripDetail() {
           if (!open) setEditingDay(null);
         }}
         form={dayForm}
-        onChange={setDayForm}
-        onSave={() => void handleSaveDay()}
+        onSave={(f) => void handleSaveDay(f)}
       />
 
       <TripEditActivityDialog
@@ -969,9 +1315,8 @@ export default function TripDetail() {
           }
         }}
         form={activityForm}
-        onChange={setActivityForm}
         places={places}
-        onSave={() => void handleSaveActivity()}
+        onSave={(f) => void handleSaveActivity(f)}
       />
 
       <TripExpenseFormDialog

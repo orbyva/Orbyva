@@ -14,9 +14,30 @@ let dimensionsInflight: {
   promise: Promise<Dimension[]>;
 } | null = null;
 
-export function invalidateDimensionsCache() {
+const invalidationListeners = new Set<() => void>();
+
+/** Subscribe to cache invalidation (e.g. after createClassApi). */
+export function onDimensionsCacheInvalidated(listener: () => void): () => void {
+  invalidationListeners.add(listener);
+  return () => {
+    invalidationListeners.delete(listener);
+  };
+}
+
+export function clearDimensionsCache() {
   dimensionsCache = null;
   dimensionsInflight = null;
+}
+
+export function invalidateDimensionsCache() {
+  clearDimensionsCache();
+  for (const listener of invalidationListeners) {
+    try {
+      listener();
+    } catch {
+      // Listeners must not break create/update flows.
+    }
+  }
 }
 
 /** Shared TTL + inflight coalesce for dimensions tree. */

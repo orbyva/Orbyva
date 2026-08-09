@@ -284,12 +284,15 @@ export default function Budget() {
       });
     } else if (options?.applyAllMonths) {
       const year = baseMonth.slice(0, 4);
-      for (let month = 1; month <= 12; month++) {
-        await createMonthlyBudgetApi({
-          ...payload,
-          budget_month: `${year}-${String(month).padStart(2, "0")}-01`,
-        });
-      }
+      await Promise.all(
+        Array.from({ length: 12 }, (_, i) => {
+          const month = i + 1;
+          return createMonthlyBudgetApi({
+            ...payload,
+            budget_month: `${year}-${String(month).padStart(2, "0")}-01`,
+          });
+        })
+      );
       toast({
         title: "Orçamento criado",
         description: `Valor aplicado nos 12 meses de ${year}.`,

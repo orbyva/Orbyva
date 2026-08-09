@@ -16,26 +16,26 @@ A sidebar agrupa o app em quatro blocos:
 
 ### Início
 - **Landing** (`/`) — life OS, planos (teste 7 dias → Pro), waitlist
-- **Dashboard** (`/home`) — resumo do dia: hábitos, saldo, alertas, atalhos
+- **Dashboard** (`/home`) — resumo do dia: hábitos, saldo, alertas, atalhos; botão **+** abre um popover compacto e formulários de criação no overlay (sem sair da tela, quando suportado)
 - **Timeline** (`/timeline`) — eventos agregados de todos os módulos
 
 ### Finanças
 - **Dashboard** (`/finance/dashboard`) — KPIs, gráficos e alertas de vencimento
-- **Transações** — CRUD com categoria/subcategoria, busca e paginação
+- **Transações** — CRUD com categoria/subcategoria, busca e paginação; se não achar a categoria, CTA “Crie agora” cria categoria/subcategoria na hora (também em Recorrências e gastos de viagem no ledger)
 - **Recorrências** (`/finance/recurring`) — contas/parcelas e custos previstos; aba **Projeção**; marcar/desfazer pagamento (`paid_at`)
 - **Orçamento mensal** — planejado vs gasto, alertas e duplicação entre meses
-- **Categorias** — categorias e subcategorias com cor e ícone
+- **Categorias** — categorias e subcategorias com cor e ícone; busca por nome na página; animação ao mover subcategoria entre categorias
 
 ### Entretenimento
-- **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); episódios com nota; import Letterboxd / TV Time; card Stories
-- **Livros** (`/books`) — para ler / lendo / lidos / abandonei; Google Books; marca-página e notas de leitura; opinião e card Stories
-- **Música** (`/music`) — para ouvir / ouvidos; catálogo via Edge Function (Spotify) com fallback MusicBrainz; tracklist + nota por faixa; cadastro manual; card Stories
+- **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); busca ao digitar; episódios com nota; import Letterboxd / TV Time; card Stories
+- **Livros** (`/books`) — para ler / lendo / lidos / abandonei; Google Books com busca ao digitar; marca-página e notas de leitura; opinião e card Stories
+- **Música** (`/music`) — para ouvir / ouvidos; catálogo via Edge Function (Spotify) com fallback MusicBrainz; busca ao digitar; tracklist + nota por faixa; cadastro manual; card Stories
 
 ### Vida
 - **Hábitos** (`/habits`) — check-in do dia, faixa da semana, heatmap mensal (aba **Hoje | Mês**), anti-hábitos e vínculo com metas
 - **Metas** (`/goals`) — progresso, categorias e prazos
 - **Lugares** (`/places`) — para visitar / visitados; busca Google Places; nota e opinião
-- **Viagens** (`/travel`, `/travel/:id`) — paradas multi-cidade; clima + sugestão de roupa/mala (dia/noite e faixas horárias); roteiro por dia (mover atividades, status de visita, próximo destino + rotas Google); gastos (incl. rateio e vínculo com finanças); lugares da viagem; prazos; convites compartilhados
+- **Viagens** (`/travel`, `/travel/:id`) — paradas multi-cidade (editar parada no lápis do dia); clima + sugestão de roupa/mala (dia/noite e faixas horárias); roteiro por dia (mover atividades com animação, status de visita, próximo destino + rotas Google; ao editar início/fim da viagem o roteiro realinha pelas datas); deslocamentos como **atividade do dia** (origem/destino obrigatórios → título Origem → Destino; modo voo/trem/ônibus/carro; saída/chegada; estimar saída/chegada via Routes em terra; conflito de horário com visitas); gastos (incl. rateio e vínculo com finanças); lugares da viagem; prazos; convites compartilhados
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
 
 ---

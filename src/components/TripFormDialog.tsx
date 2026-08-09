@@ -211,8 +211,17 @@ export function TripFormDialog({
         stops: stopPayload,
       };
       if (isEditing && trip) {
+        const datesChanged =
+          payload.start_date !== trip.start_date ||
+          payload.end_date !== trip.end_date;
         await updateTrip({ id: trip.id, ...payload });
-        toast({ title: "Viagem atualizada!", duration: 2000 });
+        toast({
+          title: "Viagem atualizada!",
+          description: datesChanged
+            ? "Roteiro ajustado às novas datas. Dias fora do intervalo foram removidos."
+            : undefined,
+          duration: datesChanged ? 3500 : 2000,
+        });
       } else {
         await createTrip({
           ...form,

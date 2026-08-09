@@ -19,6 +19,8 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom"
 import { Toaster } from "@/components/ui/toaster"
 import { OnboardingDialog } from "@/components/OnboardingDialog"
 import { QuickAddExpenseFab } from "@/components/QuickAddExpenseFab"
+import { QuickAddHost } from "@/components/QuickAddHost"
+import { QuickAddProvider } from "@/hooks/useQuickAdd"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { AlertsBell } from "@/components/AlertsBell"
 import { MobileBottomNav } from "@/components/MobileBottomNav"
@@ -167,6 +169,7 @@ export default function AdminLayout() {
   }
 
   return (
+    <QuickAddProvider>
     <SidebarProvider>
       <AppSidebar />
       <SidebarMobileCloser />
@@ -224,6 +227,7 @@ export default function AdminLayout() {
             <Toaster />
             {hasAccess ? <OnboardingDialog /> : null}
             {hasAccess ? <QuickAddExpenseFab /> : null}
+            {hasAccess ? <QuickAddHost /> : null}
             <Suspense fallback={<PageSkeleton />}>
               <Outlet />
             </Suspense>
@@ -233,5 +237,6 @@ export default function AdminLayout() {
       </ActiveTimerProvider>
       </BreadcrumbTitleProvider>
     </SidebarProvider>
+    </QuickAddProvider>
   )
 }

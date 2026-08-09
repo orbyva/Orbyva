@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Plus } from "lucide-react";
-import { QuickAddSheet } from "@/components/QuickAddSheet";
+import { QuickAddMenu } from "@/components/QuickAddMenu";
+import { QuickAddToggleIcon } from "@/components/QuickAddToggleIcon";
 import { resolveAppArea, type AppArea } from "@/lib/quickAdd";
 import { cn } from "@/lib/utils";
 
@@ -22,26 +22,28 @@ export function QuickAddExpenseFab({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <>
+    <QuickAddMenu
+      open={open}
+      onOpenChange={setOpen}
+      area={area}
+      source="fab"
+      side="top"
+      align="end"
+    >
       <button
         type="button"
-        onClick={() => setOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 z-40 hidden h-14 w-14 items-center justify-center rounded-full shadow-lg transition hover:opacity-90 md:flex",
+          "fixed bottom-6 right-6 z-40 hidden h-14 w-14 items-center justify-center rounded-full shadow-lg transition-[opacity,transform] duration-200 ease-out hover:opacity-90 md:flex",
+          open && "scale-95",
           AREA_FAB_CLASS[area],
           className
         )}
-        aria-label="Adicionar"
-        title="Adicionar"
+        aria-label={open ? "Fechar" : "Adicionar"}
+        title={open ? "Fechar" : "Adicionar"}
+        aria-expanded={open}
       >
-        <Plus className="h-6 w-6" />
+        <QuickAddToggleIcon open={open} iconClassName="h-6 w-6" />
       </button>
-      <QuickAddSheet
-        open={open}
-        onOpenChange={setOpen}
-        area={area}
-        source="fab"
-      />
-    </>
+    </QuickAddMenu>
   );
 }

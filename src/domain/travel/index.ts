@@ -69,16 +69,18 @@ export const MILESTONE_TYPE_LABELS: Record<string, string> = {
   other: "Outro",
 };
 
-/** Tipos de visita no roteiro — mesmos rótulos de lugares. */
-export const ACTIVITY_CATEGORY_LABELS = PLACE_TYPE_LABELS;
+/** Tipos de visita no roteiro — lugares + deslocamento entre cidades. */
+export const ACTIVITY_CATEGORY_LABELS: Record<TripActivityCategory, string> = {
+  ...PLACE_TYPE_LABELS,
+  transport: "Deslocamento",
+};
 
 const LEGACY_ACTIVITY_CATEGORY: Record<string, TripActivityCategory> = {
-  flight: "other",
-  transport: "other",
+  flight: "transport",
   activity: "attraction",
 };
 
-/** Normaliza categoria salva (inclui valores legados flight/transport/activity). */
+/** Normaliza categoria salva (inclui valores legados flight/activity). */
 export function normalizeTripActivityCategory(
   value: string | null | undefined
 ): TripActivityCategory {
@@ -86,6 +88,7 @@ export function normalizeTripActivityCategory(
   if (value in LEGACY_ACTIVITY_CATEGORY) {
     return LEGACY_ACTIVITY_CATEGORY[value]!;
   }
+  if (value === "transport") return "transport";
   if (value in PLACE_TYPE_LABELS) {
     return value as TripActivityCategory;
   }
@@ -141,6 +144,86 @@ export function generateItineraryDays(
     });
   }
   return days;
+}
+
+export type ItineraryDaySyncRow = {
+  id: string;
+  date: string | null;
+  day_number: number;
+  title: string | null;
+};
+
+export type ItineraryDateSyncPlan = {
+  insert: Omit<TripItineraryDay, "id" | "activities">[];
+  deleteIds: string[];
+  updates: Array<{
+    id: string;
+    day_number: number;
+    title: string | null;
+  }>;
+};
+
+function isDefaultDayTitle(title: string | null | undefined): boolean {
+  if (!title?.trim()) return true;
+  return /^Dia\s+\d+$/i.test(title.trim());
+}
+
+/**
+ * Alinha dias do roteiro ao intervalo [startDate, endDate].
+ * Mantém o dia pela data (atividades intactas); remove datas fora do intervalo;
+ * cria dias faltantes; renumerar `day_number` (e título padrão “Dia N”).
+ */
+export function planItineraryDateSync(
+  tripId: string,
+  startDate: string,
+  endDate: string,
+  existing: ItineraryDaySyncRow[]
+): ItineraryDateSyncPlan {
+  const desired = generateItineraryDays(tripId, startDate, endDate);
+  const desiredDates = new Set(
+    desired.map((d) => d.date).filter((d): d is string => Boolean(d))
+  );
+
+  const byDate = new Map<string, ItineraryDaySyncRow>();
+  const deleteIds: string[] = [];
+
+  for (const day of existing) {
+    const date = day.date?.slice(0, 10) || null;
+    if (!date || !desiredDates.has(date)) {
+      deleteIds.push(day.id);
+      continue;
+    }
+    if (byDate.has(date)) {
+      deleteIds.push(day.id);
+      continue;
+    }
+    byDate.set(date, day);
+  }
+
+  const insert: ItineraryDateSyncPlan["insert"] = [];
+  const updates: ItineraryDateSyncPlan["updates"] = [];
+
+  for (const d of desired) {
+    const date = d.date;
+    if (!date) continue;
+    const ex = byDate.get(date);
+    if (!ex) {
+      insert.push(d);
+      continue;
+    }
+    const nextTitle = isDefaultDayTitle(ex.title)
+      ? `Dia ${d.day_number}`
+      : ex.title;
+    if (ex.day_number !== d.day_number || nextTitle !== ex.title) {
+      updates.push({
+        id: ex.id,
+        day_number: d.day_number,
+        title: nextTitle,
+      });
+    }
+  }
+
+  return { insert, deleteIds, updates };
 }
 
 export function enrichTrip(
