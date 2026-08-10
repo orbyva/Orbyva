@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { useDimensions } from "@/hooks/useDimensions";
 import {
@@ -56,6 +57,7 @@ export default function Budget() {
   const { toast } = useToast();
   const { isMobile } = useSidebar();
   const { dimensions } = useDimensions();
+  const [searchParams, setSearchParams] = useSearchParams();
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
@@ -251,6 +253,17 @@ export default function Budget() {
     loadSuggestions();
   }, [loadBudgetData, loadSuggestions]);
 
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setIsEditing(false);
+    setEditingBudgetId(null);
+    setNewBudget({ ...getEmptyBudget(), budget_month: budgetMonth });
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("new");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, budgetMonth]);
+
   function resetForm() {
     setNewBudget(getEmptyBudget());
     setIsEditing(false);
@@ -271,12 +284,15 @@ export default function Budget() {
       });
     } else if (options?.applyAllMonths) {
       const year = baseMonth.slice(0, 4);
-      for (let month = 1; month <= 12; month++) {
-        await createMonthlyBudgetApi({
-          ...payload,
-          budget_month: `${year}-${String(month).padStart(2, "0")}-01`,
-        });
-      }
+      await Promise.all(
+        Array.from({ length: 12 }, (_, i) => {
+          const month = i + 1;
+          return createMonthlyBudgetApi({
+            ...payload,
+            budget_month: `${year}-${String(month).padStart(2, "0")}-01`,
+          });
+        })
+      );
       toast({
         title: "Orçamento criado",
         description: `Valor aplicado nos 12 meses de ${year}.`,

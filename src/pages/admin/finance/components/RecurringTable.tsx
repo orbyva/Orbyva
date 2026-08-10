@@ -69,6 +69,7 @@ interface RecurringTableProps {
     parcel: { transactionId: string; installmentNumber: number } | null
   ) => void;
   reloadRecurring: () => Promise<void>;
+  onPaidParcelsChange?: (recurringId: string, paidParcels: number[]) => void;
   handleEditRecurring: (recurring: Recurring) => void;
 }
 
@@ -133,6 +134,7 @@ export function RecurringTable({
   selectedParcel,
   setSelectedParcel,
   reloadRecurring,
+  onPaidParcelsChange,
   handleEditRecurring,
 }: RecurringTableProps) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -142,6 +144,63 @@ export function RecurringTable({
 
   function toggleExpanded(id: string) {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  async function confirmParcelPayment() {
+    if (!selectedParcel || !paymentAction) {
+      setConfirmPaymentOpen(false);
+      return;
+    }
+    const { transactionId, installmentNumber } = selectedParcel;
+    const current =
+      recurring.find((transaction) => transaction.id === transactionId)
+        ?.paid_parcels || [];
+    const optimistic =
+      paymentAction === "mark"
+        ? current.includes(installmentNumber)
+          ? current
+          : [...current, installmentNumber]
+        : current.filter((n) => n !== installmentNumber);
+    const parcelRec = recurring.find((r) => r.id === transactionId);
+    const parcelCopy = parcelRec
+      ? getRecurringActionCopy(parcelRec)
+      : getActionCopyBySide(false);
+
+    setConfirmPaymentOpen(false);
+    onPaidParcelsChange?.(transactionId, optimistic);
+    toast({
+      title:
+        paymentAction === "mark"
+          ? parcelCopy.markToast
+          : parcelCopy.unmarkToast,
+      description:
+        paymentAction === "mark"
+          ? "A transação foi registrada automaticamente."
+          : "A parcela foi revertida e a transação vinculada foi excluída.",
+    });
+
+    try {
+      const result = await updateRecurringParcelPayment(
+        transactionId,
+        installmentNumber,
+        current,
+        paymentAction === "mark"
+          ? new Date().toISOString().slice(0, 10)
+          : undefined
+      );
+      onPaidParcelsChange?.(transactionId, result);
+      void reloadRecurring();
+    } catch (error) {
+      console.error("Erro ao atualizar pagamento da parcela:", error);
+      onPaidParcelsChange?.(transactionId, current);
+      toast({
+        variant: "destructive",
+        title: "Erro ao atualizar parcela",
+        description:
+          "Não foi possível concluir a operação. Tente novamente.",
+      });
+      void reloadRecurring();
+    }
   }
 
   if (recurring.length === 0) {
@@ -170,6 +229,7 @@ export function RecurringTable({
         selectedParcel={selectedParcel}
         setSelectedParcel={setSelectedParcel}
         reloadRecurring={reloadRecurring}
+        onConfirmParcelPayment={confirmParcelPayment}
         handleEditRecurring={handleEditRecurring}
         expandedRows={expandedRows}
         toggleExpanded={toggleExpanded}
@@ -570,46 +630,7 @@ export function RecurringTable({
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
                     <AlertDialogAction
-                      onClick={async () => {
-                        if (selectedParcel) {
-                          try {
-                            await updateRecurringParcelPayment(
-                              selectedParcel.transactionId,
-                              selectedParcel.installmentNumber,
-                              recurring.find(
-                                (transaction) =>
-                                  transaction.id === selectedParcel.transactionId
-                              )?.paid_parcels || [],
-                              paymentAction === "mark"
-                                ? new Date().toISOString().slice(0, 10)
-                                : undefined
-                            );
-                            await reloadRecurring();
-                            toast({
-                              title:
-                                paymentAction === "mark"
-                                  ? parcelCopy.markToast
-                                  : parcelCopy.unmarkToast,
-                              description:
-                                paymentAction === "mark"
-                                  ? "A transação foi registrada automaticamente."
-                                  : "A parcela foi revertida e a transação vinculada foi excluída.",
-                            });
-                          } catch (error) {
-                            console.error(
-                              "Erro ao atualizar pagamento da parcela:",
-                              error
-                            );
-                            toast({
-                              variant: "destructive",
-                              title: "Erro ao atualizar parcela",
-                              description:
-                                "Não foi possível concluir a operação. Tente novamente.",
-                            });
-                          }
-                        }
-                        setConfirmPaymentOpen(false);
-                      }}
+                      onClick={() => void confirmParcelPayment()}
                     >
                       Confirmar
                     </AlertDialogAction>

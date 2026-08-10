@@ -34,12 +34,20 @@ describe("quickAddActionsForArea", () => {
   it("home devolve mix curado", () => {
     const home = quickAddActionsForArea("home");
     expect(home.map((a) => a.id)).toEqual([
-      "expense",
-      "income",
+      "transaction",
       "movie",
       "habit",
       "place",
       "trip",
+    ]);
+  });
+
+  it("financas: transacao e orcamento, sem despesa/receita separados", () => {
+    const finance = quickAddActionsForArea("finance");
+    expect(finance.map((a) => a.id)).toEqual([
+      "transaction",
+      "budget",
+      "recurring",
     ]);
   });
 

@@ -15,34 +15,36 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 A sidebar agrupa o app em quatro blocos:
 
 ### Início
-- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro), waitlist
-- **Dashboard** (`/home`) — resumo do dia: hábitos, saldo, alertas, atalhos
+- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro), waitlist; marketing com motion OriginKit + Cult UI + Skiper UI (free)
+- **Dashboard** (`/home`) — resumo do dia: hábitos, saldo, alertas, atalhos; botão **+** abre um popover compacto e formulários de criação no overlay (sem sair da tela, quando suportado)
 - **Timeline** (`/timeline`) — eventos agregados de todos os módulos
 
 ### Finanças
 - **Dashboard** (`/finance/dashboard`) — KPIs, gráficos e alertas de vencimento
-- **Transações** — CRUD com categoria/subcategoria, busca e paginação
+- **Transações** — CRUD com categoria/subcategoria, busca e paginação; se não achar a categoria, CTA “Crie agora” cria categoria/subcategoria na hora (também em Recorrências e gastos de viagem no ledger)
 - **Recorrências** (`/finance/recurring`) — contas/parcelas e custos previstos; aba **Projeção**; marcar/desfazer pagamento (`paid_at`)
 - **Orçamento mensal** — planejado vs gasto, alertas e duplicação entre meses
-- **Categorias** — categorias e subcategorias com cor e ícone
+- **Categorias** — categorias e subcategorias com cor e ícone; busca por nome na página; animação ao mover subcategoria entre categorias
 
 ### Entretenimento
-- **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); episódios com nota; import Letterboxd / TV Time; card Stories
-- **Livros** (`/books`) — para ler / lendo / lidos / abandonei; Google Books; marca-página e notas de leitura; opinião e card Stories
-- **Música** (`/music`) — para ouvir / ouvidos; catálogo via Edge Function (Spotify) com fallback MusicBrainz; tracklist + nota por faixa; cadastro manual; card Stories
+- **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); busca ao digitar; episódios com nota; import Letterboxd / TV Time; card Stories
+- **Livros** (`/books`) — para ler / lendo / lidos / abandonei; Google Books com busca ao digitar; marca-página e notas de leitura; opinião e card Stories
+- **Música** (`/music`) — para ouvir / ouvidos; catálogo via Edge Function (Spotify) com fallback MusicBrainz; busca ao digitar; tracklist + nota por faixa; cadastro manual; card Stories
 
 ### Vida
 - **Hábitos** (`/habits`) — check-in do dia, faixa da semana, heatmap mensal (aba **Hoje | Mês**), anti-hábitos e vínculo com metas
 - **Metas** (`/goals`) — progresso, categorias e prazos
-- **Lugares** (`/places`) — para visitar / visitados; busca Geoapify; nota e opinião
-- **Viagens** (`/travel`) — checklist, roteiro de visitas (próximo destino + rotas), gastos, lugares e prazos (`/travel/:id`); convites compartilhados
+- **Lugares** (`/places`) — para visitar / visitados; busca Google Places; nota e opinião
+- **Viagens** (`/travel`, `/travel/:id`) — paradas multi-cidade (editar parada no lápis do dia); clima + sugestão de roupa/mala (dia/noite e faixas horárias); roteiro por dia (mover atividades com animação, status de visita, próximo destino + rotas Google; ao editar início/fim da viagem o roteiro realinha pelas datas); deslocamentos como **atividade do dia** (origem/destino obrigatórios → título Origem → Destino; modo voo/trem/ônibus/carro; saída/chegada; estimar saída/chegada via Routes em terra; conflito de horário com visitas); gastos (incl. rateio e vínculo com finanças); lugares da viagem; prazos; convites compartilhados
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
 
 ---
 
 ## Arquitetura
 
-Orbyva é um **SPA multi-módulo** com backend BaaS. O front não fala SQL direto: passa por uma camada de API tipada; regras de negócio ficam em funções puras testáveis; segredos de terceiros (Stripe, Spotify, Geoapify, Google Routes, Resend) ficam em **Edge Functions**, não em `VITE_*`.
+Documentação detalhada das camadas, módulos, Edge Functions e fluxos: [`.cursor/ARCHITECTURE.md`](./.cursor/ARCHITECTURE.md).
+
+Orbyva é um **SPA multi-módulo** com backend BaaS. O front não fala SQL direto: passa por uma camada de API tipada; regras de negócio ficam em funções puras testáveis; segredos de terceiros (Stripe, Spotify, Google Maps/Places/Routes/Weather, Resend) ficam em **Edge Functions**, não em `VITE_*`.
 
 ### Camadas (`src/`)
 
@@ -187,7 +189,7 @@ Gates importantes:
 | Cinema watching/abandoned | `20260728200000_movie_watching_abandoned` |
 | Roteiro (link / reservado / categoria) | `20260804120000_improve_md_features` |
 | Lugares geo + checklist de visita | `20260804200000_place_visit_geo` |
-| Quota Maps (Geoapify / Google Routes) | `20260804210000` … `20260804220000_maps_api_quota*` |
+| Quota Maps (Places / Routes / Weather) | `20260804210000` … `20260806120000_maps_google_providers` |
 
 > Sem tenancy/RLS, o app filtra no cliente, mas o banco ainda pode vazar. Teste com **2 contas** (E2E RLS opcional).
 
@@ -199,7 +201,7 @@ Gates importantes:
 
 - **Node.js 20+**
 - Projeto **Supabase** (URL + Anon Key)
-- Opcionais: TMDB / OMDb (cinema), Google Books, Spotify (música), Geoapify + Google Routes (lugares/roteiro), Stripe, Resend
+- Opcionais: TMDB / OMDb (cinema), Google Books, Spotify (música), Google Places + Routes + Weather (lugares/roteiro/clima), Stripe, Resend
 
 ### Variáveis
 
@@ -232,21 +234,21 @@ supabase db push
 
 Fluxo: Client Credentials na Edge `spotify-catalog` → busca/capa/tracklist **sem login Spotify do usuário**. Fallback: MusicBrainz + Cover Art Archive (`/mb-api`, `/caa-media`). Capas Spotify: `/spotify-media`. Em Development Mode a cota é limitada; produção comercial precisa de Extended Quota. Depois de mudar proxies no Vite, reinicie `npm run dev`.
 
-**Lugares / rotas — secrets no Supabase (não no Vite):**
+**Lugares / rotas / clima — secrets no Supabase (não no Vite):**
 
 ```bash
 supabase secrets set \
-  GEOAPIFY_API_KEY=… \
-  GOOGLE_ROUTES_API_KEY=… \
+  GOOGLE_MAPS_API_KEY=… \
   MAPS_QUOTA_ENFORCE=true \
-  GEOAPIFY_DAILY_CREDIT_LIMIT=2800 \
+  GOOGLE_PLACES_MONTHLY_LIMIT=9000 \
   GOOGLE_ROUTES_ESSENTIALS_MONTHLY_LIMIT=9000 \
-  GOOGLE_ROUTES_PRO_MONTHLY_LIMIT=4500
+  GOOGLE_ROUTES_PRO_MONTHLY_LIMIT=4500 \
+  GOOGLE_WEATHER_MONTHLY_LIMIT=9000
 supabase functions deploy places-catalog
 supabase db push
 ```
 
-Edge `places-catalog`: busca Geoapify (Brasil) + Google Routes. WALK/BICYCLE/TRANSIT usam cota Essentials; DRIVE com tráfego usa Pro. Ver `.env.example`.
+Edge `places-catalog`: Google Places Autocomplete (New) + Routes + Weather. WALK/BICYCLE/TRANSIT usam cota Essentials; DRIVE com tráfego usa Pro. Cotas mensais fail-closed abaixo do free cap oficial. Ver `.env.example`.
 
 ### Instalar e rodar
 
@@ -329,3 +331,5 @@ Secrets comuns: `RESEND_API_KEY`, `RESEND_FROM`, `SITE_URL`, `CRON_SECRET`. Pref
 1. Fork → branch `feat/…`
 2. PR com o *porquê* da mudança
 3. `npm run lint && npm run test && npm run build` verdes (ideal: `ci:local`)
+
+Agentes de IA e revisão multidisciplinar: ver [`.cursor/AGENTS.md`](./.cursor/AGENTS.md) (ler [`.cursor/ARCHITECTURE.md`](./.cursor/ARCHITECTURE.md) antes de qualquer mudança; plano + aprovação antes de mudanças relevantes; manter este README sincronizado com o produto).

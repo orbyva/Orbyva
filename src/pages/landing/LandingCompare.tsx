@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Check, Minus, X } from "lucide-react";
-import { fadeUp, staggerDelay } from "./landingMotion";
+import { LandingSectionTitle } from "@/components/landing/LandingSectionTitle";
+import { fadeUp, staggerDelay } from "@/components/landing/landingMotion";
 
 /** O que a pessoa costuma espalhar — categorias, sem nomes de apps. */
 const SCATTERED = [
@@ -15,12 +16,12 @@ const SCATTERED = [
 
 const ROWS = [
   {
-    label: "Orçamento com teto do mês",
+    label: "Teto do mês e o que ainda cabe gastar",
     many: "partial",
     orbyva: true,
   },
   {
-    label: "Recorrências, projeção e simular compra",
+    label: "Contas, parcelas e simular compra",
     many: "partial",
     orbyva: true,
   },
@@ -64,19 +65,12 @@ export function LandingCompare() {
       id="comparar"
       className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-16 sm:px-8 sm:py-24"
     >
-      <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
-        <p className="font-display text-sm font-medium text-sky-400/90">
-          Uma órbita
-        </p>
-        <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-          Hoje são vários apps. No Orbyva, um só.
-        </h2>
-        <p className="mt-3 text-zinc-400">
-          Finanças num lugar, hábitos noutro, cinema noutro, viagem noutro.
-          Você paga e troca de tela o tempo todo — ou junta tudo na mesma
-          órbita.
-        </p>
-      </motion.div>
+      <LandingSectionTitle
+        align="center"
+        eyebrow="Uma órbita"
+        title="Chega de vida fragmentada. Um login. Uma órbita."
+        description="Você troca de app o tempo todo e perde o fio da meada. No Orbyva, o mês e o resto da vida ficam na mesma órbita."
+      />
 
       <motion.div
         {...fadeUp}
@@ -89,8 +83,8 @@ export function LandingCompare() {
           {SCATTERED.map((item, i) => (
             <motion.li
               key={item.name}
-              initial={{ opacity: 0, y: 8 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ delay: staggerDelay(i, 0.04), duration: 0.3 }}
               className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-300"
@@ -101,7 +95,7 @@ export function LandingCompare() {
           ))}
         </ul>
         <p className="mt-5 font-display text-sm font-medium text-sky-400">
-          → Orbyva: lançamentos + life OS no mesmo app
+          → Orbyva: controle do mês + vida organizada no mesmo app
         </p>
       </motion.div>
 
@@ -123,8 +117,8 @@ export function LandingCompare() {
             {ROWS.map((row, i) => (
               <motion.tr
                 key={row.label}
-                initial={{ opacity: 0, y: 8 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: staggerDelay(i), duration: 0.35 }}
                 className="border-b border-white/5 last:border-0"

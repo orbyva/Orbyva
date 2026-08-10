@@ -133,18 +133,24 @@ export async function deleteRecurringApi(recurringId: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Última data efetiva de pagamento (`paid_at`) por recorrência. */
+/** Última data efetiva de pagamento (`paid_at`) por recorrência.
+ * Sem `recurringIds` (ou lista vazia): todas as do usuário (permite paralelizar com o fetch da lista).
+ */
 export async function fetchLastPaidAtByRecurring(
-  recurringIds: string[]
+  recurringIds?: string[]
 ): Promise<Record<string, string>> {
-  if (recurringIds.length === 0) return {};
   const userId = await getCurrentUserId();
-  const { data, error } = await supabase
+  let query = supabase
     .from("transaction")
     .select("recurring_transaction_id, paid_at, transaction_at, created_at")
     .eq("user_id", userId)
-    .in("recurring_transaction_id", recurringIds)
     .not("recurring_transaction_id", "is", null);
+
+  if (recurringIds && recurringIds.length > 0) {
+    query = query.in("recurring_transaction_id", recurringIds);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -234,19 +240,22 @@ export async function updateRecurringParcelPayment(
     throw error;
   }
 
-  try {
-    const { syncGoalsFromAporteDescription } = await import("@/api/goals");
-    const { data: rec } = await supabase
-      .from("recurring_transaction")
-      .select("description")
-      .eq("id", recurringId)
-      .maybeSingle();
-    if (rec?.description) {
-      await syncGoalsFromAporteDescription(rec.description);
+  // Meta: best-effort, não bloqueia o feedback de “pago”.
+  void (async () => {
+    try {
+      const { syncGoalsFromAporteDescription } = await import("@/api/goals");
+      const { data: rec } = await supabase
+        .from("recurring_transaction")
+        .select("description")
+        .eq("id", recurringId)
+        .maybeSingle();
+      if (rec?.description) {
+        await syncGoalsFromAporteDescription(rec.description);
+      }
+    } catch {
+      /* ignore */
     }
-  } catch {
-    /* progresso da meta é best-effort */
-  }
+  })();
 
   return updatedParcels;
 }

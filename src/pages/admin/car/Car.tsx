@@ -547,7 +547,7 @@ export default function Car() {
               existingLogs={allFuelLogs}
               dimensions={dimensions}
               onSaved={() => {
-                void reloadAll();
+                void loadVehicleChildren(vehicle.id);
               }}
             />
           </div>
@@ -575,7 +575,7 @@ export default function Car() {
               onSaved={() => {
                 setEditingFuelLog(null);
                 setFuelFormOpen(false);
-                void reloadAll();
+                void loadVehicleChildren(vehicle.id);
               }}
             />
           )}

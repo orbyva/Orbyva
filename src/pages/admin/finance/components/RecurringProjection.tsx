@@ -90,11 +90,13 @@ function projectionActionCopy(nature: ProjectionLine["nature"] | undefined) {
 type RecurringProjectionProps = {
   recurring: Recurring[];
   onChanged: () => Promise<void> | void;
+  onPaidParcelsChange?: (recurringId: string, paidParcels: number[]) => void;
 };
 
 export function RecurringProjection({
   recurring,
   onChanged,
+  onPaidParcelsChange,
 }: RecurringProjectionProps) {
   const now = new Date();
   const [ym, setYm] = useState<YearMonth>({
@@ -218,32 +220,44 @@ export function RecurringProjection({
     const key = `${line.recurringId}:${line.installmentNumber}`;
     if (busyKey) return;
     setBusyKey(key);
+    const rec = recurring.find((r) => r.id === line.recurringId);
+    const current = rec?.paid_parcels || [];
+    const optimistic = line.paid
+      ? current.filter((n) => n !== line.installmentNumber)
+      : current.includes(line.installmentNumber)
+        ? current
+        : [...current, line.installmentNumber];
+
+    onPaidParcelsChange?.(line.recurringId, optimistic);
+    setPendingLine(null);
+    toast({
+      title: line.paid
+        ? projectionActionCopy(line.nature).unmarkToast
+        : projectionActionCopy(line.nature).markToast,
+      description: line.paid
+        ? "A parcela voltou ao previsto e o lançamento vinculado foi removido."
+        : "Registrada em Lançamentos automaticamente.",
+    });
+
     try {
-      const rec = recurring.find((r) => r.id === line.recurringId);
-      await updateRecurringParcelPayment(
+      const result = await updateRecurringParcelPayment(
         line.recurringId,
         line.installmentNumber,
-        rec?.paid_parcels || [],
+        current,
         line.paid ? undefined : new Date().toISOString().slice(0, 10)
       );
-      toast({
-        title: line.paid
-          ? projectionActionCopy(line.nature).unmarkToast
-          : projectionActionCopy(line.nature).markToast,
-        description: line.paid
-          ? "A parcela voltou ao previsto e o lançamento vinculado foi removido."
-          : "Registrada em Lançamentos automaticamente.",
-      });
-      await onChanged();
+      onPaidParcelsChange?.(line.recurringId, result);
+      void onChanged();
     } catch (error) {
+      onPaidParcelsChange?.(line.recurringId, current);
       toast({
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível atualizar a parcela."),
         variant: "destructive",
       });
+      void onChanged();
     } finally {
       setBusyKey(null);
-      setPendingLine(null);
     }
   }
 

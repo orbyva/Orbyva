@@ -34,7 +34,7 @@ export const PREFERRED_TRAVEL_MODES: TravelModeKey[] = [
   "WALK",
 ];
 
-export const ROUTE_CACHE_TTL_MS = 7 * 60 * 1000; // ~7 min (faixa 5–10)
+export const ROUTE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
 
 export function travelModeMeta(mode: string): TravelModeOption {
   return (

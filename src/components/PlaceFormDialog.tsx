@@ -133,7 +133,7 @@ export function PlaceFormDialog({
           lat: place.lat ?? null,
           lng: place.lng ?? null,
           google_place_id: place.google_place_id ?? null,
-          geoapify_place_id: place.geoapify_place_id ?? null,
+          geoapify_place_id: null,
           would_recommend: place.would_recommend,
         });
         setRegisterExpense(false);
@@ -351,7 +351,7 @@ export function PlaceFormDialog({
           <div>
             <PlaceCatalogSearch
               selectedLabel={
-                form.geoapify_place_id || form.lat != null
+                form.google_place_id || form.lat != null
                   ? form.name || null
                   : null
               }
@@ -371,8 +371,8 @@ export function PlaceFormDialog({
                   address: hit.address ?? "",
                   lat: hit.lat,
                   lng: hit.lng,
-                  geoapify_place_id: hit.geoapify_place_id,
-                  google_place_id: null,
+                  geoapify_place_id: null,
+                  google_place_id: hit.google_place_id,
                   type: hit.type,
                 }))
               }

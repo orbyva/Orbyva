@@ -5,12 +5,12 @@ export const BRAND = {
   /** Slogan da lockup visual (logo.webp) — shares / exportações. */
   logoSlogan: "Tudo da sua vida em uma só órbita.",
   /** Cunha de diferenciação (landing / marketing). */
-  wedge: "Life OS com lançamentos",
+  wedge: "Life OS com controle do mês",
   shortDescription:
-    "O que você espalha em vários apps — orçamento, recorrências, hábitos, metas, viagens e cinema — numa só órbita.",
+    "Pare de espalhar a vida em vários apps — saiba o que cabe no mês e organize hábitos, metas, viagens e cinema numa só órbita.",
   /** Uma linha para o hero — prova + proposta (conversão). */
   heroSupport:
-    "Em vez de planilha + hábitos + cinema + viagem em apps separados: orçamento, recorrências e o resto da vida — tudo no Orbyva, desde o primeiro dia.",
+    "Pare de pagar e abrir cinco apps. Saiba o que ainda cabe no mês — e organize o resto da vida no mesmo lugar, desde o dia 1.",
   /** Assets em /public */
   logo: "/logo.webp",
   logoMark: "/logo-mark.webp",

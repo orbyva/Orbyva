@@ -1,5 +1,6 @@
 /**
  * Cliente Google Routes via Edge Function `places-catalog`.
+ * Origem: lat/lng. Destino: placeId (preferido) ou lat/lng.
  */
 import { supabase } from "@/lib/supabase";
 import {
@@ -9,6 +10,10 @@ import {
 
 export type LatLng = { lat: number; lng: number };
 
+export type RouteDestination =
+  | { placeId: string }
+  | { lat: number; lng: number };
+
 export type RouteLegResult = {
   mode: TravelModeKey | string;
   durationSeconds: number | null;
@@ -17,6 +22,8 @@ export type RouteLegResult = {
   error?: string;
   cached?: boolean;
   quotaSkipped?: boolean;
+  endLat?: number | null;
+  endLng?: number | null;
 };
 
 type InvokeErr = { error?: string; code?: string; detail?: string };
@@ -42,6 +49,22 @@ export class MapsQuotaExceededError extends Error {
   }
 }
 
+export class RouteUnavailableError extends Error {
+  readonly code = "ROUTE_UNAVAILABLE";
+  constructor(message = "Rota indisponível para este trecho.") {
+    super(message);
+    this.name = "RouteUnavailableError";
+  }
+}
+
+export class ModeUnavailableError extends Error {
+  readonly code = "MODE_UNAVAILABLE";
+  constructor(message = "Modalidade indisponível para este trecho.") {
+    super(message);
+    this.name = "ModeUnavailableError";
+  }
+}
+
 function publicError(raw: string | undefined, fallback: string): string {
   if (!raw?.trim()) return fallback;
   if (/google|maps|routes|api.?key/i.test(raw)) return fallback;
@@ -54,16 +77,20 @@ function monthPeriodKey(now = new Date()): string {
   return `${y}-${m}`;
 }
 
+function destKey(destination: RouteDestination): string {
+  if ("placeId" in destination) return `pid:${destination.placeId}`;
+  return `${destination.lat.toFixed(5)},${destination.lng.toFixed(5)}`;
+}
+
 function cacheKey(
   origin: LatLng,
-  destination: LatLng,
+  destination: RouteDestination,
   mode: string
 ): string {
   return [
     origin.lat.toFixed(5),
     origin.lng.toFixed(5),
-    destination.lat.toFixed(5),
-    destination.lng.toFixed(5),
+    destKey(destination),
     mode,
     monthPeriodKey(),
   ].join("|");
@@ -71,7 +98,7 @@ function cacheKey(
 
 function readCache(
   origin: LatLng,
-  destination: LatLng,
+  destination: RouteDestination,
   mode: string
 ): RouteLegResult | null {
   const key = cacheKey(origin, destination, mode);
@@ -86,7 +113,7 @@ function readCache(
 
 function writeCache(
   origin: LatLng,
-  destination: LatLng,
+  destination: RouteDestination,
   result: RouteLegResult
 ): void {
   routeCache.set(cacheKey(origin, destination, result.mode), {
@@ -100,11 +127,17 @@ export function clearRouteCache(): void {
   inflight.clear();
 }
 
+function destinationBody(destination: RouteDestination): Record<string, unknown> {
+  if ("placeId" in destination) {
+    return { placeId: destination.placeId };
+  }
+  return { destination: { lat: destination.lat, lng: destination.lng } };
+}
+
 export async function fetchTravelRoutes(params: {
   origin: LatLng;
-  destination: LatLng;
+  destination: RouteDestination;
   modes: TravelModeKey[];
-  /** Incrementar para cancelar lógica no caller (AbortSignal). */
   signal?: AbortSignal;
 }): Promise<RouteLegResult[]> {
   const allowed: TravelModeKey[] = ["DRIVE", "TRANSIT", "BICYCLE", "WALK"];
@@ -137,8 +170,7 @@ export async function fetchTravelRoutes(params: {
   const batchKey = [
     params.origin.lat.toFixed(5),
     params.origin.lng.toFixed(5),
-    params.destination.lat.toFixed(5),
-    params.destination.lng.toFixed(5),
+    destKey(params.destination),
     missing.slice().sort().join(","),
     monthPeriodKey(),
   ].join("|");
@@ -150,7 +182,7 @@ export async function fetchTravelRoutes(params: {
         body: {
           action: "routes",
           origin: params.origin,
-          destination: params.destination,
+          ...destinationBody(params.destination),
           modes: missing,
         },
       });
@@ -162,7 +194,10 @@ export async function fetchTravelRoutes(params: {
       }
 
       const payload = data as
-        | ({ routes?: RouteLegResult[] } & InvokeErr)
+        | ({
+            routes?: RouteLegResult[];
+            code?: string;
+          } & InvokeErr)
         | null;
 
       if (!payload) {
@@ -177,7 +212,13 @@ export async function fetchTravelRoutes(params: {
             "Limite gratuito de rotas atingido. Novos trajetos liberam no próximo mês."
         );
       }
-      if (payload.error) {
+      if (payload.code === "ROUTE_UNAVAILABLE") {
+        throw new RouteUnavailableError(payload.error);
+      }
+      if (payload.code === "MODE_UNAVAILABLE") {
+        throw new ModeUnavailableError(payload.error);
+      }
+      if (payload.error && !payload.routes) {
         throw new Error(
           publicError(payload.error, "Não foi possível calcular o trajeto.")
         );

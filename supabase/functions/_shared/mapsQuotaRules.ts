@@ -3,9 +3,10 @@
  * (Edge Deno não importa o front; manter sincronizado).
  */
 export type MapsProvider =
-  | "geoapify"
+  | "google_places"
   | "google_routes_essentials"
-  | "google_routes_pro";
+  | "google_routes_pro"
+  | "google_weather";
 
 export type QuotaConsumeFailReason =
   | "limit"
@@ -41,13 +42,10 @@ export function isMapsQuotaEnforcedFromEnv(
   return !(v === "false" || v === "0" || v === "off");
 }
 
-export function resolveGeoapifyDailyLimit(env: {
-  GEOAPIFY_DAILY_CREDIT_LIMIT?: string;
-  GEOAPIFY_DAILY_FREE_LIMIT?: string;
+export function resolveGooglePlacesMonthlyLimit(env: {
+  GOOGLE_PLACES_MONTHLY_LIMIT?: string;
 }): number {
-  const primary = parseEnvInt(env.GEOAPIFY_DAILY_CREDIT_LIMIT, NaN);
-  if (Number.isFinite(primary)) return primary;
-  return parseEnvInt(env.GEOAPIFY_DAILY_FREE_LIMIT, 2800);
+  return parseEnvInt(env.GOOGLE_PLACES_MONTHLY_LIMIT, 9000);
 }
 
 export function resolveGoogleEssentialsMonthlyLimit(env: {
@@ -65,37 +63,29 @@ export function resolveGoogleProMonthlyLimit(env: {
   return parseEnvInt(env.GOOGLE_ROUTES_PRO_MONTHLY_LIMIT, 4500);
 }
 
+export function resolveGoogleWeatherMonthlyLimit(env: {
+  GOOGLE_WEATHER_MONTHLY_LIMIT?: string;
+}): number {
+  return parseEnvInt(env.GOOGLE_WEATHER_MONTHLY_LIMIT, 9000);
+}
+
 export function limitForProvider(
   provider: MapsProvider,
   env: Record<string, string | undefined> = {}
 ): number {
-  if (provider === "geoapify") return resolveGeoapifyDailyLimit(env);
+  if (provider === "google_places") return resolveGooglePlacesMonthlyLimit(env);
   if (provider === "google_routes_pro") return resolveGoogleProMonthlyLimit(env);
+  if (provider === "google_weather") return resolveGoogleWeatherMonthlyLimit(env);
   return resolveGoogleEssentialsMonthlyLimit(env);
 }
 
-export function periodKeyFor(provider: MapsProvider, now = new Date()): string {
+export function periodKeyFor(_provider: MapsProvider, now = new Date()): string {
   const y = now.getUTCFullYear();
   const m = String(now.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(now.getUTCDate()).padStart(2, "0");
-  if (provider === "geoapify") return `${y}-${m}-${d}`;
   return `${y}-${m}`;
 }
 
-export function periodEndUtc(provider: MapsProvider, now = new Date()): Date {
-  if (provider === "geoapify") {
-    return new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate() + 1,
-        0,
-        0,
-        0,
-        0
-      )
-    );
-  }
+export function periodEndUtc(_provider: MapsProvider, now = new Date()): Date {
   return new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0)
   );
@@ -136,9 +126,11 @@ export function quotaDeniedPayload(
       ? "rotas com trânsito (Pro)"
       : provider === "google_routes_essentials"
         ? "rotas Essentials"
-        : provider === "geoapify"
+        : provider === "google_places"
           ? "busca de lugares"
-          : "mapas";
+          : provider === "google_weather"
+            ? "previsão do tempo"
+            : "mapas";
 
   const period =
     result.reason === "blocked"

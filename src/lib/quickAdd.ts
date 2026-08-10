@@ -1,26 +1,50 @@
 export type AppArea = "finance" | "entertainment" | "life" | "home";
 
+export type QuickAddActionId =
+  | "transaction"
+  | "budget"
+  | "recurring"
+  | "movie"
+  | "book"
+  | "music"
+  | "habit"
+  | "place"
+  | "goal"
+  | "vehicle"
+  | "trip";
+
 export type QuickAddAction = {
-  id: string;
+  id: QuickAddActionId;
   label: string;
   href: string;
   keywords: string[];
   area: AppArea;
+  /** Abre formulário no overlay (sem navegar). Default false = navega com ?new=1. */
+  inline?: boolean;
 };
 
 export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
   {
-    id: "expense",
-    label: "Nova despesa",
-    href: "/finance/transactions?new=1&nature=despesa",
-    keywords: ["despesa", "gasto", "financeiro", "transação", "gastei"],
+    id: "transaction",
+    label: "Registrar transação",
+    href: "/finance/transactions?new=1",
+    keywords: [
+      "despesa",
+      "receita",
+      "gasto",
+      "entrada",
+      "financeiro",
+      "transação",
+      "gastei",
+    ],
     area: "finance",
+    inline: true,
   },
   {
-    id: "income",
-    label: "Nova receita",
-    href: "/finance/transactions?new=1&nature=receita",
-    keywords: ["receita", "entrada", "financeiro", "transação"],
+    id: "budget",
+    label: "Criar orçamento",
+    href: "/finance/budget?new=1",
+    keywords: ["orçamento", "planejado", "budget", "limite"],
     area: "finance",
   },
   {
@@ -36,6 +60,7 @@ export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
     href: "/movies?new=1",
     keywords: ["filme", "série", "cinema", "imdb", "quero assistir"],
     area: "entertainment",
+    inline: true,
   },
   {
     id: "book",
@@ -43,6 +68,7 @@ export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
     href: "/books?new=1",
     keywords: ["livro", "leitura", "estante"],
     area: "entertainment",
+    inline: true,
   },
   {
     id: "music",
@@ -50,6 +76,7 @@ export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
     href: "/music?new=1",
     keywords: ["música", "album", "disco", "spotify"],
     area: "entertainment",
+    inline: true,
   },
   {
     id: "habit",
@@ -64,6 +91,7 @@ export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
     href: "/places?new=1",
     keywords: ["lugar", "restaurante", "café", "mapa"],
     area: "life",
+    inline: true,
   },
   {
     id: "goal",
@@ -78,6 +106,7 @@ export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
     href: "/car?new=1",
     keywords: ["veículo", "carro", "moto"],
     area: "life",
+    inline: true,
   },
   {
     id: "trip",
@@ -85,6 +114,7 @@ export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
     href: "/travel?new=1",
     keywords: ["viagem", "roteiro", "planejar"],
     area: "life",
+    inline: true,
   },
 ];
 
@@ -116,7 +146,7 @@ export function areaLabel(area: AppArea): string {
 /** Actions for the current area. On home, returns a curated mix of top actions. */
 export function quickAddActionsForArea(area: AppArea): QuickAddAction[] {
   if (area === "home") {
-    const ids = ["expense", "income", "movie", "habit", "place", "trip"];
+    const ids = ["transaction", "movie", "habit", "place", "trip"];
     return QUICK_ADD_ACTIONS.filter((a) => ids.includes(a.id));
   }
   return QUICK_ADD_ACTIONS.filter((a) => a.area === area);

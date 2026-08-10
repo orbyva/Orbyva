@@ -65,7 +65,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { formatDateBR, formatBRL } from "@/lib/currency";
 import { cn } from "@/lib/utils";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 
 const emptyGoal = (): PersonalGoalCreateRequest => ({
   title: "",
@@ -77,6 +77,312 @@ const emptyGoal = (): PersonalGoalCreateRequest => ({
   deadline: null,
   status: "active",
 });
+
+const GoalsGrid = memo(function GoalsGrid({
+  goals,
+  monthSurplus,
+  onEdit,
+  onDelete,
+  onDestinar,
+  onRoutine,
+  onSyncFromLedger,
+}: {
+  goals: PersonalGoal[];
+  monthSurplus: number | null;
+  onEdit: (goal: PersonalGoal) => void;
+  onDelete: (id: string) => void | Promise<void>;
+  onDestinar: (goal: PersonalGoal) => void;
+  onRoutine: (goal: PersonalGoal) => void;
+  onSyncFromLedger: (goal: PersonalGoal) => void;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {goals.map((goal) => {
+        const progress = getGoalProgress(goal);
+        const financeInsight = getFinancialGoalInsight(goal);
+        const surplusFit =
+          monthSurplus != null
+            ? evaluateGoalAgainstSurplus(goal, monthSurplus)
+            : null;
+        const canDestinar =
+          !!surplusFit &&
+          surplusFit.remaining > 0 &&
+          maxGoalApplyAmount(surplusFit.remaining, surplusFit.surplus) > 0;
+        const canRoutine = !!financeInsight && financeInsight.remaining > 0;
+
+        return (
+          <article
+            key={goal.id}
+            className="rounded-xl border bg-card p-3.5 shadow-sm sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <Badge variant="outline" className="mb-2 text-[10px]">
+                  {GOAL_CATEGORY_LABELS[goal.category]}
+                </Badge>
+                <h3 className="font-semibold">{goal.title}</h3>
+                {goal.description && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {goal.description}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
+                  onClick={() => onEdit(goal)}
+                >
+                  <Pen className="h-3.5 w-3.5" />
+                </Button>
+                <ConfirmDeleteDialog
+                  title="Excluir esta meta?"
+                  description="O progresso registrado será perdido."
+                  onConfirm={() => onDelete(goal.id)}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </ConfirmDeleteDialog>
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                <span>{formatGoalProgress(goal)}</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+            {goal.deadline && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Prazo: {formatDateBR(goal.deadline)}
+              </p>
+            )}
+            {financeInsight ? (
+              <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+                <p className="flex items-center gap-1.5 text-xs font-medium">
+                  <Wallet className="h-3.5 w-3.5" />
+                  Meta ← saldo do mês
+                </p>
+                {financeInsight.monthlyTarget != null &&
+                financeInsight.monthlyTarget > 0 ? (
+                  <p className="mt-1.5 text-sm font-semibold tabular-nums">
+                    {formatBRL(financeInsight.monthlyTarget)}
+                    <span className="font-normal text-muted-foreground">
+                      {" "}
+                      / mês no prazo
+                    </span>
+                  </p>
+                ) : financeInsight.monthlyLabel ? (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {financeInsight.monthlyLabel}
+                  </p>
+                ) : null}
+
+                {surplusFit ? (
+                  <p
+                    className={cn(
+                      "mt-1.5 text-xs",
+                      surplusFit.status === "comfortable" ||
+                        surplusFit.status === "exact"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {surplusFit.summary}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {financeInsight.suggestion}
+                  </p>
+                )}
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {canDestinar ? (
+                    <Button
+                      variant="link"
+                      className="h-auto p-0 text-xs"
+                      onClick={() => onDestinar(goal)}
+                    >
+                      <Plus className="mr-1 h-3 w-3" />
+                      Destinar valor à meta
+                    </Button>
+                  ) : null}
+                  {canRoutine ? (
+                    <Button
+                      variant="link"
+                      className="h-auto p-0 text-xs"
+                      onClick={() => onRoutine(goal)}
+                    >
+                      <Repeat className="mr-1 h-3 w-3" />
+                      Rotina em Recorrências (meta)
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="link"
+                    className="h-auto p-0 text-xs text-muted-foreground"
+                    onClick={() => void onSyncFromLedger(goal)}
+                  >
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    Sincronizar dos lançamentos
+                  </Button>
+                  <Button
+                    variant="link"
+                    className="h-auto p-0 text-xs text-muted-foreground"
+                    asChild
+                  >
+                    <Link to="/finance/dashboard">Ver saldo em Finanças</Link>
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </article>
+        );
+      })}
+    </div>
+  );
+});
+
+function GoalFormDialog({
+  open,
+  seed,
+  editing,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  seed: PersonalGoalCreateRequest;
+  editing: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (form: PersonalGoalCreateRequest) => void | Promise<void>;
+}) {
+  const [draft, setDraft] = useState(seed);
+
+  useEffect(() => {
+    if (open) setDraft(seed);
+  }, [open, seed]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
+        <DialogHeader>
+          <DialogTitle>{editing ? "Editar meta" : "Nova meta"}</DialogTitle>
+        </DialogHeader>
+        <div className={FORM_FIELDS_CLASS}>
+          <div>
+            <FormLabel required>Título</FormLabel>
+            <Input
+              value={draft.title}
+              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+            />
+          </div>
+          <div>
+            <FormLabel optional>Descrição</FormLabel>
+            <Input
+              value={draft.description ?? ""}
+              onChange={(e) =>
+                setDraft({ ...draft, description: e.target.value })
+              }
+            />
+          </div>
+          <div>
+            <FormLabel required>Categoria</FormLabel>
+            <Select
+              value={draft.category}
+              onValueChange={(v) =>
+                setDraft({ ...draft, category: v as GoalCategory })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(GOAL_CATEGORY_LABELS).map(([k, l]) => (
+                  <SelectItem key={k} value={k}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FormLabel required>Progresso atual</FormLabel>
+              <Input
+                type="number"
+                value={draft.current_value || ""}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    current_value: Number(e.target.value) || 0,
+                  })
+                }
+                placeholder="Quanto já avançou"
+              />
+            </div>
+            <div>
+              <FormLabel required>Valor da meta</FormLabel>
+              <Input
+                type="number"
+                value={draft.target_value || ""}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    target_value: Number(e.target.value) || 0,
+                  })
+                }
+                placeholder="Objetivo final"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FormLabel optional>Unidade</FormLabel>
+              <Input
+                placeholder="R$, km, livros..."
+                value={draft.unit ?? ""}
+                onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+              />
+            </div>
+            <div>
+              <FormLabel optional>Prazo</FormLabel>
+              <DatePicker
+                clearable
+                date={
+                  draft.deadline
+                    ? new Date(`${draft.deadline}T12:00:00`)
+                    : undefined
+                }
+                onSelect={(d) =>
+                  setDraft({
+                    ...draft,
+                    deadline: d ? formatLocalIsoDate(d) : null,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <Button
+            onClick={() => void onSave(draft)}
+            className="w-full"
+          >
+            {editing ? "Salvar alterações" : "Criar meta"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Goals() {
   const [goals, setGoals] = useState<PersonalGoal[]>([]);
@@ -153,60 +459,69 @@ export default function Goals() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  function openEdit(goal: PersonalGoal) {
+  const openEdit = useCallback((goal: PersonalGoal) => {
     setEditing(goal);
     setForm({ ...goal });
     setOpen(true);
-  }
+  }, []);
 
-  function openCreate() {
+  const openCreate = useCallback(() => {
     setEditing(null);
     setForm(emptyGoal());
     setOpen(true);
-  }
+  }, []);
 
-  async function handleSave() {
-    if (!form.title.trim()) return;
-    try {
-      if (editing) await updateGoal({ id: editing.id, ...form });
-      else await createGoal(form);
-      toast({ title: "Meta salva!", duration: 2000 });
-      setOpen(false);
-      load();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Não foi possível atualizar a meta."),
-        variant: "destructive",
-      });
-    }
-  }
+  const handleSaveFromDialog = useCallback(
+    async (formData: PersonalGoalCreateRequest) => {
+      if (!formData.title.trim()) return;
+      try {
+        if (editing) await updateGoal({ id: editing.id, ...formData });
+        else await createGoal(formData);
+        toast({ title: "Meta salva!", duration: 2000 });
+        setOpen(false);
+        load();
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: getErrorMessage(error, "Não foi possível atualizar a meta."),
+          variant: "destructive",
+        });
+      }
+    },
+    [editing, toast, load]
+  );
 
-  async function handleDelete(id: string) {
-    try {
-      await deleteGoal(id);
-      toast({ title: "Meta excluída", duration: 2000 });
-      load();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Não foi possível atualizar a meta."),
-        variant: "destructive",
-      });
-    }
-  }
+  const handleDelete = useCallback(
+    async (id: string) => {
+      try {
+        await deleteGoal(id);
+        toast({ title: "Meta excluída", duration: 2000 });
+        load();
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: getErrorMessage(error, "Não foi possível atualizar a meta."),
+          variant: "destructive",
+        });
+      }
+    },
+    [toast, load]
+  );
 
-  function openDestinar(goal: PersonalGoal) {
-    if (monthSurplus == null) return;
-    const fit = evaluateGoalAgainstSurplus(goal, monthSurplus);
-    if (!fit || fit.remaining <= 0) return;
-    const initial =
-      fit.applyAmount > 0
-        ? fit.applyAmount
-        : maxGoalApplyAmount(fit.remaining, fit.surplus);
-    setDestinarGoal(goal);
-    setDestinarAmount(initial > 0 ? initial : "");
-  }
+  const openDestinar = useCallback(
+    (goal: PersonalGoal) => {
+      if (monthSurplus == null) return;
+      const fit = evaluateGoalAgainstSurplus(goal, monthSurplus);
+      if (!fit || fit.remaining <= 0) return;
+      const initial =
+        fit.applyAmount > 0
+          ? fit.applyAmount
+          : maxGoalApplyAmount(fit.remaining, fit.surplus);
+      setDestinarGoal(goal);
+      setDestinarAmount(initial > 0 ? initial : "");
+    },
+    [monthSurplus]
+  );
 
   async function handleDestinarConfirm() {
     if (!destinarGoal || !destinarFit || monthSurplus == null) return;
@@ -262,46 +577,49 @@ export default function Goals() {
     }
   }
 
-  async function handleSyncFromLedger(goal: PersonalGoal) {
-    try {
-      const summed = await sumGoalAporteFromLedger(goal.title);
-      const resolved = resolveSyncedGoalProgress(
-        goal.current_value,
-        summed,
-        goal.target_value
-      );
+  const handleSyncFromLedger = useCallback(
+    async (goal: PersonalGoal) => {
+      try {
+        const summed = await sumGoalAporteFromLedger(goal.title);
+        const resolved = resolveSyncedGoalProgress(
+          goal.current_value,
+          summed,
+          goal.target_value
+        );
 
-      if (!resolved.foundLedger) {
+        if (!resolved.foundLedger) {
+          toast({
+            title: "Nenhum aporte nos lançamentos",
+            description:
+              "Não achei lançamentos desta meta — o progresso foi mantido.",
+            duration: 3200,
+          });
+          return;
+        }
+
+        if (resolved.changed) {
+          await updateGoal({
+            id: goal.id,
+            current_value: resolved.next,
+          });
+        }
+
         toast({
-          title: "Nenhum aporte nos lançamentos",
-          description:
-            "Não achei lançamentos desta meta — o progresso foi mantido.",
-          duration: 3200,
+          title: "Progresso sincronizado",
+          description: `${formatBRL(resolved.next)} a partir dos aportes nos lançamentos.`,
+          duration: 2800,
         });
-        return;
-      }
-
-      if (resolved.changed) {
-        await updateGoal({
-          id: goal.id,
-          current_value: resolved.next,
+        load();
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: getErrorMessage(error, "Não foi possível atualizar a meta."),
+          variant: "destructive",
         });
       }
-
-      toast({
-        title: "Progresso sincronizado",
-        description: `${formatBRL(resolved.next)} a partir dos aportes nos lançamentos.`,
-        duration: 2800,
-      });
-      load();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Não foi possível atualizar a meta."),
-        variant: "destructive",
-      });
-    }
-  }
+    },
+    [toast, load]
+  );
 
   const routineDraft = useMemo(() => {
     if (!poupancaGoal) return null;
@@ -314,12 +632,12 @@ export default function Goals() {
     return buildGoalInstallmentDraft(remaining, monthly, installments);
   }, [poupancaGoal, routineMonthly]);
 
-  function openRoutine(goal: PersonalGoal) {
+  const openRoutine = useCallback((goal: PersonalGoal) => {
     const fields = initialGoalInstallmentFields(goal);
     setPoupancaDueDay(new Date().getDate());
     setRoutineMonthly(fields.monthlyAmount > 0 ? fields.monthlyAmount : "");
     setPoupancaGoal(goal);
-  }
+  }, []);
 
   async function handleCreatePoupançaRoutine() {
     if (!poupancaGoal || !routineDraft) return;
@@ -391,7 +709,10 @@ export default function Goals() {
     }
   }
 
-  const activeGoals = goals.filter((g) => g.status === "active");
+  const activeGoals = useMemo(
+    () => goals.filter((g) => g.status === "active"),
+    [goals]
+  );
 
   return (
     <PageShell
@@ -419,268 +740,24 @@ export default function Goals() {
           action={<Button onClick={openCreate}>Nova meta</Button>}
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {activeGoals.map((goal) => {
-            const progress = getGoalProgress(goal);
-            const financeInsight = getFinancialGoalInsight(goal);
-            const surplusFit =
-              monthSurplus != null
-                ? evaluateGoalAgainstSurplus(goal, monthSurplus)
-                : null;
-            const canDestinar =
-              !!surplusFit &&
-              surplusFit.remaining > 0 &&
-              maxGoalApplyAmount(surplusFit.remaining, surplusFit.surplus) > 0;
-            const canRoutine =
-              !!financeInsight && financeInsight.remaining > 0;
-
-            return (
-              <article
-                key={goal.id}
-                className="rounded-xl border bg-card p-3.5 shadow-sm sm:p-5"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <Badge variant="outline" className="mb-2 text-[10px]">
-                      {GOAL_CATEGORY_LABELS[goal.category]}
-                    </Badge>
-                    <h3 className="font-semibold">{goal.title}</h3>
-                    {goal.description && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {goal.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn("h-8 w-8", ICON_EDIT_BUTTON_CLASS)}
-                      onClick={() => openEdit(goal)}
-                    >
-                      <Pen className="h-3.5 w-3.5" />
-                    </Button>
-                    <ConfirmDeleteDialog
-                      title="Excluir esta meta?"
-                      description="O progresso registrado será perdido."
-                      onConfirm={() => handleDelete(goal.id)}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </ConfirmDeleteDialog>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                    <span>{formatGoalProgress(goal)}</span>
-                    <span>{progress}%</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
-                {goal.deadline && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Prazo: {formatDateBR(goal.deadline)}
-                  </p>
-                )}
-                {financeInsight ? (
-                  <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
-                    <p className="flex items-center gap-1.5 text-xs font-medium">
-                      <Wallet className="h-3.5 w-3.5" />
-                      Meta ← saldo do mês
-                    </p>
-                    {financeInsight.monthlyTarget != null &&
-                    financeInsight.monthlyTarget > 0 ? (
-                      <p className="mt-1.5 text-sm font-semibold tabular-nums">
-                        {formatBRL(financeInsight.monthlyTarget)}
-                        <span className="font-normal text-muted-foreground">
-                          {" "}
-                          / mês no prazo
-                        </span>
-                      </p>
-                    ) : financeInsight.monthlyLabel ? (
-                      <p className="mt-1.5 text-xs text-muted-foreground">
-                        {financeInsight.monthlyLabel}
-                      </p>
-                    ) : null}
-
-                    {surplusFit ? (
-                      <p
-                        className={cn(
-                          "mt-1.5 text-xs",
-                          surplusFit.status === "comfortable" ||
-                            surplusFit.status === "exact"
-                            ? "text-foreground"
-                            : "text-muted-foreground"
-                        )}
-                      >
-                        {surplusFit.summary}
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {financeInsight.suggestion}
-                      </p>
-                    )}
-
-                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                      {canDestinar ? (
-                        <Button
-                          variant="link"
-                          className="h-auto p-0 text-xs"
-                          onClick={() => openDestinar(goal)}
-                        >
-                          <Plus className="mr-1 h-3 w-3" />
-                          Destinar valor à meta
-                        </Button>
-                      ) : null}
-                      {canRoutine ? (
-                        <Button
-                          variant="link"
-                          className="h-auto p-0 text-xs"
-                          onClick={() => openRoutine(goal)}
-                        >
-                          <Repeat className="mr-1 h-3 w-3" />
-                          Rotina em Recorrências (meta)
-                        </Button>
-                      ) : null}
-                      <Button
-                        variant="link"
-                        className="h-auto p-0 text-xs text-muted-foreground"
-                        onClick={() => void handleSyncFromLedger(goal)}
-                      >
-                        <RefreshCw className="mr-1 h-3 w-3" />
-                        Sincronizar dos lançamentos
-                      </Button>
-                      <Button
-                        variant="link"
-                        className="h-auto p-0 text-xs text-muted-foreground"
-                        asChild
-                      >
-                        <Link to="/finance/dashboard">Ver saldo em Finanças</Link>
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
+        <GoalsGrid
+          goals={activeGoals}
+          monthSurplus={monthSurplus}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+          onDestinar={openDestinar}
+          onRoutine={openRoutine}
+          onSyncFromLedger={handleSyncFromLedger}
+        />
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>{editing ? "Editar meta" : "Nova meta"}</DialogTitle>
-          </DialogHeader>
-          <div className={FORM_FIELDS_CLASS}>
-            <div>
-              <FormLabel required>Título</FormLabel>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </div>
-            <div>
-              <FormLabel optional>Descrição</FormLabel>
-              <Input
-                value={form.description ?? ""}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <FormLabel required>Categoria</FormLabel>
-              <Select
-                value={form.category}
-                onValueChange={(v) =>
-                  setForm({ ...form, category: v as GoalCategory })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(GOAL_CATEGORY_LABELS).map(([k, l]) => (
-                    <SelectItem key={k} value={k}>
-                      {l}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <FormLabel required>Progresso atual</FormLabel>
-                <Input
-                  type="number"
-                  value={form.current_value || ""}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      current_value: Number(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="Quanto já avançou"
-                />
-              </div>
-              <div>
-                <FormLabel required>Valor da meta</FormLabel>
-                <Input
-                  type="number"
-                  value={form.target_value || ""}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      target_value: Number(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="Objetivo final"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <FormLabel optional>Unidade</FormLabel>
-                <Input
-                  placeholder="R$, km, livros..."
-                  value={form.unit ?? ""}
-                  onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                />
-              </div>
-              <div>
-                <FormLabel optional>Prazo</FormLabel>
-                <DatePicker
-                  clearable
-                  date={
-                    form.deadline
-                      ? new Date(`${form.deadline}T12:00:00`)
-                      : undefined
-                  }
-                  onSelect={(d) =>
-                    setForm({
-                      ...form,
-                      deadline: d ? formatLocalIsoDate(d) : null,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <Button onClick={handleSave} className="w-full">
-              {editing ? "Salvar alterações" : "Criar meta"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <GoalFormDialog
+        open={open}
+        seed={form}
+        editing={!!editing}
+        onOpenChange={setOpen}
+        onSave={handleSaveFromDialog}
+      />
 
       <Dialog
         open={!!destinarGoal}

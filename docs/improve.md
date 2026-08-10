@@ -1,32 +1,13 @@
-- ✅ processo de criação de tipos e classes demorando
-- ✅ carregamento de várias páginas também demorando
-  - ✅ melhorar feedback de interface
-  - ✅ explorar melhores formas
-- ✅ o botão de add (+) hoje está em todas as telas, porém o clique dele estão direcionando sempre pra criação de uma transação. imagino que, dependendo da área em que ele está (Finanças, Entretenimento, Vida) o adicionar possuir uma etapa antes, em Finanças, por exemplo ele pode adicionar uma Receita, uma Despesa, uma nova parcela criada no de Entretenimento, ele pode add um Filme, um Curta, uma Música, um Artigo uma Música
-- ✅ A importação da lista em csv é muito 'developer turned', deve ser removido a fim de atingir um usuário mais geral
-- ✅ feedback visual do trial expirado
-- ✅ central de comandos melhorar, e evoluir iodentificação de ação
-- ✅ adicionar escolha de gênero para surpreenda-me (filmes)
-- ✅ melhorar visualização de dimensões, e trocar nomenclatura
-  - ![](../docs/screenshot-example/dimensions-refactor-ui.png)
-- ✅ Conectar API de lugares (Geoapify Autocomplete + Google Routes)
-  - ✅ Edge Function `places-catalog` (chaves só no servidor)
-  - ✅ Busca no módulo Lugares e ao adicionar visita no roteiro
-  - ✅ Geo em `place_visit` (`lat`/`lng`/`geoapify_place_id`)
-  - ✅ Rotas A→B no painel “Próximo destino” (DRIVE / WALK / BICYCLE / TRANSIT)
-  - ✅ Quota Maps (Geoapify diária + Google Essentials/Pro mensal, fail-closed)
-- ✅ Mudar linguagem das Parcelas para 'Recorrências' a fim de englobar as parcelas abertas de finanças, mas também custos recorrentes que já são previstos (água, luz)
-- ✅ Adicionar flag (pago em) nas recorrências
-- ✅ melhorar linguagme das dimensões
-  - ✅ em criar transação ou parcela
-  - ✅ ele ao invés de selecionar a Natureza, e o Tipo, ele digitar em busca da classe
-    - ✅ no dropdown, já aparecer o tipo e natureza daquela classe
-  - ✅ melhorar seleção da classe 
-    - ![](../docs/screenshot-example/class-selecion-refactor-ui.png)
-- ✅ melhorar roteiros em viagens
-  - ✅ visitas de lugares no dia (busca Geoapify, tipo alinhado a Lugares)
-  - ✅ checklist da visita: concluir / pular / desfazer (otimista, sem reload completo)
-  - ✅ painel próximo destino + horário de saída / duração / chegada
-  - ✅ link + “já reservado” + notas por visita
-  - ✅ carregamento inicial do detalhe da viagem em bundle (menos round-trips)
-- ✅ link com qr code para convidar amigos, se o convidado criar o cliente
+- ✅ Música, filmes e livros
+    - ✅ Aparecer filmes, livros e músicas conforme o usuário escreve. Igual na parte de lugares
+      → implementado: typeahead nos search modals + `useTypeaheadSearch`
+
+- ✅ Geral
+    - ✅ Colocar animação ao mover uma atividade para outro dia e uma subcategoria para outra categoria
+      → implementado: Framer Motion `layout` em roteiro e DimensionsBoard
+
+- ✅ Usabilidade
+    - ✅ Testar a velocidade de criação, edição e deleção de registros e carregamento de dados de todos os módulos e trazer um relatório simples de tempo e como melhorar, se for necessário.
+    - ✅ Avalie cada formulário e traga os que estão muito morosos.
+    - ✅ Avalie o fluxo de todos os módulos explorando todas as funções e me traga um relatório de cada coisa que, se caso houver algo ruim que possa melhorar.
+      → relatório: `docs/superpowers/reports/2026-08-07-usability-perf-forms.md`

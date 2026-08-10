@@ -14,10 +14,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ScoreRating } from "@/components/ScoreRating";
+import {
+  CINEMA_TYPE_TONE,
+  StatusPill,
+  ToneChip,
+  type StatusPillTone,
+} from "@/components/StatusPill";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import {
   MOVIE_STATUS_LABELS,
@@ -61,6 +66,21 @@ function DetailRow({
       <div className="text-sm">{children}</div>
     </div>
   );
+}
+
+function movieStatusTone(status: MovieStatus): StatusPillTone {
+  switch (status) {
+    case MovieStatus.TO_WATCH:
+      return "warning";
+    case MovieStatus.WATCHING:
+      return "primary";
+    case MovieStatus.WATCHED:
+      return "success";
+    case MovieStatus.ABANDONED:
+      return "muted";
+    default:
+      return "muted";
+  }
 }
 
 /** Ações de ciclo quietas — fora do footer, sem cara de “Salvar”. */
@@ -178,26 +198,31 @@ export function MovieDetailDialog({
                   />
                 </Button>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="text-[10px]">
-                  {MOVIE_STATUS_LABELS[movie.status]}
-                </Badge>
-                <Badge variant="secondary" className="text-[10px]">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <ToneChip toneClassName={CINEMA_TYPE_TONE}>
                   {MOVIE_TYPE_LABELS[movie.type]}
-                </Badge>
-                <span className="text-sm text-muted-foreground">{movie.year}</span>
-                {movie.score_imdb != null && (
+                </ToneChip>
+                <StatusPill tone={movieStatusTone(movie.status)}>
+                  {MOVIE_STATUS_LABELS[movie.status]}
+                </StatusPill>
+                {movie.year != null ? (
+                  <span className="text-xs text-muted-foreground">
+                    {movie.year}
+                  </span>
+                ) : null}
+                {movie.score_imdb != null ? (
                   <span className="text-xs text-muted-foreground">
                     IMDb {formatMovieRating(movie.score_imdb)}
                   </span>
-                )}
+                ) : null}
+                {movie.status === MovieStatus.WATCHED ? (
+                  recommend ? (
+                    <ThumbsUp className="h-3.5 w-3.5 shrink-0 text-success" />
+                  ) : (
+                    <ThumbsDown className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                  )
+                ) : null}
               </div>
-              {movie.status === MovieStatus.WATCHED &&
-                (recommend ? (
-                  <ThumbsUp className="h-5 w-5 text-success" />
-                ) : (
-                  <ThumbsDown className="h-5 w-5 text-destructive" />
-                ))}
             </div>
           </div>
         </DialogHeader>
@@ -215,20 +240,14 @@ export function MovieDetailDialog({
             </DetailRow>
           )}
 
-          <DetailRow label="Status">
-            <div>
-              <p>{MOVIE_STATUS_LABELS[movie.status]}</p>
-              {/* Filme: links sob o status. Série: sob os episódios. */}
-              {onEdit &&
-                movie.status === MovieStatus.WATCHING &&
-                !isSeries && (
-                  <WatchingLifecycleLinks
-                    onFinish={() => openEdit("finish")}
-                    onAbandon={() => openEdit("abandon")}
-                  />
-                )}
-            </div>
-          </DetailRow>
+          {onEdit &&
+          movie.status === MovieStatus.WATCHING &&
+          !isSeries ? (
+            <WatchingLifecycleLinks
+              onFinish={() => openEdit("finish")}
+              onAbandon={() => openEdit("abandon")}
+            />
+          ) : null}
 
           {latest && (
             <DetailRow label="Última vez">
@@ -244,9 +263,9 @@ export function MovieDetailDialog({
             <DetailRow label="Gênero">
               <div className="flex flex-wrap gap-1.5">
                 {genres.map((g) => (
-                  <Badge key={g} variant="secondary" className="text-[10px]">
+                  <StatusPill key={g} tone="muted">
                     {g}
-                  </Badge>
+                  </StatusPill>
                 ))}
               </div>
             </DetailRow>
