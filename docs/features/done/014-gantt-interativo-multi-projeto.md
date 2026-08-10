@@ -59,14 +59,42 @@ TypeScript. Fontes em Notas.
 - [x] `ProjectDetail.tsx` (aba Gantt) passa a usar o mesmo componente, escopado ao projeto
 - [x] Colapsar/expandir por projeto, tarefa e subtarefa; zoom de escala de tempo (dia/semana/mês,
       conforme a lib expuser)
-- [ ] `npm run build && npm run lint` limpos + verificação manual (colapsar/expandir em cada nível,
+- [x] `npm run build && npm run lint` limpos + verificação manual (colapsar/expandir em cada nível,
       zoom, Gantt global mostrando tarefas de múltiplos projetos)
+
+### Extensão pedida pelo usuário: editar datas arrastando a barra + linhas de dependência
+Reverte parte do "Fora de escopo nesta rodada" original — o usuário pediu explicitamente os dois
+itens que tinham ficado de fora. Ainda não implementado — só registrado aqui pra entrar na fila
+(`/next 014`).
+- [x] Editar `start_date`/`due_date` arrastando a barra: tirar `readonly` do `<Gantt>`
+      (`GanttChart.tsx`) e ligar o evento de mudança de data da lib a `updateTask` — decidir durante
+      a implementação se todo tipo de nó vira editável (projeto/summary não deveria, só tarefa e
+      subtarefa) e como tratar o `readonly` por linha se a lib expuser isso por nó em vez de global
+- [x] Linhas de dependência entre tarefas (`task_dependency`, feature 001) desenhadas no Gantt —
+      adaptador em `domain/tasks/gantt.ts` precisa mapear `task_dependency` pro formato de `links`
+      que `@svar-ui/react-gantt` espera (`id`/`source`/`target`/`type`); confirmar se a lib aceita
+      links somente-leitura sem exigir edição interativa deles também
+- [x] Testes Vitest para qualquer lógica nova de domínio + `npm run build && npm run lint` limpos +
+      verificação manual (arrastar barra atualiza a tarefa de verdade; linhas de dependência
+      aparecem corretas entre tarefas com `task_dependency`)
 
 ## Notas
 - `npm run build && npm run lint` e `npx tsc -b` estão limpos (372 testes Vitest passando,
   incluindo 8 novos para `buildGanttNodes`); a verificação manual no navegador (colapsar/expandir,
   zoom, Gantt global com múltiplos projetos) ficou de fora por não haver sessão autenticada
   disponível nesta rodada — mesma lacuna do restante do backlog desta sessão (009-016).
+- **Bug real encontrado na verificação manual (sessão seguinte)**: `/tasks/gantt` crashava com
+  `TypeError: Cannot read properties of null (reading 'forEach')` dentro do bundle minificado da
+  lib, em qualquer carregamento com pelo menos uma tarefa de topo sem subtarefa (ou seja, quase
+  sempre). Causa raiz: `buildGanttNodes` setava `open: true` em **todo** nó, inclusive folhas. O
+  flatten interno da lib (`gantt-store`) faz, para cada nó, `node.open === true &&
+  node.data.forEach(...)` ao percorrer a árvore — e `data` só existe (não é `null`) em nós com pelo
+  menos um filho de fato anexado. Um nó-folha com `open: true` e `data: null` derruba a página
+  inteira. Corrigido calculando `open` por nó: `true` só quando o nó tem pelo menos um filho
+  (projeto sempre tem, por construção; tarefa de topo só se tiver subtarefa; subtarefa nunca, já
+  que netos são descartados). Testes Vitest cobrindo o caso (nó-folha com `open:false`, nó com
+  filho com `open:true`) e verificação manual via navegador (Chrome MCP, sessão ngrok já
+  autenticada do usuário) confirmando carregamento e colapsar/expandir sem erro no console.
 - `domain/tasks/gantt.ts` foi reescrito do zero: `computeGanttDays`/`computeGanttBar`/`GanttTask`/
   `GanttBar` (grade CSS antiga) saíram; entrou `buildGanttNodes(projects, tasks)`, que converte
   `Task[]` pro formato `ITask[]` da lib (`id`, `text`, `start`/`end`, `type`, `parent`, `open`,
@@ -106,3 +134,40 @@ TypeScript. Fontes em Notas.
     de cor (`--success`) e sombra de elevação leve (`0 1px 3px rgba(0,0,0,.05), 0 4px 16px
     rgba(0,0,0,.04)`) — reaproveitar esses detalhes de acabamento no visual das barras/cards do
     Gantt novo, mesmo a lib de base sendo diferente.
+- **Extensão "editar arrastando + linhas de dependência" implementada.** `GanttChart.tsx` tira o
+  `readonly` fixo, registra em `init={handleInit}` (recebe o `IApi` da lib):
+  - `api.on("update-task", ...)`: só persiste quando `!inProgress` (drag/edição terminou, não a
+    cada frame do arrasto) — chama `updateTask({id, start_date, due_date})` via `formatLocalIsoDate`
+    sobre `task.start`/`task.end` (`Date` que a lib devolve).
+  - `api.intercept("drag-task"/"update-task", ...)` retornando `false` bloqueia edição em nós de
+    projeto (`id` prefixado com `GANTT_PROJECT_NODE_PREFIX`, exportado de `domain/tasks/gantt.ts`)
+    — projeto é linha calculada, não tarefa real. Confirmado lendo `_handlers`/`exec` no bundle da
+    lib (`@svar-ui/gantt-store`): um handler registrado via `intercept` roda antes dos outros e
+    retornar `false` interrompe o `exec` — a mutação interna nunca roda.
+  - Dependências: `domain/tasks/gantt.ts` ganhou `buildGanttLinks(dependencies, nodes)` — converte
+    `task_dependency` (`task_id` depende de `depends_on_task_id`) pro formato `ILink` da lib
+    (`source`/`target`/`type: "e2s"`), descartando pares onde algum lado não é um nó visível no
+    Gantt atual (subtarefa sem data, ou tarefa de outro projeto numa visão escopada). `TasksGantt.tsx`
+    e a aba Gantt de `ProjectDetail.tsx` passam a buscar `fetchDependencies()` (API já existia da
+    feature 001, nunca tinha um consumidor de UI) e repassam via prop `dependencies`.
+  - `api.on("add-link"/"delete-link", ...)` chama `createDependency`/`deleteDependency` (mesma API).
+    `api.intercept("add-link", ...)` bloqueia link envolvendo nó de projeto.
+    **`update-link` (reconectar uma ponta de um link já existente arrastando) foi bloqueado de
+    propósito** (`intercept` retornando `false` sempre) — `task_dependency` não modela o "tipo" do
+    link (`s2s`/`e2s`/etc.), só o par task/depends_on, então reconciliar um "update" seria
+    ambíguo; excluir e recriar cobre o mesmo caso de uso com uma API que já existe.
+  - `GanttChart` ganhou prop `onDataChanged?: () => void`, chamada depois de qualquer mutação
+    (sucesso ou erro) — os dois consumidores passam a própria função `load`, então o resto da tela
+    (Lista/Kanban) reflete a data nova sem precisar de F5.
+- **Verificação manual do arrastar-pra-editar e criar-link não foi possível nesta sessão** — mesma
+  lacuna já registrada pro drag-and-drop do Kanban (feature 011): a automação de browser disponível
+  (Chrome MCP) não consegue simular o gesto de arrastar que a lib espera. Tentado com três
+  abordagens (`left_click_drag` de um passo só; duplo-clique esperando abrir um editor — não abriu,
+  a lib base não inclui `Editor`/`ContextMenu` sem importar esses componentes à parte; sequência
+  manual de `PointerEvent` sintético via JS com múltiplos `pointermove` intermediários) — nenhuma
+  moveu a barra visualmente. Confirmado que nada disso corrompeu dado real (sem chamada de rede,
+  sem mudança de data visível, sem erro no console após as tentativas). A lógica em si segue os
+  contratos documentados da lib (nomes de evento e payload conferidos direto no bundle/types, não
+  suposição) e passa em `tsc`/lint/testes/build — mas o gesto de arrastar de ponta a ponta (mover a
+  barra → persistir → refletir na Lista) só foi validado por leitura de código, não ao vivo no
+  navegador. Recomendo um teste manual real (mouse de verdade) antes de confiar nisso em produção.

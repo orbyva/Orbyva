@@ -55,9 +55,13 @@ inexistentes no projeto). Não existe nenhum conceito de link externo em `task` 
       pra outras URLs) em `TaskListRow` e `KanbanCard`
 - [x] `npm run build && npm run lint` limpos (372 testes Vitest passando, 0 erros de lint, `tsc -b`
       limpo)
-- [ ] Verificação manual no navegador (colar link de uma issue real e ver o chip; markdown com
-      lista/checklist/tabela renderizando na prévia) — **bloqueada**: sem credenciais de login
-      disponíveis nesta sessão, mesmo bloqueio já registrado nas features anteriores
+- [x] Verificação manual no navegador (colar link de uma issue real e ver o chip; markdown com
+      lista/checklist/tabela renderizando na prévia) — verificado ao vivo (Chrome MCP, sessão ngrok
+      do usuário): digitei `**negrito**`/`_itálico_`/lista na Descrição, aba Visualizar renderizou
+      corretamente; colei `https://github.com/anthropics/claude-code/issues/123` em Link externo,
+      salvei, e o card mostrou o chip "anthropics/claude-code#123" com ícone do GitHub + a prévia
+      truncada em texto puro (sem sintaxe markdown) abaixo do título — revertido depois pra não
+      deixar dado de teste.
 
 ## Notas
 - Escopo revisado pelo usuário durante a implementação: removida a busca ao vivo de

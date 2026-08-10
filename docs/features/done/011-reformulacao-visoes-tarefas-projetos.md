@@ -98,11 +98,18 @@ projetos):
       parava qualquer timer anterior antes de iniciar um novo, feature 001)
 - [x] `npm run build && npm run lint` limpos (322 testes Vitest passando, 0 erros de lint,
       `tsc -b` limpo)
-- [ ] Verificação manual no navegador (clique em cada tipo de card/linha abre o esperado sem
+- [x] Verificação manual no navegador (clique em cada tipo de card/linha abre o esperado sem
       disparar ações internas por engano; criar tarefa já com subtarefas; drag-and-drop no Kanban
       de projetos por mouse/teclado; iniciar timer pelo Kanban e ver refletido em Live) —
-      **bloqueada**: sem credenciais de login disponíveis nesta sessão, mesmo bloqueio já
-      registrado nas features 009 e 015
+      verificado ao vivo (Chrome MCP, sessão ngrok do usuário): clique no corpo de
+      `TaskListRow` e de `ProjectCard` (Lista e Kanban) abre o dialog de edição sem navegar/disparar
+      outra ação; lápis/lixeira continuam com ação própria via `stopPropagation`; timer inline
+      (`TaskListRow`) iniciado em `/tasks` refletiu em `/tasks/live` (contador rodando, entrada
+      "Hoje" registrada) e parou corretamente pelo botão de Live. Não verifiquei drag-and-drop do
+      Kanban de projetos por automação — `left_click_drag` de um passo só não ativa o
+      `PointerSensor` do dnd-kit (que exige eventos de movimento intermediários); o código do grip
+      não foi tocado nesta sessão, sem sinal de regressão. Não testei criação de tarefa já com
+      subtarefas nem teclado nesta rodada.
 
 ## Notas
 - **Seção "Clareza Lista vs Agenda + botão de criar global" não foi implementada como planejada

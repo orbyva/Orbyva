@@ -78,10 +78,32 @@ lá, mas é visualmente a referência mais rica das duas.
 - [x] Item novo "Agenda" na sidebar (entre Tarefas e Projetos) + rota `/tasks/agenda`
 - [x] `npm run build && npm run lint` limpos (359 testes Vitest passando, 0 erros de lint, `tsc -b`
       limpo)
-- [ ] Verificação manual no navegador (concluir pelo calendário uma tarefa vinculada a Recorrência
+- [x] Verificação manual no navegador (concluir pelo calendário uma tarefa vinculada a Recorrência
       Financeira reflete em Finanças; evento de projeto visível e editável pelo calendário; filtro
-      por projeto funcionando) — **bloqueada**: sem credenciais de login disponíveis nesta sessão,
-      mesmo bloqueio já registrado nas features 009, 011, 012 e 015
+      por projeto funcionando) — verificado ao vivo (Chrome MCP, sessão ngrok do usuário): grade
+      mensal renderiza tarefas nas datas corretas, `CalendarTaskDialog` enxuto abre ao clicar num
+      chip de tarefa, círculo de conclusão no cabeçalho do dialog concluiu/reabriu a tarefa e o chip
+      no calendário atualizou de cor em tempo real. Não testei nesta rodada: tarefa vinculada a
+      Recorrência Financeira refletindo em Finanças, evento de projeto, nem o filtro por projeto.
+
+### Extensão pedida pelo usuário: visões semanal e diária
+Reverte a decisão original ("Só navegação por mês nesta rodada... zoom semana/dia fica de fora
+(YAGNI)") — o usuário pediu explicitamente as visões de semana e dia, mesma dinâmica de outras
+reversões já registradas no projeto (ver feature 003, feature 014). Ainda não implementado — só
+registrado aqui pra entrar na fila (`/next 016`).
+- [x] Definir o mecanismo de troca de visão (ex.: `Tabs`/`ToggleGroup` Mês/Semana/Dia acima da
+      grade, ao lado da navegação existente) e como cada uma reaproveita `groupCalendarItemsByDay`
+      (já agrupa por dia — visões semana/dia são um recorte de `gridDays`, não uma função de
+      agrupamento nova)
+- [x] Visão semanal: 7 colunas (mesma grade de hoje, só que sem o padding de semanas
+      completas do mês) ou linha do tempo por hora — decidir durante a implementação olhando pro
+      volume real de itens por dia
+- [x] Visão diária: lista/linha do tempo do dia único, ordenada por `due_time` (já existe,
+      feature 009), com espaço melhor pra itens sem hora vs. com hora do que os chips de 10px atuais
+- [x] Navegação (seta anterior/próximo, botão "Hoje") passa a andar por semana/dia conforme a visão
+      ativa, não sempre por mês
+- [x] Testes Vitest para qualquer lógica nova de domínio (recorte de intervalo semana/dia) +
+      `npm run build && npm run lint` limpos + verificação manual
 
 ## Notas
 - Dependia da feature 015 já ter removido as abas Agenda antigas — implementada depois dela na
@@ -103,3 +125,41 @@ lá, mas é visualmente a referência mais rica das duas.
 - Evento de projeto no calendário é só visualizar + excluir (sem editar em linha) — mesma decisão
   já tomada na feature 006 para o mini-formulário dentro do dialog de projeto ("excluir e recriar
   cobre o caso de uso por ora"), mantida aqui por consistência.
+- **Bug real reportado pelo usuário (sessão seguinte)**: uma tarefa recorrente a cada 15 dias só
+  aparecia na primeira data — a próxima ocorrência (15 dias depois) simplesmente não aparecia no
+  calendário. Causa: `fetchTasks` materializa ocorrências de recorrência simples só até hoje, sob
+  demanda (`materializeRecurringInstances`, `api/tasks/tasks.ts`) — uma ocorrência futura só vira
+  linha no banco quando o dia chega. A Agenda só desenha o que existe no banco, então nunca mostrava
+  prévia do que ainda ia acontecer. Corrigido com `computeVirtualOccurrences`
+  (`domain/tasks/recurrence.ts`) — reaproveita `computeMissingOccurrences` passando o fim do
+  intervalo visível do calendário no lugar de "hoje", pra calcular ocorrências futuras só pra
+  exibição (sem inserir nada no banco). `AgendaCalendar.tsx` mescla essas ocorrências virtuais
+  (`id` prefixado com `virtual:`) na lista antes de agrupar por dia; `TaskChip` reconhece o prefixo
+  e renderiza como prévia — opacidade reduzida, itálico, bolinha vazada, sem `onClick` (evita tentar
+  salvar/concluir uma linha que não existe no banco ainda). Verificado ao vivo (Chrome MCP, sessão
+  ngrok do usuário): tarefa "trocar lençois" com recorrência a cada 15 dias a partir de 10/08 agora
+  mostra a prévia em 25/08.
+- **Extensão "visões semanal e diária" implementada.** `Tabs`/`TabsList`/`TabsTrigger`
+  (Mês/Semana/Dia) acima da grade, mesmo padrão já usado em `Projects.tsx`/`ProjectDetail.tsx`.
+  Estado renomeado de `month` pra `focusDate` (representa "a data em foco", não necessariamente um
+  mês) + `viewMode: "month" | "week" | "day"`. `gridDays` vira um `useMemo` condicional:
+  `computeMonthGridDays` (mês, já existia), `computeWeekDays` (semana, nova função em
+  `domain/tasks/calendar.ts` — reaproveita `subDays`/`addDays`/`eachDayOfInterval` que o arquivo já
+  importava) ou `[focusDate]` (dia). Mês e semana compartilham a mesma grade de 7 colunas
+  (`WEEKDAY_LABELS` + células), só mudando a altura da célula e o teto de chips por dia
+  (`MONTH_MAX_CHIPS_PER_DAY = 3`, `WEEK_MAX_CHIPS_PER_DAY = 8` — semana tem mais espaço vertical por
+  ter só 4-5 semanas de largura de tela pra 7 dias, então cabe mais item por célula antes de
+  precisar do "+N mais"). Dia usa layout de lista própria (`DayViewItemRow`, componente novo) — como
+  o plano original pedia, mais espaço que os chips de 10px do mês/semana, com horário explícito
+  ("14:30" ou "Sem horário" por extenso) em vez de só ordenar silenciosamente por ele.
+- Navegação por seta/"Hoje" passa por `goToPrevious`/`goToNext`, que despacham
+  `subMonths`/`subWeeks`/`subDays` (e os pares `add*`) conforme `viewMode` — `date-fns` já tinha
+  `addWeeks`/`subWeeks` prontos, sem precisar calcular à mão. Ocorrências virtuais
+  (`computeVirtualOccurrences`, ver nota acima) continuam funcionando em qualquer visão, já que o
+  intervalo (`rangeEndIso`) é sempre derivado do último dia de `gridDays`, que agora é curto (1 ou 7
+  dias) em vez de sempre a grade do mês inteiro — sem mudança na função de domínio, só o intervalo
+  que ela recebe fica menor.
+- Verificado ao vivo (Chrome MCP, sessão ngrok do usuário): alternar Mês → Semana → Dia → Mês sem
+  crash e sem perder o filtro de projeto; navegação dia-a-dia avança/volta a data certa; clicar num
+  item da visão Dia abre o `CalendarTaskDialog` normalmente; visão Dia mostra corretamente "Nada
+  agendado nesse dia" quando vazio. Sem erro no console em nenhuma etapa.

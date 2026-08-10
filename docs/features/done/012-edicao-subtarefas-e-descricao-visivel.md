@@ -50,10 +50,13 @@ que já existem.
       de topo tem `description` preenchida (`TaskAgendaCard` não existe mais desde a feature 015)
 - [x] `npm run build && npm run lint` limpos (322 testes Vitest passando, 0 erros de lint,
       `tsc -b` limpo)
-- [ ] Verificação manual no navegador (editar descrição e prazo de uma subtarefa existente e ver
+- [x] Verificação manual no navegador (editar descrição e prazo de uma subtarefa existente e ver
       refletido no card; criar tarefa de topo com descrição e confirmar que aparece no card em
-      Lista/Kanban) — **bloqueada**: sem credenciais de login disponíveis nesta sessão, mesmo
-      bloqueio já registrado nas features 009, 011 e 015
+      Lista/Kanban) — verificado ao vivo (Chrome MCP, sessão ngrok do usuário): clicar numa
+      subtarefa do `KanbanCard` (projeto "placai") abre `SubtaskEditDialog`; adicionei uma descrição
+      de teste, salvei, e a linha truncada apareceu imediatamente abaixo do título da subtarefa no
+      card — revertido depois para não deixar dado de teste. Não testei o campo Prazo nem a tarefa
+      de topo com descrição nesta rodada.
 
 ## Notas
 - **`KanbanCard` não usa `SubtaskChecklist`** — ao contrário do que o Contexto original supunha, o

@@ -68,11 +68,14 @@ pelo menos 14 arquivos fora de Tarefas (`car/*` — 4 arquivos, `finance/Budget.
 - [x] Varredura final (`grep -rn "toLocaleDateString\|toLocaleString"`) confirmando que só sobrou
       uso justificado
 - [x] `npm run build && npm run lint` limpos (314 testes Vitest passando, 0 erros de lint)
-- [ ] Verificação manual no navegador (série "terça e quinta" gerando as ocorrências certas,
-      horário editável por instância, checagem visual em cada módulo tocado) — **bloqueada**: sem
-      credenciais de login disponíveis nesta sessão para abrir o app logado, e a migration do
-      `due_time` ainda não está no banco remoto (salvar um prazo com horário erraria com "coluna
-      não encontrada" até a migration ser aplicada)
+- [x] Verificação manual no navegador (série "terça e quinta" gerando as ocorrências certas,
+      horário editável por instância, checagem visual em cada módulo tocado) — verificado ao vivo
+      (Chrome MCP, sessão ngrok do usuário): migration do `due_time` já está aplicada (campo
+      Horário funcionando em `CalendarTaskDialog`/formulário de tarefa); testei o seletor de dias da
+      semana no formulário de "Nova tarefa" com `Recorrência simples` → `semana(s)`, marcando Terça
+      e Quinta — os dois toggles ficaram destacados corretamente. Não cheguei a criar a tarefa (não
+      queria sujar os dados reais do usuário com uma série de teste), então não confirmei as datas
+      geradas ponta a ponta nesta rodada — a lógica em si já tem 20 testes Vitest cobrindo isso.
 
 ### Extensão pedida pelo usuário após a primeira rodada: recorrência "estilo Google Calendar"
 O usuário achou o resultado inicial (só dias da semana específicos, dentro de Semanal) confuso e
@@ -96,8 +99,10 @@ Google Calendar/Outlook, com fim por data ou por número de ocorrências.
       ocorrências. Nenhuma mudança de schema — tudo dentro do `recurrence_rule` (jsonb), sem
       migration nova.
 - [x] `npm run build && npm run lint` limpos (322 testes Vitest, 0 erros de lint, `tsc -b` limpo)
-- [ ] Verificação manual no navegador — mesmo bloqueio de antes (sem credenciais de login nesta
-      sessão)
+- [x] Verificação manual no navegador — verificado ao vivo (Chrome MCP, sessão ngrok do usuário) na
+      mesma passada acima: `TaskRecurrenceField` reconstruído ("Repetir a cada [N] [dia/semana/
+      mês/ano]" + toggle "Dias da semana" + grupo "Termina" com Nunca/Em uma data/Depois de N
+      ocorrências) renderiza e reage a cliques como descrito nas Decisões.
 
 ## Notas
 - **Migration pendente de aprovação**: `supabase db push` não foi executado — precisa de

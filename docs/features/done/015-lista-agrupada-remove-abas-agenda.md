@@ -45,10 +45,15 @@ depender só de texto explicativo (o que a feature 011, ainda não implementada,
 - [x] `ProjectDetail.tsx`: remover aba Agenda; aba Lista ganha o mesmo agrupamento/círculo
 - [x] `npm run build && npm run lint` limpos (322 testes Vitest passando, 0 erros de lint,
       `tsc -b` limpo)
-- [ ] Verificação manual no navegador (círculo conclui/reabre tarefa direto na Lista global e na
+- [x] Verificação manual no navegador (círculo conclui/reabre tarefa direto na Lista global e na
       do projeto; agrupamento por prazo aparece corretamente; série recorrente colapsada some da
-      lista ao concluir a última ocorrência em aberto) — **bloqueada**: sem credenciais de login
-      disponíveis nesta sessão, mesmo bloqueio já registrado na feature 009
+      lista ao concluir a última ocorrência em aberto) — verificado ao vivo (Chrome MCP, sessão
+      ngrok do usuário): círculo em `TaskListRow` (`/tasks`) concluiu e reabriu "buscar ia's para
+      SEO" corretamente (badge, risco no título); agrupamento por `bucketForDueDate`
+      (Atrasadas/Esta semana/Sem prazo) aparece com as seções certas; ícone de série recorrente
+      abre "Ver ocorrências" com a lista de datas. Não testei especificamente o cenário de "some da
+      lista ao concluir a última ocorrência em aberto" nesta rodada (só havia uma ocorrência aberta
+      disponível, testar isso teria alterado dado real do usuário).
 
 ## Notas
 - Revoga a divisão de abas Lista/Agenda decidida nas features 004/007/008. Também deixa obsoleta a

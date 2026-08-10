@@ -25,4 +25,4 @@ Plano completo original: `docs/superpowers/plans/2026-08-03-tasks-projects-core-
 ## Notas
 - O trabalho original foi implementado num worktree (`worktree-tasks-projects-core-v1`) que ficou 10 commits atrás de `master` — migration nunca chegou a ser aplicada no banco remoto e o worktree divergiu o suficiente pra causar um bug real de bookkeeping do Supabase CLI (duas migrations com o mesmo timestamp). Todo o trabalho foi reportado para a branch `feat/produtividade` (a partir de `master` atualizado) nos commits acima; o worktree foi removido.
 - Visão de Calendário (organizar sessões/eventos, alocar tarefas por dia) ficou fora do escopo do núcleo — vira feature própria quando especificada.
-- Bug real encontrado e corrigido durante o desenvolvimento da feature 002: editar uma tarefa vinculada a uma Recorrência Financeira zerava seu `due_date`. Ver `docs/features/002-vinculo-tarefa-recorrencia-financeira.md`.
+- Bug real encontrado e corrigido durante o desenvolvimento da feature 002: editar uma tarefa vinculada a uma Recorrência Financeira zerava seu `due_date`. Ver `docs/features/done/002-vinculo-tarefa-recorrencia-financeira.md`.

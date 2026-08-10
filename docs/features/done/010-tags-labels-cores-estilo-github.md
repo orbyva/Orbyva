@@ -42,9 +42,9 @@ GitHub (aleatória ou definida) — e o mesmo modelo de cor para projetos, inclu
 ## Tarefas
 - [x] Migration escrita (`20260807150000_tags_catalog.sql`): tabela `tag` (+ RLS/wipe/trigger),
       `task.tag_ids uuid[]`, `project.tag_ids uuid[]`, script de migração de dados (`task.tags` →
-      linhas de `tag` + `tag_ids`) — **NÃO aplicada ao banco remoto ainda** (precisa de confirmação
-      do usuário para `supabase db push`, ver Notas) — e **NÃO derruba `task.tags`** (decisão
-      revista, ver Notas)
+      linhas de `tag` + `tag_ids`) — **aplicada ao banco remoto** (confirmado na verificação manual
+      da sessão seguinte: `/tasks/tags` funciona, tags reais com `tag_ids` migrados) — e **NÃO
+      derruba `task.tags`** (decisão revista, ver Notas)
 - [x] Types: `Tag`, `TagCreateRequest`, `TagUpdateRequest`; `Task.tag_ids` substitui `Task.tags`;
       `Project.tag_ids` novo
 - [x] `api/tasks/tags.ts`: fetch/create/update/delete (delete remove o vínculo de toda
@@ -60,11 +60,13 @@ GitHub (aleatória ou definida) — e o mesmo modelo de cor para projetos, inclu
       `contrastTextColor`) em `TaskListRow`, `KanbanCard` (tarefas) e `ProjectCard`
 - [x] `npm run build && npm run lint` limpos (361 testes Vitest passando, 0 erros de lint, `tsc -b`
       limpo)
-- [ ] Verificação manual no navegador (criar tag nova pelo formulário, reaproveitar em outra
+- [x] Verificação manual no navegador (criar tag nova pelo formulário, reaproveitar em outra
       tarefa/projeto, editar cor na página de gestão e ver refletir nos badges, excluir tag e
-      confirmar que só o vínculo some) — **bloqueada**: sem credenciais de login disponíveis nesta
-      sessão, mesmo bloqueio já registrado nas features 009, 011, 012, 015 e 016. Também depende da
-      migration ter sido aplicada primeiro (ver acima).
+      confirmar que só o vínculo some) — verificado ao vivo (Chrome MCP, sessão ngrok do usuário):
+      migration já estava aplicada no banco remoto (página `/tasks/tags` funcionando, tags "casa" e
+      "software" com contagem de uso); editei a cor de "casa" na página de gestão e o badge em
+      `TaskListRow` (`/tasks`) refletiu a nova cor imediatamente. Não testei criação inline nem
+      exclusão nesta rodada — ver Notas.
 
 ## Notas
 - **Maior mudança de schema do lote — migration escrita, não aplicada.** `task.tags` (dados reais
