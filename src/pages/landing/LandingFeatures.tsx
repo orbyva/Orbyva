@@ -2,38 +2,40 @@ import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { BRAND } from "@/lib/brand";
 import { LandingPhoneFrame } from "./LandingPhoneFrame";
-import { fadeUp, fadeUpSlow, staggerDelay } from "./landingMotion";
+import { LandingSectionTitle } from "@/components/landing/LandingSectionTitle";
+import { fadeUp, fadeUpSlow, staggerDelay } from "@/components/landing/landingMotion";
 
 /** Ganchos de conversão — 1 print = 1 tela real. */
 const MONEY_FEATURES = [
   {
     id: "orcamento",
-    eyebrow: "Orçamento",
-    title: "Saiba o que ainda cabe no mês",
-    body: "Teto por categoria, gasto e restante. Alerta quando estoura — Moradia, Alimentação, Lazer — sem planilha.",
+    eyebrow: "Controle do mês",
+    title: "Veja o que ainda dá para gastar — antes de estourar",
+    body: "Defina um teto por categoria e acompanhe gasto e restante. Alerta quando aperta: Moradia, Alimentação, Lazer — sem planilha.",
     points: [
-      "Resumo: resultado, gasto e receita do mês",
+      "Resumo claro: quanto entrou, quanto saiu e o resultado do mês",
       "Categorias com % usado e status OK / atenção / estourado",
-      "Aparece no hub junto com o saldo dos lançamentos",
+      "No início do app, junto com o saldo do dia",
     ],
     src: "/marketing/orcamento.png",
     detailSrc: "/marketing/orcamento-categorias.png",
-    alt: "Orçamento mensal: resultado, gasto e receita",
+    alt: "Teto do mês: resultado, gasto e receita",
     reverse: false,
   },
   {
     id: "recorrencias",
-    eyebrow: "Recorrências",
-    title: "Nunca mais esquecer o que vence",
-    body: "Lista de recorrências e 12x, mais a aba Projeção: a receber × a pagar, gráfico dos próximos meses e simular compra antes de comprometer o mês.",
+    eyebrow: "Contas e parcelas",
+    title: "Não esqueça o que vence — e simule antes de parcelar",
+    body: "Contas fixas e 12x numa lista só, com alertas. Na Projeção você vê a receber × a pagar e testa uma compra sem gravar.",
     points: [
-      "Alertas de contas atrasadas e vencimentos próximos",
-      "Projeção mensal — saldo previsto e horizonte à frente",
-      "Simular compra (valor, parcelas Nx, 1ª parcela) sem gravar",
+      "Alertas de atrasadas e vencimentos próximos",
+      "Projeção do mês com saldo previsto",
+      "Simular compra (valor, Nx, 1ª parcela) antes de comprometer o mês",
     ],
     src: "/marketing/parcelas.png",
     detailSrc: "/marketing/parcelas-lista.png",
-    alt: "Recorrências com alertas, projeção e simulação",
+    extraSrc: "/marketing/projecao-chart.png",
+    alt: "Recorrências: contas, parcelas e alertas do mês",
     reverse: true,
   },
 ] as const;
@@ -43,7 +45,7 @@ const LIFE_MODULES = [
   {
     id: "habitos",
     label: "Hábitos",
-    body: "Check-in do dia, streaks e taxa da semana.",
+    body: "Check-in do dia, streaks e ritmo da semana — sem app separado.",
     src: "/marketing/habitos.png",
   },
   {
@@ -55,29 +57,40 @@ const LIFE_MODULES = [
   {
     id: "viagens",
     label: "Viagens",
-    body: "Roteiro, orçamento e checklist. Compartilhe com amigos no Orbyva.",
+    body: "Roteiro, orçamento e checklist. Compartilhe a viagem com amigos.",
     src: "/marketing/viagens.png",
   },
   {
     id: "lugares",
     label: "Lugares",
-    body: "Notas de restaurantes e passeios — compartilhe a opinião.",
+    body: "Restaurantes e passeios com nota — opinião pronta para compartilhar.",
     src: "/marketing/lugares.png",
   },
   {
     id: "cinema",
     label: "Cinema",
-    body: "Watchlist, notas e card para compartilhar.",
+    body: "Watchlist, notas e card para Stories — sem outro app de filmes.",
     src: "/marketing/cinema.png",
+  },
+  {
+    id: "livros",
+    label: "Livros",
+    body: "Lista de leitura, lidos e opinião — do mesmo jeito que o cinema.",
+    src: "/marketing/livros.png",
+  },
+  {
+    id: "musica",
+    label: "Música",
+    body: "Álbuns para ouvir e ouvidos, com nota e comentário.",
+    src: "/marketing/musica.png",
   },
   {
     id: "veiculos",
     label: "Veículos",
-    body: "Manutenção, combustível, km e documentos.",
+    body: "Manutenção, combustível, km e documentos — prazos sob controle.",
     src: "/marketing/veiculos.png",
   },
 ] as const;
-
 export function LandingFeatures() {
   return (
     <>
@@ -85,17 +98,11 @@ export function LandingFeatures() {
         id="controle"
         className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-28"
       >
-        <motion.div {...fadeUp} className="max-w-xl">
-          <p className="font-display text-sm font-medium text-sky-400/90">
-            Controle do mês
-          </p>
-          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-            O que faz alguém assinar
-          </h2>
-          <p className="mt-3 text-zinc-400">
-            Orçamento e recorrências — o diferencial. O resto do life OS vem junto.
-          </p>
-        </motion.div>
+        <LandingSectionTitle
+          eyebrow="Controle do mês"
+          title="O que você sente falta todo mês — num só lugar"
+          description="Saber o que ainda cabe gastar e não esquecer contas. O resto da vida (hábitos, viagens, cinema…) vem junto, desde o dia 1."
+        />
 
         <div className="mt-16 space-y-20 sm:mt-20 sm:space-y-28">
           {MONEY_FEATURES.map((feat) => (
@@ -108,7 +115,7 @@ export function LandingFeatures() {
                 <p className="text-sm font-medium text-sky-400/80">
                   {feat.eyebrow}
                 </p>
-                <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                <h3 className="mt-2 font-display text-2xl font-semibold leading-[1.4] tracking-tight sm:text-3xl sm:leading-[1.35]">
                   {feat.title}
                 </h3>
                 <p className="mt-3 max-w-md text-base leading-relaxed text-zinc-400">
@@ -127,17 +134,25 @@ export function LandingFeatures() {
                 </ul>
               </div>
               <div
-                className={`mx-auto flex w-full max-w-[280px] flex-col items-center gap-4 sm:max-w-[420px] sm:flex-row sm:items-end sm:justify-center sm:gap-3 ${
+                className={`mx-auto flex w-full max-w-[280px] flex-col items-center gap-4 sm:max-w-[520px] sm:flex-row sm:items-end sm:justify-center sm:gap-2.5 ${
                   feat.reverse ? "lg:order-1" : "lg:order-2"
                 }`}
               >
-                <div className="hidden w-[48%] max-w-[200px] opacity-80 sm:block">
+                {"extraSrc" in feat && feat.extraSrc ? (
+                  <div className="hidden w-[30%] max-w-[160px] opacity-75 lg:block">
+                    <LandingPhoneFrame
+                      src={feat.extraSrc}
+                      alt={`${feat.eyebrow}: projeção`}
+                    />
+                  </div>
+                ) : null}
+                <div className="hidden w-[36%] max-w-[180px] opacity-85 sm:block">
                   <LandingPhoneFrame
                     src={feat.detailSrc}
                     alt={`${feat.eyebrow}: detalhe`}
                   />
                 </div>
-                <div className="w-full max-w-[260px] sm:w-[58%] sm:max-w-[240px]">
+                <div className="w-full max-w-[260px] sm:w-[44%] sm:max-w-[220px]">
                   <LandingPhoneFrame src={feat.src} alt={feat.alt} />
                 </div>
               </div>
@@ -150,26 +165,26 @@ export function LandingFeatures() {
           className="mt-20 grid items-center gap-10 border-t border-white/10 pt-16 lg:grid-cols-2 lg:gap-16"
         >
           <div>
-            <p className="text-sm font-medium text-sky-400/80">Finanças</p>
-            <h3 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-              O mês inteiro, com alertas
+            <p className="text-sm font-medium text-sky-400/80">Dinheiro</p>
+            <h3 className="mt-2 font-display text-2xl font-semibold leading-[1.4] tracking-tight sm:text-3xl sm:leading-[1.35]">
+              O mês inteiro na tela — com alertas que importam
             </h3>
             <p className="mt-3 max-w-md text-base leading-relaxed text-zinc-400">
-              Receita, despesa e saldo — e as recorrências atrasadas ou próximas já
-              no dashboard. Compartilhe o mês ou exporte CSV.
+              O que entrou, o que saiu e o saldo. Contas atrasadas ou próximas já
+              no painel. Lançamentos na lista — edite, filtre e acompanhe.
             </p>
           </div>
           <div className="mx-auto flex w-full max-w-[280px] flex-col items-center gap-4 sm:max-w-[420px] sm:flex-row sm:items-end sm:justify-center sm:gap-3">
             <div className="hidden w-[48%] max-w-[200px] opacity-80 sm:block">
               <LandingPhoneFrame
-                src="/marketing/financas-charts.png"
-                alt="Gráficos de finanças no Orbyva"
+                src="/marketing/transacoes.png"
+                alt="Lista de transações no Orbyva"
               />
             </div>
             <div className="w-full max-w-[260px] sm:w-[58%] sm:max-w-[240px]">
               <LandingPhoneFrame
                 src="/marketing/financas.png"
-                alt="Dashboard de Finanças com alertas de recorrências"
+                alt="Dashboard com alertas de contas e parcelas"
               />
             </div>
           </div>
@@ -181,25 +196,18 @@ export function LandingFeatures() {
         className="scroll-mt-20 border-t border-white/8 bg-gradient-to-b from-sky-500/[0.05] to-transparent"
       >
         <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-          <motion.div {...fadeUp} className="max-w-xl">
-            <p className="font-display text-sm font-medium text-sky-400/90">
-              Life OS
-            </p>
-            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-              O que antes eram vários apps
-            </h2>
-            <p className="mt-3 text-zinc-400">
-              Hábitos, metas, viagens, lugares, cinema e veículos — na mesma
-              órbita dos lançamentos. Liberado desde o dia 1.
-            </p>
-          </motion.div>
+          <LandingSectionTitle
+            eyebrow="Vida organizada"
+            title="E o resto da vida? Também. No mesmo app."
+            description="Hábitos, metas, viagens, lugares, cinema, livros, música e veículos — liberado no teste e no Pro. Sem app extra, sem assinatura extra."
+          />
 
-          <div className="mt-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+          <div className="mt-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
             {LIFE_MODULES.map((mod, i) => (
               <motion.figure
                 key={mod.id}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: "-30px" }}
                 transition={{
                   delay: staggerDelay(i, 0.04),

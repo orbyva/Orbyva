@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { LandingSectionTitle } from "@/components/landing/LandingSectionTitle";
 import { track } from "@/lib/analytics";
-import { fadeUp, staggerDelay } from "./landingMotion";
+import { fadeUp, staggerDelay } from "@/components/landing/landingMotion";
 
 /**
  * Depoimentos reais — preencha quando tiver (Fase I ops).
@@ -12,15 +13,15 @@ const TESTIMONIALS: { quote: string; name: string; role: string }[] = [];
 const SOCIAL_SIGNALS = [
   {
     title: "Sem senha de banco",
-    body: "Você registra o que quiser. Sem conectar conta do banco.",
+    body: "Controle consciente: você registra o que quiser. Zero Open Banking.",
   },
   {
     title: "7 dias, tudo liberado",
-    body: "Orçamento, recorrências e life OS — sem cartão no início.",
+    body: "Controle do mês + vida organizada — sem cartão no começo.",
   },
   {
     title: "Seus dados são seus",
-    body: "Export CSV e exclusão da conta quando quiser (LGPD).",
+    body: "Export CSV e exclusão da conta quando quiser. LGPD de verdade.",
   },
 ] as const;
 
@@ -30,29 +31,27 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
       id="prova"
       className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-24"
     >
-      <motion.div {...fadeUp} className="mx-auto max-w-xl text-center">
-        <p className="font-display text-sm font-medium text-sky-400/90">Prova</p>
-        <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-          {TESTIMONIALS.length > 0
+      <LandingSectionTitle
+        align="center"
+        eyebrow="Prova"
+        title={
+          TESTIMONIALS.length > 0
             ? "Quem já está na órbita"
-            : "Early access — com as regras certas"}
-        </h2>
-        <p className="mt-3 text-zinc-400">
-          {TESTIMONIALS.length > 0
+            : "Entre cedo. Sem risco."
+        }
+        description={
+          TESTIMONIALS.length > 0
             ? "Feedback de quem está usando o Orbyva de verdade."
-            : "Ainda estamos no começo. O que não negociamos: privacidade, teste sem cartão e controle do mês."}
-        </p>
-      </motion.div>
+            : "Teste sem cartão, privacidade na mão e controle do mês desde o dia 1. Early access com as regras certas."
+        }
+      />
 
       {TESTIMONIALS.length > 0 ? (
         <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {TESTIMONIALS.map((t, i) => (
             <motion.li
               key={`${t.name}-${i}`}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: staggerDelay(i), duration: 0.35 }}
+              {...fadeUp}
               className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
             >
               <p className="text-sm leading-relaxed text-zinc-200">
@@ -68,8 +67,8 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
           {SOCIAL_SIGNALS.map((item, i) => (
             <motion.li
               key={item.title}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ delay: staggerDelay(i), duration: 0.35 }}
               className="rounded-2xl border border-sky-400/15 bg-sky-500/[0.04] p-5 text-center sm:text-left"
@@ -84,7 +83,7 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
       )}
 
       <p className="mt-10 text-center text-sm text-zinc-500">
-        Quer entrar cedo e deixar seu feedback?{" "}
+        Quer entrar cedo e ajudar a moldar o produto?{" "}
         <Link
           to={ctaTo}
           className="font-medium text-sky-400 hover:text-sky-300"

@@ -48,3 +48,4 @@ supabase/.branches/
 /playwright/.cache/
 .lighthouseci
 .venv-tts/
+.originkit/

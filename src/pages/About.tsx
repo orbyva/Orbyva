@@ -1,32 +1,34 @@
 import { Link } from "react-router-dom";
-import { BrandLogo } from "@/components/BrandLogo";
+import { PublicPageShell, PublicSection } from "@/components/PublicPageShell";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { BRAND } from "@/lib/brand";
+import { PLANS } from "@/lib/plan";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 const MODULES = [
   {
-    title: "Início",
-    body: "O dia de hoje: alertas, hábitos, próximo marco e o pulso dos lançamentos.",
+    title: "Início e timeline",
+    body: "Resumo do dia — alertas, hábitos, saldo e o que vem a seguir — mais um feed de eventos de todos os módulos.",
   },
   {
     title: "Finanças",
-    body: "Lançamentos, orçamento com teto e recorrências — o diferencial do mês sob controle. Card para compartilhar.",
+    body: "Teto de gastos por categoria, contas e parcelas com projeção — o núcleo do mês sob controle.",
   },
   {
-    title: "Metas e hábitos",
-    body: "O que você quer alcançar e o que faz todo dia para chegar lá.",
+    title: "Hábitos e metas",
+    body: "Check-ins e streaks no dia a dia; objetivos com progresso — inclusive quanto guardar por mês nas metas em R$.",
   },
   {
     title: "Viagens e lugares",
-    body: "Roteiro, orçamento e checklist. Viagem compartilhada com amigos no Orbyva; lugares com nota para compartilhar.",
+    body: "Roteiro, orçamento e checklist. Viagem compartilhada com amigos no Orbyva; lugares com nota e opinião para compartilhar.",
   },
   {
-    title: "Cinema",
-    body: "Watchlist, notas e opinião — compartilhe o card.",
+    title: "Cinema, livros e música",
+    body: "Watchlist e notas de filmes/séries; estante de livros com marca-página; álbuns e faixas — tudo com card para Stories.",
   },
   {
     title: "Veículos",
-    body: "Manutenção, documentos e abastecimentos sem perder o prazo.",
+    body: "Manutenção, combustível, quilometragem e documentos — sem perder prazo.",
   },
 ] as const;
 
@@ -34,130 +36,112 @@ export function AboutPage() {
   useDocumentMeta({
     title: "Sobre o Orbyva",
     description:
-      "Life OS brasileiro: orçamento com teto, recorrências, hábitos, metas, viagens, cinema e veículos.",
+      "Life OS brasileiro: saiba o que cabe no mês e organize hábitos, metas, viagens, lugares, cinema, livros, música e veículos numa só órbita.",
     path: "/about",
     image: "https://orbyva.app/marketing/hub.png",
   });
 
   return (
-    <div className="relative min-h-svh overflow-hidden bg-[#0c1222] text-zinc-100">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(14,165,233,0.2),_transparent_55%)]"
-      />
+    <PublicPageShell>
+      <BrandWordmark size="lg" showSubtitle={false} />
 
-      <header className="relative z-10 mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-5">
-        <Link to="/" aria-label={BRAND.name} className="inline-flex">
-          <BrandLogo
-            variant="mark"
-            className="size-10 rounded-xl bg-white"
-            alt={BRAND.name}
-          />
-        </Link>
-        <Link
-          to="/login"
-          className="text-sm text-zinc-400 transition-colors hover:text-white"
-        >
-          Entrar
-        </Link>
-      </header>
+      <h1 className="mt-6 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+        Sobre o {BRAND.name}
+      </h1>
+      <p className="mt-4 text-lg text-zinc-300">{BRAND.tagline}.</p>
+      <p className="mt-4 max-w-xl text-base leading-relaxed text-zinc-400">
+        {BRAND.name} é o seu{" "}
+        <span className="text-zinc-200">{BRAND.wedge.toLowerCase()}</span>: o
+        que você espalha em planilha, app de hábitos, cinema, viagem e bloco de
+        notas — numa só órbita, desde o primeiro dia.
+      </p>
 
-      <main className="relative z-10 mx-auto w-full max-w-3xl px-5 pb-20 pt-4">
-        <BrandLogo
-          variant="full"
-          className="mb-8 h-auto w-full max-w-[240px] rounded-2xl bg-white p-4"
-        />
-
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Sobre o {BRAND.name}
-        </h1>
-        <p className="mt-4 text-lg text-zinc-300">{BRAND.tagline}.</p>
-        <p className="mt-4 max-w-xl text-base leading-relaxed text-zinc-400">
-          {BRAND.name} é o seu{" "}
-          <span className="text-zinc-200">{BRAND.wedge.toLowerCase()}</span>:
-          um lugar só para organizar a vida real — grana, rotina, planos,
-          viagens, cinema e carro — sem espalhar tudo em cinco apps.
+      <PublicSection title="Por que existe">
+        <p>
+          Abrir um app para o cartão, outro para o hábito, outro para a viagem e
+          outro para a watchlist cansa. O {BRAND.name} nasceu para juntar o
+          controle do mês — o que ainda cabe gastar, contas e o saldo — com o resto
+          da vida real, sem pedir senha de banco.
         </p>
+      </PublicSection>
 
-        <section className="mt-12">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-sky-300/90">
-            Por que existe
-          </h2>
-          <p className="mt-3 text-base leading-relaxed text-zinc-400">
-            A gente cansa de abrir uma ferramenta para o cartão, outra para o
-            hábito, outra para a viagem. O {BRAND.name} nasceu para ser a
-            órbita: o que importa hoje no centro, e o resto girando com
-            contexto — especialmente o saldo, porque vida organizada também é
-            vida que sabe para onde o dinheiro foi.
-          </p>
-        </section>
-
-        <section className="mt-12">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-sky-300/90">
-            O que você encontra
-          </h2>
-          <ul className="mt-5 space-y-4">
-            {MODULES.map((m) => (
-              <li
-                key={m.title}
-                className="border-b border-white/10 pb-4 last:border-0"
-              >
-                <p className="font-medium text-zinc-100">{m.title}</p>
-                <p className="mt-1 text-sm leading-relaxed text-zinc-400">
-                  {m.body}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="mt-12">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-sky-300/90">
-            Como funciona
-          </h2>
-          <p className="mt-3 text-base leading-relaxed text-zinc-400">
-            Conta pessoal com login Google. Seus dados ficam na sua órbita —
-            dá para exportar e excluir quando quiser. O produto evolui em
-            público: teste de 7 dias, Pro e melhorias contínuas.
-          </p>
-        </section>
-
-        <section className="mt-12 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-          <h2 className="text-base font-semibold text-zinc-100">Contato</h2>
-          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-            Dúvidas, ideias ou parceria:{" "}
-            <a
-              href={`mailto:${BRAND.email}`}
-              className="text-sky-300 underline-offset-2 hover:underline"
+      <PublicSection title="O que você encontra">
+        <ul className="space-y-4">
+          {MODULES.map((m) => (
+            <li
+              key={m.title}
+              className="border-b border-white/10 pb-4 last:border-0"
             >
-              {BRAND.email}
-            </a>
-            {" · "}
-            <a
-              href={BRAND.instagramUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sky-300 underline-offset-2 hover:underline"
-            >
-              {BRAND.instagramHandle}
-            </a>
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3 text-sm">
-            <Link to="/" className="text-zinc-300 hover:text-white">
-              Início
-            </Link>
-            <span className="text-zinc-600">·</span>
-            <Link to="/terms" className="text-zinc-300 hover:text-white">
-              Termos
-            </Link>
-            <span className="text-zinc-600">·</span>
-            <Link to="/privacy" className="text-zinc-300 hover:text-white">
-              Privacidade
-            </Link>
-          </div>
-        </section>
-      </main>
-    </div>
+              <p className="font-medium text-zinc-100">{m.title}</p>
+              <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                {m.body}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </PublicSection>
+
+      <PublicSection title="Como funciona">
+        <p>
+          Conta pessoal com login Google. Você começa com{" "}
+          <span className="text-zinc-200">{PLANS.free.priceLabel}</span> e
+          acesso completo; depois, Pro por{" "}
+          <span className="text-zinc-200">{PLANS.pro.priceLabel}</span> — assine
+          na Conta quando quiser continuar. Seus dados ficam na sua órbita: dá
+          para exportar CSV e excluir a conta quando quiser (LGPD).
+        </p>
+        <p>
+          O produto evolui em público: PWA, alertas, compartilhamento de cards e
+          melhorias contínuas. Sem conectar conta do banco — você registra o que
+          quiser, do seu jeito.
+        </p>
+      </PublicSection>
+
+      <section className="mt-12 rounded-2xl border border-sky-400/20 bg-sky-500/[0.06] p-6 sm:p-7">
+        <h2 className="font-display text-lg font-semibold text-zinc-100">
+          Pronto para entrar na órbita?
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+          {PLANS.free.priceLabel} com controle do mês e vida organizada. Cartão
+          só quando assinar o Pro.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link
+            to="/login?mode=signup"
+            className="rounded-full bg-sky-400 px-5 py-2.5 text-sm font-semibold text-sky-950 transition hover:bg-sky-300"
+          >
+            Começar grátis
+          </Link>
+          <Link
+            to="/"
+            className="rounded-full border border-white/15 px-5 py-2.5 text-sm text-zinc-300 transition hover:border-white/25 hover:text-white"
+          >
+            Ver a landing
+          </Link>
+        </div>
+      </section>
+
+      <PublicSection title="Contato">
+        <p>
+          Dúvidas, ideias ou parceria:{" "}
+          <a
+            href={`mailto:${BRAND.email}`}
+            className="text-sky-300 underline-offset-2 hover:underline"
+          >
+            {BRAND.email}
+          </a>
+          {" · "}
+          <a
+            href={BRAND.instagramUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sky-300 underline-offset-2 hover:underline"
+          >
+            {BRAND.instagramHandle}
+          </a>
+        </p>
+      </PublicSection>
+    </PublicPageShell>
   );
 }
 

@@ -10,8 +10,13 @@ export type { PhoneScreen };
 const DEFAULT_SCREENS: PhoneScreen[] = [
   {
     src: "/marketing/hub.png",
-    alt: "Início: saldo, orçamento e resumo do dia",
+    alt: "Início: saldo do mês, alertas e resumo do dia",
     label: "Início",
+  },
+  {
+    src: "/marketing/financas.png",
+    alt: "Dashboard de finanças com alertas e saldo",
+    label: "Finanças",
   },
   {
     src: "/marketing/orcamento.png",
@@ -24,21 +29,19 @@ const DEFAULT_SCREENS: PhoneScreen[] = [
     label: "Recorrências",
   },
   {
-    src: "/marketing/financas.png",
-    alt: "Dashboard de finanças",
-    label: "Finanças",
+    src: "/marketing/projecao-chart.png",
+    alt: "Projeção do mês com simulação de compra no gráfico",
+    label: "Projeção",
   },
   {
     src: "/marketing/habitos.png",
-    alt: "Hábitos e streaks",
+    alt: "Hábitos do dia com streaks",
     label: "Hábitos",
   },
-  {
-    src: "/marketing/cinema.png",
-    alt: "Cinema e watchlist",
-    label: "Cinema",
-  },
 ];
+function marketingWebp(src: string) {
+  return src.replace(/\.png$/i, ".webp");
+}
 
 function PhoneFrame({
   screen,
@@ -49,6 +52,8 @@ function PhoneFrame({
   priority?: boolean;
   className?: string;
 }) {
+  const webp = marketingWebp(screen.src);
+
   return (
     <div
       className={cn(
@@ -56,20 +61,20 @@ function PhoneFrame({
         className
       )}
     >
-      <div
-        aria-hidden
-        className="absolute left-1/2 top-2 z-10 h-4 w-20 -translate-x-1/2 rounded-full bg-zinc-950 sm:h-5 sm:w-24"
-      />
-      <img
-        src={screen.src}
-        alt={screen.alt}
-        width={390}
-        height={844}
-        loading={priority ? "eager" : "lazy"}
-        decoding="async"
-        className="h-full w-full object-contain object-top"
-        draggable={false}
-      />
+      <picture>
+        <source type="image/webp" srcSet={webp} />
+        <img
+          src={screen.src}
+          alt={screen.alt}
+          width={390}
+          height={844}
+          loading={priority ? "eager" : "lazy"}
+          decoding={priority ? "sync" : "async"}
+          fetchPriority={priority ? "high" : "low"}
+          className="h-full w-full object-contain object-top"
+          draggable={false}
+        />
+      </picture>
     </div>
   );
 }
