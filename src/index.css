@@ -6,6 +6,12 @@
 @import "@fontsource/syne/700.css";
 @import "@fontsource/syne/800.css";
 
+/* Syne: glifos passam do em-box — leading folgado evita corte visual */
+.font-display {
+  line-height: 1.4;
+  overflow: visible;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -216,7 +222,8 @@ body,
 #root {
   min-height: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  /* NÃO usar overflow-x: hidden aqui: isso força overflow-y ≠ visible
+     e corta descendentes de fonte (g, y, ç) — bug clássico de CSS. */
 }
 
 * {
@@ -247,11 +254,9 @@ textarea,
 @keyframes landing-fade-up {
   from {
     opacity: 0;
-    transform: translateY(18px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -302,5 +307,95 @@ textarea,
 
   .landing-beams .landing-beam-path {
     stroke-dasharray: none;
+  }
+
+  .landing-marquee-track {
+    animation: none;
+    transform: none;
+  }
+}
+
+@keyframes landing-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.landing-marquee-track {
+  animation: landing-marquee 36s linear infinite;
+}
+
+.landing-marquee:hover .landing-marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes landing-atmosphere-shift {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04) translate3d(1%, -1%, 0);
+  }
+}
+
+.landing-atmosphere-glow {
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 10%, rgba(14, 165, 233, 0.28), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 85% 25%, rgba(56, 189, 248, 0.16), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 50% 100%, rgba(14, 165, 233, 0.1), transparent 55%);
+  will-change: auto;
+}
+
+.landing-atmosphere-glow--live {
+  animation: landing-atmosphere-shift 18s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.landing-neon-frame::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    120deg,
+    transparent 20%,
+    rgba(56, 189, 248, 0.55) 45%,
+    transparent 70%
+  );
+  background-size: 220% 220%;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing-neon-frame::before {
+    animation: landing-neon-sweep 6s linear infinite;
+  }
+}
+
+@keyframes landing-neon-sweep {
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-atmosphere-glow--live,
+  .landing-neon-frame::before {
+    animation: none;
   }
 }

@@ -1,158 +1,221 @@
-import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
+import { PublicPageShell, PublicSection } from "@/components/PublicPageShell";
 import { BRAND } from "@/lib/brand";
+import { PLANS } from "@/lib/plan";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
-function LegalShell({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+const UPDATED_AT = "10 de agosto de 2026";
+
+function LegalIntro({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-svh bg-background text-foreground">
-      <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-5">
-        <Link to="/" className="font-semibold">
-          {BRAND.name}
-        </Link>
-        <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground">
-          Entrar
-        </Link>
-      </header>
-      <main className="mx-auto w-full max-w-3xl px-5 pb-16">
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Última atualização: 4 de agosto de 2026
-        </p>
-        <div className="prose prose-neutral dark:prose-invert mt-8 max-w-none space-y-4 text-sm leading-relaxed text-muted-foreground">
-          {children}
-        </div>
-      </main>
-    </div>
+    <p className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-400">
+      {children}
+    </p>
+  );
+}
+
+function LegalList({ items }: { items: string[] }) {
+  return (
+    <ul className="list-disc space-y-1.5 pl-5 text-zinc-400">
+      {items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
   );
 }
 
 export function TermsPage() {
+  useDocumentMeta({
+    title: "Termos de uso",
+    description: `Termos de uso do ${BRAND.name}: conta, planos, uso aceitável e disponibilidade.`,
+    path: "/terms",
+  });
+
   return (
-    <LegalShell title="Termos de uso">
-      <p>
+    <PublicPageShell>
+      <p className="font-display text-sm font-medium text-sky-400/90">Legal</p>
+      <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+        Termos de uso
+      </h1>
+      <p className="mt-2 text-sm text-zinc-500">
+        Última atualização: {UPDATED_AT}
+      </p>
+      <LegalIntro>
         Ao usar o {BRAND.name} ({BRAND.tagline}), você concorda com estes termos.
-        O serviço é oferecido para organização pessoal de finanças, hábitos,
-        metas, viagens, lugares, cinema e veículos.
-      </p>
-      <h2 className="text-base font-semibold text-foreground">Conta</h2>
-      <p>
-        Você é responsável por manter a segurança do acesso (hoje via Google
-        OAuth). Não compartilhe sua sessão. Contas são pessoais — os dados
-        pertencem a você.
-      </p>
-      <h2 className="text-base font-semibold text-foreground">Planos</h2>
-      <p>
-        Novas contas começam com um teste de 7 dias com acesso completo. Depois
-        do período, é necessário o plano Pro para continuar. Preços e benefícios
-        podem mudar com aviso na interface.
-      </p>
-      <h2 className="text-base font-semibold text-foreground">Uso aceitável</h2>
-      <p>
-        Não use o serviço para atividades ilegais, abuso de APIs, ou tentativa
-        de acessar dados de outras pessoas. Podemos suspender contas que violem
-        estes termos.
-      </p>
-      <h2 className="text-base font-semibold text-foreground">Disponibilidade</h2>
-      <p>
-        O {BRAND.name} é um produto em evolução. Podemos alterar ou descontinuar
-        funcionalidades. Não garantimos disponibilidade ininterrupta.
-      </p>
-      <h2 className="text-base font-semibold text-foreground">Contato</h2>
-      <p>
-        Dúvidas sobre estes termos:{" "}
-        <a className="text-foreground underline" href={`mailto:${BRAND.email}`}>
-          {BRAND.email}
-        </a>
-        .
-      </p>
-    </LegalShell>
+        O serviço é um life OS pessoal: finanças, hábitos, metas, viagens,
+        lugares, cinema, livros, música e veículos.
+      </LegalIntro>
+
+      <PublicSection title="Conta">
+        <p>
+          O acesso é feito via Google OAuth. Você é responsável por manter a
+          segurança da sua sessão e por não compartilhar o login. Contas são
+          pessoais: os dados que você cria no app pertencem a você.
+        </p>
+      </PublicSection>
+
+      <PublicSection title="Planos e pagamento">
+        <p>
+          Novas contas começam com {PLANS.free.priceLabel} e acesso completo.
+          Depois do período de teste, é necessário o plano Pro (
+          {PLANS.pro.priceLabel}) para continuar usando o app. A assinatura é
+          cobrada via Stripe; você pode cancelar pelo portal na Conta, sem
+          multa. Preços e benefícios podem mudar com aviso na interface.
+        </p>
+      </PublicSection>
+
+      <PublicSection title="Uso aceitável">
+        <p>Você se compromete a não:</p>
+        <LegalList
+          items={[
+            "Usar o serviço para atividades ilegais",
+            "Abusar de APIs, automações ou cotas de integrações",
+            "Tentar acessar dados de outras pessoas ou burlar a autenticação",
+            "Sobrecarregar ou interferir na operação do serviço",
+          ]}
+        />
+        <p>
+          Podemos suspender ou encerrar contas que violem estes termos.
+        </p>
+      </PublicSection>
+
+      <PublicSection title="Conteúdo e compartilhamento">
+        <p>
+          Você é responsável pelo conteúdo que cadastra (lançamentos, notas,
+          roteiros, avaliações etc.). Funções de compartilhamento (cards,
+          convites de viagem ou indicação) dependem do que você escolhe enviar;
+          não publique dados de terceiros sem autorização.
+        </p>
+      </PublicSection>
+
+      <PublicSection title="Disponibilidade">
+        <p>
+          O {BRAND.name} é um produto em evolução. Podemos alterar, pausar ou
+          descontinuar funcionalidades. Não garantimos disponibilidade
+          ininterrupta nem ausência de erros. Integrações de catálogo (cinema,
+          livros, música, mapas) dependem de provedores externos e cotas.
+        </p>
+      </PublicSection>
+
+      <PublicSection title="Limitação">
+        <p>
+          Na medida permitida pela lei aplicável, o {BRAND.name} é oferecido
+          “como está”. Não somos assessoria financeira, jurídica ou médica; as
+          informações do app auxiliam organização pessoal e não substituem
+          profissionais.
+        </p>
+      </PublicSection>
+
+      <PublicSection title="Contato">
+        <p>
+          Dúvidas sobre estes termos:{" "}
+          <a
+            className="text-sky-300 underline-offset-2 hover:underline"
+            href={`mailto:${BRAND.email}`}
+          >
+            {BRAND.email}
+          </a>
+          .
+        </p>
+      </PublicSection>
+    </PublicPageShell>
   );
 }
 
 export function PrivacyPage() {
+  useDocumentMeta({
+    title: "Privacidade e LGPD",
+    description: `Como o ${BRAND.name} trata dados pessoais, direitos LGPD, exportação e exclusão de conta.`,
+    path: "/privacy",
+  });
+
   return (
-    <LegalShell title="Privacidade e LGPD">
-      <p>
+    <PublicPageShell>
+      <p className="font-display text-sm font-medium text-sky-400/90">Legal</p>
+      <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+        Privacidade e LGPD
+      </h1>
+      <p className="mt-2 text-sm text-zinc-500">
+        Última atualização: {UPDATED_AT}
+      </p>
+      <LegalIntro>
         Esta política explica como o {BRAND.name} trata dados pessoais, em
-        conformidade com a LGPD (Lei 13.709/2018).
-      </p>
-      <h2 className="text-base font-semibold text-foreground">O que coletamos</h2>
-      <ul className="list-disc space-y-1 pl-5">
-        <li>Dados de autenticação (nome, e-mail, foto via Google)</li>
-        <li>
-          Conteúdo que você cria no app (transações, metas, hábitos, etc.)
-        </li>
-        <li>
-          Dados técnicos mínimos (erros via Sentry, se configurado; eventos de
-          produto via PostHog, se configurado)
-        </li>
-        <li>E-mail, se você criar conta ou entrar em contato conosco</li>
-        <li>
-          Código de indicação, se você chegou por convite de outro usuário
-        </li>
-      </ul>
-      <h2 className="text-base font-semibold text-foreground">Para que usamos</h2>
-      <p>
-        Prestação do serviço, autenticação, cobrança (Stripe, se você assinar o
-        Pro), melhoria de estabilidade e comunicação sobre o produto.
-      </p>
-      <h2 className="text-base font-semibold text-foreground">Seus direitos</h2>
-      <ul className="list-disc space-y-1 pl-5">
-        <li>
-          <strong className="text-foreground">Exportar</strong> — Conta → Exportar
-          dados (CSV)
-        </li>
-        <li>
-          <strong className="text-foreground">Excluir</strong> — Conta → Excluir
-          conta e dados
-        </li>
-        <li>Acesso e correção dos dados que você mesmo edita no app</li>
-      </ul>
-      <h2 className="text-base font-semibold text-foreground">
-        Subprocessadores
-      </h2>
-      <ul className="list-disc space-y-1 pl-5">
-        <li>
-          <strong className="text-foreground">Supabase</strong> — autenticação e
-          banco de dados
-        </li>
-        <li>
-          <strong className="text-foreground">Google</strong> — login OAuth (e
-          opcionalmente Books API)
-        </li>
-        <li>
-          <strong className="text-foreground">Stripe</strong> — pagamentos do
-          plano Pro (quando ativo)
-        </li>
-        <li>
-          <strong className="text-foreground">Sentry</strong> — monitoramento de
-          erros (quando configurado)
-        </li>
-        <li>
-          <strong className="text-foreground">PostHog</strong> — analytics de
-          produto (quando configurado)
-        </li>
-      </ul>
-      <h2 className="text-base font-semibold text-foreground">Retenção</h2>
-      <p>
-        Mantemos seus dados enquanto a conta existir. Após exclusão pela Conta,
-        removemos os registros associados via rotinas do banco. Logs técnicos e
-        backups podem persistir por prazo curto operacional. Eventos analíticos
-        seguem a política do respectivo subprocessador.
-      </p>
-      <h2 className="text-base font-semibold text-foreground">Contato LGPD</h2>
-      <p>
-        Para exercer direitos ou tirar dúvidas:{" "}
-        <a className="text-foreground underline" href={`mailto:${BRAND.email}`}>
-          {BRAND.email}
-        </a>
-        .
-      </p>
-    </LegalShell>
+        conformidade com a LGPD (Lei 13.709/2018). Não pedimos senha de banco:
+        você registra o que quiser no app.
+      </LegalIntro>
+
+      <PublicSection title="O que coletamos">
+        <LegalList
+          items={[
+            "Dados de autenticação (nome, e-mail e foto via Google OAuth)",
+            "Conteúdo que você cria (lançamentos, orçamento, recorrências, hábitos, metas, viagens, lugares, cinema, livros, música, veículos etc.)",
+            "Preferências de conta e de e-mail (quando disponíveis na Conta)",
+            "Código de indicação, se você chegou por convite",
+            "Dados técnicos mínimos: erros (Sentry, se configurado) e eventos de produto (PostHog, se configurado)",
+          ]}
+        />
+      </PublicSection>
+
+      <PublicSection title="Para que usamos">
+        <p>
+          Prestação do serviço, autenticação, cobrança do Pro (Stripe), envio de
+          e-mails transacionais/product (Resend, quando configurado),
+          estabilidade, segurança e melhoria do produto. Catálogos externos
+          (filmes, livros, música, mapas) são consultados sob demanda para
+          enriquecer o que você busca — não vendemos seus dados.
+        </p>
+      </PublicSection>
+
+      <PublicSection title="Seus direitos (LGPD)">
+        <LegalList
+          items={[
+            "Exportar — Conta → Exportar dados (CSV)",
+            "Excluir — Conta → Excluir conta e dados",
+            "Acesso e correção dos dados que você mesmo edita no app",
+            "Preferências de comunicação por e-mail, quando disponíveis na Conta",
+          ]}
+        />
+      </PublicSection>
+
+      <PublicSection title="Subprocessadores">
+        <LegalList
+          items={[
+            "Supabase — autenticação, banco de dados e storage",
+            "Google — login OAuth; opcionalmente Books, Places, Routes e Weather via Edge Functions",
+            "Stripe — pagamentos do plano Pro (quando ativo)",
+            "Resend — e-mails (auth, welcome, waitlist etc., quando configurado)",
+            "Spotify / MusicBrainz — catálogo de música via Edge (sem login Spotify da sua conta)",
+            "TMDB / OMDb — catálogo de cinema (quando configurado)",
+            "Sentry — monitoramento de erros (quando configurado)",
+            "PostHog — analytics de produto (quando configurado)",
+            "Vercel — hospedagem do front",
+          ]}
+        />
+      </PublicSection>
+
+      <PublicSection title="Retenção e segurança">
+        <p>
+          Mantemos seus dados enquanto a conta existir. Após exclusão pela Conta,
+          removemos os registros associados via rotinas do banco. Logs técnicos e
+          backups podem persistir por prazo curto operacional. Eventos analíticos
+          seguem a política do respectivo subprocessador. O acesso aos seus dados
+          no app é isolado por conta (tenancy) com políticas de segurança no
+          banco.
+        </p>
+      </PublicSection>
+
+      <PublicSection title="Contato LGPD">
+        <p>
+          Para exercer direitos ou tirar dúvidas:{" "}
+          <a
+            className="text-sky-300 underline-offset-2 hover:underline"
+            href={`mailto:${BRAND.email}`}
+          >
+            {BRAND.email}
+          </a>
+          .
+        </p>
+      </PublicSection>
+    </PublicPageShell>
   );
 }

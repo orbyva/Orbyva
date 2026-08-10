@@ -2,27 +2,29 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LandingMagneticCta } from "@/components/landing/LandingMagneticCta";
+import { LandingSectionTitle } from "@/components/landing/LandingSectionTitle";
 import { PLANS } from "@/lib/plan";
 import { track } from "@/lib/analytics";
-import { fadeUp, staggerDelay } from "./landingMotion";
+import { fadeUp, staggerDelay } from "@/components/landing/landingMotion";
 
 /** Redução de risco — o que responde “e se eu não gostar?”. */
 const GUARANTEES = [
   {
     title: "Teste sem cartão",
-    body: "7 dias com tudo liberado. O cartão só entra se você quiser continuar.",
+    body: "7 dias com tudo liberado. O cartão só entra se você quiser o Pro.",
   },
   {
-    title: "Cancele quando quiser",
-    body: "Portal oficial do Stripe direto na sua conta. Sem multa, sem ligação.",
+    title: "Cancele em 1 clique",
+    body: "Portal oficial do Stripe na Conta. Sem multa, sem ligação, sem drama.",
   },
   {
     title: "Seus dados são seus",
-    body: "Export em CSV e exclusão da conta a qualquer momento (LGPD).",
+    body: "Export CSV e exclusão da conta a qualquer momento — LGPD na prática.",
   },
   {
     title: "Sem senha de banco",
-    body: "Nada de conectar banco: você registra o que quiser, do seu jeito.",
+    body: "Zero Open Banking. Você registra o que quiser, no seu ritmo.",
   },
 ] as const;
 
@@ -41,17 +43,12 @@ export function LandingPricing({
         id="planos"
         className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-28"
       >
-        <motion.div {...fadeUp} className="mx-auto max-w-xl text-center">
-          <p className="font-display text-sm font-medium text-sky-400/90">
-            Planos
-          </p>
-          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-            Teste tudo. Depois, Pro simples.
-          </h2>
-          <p className="mt-3 text-zinc-400">
-            Orçamento, recorrências e life OS inclusos. Sem asteriscos.
-          </p>
-        </motion.div>
+        <LandingSectionTitle
+          align="center"
+          eyebrow="Planos"
+          title="7 dias para sentir o controle. Depois, Pro simples."
+          description={`Tudo incluso no teste. Continue por ${PLANS.pro.priceLabel} — sem asteriscos.`}
+        />
 
         <div className="mx-auto mt-12 grid max-w-3xl gap-5 sm:grid-cols-2 sm:items-stretch">
           {([PLANS.free, PLANS.pro] as const).map((plan) => {
@@ -92,24 +89,33 @@ export function LandingPricing({
                   ))}
                 </ul>
                 {showPlanCtas ? (
-                  <Button
-                    className={
-                      isPro
-                        ? "mt-6 w-full rounded-full"
-                        : "mt-6 w-full rounded-full border-white/20 bg-white text-zinc-900 hover:bg-zinc-100 hover:text-zinc-900"
-                    }
-                    variant={isPro ? "default" : "outline"}
-                    asChild
-                  >
-                    <Link
-                      to={ctaTo}
-                      onClick={() =>
-                        track("landing_cta_plan", { plan: plan.id })
-                      }
+                  isPro ? (
+                    <div className="mt-6 flex w-full justify-center">
+                      <LandingMagneticCta
+                        href={ctaTo}
+                        label={ctaLabel}
+                        size="md"
+                        onClick={() =>
+                          track("landing_cta_plan", { plan: plan.id })
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <Button
+                      className="mt-6 w-full rounded-full border-white/20 bg-white text-zinc-900 hover:bg-zinc-100 hover:text-zinc-900"
+                      variant="outline"
+                      asChild
                     >
-                      {isPro ? ctaLabel : "Começar teste"}
-                    </Link>
-                  </Button>
+                      <Link
+                        to={ctaTo}
+                        onClick={() =>
+                          track("landing_cta_plan", { plan: plan.id })
+                        }
+                      >
+                        Começar grátis
+                      </Link>
+                    </Button>
+                  )
                 ) : null}
               </motion.div>
             );
@@ -122,8 +128,8 @@ export function LandingPricing({
           {GUARANTEES.map((item, i) => (
             <motion.li
               key={item.title}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ delay: staggerDelay(i), duration: 0.35 }}
               className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"

@@ -1,15 +1,17 @@
-/** Motion compartilhado da landing — framer-motion + reduced-motion. */
+/** Motion compartilhado da landing — framer-motion + reduced-motion.
+ * Só opacity: translateY + overflow nos ancestrais corta descendentes (g, y).
+ */
 
 export const fadeUp = {
-  initial: { opacity: 0, y: 16 },
-  whileInView: { opacity: 1, y: 0 },
+  initial: { opacity: 0 },
+  whileInView: { opacity: 1 },
   viewport: { once: true, margin: "-40px" as const },
   transition: { duration: 0.4 },
 };
 
 export const fadeUpSlow = {
-  initial: { opacity: 0, y: 24 },
-  whileInView: { opacity: 1, y: 0 },
+  initial: { opacity: 0 },
+  whileInView: { opacity: 1 },
   viewport: { once: true, margin: "-50px" as const },
   transition: { duration: 0.45 },
 };

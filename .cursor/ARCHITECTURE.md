@@ -78,7 +78,7 @@ A sidebar agrupa quatro blocos. Cada módulo tende a ter: página(s) em `pages/a
 | Entretenimento | Cinema, livros, música | `/movies`, `/books`, `/music` |
 | Vida | Hábitos, metas, lugares, viagens, veículos | `/habits`, `/goals`, `/places`, `/travel`, `/car` |
 
-Rotas públicas/marketing: `/login`, `/about`, `/terms`, `/privacy`, `/invite/:code`. Ops interno: `/ops` (fora do menu).
+Rotas públicas/marketing: `/login`, `/about`, `/terms`, `/privacy`, `/invite/:code`. Ops interno: `/ops` (fora do menu). Páginas `/about`, `/terms` e `/privacy` usam o shell público (`components/PublicPageShell`) alinhado à landing.
 
 Abaixo: o que cada módulo faz, onde vive no código e **APIs externas / Edge** quando aplicável. Persistência do usuário é sempre **Supabase Postgres + RLS** (salvo indicação contrária).
 
@@ -88,7 +88,7 @@ Abaixo: o que cada módulo faz, onde vive no código e **APIs externas / Edge** 
 
 Marketing do life OS, planos (trial 7 dias → Pro) e waitlist.
 
-* **Código:** `pages/Landing` / `pages/landing/`; `api/waitlist.ts`
+* **Código:** `pages/Landing` / `pages/landing/`; UI de marketing em `components/landing/` + registries Cult UI / Skiper UI / OriginKit (`components/cult-ui`, `components/ui/skiper-ui`, `components/originkit`); `api/waitlist.ts`
 * **APIs:** insert em tabela `waitlist` (Supabase). Edge `waitlist-email` existe no backend para growth; o join da landing não depende dela no client. Checkout Pro: ver Conta / billing (Stripe).
 
 #### Dashboard / hub (`/home`)

@@ -1,11 +1,17 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Smartphone, Sparkles } from "lucide-react";
+import { Smartphone, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import PhoneMockupBasic from "@/components/ui/phone-mockups-1";
-import { LandingBeams } from "@/components/landing/LandingBeams";
+import { LandingAtmosphere } from "@/components/landing/LandingAtmosphere";
+import { LandingMagneticCta } from "@/components/landing/LandingMagneticCta";
+import { LandingNeonFrame } from "@/components/landing/LandingNeonFrame";
+import { LandingNav } from "@/components/landing/LandingNav";
+import { LandingTrustMarquee } from "@/components/landing/LandingTrustMarquee";
+import { GradientHeading } from "@/components/cult-ui/gradient-heading";
+import { Link001 } from "@/components/ui/skiper-ui/skiper40";
 import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
 import { isBillingConfigured } from "@/lib/billing-config";
@@ -41,8 +47,8 @@ const LandingFaq = lazy(() =>
 );
 
 /**
- * Landing Orbyva — conversão trial → Pro (Awwwards × 21st):
- * Hero produto dominante → trust → comparação → controle → prova → planos → CTA.
+ * Landing Orbyva — conversão trial → Pro.
+ * Motion: OriginKit + Cult UI + Skiper UI (free).
  */
 
 const NAV = [
@@ -55,21 +61,24 @@ const NAV = [
 ] as const;
 
 const TRUST = [
-  "Um app, não sete",
-  "Teto do mês",
-  "Sem senha de banco",
+  "Parece 5 apps. Custa 1.",
+  "Teto do mês no bolso",
+  "Sem Open Banking",
+  "7 dias grátis",
+  "Life OS incluso",
+  "Cancele em 1 clique",
 ] as const;
 
 const ROADMAP = [
   {
     icon: Smartphone,
     title: "App nas lojas",
-    body: "iOS e Android — o mesmo Orbyva, instalável pela App Store e Play Store.",
+    body: "Em breve na App Store e Play Store — o mesmo Orbyva, no bolso, com um toque.",
   },
   {
     icon: Sparkles,
     title: "Assistente com IA",
-    body: "Insights do mês, lembretes, atalhos — e também cadastrar dados por você.",
+    body: "Insights do mês, lembretes e atalhos — e cadastrar dados por você, quando fizer sentido.",
   },
 ] as const;
 
@@ -80,7 +89,7 @@ export default function Landing() {
   useDocumentMeta({
     title: "Orbyva — Saiba o que cabe no mês",
     description:
-      "O que você espalha em vários apps — orçamento, recorrências, hábitos, viagens e cinema — numa só órbita. 7 dias grátis.",
+      "Pare de espalhar a vida em 5 apps. Saiba o que cabe no mês e organize hábitos, viagens e cinema numa só órbita. 7 dias grátis.",
     path: "/",
     image: "https://orbyva.app/marketing/hub.png",
     brandSuffix: false,
@@ -147,12 +156,12 @@ export default function Landing() {
   const heroSub = `7 dias grátis · depois Pro ${PLANS.pro.priceLabel}`;
 
   return (
-    <div className="relative min-h-svh overflow-x-hidden bg-[var(--landing-bg)] pb-16 text-zinc-100 md:pb-0">
+    <div className="relative min-h-svh bg-[var(--landing-bg)] pb-16 text-zinc-100 md:pb-0">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: FAQ_JSON_LD }}
       />
-      <LandingBeams />
+      <LandingAtmosphere />
 
       <header className="relative z-20 mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <Link to="/" aria-label={BRAND.name} className="inline-flex shrink-0">
@@ -163,17 +172,7 @@ export default function Landing() {
           />
         </Link>
 
-        <nav className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1.5 backdrop-blur-md md:flex">
-          {NAV.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="rounded-full px-3.5 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-100"
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
+        <LandingNav items={NAV} />
 
         <div className="flex items-center gap-2">
           <Button
@@ -196,45 +195,39 @@ export default function Landing() {
         <section className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pb-12 pt-6 sm:px-8 sm:pt-10 lg:grid-cols-[0.95fr_1.05fr] lg:gap-12 lg:pb-20">
           <div className="landing-hero-copy">
             <BrandWordmark size="lg" showSubtitle={false} />
-            <h1 className="mt-4 max-w-xl font-display text-4xl font-semibold leading-[1.06] tracking-tight text-white sm:text-5xl lg:text-[3.25rem]">
+            <GradientHeading
+              as="h1"
+              variant="sky"
+              size="xl"
+              weight="semi"
+              className="mt-4 font-display"
+            >
               Saiba o que cabe no mês.
-            </h1>
+            </GradientHeading>
             <p className="mt-5 max-w-md text-base leading-relaxed text-zinc-400 sm:text-lg">
-              Em vez de planilha + hábitos + cinema + viagem em apps
-              separados: orçamento, recorrências e o resto da vida — tudo no
-              Orbyva, desde o primeiro dia.
+              Pare de pagar e abrir cinco apps. Saiba o que ainda cabe no mês —
+              e organize o resto da vida no mesmo lugar, desde o dia 1.
             </p>
             <div className="mt-8">
-              <Button size="lg" className="rounded-full px-7" asChild>
-                <Link to={ctaTo} onClick={() => track("landing_cta_hero")}>
-                  {ctaLabel}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
+              <LandingMagneticCta
+                href={ctaTo}
+                label={ctaLabel}
+                onClick={() => track("landing_cta_hero")}
+              />
             </div>
             <p className="mt-3 text-xs text-zinc-500">{heroSub}</p>
           </div>
 
           <div className="landing-hero-visual relative w-full min-w-0">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-[radial-gradient(circle_at_50%_40%,rgba(14,165,233,0.28),transparent_65%)] blur-2xl"
+            />
             <PhoneMockupBasic />
           </div>
         </section>
 
-        <section className="border-y border-white/8 bg-white/[0.02]">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-10 gap-y-3 px-5 py-5 text-sm text-zinc-400 sm:px-8">
-            {TRUST.map((item, i) => (
-              <span key={item} className="contents">
-                {i > 0 ? (
-                  <span
-                    aria-hidden
-                    className="hidden h-1 w-1 rounded-full bg-zinc-600 sm:block"
-                  />
-                ) : null}
-                <span>{item}</span>
-              </span>
-            ))}
-          </div>
-        </section>
+        <LandingTrustMarquee items={TRUST} />
 
         <Suspense fallback={null}>
           <LandingCompare />
@@ -249,27 +242,25 @@ export default function Landing() {
         </Suspense>
 
         <section className="relative mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
-          <div className="relative overflow-hidden rounded-[1.75rem] border border-sky-400/25 px-6 py-14 text-center sm:px-12">
-            <LandingBeams className="opacity-80" />
-            <div className="relative z-10">
-              <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                Pronto para juntar tudo numa órbita?
-              </h2>
-              <p className="mx-auto mt-3 max-w-md text-zinc-400">
-                7 dias grátis com orçamento, recorrências e life OS no mesmo app.
-                Depois, Pro por {PLANS.pro.priceLabel}.
-              </p>
-              <Button size="lg" className="mt-8 rounded-full px-8" asChild>
-                <Link to={ctaTo} onClick={() => track("landing_cta_trial")}>
-                  {ctaLabel}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <p className="mt-3 text-xs text-zinc-500">
-                Cadastro rápido · cartão só quando assinar o Pro
-              </p>
+          <LandingNeonFrame className="px-6 py-14 text-center sm:px-12">
+            <h2 className="font-display text-3xl font-semibold leading-[1.4] tracking-tight sm:text-4xl sm:leading-[1.35]">
+              Comece grátis. Organize o mês — e o resto da vida — hoje.
+            </h2>
+            <p className="mx-auto mt-3 max-w-md text-zinc-400">
+              7 dias com tudo liberado. Depois, Pro por {PLANS.pro.priceLabel} —
+              sem pegadinha e sem senha de banco.
+            </p>
+            <div className="mt-8 flex justify-center">
+              <LandingMagneticCta
+                href={ctaTo}
+                label={ctaLabel}
+                onClick={() => track("landing_cta_trial")}
+              />
             </div>
-          </div>
+            <p className="mt-3 text-xs text-zinc-500">
+              Cadastro em minutos · cartão só se assinar o Pro
+            </p>
+          </LandingNeonFrame>
         </section>
       </main>
 
@@ -280,7 +271,7 @@ export default function Landing() {
               No radar
             </p>
             <h2 className="mt-2 font-display text-xl font-semibold tracking-tight sm:text-2xl">
-              O que vem depois
+              O que vem a seguir
             </h2>
             <ul className="mt-6 grid gap-4 sm:grid-cols-2">
               {ROADMAP.map((item) => (
@@ -307,29 +298,27 @@ export default function Landing() {
               Contato
             </p>
             <p className="mt-2 text-sm text-zinc-400">
-              Dúvida ou feedback? A gente responde.
+              Dúvida, ideia ou feedback? Resposta humana, de verdade.
             </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <a
+            <div className="mt-4 flex flex-wrap gap-5">
+              <Link001
                 href={`mailto:${BRAND.email}?subject=${encodeURIComponent(
                   `Contato ${BRAND.name}`
                 )}`}
-                className="text-sm text-zinc-300 underline-offset-4 hover:text-white hover:underline"
+                className="text-sm text-zinc-300"
                 onClick={() => track("landing_contact", { channel: "email" })}
               >
                 {BRAND.email}
-              </a>
-              <a
+              </Link001>
+              <Link001
                 href={BRAND.instagramUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-zinc-300 underline-offset-4 hover:text-white hover:underline"
+                className="text-sm text-zinc-300"
                 onClick={() =>
                   track("landing_contact", { channel: "instagram" })
                 }
               >
                 {BRAND.instagramHandle}
-              </a>
+              </Link001>
             </div>
           </div>
         </div>
@@ -338,7 +327,7 @@ export default function Landing() {
           <span>
             © {new Date().getFullYear()} {BRAND.name} · {BRAND.domain}
           </span>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <Link to="/about" className="hover:text-zinc-300">
               Sobre
             </Link>
@@ -351,6 +340,14 @@ export default function Landing() {
             <Link to="/login" className="hover:text-zinc-300">
               Entrar
             </Link>
+            <a
+              href="https://skiper-ui.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-zinc-600 hover:text-zinc-400"
+            >
+              UI: Skiper UI
+            </a>
           </div>
         </div>
       </footer>
