@@ -1,26 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import {
-  ArrowLeft,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  GripVertical,
-  ListTodo,
-  Pen,
-  Play,
-  Plus,
-  Square,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, ListTodo, Plus } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
-  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -29,10 +15,8 @@ import {
 import {
   SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -51,21 +35,26 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
-import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
 import { TaskDescriptionField } from "./TaskDescriptionField";
 import { TaskTimeEntriesField } from "./TaskTimeEntriesField";
 import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
-import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
-import { CompletedTasksSection, ExternalLinkChip, TagBadge, TaskListRow } from "./TaskViews";
+import { TaskPriorityField } from "./TaskPriorityField";
+import {
+  CompletedTasksSection,
+  KanbanCard,
+  KanbanColumn,
+  STATUSES,
+  STATUS_LABELS,
+  TaskListRow,
+} from "./TaskViews";
 import { TagCombobox } from "./TagCombobox";
 import { GanttChart } from "./GanttChart";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
   FORM_FIELDS_CLASS,
-  ICON_EDIT_BUTTON_CLASS,
 } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
@@ -101,15 +90,7 @@ import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { getErrorMessage } from "@/lib/errors";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateTimeBR } from "@/lib/currency";
-import { stripMarkdown } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
-
-const STATUSES: TaskStatus[] = ["todo", "doing", "done"];
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: "A fazer",
-  doing: "Fazendo",
-  done: "Feito",
-};
 
 const emptyTask = (projectId: string): TaskCreateRequest => ({
   project_id: projectId,
@@ -127,235 +108,6 @@ const emptyTask = (projectId: string): TaskCreateRequest => ({
   external_url: null,
   external_provider: null,
 });
-
-function KanbanColumn({ status, children }: { status: TaskStatus; children: ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn("space-y-2 rounded-lg p-1 transition-colors", isOver && "bg-muted/60")}
-    >
-      {children}
-    </div>
-  );
-}
-
-function KanbanCard({
-  task,
-  colIndex,
-  subtasks,
-  allTags,
-  subtaskDraft,
-  onSubtaskDraftChange,
-  onAddSubtask,
-  onToggleSubtask,
-  onEdit,
-  onDelete,
-  onMoveStatus,
-  isTimerRunning,
-  onToggleTimer,
-  onOpenSubtask,
-}: {
-  task: Task;
-  colIndex: number;
-  subtasks: Task[];
-  allTags: Tag[];
-  subtaskDraft: string;
-  onSubtaskDraftChange: (value: string) => void;
-  onAddSubtask: () => void;
-  onToggleSubtask: (subtask: Task) => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onMoveStatus: (direction: -1 | 1) => void;
-  isTimerRunning?: boolean;
-  onToggleTimer?: () => void;
-  onOpenSubtask: (subtask: Task) => void;
-}) {
-  const taskTags = task.tag_ids
-    .map((id) => allTags.find((t) => t.id === id))
-    .filter((t): t is Tag => !!t);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: task.id,
-  });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-  const doneSubtasks = subtasks.filter((s) => s.status === "done").length;
-
-  return (
-    <article
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "cursor-pointer space-y-2 rounded-xl border bg-card p-3 shadow-sm transition-colors hover:border-primary/40",
-        isDragging && "opacity-40"
-      )}
-      onClick={onEdit}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1">
-          <button
-            type="button"
-            className="shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
-            aria-label="Arrastar tarefa"
-            onClick={(e) => e.stopPropagation()}
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical className="h-3.5 w-3.5" />
-          </button>
-          <TaskPriorityFlag priority={task.priority} />
-          <p className="min-w-0 truncate text-sm font-medium">{task.title}</p>
-        </div>
-        <div className="flex shrink-0 gap-0.5" onClick={(e) => e.stopPropagation()}>
-          {onToggleTimer && task.status !== "done" && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn("h-7 w-7", isTimerRunning ? "text-primary" : "text-muted-foreground")}
-              onClick={onToggleTimer}
-              aria-label={isTimerRunning ? "Parar timer" : "Iniciar timer"}
-            >
-              {isTimerRunning ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn("h-7 w-7", ICON_EDIT_BUTTON_CLASS)}
-            onClick={onEdit}
-          >
-            <Pen className="h-3 w-3" />
-          </Button>
-          <ConfirmDeleteDialog
-            title="Excluir esta tarefa?"
-            description={
-              subtasks.length > 0 ? "As subtarefas também serão excluídas." : undefined
-            }
-            onConfirm={onDelete}
-          >
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          </ConfirmDeleteDialog>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        {task.due_date && <span>Prazo: {formatDateTimeBR(task.due_date, task.due_time)}</span>}
-        {task.linked_recurring_id && (
-          <Badge variant="outline" className="text-[10px]">
-            Vinculada a Recorrência
-          </Badge>
-        )}
-        {subtasks.length > 0 && (
-          <Badge variant="outline" className="text-[10px]">
-            {doneSubtasks}/{subtasks.length} subtarefas
-          </Badge>
-        )}
-        {taskTags.map((tag) => (
-          <TagBadge key={tag.id} tag={tag} />
-        ))}
-        {task.external_url && <ExternalLinkChip url={task.external_url} />}
-      </div>
-
-      {task.description && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
-          {stripMarkdown(task.description)}
-        </p>
-      )}
-
-      {subtasks.length > 0 && (
-        <ul className="space-y-1 border-t pt-2" onClick={(e) => e.stopPropagation()}>
-          {subtasks.map((subtask) => (
-            <li key={subtask.id} className="flex items-start gap-2 py-0.5">
-              <input
-                type="checkbox"
-                checked={subtask.status === "done"}
-                onChange={() => onToggleSubtask(subtask)}
-                className="mt-0.5 shrink-0"
-              />
-              <button
-                type="button"
-                className="min-w-0 flex-1 text-left"
-                onClick={() => onOpenSubtask(subtask)}
-              >
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span
-                    className={cn(
-                      "truncate text-xs",
-                      subtask.status === "done" && "text-muted-foreground line-through"
-                    )}
-                  >
-                    {subtask.title}
-                  </span>
-                  {subtask.due_date && (
-                    <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground">
-                      <Calendar className="h-2.5 w-2.5" />
-                      {formatDateTimeBR(subtask.due_date, subtask.due_time)}
-                    </span>
-                  )}
-                </div>
-                {subtask.description && (
-                  <p className="truncate text-[10px] text-muted-foreground">
-                    {stripMarkdown(subtask.description)}
-                  </p>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-        <Input
-          value={subtaskDraft}
-          onChange={(e) => onSubtaskDraftChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") onAddSubtask();
-          }}
-          placeholder="Adicionar subtarefa"
-          className="h-7 text-xs"
-        />
-      </div>
-
-      <div className="flex justify-between border-t pt-2" onClick={(e) => e.stopPropagation()}>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            disabled={colIndex === 0}
-            onClick={() => onMoveStatus(-1)}
-            aria-label="Mover para trás"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            disabled={colIndex === STATUSES.length - 1}
-            onClick={() => onMoveStatus(1)}
-            aria-label="Mover para frente"
-          >
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-        {task.status === "done" && !task.linked_recurring_id && (
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]" asChild>
-            <Link
-              to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
-            >
-              Lançar transação
-            </Link>
-          </Button>
-        )}
-      </div>
-    </article>
-  );
-}
 
 type TaskFormTab = "geral" | "data" | "organizacao" | "registros";
 

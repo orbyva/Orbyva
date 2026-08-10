@@ -1,5 +1,21 @@
-import { ListTodo } from "lucide-react";
+import { ListTodo, Tag as TagIcon, Timer } from "lucide-react";
 import { Link } from "react-router-dom";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +41,14 @@ import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
 import { TaskDescriptionField } from "./TaskDescriptionField";
 import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
 import { TagCombobox } from "./TagCombobox";
-import { CompletedTasksSection, TaskListRow } from "./TaskViews";
+import {
+  CompletedTasksSection,
+  KanbanCard,
+  KanbanColumn,
+  STATUSES,
+  STATUS_LABELS,
+  TaskListRow,
+} from "./TaskViews";
 import { TaskTimeEntriesField } from "./TaskTimeEntriesField";
 import { EmptyState } from "@/components/EmptyState";
 import {
@@ -35,10 +58,13 @@ import {
 } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
+import { GanttChart } from "./GanttChart";
+import { AgendaGrid } from "./AgendaGrid";
 import {
   createTag,
   createTask,
   deleteTask,
+  fetchDependencies,
   fetchProjects,
   fetchTags,
   fetchTasks,
@@ -59,13 +85,22 @@ import {
   sortTasksByDueDate,
 } from "@/domain/tasks";
 import type { TaskStatusView } from "@/domain/tasks";
-import type { Project, Tag, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
+import type {
+  Project,
+  Tag,
+  Task,
+  TaskCreateRequest,
+  TaskDependency,
+  TaskStatus,
+} from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
+type TaskViewMode = "lista" | "kanban" | "gantt" | "agenda";
 
 const emptyTask = (): TaskCreateRequest => ({
   project_id: null,
@@ -91,20 +126,29 @@ export default function TaskList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [recurrings, setRecurrings] = useState<Recurring[]>([]);
+  const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [formTab, setFormTab] = useState<TaskFormTab>("geral");
   const [form, setForm] = useState(emptyTask());
+  const [viewMode, setViewMode] = useState<TaskViewMode>("lista");
   const [tagFilter, setTagFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [statusView, setStatusView] = useState<TaskStatusView>("pending");
   const [subtaskDrafts, setSubtaskDrafts] = useState<string[]>([]);
+  const [kanbanSubtaskDrafts, setKanbanSubtaskDrafts] = useState<Record<string, string>>({});
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [editingSubtask, setEditingSubtask] = useState<Task | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const { toast } = useToast();
   const { runningEntry, start: startTimer, stop: stopTimer } = useActiveTimer();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   async function toggleTimer(task: Task) {
     try {
@@ -121,16 +165,18 @@ export default function TaskList() {
 
   const load = useCallback(async () => {
     try {
-      const [taskList, projectList, tagList, recurringList] = await Promise.all([
+      const [taskList, projectList, tagList, recurringList, dependencyList] = await Promise.all([
         fetchTasks(),
         fetchProjects(),
         fetchTags(),
         fetchRecurringTransactions(),
+        fetchDependencies(),
       ]);
       setTasks(taskList);
       setProjects(projectList);
       setTags(tagList);
       setRecurrings(recurringList);
+      setDependencies(dependencyList);
     } catch (error) {
       toast({
         title: "Erro",
@@ -188,6 +234,26 @@ export default function TaskList() {
 
   const subtasksByParent = useMemo(() => groupSubtasksByParent(tasks), [tasks]);
 
+  const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+
+  // Gantt precisa das subtarefas também (a lib hierarquiza pai→filho sozinha), diferente de
+  // `visibleTasks` (que já exclui subtarefas pras outras visões).
+  const ganttTasks = useMemo(() => {
+    const projectId =
+      projectFilter === "all" ? undefined : projectFilter === "null" ? null : projectFilter;
+    return filterTasks(tasks, { tagId: tagFilter || undefined, projectId }).filter(
+      (t) => !(t.linked_recurring_id && t.linked_installment_number == null)
+    );
+  }, [tasks, tagFilter, projectFilter]);
+
+  const topLevelByStatus = useMemo(() => {
+    const map: Record<TaskStatus, Task[]> = { todo: [], doing: [], done: [] };
+    for (const task of visibleTasks) {
+      map[task.status].push(task);
+    }
+    return map;
+  }, [visibleTasks]);
+
   function toggleExpanded(taskId: string) {
     setExpandedTasks((prev) => {
       const next = new Set(prev);
@@ -216,6 +282,55 @@ export default function TaskList() {
 
   function toggleDone(task: Task) {
     return applyStatusChange(task, task.status === "done" ? "todo" : "done");
+  }
+
+  async function moveStatus(task: Task, direction: -1 | 1) {
+    const nextIndex = STATUSES.indexOf(task.status) + direction;
+    if (nextIndex < 0 || nextIndex >= STATUSES.length) return;
+    await applyStatusChange(task, STATUSES[nextIndex]);
+  }
+
+  function handleKanbanDragStart(event: DragStartEvent) {
+    const task = tasks.find((t) => t.id === event.active.id);
+    setActiveTask(task ?? null);
+  }
+
+  async function handleKanbanDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveTask(null);
+    if (!over) return;
+
+    const draggedTask = tasks.find((t) => t.id === active.id);
+    if (!draggedTask) return;
+
+    const overId = String(over.id);
+    const targetStatus = (STATUSES as string[]).includes(overId)
+      ? (overId as TaskStatus)
+      : tasks.find((t) => t.id === overId)?.status;
+    if (!targetStatus) return;
+
+    await applyStatusChange(draggedTask, targetStatus);
+  }
+
+  async function addKanbanSubtask(parent: Task) {
+    const title = (kanbanSubtaskDrafts[parent.id] ?? "").trim();
+    if (!title) return;
+    try {
+      await createTask({
+        ...emptyTask(),
+        project_id: parent.project_id,
+        parent_task_id: parent.id,
+        title,
+      });
+      setKanbanSubtaskDrafts((prev) => ({ ...prev, [parent.id]: "" }));
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível adicionar a subtarefa."),
+        variant: "destructive",
+      });
+    }
   }
 
   /** Mesmo princípio de `applyStatusChange`: atualiza na hora, reverte se a chamada falhar. */
@@ -363,40 +478,69 @@ export default function TaskList() {
     <PageShell
       title="Tarefas"
       description="Todas as suas tarefas, com ou sem projeto."
-      actions={<Button onClick={openCreate}>Nova tarefa</Button>}
+      actions={
+        <>
+          <Button variant="outline" asChild>
+            <Link to="/tasks/live">
+              <Timer className="h-4 w-4" />
+              Live
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/tasks/tags">
+              <TagIcon className="h-4 w-4" />
+              Tags
+            </Link>
+          </Button>
+          <Button onClick={openCreate}>Nova tarefa</Button>
+        </>
+      }
     >
-      <div className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Projeto" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os projetos</SelectItem>
-              <SelectItem value="null">Sem projeto</SelectItem>
-              {projects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={tagFilter || "all"}
-            onValueChange={(v) => setTagFilter(v === "all" ? "" : v)}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Tag" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as tags</SelectItem>
-              {tags.map((tag) => (
-                <SelectItem key={tag.id} value={tag.id}>
-                  {tag.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as TaskViewMode)}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TabsList>
+            <TabsTrigger value="lista">Lista</TabsTrigger>
+            <TabsTrigger value="kanban">Kanban</TabsTrigger>
+            <TabsTrigger value="gantt">Gantt</TabsTrigger>
+            <TabsTrigger value="agenda">Agenda</TabsTrigger>
+          </TabsList>
+          {viewMode !== "agenda" && (
+            <div className="flex flex-wrap gap-2">
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="w-44">
+                  <SelectValue placeholder="Projeto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os projetos</SelectItem>
+                  <SelectItem value="null">Sem projeto</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={tagFilter || "all"}
+                onValueChange={(v) => setTagFilter(v === "all" ? "" : v)}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Tag" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as tags</SelectItem>
+                  {tags.map((tag) => (
+                    <SelectItem key={tag.id} value={tag.id}>
+                      {tag.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        <TabsContent value="lista" className="mt-4 space-y-4">
           <Select value={statusView} onValueChange={(v) => setStatusView(v as TaskStatusView)}>
             <SelectTrigger className="w-36">
               <SelectValue />
@@ -407,94 +551,184 @@ export default function TaskList() {
               <SelectItem value="all">Todas</SelectItem>
             </SelectContent>
           </Select>
-        </div>
 
-        {loading ? (
-          <TableLoadingSkeleton rows={6} />
-        ) : nothingToShow ? (
-          <EmptyState
-            icon={ListTodo}
-            title="Nenhuma tarefa"
-            description="Crie sua primeira tarefa."
-            action={<Button onClick={openCreate}>Nova tarefa</Button>}
-          />
-        ) : (
-          <div className="space-y-5">
-            {showPending && AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
-              (bucket) => (
-                <div key={bucket} className="space-y-2">
-                  <h3 className="text-sm font-semibold">
-                    {AGENDA_BUCKET_LABELS[bucket]}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      ({agendaGroups[bucket].length})
-                    </span>
-                  </h3>
-                  <div className="space-y-2">
-                    {agendaGroups[bucket].map((task) => (
-                      <TaskListRow
-                        key={task.id}
-                        task={task}
-                        subtasks={subtasksByParent.get(task.id) ?? []}
-                        allTags={tags}
-                        expanded={expandedTasks.has(task.id)}
-                        onToggleExpand={() => toggleExpanded(task.id)}
-                        onToggleSubtask={toggleDone}
-                        onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
-                        onToggleDone={() => toggleDone(task)}
-                        onOpenSeries={() => setSeriesTask(task)}
-                        onEdit={() => openEdit(task)}
-                        onDelete={() => handleDelete(task.id)}
-                        isTimerRunning={runningEntry?.task_id === task.id}
-                        onToggleTimer={() => toggleTimer(task)}
-                        extraActions={
-                          task.status === "done" && !task.linked_recurring_id ? (
-                            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
-                              <Link
-                                to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
-                              >
-                                Lançar transação
-                              </Link>
-                            </Button>
-                          ) : undefined
-                        }
-                      />
-                    ))}
+          {loading ? (
+            <TableLoadingSkeleton rows={6} />
+          ) : nothingToShow ? (
+            <EmptyState
+              icon={ListTodo}
+              title="Nenhuma tarefa"
+              description="Crie sua primeira tarefa."
+              action={<Button onClick={openCreate}>Nova tarefa</Button>}
+            />
+          ) : (
+            <div className="space-y-5">
+              {showPending && AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
+                (bucket) => (
+                  <div key={bucket} className="space-y-2">
+                    <h3 className="text-sm font-semibold">
+                      {AGENDA_BUCKET_LABELS[bucket]}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({agendaGroups[bucket].length})
+                      </span>
+                    </h3>
+                    <div className="space-y-2">
+                      {agendaGroups[bucket].map((task) => (
+                        <TaskListRow
+                          key={task.id}
+                          task={task}
+                          subtasks={subtasksByParent.get(task.id) ?? []}
+                          allTags={tags}
+                          expanded={expandedTasks.has(task.id)}
+                          onToggleExpand={() => toggleExpanded(task.id)}
+                          onToggleSubtask={toggleDone}
+                          onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
+                          onToggleDone={() => toggleDone(task)}
+                          onOpenSeries={() => setSeriesTask(task)}
+                          onEdit={() => openEdit(task)}
+                          onDelete={() => handleDelete(task.id)}
+                          isTimerRunning={runningEntry?.task_id === task.id}
+                          onToggleTimer={() => toggleTimer(task)}
+                          extraActions={
+                            task.status === "done" && !task.linked_recurring_id ? (
+                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
+                                <Link
+                                  to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                                >
+                                  Lançar transação
+                                </Link>
+                              </Button>
+                            ) : undefined
+                          }
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )
-            )}
-            {showDone && (
-              <CompletedTasksSection
-                key={statusView}
-                tasks={doneTasks}
-                allTags={tags}
-                subtasksByParent={subtasksByParent}
-                expandedTasks={expandedTasks}
-                onToggleExpand={toggleExpanded}
-                onToggleSubtask={toggleDone}
-                onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
-                onToggleDone={toggleDone}
-                onOpenSeries={(task) => setSeriesTask(task)}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-                isTimerRunning={(task) => runningEntry?.task_id === task.id}
-                defaultOpen={statusView === "done"}
-                extraActions={(task) =>
-                  !task.linked_recurring_id ? (
-                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
-                      <Link
-                        to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
-                      >
-                        Lançar transação
-                      </Link>
-                    </Button>
-                  ) : undefined
-                }
-              />
-            )}
-          </div>
-        )}
-      </div>
+                )
+              )}
+              {showDone && (
+                <CompletedTasksSection
+                  key={statusView}
+                  tasks={doneTasks}
+                  allTags={tags}
+                  subtasksByParent={subtasksByParent}
+                  expandedTasks={expandedTasks}
+                  onToggleExpand={toggleExpanded}
+                  onToggleSubtask={toggleDone}
+                  onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
+                  onToggleDone={toggleDone}
+                  onOpenSeries={(task) => setSeriesTask(task)}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                  isTimerRunning={(task) => runningEntry?.task_id === task.id}
+                  defaultOpen={statusView === "done"}
+                  extraActions={(task) =>
+                    !task.linked_recurring_id ? (
+                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
+                        <Link
+                          to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                        >
+                          Lançar transação
+                        </Link>
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="kanban" className="mt-4">
+          {loading ? (
+            <TableLoadingSkeleton rows={6} />
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleKanbanDragStart}
+              onDragEnd={handleKanbanDragEnd}
+            >
+              <div className="grid gap-4 md:grid-cols-3">
+                {STATUSES.map((status, colIndex) => (
+                  <div key={status} className="space-y-3">
+                    <h3 className="text-sm font-semibold">
+                      {STATUS_LABELS[status]}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({topLevelByStatus[status].length})
+                      </span>
+                    </h3>
+                    <SortableContext
+                      items={topLevelByStatus[status].map((task) => task.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <KanbanColumn status={status}>
+                        {topLevelByStatus[status].length === 0 ? (
+                          <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                            Nenhuma tarefa
+                          </p>
+                        ) : (
+                          topLevelByStatus[status].map((task) => {
+                            const subtasks = subtasksByParent.get(task.id) ?? [];
+                            const project = task.project_id ? projectById.get(task.project_id) : null;
+                            return (
+                              <KanbanCard
+                                key={task.id}
+                                task={task}
+                                colIndex={colIndex}
+                                subtasks={subtasks}
+                                allTags={tags}
+                                subtaskDraft={kanbanSubtaskDrafts[task.id] ?? ""}
+                                onSubtaskDraftChange={(value) =>
+                                  setKanbanSubtaskDrafts((prev) => ({ ...prev, [task.id]: value }))
+                                }
+                                onAddSubtask={() => addKanbanSubtask(task)}
+                                onToggleSubtask={toggleDone}
+                                onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
+                                onEdit={() => openEdit(task)}
+                                onDelete={() => handleDelete(task.id)}
+                                onMoveStatus={(direction) => moveStatus(task, direction)}
+                                isTimerRunning={runningEntry?.task_id === task.id}
+                                onToggleTimer={() => toggleTimer(task)}
+                                projectBadge={
+                                  project ? (
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {project.name}
+                                    </Badge>
+                                  ) : undefined
+                                }
+                              />
+                            );
+                          })
+                        )}
+                      </KanbanColumn>
+                    </SortableContext>
+                  </div>
+                ))}
+              </div>
+              <DragOverlay>
+                {activeTask ? (
+                  <article className="space-y-2 rounded-xl border bg-card p-3 shadow-lg">
+                    <p className="truncate text-sm font-medium">{activeTask.title}</p>
+                  </article>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          )}
+        </TabsContent>
+
+        <TabsContent value="gantt" className="mt-4">
+          {loading ? (
+            <TableLoadingSkeleton rows={6} />
+          ) : (
+            <GanttChart tasks={ganttTasks} projects={projects} dependencies={dependencies} onDataChanged={load} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="agenda" className="mt-4">
+          <AgendaGrid />
+        </TabsContent>
+      </Tabs>
 
       <SubtaskEditDialog
         subtask={editingSubtask}
