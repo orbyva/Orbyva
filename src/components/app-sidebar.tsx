@@ -1,6 +1,6 @@
 import * as React from "react"
 import {
-  Clapperboard,
+  Bookmark,
   LayoutDashboard,
   ListTodo,
   PiggyBank,
@@ -55,15 +55,16 @@ const NAV_FINANCE: NavItem = {
   ],
 }
 
-const NAV_ENTRETENIMENTO: NavItem = {
-  title: "Entretenimento",
+const NAV_CONTEUDO: NavItem = {
+  title: "Conteúdo",
   color: moduleColors.entertainment,
   url: "#",
-  icon: Clapperboard,
+  icon: Bookmark,
   items: [
     { title: "Cinema", url: "/movies" },
     { title: "Livros", url: "/books" },
     { title: "Música", url: "/music" },
+    { title: "Links", url: "/links" },
   ],
 }
 
@@ -100,7 +101,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
 
   const navItems = React.useMemo(
-    () => [NAV_INICIO, NAV_FINANCE, NAV_ENTRETENIMENTO, NAV_VIDA, NAV_PRODUTIVIDADE],
+    () => [NAV_INICIO, NAV_FINANCE, NAV_CONTEUDO, NAV_VIDA, NAV_PRODUTIVIDADE],
     []
   )
 
