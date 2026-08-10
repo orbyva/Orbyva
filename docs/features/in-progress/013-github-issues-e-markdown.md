@@ -35,6 +35,12 @@ inexistentes no projeto). Não existe nenhum conceito de link externo em `task` 
 - Fora de escopo: estado da issue (aberta/fechada/PR mesclado), criar issues no GitHub a partir do
   Orbyva, notificação quando o estado muda, qualquer provider além da detecção de GitHub nesta
   rodada (o campo fica pronto pra outro provider, só não é implementado).
+- **Bug: Tab troca de foco em vez de indentar**: a textarea da aba Escrever (`TaskDescriptionField.tsx`)
+  não tem `onKeyDown` hoje — `Tab` cai no comportamento padrão do browser (move o foco pro próximo
+  elemento focável), impossibilitando digitar indentação de Markdown (listas aninhadas, bloco de
+  código). Adicionar `onKeyDown` que intercepta `Tab`/`Shift+Tab`, dá `preventDefault()` e
+  insere/remove um caractere de tab na posição do cursor (ou substitui a seleção, se houver texto
+  selecionado), restaurando o cursor logo após o caractere e mantendo o foco na textarea.
 
 ## Tarefas
 - [x] Instalar `react-markdown` + `remark-gfm`
@@ -62,6 +68,10 @@ inexistentes no projeto). Não existe nenhum conceito de link externo em `task` 
       salvei, e o card mostrou o chip "anthropics/claude-code#123" com ícone do GitHub + a prévia
       truncada em texto puro (sem sintaxe markdown) abaixo do título — revertido depois pra não
       deixar dado de teste.
+- [ ] `TaskDescriptionField.tsx`: `onKeyDown` na textarea pra `Tab` inserir `\t` no cursor (e
+      `Shift+Tab` remover um tab antes do cursor) em vez de trocar de foco + verificação manual no
+      navegador (abrir descrição de tarefa, digitar lista, apertar Tab pra indentar sem sair do
+      campo)
 
 ## Notas
 - Escopo revisado pelo usuário durante a implementação: removida a busca ao vivo de
@@ -74,3 +84,6 @@ inexistentes no projeto). Não existe nenhum conceito de link externo em `task` 
   projeto) — estilização manual via seletores `[&_tag]:classe` no Tailwind, cobrindo listas,
   tabela, código inline, links e riscado. Suficiente pro conjunto de elementos GFM usado aqui, mas
   é uma superfície menor que o plugin `prose` cobriria (ex.: blockquote sem estilo custom).
+- **Encaixe em vez de feature nova** (2026-08-10): bug do Tab reportado pelo usuário foi encaixado
+  aqui (movendo o arquivo de volta pra `in-progress/`) em vez de virar um `NNN` novo, já que o bug é
+  no exato componente que esta feature criou (`TaskDescriptionField.tsx`). Regra em `CLAUDE.md`.
