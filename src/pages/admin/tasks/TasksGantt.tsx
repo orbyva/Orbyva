@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ListTodo } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -88,7 +89,11 @@ export default function TasksGantt() {
       {loading ? (
         <TableLoadingSkeleton />
       ) : tasks.length === 0 ? (
-        <EmptyState title="Nenhuma tarefa ainda" description="Crie tarefas em Tarefas ou Projetos para vê-las aqui." />
+        <EmptyState
+          icon={ListTodo}
+          title="Nenhuma tarefa"
+          description="Crie tarefas em Tarefas ou Projetos para vê-las aqui."
+        />
       ) : (
         <GanttChart
           tasks={filteredTasks}

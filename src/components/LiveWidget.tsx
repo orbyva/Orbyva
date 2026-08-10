@@ -62,9 +62,12 @@ export function LiveWidget() {
     return () => clearInterval(interval);
   }, [runningEntry]);
 
-  if (!inProdutividade || !activeEntry || !task) return null;
-
   const isRunning = !!runningEntry;
+
+  if (!inProdutividade || !activeEntry || !task) return null;
+  // Timer parado + última tarefa interagida já concluída: não faz sentido oferecer "Retomar" nela.
+  if (!isRunning && task.status === "done") return null;
+
   const seconds = isRunning
     ? elapsedSeconds(
         { taskId: activeEntry.task_id, startedAt: activeEntry.started_at, endedAt: null },

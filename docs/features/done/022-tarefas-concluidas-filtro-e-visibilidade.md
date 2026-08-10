@@ -57,20 +57,34 @@ concluído. O usuário relatou que isso polui a visão do dia a dia. Pedido, em 
   específico).
 
 ## Tarefas
-- [ ] Filtro de status (Pendentes/Concluídas/Todas, padrão Pendentes) em `TaskList.tsx`
-- [ ] Mesmo filtro na aba Lista de `ProjectDetail.tsx`
-- [ ] Seção "Concluídas" recolhível (ordenada por `completed_at` desc, sem agrupamento por prazo),
+- [x] Filtro de status (Pendentes/Concluídas/Todas, padrão Pendentes) em `TaskList.tsx`
+- [x] Mesmo filtro na aba Lista de `ProjectDetail.tsx`
+- [x] Seção "Concluídas" recolhível (ordenada por `completed_at` desc, sem agrupamento por prazo),
       substituindo a mistura atual dentro dos buckets — nas duas telas acima
-- [ ] Testes Vitest para a lógica de domínio nova (filtrar/agrupar por status), se alguma função de
+- [x] Testes Vitest para a lógica de domínio nova (filtrar/agrupar por status), se alguma função de
       `domain/tasks/agenda.ts` mudar de assinatura ou ganhar uma variante
-- [ ] Marcação visual de concluída no Gantt (`GanttChart.tsx`/`domain/tasks/gantt.ts`) — texto
+- [x] Marcação visual de concluída no Gantt (`GanttChart.tsx`/`domain/tasks/gantt.ts`) — texto
       esmaecido/riscado pra nós com `progress === 100`
-- [ ] `LiveWidget.tsx`: não mostrar o widget (nem "Retomar") quando a única tarefa disponível
+- [x] `LiveWidget.tsx`: não mostrar o widget (nem "Retomar") quando a única tarefa disponível
       (fallback de última interagida) já está `status === "done"`
-- [ ] Padronizar `EmptyState` (ícone, copy, presença/ausência de botão) em `TaskList.tsx`,
+- [x] Padronizar `EmptyState` (ícone, copy, presença/ausência de botão) em `TaskList.tsx`,
       `TasksGantt.tsx`, aba Lista e colunas do Kanban de `ProjectDetail.tsx`
-- [ ] `npm run build && npm run lint` + teste manual em cada item (filtro nas duas telas, seção
+- [x] `npm run build && npm run lint` + teste manual em cada item (filtro nas duas telas, seção
       concluídas recolhe/expande, Gantt mostra tarefa concluída esmaecida, widget não aparece pra
       tarefa concluída, estados vazios visualmente consistentes)
 
 ## Notas
+- **Mecanismo real do Gantt**: `@svar-ui/react-gantt` não expõe `rowStyle`/classe por linha na
+  grade (só a barra do timeline tem `data-task-id`, útil pra CSS mas não pro texto da grade à
+  esquerda, que é o que a spec pedia). Achado o hook oficial revendo o bundle: a lib expõe
+  `getDefaultColumns()` (re-exportado por `@svar-ui/react-gantt`) e, se a coluna `"text"` receber
+  um `cell` customizado, a própria lib preserva o ícone de expandir/recolher e a indentação da
+  árvore (embrulha meu componente automaticamente). `GanttChart.tsx` clona `getDefaultColumns()`,
+  seta `cell` só na coluna `text` pra esmaecer/riscar quando `row.type === "task" && row.progress
+  === 100`, e passa o array via `columns` — resto do Gantt (drag, dependências, zoom) intacto.
+- **`EmptyState` das colunas do Kanban**: mantive o placeholder inline leve (`<p>` com borda
+  tracejada, sem ícone/botão) como está em `ProjectDetail.tsx` — já era consistente com o mesmo
+  padrão em `Projects.tsx` (que é "Nenhum projeto" por status, entidade diferente, não tarefa).
+  Trocar por `EmptyState` cheio (ícone+título+descrição) numa coluna estreita de 3 colunas ficaria
+  desproporcional; a decisão já previa "sem botão" pra esse caso, então só a ausência de botão
+  importava aqui, não o componente em si.

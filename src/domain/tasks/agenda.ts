@@ -129,6 +129,30 @@ export function collapseRecurringSeries<T extends SeriesTask>(tasks: T[]): T[] {
   return [...singles, ...representatives];
 }
 
+export type TaskStatusView = "pending" | "done" | "all";
+
+/** Filtro do topo das telas de tarefas: Pendentes (padrão) / Concluídas / Todas. */
+export function filterTasksByStatusView<T extends { status: string }>(
+  tasks: T[],
+  view: TaskStatusView
+): T[] {
+  if (view === "pending") return tasks.filter((t) => t.status !== "done");
+  if (view === "done") return tasks.filter((t) => t.status === "done");
+  return tasks;
+}
+
+/** Ordena concluídas por `completed_at` desc (mais recente primeiro); sem data vai pro fim. */
+export function sortTasksByCompletedAtDesc<T extends { completed_at?: string | null }>(
+  tasks: T[]
+): T[] {
+  return [...tasks].sort((a, b) => {
+    if (!a.completed_at && !b.completed_at) return 0;
+    if (!a.completed_at) return 1;
+    if (!b.completed_at) return -1;
+    return b.completed_at.localeCompare(a.completed_at);
+  });
+}
+
 export function isRecurringTask(task: SeriesTask): boolean {
   return !!(task.recurrence_rule || task.recurrence_origin_id || task.linked_recurring_id);
 }

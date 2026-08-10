@@ -13,10 +13,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { detectGitHubLink, isRecurringTask } from "@/domain/tasks";
 import type { Tag, Task } from "@/types/tasks";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { contrastTextColor } from "@/lib/color";
 import { formatDateTimeBR } from "@/lib/currency";
@@ -289,5 +291,77 @@ export function TaskListRow({
         </div>
       )}
     </div>
+  );
+}
+
+/** Seção "Concluídas" recolhível — sem agrupamento por prazo, cada tarefa já vem ordenada por
+ * quem chama (`sortTasksByCompletedAtDesc`). Remonta (perde estado de aberto/fechado) quando o
+ * `key` passado pela página muda, o que a página usa pra abrir por padrão no filtro "Concluídas"
+ * e fechada dentro de "Todas". */
+export function CompletedTasksSection({
+  tasks,
+  allTags,
+  subtasksByParent,
+  expandedTasks,
+  onToggleExpand,
+  onToggleSubtask,
+  onOpenSubtask,
+  onToggleDone,
+  onOpenSeries,
+  onEdit,
+  onDelete,
+  isTimerRunning,
+  extraActions,
+  defaultOpen = false,
+}: {
+  tasks: Task[];
+  allTags: Tag[];
+  subtasksByParent: Map<string, Task[]>;
+  expandedTasks: Set<string>;
+  onToggleExpand: (taskId: string) => void;
+  onToggleSubtask: (subtask: Task) => void;
+  onOpenSubtask: (subtask: Task) => void;
+  onToggleDone: (task: Task) => void;
+  onOpenSeries: (task: Task) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (taskId: string) => void;
+  isTimerRunning: (task: Task) => boolean;
+  extraActions?: (task: Task) => ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  if (tasks.length === 0) return null;
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
+        >
+          {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          Concluídas <span className="font-normal">({tasks.length})</span>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-2 space-y-2">
+        {tasks.map((task) => (
+          <TaskListRow
+            key={task.id}
+            task={task}
+            subtasks={subtasksByParent.get(task.id) ?? []}
+            allTags={allTags}
+            expanded={expandedTasks.has(task.id)}
+            onToggleExpand={() => onToggleExpand(task.id)}
+            onToggleSubtask={onToggleSubtask}
+            onOpenSubtask={onOpenSubtask}
+            onToggleDone={() => onToggleDone(task)}
+            onOpenSeries={() => onOpenSeries(task)}
+            onEdit={() => onEdit(task)}
+            onDelete={() => onDelete(task.id)}
+            isTimerRunning={isTimerRunning(task)}
+            extraActions={extraActions?.(task)}
+          />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

@@ -25,7 +25,7 @@ import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
 import { TaskDescriptionField } from "./TaskDescriptionField";
 import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
 import { TagCombobox } from "./TagCombobox";
-import { TaskListRow } from "./TaskViews";
+import { CompletedTasksSection, TaskListRow } from "./TaskViews";
 import { TaskTimeEntriesField } from "./TaskTimeEntriesField";
 import { EmptyState } from "@/components/EmptyState";
 import {
@@ -51,11 +51,14 @@ import {
   collapseRecurringSeries,
   detectExternalProvider,
   filterTasks,
+  filterTasksByStatusView,
   findSeriesTasks,
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
+  sortTasksByCompletedAtDesc,
   sortTasksByDueDate,
 } from "@/domain/tasks";
+import type { TaskStatusView } from "@/domain/tasks";
 import type { Project, Tag, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
@@ -95,6 +98,7 @@ export default function TaskList() {
   const [form, setForm] = useState(emptyTask());
   const [tagFilter, setTagFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [statusView, setStatusView] = useState<TaskStatusView>("pending");
   const [subtaskDrafts, setSubtaskDrafts] = useState<string[]>([]);
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [editingSubtask, setEditingSubtask] = useState<Task | null>(null);
@@ -149,19 +153,33 @@ export default function TaskList() {
       tagId: tagFilter || undefined,
       projectId,
     });
-    return sortTasksByDueDate(
-      filtered.filter(
-        (t) =>
-          !t.parent_task_id &&
-          !(t.linked_recurring_id && t.linked_installment_number == null)
-      )
+    return filtered.filter(
+      (t) =>
+        !t.parent_task_id &&
+        !(t.linked_recurring_id && t.linked_installment_number == null)
     );
   }, [tasks, tagFilter, projectFilter]);
 
+  const showPending = statusView === "pending" || statusView === "all";
+  const showDone = statusView === "done" || statusView === "all";
+
+  const pendingTasks = useMemo(
+    () => sortTasksByDueDate(filterTasksByStatusView(visibleTasks, "pending")),
+    [visibleTasks]
+  );
+
+  const doneTasks = useMemo(
+    () => sortTasksByCompletedAtDesc(filterTasksByStatusView(visibleTasks, "done")),
+    [visibleTasks]
+  );
+
   const agendaGroups = useMemo(() => {
     const todayIso = formatLocalIsoDate(new Date());
-    return groupTasksByAgendaBucket(collapseRecurringSeries(visibleTasks), todayIso);
-  }, [visibleTasks]);
+    return groupTasksByAgendaBucket(collapseRecurringSeries(pendingTasks), todayIso);
+  }, [pendingTasks]);
+
+  const nothingToShow =
+    (!showPending || pendingTasks.length === 0) && (!showDone || doneTasks.length === 0);
 
   const seriesTasks = useMemo(
     () => (seriesTask ? findSeriesTasks(tasks, seriesTask) : []),
@@ -379,11 +397,21 @@ export default function TaskList() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={statusView} onValueChange={(v) => setStatusView(v as TaskStatusView)}>
+            <SelectTrigger className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pending">Pendentes</SelectItem>
+              <SelectItem value="done">Concluídas</SelectItem>
+              <SelectItem value="all">Todas</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {loading ? (
           <TableLoadingSkeleton rows={6} />
-        ) : visibleTasks.length === 0 ? (
+        ) : nothingToShow ? (
           <EmptyState
             icon={ListTodo}
             title="Nenhuma tarefa"
@@ -392,7 +420,7 @@ export default function TaskList() {
           />
         ) : (
           <div className="space-y-5">
-            {AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
+            {showPending && AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
               (bucket) => (
                 <div key={bucket} className="space-y-2">
                   <h3 className="text-sm font-semibold">
@@ -434,6 +462,35 @@ export default function TaskList() {
                   </div>
                 </div>
               )
+            )}
+            {showDone && (
+              <CompletedTasksSection
+                key={statusView}
+                tasks={doneTasks}
+                allTags={tags}
+                subtasksByParent={subtasksByParent}
+                expandedTasks={expandedTasks}
+                onToggleExpand={toggleExpanded}
+                onToggleSubtask={toggleDone}
+                onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
+                onToggleDone={toggleDone}
+                onOpenSeries={(task) => setSeriesTask(task)}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                isTimerRunning={(task) => runningEntry?.task_id === task.id}
+                defaultOpen={statusView === "done"}
+                extraActions={(task) =>
+                  !task.linked_recurring_id ? (
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
+                      <Link
+                        to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                      >
+                        Lançar transação
+                      </Link>
+                    </Button>
+                  ) : undefined
+                }
+              />
             )}
           </div>
         )}

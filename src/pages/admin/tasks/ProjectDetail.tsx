@@ -42,6 +42,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
@@ -51,7 +58,7 @@ import { TaskDescriptionField } from "./TaskDescriptionField";
 import { TaskTimeEntriesField } from "./TaskTimeEntriesField";
 import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
 import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
-import { ExternalLinkChip, TagBadge, TaskListRow } from "./TaskViews";
+import { CompletedTasksSection, ExternalLinkChip, TagBadge, TaskListRow } from "./TaskViews";
 import { TagCombobox } from "./TagCombobox";
 import { GanttChart } from "./GanttChart";
 import {
@@ -78,11 +85,14 @@ import {
   AGENDA_BUCKET_ORDER,
   collapseRecurringSeries,
   detectExternalProvider,
+  filterTasksByStatusView,
   findSeriesTasks,
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
+  sortTasksByCompletedAtDesc,
   sortTasksByDueDate,
 } from "@/domain/tasks";
+import type { TaskStatusView } from "@/domain/tasks";
 import type { Project, Tag, Task, TaskCreateRequest, TaskDependency, TaskStatus } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
@@ -365,6 +375,7 @@ export default function ProjectDetail() {
   const [newTaskSubtasks, setNewTaskSubtasks] = useState<string[]>([]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [view, setView] = useState<"kanban" | "lista" | "gantt">("kanban");
+  const [statusView, setStatusView] = useState<TaskStatusView>("pending");
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [editingSubtask, setEditingSubtask] = useState<Task | null>(null);
@@ -436,22 +447,36 @@ export default function ProjectDetail() {
 
   const subtasksByParent = useMemo(() => groupSubtasksByParent(tasks), [tasks]);
 
-  const visibleTasks = useMemo(
+  const listTasks = useMemo(
     () =>
-      sortTasksByDueDate(
-        tasks.filter(
-          (t) =>
-            !t.parent_task_id &&
-            !(t.linked_recurring_id && t.linked_installment_number == null)
-        )
+      tasks.filter(
+        (t) =>
+          !t.parent_task_id &&
+          !(t.linked_recurring_id && t.linked_installment_number == null)
       ),
     [tasks]
   );
 
+  const showPending = statusView === "pending" || statusView === "all";
+  const showDone = statusView === "done" || statusView === "all";
+
+  const pendingTasks = useMemo(
+    () => sortTasksByDueDate(filterTasksByStatusView(listTasks, "pending")),
+    [listTasks]
+  );
+
+  const doneTasks = useMemo(
+    () => sortTasksByCompletedAtDesc(filterTasksByStatusView(listTasks, "done")),
+    [listTasks]
+  );
+
+  const listNothingToShow =
+    (!showPending || pendingTasks.length === 0) && (!showDone || doneTasks.length === 0);
+
   const agendaGroups = useMemo(() => {
     const todayIso = formatLocalIsoDate(new Date());
-    return groupTasksByAgendaBucket(collapseRecurringSeries(visibleTasks), todayIso);
-  }, [visibleTasks]);
+    return groupTasksByAgendaBucket(collapseRecurringSeries(pendingTasks), todayIso);
+  }, [pendingTasks]);
 
   const seriesTasks = useMemo(
     () => (seriesTask ? findSeriesTasks(tasks, seriesTask) : []),
@@ -814,56 +839,89 @@ export default function ProjectDetail() {
           </TabsContent>
 
           <TabsContent value="lista" className="mt-4 space-y-5">
-            {visibleTasks.length === 0 ? (
+            <Select value={statusView} onValueChange={(v) => setStatusView(v as TaskStatusView)}>
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pendentes</SelectItem>
+                <SelectItem value="done">Concluídas</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {listNothingToShow ? (
               <EmptyState
                 icon={ListTodo}
                 title="Nenhuma tarefa"
                 description="Crie sua primeira tarefa neste projeto."
+                action={<Button onClick={() => openCreate("todo")}>Nova tarefa</Button>}
               />
             ) : (
-              AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
-                (bucket) => (
-                  <div key={bucket} className="space-y-2">
-                    <h3 className="text-sm font-semibold">
-                      {AGENDA_BUCKET_LABELS[bucket]}{" "}
-                      <span className="text-xs font-normal text-muted-foreground">
-                        ({agendaGroups[bucket].length})
-                      </span>
-                    </h3>
-                    <div className="space-y-2">
-                      {agendaGroups[bucket].map((task) => (
-                        <TaskListRow
-                          key={task.id}
-                          task={task}
-                          subtasks={subtasksByParent.get(task.id) ?? []}
-                          allTags={tags}
-                          expanded={expandedTasks.has(task.id)}
-                          onToggleExpand={() => toggleExpanded(task.id)}
-                          onToggleSubtask={toggleSubtask}
-                          onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
-                          onToggleDone={() => toggleSubtask(task)}
-                          onOpenSeries={() => setSeriesTask(task)}
-                          onEdit={() => openEdit(task)}
-                          onDelete={() => handleDelete(task.id)}
-                          isTimerRunning={runningEntry?.task_id === task.id}
-                          onToggleTimer={() => toggleTimer(task)}
-                          extraActions={
-                            task.status === "done" && !task.linked_recurring_id ? (
-                              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
-                                <Link
-                                  to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
-                                >
-                                  Lançar transação
-                                </Link>
-                              </Button>
-                            ) : undefined
-                          }
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )
-              )
+              <>
+                {showPending &&
+                  AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
+                    (bucket) => (
+                      <div key={bucket} className="space-y-2">
+                        <h3 className="text-sm font-semibold">
+                          {AGENDA_BUCKET_LABELS[bucket]}{" "}
+                          <span className="text-xs font-normal text-muted-foreground">
+                            ({agendaGroups[bucket].length})
+                          </span>
+                        </h3>
+                        <div className="space-y-2">
+                          {agendaGroups[bucket].map((task) => (
+                            <TaskListRow
+                              key={task.id}
+                              task={task}
+                              subtasks={subtasksByParent.get(task.id) ?? []}
+                              allTags={tags}
+                              expanded={expandedTasks.has(task.id)}
+                              onToggleExpand={() => toggleExpanded(task.id)}
+                              onToggleSubtask={toggleSubtask}
+                              onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
+                              onToggleDone={() => toggleSubtask(task)}
+                              onOpenSeries={() => setSeriesTask(task)}
+                              onEdit={() => openEdit(task)}
+                              onDelete={() => handleDelete(task.id)}
+                              isTimerRunning={runningEntry?.task_id === task.id}
+                              onToggleTimer={() => toggleTimer(task)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  )}
+                {showDone && (
+                  <CompletedTasksSection
+                    key={statusView}
+                    tasks={doneTasks}
+                    allTags={tags}
+                    subtasksByParent={subtasksByParent}
+                    expandedTasks={expandedTasks}
+                    onToggleExpand={toggleExpanded}
+                    onToggleSubtask={toggleSubtask}
+                    onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
+                    onToggleDone={toggleSubtask}
+                    onOpenSeries={(task) => setSeriesTask(task)}
+                    onEdit={openEdit}
+                    onDelete={handleDelete}
+                    isTimerRunning={(task) => runningEntry?.task_id === task.id}
+                    defaultOpen={statusView === "done"}
+                    extraActions={(task) =>
+                      !task.linked_recurring_id ? (
+                        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
+                          <Link
+                            to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                          >
+                            Lançar transação
+                          </Link>
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                )}
+              </>
             )}
           </TabsContent>
 

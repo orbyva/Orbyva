@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-import { Gantt, Willow, WillowDark } from "@svar-ui/react-gantt";
-import type { IApi } from "@svar-ui/react-gantt";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Gantt, getDefaultColumns, Willow, WillowDark } from "@svar-ui/react-gantt";
+import type { IApi, IColumnConfig } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
 import {
   buildGanttLinks,
@@ -14,6 +14,19 @@ import { createDependency, deleteDependency, updateTask } from "@/api/tasks";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
+import { cn } from "@/lib/utils";
+
+/** Célula da coluna "text" (nome da tarefa) — a lib envolve isso com o ícone de
+ * expandir/recolher e a indentação da árvore automaticamente (`column._cell`), então só
+ * precisamos formatar o texto em si. Esmaece/risca tarefas concluídas (`progress === 100`). */
+function GanttTaskNameCell({ row }: { row: Record<string, unknown> }) {
+  const done = row.type === "task" && row.progress === 100;
+  return (
+    <span className={cn(done && "text-muted-foreground line-through")}>
+      {row.text as string}
+    </span>
+  );
+}
 
 function useIsDarkMode(): boolean {
   const [isDark, setIsDark] = useState(
@@ -54,6 +67,13 @@ export function GanttChart({
   const { nodes, untimedCount } = buildGanttNodes(projects, tasks);
   const links = buildGanttLinks(dependencies, nodes);
   const ThemeWrapper = isDark ? WillowDark : Willow;
+
+  const columns = useMemo<IColumnConfig[]>(() => {
+    const cols = getDefaultColumns() as IColumnConfig[];
+    const textColumn = cols.find((c) => c.id === "text");
+    if (textColumn) textColumn.cell = GanttTaskNameCell;
+    return cols;
+  }, []);
 
   const handleInit = useCallback(
     (api: IApi) => {
@@ -156,7 +176,7 @@ export function GanttChart({
       )}
       <div className="h-[600px] overflow-hidden rounded-lg border">
         <ThemeWrapper>
-          <Gantt tasks={nodes} links={links} zoom init={handleInit} />
+          <Gantt tasks={nodes} links={links} columns={columns} zoom init={handleInit} />
         </ThemeWrapper>
       </div>
     </div>

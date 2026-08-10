@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   bucketForDueDate,
   collapseRecurringSeries,
+  filterTasksByStatusView,
   findSeriesTasks,
   groupTasksByAgendaBucket,
   isRecurringTask,
+  sortTasksByCompletedAtDesc,
 } from "@/domain/tasks/agenda";
 
 const TODAY = "2026-08-06"; // quinta-feira
@@ -165,6 +167,46 @@ describe("findSeriesTasks", () => {
     const other = task({ id: "other", recurrence_origin_id: "another-origin" });
     const result = findSeriesTasks([origin, child1, child2, other], child1);
     expect(result.map((t) => t.id)).toEqual(["origin", "child2", "child1"]);
+  });
+});
+
+describe("filterTasksByStatusView", () => {
+  const tasks = [
+    { status: "todo" },
+    { status: "doing" },
+    { status: "done" },
+    { status: "done" },
+  ];
+
+  it("pending mantém só status !== done", () => {
+    expect(filterTasksByStatusView(tasks, "pending")).toHaveLength(2);
+  });
+
+  it("done mantém só status === done", () => {
+    expect(filterTasksByStatusView(tasks, "done")).toHaveLength(2);
+  });
+
+  it("all não filtra nada", () => {
+    expect(filterTasksByStatusView(tasks, "all")).toHaveLength(4);
+  });
+});
+
+describe("sortTasksByCompletedAtDesc", () => {
+  it("ordena por completed_at desc, mais recente primeiro", () => {
+    const tasks = [
+      { id: "a", completed_at: "2026-08-01T10:00:00Z" },
+      { id: "b", completed_at: "2026-08-05T10:00:00Z" },
+      { id: "c", completed_at: "2026-08-03T10:00:00Z" },
+    ];
+    expect(sortTasksByCompletedAtDesc(tasks).map((t) => t.id)).toEqual(["b", "c", "a"]);
+  });
+
+  it("tarefas sem completed_at vão pro fim", () => {
+    const tasks = [
+      { id: "a", completed_at: null },
+      { id: "b", completed_at: "2026-08-05T10:00:00Z" },
+    ];
+    expect(sortTasksByCompletedAtDesc(tasks).map((t) => t.id)).toEqual(["b", "a"]);
   });
 });
 
