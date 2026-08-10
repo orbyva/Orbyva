@@ -48,6 +48,7 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { TaskRecurrenceField } from "./TaskRecurrenceField";
 import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
 import { TaskDescriptionField } from "./TaskDescriptionField";
+import { TaskTimeEntriesField } from "./TaskTimeEntriesField";
 import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
 import { TaskPriorityField, TaskPriorityFlag } from "./TaskPriorityField";
 import { ExternalLinkChip, TagBadge, TaskListRow } from "./TaskViews";
@@ -65,6 +66,7 @@ import {
   createTag,
   createTask,
   deleteTask,
+  fetchDependencies,
   fetchProjectById,
   fetchTags,
   fetchTasks,
@@ -81,7 +83,7 @@ import {
   groupTasksByAgendaBucket,
   sortTasksByDueDate,
 } from "@/domain/tasks";
-import type { Project, Tag, Task, TaskCreateRequest, TaskStatus } from "@/types/tasks";
+import type { Project, Tag, Task, TaskCreateRequest, TaskDependency, TaskStatus } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
@@ -345,14 +347,18 @@ function KanbanCard({
   );
 }
 
+type TaskFormTab = "geral" | "data" | "organizacao" | "registros";
+
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [recurrings, setRecurrings] = useState<Recurring[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [formTab, setFormTab] = useState<TaskFormTab>("geral");
   const [editing, setEditing] = useState<Task | null>(null);
   const [form, setForm] = useState(emptyTask(id ?? ""));
   const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
@@ -388,14 +394,16 @@ export default function ProjectDetail() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [projectData, taskList, tagList, recurringList] = await Promise.all([
+      const [projectData, taskList, dependencyList, tagList, recurringList] = await Promise.all([
         fetchProjectById(id),
         fetchTasks(),
+        fetchDependencies(),
         fetchTags(),
         fetchRecurringTransactions(),
       ]);
       setProject(projectData);
       setTasks(taskList.filter((t) => t.project_id === id));
+      setDependencies(dependencyList);
       setTags(tagList);
       setRecurrings(recurringList);
     } catch (error) {
@@ -469,6 +477,7 @@ export default function ProjectDetail() {
     setEditing(null);
     setForm({ ...emptyTask(id), status });
     setNewTaskSubtasks([]);
+    setFormTab("geral");
     setOpen(true);
   }
 
@@ -491,6 +500,7 @@ export default function ProjectDetail() {
       external_provider: task.external_provider ?? null,
     });
     setNewTaskSubtasks([]);
+    setFormTab("geral");
     setOpen(true);
   }
 
@@ -501,7 +511,10 @@ export default function ProjectDetail() {
   }
 
   async function handleSave() {
-    if (!form.title.trim()) return;
+    if (!form.title.trim()) {
+      setFormTab("geral");
+      return;
+    }
     const isLinked = !!form.linked_recurring_id;
     const isEditingInstance = !!(editing && editing.linked_installment_number != null);
     const payload = {
@@ -855,7 +868,7 @@ export default function ProjectDetail() {
           </TabsContent>
 
           <TabsContent value="gantt" className="mt-4">
-            <GanttChart tasks={ganttTasks} />
+            <GanttChart tasks={ganttTasks} dependencies={dependencies} onDataChanged={load} />
           </TabsContent>
         </Tabs>
       )}
@@ -892,78 +905,99 @@ export default function ProjectDetail() {
           <DialogHeader>
             <DialogTitle>{editing ? "Editar tarefa" : "Nova tarefa"}</DialogTitle>
           </DialogHeader>
-          <div className={FORM_FIELDS_CLASS}>
-            <div>
-              <FormLabel required>Título</FormLabel>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
+          <Tabs value={formTab} onValueChange={(v) => setFormTab(v as TaskFormTab)}>
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4">
+              <TabsTrigger value="geral">Geral</TabsTrigger>
+              <TabsTrigger value="data">Data e repetição</TabsTrigger>
+              <TabsTrigger value="organizacao">Organização</TabsTrigger>
+              {editing && <TabsTrigger value="registros">Registros de tempo</TabsTrigger>}
+            </TabsList>
+
+            <TabsContent value="geral" className={cn(FORM_FIELDS_CLASS, "mt-4")}>
+              <div>
+                <FormLabel required>Título</FormLabel>
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                />
+              </div>
+              <div>
+                <FormLabel optional>Descrição</FormLabel>
+                <TaskDescriptionField
+                  value={form.description ?? ""}
+                  onChange={(description) => setForm({ ...form, description })}
+                />
+              </div>
+              <TaskPriorityField
+                value={form.priority ?? null}
+                onChange={(priority) => setForm({ ...form, priority })}
               />
-            </div>
-            <div>
-              <FormLabel optional>Descrição</FormLabel>
-              <TaskDescriptionField
-                value={form.description ?? ""}
-                onChange={(description) => setForm({ ...form, description })}
+            </TabsContent>
+
+            <TabsContent value="data" className={cn(FORM_FIELDS_CLASS, "mt-4")}>
+              <TaskRecurrenceField
+                value={{
+                  due_date: form.due_date,
+                  due_time: form.due_time,
+                  start_date: form.start_date,
+                  recurrence_rule: form.recurrence_rule,
+                  linked_recurring_id: form.linked_recurring_id,
+                }}
+                recurrings={recurrings}
+                onChange={(next) => setForm({ ...form, ...next })}
               />
-            </div>
-            <div>
-              <FormLabel optional>Tags</FormLabel>
-              <TagCombobox
-                allTags={tags}
-                selectedIds={form.tag_ids}
-                onChange={(tag_ids) => setForm({ ...form, tag_ids })}
-                onCreateTag={handleCreateTag}
-              />
-            </div>
-            <div>
-              <FormLabel optional>Link externo</FormLabel>
-              <Input
-                value={form.external_url ?? ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    external_url: e.target.value || null,
-                    external_provider: detectExternalProvider(e.target.value),
-                  })
+            </TabsContent>
+
+            <TabsContent value="organizacao" className={cn(FORM_FIELDS_CLASS, "mt-4")}>
+              <div>
+                <FormLabel optional>Tags</FormLabel>
+                <TagCombobox
+                  allTags={tags}
+                  selectedIds={form.tag_ids}
+                  onChange={(tag_ids) => setForm({ ...form, tag_ids })}
+                  onCreateTag={handleCreateTag}
+                />
+              </div>
+              <div>
+                <FormLabel optional>Link externo</FormLabel>
+                <Input
+                  value={form.external_url ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      external_url: e.target.value || null,
+                      external_provider: detectExternalProvider(e.target.value),
+                    })
+                  }
+                  placeholder="https://github.com/owner/repo/issues/123"
+                />
+              </div>
+              <TaskSubtasksField
+                subtasks={
+                  editing
+                    ? (subtasksByParent.get(editing.id) ?? []).map((s) => ({ id: s.id, title: s.title }))
+                    : newTaskSubtasks.map((title) => ({ title }))
                 }
-                placeholder="https://github.com/owner/repo/issues/123"
+                onAdd={(title) =>
+                  editing ? addSubtaskToEditing(title) : setNewTaskSubtasks((prev) => [...prev, title])
+                }
+                onRemove={(subtask, index) =>
+                  editing
+                    ? removeExistingSubtask(subtask)
+                    : setNewTaskSubtasks((prev) => prev.filter((_, i) => i !== index))
+                }
               />
-            </div>
-            <TaskPriorityField
-              value={form.priority ?? null}
-              onChange={(priority) => setForm({ ...form, priority })}
-            />
-            <TaskRecurrenceField
-              value={{
-                due_date: form.due_date,
-                due_time: form.due_time,
-                start_date: form.start_date,
-                recurrence_rule: form.recurrence_rule,
-                linked_recurring_id: form.linked_recurring_id,
-              }}
-              recurrings={recurrings}
-              onChange={(next) => setForm({ ...form, ...next })}
-            />
-            <TaskSubtasksField
-              subtasks={
-                editing
-                  ? (subtasksByParent.get(editing.id) ?? []).map((s) => ({ id: s.id, title: s.title }))
-                  : newTaskSubtasks.map((title) => ({ title }))
-              }
-              onAdd={(title) =>
-                editing ? addSubtaskToEditing(title) : setNewTaskSubtasks((prev) => [...prev, title])
-              }
-              onRemove={(subtask, index) =>
-                editing
-                  ? removeExistingSubtask(subtask)
-                  : setNewTaskSubtasks((prev) => prev.filter((_, i) => i !== index))
-              }
-            />
-            <Button onClick={handleSave} className="w-full">
-              {editing ? "Salvar alterações" : "Criar tarefa"}
-            </Button>
-          </div>
+            </TabsContent>
+
+            {editing && (
+              <TabsContent value="registros" className={cn(FORM_FIELDS_CLASS, "mt-4")}>
+                <TaskTimeEntriesField taskId={editing.id} />
+              </TabsContent>
+            )}
+          </Tabs>
+          <Button onClick={handleSave} className="w-full">
+            {editing ? "Salvar alterações" : "Criar tarefa"}
+          </Button>
         </DialogContent>
       </Dialog>
     </PageShell>

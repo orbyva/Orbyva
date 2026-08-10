@@ -9,8 +9,8 @@ import {
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { EmptyState } from "@/components/EmptyState";
-import { fetchProjects, fetchTasks } from "@/api/tasks";
-import type { Project, Task } from "@/types/tasks";
+import { fetchDependencies, fetchProjects, fetchTasks } from "@/api/tasks";
+import type { Project, Task, TaskDependency } from "@/types/tasks";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { GanttChart } from "./GanttChart";
@@ -18,15 +18,21 @@ import { GanttChart } from "./GanttChart";
 export default function TasksGantt() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const { toast } = useToast();
 
   const load = useCallback(async () => {
     try {
-      const [taskList, projectList] = await Promise.all([fetchTasks(), fetchProjects()]);
+      const [taskList, projectList, dependencyList] = await Promise.all([
+        fetchTasks(),
+        fetchProjects(),
+        fetchDependencies(),
+      ]);
       setTasks(taskList);
       setProjects(projectList);
+      setDependencies(dependencyList);
     } catch (error) {
       toast({
         title: "Erro",
@@ -84,7 +90,12 @@ export default function TasksGantt() {
       ) : tasks.length === 0 ? (
         <EmptyState title="Nenhuma tarefa ainda" description="Crie tarefas em Tarefas ou Projetos para vê-las aqui." />
       ) : (
-        <GanttChart tasks={filteredTasks} projects={filteredProjects} />
+        <GanttChart
+          tasks={filteredTasks}
+          projects={filteredProjects}
+          dependencies={dependencies}
+          onDataChanged={load}
+        />
       )}
     </PageShell>
   );

@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { addMonths, format, isSameDay, isSameMonth, subMonths } from "date-fns";
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  format,
+  isSameDay,
+  isSameMonth,
+  subDays,
+  subMonths,
+  subWeeks,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, DollarSign, ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
@@ -28,7 +39,13 @@ import {
   fetchTasks,
   updateTask,
 } from "@/api/tasks";
-import { computeMonthGridDays, groupCalendarItemsByDay } from "@/domain/tasks";
+import {
+  computeMonthGridDays,
+  computeVirtualOccurrences,
+  computeWeekDays,
+  groupCalendarItemsByDay,
+  type CalendarItem,
+} from "@/domain/tasks";
 import { formatLocalIsoDate } from "@/lib/dates";
 import type { Project, ProjectEvent, Task } from "@/types/tasks";
 import { useToast } from "@/hooks/use-toast";
@@ -36,7 +53,10 @@ import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const MAX_CHIPS_PER_DAY = 3;
+const MONTH_MAX_CHIPS_PER_DAY = 3;
+const WEEK_MAX_CHIPS_PER_DAY = 8;
+
+type CalendarViewMode = "month" | "week" | "day";
 
 const STATUS_DOT_CLASS: Record<Task["status"], string> = {
   todo: "bg-muted-foreground/50",
@@ -48,6 +68,10 @@ function dayKey(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
+function isVirtualTask(task: Task): boolean {
+  return task.id.startsWith("virtual:");
+}
+
 function TaskChip({
   task,
   onClick,
@@ -55,6 +79,17 @@ function TaskChip({
   task: Task;
   onClick: () => void;
 }) {
+  if (isVirtualTask(task)) {
+    return (
+      <div
+        className="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[10px] opacity-60"
+        title="Próxima ocorrência — ainda não criada, aparece automaticamente nesse dia"
+      >
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full border border-muted-foreground/60" />
+        <span className="truncate italic">{task.title}</span>
+      </div>
+    );
+  }
   return (
     <button
       type="button"
@@ -96,12 +131,85 @@ function EventChip({
   );
 }
 
+/** Linha da visão diária — mais espaço que o chip de 10px do mês/semana, com horário explícito
+ * (ou "Sem horário") em vez de só ordenar silenciosamente por ele. */
+function DayViewItemRow({
+  item,
+  projectColor,
+  onOpenTask,
+  onOpenEvent,
+}: {
+  item: CalendarItem<Task, ProjectEvent>;
+  projectColor: string | null;
+  onOpenTask: (task: Task) => void;
+  onOpenEvent: (event: ProjectEvent) => void;
+}) {
+  if (item.kind === "task") {
+    const { task } = item;
+    const done = task.status === "done";
+    const virtual = isVirtualTask(task);
+    return (
+      <button
+        type="button"
+        disabled={virtual}
+        onClick={() => onOpenTask(task)}
+        title={virtual ? "Próxima ocorrência — ainda não criada, aparece automaticamente nesse dia" : undefined}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-lg border p-3 text-left",
+          virtual ? "cursor-default opacity-60" : "hover:bg-muted"
+        )}
+      >
+        <span
+          className={cn(
+            "h-2.5 w-2.5 shrink-0 rounded-full",
+            virtual ? "border border-muted-foreground/60" : STATUS_DOT_CLASS[task.status]
+          )}
+        />
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-sm font-medium",
+            done && "text-muted-foreground line-through",
+            virtual && "italic"
+          )}
+        >
+          {task.title}
+        </span>
+        {task.linked_recurring_id && (
+          <DollarSign className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label="Vinculada a Recorrência" />
+        )}
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {task.due_time ? task.due_time.slice(0, 5) : "Sem horário"}
+        </span>
+      </button>
+    );
+  }
+
+  const { event } = item;
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenEvent(event)}
+      className="flex w-full items-center gap-3 rounded-lg border p-3 text-left hover:bg-muted"
+    >
+      <span
+        className="h-2.5 w-2.5 shrink-0 rounded-full"
+        style={{ backgroundColor: projectColor ?? "hsl(var(--muted-foreground))" }}
+      />
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">{event.title}</span>
+      <span className="shrink-0 text-xs text-muted-foreground">
+        {format(new Date(event.starts_at), "HH:mm")}
+      </span>
+    </button>
+  );
+}
+
 export default function AgendaCalendar() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [events, setEvents] = useState<ProjectEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [month, setMonth] = useState(() => new Date());
+  const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
+  const [focusDate, setFocusDate] = useState(() => new Date());
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [dayModalKey, setDayModalKey] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -135,15 +243,70 @@ export default function AgendaCalendar() {
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
+  const gridDays = useMemo(() => {
+    if (viewMode === "month") return computeMonthGridDays(focusDate);
+    if (viewMode === "week") return computeWeekDays(focusDate);
+    return [focusDate];
+  }, [viewMode, focusDate]);
+
+  const headerLabel = useMemo(() => {
+    if (viewMode === "month") {
+      return format(focusDate, "MMMM 'de' yyyy", { locale: ptBR });
+    }
+    if (viewMode === "day") {
+      return format(focusDate, "EEEE, d 'de' MMMM", { locale: ptBR });
+    }
+    const [first, last] = [gridDays[0], gridDays[gridDays.length - 1]];
+    const sameMonth = first.getMonth() === last.getMonth();
+    const firstLabel = format(first, sameMonth ? "d" : "d 'de' MMM", { locale: ptBR });
+    const lastLabel = format(last, "d 'de' MMM 'de' yyyy", { locale: ptBR });
+    return `${firstLabel} – ${lastLabel}`;
+  }, [viewMode, focusDate, gridDays]);
+
+  function goToPrevious() {
+    setFocusDate((d) =>
+      viewMode === "month" ? subMonths(d, 1) : viewMode === "week" ? subWeeks(d, 1) : subDays(d, 1)
+    );
+  }
+
+  function goToNext() {
+    setFocusDate((d) =>
+      viewMode === "month" ? addMonths(d, 1) : viewMode === "week" ? addWeeks(d, 1) : addDays(d, 1)
+    );
+  }
+
+  // Ocorrências futuras de tarefas recorrentes: a materialização em `fetchTasks` só cria linhas
+  // até hoje (sob demanda), então uma recorrência de "a cada 15 dias" nunca teria a próxima data
+  // visível até o dia chegar. Preenche com uma prévia calculada na hora, sem persistir nada.
+  const virtualTasks = useMemo(() => {
+    const rangeEndIso = formatLocalIsoDate(gridDays[gridDays.length - 1]);
+    const originById = new Map(tasks.map((t) => [t.id, t]));
+    return computeVirtualOccurrences(tasks, rangeEndIso).flatMap(({ originId, dueDate }) => {
+      const origin = originById.get(originId);
+      if (!origin) return [];
+      const virtual: Task = {
+        ...origin,
+        id: `virtual:${originId}:${dueDate}`,
+        due_date: dueDate,
+        due_time: origin.recurrence_rule?.time ?? null,
+        status: "todo",
+        recurrence_rule: null,
+        recurrence_origin_id: originId,
+        completed_at: null,
+      };
+      return [virtual];
+    });
+  }, [tasks, gridDays]);
+
   const filteredTasks = useMemo(
     () =>
-      tasks.filter(
+      [...tasks, ...virtualTasks].filter(
         (t) =>
           !t.parent_task_id &&
           !(t.linked_recurring_id && t.linked_installment_number == null) &&
           (projectFilter === "all" ? true : t.project_id === projectFilter)
       ),
-    [tasks, projectFilter]
+    [tasks, virtualTasks, projectFilter]
   );
 
   const filteredEvents = useMemo(
@@ -157,7 +320,6 @@ export default function AgendaCalendar() {
     [filteredTasks, filteredEvents]
   );
 
-  const gridDays = useMemo(() => computeMonthGridDays(month), [month]);
   const today = new Date();
   const dayModalItems = dayModalKey ? (itemsByDay.get(dayModalKey) ?? []) : [];
 
@@ -234,36 +396,83 @@ export default function AgendaCalendar() {
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => setMonth((m) => subMonths(m, 1))} aria-label="Mês anterior">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goToPrevious}
+            aria-label={
+              viewMode === "month" ? "Mês anterior" : viewMode === "week" ? "Semana anterior" : "Dia anterior"
+            }
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="min-w-32 text-center text-sm font-semibold capitalize">
-            {format(month, "MMMM 'de' yyyy", { locale: ptBR })}
-          </span>
-          <Button variant="ghost" size="icon" onClick={() => setMonth((m) => addMonths(m, 1))} aria-label="Próximo mês">
+          <span className="min-w-32 text-center text-sm font-semibold capitalize">{headerLabel}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goToNext}
+            aria-label={
+              viewMode === "month" ? "Próximo mês" : viewMode === "week" ? "Próxima semana" : "Próximo dia"
+            }
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" className="ml-1 h-8" onClick={() => setMonth(new Date())}>
+          <Button variant="outline" size="sm" className="ml-1 h-8" onClick={() => setFocusDate(new Date())}>
             Hoje
           </Button>
         </div>
-        <Select value={projectFilter} onValueChange={setProjectFilter}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Projeto" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os projetos</SelectItem>
-            {projects.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as CalendarViewMode)}>
+            <TabsList>
+              <TabsTrigger value="month">Mês</TabsTrigger>
+              <TabsTrigger value="week">Semana</TabsTrigger>
+              <TabsTrigger value="day">Dia</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Projeto" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os projetos</SelectItem>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {loading ? (
         <TableLoadingSkeleton rows={5} />
+      ) : viewMode === "day" ? (
+        (() => {
+          const key = dayKey(focusDate);
+          const items = itemsByDay.get(key) ?? [];
+          return (
+            <div className="space-y-1.5 rounded-lg border p-3">
+              {items.length === 0 ? (
+                <p className="p-6 text-center text-sm text-muted-foreground">Nada agendado nesse dia.</p>
+              ) : (
+                items.map((item) => (
+                  <DayViewItemRow
+                    key={item.kind === "task" ? item.task.id : item.event.id}
+                    item={item}
+                    projectColor={
+                      item.kind === "event"
+                        ? (projectById.get(item.event.project_id)?.color ?? null)
+                        : null
+                    }
+                    onOpenTask={openTaskFromChip}
+                    onOpenEvent={openEventFromChip}
+                  />
+                ))
+              )}
+            </div>
+          );
+        })()
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <div className="grid grid-cols-7 border-b bg-muted/40">
@@ -277,15 +486,17 @@ export default function AgendaCalendar() {
             {gridDays.map((day) => {
               const key = dayKey(day);
               const items = itemsByDay.get(key) ?? [];
-              const visible = items.slice(0, MAX_CHIPS_PER_DAY);
+              const maxChips = viewMode === "week" ? WEEK_MAX_CHIPS_PER_DAY : MONTH_MAX_CHIPS_PER_DAY;
+              const visible = items.slice(0, maxChips);
               const overflow = items.length - visible.length;
-              const inMonth = isSameMonth(day, month);
+              const inMonth = viewMode === "month" ? isSameMonth(day, focusDate) : true;
               const isToday = isSameDay(day, today);
               return (
                 <div
                   key={key}
                   className={cn(
-                    "min-h-24 border-b border-r p-1 sm:min-h-28",
+                    "border-b border-r p-1",
+                    viewMode === "week" ? "min-h-40 sm:min-h-52" : "min-h-24 sm:min-h-28",
                     !inMonth && "bg-muted/20"
                   )}
                 >

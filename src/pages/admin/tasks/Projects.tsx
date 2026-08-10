@@ -211,7 +211,6 @@ function ProjectKanbanItem({
   allTags,
   onEdit,
   onDelete,
-  onStatusChange,
 }: {
   project: Project;
   topTasks: Task[];
@@ -219,7 +218,6 @@ function ProjectKanbanItem({
   allTags: Tag[];
   onEdit: () => void;
   onDelete: () => void;
-  onStatusChange: (status: ProjectStatus) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: project.id,
@@ -251,19 +249,6 @@ function ProjectKanbanItem({
           />
         </div>
       </div>
-      <Select value={project.status} onValueChange={(v) => onStatusChange(v as ProjectStatus)}>
-        <SelectTrigger className="h-7 text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {KANBAN_STATUSES.map((s) => (
-            <SelectItem key={s} value={s}>
-              {STATUS_LABELS[s]}
-            </SelectItem>
-          ))}
-          <SelectItem value="archived">{STATUS_LABELS.archived}</SelectItem>
-        </SelectContent>
-      </Select>
     </div>
   );
 }
@@ -561,7 +546,6 @@ export default function Projects() {
                               allTags={tags}
                               onEdit={() => openEdit(project)}
                               onDelete={() => handleDelete(project.id)}
-                              onStatusChange={(s) => applyProjectStatusChange(project, s)}
                             />
                           ))
                         )}

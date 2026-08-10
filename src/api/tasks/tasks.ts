@@ -142,6 +142,18 @@ export async function fetchTasks(): Promise<Task[]> {
   return materializeLinkedInstances(userId, withRecurring);
 }
 
+export async function fetchTaskById(id: string): Promise<Task | null> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("task")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function createTask(task: TaskCreateRequest): Promise<Task> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase

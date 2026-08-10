@@ -27,6 +27,46 @@ export async function fetchTodayEntries(): Promise<TaskTimeEntry[]> {
   return data ?? [];
 }
 
+/** Histórico completo (não só hoje) — filtros por projeto/tarefa ficam por conta de quem consome. */
+export async function fetchAllEntries(): Promise<TaskTimeEntry[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("task_time_entry")
+    .select("*")
+    .eq("user_id", userId)
+    .order("started_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** Registro mais recente do usuário (rodando ou não) — atalho de acesso rápido no `LiveWidget`
+ * quando não há timer ativo no momento. */
+export async function fetchLastInteractedEntry(): Promise<TaskTimeEntry | null> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("task_time_entry")
+    .select("*")
+    .eq("user_id", userId)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/** Registros de tempo de uma tarefa específica — seção "Registros de tempo" no dialog de edição. */
+export async function fetchEntriesForTask(taskId: string): Promise<TaskTimeEntry[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("task_time_entry")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("task_id", taskId)
+    .order("started_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 /** Para o timer atual (se houver) antes de iniciar um novo — só um "Live" por vez. */
 export async function startTimer(taskId: string): Promise<TaskTimeEntry> {
   const userId = await getCurrentUserId();

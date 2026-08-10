@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeMonthGridDays, groupCalendarItemsByDay } from "@/domain/tasks/calendar";
+import {
+  computeMonthGridDays,
+  computeWeekDays,
+  groupCalendarItemsByDay,
+} from "@/domain/tasks/calendar";
 
 describe("computeMonthGridDays", () => {
   it("cobre o mês inteiro com folga até domingo/sábado", () => {
@@ -14,6 +18,30 @@ describe("computeMonthGridDays", () => {
   it("é sempre múltiplo de 7 dias", () => {
     const days = computeMonthGridDays(new Date(2026, 1, 10));
     expect(days.length % 7).toBe(0);
+  });
+});
+
+describe("computeWeekDays", () => {
+  it("retorna os 7 dias da semana (dom→sáb) contendo a data", () => {
+    // 2026-08-12 é uma quarta-feira; a semana vai de dom 09 a sáb 15
+    const days = computeWeekDays(new Date(2026, 7, 12));
+    expect(days).toHaveLength(7);
+    expect(days[0]).toEqual(new Date(2026, 7, 9));
+    expect(days[0].getDay()).toBe(0);
+    expect(days[6]).toEqual(new Date(2026, 7, 15));
+    expect(days[6].getDay()).toBe(6);
+  });
+
+  it("já retorna a própria semana quando a data é um domingo", () => {
+    const days = computeWeekDays(new Date(2026, 7, 9));
+    expect(days[0]).toEqual(new Date(2026, 7, 9));
+  });
+
+  it("atravessa a virada de mês corretamente", () => {
+    // 2026-08-31 é segunda; a semana vai de dom 30/08 a sáb 05/09
+    const days = computeWeekDays(new Date(2026, 7, 31));
+    expect(days[0]).toEqual(new Date(2026, 7, 30));
+    expect(days[6]).toEqual(new Date(2026, 8, 5));
   });
 });
 

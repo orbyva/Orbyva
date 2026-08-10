@@ -31,6 +31,12 @@ export function computeMonthGridDays(monthDate: Date): Date[] {
   return eachDayOfInterval({ start: gridStart, end: gridEnd });
 }
 
+/** Os 7 dias (dom→sáb) da semana que contém `anyDayInWeek` — visão semanal da Agenda. */
+export function computeWeekDays(anyDayInWeek: Date): Date[] {
+  const start = subDays(anyDayInWeek, anyDayInWeek.getDay());
+  return eachDayOfInterval({ start, end: addDays(start, 6) });
+}
+
 function calendarItemTime<T extends CalendarTask, E extends CalendarEvent>(
   item: CalendarItem<T, E>
 ): string {

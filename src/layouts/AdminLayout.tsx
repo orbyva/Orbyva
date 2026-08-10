@@ -24,6 +24,7 @@ import { QuickAddProvider } from "@/hooks/useQuickAdd"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { AlertsBell } from "@/components/AlertsBell"
 import { MobileBottomNav } from "@/components/MobileBottomNav"
+import { LiveWidget } from "@/components/LiveWidget"
 import { OfflineBanner } from "@/components/OfflineBanner"
 import { useOfflineOutboxSync } from "@/hooks/useOfflineOutboxSync"
 import { useDocumentMeta } from "@/hooks/useDocumentMeta"
@@ -118,7 +119,7 @@ export default function AdminLayout() {
 
   const onAccount = location.pathname.startsWith("/account")
 
-  // Pré-carrega chunks de Entretenimento para troca Cinema↔Livros↔Música sem flash.
+  // Pré-carrega chunks de Conteúdo para troca Cinema↔Livros↔Música sem flash.
   useEffect(() => {
     if (!hasAccess) return
 
@@ -233,6 +234,7 @@ export default function AdminLayout() {
             </Suspense>
           </div>
           {hasAccess ? <MobileBottomNav /> : null}
+          {hasAccess ? <LiveWidget /> : null}
         </SidebarInset>
       </ActiveTimerProvider>
       </BreadcrumbTitleProvider>

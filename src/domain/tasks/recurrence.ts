@@ -189,3 +189,44 @@ export function computeMissingOccurrences(
 
   return missing;
 }
+
+interface RecurringSeriesSource {
+  id: string;
+  due_date: string | null;
+  recurrence_rule: RecurrenceRule | null;
+  recurrence_origin_id: string | null;
+}
+
+/**
+ * Ocorrências futuras de séries recorrentes que ainda não foram materializadas no banco (a
+ * materialização em `api/tasks/tasks.ts` só cria linhas até hoje, sob demanda) — pra exibir como
+ * preview em telas de calendário sem inserir nada. Reaproveita `computeMissingOccurrences`
+ * passando o fim do intervalo visível no lugar de "hoje": qualquer data já materializada está em
+ * `existingDates` e não volta duplicada; só sobra o que ainda falta gerar dentro do intervalo.
+ */
+export function computeVirtualOccurrences<T extends RecurringSeriesSource>(
+  tasks: T[],
+  rangeEndIso: string
+): { originId: string; dueDate: string }[] {
+  const origins = tasks.filter(
+    (t): t is T & { due_date: string; recurrence_rule: RecurrenceRule } =>
+      !!t.recurrence_rule && !t.recurrence_origin_id && !!t.due_date
+  );
+
+  const result: { originId: string; dueDate: string }[] = [];
+  for (const origin of origins) {
+    const existingDates = tasks
+      .filter((t) => t.recurrence_origin_id === origin.id && t.due_date)
+      .map((t) => t.due_date as string);
+    const missing = computeMissingOccurrences(
+      origin.due_date,
+      origin.recurrence_rule,
+      existingDates,
+      rangeEndIso
+    );
+    for (const dueDate of missing) {
+      result.push({ originId: origin.id, dueDate });
+    }
+  }
+  return result;
+}

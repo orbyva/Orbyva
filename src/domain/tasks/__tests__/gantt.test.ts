@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGanttNodes, type GanttTaskInput } from "@/domain/tasks/gantt";
+import { buildGanttLinks, buildGanttNodes, type GanttNode, type GanttTaskInput } from "@/domain/tasks/gantt";
 
 function task(overrides: Partial<GanttTaskInput> & Pick<GanttTaskInput, "id" | "title">): GanttTaskInput {
   return {
@@ -26,11 +26,32 @@ describe("buildGanttNodes", () => {
         end: new Date(2026, 7, 10, 12),
         type: "task",
         parent: 0,
-        open: true,
+        open: false,
         progress: 0,
       },
     ]);
     expect(untimedCount).toBe(0);
+  });
+
+  it("nó sem filhos vem com open:false (open:true num nó sem `data` crasha a lib)", () => {
+    const projects = [{ id: "p1", name: "Projeto 1" }];
+    const { nodes } = buildGanttNodes(projects, [
+      task({ id: "1", title: "Sem subtarefa", project_id: "p1", due_date: "2026-08-10" }),
+    ]);
+    const taskNode = nodes.find((n) => n.id === "1");
+    expect(taskNode?.open).toBe(false);
+  });
+
+  it("tarefa de topo com subtarefa vem com open:true; a subtarefa (sem filhos) vem com open:false", () => {
+    const { nodes } = buildGanttNodes(
+      [],
+      [
+        task({ id: "parent", title: "Pai", due_date: "2026-08-10" }),
+        task({ id: "child", title: "Filho", parent_task_id: "parent", due_date: "2026-08-11" }),
+      ]
+    );
+    expect(nodes.find((n) => n.id === "parent")?.open).toBe(true);
+    expect(nodes.find((n) => n.id === "child")?.open).toBe(false);
   });
 
   it("tarefa sem nenhuma data não aparece e conta em untimedCount", () => {
@@ -106,5 +127,26 @@ describe("buildGanttNodes", () => {
     );
     expect(nodes[0].start).toEqual(new Date(2026, 7, 5, 12));
     expect(nodes[0].end).toEqual(new Date(2026, 7, 5, 12));
+  });
+});
+
+describe("buildGanttLinks", () => {
+  const nodes: GanttNode[] = [
+    { id: "a", text: "A", type: "task", parent: 0, open: false },
+    { id: "b", text: "B", type: "task", parent: 0, open: false },
+  ];
+
+  it("converte task_dependency (X depende de Y) em link end-to-start Y→X", () => {
+    const links = buildGanttLinks([{ task_id: "a", depends_on_task_id: "b" }], nodes);
+    expect(links).toEqual([{ id: "b->a", source: "b", target: "a", type: "e2s" }]);
+  });
+
+  it("descarta dependência com um lado fora dos nós visíveis", () => {
+    const links = buildGanttLinks([{ task_id: "a", depends_on_task_id: "outro" }], nodes);
+    expect(links).toEqual([]);
+  });
+
+  it("lista vazia sem dependências", () => {
+    expect(buildGanttLinks([], nodes)).toEqual([]);
   });
 });

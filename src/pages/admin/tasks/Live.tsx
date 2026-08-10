@@ -12,36 +12,45 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import { fetchTasks, fetchTodayEntries } from "@/api/tasks";
-import { elapsedSeconds, formatDuration, totalSecondsForTask } from "@/domain/tasks";
-import type { Task, TaskTimeEntry } from "@/types/tasks";
+import { fetchAllEntries, fetchProjects, fetchTasks } from "@/api/tasks";
+import { elapsedSeconds, formatDuration, groupEntriesByDay } from "@/domain/tasks";
+import { formatDateBR } from "@/lib/currency";
+import { formatLocalIsoDate } from "@/lib/dates";
+import type { Project, Task, TaskTimeEntry } from "@/types/tasks";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
 import { getErrorMessage } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 
-function formatClock(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const mm = String(minutes).padStart(2, "0");
-  const ss = String(seconds).padStart(2, "0");
-  return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
+function formatTimeOfDay(iso: string): string {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
+
+type DateScope = "today" | "all";
 
 export default function Live() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [todayEntries, setTodayEntries] = useState<TaskTimeEntry[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [entries, setEntries] = useState<TaskTimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [now, setNow] = useState(() => new Date());
+  const [dateScope, setDateScope] = useState<DateScope>("today");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [taskFilter, setTaskFilter] = useState<string>("all");
   const { toast } = useToast();
   const { runningEntry: running, start, stop } = useActiveTimer();
 
   const load = useCallback(async () => {
     try {
-      const [taskList, entries] = await Promise.all([fetchTasks(), fetchTodayEntries()]);
+      const [taskList, projectList, entryList] = await Promise.all([
+        fetchTasks(),
+        fetchProjects(),
+        fetchAllEntries(),
+      ]);
       setTasks(taskList);
-      setTodayEntries(entries);
+      setProjects(projectList);
+      setEntries(entryList);
     } catch (error) {
       toast({
         title: "Erro",
@@ -82,21 +91,35 @@ export default function Live() {
       )
     : 0;
 
-  const todaySummary = useMemo(() => {
-    const timeEntries = todayEntries.map((e) => ({
-      taskId: e.task_id,
-      startedAt: e.started_at,
-      endedAt: e.ended_at,
-    }));
-    const taskIds = Array.from(new Set(timeEntries.map((e) => e.taskId)));
-    return taskIds
-      .map((taskId) => ({
-        taskId,
-        title: tasksById.get(taskId)?.title ?? "Tarefa removida",
-        totalSeconds: totalSecondsForTask(taskId, timeEntries, now),
-      }))
-      .sort((a, b) => b.totalSeconds - a.totalSeconds);
-  }, [todayEntries, tasksById, now]);
+  const todayIso = useMemo(() => formatLocalIsoDate(now), [now]);
+
+  const filteredEntries = useMemo(
+    () =>
+      entries.filter((e) => {
+        if (dateScope === "today" && formatLocalIsoDate(new Date(e.started_at)) !== todayIso) {
+          return false;
+        }
+        if (taskFilter !== "all" && e.task_id !== taskFilter) return false;
+        if (projectFilter !== "all" && tasksById.get(e.task_id)?.project_id !== projectFilter) {
+          return false;
+        }
+        return true;
+      }),
+    [entries, dateScope, todayIso, taskFilter, projectFilter, tasksById]
+  );
+
+  const dayGroups = useMemo(
+    () =>
+      groupEntriesByDay(
+        filteredEntries.map((e) => ({
+          id: e.id,
+          taskId: e.task_id,
+          startedAt: e.started_at,
+          endedAt: e.ended_at,
+        }))
+      ),
+    [filteredEntries]
+  );
 
   async function handleStart() {
     if (!selectedTaskId) return;
@@ -130,7 +153,7 @@ export default function Live() {
   return (
     <PageShell
       title="Live"
-      description="Timer de foco por tarefa e histórico do dia."
+      description="Timer de foco por tarefa e histórico completo dos registros."
       eyebrow="Produtividade"
     >
       {loading ? (
@@ -144,7 +167,7 @@ export default function Live() {
                   {runningTask?.title ?? "Tarefa removida"}
                 </Badge>
                 <p className="font-mono text-4xl font-bold tabular-nums sm:text-5xl">
-                  {formatClock(runningSeconds)}
+                  {formatDuration(runningSeconds)}
                 </p>
                 <Button onClick={handleStop} variant="destructive" className="gap-2">
                   <Square className="h-4 w-4" />
@@ -188,23 +211,90 @@ export default function Live() {
             )}
           </div>
 
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold">Hoje</h3>
-            {todaySummary.length === 0 ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Histórico</h3>
+              <div className="flex items-center gap-1 rounded-lg border p-0.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className={cn("h-7 px-2.5 text-xs", dateScope === "today" && "bg-muted")}
+                  onClick={() => setDateScope("today")}
+                >
+                  Hoje
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className={cn("h-7 px-2.5 text-xs", dateScope === "all" && "bg-muted")}
+                  onClick={() => setDateScope("all")}
+                >
+                  Tudo
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="h-8 w-44">
+                  <SelectValue placeholder="Projeto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os projetos</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={taskFilter} onValueChange={setTaskFilter}>
+                <SelectTrigger className="h-8 w-44">
+                  <SelectValue placeholder="Tarefa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as tarefas</SelectItem>
+                  {tasks.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {dayGroups.length === 0 ? (
               <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-                Nenhum tempo registrado hoje ainda.
+                Nenhum tempo registrado {dateScope === "today" ? "hoje" : "ainda"}.
               </p>
             ) : (
-              <div className="space-y-1.5">
-                {todaySummary.map((entry) => (
-                  <div
-                    key={entry.taskId}
-                    className="flex items-center justify-between rounded-lg border bg-card px-3 py-2"
-                  >
-                    <span className="truncate text-sm">{entry.title}</span>
-                    <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
-                      {formatDuration(entry.totalSeconds)}
-                    </span>
+              <div className="space-y-4">
+                {dayGroups.map((group) => (
+                  <div key={group.dayIso} className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {formatDateBR(group.dayIso)}
+                    </p>
+                    {group.entries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-center justify-between rounded-lg border bg-card px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm">
+                            {tasksById.get(entry.taskId)?.title ?? "Tarefa removida"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatTimeOfDay(entry.startedAt)} –{" "}
+                            {entry.endedAt ? formatTimeOfDay(entry.endedAt) : "em andamento"}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
+                          {formatDuration(elapsedSeconds(entry, now))}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>

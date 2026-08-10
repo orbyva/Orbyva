@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeMissingOccurrences } from "@/domain/tasks/recurrence";
+import { computeMissingOccurrences, computeVirtualOccurrences } from "@/domain/tasks/recurrence";
 
 describe("computeMissingOccurrences", () => {
   it("gera ocorrências diárias faltantes até hoje", () => {
@@ -212,5 +212,82 @@ describe("computeMissingOccurrences", () => {
       "2026-08-03"
     );
     expect(result).toEqual(["2026-08-02", "2026-08-03"]);
+  });
+});
+
+describe("computeVirtualOccurrences", () => {
+  it("gera ocorrência futura ainda não materializada (a cada 15 dias)", () => {
+    const result = computeVirtualOccurrences(
+      [
+        {
+          id: "origin",
+          due_date: "2026-08-10",
+          recurrence_rule: { frequency: "daily", interval: 15 },
+          recurrence_origin_id: null,
+        },
+      ],
+      "2026-08-31"
+    );
+    expect(result).toEqual([{ originId: "origin", dueDate: "2026-08-25" }]);
+  });
+
+  it("não duplica ocorrência já materializada", () => {
+    const result = computeVirtualOccurrences(
+      [
+        {
+          id: "origin",
+          due_date: "2026-08-10",
+          recurrence_rule: { frequency: "daily", interval: 15 },
+          recurrence_origin_id: null,
+        },
+        {
+          id: "instance-1",
+          due_date: "2026-08-25",
+          recurrence_rule: null,
+          recurrence_origin_id: "origin",
+        },
+      ],
+      "2026-08-31"
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("ignora tarefas sem recorrência", () => {
+    const result = computeVirtualOccurrences(
+      [{ id: "1", due_date: "2026-08-10", recurrence_rule: null, recurrence_origin_id: null }],
+      "2026-08-31"
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("ignora instâncias já materializadas de uma série (não são origem)", () => {
+    const result = computeVirtualOccurrences(
+      [
+        {
+          id: "instance-1",
+          due_date: "2026-08-25",
+          recurrence_rule: null,
+          recurrence_origin_id: "origin",
+        },
+      ],
+      "2026-08-31"
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("respeita `until` ao gerar preview", () => {
+    const result = computeVirtualOccurrences(
+      [
+        {
+          id: "origin",
+          due_date: "2026-08-01",
+          recurrence_rule: { frequency: "daily", interval: 15, until: "2026-08-20" },
+          recurrence_origin_id: null,
+        },
+      ],
+      "2026-09-30"
+    );
+    // próxima ocorrência (08-16) cai dentro de `until`; a seguinte (08-31) já não
+    expect(result).toEqual([{ originId: "origin", dueDate: "2026-08-16" }]);
   });
 });
