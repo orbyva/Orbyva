@@ -9,19 +9,19 @@ import { cn } from "@/lib/utils";
 const FAQS = [
   {
     q: "O que é o Orbyva?",
-    a: "Um app para saber o que cabe no mês — teto de gastos, contas e parcelas — e organizar o resto da vida no mesmo lugar: hábitos, metas, viagens, lugares, cinema, livros, música e veículos. Tudo liberado no primeiro acesso.",
+    a: "Um life OS: teto de gastos, contas e parcelas, e o resto da vida no mesmo lugar (hábitos, metas, viagens, lugares, cinema, livros, música e veículos). Tudo liberado no primeiro acesso.",
   },
   {
     q: "Como o Orbyva ajuda no dinheiro do mês?",
-    a: "Você define um teto por categoria e vê o que ainda dá para gastar. Contas fixas e parceladas ficam listadas com alertas; na Projeção você vê a receber × a pagar e pode simular uma compra antes de comprometer o mês. Sem conectar conta do banco.",
+    a: "Você define um teto por categoria e vê o que ainda dá para gastar. Contas fixas e parceladas ficam listadas com alertas; na Projeção você vê a receber × a pagar e pode simular uma compra antes de comprometer o mês.",
   },
   {
-    q: "Precisa conectar conta do banco?",
-    a: "Não. Sem Open Banking e sem senha de banco. Você registra o que quiser, com controle consciente.",
+    q: "O que tem além das finanças?",
+    a: "Hábitos, metas, viagens com roteiro, lugares, cinema, livros, música, veículos e um cronômetro flutuante para acompanhar o tempo nas tarefas, tudo no mesmo login.",
   },
   {
     q: "Como funciona o teste?",
-    a: `Você começa com ${PLANS.free.priceLabel} e acesso completo — sem cartão. Depois, Pro por ${PLANS.pro.priceLabel}; assine na Conta quando quiser continuar.`,
+    a: `Você começa com ${PLANS.free.priceLabel} e acesso completo, sem cartão. Depois, Pro por ${PLANS.pro.priceLabel}; assine na Conta quando quiser continuar.`,
   },
   {
     q: "Posso cancelar quando quiser?",
@@ -29,11 +29,11 @@ const FAQS = [
   },
   {
     q: "Meus dados ficam seguros?",
-    a: "Conta autenticada, export CSV e exclusão de conta (LGPD). Seus dados são seus — e a gente não pede senha de banco.",
+    a: "Conta autenticada, export CSV e exclusão de conta (LGPD). Seus dados são seus.",
   },
   {
     q: "Como falo com vocês?",
-    a: `Escreva para ${BRAND.email} ou chame no ${BRAND.instagramHandle}. Dúvida, bug ou ideia de módulo — a gente responde.`,
+    a: `Escreva para ${BRAND.email} ou chame no ${BRAND.instagramHandle}. Dúvida, bug ou ideia de módulo: a gente responde.`,
   },
 ] as const;
 
@@ -79,13 +79,12 @@ export function LandingFaq() {
                   {item.q}
                   <motion.span
                     animate={{ rotate: open ? 180 : 0 }}
-                    transition={{ duration: reduceMotion ? 0 : 0.28 }}
-                    className="inline-flex"
+                    transition={
+                      reduceMotion ? { duration: 0 } : { duration: 0.2 }
+                    }
+                    className="shrink-0 text-zinc-500"
                   >
-                    <ChevronDown
-                      className="h-4 w-4 shrink-0 text-zinc-500"
-                      aria-hidden
-                    />
+                    <ChevronDown className="size-4" />
                   </motion.span>
                 </button>
                 <AnimatePresence initial={false}>
@@ -93,37 +92,24 @@ export function LandingFaq() {
                     <motion.div
                       key="content"
                       initial={
-                        reduceMotion
-                          ? { opacity: 0 }
-                          : { height: 0, opacity: 0 }
+                        reduceMotion ? false : { height: 0, opacity: 0 }
                       }
-                      animate={
-                        reduceMotion
-                          ? { opacity: 1 }
-                          : { height: "auto", opacity: 1 }
-                      }
+                      animate={{ height: "auto", opacity: 1 }}
                       exit={
                         reduceMotion
                           ? { opacity: 0 }
                           : { height: 0, opacity: 0 }
                       }
-                      transition={{
-                        duration: 0.34,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
+                      transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <motion.p
-                        initial={reduceMotion ? false : { opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={reduceMotion ? undefined : { opacity: 0 }}
-                        transition={{ duration: 0.28, delay: 0.04 }}
+                      <p
                         className={cn(
-                          "border-t border-white/8 px-4 pb-4 pt-3 text-sm leading-relaxed text-zinc-400 sm:px-5"
+                          "px-4 pb-4 text-sm leading-relaxed text-zinc-400 sm:px-5"
                         )}
                       >
                         {item.a}
-                      </motion.p>
+                      </p>
                     </motion.div>
                   ) : null}
                 </AnimatePresence>

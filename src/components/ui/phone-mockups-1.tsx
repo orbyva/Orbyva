@@ -6,7 +6,7 @@ import {
 
 export type { PhoneScreen };
 
-/** Screens do hero — troque os PNGs em /public/marketing/ quando refizer os prints. */
+/** Screens do hero: poucos prints distintos (sem repetir o restante da landing). */
 const DEFAULT_SCREENS: PhoneScreen[] = [
   {
     src: "/marketing/hub.png",
@@ -19,24 +19,9 @@ const DEFAULT_SCREENS: PhoneScreen[] = [
     label: "Finanças",
   },
   {
-    src: "/marketing/orcamento.png",
-    alt: "Orçamento mensal com teto por categoria",
-    label: "Orçamento",
-  },
-  {
-    src: "/marketing/parcelas.png",
-    alt: "Recorrências: contas fixas e parceladas sob controle",
-    label: "Recorrências",
-  },
-  {
-    src: "/marketing/projecao-chart.png",
-    alt: "Projeção do mês com simulação de compra no gráfico",
-    label: "Projeção",
-  },
-  {
-    src: "/marketing/habitos.png",
-    alt: "Hábitos do dia com streaks",
-    label: "Hábitos",
+    src: "/marketing/viagens.png",
+    alt: "Viagens com roteiro e orçamento",
+    label: "Viagens",
   },
 ];
 function marketingWebp(src: string) {

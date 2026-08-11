@@ -7,6 +7,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,16 +22,19 @@ import { ExpenseCategoryPicker } from "@/components/ExpenseCategoryPicker";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
+  FORM_SEGMENT_TABS_CLASS,
+  FORM_SEGMENT_TRIGGER_CLASS,
 } from "@/components/FormLabel";
 import { MoneyInput } from "@/components/MoneyInput";
 import { StarRating } from "@/components/StarRating";
 import { PlaceCatalogSearch } from "@/components/PlaceCatalogSearch";
+import { PlaceVisitsPanel } from "@/components/PlaceVisitsPanel";
 import {
   PLACE_TYPE_LABELS,
   normalizePlaceStatus,
   placeLedgerDescription,
 } from "@/domain/places";
-import { createPlace, updatePlace } from "@/api/places";
+import { createPlace, createPlaceVisitOccurrence, updatePlace } from "@/api/places";
 import { fetchTransactionClassMeta } from "@/api/finance";
 import { fetchTrips } from "@/api/travel";
 import { useDimensions } from "@/hooks/useDimensions";
@@ -74,6 +78,12 @@ interface PlaceFormDialogProps {
   tripId?: string | null;
   /** Status inicial ao criar (ex.: aba "Para visitar"). */
   defaultStatus?: PlaceStatus;
+  /**
+   * `create`: novo lugar (campos conforme defaultStatus).
+   * `edit`: editar local + aba de visitas.
+   * `register_visit`: só registrar visita (de um to_visit).
+   */
+  intent?: "create" | "edit" | "register_visit";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSaved: () => void;
@@ -86,12 +96,18 @@ export function PlaceFormDialog({
   place,
   tripId,
   defaultStatus = "to_visit",
+  intent: intentProp,
   open: controlledOpen,
   onOpenChange,
   onSaved,
   trigger,
   showTrigger = false,
 }: PlaceFormDialogProps) {
+  const intent =
+    intentProp ?? (place ? "edit" : "create");
+  const lockStatus =
+    intent === "register_visit" ||
+    (intent === "create" && defaultStatus === "to_visit");
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
@@ -104,6 +120,7 @@ export function PlaceFormDialog({
   const [selectedType, setSelectedType] = useState<number | null>(null);
   const [classId, setClassId] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [editTab, setEditTab] = useState<"lugar" | "visitas">("lugar");
   const { toast } = useToast();
   const isEditing = !!place;
   const status = normalizePlaceStatus(form.status, form.visited_date);
@@ -174,17 +191,19 @@ export function PlaceFormDialog({
   }
 
   async function handleSave() {
-    if (!form.name.trim()) {
+    if (intent !== "register_visit" && !form.name.trim()) {
       toast({ title: "Informe o nome do lugar", variant: "destructive" });
       return;
     }
-    if (status === "visited" && !form.visited_date) {
+    const effectiveStatus =
+      intent === "register_visit" ? "visited" : status;
+    if (effectiveStatus === "visited" && !form.visited_date) {
       toast({ title: "Informe a data da visita", variant: "destructive" });
       return;
     }
 
     const amount =
-      status === "visited" && form.amount != null && form.amount > 0
+      effectiveStatus === "visited" && form.amount != null && form.amount > 0
         ? form.amount
         : null;
     const wantsNewLedger =
@@ -204,7 +223,7 @@ export function PlaceFormDialog({
         place?.trip?.title ??
         null;
       const description = placeLedgerDescription(
-        { name: form.name, type: form.type },
+        { name: form.name || place?.name || "", type: form.type },
         tripTitle
       );
       const transactionAt = new Date(
@@ -213,16 +232,18 @@ export function PlaceFormDialog({
 
       const payload: PlaceVisitCreateRequest = {
         ...form,
-        status,
-        visited_date: status === "to_visit" ? null : form.visited_date,
-        rating: status === "to_visit" ? null : form.rating,
+        name: form.name || place?.name || "",
+        status: effectiveStatus,
+        visited_date:
+          effectiveStatus === "to_visit" ? null : form.visited_date,
+        rating: effectiveStatus === "to_visit" ? null : form.rating,
         amount,
         transaction_id: place?.transaction_id ?? null,
       };
 
       if (isEditing && place) {
         const removeTransaction =
-          linkedToLedger && (amount == null || status === "to_visit");
+          linkedToLedger && (amount == null || effectiveStatus === "to_visit");
         await updatePlace(
           { id: place.id, ...payload },
           {
@@ -246,8 +267,33 @@ export function PlaceFormDialog({
               : null,
           }
         );
+        if (effectiveStatus === "visited" && intent === "register_visit") {
+          try {
+            await createPlaceVisitOccurrence({
+              place_visit_id: place.id,
+              visited_date: form.visited_date!,
+              rating: form.rating ?? null,
+              notes: form.notes ?? null,
+              amount,
+              would_recommend: form.would_recommend,
+            });
+          } catch {
+            // Tabela pode não estar migrada ainda.
+          }
+        }
+        toast({
+          title:
+            intent === "register_visit"
+              ? "Visita registrada!"
+              : linkedToLedger && amount != null
+                ? "Lugar e despesa atualizados!"
+                : wantsNewLedger
+                  ? "Lugar e despesa registrados!"
+                  : "Lugar atualizado!",
+          duration: 2000,
+        });
       } else {
-        await createPlace(payload, {
+        const created = await createPlace(payload, {
           transaction: wantsNewLedger
             ? {
                 class_id: classId,
@@ -257,22 +303,29 @@ export function PlaceFormDialog({
               }
             : null,
         });
-      }
-
-      toast({
-        title: isEditing
-          ? linkedToLedger && amount != null
-            ? "Lugar e despesa atualizados!"
-            : wantsNewLedger
-              ? "Lugar e despesa registrados!"
-              : "Lugar atualizado!"
-          : wantsNewLedger
+        if (effectiveStatus === "visited") {
+          try {
+            await createPlaceVisitOccurrence({
+              place_visit_id: created.id,
+              visited_date: form.visited_date!,
+              rating: form.rating ?? null,
+              notes: form.notes ?? null,
+              amount,
+              would_recommend: form.would_recommend,
+            });
+          } catch {
+            // Tabela pode não estar migrada ainda.
+          }
+        }
+        toast({
+          title: wantsNewLedger
             ? "Lugar e despesa registrados!"
-            : status === "to_visit"
+            : effectiveStatus === "to_visit"
               ? "Salvo em Para visitar"
               : "Lugar registrado!",
-        duration: 2000,
-      });
+          duration: 2000,
+        });
+      }
       setOpen(false);
       onSaved();
     } catch (error) {
@@ -312,15 +365,49 @@ export function PlaceFormDialog({
         )
       ) : null}
       <DialogContent
-        className={cn(FORM_DIALOG_CONTENT_CLASS, "max-w-md sm:max-w-md gap-3")}
+        className={cn(FORM_DIALOG_CONTENT_CLASS, "gap-3")}
       >
         <DialogHeader className="space-y-1">
           <DialogTitle>
-            {isEditing ? "Editar lugar" : "Adicionar lugar"}
+            {intent === "register_visit"
+              ? "Registrar visita"
+              : isEditing
+                ? "Editar lugar"
+                : defaultStatus === "visited"
+                  ? "Adicionar visitado"
+                  : "Adicionar para visitar"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-3">
+          {intent === "edit" && place ? (
+            <Tabs
+              value={editTab}
+              onValueChange={(v) => setEditTab(v as "lugar" | "visitas")}
+              className="w-full"
+            >
+              <TabsList className={FORM_SEGMENT_TABS_CLASS}>
+                <TabsTrigger
+                  value="lugar"
+                  className={FORM_SEGMENT_TRIGGER_CLASS}
+                >
+                  Lugar
+                </TabsTrigger>
+                <TabsTrigger
+                  value="visitas"
+                  className={FORM_SEGMENT_TRIGGER_CLASS}
+                >
+                  Visitas
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          ) : null}
+
+          {intent === "edit" && place && editTab === "visitas" ? (
+            <PlaceVisitsPanel placeVisitId={place.id} onChanged={onSaved} />
+          ) : (
+          <>
+          {!lockStatus && intent !== "edit" ? (
           <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
             <button
               type="button"
@@ -347,7 +434,17 @@ export function PlaceFormDialog({
               Visitado
             </button>
           </div>
+          ) : null}
 
+          {intent === "register_visit" ? (
+            <p className="text-sm text-muted-foreground">
+              {form.name || place?.name}
+              {form.address ? ` · ${form.address}` : null}
+            </p>
+          ) : null}
+
+          {intent !== "register_visit" ? (
+          <>
           <div>
             <PlaceCatalogSearch
               selectedLabel={
@@ -447,8 +544,10 @@ export function PlaceFormDialog({
               </div>
             ) : null}
           </div>
+          </>
+          ) : null}
 
-          {status === "visited" ? (
+          {(status === "visited" || intent === "register_visit") ? (
             <>
               <div className="flex items-end justify-between gap-3">
                 <div className="min-w-0">
@@ -600,13 +699,34 @@ export function PlaceFormDialog({
             </div>
           ) : null}
 
-          <Button onClick={handleSave} disabled={loading} className="w-full">
-            {loading
-              ? "Salvando…"
-              : isEditing
-                ? "Salvar alterações"
-                : "Adicionar lugar"}
-          </Button>
+          <div
+            className={
+              intent === "register_visit" ? "flex flex-col gap-2" : undefined
+            }
+          >
+            <Button onClick={handleSave} disabled={loading} className="w-full">
+              {loading
+                ? "Salvando…"
+                : intent === "register_visit"
+                  ? "Registrar visita"
+                  : isEditing
+                    ? "Salvar alterações"
+                    : "Adicionar lugar"}
+            </Button>
+            {intent === "register_visit" ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-muted-foreground"
+                disabled={loading}
+                onClick={() => setOpen(false)}
+              >
+                Pular avaliação
+              </Button>
+            ) : null}
+          </div>
+          </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

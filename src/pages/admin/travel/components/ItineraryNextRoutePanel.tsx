@@ -13,6 +13,7 @@ import {
   resolveRouteOrigin,
   shouldComputeRoutesForDay,
   visitRouteDestination,
+  visitScheduleHHmm,
   type RouteInsightTone,
   type VisitLike,
 } from "@/domain/itinerary/visits";
@@ -99,7 +100,11 @@ export function ItineraryNextRoutePanel({
   const canCompute =
     !dayIsPast && shouldComputeRoutesForDay({ dayDate, todayIso });
 
-  const nextVisit = useMemo(() => findNextPendingVisit(visits), [visits]);
+  const nowMinutes = nowMinutesLocal();
+  const nextVisit = useMemo(
+    () => findNextPendingVisit(visits, nowMinutes),
+    [visits, nowMinutes]
+  );
 
   const originVisit = useMemo(() => {
     if (!nextVisit) return null;
@@ -276,10 +281,12 @@ export function ItineraryNextRoutePanel({
     );
   }
 
-  const nowMinutes = nowMinutesLocal();
   const fastestMode = fastestAvailableMode(routes);
+  const scheduleHHmm = visitScheduleHHmm(nextVisit);
+  const isTransfer =
+    (nextVisit.category ?? "").toLowerCase() === "transport";
   const scheduleMissed = isScheduledTimePast({
-    arrivalHHmm: nextVisit.activity_time,
+    arrivalHHmm: scheduleHHmm,
     nowMinutes,
   });
 
@@ -290,7 +297,7 @@ export function ItineraryNextRoutePanel({
   const recommendedView = recommended
     ? describeRouteInsight({
         durationSeconds: recommended.durationSeconds,
-        arrivalHHmm: nextVisit.activity_time,
+        arrivalHHmm: scheduleHHmm,
         nowMinutes,
       })
     : null;
@@ -309,14 +316,21 @@ export function ItineraryNextRoutePanel({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            Próximo destino
+            {isTransfer ? "Próximo deslocamento" : "Próximo destino"}
           </p>
           <p className="truncate text-sm font-semibold">{nextVisit.title}</p>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-            {nextVisit.activity_time ? (
+            {isTransfer && nextVisit.activity_time ? (
               <span className="inline-flex items-center gap-1 tabular-nums">
                 <Clock className="h-3 w-3 shrink-0" />
-                {nextVisit.activity_time}
+                {nextVisit.arrival_time
+                  ? `${nextVisit.activity_time} → ${nextVisit.arrival_time}`
+                  : nextVisit.activity_time}
+              </span>
+            ) : scheduleHHmm ? (
+              <span className="inline-flex items-center gap-1 tabular-nums">
+                <Clock className="h-3 w-3 shrink-0" />
+                {scheduleHHmm}
               </span>
             ) : null}
             {scheduleMissed ? (
@@ -358,7 +372,11 @@ export function ItineraryNextRoutePanel({
       ) : null}
 
       {!showAll && !error && (recommendedView || loading) ? (
-        <div className="mt-2 flex items-center gap-2 rounded-md border bg-background/60 px-2 py-1.5">
+        <div className="mt-2 space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+            Sugestão · trajeto mais rápido
+          </p>
+          <div className="flex items-center gap-2 rounded-md border border-primary/25 bg-primary/[0.04] px-2 py-1.5">
           {loading && !recommended ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : recommendedMeta ? (
@@ -381,6 +399,9 @@ export function ItineraryNextRoutePanel({
                     <span className="font-medium">{recommendedMeta.label}</span>
                   </>
                 ) : null}
+                <span className="rounded-full bg-primary/15 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  Mais rápido
+                </span>
                 {recommendedView.etaHHmm ? (
                   <>
                     <span className="font-bold text-foreground/80" aria-hidden>
@@ -408,6 +429,7 @@ export function ItineraryNextRoutePanel({
           ) : loading ? (
             <p className="text-xs text-muted-foreground">Calculando…</p>
           ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -427,7 +449,7 @@ export function ItineraryNextRoutePanel({
               const meta = travelModeMeta(route.mode);
               const view = describeRouteInsight({
                 durationSeconds: route.available ? route.durationSeconds : null,
-                arrivalHHmm: nextVisit.activity_time,
+                arrivalHHmm: scheduleHHmm,
                 nowMinutes,
               });
               return (

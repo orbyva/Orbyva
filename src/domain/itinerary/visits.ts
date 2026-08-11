@@ -7,11 +7,13 @@ export type VisitLike = Pick<
   | "id"
   | "title"
   | "activity_time"
+  | "arrival_time"
   | "sort_order"
   | "place_visit_id"
   | "visit_status"
   | "completed_at"
   | "skipped_at"
+  | "category"
 > & {
   lat?: number | null;
   lng?: number | null;
@@ -48,14 +50,85 @@ export function sortVisitsForDay<T extends VisitLike>(visits: T[]): T[] {
 }
 
 /**
- * Próxima visita pendente do dia (fonte de verdade = checklist).
- * Não usa “horário já passou”.
+ * Próxima atividade pendente do dia (fonte de verdade = checklist).
+ * Prefere horário ainda por vir (≥ agora); só cai em atrasadas se não houver nada na frente.
+ * Visitas marcadas antes da chegada de um deslocamento pendente para o mesmo destino
+ * são ignoradas (ainda nem chegou lá).
  */
 export function findNextPendingVisit(
-  visits: VisitLike[]
+  visits: VisitLike[],
+  nowMinutes?: number | null
 ): VisitLike | null {
-  const sorted = sortVisitsForDay(visits);
-  return sorted.find((v) => isVisitOpen(v)) ?? null;
+  const sorted = sortVisitsForDay(visits).filter((v) => isVisitOpen(v));
+  if (sorted.length === 0) return null;
+
+  const pendingTransfers = sorted.filter(
+    (v) => (v.category ?? "").toLowerCase() === "transport"
+  );
+
+  function blockedByInboundTransfer(visit: VisitLike): boolean {
+    if ((visit.category ?? "").toLowerCase() === "transport") return false;
+    const visitT = parseHHmmToMinutes(visit.activity_time);
+    if (visitT == null) return false;
+    return pendingTransfers.some((tr) => {
+      const arrive =
+        parseHHmmToMinutes(tr.arrival_time) ??
+        parseHHmmToMinutes(tr.activity_time);
+      if (arrive == null || visitT >= arrive) return false;
+      return visitNearTransferDestination(visit, tr);
+    });
+  }
+
+  const reachable = sorted.filter((v) => !blockedByInboundTransfer(v));
+  const pool = reachable.length > 0 ? reachable : sorted;
+
+  if (nowMinutes == null || !Number.isFinite(nowMinutes)) {
+    return pool[0] ?? null;
+  }
+
+  const upcoming = pool.find((v) => {
+    const depart = parseHHmmToMinutes(v.activity_time);
+    const arrive = parseHHmmToMinutes(v.arrival_time);
+    if (depart == null && arrive == null) return true;
+    if (depart != null && depart >= nowMinutes) return true;
+    if (
+      (v.category ?? "").toLowerCase() === "transport" &&
+      arrive != null &&
+      arrive >= nowMinutes
+    ) {
+      return true;
+    }
+    return false;
+  });
+  return upcoming ?? pool[0] ?? null;
+}
+
+/** ~55 km — visita no destino do deslocamento (não na origem da volta). */
+function visitNearTransferDestination(
+  visit: VisitLike,
+  transfer: VisitLike
+): boolean {
+  const vLat = visit.lat;
+  const vLng = visit.lng;
+  const tLat = transfer.lat;
+  const tLng = transfer.lng;
+  if (
+    typeof vLat !== "number" ||
+    typeof vLng !== "number" ||
+    typeof tLat !== "number" ||
+    typeof tLng !== "number" ||
+    !Number.isFinite(vLat) ||
+    !Number.isFinite(vLng) ||
+    !Number.isFinite(tLat) ||
+    !Number.isFinite(tLng)
+  ) {
+    // Sem coords: se a visita está antes da chegada, assume bloqueio
+    // (caso típico ida → visitas no destino).
+    return true;
+  }
+  const dLat = Math.abs(vLat - tLat);
+  const dLng = Math.abs(vLng - tLng);
+  return dLat < 0.5 && dLng < 0.5;
 }
 
 /** Última visita concluída (não pulada), para origem do próximo trecho. */
@@ -89,12 +162,23 @@ export function parseHHmmToMinutes(
   value: string | null | undefined
 ): number | null {
   if (!value) return null;
-  const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value.trim());
   if (!m) return null;
   const h = Number(m[1]);
   const min = Number(m[2]);
   if (h > 23 || min > 59) return null;
   return h * 60 + min;
+}
+
+/** Horário-alvo no painel de rota: chegada do deslocamento, ou horário da visita. */
+export function visitScheduleHHmm(visit: VisitLike): string | null {
+  const category = (visit.category ?? "").toLowerCase();
+  if (category === "transport") {
+    const arrive = visit.arrival_time?.trim();
+    if (arrive) return arrive.slice(0, 5);
+  }
+  const t = visit.activity_time?.trim();
+  return t ? t.slice(0, 5) : null;
 }
 
 export function minutesToHHmm(totalMinutes: number): string {

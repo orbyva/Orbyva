@@ -1,7 +1,13 @@
 /** Lógica pura do webhook Stripe → patch de profiles (testável, sem Deno). */
 
+import {
+  isStripeSubscriptionActive,
+  planFromSubscriptionStatus,
+  type PlanId,
+} from "@/lib/plan";
+
 export type ProfileBillingPatch = {
-  plan: "free" | "pro";
+  plan: PlanId;
   stripe_customer_id?: string;
   stripe_subscription_id?: string | null;
   subscription_status?: string | null;
@@ -56,9 +62,8 @@ function subscriptionIdOf(
 }
 
 function patchFromSubscription(sub: SubscriptionLike): ProfileBillingPatch {
-  const active = sub.status === "active" || sub.status === "trialing";
   return {
-    plan: active ? "pro" : "free",
+    plan: planFromSubscriptionStatus(sub.status, "free"),
     stripe_customer_id: customerIdOf(sub.customer) ?? undefined,
     stripe_subscription_id: sub.id,
     subscription_status: sub.status,
@@ -121,18 +126,46 @@ export function applyStripeWebhookEvent(event: {
       };
       const customerId = customerIdOf(invoice.customer);
       if (!customerId) return { action: "noop" };
+      // Fail-closed: não manter plan=pro em past_due (bloqueia app + DB).
       return {
         action: "upsert_by_customer",
         customerId,
         patch: {
-          plan: "pro",
+          plan: "free",
           subscription_status: "past_due",
           stripe_subscription_id: subscriptionIdOf(invoice.subscription),
         },
         notify: "payment_failed",
       };
     }
+    case "invoice.paid": {
+      // Cobrança ok — se ainda houver subscription id, marca active/pro.
+      // subscription.updated também cobre; este evento fecha race com payment_failed.
+      const invoice = event.data.object as {
+        customer?: string | { id?: string } | null;
+        subscription?: string | { id?: string } | null;
+        status?: string | null;
+      };
+      const customerId = customerIdOf(invoice.customer);
+      const subId = subscriptionIdOf(invoice.subscription);
+      if (!customerId || !subId) return { action: "noop" };
+      if (invoice.status && invoice.status !== "paid") return { action: "noop" };
+      return {
+        action: "upsert_by_customer",
+        customerId,
+        patch: {
+          plan: "pro",
+          subscription_status: "active",
+          stripe_subscription_id: subId,
+        },
+      };
+    }
     default:
       return { action: "noop" };
   }
+}
+
+/** @deprecated use isStripeSubscriptionActive from plan */
+export function subscriptionGrantsPro(status: string | null | undefined): boolean {
+  return isStripeSubscriptionActive(status);
 }

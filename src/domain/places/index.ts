@@ -8,6 +8,7 @@ import type {
 import type { TripExpenseCategory } from "@/types/travel";
 
 export * from "./placeTypeMeta";
+export { isGoogleMapsUrl } from "./mapsUrl";
 
 export const PLACE_TYPE_LABELS: Record<PlaceType, string> = {
   restaurant: "Restaurante",

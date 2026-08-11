@@ -8,7 +8,7 @@ import { PLANS } from "@/lib/plan";
 import { track } from "@/lib/analytics";
 import { fadeUp, staggerDelay } from "@/components/landing/landingMotion";
 
-/** Redução de risco — o que responde “e se eu não gostar?”. */
+/** Redução de risco: o que responde “e se eu não gostar?”. */
 const GUARANTEES = [
   {
     title: "Teste sem cartão",
@@ -20,11 +20,11 @@ const GUARANTEES = [
   },
   {
     title: "Seus dados são seus",
-    body: "Export CSV e exclusão da conta a qualquer momento — LGPD na prática.",
+    body: "Export CSV e exclusão da conta a qualquer momento. LGPD na prática.",
   },
   {
-    title: "Sem senha de banco",
-    body: "Zero Open Banking. Você registra o que quiser, no seu ritmo.",
+    title: "Cronômetro flutuante",
+    body: "Timer sempre à mão enquanto você navega entre módulos e tarefas.",
   },
 ] as const;
 
@@ -47,7 +47,7 @@ export function LandingPricing({
           align="center"
           eyebrow="Planos"
           title="7 dias para sentir o controle. Depois, Pro simples."
-          description={`Tudo incluso no teste. Continue por ${PLANS.pro.priceLabel} — sem asteriscos.`}
+          description={`Tudo incluso no teste. Continue por ${PLANS.pro.priceLabel}, sem asteriscos.`}
         />
 
         <div className="mx-auto mt-12 grid max-w-3xl gap-5 sm:grid-cols-2 sm:items-stretch">

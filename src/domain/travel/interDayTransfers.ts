@@ -224,13 +224,139 @@ export type TransferTimeConflict = {
   message: string;
 };
 
+export type LocationHint = {
+  lat?: number | null;
+  lng?: number | null;
+  label?: string | null;
+};
+
+function coordsNear(
+  a: { lat?: number | null; lng?: number | null },
+  b: { lat?: number | null; lng?: number | null },
+  deg = 0.5
+): boolean {
+  const aLat = a.lat;
+  const aLng = a.lng;
+  const bLat = b.lat;
+  const bLng = b.lng;
+  if (
+    typeof aLat !== "number" ||
+    typeof aLng !== "number" ||
+    typeof bLat !== "number" ||
+    typeof bLng !== "number" ||
+    !Number.isFinite(aLat) ||
+    !Number.isFinite(aLng) ||
+    !Number.isFinite(bLat) ||
+    !Number.isFinite(bLng)
+  ) {
+    return false;
+  }
+  return Math.abs(aLat - bLat) < deg && Math.abs(aLng - bLng) < deg;
+}
+
+function labelsRelated(
+  a: string | null | undefined,
+  b: string | null | undefined
+): boolean {
+  const na = (a ?? "").trim().toLowerCase();
+  const nb = (b ?? "").trim().toLowerCase();
+  if (!na || !nb) return false;
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+/**
+ * Deslocamento chega no local do dia/visita (ida), não volta para casa.
+ * Sem coords/rótulo suficientes → false.
+ */
+export function transferArrivesAtLocation(
+  transfer: {
+    origin_label?: string | null;
+    origin_lat?: number | null;
+    origin_lng?: number | null;
+    destination_label?: string | null;
+    destination_lat?: number | null;
+    destination_lng?: number | null;
+  },
+  location: LocationHint | null | undefined
+): boolean {
+  if (!location) return false;
+  const destNear =
+    coordsNear(
+      { lat: transfer.destination_lat, lng: transfer.destination_lng },
+      location
+    ) || labelsRelated(transfer.destination_label, location.label);
+  if (!destNear) return false;
+  const originNear =
+    coordsNear(
+      { lat: transfer.origin_lat, lng: transfer.origin_lng },
+      location
+    ) || labelsRelated(transfer.origin_label, location.label);
+  return !originNear;
+}
+
+/**
+ * Saída do local do dia (volta / seguir viagem). Com endpoints vazios → false.
+ */
+export function transferLeavesLocation(
+  transfer: {
+    origin_label?: string | null;
+    origin_lat?: number | null;
+    origin_lng?: number | null;
+    destination_label?: string | null;
+    destination_lat?: number | null;
+    destination_lng?: number | null;
+  },
+  location: LocationHint | null | undefined
+): boolean {
+  if (!location) return false;
+  const originNear =
+    coordsNear(
+      { lat: transfer.origin_lat, lng: transfer.origin_lng },
+      location
+    ) || labelsRelated(transfer.origin_label, location.label);
+  if (!originNear) return false;
+  const destNear =
+    coordsNear(
+      { lat: transfer.destination_lat, lng: transfer.destination_lng },
+      location
+    ) || labelsRelated(transfer.destination_label, location.label);
+  return !destNear;
+}
+
+function transferEndpointsFromActivity(act: TripItineraryActivity): {
+  origin_label: string | null;
+  origin_lat: number | null;
+  origin_lng: number | null;
+  destination_label: string | null;
+  destination_lat: number | null;
+  destination_lng: number | null;
+} {
+  const fromTitle = (() => {
+    const parts = (act.title ?? "")
+      .split("→")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length !== 2) return null;
+    return { originLabel: parts[0]!, destinationLabel: parts[1]! };
+  })();
+  return {
+    origin_label: act.origin_label?.trim() || fromTitle?.originLabel || null,
+    origin_lat: act.origin_lat ?? null,
+    origin_lng: act.origin_lng ?? null,
+    destination_label:
+      act.destination_label?.trim() || fromTitle?.destinationLabel || null,
+    destination_lat: act.destination_lat ?? null,
+    destination_lng: act.destination_lng ?? null,
+  };
+}
+
 /** Minutos desde meia-noite; `null` se vazio ou inválido. */
 export function parseTimeToMinutes(
   hhmm: string | null | undefined
 ): number | null {
   const raw = hhmm?.trim();
   if (!raw) return null;
-  const m = /^(\d{1,2}):(\d{2})$/.exec(raw);
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(raw);
   if (!m) return null;
   const h = Number(m[1]);
   const min = Number(m[2]);
@@ -259,9 +385,10 @@ export function isOvernightTransferTimes(
 }
 
 /**
- * Visita com horário não pode cair no intervalo do deslocamento.
- * - Mesmo calendário (chegada > saída): [saída, chegada) neste dia.
- * - Pernoite (chegada ≤ saída): no dia da atividade, horário < chegada;
+ * Visita com horário não pode cair no intervalo do deslocamento,
+ * nem antes da chegada quando o deslocamento é de ida para o local.
+ * - Mesmo calendário: [saída, chegada); se ida ao local, também horário < chegada.
+ * - Pernoite: no dia da atividade, horário < chegada;
  *   no dia anterior, horário ≥ saída.
  * Sem horário na visita → permitido.
  */
@@ -270,6 +397,8 @@ export function visitTimeConflictsWithTransfers(params: {
   activityTime: string | null | undefined;
   days: TripItineraryDay[];
   excludeActivityId?: string | null;
+  /** Parada do dia / lugar da visita — para saber se o deslocamento é ida. */
+  atLocation?: LocationHint | null;
 }): TransferTimeConflict | null {
   const time = parseTimeToMinutes(params.activityTime);
   if (time == null) return null;
@@ -278,23 +407,40 @@ export function visitTimeConflictsWithTransfers(params: {
   const idx = ordered.findIndex((d) => d.id === params.dayId);
   if (idx < 0) return null;
   const day = ordered[idx]!;
+  const dayTransfers = (day.activities ?? []).filter(
+    (a) => isTransportActivity(a) && a.id !== params.excludeActivityId
+  );
 
   for (const act of day.activities ?? []) {
     if (!isTransportActivity(act)) continue;
     if (act.id === params.excludeActivityId) continue;
     const depart = parseTimeToMinutes(act.activity_time);
     const arrive = parseTimeToMinutes(act.arrival_time);
-    const departLabel = act.activity_time?.trim();
-    const arriveLabel = act.arrival_time?.trim();
+    const departLabel = act.activity_time?.trim()?.slice(0, 5) || null;
+    const arriveLabel = act.arrival_time?.trim()?.slice(0, 5) || null;
     const overnight = isOvernightTransferTimes(
       act.activity_time,
       act.arrival_time
     );
+    const endpoints = transferEndpointsFromActivity(act);
+    // Só ignora “antes da chegada” se for volta/saída do local do dia.
+    const leaving = transferLeavesLocation(endpoints, params.atLocation);
+    // Sem local do dia: só assume ida se houver um único deslocamento.
+    const blockBeforeArrive =
+      arrive != null &&
+      Boolean(arriveLabel) &&
+      !leaving &&
+      (params.atLocation != null || dayTransfers.length === 1);
 
     if (overnight === false && depart != null && arrive != null) {
       if (time >= depart && time < arrive) {
         return {
           message: `Horário dentro do deslocamento “${act.title}” (${departLabel}–${arriveLabel}).`,
+        };
+      }
+      if (blockBeforeArrive && time < arrive) {
+        return {
+          message: `Você só chega às ${arriveLabel} (“${act.title}”). Use ${arriveLabel} ou depois.`,
         };
       }
     } else if (overnight === true && arrive != null && arriveLabel) {
@@ -303,9 +449,18 @@ export function visitTimeConflictsWithTransfers(params: {
           message: `Horário dentro do deslocamento (chegada ${arriveLabel}). Use ${arriveLabel} ou depois.`,
         };
       }
-    } else if (arrive != null && arriveLabel && depart == null && time < arrive) {
+    } else if (
+      arrive != null &&
+      arriveLabel &&
+      depart == null &&
+      time < arrive
+    ) {
       return {
         message: `Horário dentro do deslocamento (chegada ${arriveLabel}). Use ${arriveLabel} ou depois.`,
+      };
+    } else if (blockBeforeArrive && arrive != null && arriveLabel && time < arrive) {
+      return {
+        message: `Você só chega às ${arriveLabel} (“${act.title}”). Use ${arriveLabel} ou depois.`,
       };
     }
   }
@@ -321,7 +476,7 @@ export function visitTimeConflictsWithTransfers(params: {
         continue;
       }
       const depart = parseTimeToMinutes(act.activity_time);
-      const departLabel = act.activity_time?.trim();
+      const departLabel = act.activity_time?.trim()?.slice(0, 5);
       if (depart != null && departLabel && time >= depart) {
         return {
           message: `Horário dentro do deslocamento (saída ${departLabel}). Escolha um horário antes de ${departLabel}.`,
@@ -336,6 +491,7 @@ export function visitTimeConflictsWithTransfers(params: {
 /**
  * Ao salvar deslocamento: visitas existentes não podem estar no intervalo
  * inferido pelos horários (mesmo dia ou pernoite).
+ * Se `arrivesAtDayLocation`, também bloqueia visitas antes da chegada.
  */
 export function transferTimesConflictWithVisits(params: {
   dayId: string;
@@ -343,6 +499,8 @@ export function transferTimesConflictWithVisits(params: {
   arriveTime: string | null | undefined;
   days: TripItineraryDay[];
   excludeActivityId?: string | null;
+  /** Ida para a parada do dia: visitas com horário < chegada conflitam. */
+  arrivesAtDayLocation?: boolean;
 }): TransferTimeConflict | null {
   const ordered = orderedDays(params.days);
   const idx = ordered.findIndex((d) => d.id === params.dayId);
@@ -352,8 +510,8 @@ export function transferTimesConflictWithVisits(params: {
 
   const depart = parseTimeToMinutes(params.departTime);
   const arrive = parseTimeToMinutes(params.arriveTime);
-  const departLabel = params.departTime?.trim() || null;
-  const arriveLabel = params.arriveTime?.trim() || null;
+  const departLabel = params.departTime?.trim()?.slice(0, 5) || null;
+  const arriveLabel = params.arriveTime?.trim()?.slice(0, 5) || null;
   const overnight = isOvernightTransferTimes(
     params.departTime,
     params.arriveTime
@@ -375,13 +533,23 @@ export function transferTimesConflictWithVisits(params: {
     return null;
   };
 
-  if (overnight === false && depart != null && arrive != null) {
-    return visitConflict(
-      day.activities ?? [],
-      (t) => t >= depart && t < arrive,
-      (act) =>
-        `“${act.title}” (${act.activity_time}) conflita com o deslocamento ${departLabel}–${arriveLabel}.`
-    );
+  if (overnight === false && arrive != null && arriveLabel) {
+    if (params.arrivesAtDayLocation) {
+      return visitConflict(
+        day.activities ?? [],
+        (t) => t < arrive,
+        (act) =>
+          `“${act.title}” (${act.activity_time}) é antes da chegada ${arriveLabel}. Ajuste o horário da visita.`
+      );
+    }
+    if (depart != null && departLabel) {
+      return visitConflict(
+        day.activities ?? [],
+        (t) => t >= depart && t < arrive,
+        (act) =>
+          `“${act.title}” (${act.activity_time}) conflita com o deslocamento ${departLabel}–${arriveLabel}.`
+      );
+    }
   }
 
   if (overnight === true) {

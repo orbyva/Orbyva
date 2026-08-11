@@ -196,6 +196,136 @@ describe("visitTimeConflictsWithTransfers", () => {
     ).toMatch(/Ibiza → Madrid/);
   });
 
+  it("bloqueia visita antes da chegada da ida (mesmo dia)", () => {
+    const inboundDays = [
+      day("d1", 1, "2026-08-10", [
+        {
+          id: "ida",
+          day_id: "d1",
+          title: "Valparaíso → Alto Paraíso",
+          sort_order: 0,
+          category: "transport",
+          activity_time: "18:00",
+          arrival_time: "21:24",
+          origin_label: "Valparaíso de Goiás",
+          origin_lat: -16.07,
+          origin_lng: -47.98,
+          destination_label: "Alto Paraíso de Goiás",
+          destination_lat: -14.13,
+          destination_lng: -47.51,
+        },
+      ]),
+    ];
+    expect(
+      visitTimeConflictsWithTransfers({
+        dayId: "d1",
+        activityTime: "09:00",
+        days: inboundDays,
+        atLocation: {
+          label: "Alto Paraíso de Goiás",
+          lat: -14.13,
+          lng: -47.51,
+        },
+      })?.message
+    ).toMatch(/só chega às 21:24/i);
+  });
+
+  it("bloqueia visita antes da chegada mesmo sem coords no deslocamento (só título)", () => {
+    const inboundDays = [
+      day("d1", 1, "2026-08-10", [
+        {
+          id: "ida",
+          day_id: "d1",
+          title: "Valparaíso de Goiás → Alto Paraíso de Goiás",
+          sort_order: 0,
+          category: "transport",
+          activity_time: "18:00",
+          arrival_time: "21:24",
+        },
+      ]),
+    ];
+    expect(
+      visitTimeConflictsWithTransfers({
+        dayId: "d1",
+        activityTime: "09:30",
+        days: inboundDays,
+        atLocation: {
+          label: "Cachoeira Dos Cristais",
+          lat: -14.1,
+          lng: -47.5,
+        },
+      })?.message
+    ).toMatch(/só chega às 21:24/i);
+  });
+
+  it("permite visita após a chegada da ida", () => {
+    const inboundDays = [
+      day("d1", 1, "2026-08-10", [
+        {
+          id: "ida",
+          day_id: "d1",
+          title: "Valparaíso → Alto Paraíso",
+          sort_order: 0,
+          category: "transport",
+          activity_time: "18:00",
+          arrival_time: "21:24",
+          origin_label: "Valparaíso de Goiás",
+          origin_lat: -16.07,
+          origin_lng: -47.98,
+          destination_label: "Alto Paraíso de Goiás",
+          destination_lat: -14.13,
+          destination_lng: -47.51,
+        },
+      ]),
+    ];
+    expect(
+      visitTimeConflictsWithTransfers({
+        dayId: "d1",
+        activityTime: "22:00",
+        days: inboundDays,
+        atLocation: {
+          label: "Alto Paraíso de Goiás",
+          lat: -14.13,
+          lng: -47.51,
+        },
+      })
+    ).toBeNull();
+  });
+
+  it("não bloqueia visita por deslocamento de volta", () => {
+    const returnDays = [
+      day("d1", 1, "2026-08-10", [
+        {
+          id: "volta",
+          day_id: "d1",
+          title: "Alto Paraíso → Casa",
+          sort_order: 0,
+          category: "transport",
+          activity_time: "20:00",
+          arrival_time: "23:00",
+          origin_label: "Alto Paraíso de Goiás",
+          origin_lat: -14.13,
+          origin_lng: -47.51,
+          destination_label: "Valparaíso de Goiás",
+          destination_lat: -16.07,
+          destination_lng: -47.98,
+        },
+      ]),
+    ];
+    expect(
+      visitTimeConflictsWithTransfers({
+        dayId: "d1",
+        activityTime: "15:00",
+        days: returnDays,
+        atLocation: {
+          label: "Alto Paraíso de Goiás",
+          lat: -14.13,
+          lng: -47.51,
+        },
+      })
+    ).toBeNull();
+  });
+
   it("sem horário na visita não conflita", () => {
     expect(
       visitTimeConflictsWithTransfers({

@@ -62,3 +62,30 @@ export type PlaceVisitUpdateRequest = Partial<PlaceVisitCreateRequest> & {
 
 export type PlaceFilter = "all" | "local" | "trip" | PlaceType;
 export type PlaceListStatusFilter = PlaceStatus;
+
+/** Uma ida registrada a um lugar (N por place_visit). */
+export interface PlaceVisitOccurrence {
+  id: string;
+  place_visit_id: string;
+  user_id?: string;
+  visited_date: string;
+  rating?: number | null;
+  notes?: string | null;
+  amount?: number | null;
+  would_recommend: boolean;
+  transaction_id?: number | null;
+  created_at?: string;
+}
+
+export type PlaceVisitOccurrenceCreateRequest = Omit<
+  PlaceVisitOccurrence,
+  "id" | "user_id" | "created_at" | "transaction_id"
+> & {
+  transaction_id?: number | null;
+};
+
+export type PlaceVisitOccurrenceUpdateRequest = Partial<
+  Omit<PlaceVisitOccurrenceCreateRequest, "place_visit_id">
+> & {
+  id: string;
+};

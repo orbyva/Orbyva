@@ -1,7 +1,12 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import type { PlanId } from "@/lib/plan";
-import { isProPlan } from "@/lib/plan";
+import {
+  isBlockedSubscriptionStatus,
+  isEffectivePro,
+  isStripeSubscriptionActive,
+  planFromSubscriptionStatus,
+} from "@/lib/plan";
 
 export { isBillingConfigured } from "@/lib/billing-config";
 
@@ -167,14 +172,15 @@ function normalizeProfile(profile: UserProfile): UserProfile {
     return { ...profile, plan: "pro" };
   }
   const status = profile.subscription_status;
-  const active =
-    profile.plan === "pro" ||
-    status === "active" ||
-    status === "trialing";
+  if (isStripeSubscriptionActive(status)) {
+    return { ...profile, plan: "pro" };
+  }
+  if (isBlockedSubscriptionStatus(status)) {
+    return { ...profile, plan: "free" };
+  }
   return {
     ...profile,
-    plan: active ? "pro" : "free",
-    created_at: profile.created_at,
+    plan: planFromSubscriptionStatus(status, profile.plan === "pro" ? "pro" : "free"),
   };
 }
 
@@ -182,7 +188,10 @@ export async function fetchIsPro(): Promise<boolean> {
   if (forceProFromEnv()) return true;
   try {
     const profile = await ensureProfile();
-    return isProPlan(profile.plan);
+    return isEffectivePro({
+      plan: profile.plan,
+      subscriptionStatus: profile.subscription_status,
+    });
   } catch {
     return false;
   }

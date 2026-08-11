@@ -63,22 +63,22 @@ const NAV = [
 const TRUST = [
   "Parece 5 apps. Custa 1.",
   "Teto do mês no bolso",
-  "Sem Open Banking",
   "7 dias grátis",
   "Life OS incluso",
   "Cancele em 1 clique",
+  "Cronômetro flutuante",
 ] as const;
 
 const ROADMAP = [
   {
     icon: Smartphone,
     title: "App nas lojas",
-    body: "Em breve na App Store e Play Store — o mesmo Orbyva, no bolso, com um toque.",
+    body: "Em breve na App Store e Play Store. O mesmo Orbyva, no bolso, com um toque.",
   },
   {
     icon: Sparkles,
     title: "Assistente com IA",
-    body: "Insights do mês, lembretes e atalhos — e cadastrar dados por você, quando fizer sentido.",
+    body: "Insights do mês, lembretes e atalhos, e cadastrar dados por você quando fizer sentido.",
   },
 ] as const;
 
@@ -87,9 +87,9 @@ const SECTION_IDS = ["controle", "planos"] as const;
 export default function Landing() {
   const { user, loading } = useAuth();
   useDocumentMeta({
-    title: "Orbyva — Saiba o que cabe no mês",
+    title: "Orbyva · Tudo da sua vida em uma só órbita",
     description:
-      "Pare de espalhar a vida em 5 apps. Saiba o que cabe no mês e organize hábitos, viagens e cinema numa só órbita. 7 dias grátis.",
+      "Pare de espalhar a vida em 5 apps. Organize finanças, hábitos, viagens e cinema numa só órbita. 7 dias grátis.",
     path: "/",
     image: "https://orbyva.app/marketing/hub.png",
     brandSuffix: false,
@@ -202,11 +202,10 @@ export default function Landing() {
               weight="semi"
               className="mt-4 font-display"
             >
-              Saiba o que cabe no mês.
+              {BRAND.tagline}.
             </GradientHeading>
             <p className="mt-5 max-w-md text-base leading-relaxed text-zinc-400 sm:text-lg">
-              Pare de pagar e abrir cinco apps. Saiba o que ainda cabe no mês —
-              e organize o resto da vida no mesmo lugar, desde o dia 1.
+              {BRAND.heroSupport}
             </p>
             <div className="mt-8">
               <LandingMagneticCta
@@ -244,11 +243,11 @@ export default function Landing() {
         <section className="relative mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
           <LandingNeonFrame className="px-6 py-14 text-center sm:px-12">
             <h2 className="font-display text-3xl font-semibold leading-[1.4] tracking-tight sm:text-4xl sm:leading-[1.35]">
-              Comece grátis. Organize o mês — e o resto da vida — hoje.
+              Comece grátis. Organize o mês e o resto da vida hoje.
             </h2>
             <p className="mx-auto mt-3 max-w-md text-zinc-400">
-              7 dias com tudo liberado. Depois, Pro por {PLANS.pro.priceLabel} —
-              sem pegadinha e sem senha de banco.
+              7 dias com tudo liberado. Depois, Pro por {PLANS.pro.priceLabel},
+              sem pegadinha.
             </p>
             <div className="mt-8 flex justify-center">
               <LandingMagneticCta

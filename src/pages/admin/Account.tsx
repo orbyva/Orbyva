@@ -52,7 +52,7 @@ import { InviteFriendsCard } from "@/components/InviteFriendsCard";
 
 export default function Account() {
   const { user } = useAuth();
-  const { isPro, isTrialActive, trialDaysLeft, hasAccess, loading: planLoading, refresh } = usePlan();
+  const { isPro, isTrialActive, trialDaysLeft, hasAccess, accessBlockReason, loading: planLoading, refresh } = usePlan();
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -235,37 +235,51 @@ export default function Account() {
   const canDelete = confirmText.trim().toUpperCase() === "EXCLUIR";
   const canWipe = wipeConfirm.trim().toUpperCase() === "LIMPAR";
   const planMeta = isPro ? PLANS.pro : PLANS.free;
-  const trialExpired = !hasAccess && !isPro;
+  const accessBlocked = !hasAccess && !isPro;
+  const blockedTitle =
+    accessBlockReason === "payment_failed"
+      ? "Pagamento pendente"
+      : accessBlockReason === "canceled"
+        ? "Assinatura cancelada"
+        : "Seu teste de 7 dias terminou";
+  const blockedBody =
+    accessBlockReason === "payment_failed"
+      ? `Não conseguimos renovar o Pro. Atualize o cartão no portal ou assine de novo (${PLANS.pro.priceLabel}) para voltar a escrever no app.`
+      : accessBlockReason === "canceled"
+        ? `Sua assinatura foi encerrada. Seus dados continuam salvos — reative o Pro (${PLANS.pro.priceLabel}) quando quiser.`
+        : `Seus dados continuam salvos na órbita. Com o Pro (${PLANS.pro.priceLabel}) você volta a usar finanças, hábitos, cinema e o resto do life OS sem limite de tempo.`;
+  const blockedCta =
+    accessBlockReason === "payment_failed"
+      ? "Atualizar pagamento"
+      : `Continuar com Pro · ${PLANS.pro.priceLabel}`;
 
   return (
     <PageShell
       title="Conta"
       description={`${BRAND.tagline} — perfil, plano, export e exclusão.`}
     >
-      {trialExpired ? (
+      {accessBlocked ? (
         <div className="overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-b from-amber-500/10 via-background to-background p-6 text-center sm:p-8">
           <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10">
             <Sparkles className="size-7 text-primary" />
           </div>
-          <p className="text-lg font-semibold tracking-tight">
-            Seu teste de 7 dias terminou
-          </p>
+          <p className="text-lg font-semibold tracking-tight">{blockedTitle}</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Seus dados continuam salvos na órbita. Com o Pro (
-            {PLANS.pro.priceLabel}) você volta a usar finanças, hábitos, cinema
-            e o resto do life OS sem limite de tempo.
+            {blockedBody}
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             {isBillingConfigured() ? (
               <Button
                 size="lg"
                 disabled={billingBusy}
-                onClick={() => void handleUpgrade()}
+                onClick={() =>
+                  void (accessBlockReason === "payment_failed"
+                    ? handlePortal()
+                    : handleUpgrade())
+                }
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                {billingBusy
-                  ? "Abrindo..."
-                  : `Continuar com Pro · ${PLANS.pro.priceLabel}`}
+                {billingBusy ? "Abrindo..." : blockedCta}
               </Button>
             ) : (
               <Button size="lg" asChild>
@@ -308,7 +322,7 @@ export default function Account() {
             <LogOut className="mr-2 h-4 w-4" />
             Sair
           </Button>
-          <Button variant="outline" asChild disabled={trialExpired}>
+          <Button variant="outline" asChild disabled={accessBlocked}>
             <Link to="/home">Voltar ao início</Link>
           </Button>
           <Button
@@ -415,15 +429,25 @@ export default function Account() {
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
               {planLoading
                 ? "Carregando..."
-                : trialExpired
-                  ? "Seu teste de 7 dias acabou. Assine o Pro para continuar."
-                  : isTrialActive
-                    ? `Teste ativo — ${trialDaysLeft} dia${trialDaysLeft === 1 ? "" : "s"} restante${trialDaysLeft === 1 ? "" : "s"}.`
-                    : `${planMeta.name} — ${planMeta.blurb}`}
+                : accessBlockReason === "payment_failed"
+                  ? "Pagamento pendente — atualize o cartão para voltar ao Pro."
+                  : accessBlockReason === "canceled"
+                    ? "Assinatura cancelada. Reative o Pro quando quiser."
+                    : accessBlocked
+                      ? "Seu teste de 7 dias acabou. Assine o Pro para continuar."
+                      : isTrialActive
+                        ? `Teste ativo — ${trialDaysLeft} dia${trialDaysLeft === 1 ? "" : "s"} restante${trialDaysLeft === 1 ? "" : "s"}.`
+                        : `${planMeta.name} — ${planMeta.blurb}`}
             </p>
           </div>
           <span className="rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wide">
-            {isPro ? "pro" : isTrialActive ? "teste" : "expirado"}
+            {isPro
+              ? "pro"
+              : isTrialActive
+                ? "teste"
+                : accessBlockReason === "payment_failed"
+                  ? "pagamento"
+                  : "expirado"}
           </span>
         </div>
         {isTrialActive && trialDaysLeft <= 2 ? (
@@ -491,7 +515,7 @@ export default function Account() {
               <Sparkles className="mr-2 h-4 w-4" />
               {billingBusy
                 ? "Abrindo..."
-                : trialExpired
+                : accessBlocked
                   ? `Continuar com Pro · ${PLANS.pro.priceLabel}`
                   : `Assinar Pro · ${PLANS.pro.priceLabel}`}
             </Button>

@@ -30,7 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/MoneyInput";
-import { FormLabel } from "@/components/FormLabel";
+import { FormLabel, FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 
 type PlanMode = "fixed" | "split";
@@ -247,7 +247,7 @@ export function RecurringFormDialog({
           <Button className="w-full sm:w-auto">Nova recorrência</Button>
         </DialogTrigger>
       )}
-      <DialogContent className="max-h-[90vh] max-w-md gap-0 overflow-y-auto p-4 sm:max-w-xl sm:p-6">
+      <DialogContent className={`${FORM_DIALOG_CONTENT_CLASS} gap-0`}>
         <DialogHeader className="pb-3">
           <DialogTitle>
             {isEditing ? "Editar recorrência" : "Nova recorrência"}
