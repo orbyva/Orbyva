@@ -53,7 +53,7 @@ import { TaskTimeEntriesField } from "./TaskTimeEntriesField";
 import { EmptyState } from "@/components/EmptyState";
 import {
   FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
+  FORM_DIALOG_CONTENT_CLASS_LG,
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
@@ -734,6 +734,7 @@ export default function TaskList() {
 
       <SubtaskEditDialog
         subtask={editingSubtask}
+        parentDueDate={tasks.find((t) => t.id === editingSubtask?.parent_task_id)?.due_date ?? null}
         onOpenChange={(v) => !v && setEditingSubtask(null)}
         onSave={saveSubtaskEdit}
       />
@@ -760,7 +761,7 @@ export default function TaskList() {
       </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
+        <DialogContent className={FORM_DIALOG_CONTENT_CLASS_LG}>
           <DialogHeader>
             <DialogTitle>{editing ? "Editar tarefa" : "Nova tarefa"}</DialogTitle>
           </DialogHeader>

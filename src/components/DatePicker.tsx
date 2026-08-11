@@ -26,6 +26,9 @@ interface DatePickerProps {
   /** Limites do calendário / dropdowns (padrão: 20 anos atrás → 10 à frente). */
   startMonth?: Date;
   endMonth?: Date;
+  /** Bloqueia a seleção de dias depois dessa data (ex.: prazo de subtarefa não pode passar do
+   * prazo da tarefa-pai). Não afeta navegação de mês/dropdowns, só quais dias ficam clicáveis. */
+  maxDate?: Date;
 }
 
 export function DatePicker({
@@ -37,6 +40,7 @@ export function DatePicker({
   className,
   startMonth: startMonthProp,
   endMonth: endMonthProp,
+  maxDate,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState<Date>(date ?? startOfLocalDay());
@@ -132,6 +136,7 @@ export function DatePicker({
             onMonthChange={setMonth}
             selected={date}
             onSelect={handleSelect}
+            disabled={maxDate ? { after: maxDate } : undefined}
             locale={ptBR}
             captionLayout="dropdown"
             hideNavigation

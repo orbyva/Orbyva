@@ -701,6 +701,7 @@ export default function ProjectDetail() {
 
       <SubtaskEditDialog
         subtask={editingSubtask}
+        parentDueDate={tasks.find((t) => t.id === editingSubtask?.parent_task_id)?.due_date ?? null}
         onOpenChange={(v) => !v && setEditingSubtask(null)}
         onSave={saveSubtaskEdit}
       />

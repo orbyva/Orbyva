@@ -32,6 +32,11 @@ export function FormLabel({
 export const FORM_DIALOG_CONTENT_CLASS =
   "max-w-md sm:max-w-lg w-full p-4 sm:p-6";
 
+/** Variante mais larga só pro dialog de criar/editar tarefa (`TaskList.tsx`) — formulário em
+ * abas com mais campos que os outros 5 dialogs que usam `FORM_DIALOG_CONTENT_CLASS`. */
+export const FORM_DIALOG_CONTENT_CLASS_LG =
+  "max-w-md sm:max-w-2xl lg:max-w-3xl w-full p-4 sm:p-6";
+
 export const FORM_FIELDS_CLASS = "grid grid-cols-1 gap-4";
 
 export const PAGE_HEADER_ACTIONS_CLASS =

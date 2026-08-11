@@ -112,17 +112,20 @@ podem ser botões na página de [Tarefas]").
       navegando certo
 - [x] Trocar badge de status por `<Select>` inline na lista (`TaskViews.tsx`), reaproveitando
       `applyStatusChange`
-- [ ] Investigar e corrigir o flicker do `TagCombobox.tsx` (popover fechando logo após abrir)
-- [ ] Criar `isSubtaskDueDateValid` em `src/domain/tasks/subtasks.ts` + teste Vitest cobrindo:
+- [ ] Investigar e corrigir o flicker do `TagCombobox.tsx` (popover fechando logo após abrir) —
+      não reproduzido ainda, ver Notas
+- [x] Criar `isSubtaskDueDateValid` em `src/domain/tasks/subtasks.ts` + teste Vitest cobrindo:
       subtarefa sem prazo, subtarefa igual ao prazo do pai, subtarefa depois do pai (inválida), pai
       sem prazo (qualquer prazo de subtarefa válido)
-- [ ] Aplicar a validação em `SubtaskEditDialog.tsx` e `TaskSubtasksField.tsx` (bloquear
-      seleção/salvamento além do prazo do pai)
-- [ ] Criar `FORM_DIALOG_CONTENT_CLASS_LG` em `FormLabel.tsx` e aplicar no dialog de tarefa
+- [x] Aplicar a validação em `SubtaskEditDialog.tsx` (bloquear seleção/salvamento além do prazo
+      do pai) — `TaskSubtasksField.tsx` não tem campo de prazo (subtarefa nasce só com título;
+      prazo só existe em `SubtaskEditDialog.tsx`), ver Notas
+- [x] Criar `FORM_DIALOG_CONTENT_CLASS_LG` em `FormLabel.tsx` e aplicar no dialog de tarefa
       (`TaskList.tsx:527`)
-- [ ] Teste manual extra: mudar status pela lista, abrir tags sem flicker, tentar salvar subtarefa
-      com prazo além do pai (deve bloquear), abrir modal de criar tarefa em tela grande (deve estar
-      visivelmente mais largo)
+- [x] Teste manual extra: mudar status pela lista, tentar salvar subtarefa com prazo além do pai
+      (bloqueou — dias desabilitados no calendário + botão Salvar desabilitado), abrir modal de
+      criar tarefa em tela grande (visivelmente mais largo). Flicker do TagCombobox não
+      reproduzido (ver Notas), segue pendente.
 - [x] `LiveWidget.tsx`: remover o gate de módulo — widget aparece em qualquer tela, não só `/tasks*`
 - [x] API `updateTimeEntry`/`deleteTimeEntry` em `src/api/tasks/timeEntries.ts`
 - [x] `TimeEntryRow.tsx` compartilhado — editar início/fim (com segundos) e excluir um registro
@@ -134,6 +137,24 @@ podem ser botões na página de [Tarefas]").
       pré-filtrando certo
 
 ## Notas
+- **`TaskSubtasksField.tsx` não precisou de validação**: o plano original previa aplicar
+  `isSubtaskDueDateValid` nos "dois pontos de entrada — criação e edição". Na prática,
+  `TaskSubtasksField.tsx` (usado na criação, dentro da aba Organização) só coleta título — o
+  draft (`SubtaskDraft`) nem tem campo de prazo, e a subtarefa recém-criada nasce com
+  `due_date: null` (via `emptyTask()`). O único lugar onde um prazo de subtarefa é escolhido de
+  verdade é `SubtaskEditDialog.tsx` (aberto ao clicar numa subtarefa existente) — é lá que a
+  validação faz diferença, e foi onde apliquei (`DatePicker` com `maxDate` bloqueando dias depois
+  do prazo do pai + mensagem de erro + botão Salvar desabilitado enquanto inválido).
+- **Flicker do `TagCombobox` não reproduzido**: testado ao vivo (Chrome MCP, ngrok) no dialog de
+  criar tarefa — digitar caractere a caractere, selecionar uma tag existente (dispara o
+  `setForm` do pai, o gatilho que a hipótese original apontava), apagar e redigitar. Popover
+  ficou aberto o tempo todo em todos os casos, sem fechar sozinho. A hipótese original também não
+  se sustenta na leitura do código: digitar na busca só atualiza o `query` local do
+  `TagCombobox` (não toca `form` do pai) — só selecionar/criar uma tag chama `onChange` →
+  `setForm`, e mesmo aí não reproduziu. Pode ser específico de digitação real (velocidade/timing
+  que `type` via CDP não replica), mobile, ou já ter sido corrigido por uma mudança lateral desde
+  que o bug foi relatado. Tarefa continua `[ ]` — precisa o usuário reproduzir ao vivo (quando/onde
+  exatamente acontece) antes de eu aplicar uma correção às cegas.
 - **Presunções confirmadas com o usuário antes de implementar** (2026-08-10):
   1. Live e Tags viram *navegação* (botão → rota existente), não um dialog/painel embutido —
      confirmado.
