@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Play, Square, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,8 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import { fetchAllEntries, fetchProjects, fetchTasks } from "@/api/tasks";
+import { TimeEntryRow } from "./TimeEntryRow";
+import { deleteTimeEntry, fetchAllEntries, fetchProjects, fetchTasks, updateTimeEntry } from "@/api/tasks";
 import { elapsedSeconds, formatDuration, groupEntriesByDay } from "@/domain/tasks";
 import { formatDateBR } from "@/lib/currency";
 import { formatLocalIsoDate } from "@/lib/dates";
@@ -22,21 +24,22 @@ import { useActiveTimer } from "@/hooks/useActiveTimer";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
-function formatTimeOfDay(iso: string): string {
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-}
-
 type DateScope = "today" | "all";
 
 export default function Live() {
+  const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [entries, setEntries] = useState<TaskTimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [now, setNow] = useState(() => new Date());
-  const [dateScope, setDateScope] = useState<DateScope>("today");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [dateScope, setDateScope] = useState<DateScope>(() =>
+    searchParams.get("project") ? "all" : "today"
+  );
+  const [projectFilter, setProjectFilter] = useState<string>(
+    () => searchParams.get("project") ?? "all"
+  );
   const [taskFilter, setTaskFilter] = useState<string>("all");
   const { toast } = useToast();
   const { runningEntry: running, start, stop } = useActiveTimer();
@@ -116,6 +119,7 @@ export default function Live() {
           taskId: e.task_id,
           startedAt: e.started_at,
           endedAt: e.ended_at,
+          raw: e,
         }))
       ),
     [filteredEntries]
@@ -145,6 +149,35 @@ export default function Live() {
       toast({
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível parar o timer."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleSaveEntry(
+    entry: TaskTimeEntry,
+    payload: { started_at: string; ended_at: string | null }
+  ) {
+    try {
+      await updateTimeEntry(entry.id, payload);
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível salvar o registro."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleDeleteEntry(entry: TaskTimeEntry) {
+    try {
+      await deleteTimeEntry(entry.id);
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível excluir o registro."),
         variant: "destructive",
       });
     }
@@ -277,23 +310,14 @@ export default function Live() {
                       {formatDateBR(group.dayIso)}
                     </p>
                     {group.entries.map((entry) => (
-                      <div
+                      <TimeEntryRow
                         key={entry.id}
-                        className="flex items-center justify-between rounded-lg border bg-card px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm">
-                            {tasksById.get(entry.taskId)?.title ?? "Tarefa removida"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatTimeOfDay(entry.startedAt)} –{" "}
-                            {entry.endedAt ? formatTimeOfDay(entry.endedAt) : "em andamento"}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
-                          {formatDuration(elapsedSeconds(entry, now))}
-                        </span>
-                      </div>
+                        entry={entry.raw}
+                        taskTitle={tasksById.get(entry.taskId)?.title ?? "Tarefa removida"}
+                        now={now}
+                        onSave={(payload) => handleSaveEntry(entry.raw, payload)}
+                        onDelete={() => handleDeleteEntry(entry.raw)}
+                      />
                     ))}
                   </div>
                 ))}

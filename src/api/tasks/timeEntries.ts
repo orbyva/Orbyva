@@ -93,3 +93,31 @@ export async function stopTimer(entryId: string): Promise<void> {
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
 }
+
+/** Edição manual de um registro (início/fim) — usada pra corrigir um timer esquecido rodando ou
+ * ajustar horários errados, tanto em `Live.tsx` quanto em `TaskTimeEntriesField.tsx`. */
+export async function updateTimeEntry(
+  entryId: string,
+  updates: { started_at?: string; ended_at?: string | null }
+): Promise<TaskTimeEntry> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("task_time_entry")
+    .update(updates)
+    .eq("id", entryId)
+    .eq("user_id", userId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function deleteTimeEntry(entryId: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("task_time_entry")
+    .delete()
+    .eq("id", entryId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}

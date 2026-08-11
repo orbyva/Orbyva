@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { Play, Square, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
@@ -9,23 +8,21 @@ import type { Task, TaskTimeEntry } from "@/types/tasks";
 import { cn } from "@/lib/utils";
 
 /**
- * Widget flutuante de acesso rápido ao timer "Live" — só aparece dentro do módulo
- * Produtividade (`/tasks*`). Mostra a tarefa com timer rodando; sem timer ativo, mostra a
- * última tarefa interagida como atalho pra retomar sem precisar abrir `/tasks/live`.
- * Responsivo: pill no canto inferior direito no desktop, barra acima da navegação inferior
- * no mobile — mesmo componente, sem duplicar a lógica de dados entre duas variações.
+ * Widget flutuante de acesso rápido ao timer "Live" — fixo em todas as telas (montado uma vez em
+ * `AdminLayout.tsx`, não só dentro do módulo Produtividade), já que o usuário pode cronometrar uma
+ * tarefa enquanto navega por qualquer outro módulo. Mostra a tarefa com timer rodando; sem timer
+ * ativo, mostra a última tarefa interagida como atalho pra retomar sem precisar abrir
+ * `/tasks/live`. Responsivo: pill no canto inferior direito no desktop, barra acima da navegação
+ * inferior no mobile — mesmo componente, sem duplicar a lógica de dados entre duas variações.
  */
 export function LiveWidget() {
-  const location = useLocation();
   const { runningEntry, start, stop } = useActiveTimer();
   const [lastEntry, setLastEntry] = useState<TaskTimeEntry | null>(null);
   const [task, setTask] = useState<Task | null>(null);
   const [now, setNow] = useState(() => new Date());
 
-  const inProdutividade = location.pathname.startsWith("/tasks");
-
   useEffect(() => {
-    if (!inProdutividade || runningEntry) return;
+    if (runningEntry) return;
     let cancelled = false;
     fetchLastInteractedEntry()
       .then((entry) => {
@@ -35,7 +32,7 @@ export function LiveWidget() {
     return () => {
       cancelled = true;
     };
-  }, [inProdutividade, runningEntry]);
+  }, [runningEntry]);
 
   const activeEntry = runningEntry ?? lastEntry;
   const activeTaskId = activeEntry?.task_id ?? null;
@@ -64,7 +61,7 @@ export function LiveWidget() {
 
   const isRunning = !!runningEntry;
 
-  if (!inProdutividade || !activeEntry || !task) return null;
+  if (!activeEntry || !task) return null;
   // Timer parado + última tarefa interagida já concluída: não faz sentido oferecer "Retomar" nela.
   if (!isRunning && task.status === "done") return null;
 

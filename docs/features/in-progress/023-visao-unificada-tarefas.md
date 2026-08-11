@@ -81,6 +81,18 @@ podem ser botões na página de [Tarefas]").
   então criar uma variante nova (`FORM_DIALOG_CONTENT_CLASS_LG`, ex.
   `max-w-md sm:max-w-2xl lg:max-w-3xl w-full p-4 sm:p-6`) só pro dialog de criar/editar tarefa
   (`TaskList.tsx:527`), que é o formulário em abas com mais campos.
+- **Cronômetro Flutuante global + registros de tempo editáveis** (pedido do usuário, priorizado
+  na frente da fila desta feature): `LiveWidget.tsx` perde o gate `inProdutividade` (só aparecia
+  em `/tasks*`) — passa a aparecer em qualquer módulo, já que ele é montado uma vez em
+  `AdminLayout.tsx`. Registros de tempo (`task_time_entry`) ganham edição completa (início, fim,
+  excluir) via um componente novo e compartilhado, `TimeEntryRow.tsx` — usado tanto em
+  `TaskTimeEntriesField.tsx` (acesso "direto na tarefa", antes somente-leitura) quanto em
+  `Live.tsx` (histórico completo). Acesso "via página do projeto": botão "Registros de tempo" em
+  `ProjectDetail.tsx` navegando pra `/tasks/live?project=<id>` — `Live.tsx` passa a ler esse query
+  param pra pré-selecionar o filtro de projeto (e usar escopo "Tudo" em vez de "Hoje" quando vem
+  de lá, senão a maioria dos registros ficaria escondida). Sem função de domínio nova: editar é só
+  `updateTimeEntry(id, {started_at, ended_at})` (novo em `api/tasks/timeEntries.ts`), duração
+  continua derivada por `elapsedSeconds`.
 
 ## Tarefas
 - [x] Reduzir `NAV_PRODUTIVIDADE` (`app-sidebar.tsx`) pra Tarefas + Projetos
@@ -111,6 +123,15 @@ podem ser botões na página de [Tarefas]").
 - [ ] Teste manual extra: mudar status pela lista, abrir tags sem flicker, tentar salvar subtarefa
       com prazo além do pai (deve bloquear), abrir modal de criar tarefa em tela grande (deve estar
       visivelmente mais largo)
+- [x] `LiveWidget.tsx`: remover o gate de módulo — widget aparece em qualquer tela, não só `/tasks*`
+- [x] API `updateTimeEntry`/`deleteTimeEntry` em `src/api/tasks/timeEntries.ts`
+- [x] `TimeEntryRow.tsx` compartilhado — editar início/fim (com segundos) e excluir um registro
+- [x] `TaskTimeEntriesField.tsx` usa `TimeEntryRow` (deixa de ser somente-leitura)
+- [x] `Live.tsx` usa `TimeEntryRow` no histórico + lê `?project=` da URL pra pré-filtrar
+- [x] Botão "Registros de tempo" em `ProjectDetail.tsx` navegando pra `/tasks/live?project=<id>`
+- [x] `npm run build && npm run lint` + teste manual no browser (ngrok): widget aparecendo fora de
+      Produtividade, editar/excluir registro em `Live.tsx` e no dialog de tarefa, botão do projeto
+      pré-filtrando certo
 
 ## Notas
 - **Presunções confirmadas com o usuário antes de implementar** (2026-08-10):

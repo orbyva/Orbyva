@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ListTodo, Plus } from "lucide-react";
+import { ArrowLeft, ListTodo, Plus, Timer } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -491,7 +491,17 @@ export default function ProjectDetail() {
       title={project?.name ?? "Kanban"}
       description={project?.description ?? "Acompanhe o andamento das tarefas do projeto."}
       eyebrow="Produtividade"
-      actions={<Button onClick={() => openCreate("todo")}>Nova tarefa</Button>}
+      actions={
+        <>
+          <Button variant="outline" asChild>
+            <Link to={`/tasks/live?project=${id}`}>
+              <Timer className="h-4 w-4" />
+              Registros de tempo
+            </Link>
+          </Button>
+          <Button onClick={() => openCreate("todo")}>Nova tarefa</Button>
+        </>
+      }
     >
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>

@@ -1,32 +1,64 @@
-import { useEffect, useState } from "react";
-import { fetchEntriesForTask } from "@/api/tasks";
-import { elapsedSeconds, formatDuration } from "@/domain/tasks";
-import { formatDateBR } from "@/lib/currency";
-import { formatLocalIsoDate } from "@/lib/dates";
+import { useCallback, useEffect, useState } from "react";
+import { deleteTimeEntry, fetchEntriesForTask, updateTimeEntry } from "@/api/tasks";
+import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
+import { TimeEntryRow } from "./TimeEntryRow";
 import type { TaskTimeEntry } from "@/types/tasks";
 
 /**
- * Seção somente-leitura com os registros de tempo (`task_time_entry`) de uma tarefa — usada no
- * dialog de edição pra mostrar quanto tempo já foi cronometrado nela, sem precisar ir até
- * `/tasks/live` pra ver o histórico.
+ * Seção com os registros de tempo (`task_time_entry`) de uma tarefa — usada no dialog de edição
+ * pra ver e editar (início/fim, excluir) quanto tempo já foi cronometrado nela, sem precisar ir
+ * até `/tasks/live`.
  */
 export function TaskTimeEntriesField({ taskId }: { taskId: string }) {
   const [entries, setEntries] = useState<TaskTimeEntry[] | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  const { toast } = useToast();
+
+  const load = useCallback(() => {
+    return fetchEntriesForTask(taskId)
+      .then((data) => setEntries(data))
+      .catch(() => setEntries([]));
+  }, [taskId]);
 
   useEffect(() => {
-    let cancelled = false;
     setEntries(null);
-    fetchEntriesForTask(taskId)
-      .then((data) => {
-        if (!cancelled) setEntries(data);
-      })
-      .catch(() => {
-        if (!cancelled) setEntries([]);
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function handleSave(
+    entry: TaskTimeEntry,
+    payload: { started_at: string; ended_at: string | null }
+  ) {
+    try {
+      await updateTimeEntry(entry.id, payload);
+      await load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível salvar o registro."),
+        variant: "destructive",
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [taskId]);
+    }
+  }
+
+  async function handleDelete(entry: TaskTimeEntry) {
+    try {
+      await deleteTimeEntry(entry.id);
+      await load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível excluir o registro."),
+        variant: "destructive",
+      });
+    }
+  }
 
   if (entries === null) return null;
 
@@ -36,27 +68,15 @@ export function TaskTimeEntriesField({ taskId }: { taskId: string }) {
       {entries.length === 0 ? (
         <p className="mt-1 text-xs text-muted-foreground">Nenhum registro ainda.</p>
       ) : (
-        <div className="mt-1.5 max-h-40 space-y-1 overflow-y-auto">
+        <div className="mt-1.5 max-h-64 space-y-1.5 overflow-y-auto">
           {entries.map((entry) => (
-            <div
+            <TimeEntryRow
               key={entry.id}
-              className="flex items-center justify-between rounded-md border px-2.5 py-1.5 text-xs"
-            >
-              <span className="text-muted-foreground">
-                {formatDateBR(formatLocalIsoDate(new Date(entry.started_at)))}
-              </span>
-              <span className="font-medium tabular-nums">
-                {entry.ended_at
-                  ? formatDuration(
-                      elapsedSeconds({
-                        taskId: entry.task_id,
-                        startedAt: entry.started_at,
-                        endedAt: entry.ended_at,
-                      })
-                    )
-                  : "em andamento"}
-              </span>
-            </div>
+              entry={entry}
+              now={now}
+              onSave={(payload) => handleSave(entry, payload)}
+              onDelete={() => handleDelete(entry)}
+            />
           ))}
         </div>
       )}
