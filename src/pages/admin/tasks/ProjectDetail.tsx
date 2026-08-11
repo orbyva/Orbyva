@@ -643,6 +643,9 @@ export default function ProjectDetail() {
                               onToggleSubtask={toggleSubtask}
                               onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
                               onToggleDone={() => toggleSubtask(task)}
+                              onStatusChange={(status) =>
+                                applyStatusChange(task, status, "Não foi possível atualizar a tarefa.")
+                              }
                               onOpenSeries={() => setSeriesTask(task)}
                               onEdit={() => openEdit(task)}
                               onDelete={() => handleDelete(task.id)}
@@ -665,6 +668,9 @@ export default function ProjectDetail() {
                     onToggleSubtask={toggleSubtask}
                     onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
                     onToggleDone={toggleSubtask}
+                    onStatusChange={(task, status) =>
+                      applyStatusChange(task, status, "Não foi possível atualizar a tarefa.")
+                    }
                     onOpenSeries={(task) => setSeriesTask(task)}
                     onEdit={openEdit}
                     onDelete={handleDelete}

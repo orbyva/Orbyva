@@ -20,6 +20,13 @@ import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
@@ -163,6 +170,7 @@ export function TaskListRow({
   onToggleSubtask,
   onOpenSubtask,
   onToggleDone,
+  onStatusChange,
   onOpenSeries,
   onEdit,
   onDelete,
@@ -179,6 +187,9 @@ export function TaskListRow({
   onToggleSubtask: (subtask: Task) => void;
   onOpenSubtask: (subtask: Task) => void;
   onToggleDone: () => void;
+  /** Select inline de status (A fazer/Fazendo/Feito) — `onToggleDone` continua como atalho
+   * rápido pra concluir/reabrir; o Select cobre o caso "Fazendo" que o atalho binário não cobre. */
+  onStatusChange: (status: TaskStatus) => void;
   onOpenSeries: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -242,9 +253,21 @@ export function TaskListRow({
               </p>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              <Badge variant="outline" className="text-[10px]">
-                {task.status === "todo" ? "A fazer" : task.status === "doing" ? "Fazendo" : "Feito"}
-              </Badge>
+              <Select value={task.status} onValueChange={(v) => onStatusChange(v as TaskStatus)}>
+                <SelectTrigger
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-5 w-auto gap-1 border-none bg-transparent px-1.5 py-0 text-[10px] font-semibold text-muted-foreground shadow-none hover:bg-muted [&>svg]:h-3 [&>svg]:w-3"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {STATUS_LABELS[status]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {task.linked_recurring_id && (
                 <Badge variant="outline" className="text-[10px]">
                   Vinculada a Recorrência
@@ -322,6 +345,7 @@ export function CompletedTasksSection({
   onToggleSubtask,
   onOpenSubtask,
   onToggleDone,
+  onStatusChange,
   onOpenSeries,
   onEdit,
   onDelete,
@@ -337,6 +361,7 @@ export function CompletedTasksSection({
   onToggleSubtask: (subtask: Task) => void;
   onOpenSubtask: (subtask: Task) => void;
   onToggleDone: (task: Task) => void;
+  onStatusChange: (task: Task, status: TaskStatus) => void;
   onOpenSeries: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
@@ -369,6 +394,7 @@ export function CompletedTasksSection({
             onToggleSubtask={onToggleSubtask}
             onOpenSubtask={onOpenSubtask}
             onToggleDone={() => onToggleDone(task)}
+            onStatusChange={(status) => onStatusChange(task, status)}
             onOpenSeries={() => onOpenSeries(task)}
             onEdit={() => onEdit(task)}
             onDelete={() => onDelete(task.id)}

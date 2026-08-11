@@ -584,6 +584,7 @@ export default function TaskList() {
                           onToggleSubtask={toggleDone}
                           onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
                           onToggleDone={() => toggleDone(task)}
+                          onStatusChange={(status) => applyStatusChange(task, status)}
                           onOpenSeries={() => setSeriesTask(task)}
                           onEdit={() => openEdit(task)}
                           onDelete={() => handleDelete(task.id)}
@@ -617,6 +618,7 @@ export default function TaskList() {
                   onToggleSubtask={toggleDone}
                   onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
                   onToggleDone={toggleDone}
+                  onStatusChange={(task, status) => applyStatusChange(task, status)}
                   onOpenSeries={(task) => setSeriesTask(task)}
                   onEdit={openEdit}
                   onDelete={handleDelete}

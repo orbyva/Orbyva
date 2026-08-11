@@ -110,7 +110,7 @@ podem ser botões na página de [Tarefas]").
 - [x] `npm run build && npm run lint` + teste manual: alternar entre as 4 visões sem perder
       filtro/contexto, Kanban global funcionando (drag-and-drop, todos os projetos), botões Live/Tags
       navegando certo
-- [ ] Trocar badge de status por `<Select>` inline na lista (`TaskViews.tsx`), reaproveitando
+- [x] Trocar badge de status por `<Select>` inline na lista (`TaskViews.tsx`), reaproveitando
       `applyStatusChange`
 - [ ] Investigar e corrigir o flicker do `TagCombobox.tsx` (popover fechando logo após abrir)
 - [ ] Criar `isSubtaskDueDateValid` em `src/domain/tasks/subtasks.ts` + teste Vitest cobrindo:
