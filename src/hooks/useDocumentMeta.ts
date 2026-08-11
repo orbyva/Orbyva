@@ -70,13 +70,8 @@ export function applyDocumentMeta(input: DocumentMetaInput) {
 }
 
 export function useDocumentMeta(input: DocumentMetaInput) {
+  const { title, description, path, image, brandSuffix } = input;
   useEffect(() => {
-    applyDocumentMeta(input);
-  }, [
-    input.title,
-    input.description,
-    input.path,
-    input.image,
-    input.brandSuffix,
-  ]);
+    applyDocumentMeta({ title, description, path, image, brandSuffix });
+  }, [title, description, path, image, brandSuffix]);
 }

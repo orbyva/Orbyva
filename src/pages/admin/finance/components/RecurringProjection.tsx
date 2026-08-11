@@ -185,7 +185,7 @@ export function RecurringProjection({
     return () => {
       cancelled = true;
     };
-  }, [ym.year, ym.month, openOnly, recurring, chartFutureMonths]);
+  }, [ym, openOnly, recurring, chartFutureMonths]);
 
   const simThisMonth = simulationAmountForYm(simulation, ym.year, ym.month);
 

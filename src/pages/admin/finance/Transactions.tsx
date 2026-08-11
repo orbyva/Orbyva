@@ -196,7 +196,7 @@ export default function Transactions() {
     }
   }
 
-  async function editTransaction(_linkedTripId?: string | null) {
+  async function editTransaction() {
     if (!selectedTransaction) return;
 
     try {

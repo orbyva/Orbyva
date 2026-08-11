@@ -6,7 +6,7 @@ import { ptBR } from "date-fns/locale";
 import { CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { formatLocalIsoDate, startOfLocalDay } from "@/lib/dates";
+import { startOfLocalDay } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -180,4 +180,3 @@ export function DatePicker({
   );
 }
 
-export { formatLocalIsoDate };

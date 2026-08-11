@@ -18,7 +18,7 @@ import { isBillingConfigured } from "@/lib/billing-config";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/hooks/useAuth";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
-import { FAQ_JSON_LD } from "@/pages/landing/LandingFaq";
+import { FAQ_JSON_LD } from "@/pages/landing/landingFaqData";
 
 const LandingCompare = lazy(() =>
   import("@/pages/landing/LandingCompare").then((m) => ({

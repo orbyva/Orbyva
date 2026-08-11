@@ -15,6 +15,7 @@ import {
   type WeatherDayForecast,
   type WeatherHourForecast,
 } from "@/lib/googleWeather";
+import { cityWeatherKey, hoursNeededForCityEnd } from "@/lib/tripWeather";
 
 export type TripWeatherStop = {
   lat: number;
@@ -49,10 +50,6 @@ type TripWeatherContextValue = {
 
 const TripWeatherContext = createContext<TripWeatherContextValue | null>(null);
 
-export function cityWeatherKey(lat: number, lng: number): string {
-  return `${lat.toFixed(3)}|${lng.toFixed(3)}`;
-}
-
 function weatherErrorMessage(err: unknown): string {
   if (err instanceof WeatherNotConfiguredError) {
     return "Previsão do tempo ainda não configurada.";
@@ -60,21 +57,6 @@ function weatherErrorMessage(err: unknown): string {
   if (err instanceof MapsQuotaExceededError) return err.message;
   if (err instanceof WeatherUnavailableError) return err.message;
   return "Previsão do tempo indisponível.";
-}
-
-/** Horas até o fim da parada mais longa desta cidade (teto 240). */
-export function hoursNeededForCityEnd(endDates: string[]): number | null {
-  let maxEndMs = -Infinity;
-  for (const end of endDates) {
-    const t = new Date(`${end}T23:59:59`).getTime();
-    if (!Number.isNaN(t) && t > maxEndMs) maxEndMs = t;
-  }
-  if (!Number.isFinite(maxEndMs)) return null;
-  const ms = maxEndMs - Date.now();
-  if (ms < -36 * 3600_000) return null;
-  const hours = Math.ceil(ms / 3600_000) + 2;
-  if (hours <= 0) return 72;
-  return Math.min(Math.max(hours, 72), 240);
 }
 
 function filterDays(
@@ -234,6 +216,7 @@ export function TripWeatherProvider({
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook paired with provider
 export function useTripWeather(): TripWeatherContextValue | null {
   return useContext(TripWeatherContext);
 }

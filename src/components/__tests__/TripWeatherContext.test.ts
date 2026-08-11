@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cityWeatherKey,
   hoursNeededForCityEnd,
-} from "@/components/TripWeatherContext";
+} from "@/lib/tripWeather";
 
 describe("TripWeather share helpers", () => {
   it("chave de cidade por lat/lng arredondados", () => {

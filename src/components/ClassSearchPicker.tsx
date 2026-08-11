@@ -46,7 +46,7 @@ export type ClassPickOption = {
   lucideIcon: string | null;
 };
 
-export function flattenClassOptions(
+function flattenClassOptions(
   dimensions: Dimension[],
   natureFilter?: string | null
 ): ClassPickOption[] {
