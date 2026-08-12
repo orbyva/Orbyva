@@ -15,7 +15,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 A sidebar agrupa o app em quatro blocos:
 
 ### Início
-- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro), waitlist; marketing com motion OriginKit + Cult UI + Skiper UI (free)
+- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro), waitlist; marketing com motion OriginKit + Cult UI + Skiper UI (free); módulos por ícones (sem prints repetidos); card do cronômetro flutuante
 - **Dashboard** (`/home`) — resumo do dia: hábitos, saldo, alertas, atalhos; botão **+** abre um popover compacto e formulários de criação no overlay (sem sair da tela, quando suportado)
 - **Timeline** (`/timeline`) — eventos agregados de todos os módulos
 
@@ -34,8 +34,8 @@ A sidebar agrupa o app em quatro blocos:
 ### Vida
 - **Hábitos** (`/habits`) — check-in do dia, faixa da semana, heatmap mensal (aba **Hoje | Mês**), anti-hábitos e vínculo com metas
 - **Metas** (`/goals`) — progresso, categorias e prazos
-- **Lugares** (`/places`) — para visitar / visitados; busca Google Places; nota e opinião
-- **Viagens** (`/travel`, `/travel/:id`) — paradas multi-cidade (editar parada no lápis do dia); clima + sugestão de roupa/mala (dia/noite e faixas horárias); roteiro por dia (mover atividades com animação, status de visita, próximo destino + rotas Google; ao editar início/fim da viagem o roteiro realinha pelas datas); deslocamentos como **atividade do dia** (origem/destino obrigatórios → título Origem → Destino; modo voo/trem/ônibus/carro; saída/chegada; estimar saída/chegada via Routes em terra; conflito de horário com visitas); gastos (incl. rateio e vínculo com finanças); lugares da viagem; prazos; convites compartilhados
+- **Lugares** (`/places`) — para visitar / visitados (fluxos separados); busca Google Places; nota e opinião; na edição, aba **Visitas** com N visitas ao mesmo lugar (`place_visit_occurrence`)
+- **Viagens** (`/travel`, `/travel/:id`) — paradas multi-cidade (editar parada no lápis do dia); clima + sugestão de roupa/mala sob demanda (botão); roteiro por dia (dias passados ocultos com “ver anteriores”; mover atividades; status de visita; ícone Google Maps quando houver link; próximo destino + rotas Google; ao editar início/fim da viagem o roteiro realinha pelas datas); deslocamentos como **atividade do dia** (origem/destino obrigatórios → título Origem → Destino; modo voo/trem/ônibus/carro; saída/chegada com input `time`; ida/volta iniciais na criação; conflito de horário com visitas); gastos (incl. rateio e vínculo com finanças; lançamento em categoria Viagens pode vincular a uma viagem); lugares da viagem; prazos; convites compartilhados. GPS no Chrome exige `Permissions-Policy: geolocation=(self)` (ver `vercel.json`).
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
 
 ---
@@ -189,6 +189,7 @@ Gates importantes:
 | Cinema watching/abandoned | `20260728200000_movie_watching_abandoned` |
 | Roteiro (link / reservado / categoria) | `20260804120000_improve_md_features` |
 | Lugares geo + checklist de visita | `20260804200000_place_visit_geo` |
+| N visitas por lugar | `20260811140000_place_visit_occurrences` |
 | Quota Maps (Places / Routes / Weather) | `20260804210000` … `20260806120000_maps_google_providers` |
 
 > Sem tenancy/RLS, o app filtra no cliente, mas o banco ainda pode vazar. Teste com **2 contas** (E2E RLS opcional).
@@ -310,7 +311,7 @@ Secrets comuns: `RESEND_API_KEY`, `RESEND_FROM`, `SITE_URL`, `CRON_SECRET`. Pref
 1. Importar o repo
 2. Env: `VITE_SUPABASE_*`, chaves de catálogo, Stripe publishable se cobrar
 3. Build: `npm run build` · Output: `dist`
-4. `vercel.json` — SPA rewrite + proxies de mídia + CSP
+4. `vercel.json` — SPA rewrite + proxies de mídia + CSP + Permissions-Policy (`geolocation=(self)` para Places/roteiro; camera/mic bloqueados)
 5. Deploy das Edge Functions no Supabase (Stripe / Spotify / places-catalog / e-mails)
 
 > Só **Anon Key** no front. Nunca service role no browser.

@@ -62,6 +62,9 @@ export default function Places() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [editing, setEditing] = useState<PlaceVisit | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [editIntent, setEditIntent] = useState<"edit" | "register_visit">(
+    "edit"
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const { toast } = useToast();
 
@@ -335,6 +338,7 @@ export default function Places() {
         onEdit={() => {
           if (!selected) return;
           setEditing(selected);
+          setEditIntent("edit");
           setEditOpen(true);
         }}
         onMarkVisited={() => {
@@ -345,6 +349,7 @@ export default function Places() {
             status: "visited",
             visited_date: selected.visited_date || today,
           });
+          setEditIntent("register_visit");
           setEditOpen(true);
         }}
         onDelete={() => selected && handleDelete(selected.id)}
@@ -353,9 +358,21 @@ export default function Places() {
       {editing && (
         <PlaceFormDialog
           place={editing}
+          intent={editIntent}
           open={editOpen}
-          onOpenChange={(o) => { setEditOpen(o); if (!o) setEditing(null); }}
-          onSaved={() => { setEditing(null); setEditOpen(false); load(); }}
+          onOpenChange={(o) => {
+            setEditOpen(o);
+            if (!o) {
+              setEditing(null);
+              setEditIntent("edit");
+            }
+          }}
+          onSaved={() => {
+            setEditing(null);
+            setEditOpen(false);
+            setEditIntent("edit");
+            load();
+          }}
         />
       )}
     </PageShell>

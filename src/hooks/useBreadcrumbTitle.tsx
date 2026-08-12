@@ -35,11 +35,13 @@ export function BreadcrumbTitleProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook paired with provider
 export function useBreadcrumbTitleValue() {
   return useContext(BreadcrumbTitleContext).title;
 }
 
 /** Define o rótulo do último segmento do breadcrumb (ex.: nome da viagem). */
+// eslint-disable-next-line react-refresh/only-export-components -- hook paired with provider
 export function useBreadcrumbTitle(title: string | null | undefined) {
   const { setTitle } = useContext(BreadcrumbTitleContext);
 
@@ -47,11 +49,4 @@ export function useBreadcrumbTitle(title: string | null | undefined) {
     setTitle(title?.trim() ? title.trim() : null);
     return () => setTitle(null);
   }, [title, setTitle]);
-}
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export function looksLikeId(segment: string): boolean {
-  return UUID_RE.test(segment);
 }

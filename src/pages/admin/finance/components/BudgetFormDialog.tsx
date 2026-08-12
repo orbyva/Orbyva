@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 
 import { MonthYearPicker } from "@/components/MonthYearPicker";
-import { FormLabel } from "@/components/FormLabel";
+import { FormLabel, FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import { Separator } from "@/components/ui/separator";
 import { sortByNamePt } from "@/lib/utils";
 
@@ -168,7 +168,7 @@ export function BudgetFormDialog({
         </DialogTrigger>
       )}
 
-      <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-4 sm:max-w-xl sm:p-6">
+      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Editar orçamento" : "Novo orçamento"}

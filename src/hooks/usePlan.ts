@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ensureProfile, touchLastSeen, type UserProfile } from "@/api/billing";
 import { useAuth } from "@/hooks/useAuth";
 import {
+  accessBlockReason,
   hasAppAccess,
-  isProPlan,
+  isEffectivePro,
   isTrialActive,
   trialDaysRemaining,
   type PlanId,
@@ -70,7 +71,8 @@ export function usePlan() {
   const plan: PlanId = profile?.plan ?? "free";
   const createdAt = profile?.created_at ?? null;
   const trialEndsAt = profile?.trial_ends_at ?? null;
-  const isPro = isProPlan(plan);
+  const subscriptionStatus = profile?.subscription_status ?? null;
+  const isPro = isEffectivePro({ plan, subscriptionStatus });
   const trialActive = !isPro && isTrialActive(createdAt, new Date(), trialEndsAt);
   const daysLeft = isPro
     ? 0
@@ -79,7 +81,13 @@ export function usePlan() {
     plan,
     createdAt,
     trialEndsAt,
-    subscriptionStatus: profile?.subscription_status,
+    subscriptionStatus,
+  });
+  const blockReason = accessBlockReason({
+    plan,
+    createdAt,
+    trialEndsAt,
+    subscriptionStatus,
   });
 
   return useMemo(
@@ -90,6 +98,8 @@ export function usePlan() {
       isTrialActive: trialActive,
       trialDaysLeft: daysLeft,
       hasAccess: canUseApp,
+      accessBlockReason: blockReason,
+      subscriptionStatus,
       loading,
       error,
       refresh: () => refresh({ soft: false }),
@@ -101,6 +111,8 @@ export function usePlan() {
       trialActive,
       daysLeft,
       canUseApp,
+      blockReason,
+      subscriptionStatus,
       loading,
       error,
       refresh,

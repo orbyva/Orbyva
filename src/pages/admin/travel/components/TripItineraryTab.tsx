@@ -80,7 +80,7 @@ import {
   TRIP_TRANSPORT_MODE_LABELS,
   normalizeTripTransportMode,
 } from "@/domain/travel/transportModes";
-import { formatRating, placeTypeMeta } from "@/domain/places";
+import { formatRating, isGoogleMapsUrl, placeTypeMeta } from "@/domain/places";
 import type { TripMember } from "@/types/tripSharing";
 import type { PlaceType } from "@/types/places";
 import type { PlaceVisit } from "@/types/places";
@@ -113,6 +113,8 @@ type TripItineraryTabProps = {
     actId: string,
     status: "pending" | "completed" | "skipped"
   ) => void;
+  /** Antes de concluir: permite abrir avaliação. Retorne false para cancelar o status. */
+  onBeforeCompleteVisit?: (act: TripItineraryActivity) => boolean | void;
   /** Remove atividade do estado local (evita refetch do bundle). */
   onActivityDeleted?: (actId: string) => void;
   onMoveVisit: (
@@ -144,18 +146,31 @@ function enrichVisits(
     const place = act.place_visit_id
       ? byId.get(act.place_visit_id)
       : undefined;
+    const isTransfer = isTransportActivity(act);
     return {
       id: act.id,
       title: act.title,
-      activity_time: act.activity_time,
+      activity_time: act.activity_time
+        ? String(act.activity_time).slice(0, 5)
+        : act.activity_time,
+      arrival_time: act.arrival_time
+        ? String(act.arrival_time).slice(0, 5)
+        : act.arrival_time,
       sort_order: act.sort_order,
       place_visit_id: act.place_visit_id,
       visit_status: act.visit_status,
       completed_at: act.completed_at,
       skipped_at: act.skipped_at,
-      lat: place?.lat ?? null,
-      lng: place?.lng ?? null,
-      google_place_id: place?.google_place_id ?? null,
+      category: act.category,
+      lat: isTransfer
+        ? (act.destination_lat ?? null)
+        : (place?.lat ?? null),
+      lng: isTransfer
+        ? (act.destination_lng ?? null)
+        : (place?.lng ?? null),
+      google_place_id: isTransfer
+        ? (act.destination_place_id ?? null)
+        : (place?.google_place_id ?? null),
       day_date: day.date ?? null,
     };
   });
@@ -185,13 +200,15 @@ export function TripItineraryTab({
   onAddTransfer,
   onReload,
   onVisitStatusChange,
-  onMoveVisit,
   onActivityDeleted,
+  onBeforeCompleteVisit,
+  onMoveVisit,
 }: TripItineraryTabProps) {
   const [routeRefresh, setRouteRefresh] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [dragVisitId, setDragVisitId] = useState<string | null>(null);
   const [dropDayId, setDropDayId] = useState<string | null>(null);
+  const [showPastDays, setShowPastDays] = useState(false);
   const [timedMoveAttempt, setTimedMoveAttempt] =
     useState<TimedMoveAttempt | null>(null);
 
@@ -216,8 +233,13 @@ export function TripItineraryTab({
 
   async function setStatus(
     actId: string,
-    status: "pending" | "completed" | "skipped"
+    status: "pending" | "completed" | "skipped",
+    act?: TripItineraryActivity
   ) {
+    if (status === "completed" && act && onBeforeCompleteVisit) {
+      const ok = onBeforeCompleteVisit(act);
+      if (ok === false) return;
+    }
     onVisitStatusChange(actId, status);
     setRouteRefresh((n) => n + 1);
     setBusyId(actId);
@@ -292,6 +314,23 @@ export function TripItineraryTab({
     itinerary.length > 1 ||
     itinerary.some((day) => (day.activities?.length ?? 0) > 1);
 
+  const pastDayCount = useMemo(
+    () =>
+      itinerary.filter(
+        (day) =>
+          describeDayOffset({ dayDate: day.date, todayIso }).kind === "past"
+      ).length,
+    [itinerary, todayIso]
+  );
+
+  const visibleDays = useMemo(() => {
+    if (showPastDays) return itinerary;
+    return itinerary.filter(
+      (day) =>
+        describeDayOffset({ dayDate: day.date, todayIso }).kind !== "past"
+    );
+  }, [itinerary, showPastDays, todayIso]);
+
   return (
     <TabsContent value="itinerary" className="mt-4 space-y-3">
       {disableRoutes ? (
@@ -316,11 +355,26 @@ export function TripItineraryTab({
 
       {showDragHint ? (
         <p className="text-xs text-muted-foreground">
-          Arraste por {" "}
+          Arraste por{" "}
           <GripVertical className="inline h-3 w-3 align-text-bottom" /> para
           mudar a ordem ou o dia. Visitas com horário mudam de dia, mas a ordem
           no dia segue o relógio.
         </p>
+      ) : null}
+
+      {pastDayCount > 0 ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-xs text-muted-foreground"
+          onClick={() => setShowPastDays((v) => !v)}
+        >
+          <CalendarCheck className="mr-1.5 h-3.5 w-3.5" />
+          {showPastDays
+            ? "Ocultar dias anteriores"
+            : `Ver dias anteriores (${pastDayCount})`}
+        </Button>
       ) : null}
 
       {itinerary.length === 0 ? (
@@ -333,7 +387,7 @@ export function TripItineraryTab({
       ) : null}
 
       <LayoutGroup id="trip-itinerary-visits">
-        {itinerary.map((day) => (
+        {visibleDays.map((day) => (
           <DayBlock
             key={day.id}
             day={day}
@@ -458,7 +512,8 @@ function DayBlock({
   onActivityDeleted?: (actId: string) => void;
   onSetStatus: (
     id: string,
-    status: "pending" | "completed" | "skipped"
+    status: "pending" | "completed" | "skipped",
+    act?: TripItineraryActivity
   ) => Promise<void>;
   dragHandleProps: DragHandleProps;
   onDragVisitStart: (id: string) => void;
@@ -475,18 +530,9 @@ function DayBlock({
     () => new Map(places.map((place) => [place.id, place])),
     [places]
   );
-  /** Rotas entre visitas — sem deslocamentos. */
+  /** Próximo destino: visitas + deslocamentos (para não priorizar visita antes da chegada). */
   const routeVisits = useMemo(
-    () =>
-      enrichVisits(
-        {
-          ...day,
-          activities: (day.activities ?? []).filter(
-            (a) => !isTransportActivity(a)
-          ),
-        },
-        places
-      ),
+    () => enrichVisits(day, places),
     [day, places]
   );
   const sortedActs = useMemo(() => {
@@ -751,7 +797,7 @@ function DayBlock({
                 }}
                 {...dropZoneAttrs(VISIT_ZONE, day.id, index)}
                 className={cn(
-                  "flex items-start gap-2 rounded-lg border px-2 py-2 transition-colors sm:px-2.5",
+                  "flex items-start gap-2 rounded-lg border px-2 py-1.5 transition-colors sm:px-2.5",
                   isTransfer &&
                     status === "pending" &&
                     "border-sky-500/25 bg-sky-500/[0.04]",
@@ -798,7 +844,8 @@ function DayBlock({
                     onClick={() =>
                       void onSetStatus(
                         act.id,
-                        status === "pending" ? "completed" : "pending"
+                        status === "pending" ? "completed" : "pending",
+                        act
                       )
                     }
                     className={cn(
@@ -831,15 +878,43 @@ function DayBlock({
                       {modeLabel ? ` · ${modeLabel}` : null}
                     </p>
                   ) : null}
-                  <p
-                    className={cn(
-                      "line-clamp-2 text-sm font-semibold leading-snug",
-                      status !== "pending" &&
-                        "text-muted-foreground line-through"
-                    )}
-                  >
-                    {act.title}
-                  </p>
+                  <div className="flex items-start gap-1.5">
+                    <p
+                      className={cn(
+                        "min-w-0 flex-1 line-clamp-2 text-sm font-semibold leading-snug",
+                        status !== "pending" &&
+                          "text-muted-foreground line-through"
+                      )}
+                    >
+                      {act.title}
+                    </p>
+                    {isGoogleMapsUrl(act.link_url) ? (
+                      <a
+                        href={act.link_url!}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-0.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-sky-500/40 bg-sky-500/10 px-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-500/20 dark:text-sky-300"
+                        aria-label={`Abrir ${act.title} no Google Maps`}
+                        title="Abrir no Google Maps"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MapPin className="h-3.5 w-3.5" />
+                        Maps
+                      </a>
+                    ) : act.link_url?.trim() ? (
+                      <a
+                        href={act.link_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted"
+                        aria-label={`Abrir link de ${act.title}`}
+                        title="Abrir link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : null}
+                  </div>
 
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                     {act.activity_time ? (
@@ -933,14 +1008,16 @@ function DayBlock({
                       <>
                         <DropdownMenuItem
                           onClick={() =>
-                            void onSetStatus(act.id, "completed")
+                            void onSetStatus(act.id, "completed", act)
                           }
                         >
                           <Check className="h-3.5 w-3.5" />
                           Concluir
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => void onSetStatus(act.id, "skipped")}
+                          onClick={() =>
+                            void onSetStatus(act.id, "skipped", act)
+                          }
                         >
                           <SkipForward className="h-3.5 w-3.5" />
                           Pular
@@ -949,7 +1026,7 @@ function DayBlock({
                     ) : null}
                     {!isTransfer && status !== "pending" ? (
                       <DropdownMenuItem
-                        onClick={() => void onSetStatus(act.id, "pending")}
+                        onClick={() => void onSetStatus(act.id, "pending", act)}
                       >
                         <Undo2 className="h-3.5 w-3.5" />
                         Reabrir
@@ -959,7 +1036,7 @@ function DayBlock({
                       <Pencil className="h-3.5 w-3.5" />
                       Editar
                     </DropdownMenuItem>
-                    {act.link_url ? (
+                    {act.link_url && !isGoogleMapsUrl(act.link_url) ? (
                       <DropdownMenuItem asChild>
                         <a
                           href={act.link_url}
@@ -987,28 +1064,30 @@ function DayBlock({
         </ul>
       )}
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1 border-dashed border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+          onClick={() => onAddActivity(day.id)}
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          Adicionar visita
+        </Button>
+        {onAddTransfer ? (
           <Button
             type="button"
             variant="outline"
-            className="w-full border-dashed border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+            size="icon"
+            className="shrink-0 border-dashed border-sky-500/40 text-sky-700 hover:bg-sky-500/10 dark:text-sky-400"
+            aria-label="Adicionar deslocamento"
+            title="Adicionar deslocamento entre lugares"
+            onClick={() => onAddTransfer(day.id)}
           >
-            <Plus className="mr-1.5 h-4 w-4" />
-            Adicionar
+            <Plane className="h-4 w-4" />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="center" className="w-56">
-          <DropdownMenuItem onClick={() => onAddActivity(day.id)}>
-            <MapPin className="h-3.5 w-3.5" />
-            Visita
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onAddTransfer?.(day.id)}>
-            <Plane className="h-3.5 w-3.5" />
-            Deslocamento
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        ) : null}
+      </div>
 
       <AlertDialog
         open={deleting != null}

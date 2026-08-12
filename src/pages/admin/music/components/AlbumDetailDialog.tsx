@@ -109,7 +109,7 @@ export function AlbumDetailDialog({
     }
     setTrackRatings(album.track_ratings ?? {});
     setEditingTrackKey(null);
-  }, [album?.musicbrainz_id, album?.track_ratings]);
+  }, [album]);
 
   useEffect(() => {
     if (!open) setEditingTrackKey(null);
@@ -152,7 +152,7 @@ export function AlbumDetailDialog({
       });
 
     return () => controller.abort();
-  }, [open, album?.musicbrainz_id, album?.title, album?.source, fromCatalog]);
+  }, [open, album, fromCatalog]);
 
   if (!album) return null;
 

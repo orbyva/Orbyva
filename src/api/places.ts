@@ -620,3 +620,151 @@ export async function enrichPlacesWithOpinions(
     opinionSummary: summaries[p.id] ?? null,
   }));
 }
+
+const OCCURRENCE_SELECT =
+  "id, place_visit_id, user_id, visited_date, rating, notes, amount, would_recommend, transaction_id, created_at";
+
+/** Espelha a visita mais recente nos campos denormalizados de place_visit. */
+async function syncPlaceFromLatestOccurrence(
+  placeVisitId: string
+): Promise<void> {
+  const { data: rows, error } = await supabase
+    .from("place_visit_occurrence")
+    .select(OCCURRENCE_SELECT)
+    .eq("place_visit_id", placeVisitId)
+    .order("visited_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) {
+    if (
+      /place_visit_occurrence/i.test(error.message) ||
+      error.code === "42P01"
+    ) {
+      return;
+    }
+    throw new Error(error.message);
+  }
+  const latest = rows?.[0];
+  if (!latest) {
+    const { error: updErr } = await supabase
+      .from("place_visit")
+      .update({
+        status: "to_visit",
+        visited_date: null,
+        rating: null,
+        amount: null,
+        would_recommend: true,
+        transaction_id: null,
+      })
+      .eq("id", placeVisitId);
+    if (updErr) throw new Error(updErr.message);
+    return;
+  }
+  const { error: updErr } = await supabase
+    .from("place_visit")
+    .update({
+      status: "visited",
+      visited_date: latest.visited_date,
+      rating: latest.rating,
+      notes: latest.notes,
+      amount: latest.amount,
+      would_recommend: latest.would_recommend,
+      transaction_id: latest.transaction_id,
+    })
+    .eq("id", placeVisitId);
+  if (updErr) throw new Error(updErr.message);
+}
+
+export async function fetchPlaceVisitOccurrences(
+  placeVisitId: string
+): Promise<import("@/types/places").PlaceVisitOccurrence[]> {
+  const { data, error } = await supabase
+    .from("place_visit_occurrence")
+    .select(OCCURRENCE_SELECT)
+    .eq("place_visit_id", placeVisitId)
+    .order("visited_date", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) {
+    if (
+      /place_visit_occurrence/i.test(error.message) ||
+      error.code === "42P01"
+    ) {
+      return [];
+    }
+    throw new Error(error.message);
+  }
+  return (data ?? []) as import("@/types/places").PlaceVisitOccurrence[];
+}
+
+export async function createPlaceVisitOccurrence(
+  input: import("@/types/places").PlaceVisitOccurrenceCreateRequest
+): Promise<import("@/types/places").PlaceVisitOccurrence> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("place_visit_occurrence")
+    .insert([
+      {
+        place_visit_id: input.place_visit_id,
+        user_id: userId,
+        visited_date: input.visited_date,
+        rating: input.rating ?? null,
+        notes: input.notes?.trim() || null,
+        amount: input.amount ?? null,
+        would_recommend: input.would_recommend ?? true,
+        transaction_id: input.transaction_id ?? null,
+      },
+    ])
+    .select(OCCURRENCE_SELECT)
+    .single();
+  if (error) throw new Error(error.message);
+  await syncPlaceFromLatestOccurrence(input.place_visit_id);
+  return data as import("@/types/places").PlaceVisitOccurrence;
+}
+
+export async function updatePlaceVisitOccurrence(
+  input: import("@/types/places").PlaceVisitOccurrenceUpdateRequest
+): Promise<import("@/types/places").PlaceVisitOccurrence> {
+  const { id, ...patch } = input;
+  const { data, error } = await supabase
+    .from("place_visit_occurrence")
+    .update({
+      ...(patch.visited_date !== undefined
+        ? { visited_date: patch.visited_date }
+        : {}),
+      ...(patch.rating !== undefined ? { rating: patch.rating } : {}),
+      ...(patch.notes !== undefined
+        ? { notes: patch.notes?.trim() || null }
+        : {}),
+      ...(patch.amount !== undefined ? { amount: patch.amount } : {}),
+      ...(patch.would_recommend !== undefined
+        ? { would_recommend: patch.would_recommend }
+        : {}),
+      ...(patch.transaction_id !== undefined
+        ? { transaction_id: patch.transaction_id }
+        : {}),
+    })
+    .eq("id", id)
+    .select(OCCURRENCE_SELECT)
+    .single();
+  if (error) throw new Error(error.message);
+  const row = data as import("@/types/places").PlaceVisitOccurrence;
+  await syncPlaceFromLatestOccurrence(row.place_visit_id);
+  return row;
+}
+
+export async function deletePlaceVisitOccurrence(id: string): Promise<void> {
+  const { data: existing, error: fetchErr } = await supabase
+    .from("place_visit_occurrence")
+    .select("id, place_visit_id, transaction_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (fetchErr) throw new Error(fetchErr.message);
+  if (!existing) return;
+  await deleteLinkedTransaction(existing.transaction_id);
+  const { error } = await supabase
+    .from("place_visit_occurrence")
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  await syncPlaceFromLatestOccurrence(existing.place_visit_id);
+}

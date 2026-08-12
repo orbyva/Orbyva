@@ -30,7 +30,10 @@ export function FormLabel({
 }
 
 export const FORM_DIALOG_CONTENT_CLASS =
-  "max-w-md sm:max-w-lg w-full p-4 sm:p-6";
+  "max-w-lg sm:max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6";
+
+export const FORM_DIALOG_CONTENT_CLASS_WIDE =
+  "max-w-xl sm:max-w-3xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6";
 
 /** Variante mais larga só pro dialog de criar/editar tarefa (`TaskList.tsx`) — formulário em
  * abas com mais campos que os outros 5 dialogs que usam `FORM_DIALOG_CONTENT_CLASS`. */
@@ -38,6 +41,16 @@ export const FORM_DIALOG_CONTENT_CLASS_LG =
   "max-w-md sm:max-w-2xl lg:max-w-3xl w-full p-4 sm:p-6";
 
 export const FORM_FIELDS_CLASS = "grid grid-cols-1 gap-4";
+
+export const FORM_MOBILE_TABS_CLASS =
+  "grid w-full grid-cols-2";
+
+/** Toggle de 2 abas em dialogs (ex.: Lugar | Visitas). */
+export const FORM_SEGMENT_TABS_CLASS =
+  "grid h-10 w-full grid-cols-2 gap-1 rounded-lg bg-muted p-1";
+
+export const FORM_SEGMENT_TRIGGER_CLASS =
+  "rounded-md px-3 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
 
 export const PAGE_HEADER_ACTIONS_CLASS =
   "flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap";

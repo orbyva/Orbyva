@@ -29,10 +29,10 @@ import { OfflineBanner } from "@/components/OfflineBanner"
 import { useOfflineOutboxSync } from "@/hooks/useOfflineOutboxSync"
 import { useDocumentMeta } from "@/hooks/useDocumentMeta"
 import { BREADCRUMB_LABELS } from "@/lib/brand"
+import { looksLikeId } from "@/lib/ids"
 import { usePlan } from "@/hooks/usePlan"
 import {
   BreadcrumbTitleProvider,
-  looksLikeId,
   useBreadcrumbTitleValue,
 } from "@/hooks/useBreadcrumbTitle"
 import { ActiveTimerProvider } from "@/hooks/useActiveTimer"

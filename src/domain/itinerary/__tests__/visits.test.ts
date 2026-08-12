@@ -66,6 +66,7 @@ describe("normalizeVisitStatus / open / done / coords", () => {
 
   it("parseHHmmToMinutes", () => {
     expect(parseHHmmToMinutes("09:30")).toBe(9 * 60 + 30);
+    expect(parseHHmmToMinutes("09:30:00")).toBe(9 * 60 + 30);
     expect(parseHHmmToMinutes(null)).toBeNull();
     expect(parseHHmmToMinutes("xx")).toBeNull();
   });
@@ -184,6 +185,122 @@ describe("findNextPendingVisit", () => {
         visit({ id: "2", title: "B", visit_status: "skipped" }),
       ])
     ).toBeNull();
+  });
+
+  it("prefere o que ainda vai acontecer em vez de visita atrasada", () => {
+    const next = findNextPendingVisit(
+      [
+        visit({
+          id: "visit-morning",
+          title: "Vale da Lua",
+          activity_time: "09:00",
+          visit_status: "pending",
+          sort_order: 0,
+          lat: -14.1,
+          lng: -47.5,
+        }),
+        visit({
+          id: "transfer",
+          title: "Valparaíso → Alto Paraíso",
+          activity_time: "18:00",
+          arrival_time: "21:24",
+          category: "transport",
+          visit_status: "pending",
+          sort_order: 1,
+          lat: -14.13,
+          lng: -47.51,
+        }),
+      ],
+      14 * 60
+    );
+    expect(next?.id).toBe("transfer");
+  });
+
+  it("não sugere visita no destino antes da chegada do deslocamento", () => {
+    const next = findNextPendingVisit(
+      [
+        visit({
+          id: "visit-morning",
+          title: "Vale da Lua",
+          activity_time: "09:00",
+          visit_status: "pending",
+          sort_order: 0,
+          lat: -14.1,
+          lng: -47.5,
+        }),
+        visit({
+          id: "transfer",
+          title: "Valparaíso → Alto Paraíso",
+          activity_time: "18:00",
+          arrival_time: "21:24",
+          category: "transport",
+          visit_status: "pending",
+          sort_order: 1,
+          lat: -14.13,
+          lng: -47.51,
+        }),
+      ],
+      8 * 60
+    );
+    expect(next?.id).toBe("transfer");
+  });
+
+  it("não bloqueia visita por deslocamento de volta para casa", () => {
+    const next = findNextPendingVisit(
+      [
+        visit({
+          id: "visit",
+          title: "Parque",
+          activity_time: "15:00",
+          visit_status: "pending",
+          sort_order: 0,
+          lat: -14.1,
+          lng: -47.5,
+        }),
+        visit({
+          id: "return",
+          title: "Alto Paraíso → Casa",
+          activity_time: "20:00",
+          arrival_time: "23:00",
+          category: "transport",
+          visit_status: "pending",
+          sort_order: 1,
+          lat: -16.0,
+          lng: -47.9,
+        }),
+      ],
+      14 * 60
+    );
+    expect(next?.id).toBe("visit");
+  });
+
+  it("mantém deslocamento se a saída passou mas a chegada não", () => {
+    const next = findNextPendingVisit(
+      [
+        visit({
+          id: "visit",
+          title: "Parque",
+          activity_time: "09:00",
+          visit_status: "pending",
+          sort_order: 0,
+          lat: -14.1,
+          lng: -47.5,
+        }),
+        visit({
+          id: "transfer",
+          title: "Casa → Cidade",
+          activity_time: "18:00",
+          arrival_time: "21:24",
+          category: "transport",
+          visit_status: "pending",
+          sort_order: 1,
+          lat: -14.13,
+          lng: -47.51,
+        }),
+      ],
+      19 * 60
+    );
+    expect(next?.id).toBe("transfer");
   });
 });
 

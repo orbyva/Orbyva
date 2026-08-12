@@ -3,7 +3,7 @@ import { Check, Minus, X } from "lucide-react";
 import { LandingSectionTitle } from "@/components/landing/LandingSectionTitle";
 import { fadeUp, staggerDelay } from "@/components/landing/landingMotion";
 
-/** O que a pessoa costuma espalhar — categorias, sem nomes de apps. */
+/** O que a pessoa costuma espalhar: categorias, sem nomes de apps. */
 const SCATTERED = [
   { name: "Planilha", role: "orçamento" },
   { name: "App do banco", role: "gastos" },
@@ -36,8 +36,8 @@ const ROWS = [
     orbyva: true,
   },
   {
-    label: "Sem conectar conta do banco",
-    many: "partial",
+    label: "Cronômetro flutuante entre módulos",
+    many: false,
     orbyva: true,
   },
 ] as const;

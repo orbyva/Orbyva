@@ -44,10 +44,12 @@ import {
   RecurringIcon,
   ProgressBar,
   FixedPlanRenewButton,
+} from "./RecurringTableShared";
+import {
   getRemainingInfo,
   getRecurringActionCopy,
   getActionCopyBySide,
-} from "./RecurringTableShared";
+} from "./recurringTableCopy";
 import { RecurringTableMobile } from "./RecurringTableMobile";
 
 interface RecurringTableProps {

@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { OptionalTimeInput } from "@/components/OptionalTimeInput";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
@@ -377,31 +378,33 @@ export function TripEditActivityDialog({
               <FormLabel optional>
                 {category === "transport" ? "Saída" : "Horário"}
               </FormLabel>
-              <Input
+              <OptionalTimeInput
                 value={form.activity_time}
-                onChange={(e) => {
+                onChange={(next) => {
                   setEstimateNote(null);
                   setForm((prev) => ({
                     ...prev,
-                    activity_time: e.target.value,
+                    activity_time: next,
                   }));
                 }}
-                placeholder="Ex: 09:30"
+                aria-label={
+                  category === "transport" ? "Horário de saída" : "Horário"
+                }
               />
             </div>
             {category === "transport" ? (
               <div>
                 <FormLabel optional>Chegada</FormLabel>
-                <Input
+                <OptionalTimeInput
                   value={form.arrival_time}
-                  onChange={(e) => {
+                  onChange={(next) => {
                     setEstimateNote(null);
                     setForm((prev) => ({
                       ...prev,
-                      arrival_time: e.target.value,
+                      arrival_time: next,
                     }));
                   }}
-                  placeholder="Ex: 14:30"
+                  aria-label="Horário de chegada"
                 />
               </div>
             ) : (

@@ -57,7 +57,7 @@ async function notifyUser(
     const html = emailShell({
       eyebrow: "Orbyva · Cobrança",
       title: `${greet} — não conseguimos renovar o Pro`,
-      bodyHtml: `<p style="margin:0;">O pagamento da assinatura falhou. Atualize o cartão no portal para não perder o acesso.</p>`,
+      bodyHtml: `<p style="margin:0;">O pagamento da assinatura falhou e o acesso ao app foi pausado. Atualize o cartão no portal para voltar ao Pro.</p>`,
       ctaLabel: "Abrir portal de cobrança",
       ctaUrl: `${siteUrl}/account`,
     });
@@ -198,6 +198,30 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Idempotência: mesmo event.id não reaplica patch/e-mail.
+    const { error: seenError } = await admin.from("stripe_webhook_event").insert({
+      id: event.id,
+      type: event.type,
+    });
+    if (seenError) {
+      const dup =
+        seenError.code === "23505" ||
+        (seenError.message ?? "").toLowerCase().includes("duplicate");
+      if (dup) {
+        console.log("stripe webhook duplicate", event.id, event.type);
+        return json({ received: true, type: event.type, duplicate: true });
+      }
+      // Tabela ainda não migrada — segue sem idempotência.
+      if (
+        !String(seenError.message).includes("stripe_webhook_event") &&
+        seenError.code !== "42P01" &&
+        seenError.code !== "PGRST205"
+      ) {
+        throw new Error(`Idempotency insert: ${seenError.message}`);
+      }
+      console.warn("stripe_webhook_event ausente — processando sem idempotência");
+    }
+
     const result = applyStripeWebhookEvent(event);
     console.log("stripe webhook", event.type, result.action);
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Pencil, Share2, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Share2, Shirt, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,7 @@ import {
   updateTripMilestone,
 } from "@/api/travel";
 import { ensureTripOwnerMember } from "@/api/tripMembers";
-import { createPlace, deletePlace, enrichPlacesWithOpinions } from "@/api/places";
+import { createPlace, deletePlace, enrichPlacesWithOpinions, updatePlace } from "@/api/places";
 import { fetchTransactionClassMeta } from "@/api/finance";
 import { useDimensions } from "@/hooks/useDimensions";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,6 +52,7 @@ import {
   type TripStopInput,
 } from "@/domain/travel/tripStops";
 import {
+  transferArrivesAtLocation,
   transferTimesConflictWithVisits,
   visitTimeConflictsWithTransfers,
   isTransportActivity,
@@ -129,6 +130,7 @@ export default function TripDetail() {
 
   const [editTripOpen, setEditTripOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [showPacking, setShowPacking] = useState(false);
 
   const [editingDay, setEditingDay] = useState<TripItineraryDay | null>(null);
   const [dayForm, setDayForm] = useState<DayForm>({
@@ -162,6 +164,9 @@ export default function TripDetail() {
   const [placeDetailOpen, setPlaceDetailOpen] = useState(false);
   const [editingPlace, setEditingPlace] = useState<PlaceVisit | null>(null);
   const [placeEditOpen, setPlaceEditOpen] = useState(false);
+  const [placeFormIntent, setPlaceFormIntent] = useState<
+    "create" | "edit" | "register_visit"
+  >("edit");
 
   const [milestoneForm, setMilestoneForm] = useState(emptyMilestoneForm());
   const [editingMilestone, setEditingMilestone] = useState<TripMilestone | null>(
@@ -679,13 +684,57 @@ export default function TripDetail() {
     const dayId = addingDayId ?? editingActivity?.day_id ?? null;
     if (!trip || !dayId) return;
 
+    const day = trip.itinerary.find((d) => d.id === dayId);
+    const dayStop =
+      day?.date && trip.stops?.length
+        ? stopForDate(trip.stops, day.date)
+        : null;
+    const linkedPlace = form.place_visit_id
+      ? places.find((p) => p.id === form.place_visit_id)
+      : null;
+    const atLocation = {
+      lat:
+        form.pending_catalog?.lat ??
+        linkedPlace?.lat ??
+        dayStop?.lat ??
+        null,
+      lng:
+        form.pending_catalog?.lng ??
+        linkedPlace?.lng ??
+        dayStop?.lng ??
+        null,
+      label:
+        form.pending_catalog?.name ??
+        linkedPlace?.name ??
+        dayStop?.name ??
+        null,
+    };
+
     if (isTransfer) {
+      const arrivesAtDayLocation = transferArrivesAtLocation(
+        {
+          origin_label: form.origin?.label,
+          origin_lat: form.origin?.lat,
+          origin_lng: form.origin?.lng,
+          destination_label: form.destination?.label,
+          destination_lat: form.destination?.lat,
+          destination_lng: form.destination?.lng,
+        },
+        dayStop
+          ? {
+              lat: dayStop.lat,
+              lng: dayStop.lng,
+              label: dayStop.name,
+            }
+          : atLocation
+      );
       const conflict = transferTimesConflictWithVisits({
         dayId,
         departTime: form.activity_time,
         arriveTime: form.arrival_time,
         days: trip.itinerary,
         excludeActivityId: editingActivity?.id,
+        arrivesAtDayLocation,
       });
       if (conflict) {
         toast({
@@ -701,10 +750,11 @@ export default function TripDetail() {
         activityTime: form.activity_time,
         days: trip.itinerary,
         excludeActivityId: editingActivity?.id,
+        atLocation,
       });
       if (conflict) {
         toast({
-          title: "Horário dentro do deslocamento",
+          title: "Horário antes da chegada",
           description: conflict.message,
           variant: "destructive",
         });
@@ -849,6 +899,44 @@ export default function TripDetail() {
     });
   }
 
+  function handleBeforeCompleteVisit(act: TripItineraryActivity): void {
+    if (!act.place_visit_id) return;
+    const place = places.find((p) => p.id === act.place_visit_id);
+    if (!place) return;
+    const today = new Date().toISOString().split("T")[0];
+    setEditingPlace({
+      ...place,
+      status: "visited",
+      visited_date: place.visited_date || today,
+    });
+    setPlaceFormIntent("register_visit");
+    setPlaceEditOpen(true);
+  }
+
+  function handleVisitStatusChange(
+    actId: string,
+    status: "pending" | "completed" | "skipped"
+  ) {
+    patchVisitStatusLocal(actId, status);
+    if (status !== "skipped") return;
+    const act = trip?.itinerary
+      .flatMap((d) => d.activities ?? [])
+      .find((a) => a.id === actId);
+    if (!act?.place_visit_id) return;
+    const place = places.find((p) => p.id === act.place_visit_id);
+    if (!place) return;
+    if ((place.status ?? "visited") === "to_visit") return;
+    void updatePlace({
+      id: place.id,
+      status: "to_visit",
+      visited_date: null,
+      rating: null,
+      amount: null,
+    })
+      .then(() => load())
+      .catch(() => undefined);
+  }
+
   function patchActivityDeletedLocal(actId: string) {
     setTrip((prev) => {
       if (!prev) return prev;
@@ -878,14 +966,26 @@ export default function TripDetail() {
     if (!sourceDay || !targetDay || !moving) return;
 
     if (!isTransportActivity(moving) && moving.activity_time) {
+      const dayStop =
+        targetDay.date && trip.stops?.length
+          ? stopForDate(trip.stops, targetDay.date)
+          : null;
+      const linkedPlace = moving.place_visit_id
+        ? places.find((p) => p.id === moving.place_visit_id)
+        : null;
       const conflict = visitTimeConflictsWithTransfers({
         dayId: targetDayId,
         activityTime: moving.activity_time,
         days: trip.itinerary,
+        atLocation: {
+          lat: linkedPlace?.lat ?? dayStop?.lat ?? null,
+          lng: linkedPlace?.lng ?? dayStop?.lng ?? null,
+          label: linkedPlace?.name ?? dayStop?.name ?? null,
+        },
       });
       if (conflict) {
         toast({
-          title: "Horário dentro do deslocamento",
+          title: "Horário antes da chegada",
           description: conflict.message,
           variant: "destructive",
         });
@@ -1114,10 +1214,22 @@ export default function TripDetail() {
       }
     >
       {weatherStops.length > 0 ? (
-        <TripWeatherPackingPanel
-          stops={weatherStops}
-          className="mb-3"
-        />
+        <div className="mb-3 space-y-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            aria-pressed={showPacking}
+            onClick={() => setShowPacking((v) => !v)}
+          >
+            <Shirt className="h-4 w-4" />
+            {showPacking ? "Ocultar mala" : "O que levar na mala"}
+          </Button>
+          {showPacking ? (
+            <TripWeatherPackingPanel stops={weatherStops} />
+          ) : null}
+        </div>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card/60 px-3 py-2.5 sm:px-4">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -1228,7 +1340,8 @@ export default function TripDetail() {
           onAddActivity={openAddActivity}
           onAddTransfer={openAddTransfer}
           onReload={load}
-          onVisitStatusChange={patchVisitStatusLocal}
+          onVisitStatusChange={handleVisitStatusChange}
+          onBeforeCompleteVisit={handleBeforeCompleteVisit}
           onActivityDeleted={patchActivityDeletedLocal}
           onMoveVisit={moveVisitToDay}
         />
@@ -1398,6 +1511,7 @@ export default function TripDetail() {
         onEdit={() => {
           if (!selectedPlace) return;
           setEditingPlace(selectedPlace);
+          setPlaceFormIntent("edit");
           setPlaceDetailOpen(false);
           setPlaceEditOpen(true);
         }}
@@ -1409,6 +1523,7 @@ export default function TripDetail() {
             status: "visited",
             visited_date: selectedPlace.visited_date || today,
           });
+          setPlaceFormIntent("register_visit");
           setPlaceDetailOpen(false);
           setPlaceEditOpen(true);
         }}
@@ -1419,10 +1534,14 @@ export default function TripDetail() {
       <PlaceFormDialog
         place={editingPlace}
         tripId={trip.id}
+        intent={placeFormIntent}
         open={placeEditOpen}
         onOpenChange={(open) => {
           setPlaceEditOpen(open);
-          if (!open) setEditingPlace(null);
+          if (!open) {
+            setEditingPlace(null);
+            setPlaceFormIntent("edit");
+          }
         }}
         onSaved={load}
       />

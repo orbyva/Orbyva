@@ -24,9 +24,9 @@ import {
 import { HexColorPicker } from "react-colorful";
 import {
   TYPE_ICONS,
-  TypeIcon,
   normalizeHexColor,
-} from "@/components/TypeIcon";
+} from "@/lib/typeIconCatalog";
+import { TypeIcon } from "@/components/TypeIcon";
 import { Trash, Pen, Layers } from "lucide-react";
 import {
   deleteTypeApi,

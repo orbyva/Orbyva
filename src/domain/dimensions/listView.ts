@@ -1,6 +1,6 @@
 import type { Class, Nature, Type } from "@/types/finance";
-import type { SortState } from "@/components/SortableTableHead";
-import { toggleSort } from "@/components/SortableTableHead";
+import type { SortState } from "@/lib/sortState";
+import { toggleSort } from "@/lib/sortState";
 
 export type TypeSortKey = "name" | "nature";
 export type ClassSortKey = "name" | "type";

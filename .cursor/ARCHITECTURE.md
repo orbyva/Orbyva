@@ -204,14 +204,14 @@ Progresso, categorias e prazos; vínculo com hábitos/finanças quando aplicáve
 
 #### Lugares (`/places`)
 
-Para visitar / visitados; nota e opinião; busca de catálogo.
+Para visitar / visitados (fluxos de UI separados); nota e opinião; busca de catálogo; N visitas por lugar.
 
-* **Código:** `pages/admin/places/`; `api/places.ts`; `lib/googlePlaces.ts`, `lib/placesCatalog.ts`; `domain/places/`
-* **APIs:** Edge **`places-catalog`** → **Google Places** (Autocomplete New). Cotas mensais fail-closed. Persistência (`place_visit`): Supabase.
+* **Código:** `pages/admin/places/`; `api/places.ts`; `lib/googlePlaces.ts`, `lib/placesCatalog.ts`; `domain/places/`; `components/PlaceFormDialog`, `PlaceVisitsPanel`
+* **APIs:** Edge **`places-catalog`** → **Google Places** (Autocomplete New). Cotas mensais fail-closed. Persistência: `place_visit` (local) + `place_visit_occurrence` (cada ida).
 
 #### Viagens (`/travel`, `/travel/:id`)
 
-Paradas multi-cidade (`trip_stop`); clima + sugestão de roupa/mala (dia vs noite, faixas horárias; domínio `clothing.ts`); roteiro por dia (mover atividades entre dias, status de visita, próximo destino + rotas Google compactas); gastos com rateio e vínculo ao ledger; lugares da viagem; prazos; convites compartilhados.
+Paradas multi-cidade (`trip_stop`); clima + sugestão de roupa/mala sob demanda; roteiro por dia (dias passados ocultáveis, mover atividades, status de visita, ícone Google Maps, próximo destino + rotas Google); deslocamentos (incl. ida/volta na criação); gastos com rateio e vínculo ao ledger (também a partir de lançamentos de categoria Viagens); lugares da viagem; prazos; convites compartilhados.
 
 * **Código:** `pages/admin/travel/`; `api/travel.ts`, `api/tripMembers.ts`; `lib/googleRoutes.ts`, `lib/googleWeather.ts`; `domain/travel/` (incl. deslocamentos do roteiro + `transportModes`), `domain/itinerary/`, `domain/maps/`; componentes `TripWeatherPanels`, `TripWeatherProvider`, `ItineraryNextRoutePanel`
 * **APIs:** Edge **`places-catalog`** → Google **Places**, **Routes** (WALK/BICYCLE/TRANSIT Essentials; DRIVE Pro; também estimativa de chegada em deslocamentos carro/trem/ônibus) e **Weather** (diário + horário). Convites: Edge **`trip-invite-email`**. Excluir viagem faz cascade dos lugares com aquele `trip_id` (não confundir com “Para visitar” global).

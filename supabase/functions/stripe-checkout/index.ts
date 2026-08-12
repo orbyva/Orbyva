@@ -129,12 +129,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Assinatura BRL: cartão. PIX não cobre recorrência mensal no Stripe.
+    // Assinatura BRL: métodos vindos do Dashboard (dynamic payment methods).
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      payment_method_types: ["card"],
       success_url: successUrl,
       cancel_url: cancelUrl,
       client_reference_id: user.id,

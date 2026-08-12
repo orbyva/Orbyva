@@ -92,7 +92,7 @@ describe("applyStripeWebhookEvent", () => {
     });
   });
 
-  it("invoice.payment_failed → past_due + notify", () => {
+  it("invoice.payment_failed → free + past_due + notify", () => {
     const result = applyStripeWebhookEvent({
       type: "invoice.payment_failed",
       data: {
@@ -107,17 +107,57 @@ describe("applyStripeWebhookEvent", () => {
       customerId: "cus_9",
       notify: "payment_failed",
       patch: {
-        plan: "pro",
+        plan: "free",
         subscription_status: "past_due",
         stripe_subscription_id: "sub_9",
       },
     });
   });
 
+  it("invoice.paid → pro + active", () => {
+    const result = applyStripeWebhookEvent({
+      type: "invoice.paid",
+      data: {
+        object: {
+          customer: "cus_10",
+          subscription: "sub_10",
+          status: "paid",
+        },
+      },
+    });
+    expect(result).toEqual({
+      action: "upsert_by_customer",
+      customerId: "cus_10",
+      patch: {
+        plan: "pro",
+        subscription_status: "active",
+        stripe_subscription_id: "sub_10",
+      },
+    });
+  });
+
+  it("subscription.updated past_due → free", () => {
+    const result = applyStripeWebhookEvent({
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_pd",
+          status: "past_due",
+          customer: "cus_pd",
+          metadata: { supabase_user_id: "user-pd" },
+        },
+      },
+    });
+    expect(result.action).toBe("upsert");
+    if (result.action !== "upsert") return;
+    expect(result.patch.plan).toBe("free");
+    expect(result.patch.subscription_status).toBe("past_due");
+  });
+
   it("evento desconhecido → noop", () => {
     expect(
       applyStripeWebhookEvent({
-        type: "invoice.paid",
+        type: "charge.succeeded",
         data: { object: {} },
       })
     ).toEqual({ action: "noop" });

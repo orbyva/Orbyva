@@ -9,20 +9,30 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/MoneyInput";
 import { TransactionCreateRequest } from "@/types/finance";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dimension } from "@/types/finance";
 import { DatePicker } from "@/components/DatePicker";
-import { FormLabel } from "@/components/FormLabel";
+import { FormLabel, FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import { FormSection } from "@/components/FormSection";
 import { Separator } from "@/components/ui/separator";
 import { ClassSearchPicker } from "@/components/ClassSearchPicker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { isTravelExpenseClass } from "@/domain/finance/travelLink";
+import { fetchTrips } from "@/api/travel";
+import type { Trip } from "@/types/travel";
 
 interface TransactionFormDialogProps {
   open: boolean;
   setOpen: (open: boolean) => void;
   newTransaction: TransactionCreateRequest;
   setNewTransaction: (transaction: TransactionCreateRequest) => void;
-  createTransaction: () => void;
+  createTransaction: (linkedTripId?: string | null) => void;
   dimensions: Dimension[];
   isEditing: boolean;
   onClose: () => void;
@@ -45,6 +55,37 @@ export function TransactionFormDialog({
   hideTrigger = false,
 }: TransactionFormDialogProps) {
   const [formError, setFormError] = useState<string>("");
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [linkedTripId, setLinkedTripId] = useState<string | null>(null);
+
+  const showTripLink = useMemo(
+    () =>
+      !isEditing &&
+      isTravelExpenseClass(
+        dimensions as never,
+        newTransaction.class_id || null
+      ),
+    [dimensions, isEditing, newTransaction.class_id]
+  );
+
+  useEffect(() => {
+    if (!open || !showTripLink) return;
+    let cancelled = false;
+    void fetchTrips()
+      .then((rows) => {
+        if (!cancelled) setTrips(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setTrips([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, showTripLink]);
+
+  useEffect(() => {
+    if (!showTripLink) setLinkedTripId(null);
+  }, [showTripLink]);
 
   const handleSubmit = () => {
     if (!newTransaction.class_id) {
@@ -67,7 +108,7 @@ export function TransactionFormDialog({
       return;
     }
     setFormError("");
-    createTransaction();
+    createTransaction(showTripLink ? linkedTripId : null);
   };
 
   return (
@@ -77,6 +118,7 @@ export function TransactionFormDialog({
         setOpen(openVal);
         if (!openVal) {
           setFormError("");
+          setLinkedTripId(null);
           onClose();
         }
       }}
@@ -86,7 +128,7 @@ export function TransactionFormDialog({
           <Button className="w-full sm:w-auto">Adicionar transação</Button>
         </DialogTrigger>
       )}
-      <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-4 sm:max-w-xl sm:p-6">
+      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Editar transação" : "Nova transação"}
@@ -153,6 +195,31 @@ export function TransactionFormDialog({
                 })
               }
             />
+
+            {showTripLink ? (
+              <div>
+                <FormLabel optional>Vincular à viagem</FormLabel>
+                <Select
+                  value={linkedTripId ?? "none"}
+                  onValueChange={(v) =>
+                    setLinkedTripId(v === "none" ? null : v)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolha a viagem" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Não vincular</SelectItem>
+                    {trips.map((trip) => (
+                      <SelectItem key={trip.id} value={trip.id}>
+                        {trip.title}
+                        {trip.destination ? ` · ${trip.destination}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
           </FormSection>
 
           {formError && <p className="text-sm text-destructive">{formError}</p>}

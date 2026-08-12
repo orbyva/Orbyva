@@ -4,6 +4,19 @@ export type PlanId = "free" | "pro";
 
 export const TRIAL_DAYS = 7;
 
+/** Status Stripe que não dão direito a Pro (falha / fim / incompleto). */
+export const BLOCKED_SUBSCRIPTION_STATUSES = [
+  "past_due",
+  "unpaid",
+  "canceled",
+  "incomplete",
+  "incomplete_expired",
+  "paused",
+] as const;
+
+export type BlockedSubscriptionStatus =
+  (typeof BLOCKED_SUBSCRIPTION_STATUSES)[number];
+
 export const PLANS = {
   free: {
     id: "free" as const,
@@ -35,6 +48,32 @@ export const PLANS = {
 
 export function isProPlan(plan: PlanId | string | null | undefined): boolean {
   return plan === "pro";
+}
+
+export function isStripeSubscriptionActive(
+  status: string | null | undefined
+): boolean {
+  return status === "active" || status === "trialing";
+}
+
+export function isBlockedSubscriptionStatus(
+  status: string | null | undefined
+): boolean {
+  if (!status) return false;
+  return (BLOCKED_SUBSCRIPTION_STATUSES as readonly string[]).includes(status);
+}
+
+/**
+ * Pro “de verdade” para UX: assinatura Stripe ativa/trialing,
+ * ou plan=pro sem status bloqueado (ex.: cortesia via ops).
+ */
+export function isEffectivePro(input: {
+  plan: PlanId | string | null | undefined;
+  subscriptionStatus?: string | null;
+}): boolean {
+  if (isStripeSubscriptionActive(input.subscriptionStatus)) return true;
+  if (!isProPlan(input.plan)) return false;
+  return !isBlockedSubscriptionStatus(input.subscriptionStatus);
 }
 
 /** Fim do teste: `trialEndsAt` explícito, senão createdAt + TRIAL_DAYS. */
@@ -78,19 +117,49 @@ export function trialDaysRemaining(
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 }
 
-/** Pode usar o app: Pro ativo ou ainda no teste. */
+/**
+ * Pode usar o app:
+ * - Stripe active/trialing
+ * - plan=pro sem status bloqueado (ops / legado)
+ * - ainda no teste
+ *
+ * `past_due` / `unpaid` / `canceled` → sem acesso (mesmo se plan ainda for pro).
+ */
 export function hasAppAccess(input: {
   plan: PlanId | string | null | undefined;
   createdAt?: string | null;
   trialEndsAt?: string | null;
   subscriptionStatus?: string | null;
 }): boolean {
+  if (isStripeSubscriptionActive(input.subscriptionStatus)) return true;
+  if (isBlockedSubscriptionStatus(input.subscriptionStatus)) return false;
   if (isProPlan(input.plan)) return true;
-  if (
-    input.subscriptionStatus === "active" ||
-    input.subscriptionStatus === "trialing"
-  ) {
-    return true;
-  }
   return isTrialActive(input.createdAt, new Date(), input.trialEndsAt);
+}
+
+/** Motivo amigável quando não há acesso (UI Conta). */
+export function accessBlockReason(input: {
+  plan: PlanId | string | null | undefined;
+  createdAt?: string | null;
+  trialEndsAt?: string | null;
+  subscriptionStatus?: string | null;
+}): "none" | "payment_failed" | "canceled" | "trial_expired" {
+  if (hasAppAccess(input)) return "none";
+  const status = input.subscriptionStatus;
+  if (status === "past_due" || status === "unpaid") return "payment_failed";
+  if (status === "canceled") return "canceled";
+  return "trial_expired";
+}
+
+/**
+ * Normaliza plan persistido a partir do status Stripe.
+ * active/trialing → pro; status bloqueado → free; senão mantém.
+ */
+export function planFromSubscriptionStatus(
+  status: string | null | undefined,
+  fallbackPlan: PlanId = "free"
+): PlanId {
+  if (isStripeSubscriptionActive(status)) return "pro";
+  if (isBlockedSubscriptionStatus(status)) return "free";
+  return fallbackPlan;
 }

@@ -1,6 +1,6 @@
 import type { MonthlyBudgetSummary } from "@/types/finance";
-import type { SortState } from "@/components/SortableTableHead";
-import { toggleSort } from "@/components/SortableTableHead";
+import type { SortState } from "@/lib/sortState";
+import { toggleSort } from "@/lib/sortState";
 
 export type BudgetSortKey =
   | "type"

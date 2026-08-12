@@ -25,11 +25,13 @@ import { MobileStackList, MobileStackRow } from "@/components/MobileStackList";
 import {
   RecurringIcon,
   ProgressBar,
+  FixedPlanRenewButton,
+} from "./RecurringTableShared";
+import {
   getRemainingInfo,
   getRecurringActionCopy,
   getActionCopyBySide,
-  FixedPlanRenewButton,
-} from "./RecurringTableShared";
+} from "./recurringTableCopy";
 
 export interface RecurringTableMobileProps {
   recurring: Recurring[];

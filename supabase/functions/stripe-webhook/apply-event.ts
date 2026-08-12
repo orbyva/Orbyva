@@ -41,6 +41,21 @@ type SubscriptionLike = {
   metadata?: Record<string, string> | null;
 };
 
+const BLOCKED = new Set([
+  "past_due",
+  "unpaid",
+  "canceled",
+  "incomplete",
+  "incomplete_expired",
+  "paused",
+]);
+
+function planFromStatus(status: string): "free" | "pro" {
+  if (status === "active" || status === "trialing") return "pro";
+  if (BLOCKED.has(status)) return "free";
+  return "free";
+}
+
 function customerIdOf(
   customer: string | { id?: string } | null | undefined
 ): string | null {
@@ -58,9 +73,8 @@ function subscriptionIdOf(
 }
 
 function patchFromSubscription(sub: SubscriptionLike): ProfileBillingPatch {
-  const active = sub.status === "active" || sub.status === "trialing";
   return {
-    plan: active ? "pro" : "free",
+    plan: planFromStatus(sub.status),
     stripe_customer_id: customerIdOf(sub.customer) ?? undefined,
     stripe_subscription_id: sub.id,
     subscription_status: sub.status,
@@ -124,11 +138,31 @@ export function applyStripeWebhookEvent(event: {
         action: "upsert_by_customer",
         customerId,
         patch: {
-          plan: "pro",
+          plan: "free",
           subscription_status: "past_due",
           stripe_subscription_id: subscriptionIdOf(invoice.subscription),
         },
         notify: "payment_failed",
+      };
+    }
+    case "invoice.paid": {
+      const invoice = event.data.object as {
+        customer?: string | { id?: string } | null;
+        subscription?: string | { id?: string } | null;
+        status?: string | null;
+      };
+      const customerId = customerIdOf(invoice.customer);
+      const subId = subscriptionIdOf(invoice.subscription);
+      if (!customerId || !subId) return { action: "noop" };
+      if (invoice.status && invoice.status !== "paid") return { action: "noop" };
+      return {
+        action: "upsert_by_customer",
+        customerId,
+        patch: {
+          plan: "pro",
+          subscription_status: "active",
+          stripe_subscription_id: subId,
+        },
       };
     }
     default:

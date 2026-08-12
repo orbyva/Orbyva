@@ -18,6 +18,7 @@ import {
   deleteTransactionApi,
   updateTransactionApi,
 } from "@/api/finance";
+import { createTripExpense } from "@/api/travel";
 import { useDimensions } from "@/hooks/useDimensions";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { getErrorMessage } from "@/lib/errors";
@@ -112,17 +113,44 @@ export default function Transactions() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  async function createTransaction() {
+  async function createTransaction(linkedTripId?: string | null) {
     try {
-      const result = await createTransactionApi(newTransaction);
-      track("quick_add_done", { source: isEditing ? "edit" : "create" });
-      toast({
-        title: result.queued ? "Salvo offline" : "Sucesso",
-        description: result.queued
-          ? "Sem rede — o lançamento entra na fila e sincroniza quando você voltar online."
-          : "Transação adicionada com sucesso!",
-        duration: result.queued ? 3500 : 2000,
-      });
+      if (linkedTripId) {
+        const expenseDate = (
+          newTransaction.transaction_at || new Date().toISOString()
+        ).slice(0, 10);
+        await createTripExpense(
+          {
+            trip_id: linkedTripId,
+            description: newTransaction.description.trim(),
+            amount: Math.abs(Number(newTransaction.value) || 0),
+            category: "other",
+            expense_date: expenseDate,
+            visibility: "personal",
+          },
+          {
+            ...newTransaction,
+            value: Math.abs(Number(newTransaction.value) || 0),
+            description: newTransaction.description.trim(),
+          }
+        );
+        track("quick_add_done", { source: "create", linked_trip: true });
+        toast({
+          title: "Sucesso",
+          description: "Transação adicionada e vinculada à viagem.",
+          duration: 2000,
+        });
+      } else {
+        const result = await createTransactionApi(newTransaction);
+        track("quick_add_done", { source: isEditing ? "edit" : "create" });
+        toast({
+          title: result.queued ? "Salvo offline" : "Sucesso",
+          description: result.queued
+            ? "Sem rede — o lançamento entra na fila e sincroniza quando você voltar online."
+            : "Transação adicionada com sucesso!",
+          duration: result.queued ? 3500 : 2000,
+        });
+      }
 
       refetchTransactions();
       setOpen(false);

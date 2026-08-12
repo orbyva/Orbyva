@@ -587,28 +587,34 @@ export function ItineraryDayWeather({
 
               {suggestion.outfitSegments.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-[11px] font-medium text-muted-foreground">
+                  <p className="sr-only">
                     {isToday
-                      ? "Sugestão para o dia de hoje:"
-                      : "Sugestão para o dia:"}
+                      ? "Sugestão para o dia de hoje"
+                      : "Sugestão para o dia"}
                   </p>
                   {suggestion.outfitSegments.map((segment) => (
                     <div key={segment.key} className="space-y-0.5">
-                      <p className="text-[11px] text-muted-foreground">
-                        <span className="font-medium text-foreground/80">
-                          {segment.label}
-                        </span>
-                        {segment.tempC != null ? (
-                          <span className="tabular-nums">
-                            {" "}
-                            · ~{Math.round(segment.tempC)}°C
-                          </span>
-                        ) : null}
-                      </p>
-                      <ul>
+                      <ul className="flex flex-wrap gap-1.5">
                         {segment.outfit.map((slot) => (
                           <li key={`${segment.key}-${slot.slot}`}>
-                            <OutfitAttributes slot={slot} />
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 px-2 py-1 text-[11px] font-medium"
+                              title={`${segment.label}${
+                                segment.tempC != null
+                                  ? ` · ~${Math.round(segment.tempC)}°C`
+                                  : ""
+                              }: ${CLOTHING_META[slot.item].label} · ${clothingAttrLine(slot.item)}`}
+                              aria-label={`${segment.label}: ${CLOTHING_META[slot.item].label}`}
+                            >
+                              <ClothingItemIcon
+                                item={slot.item}
+                                className="h-4 w-4"
+                              />
+                              <span className="truncate">
+                                {CLOTHING_META[slot.item].label}
+                              </span>
+                            </button>
                           </li>
                         ))}
                       </ul>

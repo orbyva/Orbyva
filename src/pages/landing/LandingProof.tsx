@@ -12,12 +12,12 @@ const TESTIMONIALS: { quote: string; name: string; role: string }[] = [];
 
 const SOCIAL_SIGNALS = [
   {
-    title: "Sem senha de banco",
-    body: "Controle consciente: você registra o que quiser. Zero Open Banking.",
+    title: "Você no controle",
+    body: "Registre o que importa no seu ritmo. Sem fricção desnecessária.",
   },
   {
     title: "7 dias, tudo liberado",
-    body: "Controle do mês + vida organizada — sem cartão no começo.",
+    body: "Controle do mês + vida organizada, sem cartão no começo.",
   },
   {
     title: "Seus dados são seus",

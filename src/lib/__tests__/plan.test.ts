@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  accessBlockReason,
   getTrialEndsAt,
   hasAppAccess,
+  isBlockedSubscriptionStatus,
+  isEffectivePro,
   isProPlan,
   isTrialActive,
   PLANS,
+  planFromSubscriptionStatus,
   TRIAL_DAYS,
   trialDaysRemaining,
 } from "@/lib/plan";
@@ -48,9 +52,7 @@ describe("plan", () => {
         createdAt: created,
         trialEndsAt: extended,
       })
-    ).toBe(
-      new Date() < new Date(extended)
-    );
+    ).toBe(new Date() < new Date(extended));
   });
 
   it("libera acesso no teste e no Pro", () => {
@@ -97,5 +99,37 @@ describe("plan", () => {
     expect(
       trialDaysRemaining("2020-01-01", new Date(), future.toISOString())
     ).toBeGreaterThan(0);
+  });
+
+  it("past_due / unpaid bloqueiam mesmo com plan=pro", () => {
+    expect(
+      hasAppAccess({
+        plan: "pro",
+        createdAt: "2020-01-01",
+        subscriptionStatus: "past_due",
+      })
+    ).toBe(false);
+    expect(
+      hasAppAccess({
+        plan: "pro",
+        createdAt: "2020-01-01",
+        subscriptionStatus: "unpaid",
+      })
+    ).toBe(false);
+    expect(isEffectivePro({ plan: "pro", subscriptionStatus: "past_due" })).toBe(
+      false
+    );
+    expect(isBlockedSubscriptionStatus("past_due")).toBe(true);
+    expect(planFromSubscriptionStatus("past_due")).toBe("free");
+    expect(accessBlockReason({ plan: "pro", subscriptionStatus: "past_due" })).toBe(
+      "payment_failed"
+    );
+  });
+
+  it("ops pro sem status Stripe continua com acesso", () => {
+    expect(
+      hasAppAccess({ plan: "pro", createdAt: "2020-01-01", subscriptionStatus: null })
+    ).toBe(true);
+    expect(isEffectivePro({ plan: "pro", subscriptionStatus: null })).toBe(true);
   });
 });

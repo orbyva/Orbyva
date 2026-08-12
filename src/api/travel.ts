@@ -136,7 +136,7 @@ const EXPENSE_SELECT =
 const DAY_SELECT = "id, trip_id, day_number, date, title, notes";
 
 const ACTIVITY_SELECT =
-  "id, day_id, title, activity_time, arrival_time, notes, place_visit_id, sort_order, link_url, is_reserved, category, visit_status, completed_at, skipped_at, created_by_user_id, created_by_name, created_by_avatar";
+  "id, day_id, title, activity_time, arrival_time, notes, place_visit_id, sort_order, link_url, is_reserved, category, visit_status, completed_at, skipped_at, transport_mode, origin_label, origin_lat, origin_lng, origin_place_id, destination_label, destination_lat, destination_lng, destination_place_id, created_by_user_id, created_by_name, created_by_avatar";
 
 const MILESTONE_SELECT =
   "id, trip_id, title, type, due_date, done, notes";
@@ -319,8 +319,52 @@ export async function fetchTripFull(id: string): Promise<TripFull | null> {
   return bundle?.trip ?? null;
 }
 
-export async function fetchTripStops(tripId: string): Promise<TripStop[]> {
-  await assertTripAccess(tripId);
+/**
+ * Só dias + atividades (para ida/volta e sync leve).
+ * Sem expenses/places/members — bem mais barato que o bundle completo.
+ */
+export async function fetchTripItineraryLite(
+  tripId: string
+): Promise<TripItineraryDay[]> {
+  const { data: days, error: daysError } = await supabase
+    .from("trip_itinerary_day")
+    .select(DAY_SELECT)
+    .eq("trip_id", tripId)
+    .order("day_number", { ascending: true });
+  if (daysError) throw new Error(daysError.message);
+  const list = (days ?? []) as TripItineraryDay[];
+  if (list.length === 0) return [];
+
+  const { data: activities, error: actError } = await supabase
+    .from("trip_itinerary_activity")
+    .select(ACTIVITY_SELECT)
+    .in(
+      "day_id",
+      list.map((d) => d.id)
+    )
+    .order("sort_order", { ascending: true });
+  if (actError) throw new Error(actError.message);
+
+  const byDay = new Map<string, TripItineraryActivity[]>();
+  for (const act of (activities ?? []) as TripItineraryActivity[]) {
+    const bucket = byDay.get(act.day_id);
+    if (bucket) bucket.push(act);
+    else byDay.set(act.day_id, [act]);
+  }
+
+  return list.map((day) => ({
+    ...day,
+    activities: byDay.get(day.id) ?? [],
+  }));
+}
+
+export async function fetchTripStops(
+  tripId: string,
+  opts?: { skipAccessCheck?: boolean }
+): Promise<TripStop[]> {
+  if (!opts?.skipAccessCheck) {
+    await assertTripAccess(tripId);
+  }
   const { data, error } = await supabase
     .from("trip_stop")
     .select(STOP_SELECT)
@@ -340,9 +384,12 @@ export async function fetchTripStops(tripId: string): Promise<TripStop[]> {
 
 export async function replaceTripStops(
   tripId: string,
-  stops: TripStopInput[]
+  stops: TripStopInput[],
+  opts?: { skipAccessCheck?: boolean }
 ): Promise<TripStop[]> {
-  await assertTripAccess(tripId);
+  if (!opts?.skipAccessCheck) {
+    await assertTripAccess(tripId);
+  }
   const { error: delError } = await supabase
     .from("trip_stop")
     .delete()
@@ -428,7 +475,7 @@ export async function createTrip(trip: TripCreateRequest): Promise<Trip> {
   }
 
   if (stopInputs.length > 0) {
-    await replaceTripStops(data.id, stopInputs);
+    await replaceTripStops(data.id, stopInputs, { skipAccessCheck: true });
   }
 
   await seedTripDefaults(data);
@@ -1036,18 +1083,13 @@ export async function fetchTripItinerary(tripId: string): Promise<TripItineraryD
 export async function createItineraryActivity(
   activity: TripItineraryActivityCreateRequest
 ): Promise<TripItineraryActivity> {
-  const { data: day, error: dayError } = await supabase
-    .from("trip_itinerary_day")
-    .select("trip_id")
-    .eq("id", activity.day_id)
-    .maybeSingle();
-  if (dayError) throw new Error(dayError.message);
-  if (!day) throw new Error("Dia do roteiro não encontrado.");
-  await assertTripAccess(day.trip_id);
-
-  const userId = await getCurrentUserId();
-  const { data: auth } = await supabase.auth.getUser();
-  const meta = auth.user?.user_metadata as
+  // RLS cobre acesso — evita waterfall day → assertTripAccess.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) throw new Error("Usuário não autenticado.");
+  const meta = user.user_metadata as
     | {
         full_name?: string;
         name?: string;
@@ -1055,10 +1097,11 @@ export async function createItineraryActivity(
         picture?: string;
       }
     | undefined;
+  const userId = user.id;
   const created_by_name =
     meta?.full_name?.trim() ||
     meta?.name?.trim() ||
-    auth.user?.email?.split("@")[0] ||
+    user.email?.split("@")[0] ||
     "Viajante";
   const created_by_avatar =
     meta?.avatar_url?.trim() || meta?.picture?.trim() || null;
@@ -1140,23 +1183,7 @@ export async function updateItineraryActivity(
   data: TripItineraryActivityUpdateRequest
 ): Promise<void> {
   const { id, ...fields } = data;
-  const { data: existing, error: fetchError } = await supabase
-    .from("trip_itinerary_activity")
-    .select("day_id")
-    .eq("id", id)
-    .maybeSingle();
-  if (fetchError) throw new Error(fetchError.message);
-  if (!existing) throw new Error("Atividade não encontrada.");
-
-  const { data: day, error: dayError } = await supabase
-    .from("trip_itinerary_day")
-    .select("trip_id")
-    .eq("id", existing.day_id)
-    .maybeSingle();
-  if (dayError) throw new Error(dayError.message);
-  if (!day) throw new Error("Dia do roteiro não encontrado.");
-  await assertTripAccess(day.trip_id);
-
+  // Update direto (RLS cobre acesso) — sem day/trip/assert extras.
   const { error } = await supabase
     .from("trip_itinerary_activity")
     .update(fields)

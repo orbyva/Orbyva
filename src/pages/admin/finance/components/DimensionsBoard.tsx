@@ -13,9 +13,9 @@ import {
 } from "@/components/ui/select";
 import {
   TYPE_ICONS,
-  TypeIcon,
   normalizeHexColor,
-} from "@/components/TypeIcon";
+} from "@/lib/typeIconCatalog";
+import { TypeIcon } from "@/components/TypeIcon";
 import { EmptyState } from "@/components/EmptyState";
 import {
   AlertDialog,

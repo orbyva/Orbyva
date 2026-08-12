@@ -2,23 +2,7 @@ import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableHead } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-
-export type SortDir = "asc" | "desc";
-
-export type SortState<K extends string> = {
-  key: K;
-  dir: SortDir;
-};
-
-export function toggleSort<K extends string>(
-  current: SortState<K>,
-  key: K
-): SortState<K> {
-  if (current.key === key) {
-    return { key, dir: current.dir === "asc" ? "desc" : "asc" };
-  }
-  return { key, dir: "asc" };
-}
+import type { SortState } from "@/lib/sortState";
 
 export function SortableTableHead<K extends string>({
   label,
