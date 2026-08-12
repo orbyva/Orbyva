@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +15,22 @@ export function TaskDescriptionField({
   onChange: (value: string) => void;
 }) {
   const [tab, setTab] = useState<"write" | "preview">("write");
+  /** `Tab` insere `\t` no cursor (substituindo a seleção) e `Shift+Tab` remove um tab antes do
+   * cursor, em vez do padrão do browser (mover o foco). `setRangeText` atualiza o DOM antes do
+   * re-render, então o React não reposiciona o cursor pro fim do texto. */
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    const textarea = e.currentTarget;
+    const { selectionStart, selectionEnd } = textarea;
+    if (e.shiftKey) {
+      if (selectionStart !== selectionEnd || textarea.value[selectionStart - 1] !== "\t") return;
+      textarea.setRangeText("", selectionStart - 1, selectionStart, "end");
+    } else {
+      textarea.setRangeText("\t", selectionStart, selectionEnd, "end");
+    }
+    onChange(textarea.value);
+  };
   return (
     <Tabs value={tab} onValueChange={(v) => setTab(v === "preview" ? "preview" : "write")}>
       <TabsList className="h-8">
@@ -30,6 +46,7 @@ export function TaskDescriptionField({
           className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Descrição em Markdown — listas, **negrito**, tabelas, checklist…"
         />
       </TabsContent>

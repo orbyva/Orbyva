@@ -112,8 +112,8 @@ podem ser botões na página de [Tarefas]").
       navegando certo
 - [x] Trocar badge de status por `<Select>` inline na lista (`TaskViews.tsx`), reaproveitando
       `applyStatusChange`
-- [ ] Investigar e corrigir o flicker do `TagCombobox.tsx` (popover fechando logo após abrir) —
-      não reproduzido ainda, ver Notas
+- [x] Investigar e corrigir o flicker do `TagCombobox.tsx` (popover fechando logo após abrir) —
+      causa raiz confirmada no fonte do Radix, ver Notas
 - [x] Criar `isSubtaskDueDateValid` em `src/domain/tasks/subtasks.ts` + teste Vitest cobrindo:
       subtarefa sem prazo, subtarefa igual ao prazo do pai, subtarefa depois do pai (inválida), pai
       sem prazo (qualquer prazo de subtarefa válido)
@@ -155,6 +155,18 @@ podem ser botões na página de [Tarefas]").
   que `type` via CDP não replica), mobile, ou já ter sido corrigido por uma mudança lateral desde
   que o bug foi relatado. Tarefa continua `[ ]` — precisa o usuário reproduzir ao vivo (quando/onde
   exatamente acontece) antes de eu aplicar uma correção às cegas.
+- **Flicker do `TagCombobox` — causa raiz encontrada no fonte do Radix** (2026-08-11): a hipótese
+  original estava na direção certa (anchor vs trigger), mas o mecanismo não era re-render do pai.
+  Em `@radix-ui/react-popover@1.1.6`, o `PopoverContentNonModal` só isenta o **Trigger** da
+  dismissão por interação externa (`targetIsTrigger = triggerRef.current?.contains(target)`); o
+  `TagCombobox` usa **`PopoverAnchor`** no Input, então `triggerRef` é null e o próprio Input conta
+  como "fora" da camada — qualquer `pointerdown`/`focusin` no Input com o popover aberto (clicar de
+  novo pra posicionar o cursor, duplo clique, teclado virtual mobile re-disparando focusin) fecha o
+  popover via `DismissableLayer`, e o `onFocus`/`onChange` reabre em seguida → flicker. Explica por
+  que digitação sintética via CDP não reproduzia (não gera pointerdown/focusin extras no Input com
+  o popover aberto). Correção: `onInteractOutside` no `PopoverContent` com `preventDefault` quando
+  o alvo está dentro do wrapper do combobox — mesma isenção que o Radix aplica ao trigger.
+  Interações genuinamente externas continuam fechando o popover normalmente.
 - **Presunções confirmadas com o usuário antes de implementar** (2026-08-10):
   1. Live e Tags viram *navegação* (botão → rota existente), não um dialog/painel embutido —
      confirmado.

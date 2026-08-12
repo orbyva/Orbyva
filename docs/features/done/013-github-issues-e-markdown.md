@@ -68,7 +68,7 @@ inexistentes no projeto). Não existe nenhum conceito de link externo em `task` 
       salvei, e o card mostrou o chip "anthropics/claude-code#123" com ícone do GitHub + a prévia
       truncada em texto puro (sem sintaxe markdown) abaixo do título — revertido depois pra não
       deixar dado de teste.
-- [ ] `TaskDescriptionField.tsx`: `onKeyDown` na textarea pra `Tab` inserir `\t` no cursor (e
+- [x] `TaskDescriptionField.tsx`: `onKeyDown` na textarea pra `Tab` inserir `\t` no cursor (e
       `Shift+Tab` remover um tab antes do cursor) em vez de trocar de foco + verificação manual no
       navegador (abrir descrição de tarefa, digitar lista, apertar Tab pra indentar sem sair do
       campo)
@@ -84,6 +84,13 @@ inexistentes no projeto). Não existe nenhum conceito de link externo em `task` 
   projeto) — estilização manual via seletores `[&_tag]:classe` no Tailwind, cobrindo listas,
   tabela, código inline, links e riscado. Suficiente pro conjunto de elementos GFM usado aqui, mas
   é uma superfície menor que o plugin `prose` cobriria (ex.: blockquote sem estilo custom).
+- Verificação manual do Tab (2026-08-11) feita via harness temporário do Vite montando o
+  `TaskDescriptionField` real (Chrome MCP, `localhost`), não dentro do app logado — sem sessão
+  autenticada disponível nesta rodada. Verificado no componente real: Tab insere `\t` no cursor
+  mantendo o foco, Shift+Tab remove o tab anterior, Tab substitui seleção, Shift+Tab sem tab
+  anterior não altera nada nem tira o foco; `onChange` propaga ao estado do pai. Harness apagado
+  após o teste. Implementação usa `setRangeText` + `onChange` (DOM atualizado antes do re-render,
+  então o React não reposiciona o cursor).
 - **Encaixe em vez de feature nova** (2026-08-10): bug do Tab reportado pelo usuário foi encaixado
   aqui (movendo o arquivo de volta pra `in-progress/`) em vez de virar um `NNN` novo, já que o bug é
   no exato componente que esta feature criou (`TaskDescriptionField.tsx`). Regra em `CLAUDE.md`.

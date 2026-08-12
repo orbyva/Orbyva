@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ export function TagCombobox({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedTags = selectedIds
     .map((id) => allTags.find((t) => t.id === id))
@@ -62,7 +63,7 @@ export function TagCombobox({
   }
 
   return (
-    <div className="space-y-1.5">
+    <div ref={containerRef} className="space-y-1.5">
       {selectedTags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {selectedTags.map((tag) => (
@@ -99,7 +100,19 @@ export function TagCombobox({
             className="h-9"
           />
         </PopoverAnchor>
-        <PopoverContent className="w-64 p-1" onOpenAutoFocus={(e) => e.preventDefault()} align="start">
+        <PopoverContent
+          className="w-64 p-1"
+          align="start"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => {
+            // O Input é um PopoverAnchor, não um PopoverTrigger — o Radix só isenta o *trigger*
+            // da dismissão por interação externa (`targetIsTrigger` em PopoverContentNonModal).
+            // Sem esta isenção, qualquer pointerdown/focusin no próprio Input com o popover
+            // aberto conta como "fora" e fecha o popover, que reabre em seguida via
+            // onFocus/onChange → flicker. Aqui replicamos a isenção pro nosso wrapper.
+            if (containerRef.current?.contains(e.target as Node)) e.preventDefault();
+          }}
+        >
           <div className="max-h-48 space-y-0.5 overflow-y-auto">
             {filtered.map((tag) => (
               <button

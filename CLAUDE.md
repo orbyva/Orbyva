@@ -7,6 +7,14 @@ Stack e convenções fixas: `docs/stack.md`.
 Toda feature tem um arquivo `NNN-nome.md`, organizado por status em `docs/features/todo/`,
 `docs/features/in-progress/` ou `docs/features/done/` (não solto em `docs/features/`).
 
+Há também `docs/features/to-refine/`: descrições brutas que o usuário joga lá, sem formato nem
+número. Elas não são features prontas — precisam ser refinadas (via template) para virar um
+`NNN-nome.md` em `todo/`. Quem faz isso é a esteira `/pipeline` (`.claude/skills/pipeline/SKILL.md`):
+um orquestrador em loop que delega o refino de cada doc de `to-refine/` a um subagente, delega a
+implementação das features de `todo/`/`in-progress/` a outro (um por vez), pergunta ao usuário quando
+há decisão e, sem resposta em 1 minuto, segue com a opção recomendada. A esteira só para quando
+`to-refine/`, `todo/` e `in-progress/` estiverem vazios.
+
 Antes de implementar:
 1. Leia o arquivo da feature (procure o número/slug nas três subpastas). Só ele, não a pasta
    inteira.
