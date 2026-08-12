@@ -1,23 +1,20 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { createAlbum, uploadAlbumCover } from "@/api/albums";
 import type { AlbumCreateRequest, AlbumStatus, AlbumType } from "@/types/music";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
 import { ScoreRating } from "@/components/ScoreRating";
+import { FormField, FormFieldRow } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
+import { Separator } from "@/components/ui/separator";
 import {
   ALBUM_TYPE_LABELS,
   ALBUM_TYPES_FOR_ADD,
@@ -42,7 +39,7 @@ interface AlbumManualModalProps {
   initialArtists?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  /** Esconde o botão interno — o pai controla a abertura. */
+  /** Esconde o botão interno, o pai controla a abertura. */
   hideTrigger?: boolean;
   triggerLabel?: string;
   triggerVariant?: "default" | "outline" | "secondary" | "ghost";
@@ -201,74 +198,93 @@ export function AlbumManualModal({
         </DialogTrigger>
       ) : null}
 
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogTitle>Álbum manual</DialogTitle>
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel required>Nome do álbum/EP</FormLabel>
+      <FormDialogShell
+        title="Álbum manual"
+        description="Cadastre um álbum que não está no catálogo."
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={() => setOpen(false)}
+            onSubmit={() => void handleSave()}
+            submitLabel="Adicionar à lista"
+            loading={loading}
+          />
+        }
+      >
+        <FormSection title="Identificação">
+          <FormField label="Nome do álbum/EP" required>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Nome do álbum/EP"
               autoFocus
             />
-          </div>
-          <div>
-            <FormLabel required>Artista</FormLabel>
+          </FormField>
+
+          <FormField label="Artista" required>
             <Input
               placeholder="Separe vários com vírgula"
               value={artists}
               onChange={(e) => setArtists(e.target.value)}
             />
-          </div>
-          <div>
-            <FormLabel required>Tipo</FormLabel>
-            <Select
-              value={albumType}
-              onValueChange={(v) => setAlbumType(v as AlbumType)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ALBUM_TYPES_FOR_ADD.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {ALBUM_TYPE_LABELS[t]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <FormLabel optional>Ano</FormLabel>
-            <Input
-              type="number"
-              inputMode="numeric"
-              placeholder="2024"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-            />
-          </div>
-          <div>
-            <FormLabel optional>Capa (arquivo)</FormLabel>
+          </FormField>
+
+          <FormFieldRow>
+            <FormField label="Tipo" required>
+              <Select
+                value={albumType}
+                onValueChange={(v) => setAlbumType(v as AlbumType)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALBUM_TYPES_FOR_ADD.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {ALBUM_TYPE_LABELS[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <FormField label="Ano" optional>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="2024"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+              />
+            </FormField>
+          </FormFieldRow>
+        </FormSection>
+
+        <Separator />
+
+        <FormSection title="Capa">
+          <FormField label="Arquivo" optional>
             <Input
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
               onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
             />
-          </div>
-          <div>
-            <FormLabel optional>Ou URL da capa</FormLabel>
+          </FormField>
+
+          <FormField label="Ou URL" optional>
             <Input
               type="url"
               placeholder="https://..."
               value={coverUrl}
               onChange={(e) => setCoverUrl(e.target.value)}
             />
-          </div>
+          </FormField>
+        </FormSection>
 
-          <div>
-            <FormLabel required>Status</FormLabel>
+        <Separator />
+
+        <FormSection title="Lista">
+          <FormField label="Status" required>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 type="button"
@@ -287,36 +303,39 @@ export function AlbumManualModal({
                 Ouvido
               </Button>
             </div>
-          </div>
+          </FormField>
+        </FormSection>
 
-          {status === "listened" && (
-            <>
-              <div>
-                <FormLabel optional>Nota</FormLabel>
-                <div className="space-y-2">
-                  <ScoreRating value={rating} onChange={setRating} />
-                  {rating != null && rating > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {formatAlbumRating(rating)}/10 —{" "}
-                      {getAlbumRatingLabel(rating)}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <FormLabel required>Data</FormLabel>
+        {status === "listened" && (
+          <>
+            <Separator />
+            <FormSection title="Opinião">
+              <FormField
+                label="Nota"
+                optional
+                hint={
+                  rating != null && rating > 0
+                    ? `${formatAlbumRating(rating)}/10 - ${getAlbumRatingLabel(rating)}`
+                    : undefined
+                }
+              >
+                <ScoreRating value={rating} onChange={setRating} />
+              </FormField>
+
+              <FormField label="Data" required>
                 <DatePicker date={listenedDate} onSelect={setListenedDate} />
-              </div>
-              <div>
-                <FormLabel optional>O que achou?</FormLabel>
+              </FormField>
+
+              <FormField label="O que achou?" optional>
                 <textarea
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   placeholder="Sua opinião..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
-              </div>
-              <label className="flex items-center gap-2 text-sm">
+              </FormField>
+
+              <label className="flex items-center gap-2 text· sm">
                 <input
                   type="checkbox"
                   checked={wouldRecommend}
@@ -325,29 +344,10 @@ export function AlbumManualModal({
                 />
                 Recomendaria
               </label>
-            </>
-          )}
-
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              className="w-full sm:flex-1"
-              onClick={() => setOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              className="w-full sm:flex-1"
-              disabled={loading}
-              onClick={() => void handleSave()}
-            >
-              {loading ? "Salvando…" : "Adicionar à lista"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
+            </FormSection>
+          </>
+        )}
+      </FormDialogShell>
     </Dialog>
   );
 }

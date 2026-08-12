@@ -31,7 +31,7 @@ const AREA_PLUS_CLASS: Record<AppArea, string> = {
 
 /**
  * Barra mobile: Início · Nova tx · Alertas.
- * Hábitos ficam no hub — aqui só o atalho diário de ledger + atenção.
+ * Hábitos ficam no hub, aqui só o atalho diário de ledger + atenção.
  */
 export function MobileBottomNav() {
   const location = useLocation();

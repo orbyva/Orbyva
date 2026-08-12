@@ -116,7 +116,7 @@ export default function LifeDashboard() {
           alerts: bundle.alerts.slice(0, 6),
         });
 
-        // TMDB / séries depois do first paint — não bloqueia o hub.
+        // TMDB / séries depois do first paint, não bloqueia o hub.
         const domains = bundle.alertDomains;
         void enrichHomeAlertsWithSeries(domains).then((merged) => {
           setAlerts(merged.slice(0, 6));
@@ -272,7 +272,7 @@ export default function LifeDashboard() {
       info: 2,
       success: 3,
     };
-    // Home: urgência primeiro — success/info não competem com o que precisa de ação
+    // Home: urgência primeiro, success/info não competem com o que precisa de ação
     return [...alerts]
       .filter((a) => a.severity === "danger" || a.severity === "warning")
       .sort((a, b) => (rank[a.severity] ?? 2) - (rank[b.severity] ?? 2))

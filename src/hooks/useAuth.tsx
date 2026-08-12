@@ -52,7 +52,7 @@ function clearUserScopedCaches() {
   }
 }
 
-/** Uma única sessão auth para o app — evita N× getUser/onAuthStateChange. */
+/** Uma única sessão auth para o app, evita N× getUser/onAuthStateChange. */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);

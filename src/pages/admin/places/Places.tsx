@@ -165,7 +165,7 @@ export default function Places() {
       title="Lugares"
       description={
         avgRating != null
-          ? `Lista e avaliações — na cidade ou em viagens. Média: ${avgRating}★${
+          ? `Lista e avaliações, na cidade ou em viagens. Média: ${avgRating}★${
               recommendPct != null ? ` · ${recommendPct}% recomendaria` : ""
             }`
           : "Monte a lista Para visitar e avalie o que já conheceu."

@@ -1,4 +1,4 @@
-/** Fatia de @/api/finance — Fase G. */
+/** Fatia de @/api/finance, Fase G. */
 import {
   Class, ClassCreateRequest,
   ClassUpdateRequest,

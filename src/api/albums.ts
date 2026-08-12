@@ -65,7 +65,7 @@ export async function fetchAlbums(
   };
 }
 
-/** Lista completa do usuário — filtro/paginação no cliente. */
+/** Lista completa do usuário, filtro/paginação no cliente. */
 export async function fetchAllAlbums(): Promise<Album[]> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase

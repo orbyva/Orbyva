@@ -14,7 +14,7 @@ type PublicPageShellProps = {
 };
 
 /**
- * Shell das páginas públicas (Sobre, Termos, Privacidade) —
+ * Shell das páginas públicas (Sobre, Termos, Privacidade) , 
  * visual alinhado à landing (fundo escuro + sky).
  */
 export function PublicPageShell({

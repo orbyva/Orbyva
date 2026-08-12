@@ -47,7 +47,7 @@ const LandingFaq = lazy(() =>
 );
 
 /**
- * Landing Orbyva — conversão trial → Pro.
+ * Landing Orbyva, conversão trial → Pro.
  * Motion: OriginKit + Cult UI + Skiper UI (free).
  */
 

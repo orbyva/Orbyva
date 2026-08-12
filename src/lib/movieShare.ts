@@ -242,7 +242,7 @@ function ellipsize(
 }
 
 /**
- * Joinha outline (path Lucide) — leve e alinhado ao resto do card.
+ * Joinha outline (path Lucide), leve e alinhado ao resto do card.
  */
 function drawThumbsUpIcon(
   ctx: CanvasRenderingContext2D,
@@ -571,7 +571,7 @@ export async function generateMovieShareImage(
     cursorY = pillY + pillH + (hasEpisodes ? 28 : 48);
   }
 
-  // Recomendação — chip + ícone, conteúdo centrado no chip
+  // Recomendação, chip + ícone, conteúdo centrado no chip
   if (movie.status === "watched") {
     const recommend = movie.would_recommend !== false;
     const rec = recommend ? "Recomendaria" : "Não recomendaria";
@@ -628,7 +628,7 @@ export async function generateMovieShareImage(
       ) + 16;
   }
 
-  // Nota escrita (curta) — controlada por includeNotes
+  // Nota escrita (curta), controlada por includeNotes
   if (notes) {
     ctx.fillStyle = "rgba(248, 250, 252, 0.55)";
     ctx.font = `500 26px ${BRAND.font}`;
@@ -660,7 +660,7 @@ export function buildMovieShareText(
   const parts = [`🎬 ${movie.title} (${movie.year})`];
   if (movie.rating != null && movie.rating > 0) {
     parts.push(
-      `⭐ ${formatMovieRating(movie.rating)}/10 — ${getMovieRatingLabel(movie.rating)}`
+      `⭐ ${formatMovieRating(movie.rating)}/10 · ${getMovieRatingLabel(movie.rating)}`
     );
   }
   if (includeNotes && movie.notes?.trim()) {
@@ -672,7 +672,7 @@ export function buildMovieShareText(
     const shown = pickEpisodesForShare(rated, 12);
     for (const e of shown) {
       parts.push(
-        `• S${e.season}E${e.episode} ${e.title} — ${formatMovieRating(e.rating)}/10`
+        `• S${e.season}E${e.episode} ${e.title}, ${formatMovieRating(e.rating)}/10`
       );
     }
     if (rated.length > shown.length) {

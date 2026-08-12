@@ -1,11 +1,5 @@
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -14,11 +8,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
+import { FormField, FormFieldRow } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
 import { MILESTONE_TYPE_LABELS } from "@/domain/travel";
 import type { TripMilestoneType } from "@/types/travel";
 
@@ -48,24 +43,28 @@ export function TripMilestoneFormDialog({
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>
-            {editing ? "Editar prazo" : "Adicionar prazo"}
-          </DialogTitle>
-        </DialogHeader>
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel required>Título</FormLabel>
+      <FormDialogShell
+        title={editing ? "Editar prazo" : "Adicionar prazo"}
+        footer={
+          <FormFooter
+            onCancel={() => onOpenChange(false)}
+            onSubmit={onSave}
+            submitLabel={
+              editing ? "Salvar alterações" : "Adicionar prazo"
+            }
+          />
+        }
+      >
+        <FormSection title="Essencial">
+          <FormField label="Título" required>
             <Input
               value={form.title}
               onChange={(e) => onChange({ ...form, title: e.target.value })}
               placeholder="Ex: Check-in voo, Reserva hotel..."
             />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel>Tipo</FormLabel>
+          </FormField>
+          <FormFieldRow>
+            <FormField label="Tipo">
               <Select
                 value={form.type}
                 onValueChange={(v) =>
@@ -86,9 +85,8 @@ export function TripMilestoneFormDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <FormLabel>Data limite</FormLabel>
+            </FormField>
+            <FormField label="Data limite">
               <DatePicker
                 date={new Date(`${form.due_date}T12:00:00`)}
                 onSelect={(d) =>
@@ -100,20 +98,16 @@ export function TripMilestoneFormDialog({
                   })
                 }
               />
-            </div>
-          </div>
-          <div>
-            <FormLabel optional>Notas</FormLabel>
+            </FormField>
+          </FormFieldRow>
+          <FormField label="Notas" optional>
             <Input
               value={form.notes}
               onChange={(e) => onChange({ ...form, notes: e.target.value })}
             />
-          </div>
-          <Button onClick={onSave} className="w-full">
-            {editing ? "Salvar alterações" : "Adicionar prazo"}
-          </Button>
-        </div>
-      </DialogContent>
+          </FormField>
+        </FormSection>
+      </FormDialogShell>
     </Dialog>
   );
 }

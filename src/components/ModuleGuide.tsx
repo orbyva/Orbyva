@@ -98,7 +98,7 @@ interface ModuleGuideProps {
 }
 
 /**
- * Callout só no 1º acesso ao módulo. Depois some — use `ModuleGuideButton` para reabrir.
+ * Callout só no 1º acesso ao módulo. Depois some, use `ModuleGuideButton` para reabrir.
  * Conta como visto ao aparecer (não precisa clicar); “Agora não” / “Entendi” só fecham na hora.
  */
 export function ModuleGuide({ moduleId, className }: ModuleGuideProps) {
@@ -121,7 +121,7 @@ export function ModuleGuide({ moduleId, className }: ModuleGuideProps) {
     }
 
     // 1º acesso: marca como visto após um instante (sobrevive ao StrictMode).
-    // Sem notify — o callout permanece nesta visita até dispensar.
+    // Sem notify, o callout permanece nesta visita até dispensar.
     const markTimer = window.setTimeout(() => {
       markModuleGuideSeen(userId, moduleId, { notify: false });
     }, 800);

@@ -46,8 +46,8 @@ const STAGES: Record<
     },
     sentCol: "retention_email_sent_at",
     subject: "Seu mês ainda está no Orbyva",
-    title: (g) => `${g} — seu mês ainda tá aí`,
-    body: "Faz uma semana que você entrou. Orçamento, parcelas e o life OS continuam te esperando — leva 2 minutos para ver o que ainda cabe no mês.",
+    title: (g) => `${g}, seu mês ainda tá aí`,
+    body: "Faz uma semana que você entrou. Orçamento, parcelas e o life OS continuam te esperando, leva 2 minutos para ver o que ainda cabe no mês.",
   },
   d14: {
     rpc: "retention_d14_email_candidates",
@@ -58,9 +58,9 @@ const STAGES: Record<
       p_limit: 50,
     },
     sentCol: "retention_d14_email_sent_at",
-    subject: "Orbyva · duas semanas — ainda dá tempo",
-    title: (g) => `${g} — o mês não espera`,
-    body: "Já faz umas duas semanas. Um olhar no orçamento e nas parcelas ainda muda o fechamento do mês. Sem pressão — só um empurrão leve.",
+    subject: "Orbyva · duas semanas, ainda dá tempo",
+    title: (g) => `${g}, o mês não espera`,
+    body: "Já faz umas duas semanas. Um olhar no orçamento e nas parcelas ainda muda o fechamento do mês. Sem pressão, só um empurrão leve.",
   },
   d30: {
     rpc: "retention_d30_email_candidates",
@@ -72,8 +72,8 @@ const STAGES: Record<
     },
     sentCol: "retention_d30_email_sent_at",
     subject: "Orbyva · sentimos sua falta",
-    title: (g) => `${g} — um mês sem você`,
-    body: "Seu life OS continua guardado. Quando quiser, o hub, o orçamento e os hábitos estão no mesmo lugar — um login e você volta.",
+    title: (g) => `${g}, um mês sem você`,
+    body: "Seu life OS continua guardado. Quando quiser, o hub, o orçamento e os hábitos estão no mesmo lugar, um login e você volta.",
   },
 };
 
@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
         bodyHtml: `<p style="margin:0;">${meta.body}</p>`,
         ctaLabel: "Abrir o Orbyva",
         ctaUrl: `${siteUrl}/login`,
-        footer: "Se não for mais a sua praia, ignore este e-mail — sem drama.",
+        footer: "Se não for mais a sua praia, ignore este e-mail, sem drama.",
       });
 
       const result = await sendResendEmail({

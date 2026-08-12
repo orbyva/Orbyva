@@ -44,7 +44,7 @@ async function deleteLinkedTransaction(
   try {
     await deleteTransactionApi(transactionId);
   } catch {
-    // Transação já removida / sem permissão — segue o fluxo do lugar.
+    // Transação já removida / sem permissão, segue o fluxo do lugar.
   }
 }
 
@@ -157,7 +157,7 @@ async function upsertPlaceTripExpense(params: {
   ]);
   if (error) {
     if (/place_visit_id/i.test(error.message) || error.code === "PGRST204") {
-      // Migration ainda não aplicada — lugar/extrato seguem sem gasto de viagem.
+      // Migration ainda não aplicada, lugar/extrato seguem sem gasto de viagem.
       return;
     }
     throw new Error(error.message);
@@ -190,7 +190,7 @@ export async function fetchPlaces(
   return normalizeRows(data as unknown as PlaceVisit[]);
 }
 
-/** Contagem leve para hub — sem baixar visitas. */
+/** Contagem leve para hub, sem baixar visitas. */
 export async function fetchPlacesCount(): Promise<number> {
   const userId = await getCurrentUserId();
   const { count, error } = await supabase
@@ -266,7 +266,7 @@ export async function createPlace(
     .select("*, trip:trip_id(id, title, destination)")
     .single();
   if (error) {
-    // Migration ainda não aplicada — salva sem colunas novas.
+    // Migration ainda não aplicada, salva sem colunas novas.
     if (
       /status|amount|transaction_id|lat|lng|google_place_id|geoapify_place_id/i.test(
         error.message
@@ -317,7 +317,7 @@ export async function createPlace(
         userId,
       });
     } catch {
-      // migration / permissão — lugar já salvo
+      // migration / permissão, lugar já salvo
     }
   }
 

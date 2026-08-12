@@ -45,7 +45,7 @@ export async function fetchHabitLogs(habitId: string): Promise<HabitLog[]> {
 export type FetchHabitLogsOptions = {
   /** Se omitido, busca hábitos do usuário primeiro. */
   habitIds?: string[];
-  /** ISO `YYYY-MM-DD` inclusive — evita baixar histórico inteiro. */
+  /** ISO `YYYY-MM-DD` inclusive, evita baixar histórico inteiro. */
   fromDate?: string;
 };
 
@@ -106,7 +106,7 @@ export async function createHabit(habit: HabitCreateRequest): Promise<Habit> {
     .single();
   if (error) {
     if (/goal_id|kind|goal_increment/i.test(error.message)) {
-      // Migração ainda não aplicada — salva o mínimo.
+      // Migração ainda não aplicada, salva o mínimo.
       const { data: fallback, error: fallbackError } = await supabase
         .from("habit")
         .insert([

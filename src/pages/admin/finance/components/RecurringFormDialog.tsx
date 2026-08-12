@@ -20,17 +20,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/MoneyInput";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
+import { FormField, FormFieldRow } from "@/components/FormField";
+import {
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
 import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 
 type PlanMode = "fixed" | "split";
@@ -91,7 +90,7 @@ export function RecurringFormDialog({
   onClose,
   dimensions,
 }: RecurringFormDialogProps) {
-  const [formError, setFormError] = useState<string>("");
+  const [formError, setFormError] = useState("");
   const [totalValue, setTotalValue] = useState<number | "">("");
   const [planMode, setPlanMode] = useState<PlanMode>("fixed");
 
@@ -152,7 +151,6 @@ export function RecurringFormDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync once when dialog opens
   }, [open]);
 
-
   const switchToFixed = () => {
     setPlanMode("fixed");
     setTotalValue("");
@@ -176,10 +174,18 @@ export function RecurringFormDialog({
     );
   };
 
+  function close() {
+    setFormError("");
+    setTotalValue("");
+    setPlanMode("fixed");
+    setOpen(false);
+    onClose();
+  }
+
   const handleCreate = () => {
-    if (!newRecurring.class_id) return setFormError("Selecione a subcategoria.");
+    if (!newRecurring.class_id) return setFormError("Selecione a categoria.");
     if (!newRecurring.description.trim())
-      return setFormError("Informe a Descrição.");
+      return setFormError("Informe a descrição.");
     if (!newRecurring.payment_start_date) {
       return setFormError("Informe o início do pagamento.");
     }
@@ -204,9 +210,9 @@ export function RecurringFormDialog({
         return setFormError("Informe o valor total.");
       }
     } else {
-      if (!newRecurring.frequency) return setFormError("Selecione a Frequência.");
+      if (!newRecurring.frequency) return setFormError("Selecione a frequência.");
       if (!newRecurring.value || newRecurring.value <= 0) {
-        return setFormError("Informe um Valor válido.");
+        return setFormError("Informe um valor válido.");
       }
     }
 
@@ -233,13 +239,8 @@ export function RecurringFormDialog({
     <Dialog
       open={open}
       onOpenChange={(openVal) => {
-        setOpen(openVal);
-        if (!openVal) {
-          setFormError("");
-          setTotalValue("");
-          setPlanMode("fixed");
-          onClose();
-        }
+        if (!openVal) close();
+        else setOpen(true);
       }}
     >
       {!isEditing && (
@@ -247,53 +248,61 @@ export function RecurringFormDialog({
           <Button className="w-full sm:w-auto">Nova recorrência</Button>
         </DialogTrigger>
       )}
-      <DialogContent className={`${FORM_DIALOG_CONTENT_CLASS} gap-0`}>
-        <DialogHeader className="pb-3">
-          <DialogTitle>
-            {isEditing ? "Editar recorrência" : "Nova recorrência"}
-          </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            {isSplit
-              ? "Compra parcelada mensal — valor total dividido em N meses."
-              : "Conta ou receita fixa (mensal ou anual) — gera cobranças até dezembro do ano da data de início."}
-          </p>
-        </DialogHeader>
-
-        <div className="grid gap-3">
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-muted/20 p-1">
-            <Button
-              type="button"
-              size="sm"
-              variant={!isSplit ? "default" : "ghost"}
-              className="h-9"
-              onClick={switchToFixed}
-            >
-              Mensal fixa
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={isSplit ? "default" : "ghost"}
-              className="h-9"
-              onClick={switchToSplit}
-            >
-              Parcelada (Nx)
-            </Button>
-          </div>
-
-          <ClassSearchPicker
-            dimensions={dimensions}
-            value={newRecurring.class_id || null}
-            onChange={(opt) =>
-              setNewRecurring({
-                ...newRecurring,
-                class_id: opt?.id ?? 0,
-              })
+      <FormDialogShell
+        title={isEditing ? "Editar recorrência" : "Nova recorrência"}
+        description={
+          isSplit
+            ? "Compra parcelada mensal, valor total dividido em N meses."
+            : "Conta ou receita fixa, gera cobranças até dezembro do ano da data de início."
+        }
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={close}
+            onSubmit={handleCreate}
+            submitLabel={
+              isEditing ? "Salvar alterações" : "Salvar recorrência"
             }
           />
+        }
+      >
+        <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-muted/20 p-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={!isSplit ? "default" : "ghost"}
+            className="h-9"
+            onClick={switchToFixed}
+          >
+            Mensal fixa
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={isSplit ? "default" : "ghost"}
+            className="h-9"
+            onClick={switchToSplit}
+          >
+            Parcelada (Nx)
+          </Button>
+        </div>
 
-          <div className="space-y-1.5">
-            <FormLabel required>Descrição</FormLabel>
+        <FormSection title="Classificação">
+          <FormField label="Categoria" required>
+            <ClassSearchPicker
+              dimensions={dimensions}
+              value={newRecurring.class_id || null}
+              hideLabel
+              onChange={(opt) =>
+                setNewRecurring({
+                  ...newRecurring,
+                  class_id: opt?.id ?? 0,
+                })
+              }
+            />
+          </FormField>
+
+          <FormField label="Descrição" required>
             <Input
               type="text"
               placeholder="Ex: Cartão Nubank, Aluguel..."
@@ -305,22 +314,33 @@ export function RecurringFormDialog({
                 })
               }
             />
-          </div>
+          </FormField>
+        </FormSection>
 
+        <FormSection title="Valores">
           <div
             className={cn(
               "grid grid-cols-1 gap-3",
               isSplit ? "sm:grid-cols-2" : "sm:grid-cols-3"
             )}
           >
-            <div className="space-y-1.5">
-              <FormLabel required>
-                {isSplit
+            <FormField
+              label={
+                isSplit
                   ? "Valor total"
                   : isAnnualFixed
                     ? "Valor anual"
-                    : "Valor mensal"}
-              </FormLabel>
+                    : "Valor mensal"
+              }
+              required
+              hint={
+                isSplit
+                  ? "Soma de todas as parcelas"
+                  : isAnnualFixed
+                    ? "Cobrado uma vez no ano"
+                    : "Cobrado todo mês"
+              }
+            >
               {isSplit ? (
                 <MoneyInput
                   placeholder="0,00"
@@ -339,18 +359,10 @@ export function RecurringFormDialog({
                   }
                 />
               )}
-              <p className="text-[11px] text-muted-foreground">
-                {isSplit
-                  ? "Soma de todas as parcelas"
-                  : isAnnualFixed
-                    ? "Cobrado uma vez no ano"
-                    : "Cobrado todo mês"}
-              </p>
-            </div>
+            </FormField>
 
             {isSplit ? (
-              <div className="space-y-1.5">
-                <FormLabel required>Nº de parcelas</FormLabel>
+              <FormField label="Nº de parcelas" required>
                 <Input
                   type="number"
                   min="1"
@@ -368,10 +380,9 @@ export function RecurringFormDialog({
                     })
                   }
                 />
-              </div>
+              </FormField>
             ) : (
-              <div className="space-y-1.5 sm:col-span-2">
-                <FormLabel required>Frequência</FormLabel>
+              <FormField label="Frequência" required className="sm:col-span-2">
                 <Select
                   value={normalizeFixedFrequency(newRecurring.frequency)}
                   onValueChange={(value: string) =>
@@ -391,12 +402,12 @@ export function RecurringFormDialog({
                     <SelectItem value="Anual">Anual</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+              </FormField>
             )}
           </div>
 
           {installmentValue != null && newRecurring.installment_count ? (
-            <p className="-mt-1 text-sm text-muted-foreground">
+            <p className="rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
               Cada parcela:{" "}
               <span className="font-medium text-foreground">
                 {formatBRL(installmentValue)}
@@ -407,7 +418,7 @@ export function RecurringFormDialog({
           ) : null}
 
           {fixedPreview?.kind === "monthly" ? (
-            <p className="-mt-1 text-sm text-muted-foreground">
+            <p className="rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
               Gera{" "}
               <span className="font-medium text-foreground">
                 {fixedPreview.count}{" "}
@@ -419,28 +430,34 @@ export function RecurringFormDialog({
           ) : null}
 
           {fixedPreview?.kind === "annual" ? (
-            <p className="-mt-1 text-sm text-muted-foreground">
+            <p className="rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
               Gera{" "}
               <span className="font-medium text-foreground">1 cobrança</span>
               {" · "}
               em {fixedPreview.year}
             </p>
           ) : null}
+        </FormSection>
 
-          <div className="grid grid-cols-1 gap-3 rounded-lg border border-border/50 bg-muted/15 p-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                {isSplit
-                  ? "Quando começa a pagar"
-                  : isAnnualFixed
-                    ? "Vencimento anual"
-                    : "Vencimento (até dezembro do ano da data de início)"}
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <FormLabel required>
-                {isSplit ? "1ª parcela em" : "A partir de"}
-              </FormLabel>
+        <FormSection
+          title={
+            isSplit
+              ? "Quando começa a pagar"
+              : isAnnualFixed
+                ? "Vencimento anual"
+                : "Vencimento"
+          }
+          subtitle={
+            isSplit
+              ? undefined
+              : "Até dezembro do ano da data de início"
+          }
+        >
+          <FormFieldRow>
+            <FormField
+              label={isSplit ? "1ª parcela em" : "A partir de"}
+              required
+            >
               <DatePicker
                 date={
                   newRecurring.payment_start_date
@@ -466,10 +483,9 @@ export function RecurringFormDialog({
                   });
                 }}
               />
-            </div>
+            </FormField>
 
-            <div className="space-y-1.5">
-              <FormLabel required>Dia de vencimento</FormLabel>
+            <FormField label="Dia de vencimento" required>
               <Input
                 type="number"
                 min="1"
@@ -483,18 +499,10 @@ export function RecurringFormDialog({
                   })
                 }
               />
-            </div>
-          </div>
-
-          {formError ? (
-            <p className="text-sm text-destructive">{formError}</p>
-          ) : null}
-
-          <Button onClick={handleCreate} className="w-full">
-            {isEditing ? "Salvar alterações" : "Salvar recorrência"}
-          </Button>
-        </div>
-      </DialogContent>
+            </FormField>
+          </FormFieldRow>
+        </FormSection>
+      </FormDialogShell>
     </Dialog>
   );
 }

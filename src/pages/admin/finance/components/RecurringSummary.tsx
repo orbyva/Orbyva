@@ -4,7 +4,7 @@ import { formatBRL } from "@/lib/currency";
 interface RecurringSummaryProps {
   totalFixesReceivable: number;
   totalFixesPay: number;
-  /** Ex.: "Julho / 2026" — totais do mês em foco. */
+  /** Ex.: "Julho / 2026", totais do mês em foco. */
   periodLabel?: string;
 }
 

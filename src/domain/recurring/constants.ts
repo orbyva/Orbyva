@@ -1,6 +1,6 @@
 export const DUE_WARNING_DAYS = 5;
 
-/** Marcador legado (horizonte longo) — ainda reconhecido na edição. */
+/** Marcador legado (horizonte longo), ainda reconhecido na edição. */
 export const LEGACY_FIXED_RECURRING_HORIZON = 60;
 
 /** Máximo de parcelas em compra parcelada (Nx). */

@@ -56,14 +56,14 @@ async function notifyUser(
     }
     const html = emailShell({
       eyebrow: "Orbyva · Cobrança",
-      title: `${greet} — não conseguimos renovar o Pro`,
+      title: `${greet}, não conseguimos renovar o Pro`,
       bodyHtml: `<p style="margin:0;">O pagamento da assinatura falhou e o acesso ao app foi pausado. Atualize o cartão no portal para voltar ao Pro.</p>`,
       ctaLabel: "Abrir portal de cobrança",
       ctaUrl: `${siteUrl}/account`,
     });
     const sent = await sendResendEmail({
       to: email,
-      subject: "Orbyva — falha no pagamento do Pro",
+      subject: "Orbyva, falha no pagamento do Pro",
       html,
     });
     if (sent.ok) {
@@ -79,8 +79,8 @@ async function notifyUser(
     if (profile?.cancel_winback_email_sent_at) return;
     const html = emailShell({
       eyebrow: "Orbyva · Até logo",
-      title: `${greet} — sentiremos sua falta no Pro`,
-      bodyHtml: `<p style="margin:0;">Sua assinatura foi cancelada. Seus dados continuam aí — se mudar de ideia, o Pro volta em um clique na Conta.</p>`,
+      title: `${greet}, sentiremos sua falta no Pro`,
+      bodyHtml: `<p style="margin:0;">Sua assinatura foi cancelada. Seus dados continuam aí, se mudar de ideia, o Pro volta em um clique na Conta.</p>`,
       ctaLabel: "Reativar Pro",
       ctaUrl: `${siteUrl}/account`,
       footer:
@@ -88,7 +88,7 @@ async function notifyUser(
     });
     const sent = await sendResendEmail({
       to: email,
-      subject: "Orbyva — sua assinatura foi cancelada",
+      subject: "Orbyva, sua assinatura foi cancelada",
       html,
     });
     if (sent.ok) {
@@ -103,8 +103,8 @@ async function notifyUser(
   if (profile?.pro_welcome_email_sent_at) return;
   const html = emailShell({
     eyebrow: "Orbyva · Pro",
-    title: `${greet} — bem-vindo ao Pro`,
-    bodyHtml: `<p style="margin:0;">Assinatura confirmada. Orçamento, parcelas e o life OS continuam sem prazo — obrigado por orbitar com a gente.</p>`,
+    title: `${greet}, bem-vindo ao Pro`,
+    bodyHtml: `<p style="margin:0;">Assinatura confirmada. Orçamento, parcelas e o life OS continuam sem prazo, obrigado por orbitar com a gente.</p>`,
     ctaLabel: "Abrir o hub",
     ctaUrl: `${siteUrl}/home`,
   });
@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
         console.log("stripe webhook duplicate", event.id, event.type);
         return json({ received: true, type: event.type, duplicate: true });
       }
-      // Tabela ainda não migrada — segue sem idempotência.
+      // Tabela ainda não migrada, segue sem idempotência.
       if (
         !String(seenError.message).includes("stripe_webhook_event") &&
         seenError.code !== "42P01" &&
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
       ) {
         throw new Error(`Idempotency insert: ${seenError.message}`);
       }
-      console.warn("stripe_webhook_event ausente — processando sem idempotência");
+      console.warn("stripe_webhook_event ausente, processando sem idempotência");
     }
 
     const result = applyStripeWebhookEvent(event);

@@ -5,7 +5,7 @@ import { track } from "@/lib/analytics";
 import { fadeUp, staggerDelay } from "@/components/landing/landingMotion";
 
 /**
- * Depoimentos reais — preencha quando tiver (Fase I ops).
+ * Depoimentos reais, preencha quando tiver (Fase I ops).
  * Enquanto vazio, a landing mostra sinais honestos de early access.
  */
 const TESTIMONIALS: { quote: string; name: string; role: string }[] = [];

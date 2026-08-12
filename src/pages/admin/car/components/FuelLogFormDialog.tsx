@@ -1,19 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/MoneyInput";
-import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+import { FormField, FormFieldRow } from "@/components/FormField";
+import { FormDialogShell, FormFooter } from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
 import { DatePicker } from "@/components/DatePicker";
 import type { Dimension } from "@/types/dimensions";
 import type { FuelLog, FuelLogCreateRequest, Vehicle } from "@/types/car";
@@ -95,6 +87,11 @@ export function FuelLogFormDialog({
       estimateConsumptionFromPrevious(previousKm, form.km, form.liters),
     [previousKm, form.km, form.liters]
   );
+
+  const pricePerLiter =
+    form.liters > 0 && form.total_cost > 0
+      ? form.total_cost / form.liters
+      : null;
 
   useEffect(() => {
     if (open && fuelLog) {
@@ -198,18 +195,24 @@ export function FuelLogFormDialog({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent
-        className={`${FORM_DIALOG_CONTENT_CLASS} max-h-[90vh] overflow-y-auto`}
+      <FormDialogShell
+        title={
+          isEditing ? "Editar abastecimento" : "Registrar abastecimento"
+        }
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={() => setOpen(false)}
+            onSubmit={handleSave}
+            submitLabel={
+              isEditing ? "Salvar alterações" : "Registrar abastecimento"
+            }
+            loading={loading}
+          />
+        }
       >
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Editar abastecimento" : "Registrar abastecimento"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel required>Data</FormLabel>
+        <FormSection title="Abastecimento">
+          <FormField label="Data" required>
             <DatePicker
               date={
                 form.date ? new Date(`${form.date}T12:00:00`) : undefined
@@ -221,10 +224,10 @@ export function FuelLogFormDialog({
                 })
               }
             />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel required>Litros</FormLabel>
+          </FormField>
+
+          <FormFieldRow>
+            <FormField label="Litros" required>
               <Input
                 type="number"
                 step="0.001"
@@ -233,9 +236,8 @@ export function FuelLogFormDialog({
                   setForm({ ...form, liters: Number(e.target.value) || 0 })
                 }
               />
-            </div>
-            <div>
-              <FormLabel required>Valor total (R$)</FormLabel>
+            </FormField>
+            <FormField label="Valor total (R$)" required>
               <MoneyInput
                 value={form.total_cost || ""}
                 onChange={(value) =>
@@ -245,11 +247,28 @@ export function FuelLogFormDialog({
                   })
                 }
               />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel required>Km no abastecimento</FormLabel>
+            </FormField>
+          </FormFieldRow>
+
+          {pricePerLiter != null && (
+            <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              Preço por litro:{" "}
+              <span className="font-semibold">
+                {pricePerLiter.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+                /L
+              </span>
+            </p>
+          )}
+
+          <FormFieldRow>
+            <FormField
+              label="Km no abastecimento"
+              required
+              hint="Atualiza a quilometragem do veículo se for maior."
+            >
               <Input
                 type="number"
                 value={form.km || ""}
@@ -257,18 +276,14 @@ export function FuelLogFormDialog({
                   setForm({ ...form, km: Number(e.target.value) || 0 })
                 }
               />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Atualiza a quilometragem do veículo se for maior.
-              </p>
-            </div>
-            <div>
-              <FormLabel optional>Posto</FormLabel>
+            </FormField>
+            <FormField label="Posto" optional>
               <Input
                 value={form.station ?? ""}
                 onChange={(e) => setForm({ ...form, station: e.target.value })}
               />
-            </div>
-          </div>
+            </FormField>
+          </FormFieldRow>
 
           {estimatedConsumption != null && (
             <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
@@ -288,46 +303,38 @@ export function FuelLogFormDialog({
 
           {isEditing && fuelLog?.transaction_id != null && (
             <p className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-              Este abastecimento tem despesa em Finanças — ao salvar, o
+              Este abastecimento tem despesa em Finanças, ao salvar, o
               lançamento também será atualizado.
             </p>
           )}
+        </FormSection>
 
-          {!isEditing && dimensions.length > 0 && (
-            <div className="space-y-3 rounded-lg border p-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={registerExpense}
-                  onChange={(e) => setRegisterExpense(e.target.checked)}
-                  className="rounded"
-                />
-                Registrar como despesa em Finanças
-              </label>
-              {registerExpense && (
+        {!isEditing && dimensions.length > 0 && (
+          <div className="space-y-3 rounded-lg border p-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={registerExpense}
+                onChange={(e) => setRegisterExpense(e.target.checked)}
+                className="rounded"
+              />
+              Registrar como despesa em Finanças
+            </label>
+            {registerExpense && (
+              <FormField label="Categoria" required>
                 <ExpenseCategoryPicker
                   dimensions={dimensions}
                   selectedType={selectedType}
                   classId={classId}
                   onTypeChange={setSelectedType}
                   onClassChange={setClassId}
+                  hideLabel
                 />
-              )}
-            </div>
-          )}
-
-          {formError && (
-            <p className="text-sm text-destructive">{formError}</p>
-          )}
-          <Button onClick={handleSave} disabled={loading} className="w-full">
-            {loading
-              ? "Salvando…"
-              : isEditing
-                ? "Salvar alterações"
-                : "Registrar abastecimento"}
-          </Button>
-        </div>
-      </DialogContent>
+              </FormField>
+            )}
+          </div>
+        )}
+      </FormDialogShell>
     </Dialog>
   );
 }

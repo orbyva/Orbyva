@@ -2,7 +2,7 @@
 export const BRAND = {
   name: "Orbyva",
   tagline: "Tudo da sua vida em uma só órbita",
-  /** Slogan da lockup visual (logo.webp) — shares / exportações. */
+  /** Slogan da lockup visual (logo.webp), shares / exportações. */
   logoSlogan: "Tudo da sua vida em uma só órbita.",
   /** Cunha de diferenciação (landing / marketing). */
   wedge: "Life OS com controle do mês",
@@ -22,16 +22,16 @@ export const BRAND = {
   instagramUrl: "https://instagram.com/orbyva",
 } as const;
 
-/** Hex de marca — canvas/shares/PWA (espelha --primary / --cinema). */
+/** Hex de marca, canvas/shares/PWA (espelha --primary / --cinema). */
 export const BRAND_COLORS = {
-  /** Sky accent — primary (logo Orbyva) */
+  /** Sky accent, primary (logo Orbyva) */
   primary: "#0EA5E9",
-  /** Sky-600 — gradientes / punch */
+  /** Sky-600 · gradientes / punch */
   primaryDeep: "#0284C7",
-  /** Sky-900 — fundos de share */
+  /** Sky-900 · fundos de share */
   primaryDark: "#0C4A6E",
   primarySoft: "rgba(14, 165, 233, 0.55)",
-  /** Fuchsia-600 — módulo cinema (longe do sky) */
+  /** Fuchsia-600 · módulo cinema (longe do sky) */
   cinema: "#C026D3",
   cinemaSoft: "rgba(192, 38, 211, 0.5)",
   ink: "#0B0F1A",

@@ -1,4 +1,4 @@
-/** Retenção D7 do funil — evento PostHog no client (quem volta).
+/** Retenção D7 do funil, evento PostHog no client (quem volta).
  *  Server: `profiles.last_seen_at` + e-mail via `retention-d7-email`.
  */
 

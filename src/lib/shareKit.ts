@@ -23,10 +23,10 @@ export const SHARE_BRAND = {
 
 /** No-op mantido para os geradores (marca é vetorial nos shares). */
 export async function ensureShareBrandAssets(): Promise<void> {
-  /* mark desenhado via drawBrandMark — sem asset com fundo branco */
+  /* mark desenhado via drawBrandMark, sem asset com fundo branco */
 }
 
-/** Wordmark ORBYVA — O/A em sky, RBYV em paper (como na logo). */
+/** Wordmark ORBYVA, O/A em sky, RBYV em paper (como na logo). */
 export function drawOrbyvaWordmark(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -113,7 +113,7 @@ export function paintShareBackground(
 }
 
 /**
- * Marca Orbyva — O + órbita + satélite (canvas shares).
+ * Marca Orbyva, O + órbita + satélite (canvas shares).
  * `cx`/`cy` são o centro do mark.
  */
 export function drawBrandMark(

@@ -145,7 +145,7 @@ export interface TripItineraryActivity {
   is_reserved?: boolean;
   /** Tipo do lugar (mesmo conjunto de PlaceType) ou transport. */
   category?: TripActivityCategory;
-  /** Checklist da visita — nunca auto por horário. */
+  /** Checklist da visita, nunca auto por horário. */
   visit_status?: TripVisitStatus;
   completed_at?: string | null;
   skipped_at?: string | null;
@@ -154,7 +154,7 @@ export interface TripItineraryActivity {
   created_by_avatar?: string | null;
 }
 
-/** Tipos de visita no roteiro — alinhados a lugares + transporte entre cidades. */
+/** Tipos de visita no roteiro, alinhados a lugares + transporte entre cidades. */
 export type TripActivityCategory =
   | "restaurant"
   | "cafe"

@@ -433,7 +433,7 @@ export default function Budget() {
         <EmptyState
           icon={PiggyBank}
           title="Nenhum orçamento neste mês"
-          description="Defina limites por categoria para os lançamentos acompanharem o planejado vs. realizado — o mesmo fluxo do onboarding."
+          description="Defina limites por categoria para os lançamentos acompanharem o planejado vs. realizado, o mesmo fluxo do onboarding."
           action={
             <Button
               onClick={() => {

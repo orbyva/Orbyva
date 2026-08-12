@@ -48,7 +48,7 @@ function resolveStatus(
   return "upcoming";
 }
 
-/** Dados de domínio já carregados — evita refetch no hub. */
+/** Dados de domínio já carregados, evita refetch no hub. */
 export type TimelinePrefetch = {
   recurring?: Recurring[];
   vehicles?: Vehicle[];

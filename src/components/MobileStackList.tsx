@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Lista empilhada para mobile — substitui tabelas densas.
+ * Lista empilhada para mobile, substitui tabelas densas.
  * Use com `divide-y` implícito; cada filho é um “card” de linha.
  */
 export function MobileStackList({

@@ -228,7 +228,7 @@ function BookmarkEditor({
           <p className="text-xs text-destructive">{error}</p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Salva ao sair do campo — onde você parou.
+            Salva ao sair do campo, onde você parou.
           </p>
         )}
         {onFinish && onAbandon ? (

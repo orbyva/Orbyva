@@ -23,11 +23,11 @@ export interface Movie {
   status: MovieStatus;
   score_imdb?: number | null;
   watched_dates: Date[] | string[];
-  /** Opinião escrita — mesmo papel de place_visit.notes. */
+  /** Opinião escrita, mesmo papel de place_visit.notes. */
   notes?: string | null;
-  /** Se recomendaria — mesmo papel de place_visit.would_recommend. */
+  /** Se recomendaria, mesmo papel de place_visit.would_recommend. */
   would_recommend?: boolean;
-  /** Favorito explícito — independente de nota / recomendaria. */
+  /** Favorito explícito, independente de nota / recomendaria. */
   is_favorite?: boolean;
   /** ID TMDB da série (quando type === series). */
   tmdb_tv_id?: number | null;

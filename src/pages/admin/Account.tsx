@@ -246,7 +246,7 @@ export default function Account() {
     accessBlockReason === "payment_failed"
       ? `Não conseguimos renovar o Pro. Atualize o cartão no portal ou assine de novo (${PLANS.pro.priceLabel}) para voltar a escrever no app.`
       : accessBlockReason === "canceled"
-        ? `Sua assinatura foi encerrada. Seus dados continuam salvos — reative o Pro (${PLANS.pro.priceLabel}) quando quiser.`
+        ? `Sua assinatura foi encerrada. Seus dados continuam salvos, reative o Pro (${PLANS.pro.priceLabel}) quando quiser.`
         : `Seus dados continuam salvos na órbita. Com o Pro (${PLANS.pro.priceLabel}) você volta a usar finanças, hábitos, cinema e o resto do life OS sem limite de tempo.`;
   const blockedCta =
     accessBlockReason === "payment_failed"
@@ -256,7 +256,7 @@ export default function Account() {
   return (
     <PageShell
       title="Conta"
-      description={`${BRAND.tagline} — perfil, plano, export e exclusão.`}
+      description={`${BRAND.tagline}, perfil, plano, export e exclusão.`}
     >
       {accessBlocked ? (
         <div className="overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-b from-amber-500/10 via-background to-background p-6 text-center sm:p-8">
@@ -430,14 +430,14 @@ export default function Account() {
               {planLoading
                 ? "Carregando..."
                 : accessBlockReason === "payment_failed"
-                  ? "Pagamento pendente — atualize o cartão para voltar ao Pro."
+                  ? "Pagamento pendente, atualize o cartão para voltar ao Pro."
                   : accessBlockReason === "canceled"
                     ? "Assinatura cancelada. Reative o Pro quando quiser."
                     : accessBlocked
                       ? "Seu teste de 7 dias acabou. Assine o Pro para continuar."
                       : isTrialActive
-                        ? `Teste ativo — ${trialDaysLeft} dia${trialDaysLeft === 1 ? "" : "s"} restante${trialDaysLeft === 1 ? "" : "s"}.`
-                        : `${planMeta.name} — ${planMeta.blurb}`}
+                        ? `Teste ativo, ${trialDaysLeft} dia${trialDaysLeft === 1 ? "" : "s"} restante${trialDaysLeft === 1 ? "" : "s"}.`
+                        : `${planMeta.name}, ${planMeta.blurb}`}
             </p>
           </div>
           <span className="rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wide">
@@ -466,7 +466,7 @@ export default function Account() {
             <p className="text-muted-foreground">
               {trialDaysLeft <= 1
                 ? `Amanhã o acesso grátis termina. Assine o Pro (${PLANS.pro.priceLabel}) para continuar com orçamento, recorrências e o life OS.`
-                : `Faltam ${trialDaysLeft} dias. Vale montar o orçamento e as recorrências agora — e decidir com calma se o Pro faz sentido.`}
+                : `Faltam ${trialDaysLeft} dias. Vale montar o orçamento e as recorrências agora, e decidir com calma se o Pro faz sentido.`}
             </p>
             {isBillingConfigured() ? (
               <Button

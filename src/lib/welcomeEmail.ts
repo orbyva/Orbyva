@@ -39,6 +39,6 @@ export function maybeRequestWelcomeEmail(
   void supabase.functions
     .invoke("welcome-email", { body: {} })
     .catch(() => {
-      /* best-effort — cron lifecycle-email cobre o fallback */
+      /* best-effort, cron lifecycle-email cobre o fallback */
     });
 }

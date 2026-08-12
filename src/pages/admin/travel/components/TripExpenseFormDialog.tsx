@@ -1,11 +1,5 @@
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -14,11 +8,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
+import { FormField, FormFieldRow } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormDisclosure, FormSection } from "@/components/FormSection";
 import { MoneyInput } from "@/components/MoneyInput";
 import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import { EXPENSE_CATEGORY_LABELS } from "@/domain/travel";
@@ -73,24 +68,28 @@ export function TripExpenseFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>
-            {editing ? "Editar gasto" : "Adicionar gasto"}
-          </DialogTitle>
-        </DialogHeader>
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel required>Descrição</FormLabel>
+      <FormDialogShell
+        title={editing ? "Editar gasto" : "Adicionar gasto"}
+        footer={
+          <FormFooter
+            onCancel={() => onOpenChange(false)}
+            onSubmit={onSave}
+            submitLabel={
+              editing ? "Salvar alterações" : "Adicionar gasto"
+            }
+          />
+        }
+      >
+        <FormSection title="Essencial">
+          <FormField label="Descrição" required>
             <Input
               value={form.description}
               onChange={(e) =>
                 onChange({ ...form, description: e.target.value })
               }
             />
-          </div>
-          <div>
-            <FormLabel required>Valor</FormLabel>
+          </FormField>
+          <FormField label="Valor" required>
             <MoneyInput
               value={form.amount || ""}
               onChange={(value) =>
@@ -100,10 +99,9 @@ export function TripExpenseFormDialog({
                 })
               }
             />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel>Categoria</FormLabel>
+          </FormField>
+          <FormFieldRow>
+            <FormField label="Categoria">
               <Select
                 value={form.category}
                 onValueChange={(v) =>
@@ -124,9 +122,8 @@ export function TripExpenseFormDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <FormLabel>Data</FormLabel>
+            </FormField>
+            <FormField label="Data">
               <DatePicker
                 date={new Date(`${form.expense_date}T12:00:00`)}
                 onSelect={(d) =>
@@ -138,11 +135,17 @@ export function TripExpenseFormDialog({
                   })
                 }
               />
-            </div>
-          </div>
+            </FormField>
+          </FormFieldRow>
           {memberCount > 1 ? (
-            <div>
-              <FormLabel>Tipo do gasto</FormLabel>
+            <FormField
+              label="Tipo do gasto"
+              hint={
+                form.visibility === "shared"
+                  ? `Divide igual entre ${memberCount} membro(s). Ex.: casa alugada.`
+                  : undefined
+              }
+            >
               <Select
                 value={form.visibility}
                 onValueChange={(v) =>
@@ -162,43 +165,49 @@ export function TripExpenseFormDialog({
                   </SelectItem>
                 </SelectContent>
               </Select>
-              {form.visibility === "shared" ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Divide igual entre {memberCount} membro(s). Ex.: casa
-                  alugada.
-                </p>
-              ) : null}
-            </div>
+            </FormField>
           ) : null}
-          {!editing ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={registerExpense}
-                onChange={(e) => onRegisterExpenseChange(e.target.checked)}
-                className="rounded"
-              />
-              Registrar em Finanças
-            </label>
-          ) : linkedToLedger ? (
+        </FormSection>
+
+        {editing && linkedToLedger ? (
+          <FormSection title="Finanças">
             <p className="text-xs text-muted-foreground">
-              Nos lançamentos — salvar atualiza o registro
+              Nos lançamentos, salvar atualiza o registro
             </p>
-          ) : null}
-          {showFinancePicker ? (
-            <ClassSearchPicker
-              dimensions={dimensions}
-              value={classId > 0 ? classId : null}
-              preferredNatureName="Despesa"
-              autoFocus={false}
-              onChange={(opt) => onClassIdChange(opt?.id ?? 0)}
-            />
-          ) : null}
-          <Button onClick={onSave} className="w-full">
-            {editing ? "Salvar alterações" : "Adicionar gasto"}
-          </Button>
-        </div>
-      </DialogContent>
+            <FormField label="Categoria" required>
+              <ClassSearchPicker
+                dimensions={dimensions}
+                value={classId > 0 ? classId : null}
+                preferredNatureName="Despesa"
+                autoFocus={false}
+                hideLabel
+                onChange={(opt) => onClassIdChange(opt?.id ?? 0)}
+              />
+            </FormField>
+          </FormSection>
+        ) : !editing ? (
+          <FormDisclosure
+            title="Registrar em Finanças"
+            description="Cria um lançamento no extrato com este gasto."
+            open={registerExpense}
+            onOpenChange={onRegisterExpenseChange}
+            variant="toggle"
+          >
+            {showFinancePicker ? (
+              <FormField label="Categoria" required>
+                <ClassSearchPicker
+                  dimensions={dimensions}
+                  value={classId > 0 ? classId : null}
+                  preferredNatureName="Despesa"
+                  autoFocus={false}
+                  hideLabel
+                  onChange={(opt) => onClassIdChange(opt?.id ?? 0)}
+                />
+              </FormField>
+            ) : null}
+          </FormDisclosure>
+        ) : null}
+      </FormDialogShell>
     </Dialog>
   );
 }

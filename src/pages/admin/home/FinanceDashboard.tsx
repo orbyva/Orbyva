@@ -265,7 +265,7 @@
           "0"
         )}-${lastDayOfMonth}T23:59:59.999Z`;
 
-        // Tabela / tripSpend — página maior; donuts vêm de SQL.
+        // Tabela / tripSpend, página maior; donuts vêm de SQL.
         return await fetchTransactions(1, 500, startDate, endDate);
       } catch (error) {
         console.error("Error fetching transactions:", error);
@@ -487,7 +487,7 @@
           <EmptyState
             icon={Wallet}
             title="Nenhum lançamento neste mês"
-            description="Registre a primeira receita ou despesa para o dashboard acompanhar o life OS — o mesmo passo do onboarding."
+            description="Registre a primeira receita ou despesa para o dashboard acompanhar o life OS, o mesmo passo do onboarding."
             action={
               <Button asChild>
                 <Link to="/finance/transactions?new=1">Nova transação</Link>

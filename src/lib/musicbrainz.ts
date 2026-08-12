@@ -6,7 +6,7 @@
  * Usa proxies same-origin (/mb-api, /caa-media) por CORS + User-Agent.
  *
  * Nota de performance: a API do MB costuma levar ~0,7–1,5s (BR).
- * Capas do CAA fazem redirects (~2–3s) — na lista usamos loading=lazy.
+ * Capas do CAA fazem redirects (~2–3s), na lista usamos loading=lazy.
  */
 import type { AlbumType } from "@/types/music";
 
@@ -213,14 +213,14 @@ export async function searchMusicBrainz(
   const hits = (data["release-groups"] ?? [])
     .map(hitFromGroup)
     .filter((h): h is AlbumSearchHit => Boolean(h))
-    // Orbyva: só álbum/EP — singles (e resto) poluem a lista.
+    // Orbyva: só álbum/EP, singles (e resto) poluem a lista.
     .filter((h) => h.album_type === "album" || h.album_type === "ep");
 
   searchCache.set(cacheKey, { at: Date.now(), hits });
   return hits;
 }
 
-/** Lookup do release-group — usado em “Atualizar do MusicBrainz”. */
+/** Lookup do release-group, usado em “Atualizar do MusicBrainz”. */
 export async function fetchMusicBrainzAlbumMeta(
   releaseGroupId: string,
   signal?: AbortSignal

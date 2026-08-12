@@ -13,7 +13,7 @@ type LandingSectionTitleProps = {
 
 /**
  * Título de seção com entrada animada (Framer), alinhado ao motion da landing.
- * Syne tem descendentes altos (ex.: “g”) — leading + padding evitam corte.
+ * Syne tem descendentes altos (ex.: “g”), leading + padding evitam corte.
  * Sem translateY: transform + overflow-x no ancestral costuma cortar glifos.
  */
 export function LandingSectionTitle({

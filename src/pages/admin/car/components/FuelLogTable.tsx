@@ -77,7 +77,7 @@ export function FuelLogTable({
                 <TableCell>{log.km.toLocaleString("pt-BR")} km</TableCell>
                 <TableCell>{log.liters.toFixed(1)} L</TableCell>
                 <TableCell>{formatBRL(log.total_cost)}</TableCell>
-                <TableCell>{log.station || "—"}</TableCell>
+                <TableCell>{log.station || "·"}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     <Button

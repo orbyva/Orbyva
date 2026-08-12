@@ -1,4 +1,4 @@
-/** Fatia de @/api/finance — Fase G. */
+/** Fatia de @/api/finance, Fase G. */
 import {
   Transaction,
   TransactionCreateRequest,
@@ -168,7 +168,7 @@ export async function fetchValueByNatureForMonth(
   year: number,
   month: number
 ): Promise<ValueByNatureYearMonth | null> {
-  // Prefer RPC (SQL) — fallback na view se a migration ainda não estiver aplicada.
+  // Prefer RPC (SQL), fallback na view se a migration ainda não estiver aplicada.
   const { data: rpcData, error: rpcError } = await supabase.rpc(
     "get_value_by_nature_for_month",
     { p_year: year, p_month: month }
@@ -203,7 +203,7 @@ export async function fetchValueByNatureForMonth(
   };
 }
 
-/** Totais por tipo (categoria) no mês — donuts do dashboard. */
+/** Totais por tipo (categoria) no mês, donuts do dashboard. */
 export async function fetchValueByTypeForMonth(
   year: number,
   month: number
@@ -262,7 +262,7 @@ export async function fetchValueByTypeForMonth(
 }
 
 /**
- * Lançamentos avulsos (sem recorrência) num intervalo — projeção.
+ * Lançamentos avulsos (sem recorrência) num intervalo, projeção.
  * Pagina até esgotar; select enxuto.
  */
 export async function fetchAvulsoLedgerInRange(
@@ -325,7 +325,7 @@ export async function insertTransaction(
   return data.id as number;
 }
 
-/** class_id (+ type_id) de uma transação — para pré-preencher edição. */
+/** class_id (+ type_id) de uma transação, para pré-preencher edição. */
 export async function fetchTransactionClassMeta(
   transactionId: number
 ): Promise<{ class_id: number; type_id: number | null } | null> {

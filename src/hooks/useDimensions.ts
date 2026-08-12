@@ -35,7 +35,7 @@ export function useDimensions(options?: { enabled?: boolean }) {
   useEffect(() => {
     if (!enabled) return;
     void load();
-    // Cache já foi limpo por invalidateDimensionsCache — sem force para
+    // Cache já foi limpo por invalidateDimensionsCache, sem force para
     // aproveitar coalesce de inflight entre vários hooks montados.
     return onDimensionsCacheInvalidated(() => {
       void load({ quiet: true });

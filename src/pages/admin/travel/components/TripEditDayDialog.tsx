@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
+import { FormField } from "@/components/FormField";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
 import { PlaceCatalogSearch } from "@/components/PlaceCatalogSearch";
 import type { TripStopInput } from "@/domain/travel/tripStops";
 
@@ -43,22 +38,26 @@ export function TripEditDayDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>Editar dia do roteiro</DialogTitle>
-        </DialogHeader>
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel>Título</FormLabel>
+      <FormDialogShell
+        title="Editar dia do roteiro"
+        footer={
+          <FormFooter
+            onCancel={() => onOpenChange(false)}
+            onSubmit={() => onSave(form)}
+            submitLabel="Salvar"
+          />
+        }
+      >
+        <FormSection title="Essencial">
+          <FormField label="Título">
             <Input
               value={form.title}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, title: e.target.value }))
               }
             />
-          </div>
-          <div>
-            <FormLabel optional>Notas</FormLabel>
+          </FormField>
+          <FormField label="Notas" optional>
             <Input
               value={form.notes}
               onChange={(e) =>
@@ -66,10 +65,12 @@ export function TripEditDayDialog({
               }
               placeholder="Observações do dia"
             />
-          </div>
-          <div className="space-y-1">
+          </FormField>
+          <FormField
+            label="Parada deste dia"
+            hint="País, estado ou cidade. Se a parada atual cobrir vários dias, o intervalo é partido e este dia fica com a cidade escolhida."
+          >
             <PlaceCatalogSearch
-              label="Parada deste dia"
               scope="regions"
               requestUserLocation={false}
               selectedLabel={form.stop?.name ?? null}
@@ -88,16 +89,9 @@ export function TripEditDayDialog({
                 }))
               }
             />
-            <p className="text-xs text-muted-foreground">
-              País, estado ou cidade. Se a parada atual cobrir vários dias, o
-              intervalo é partido e este dia fica com a cidade escolhida.
-            </p>
-          </div>
-          <Button onClick={() => onSave(form)} className="w-full">
-            Salvar
-          </Button>
-        </div>
-      </DialogContent>
+          </FormField>
+        </FormSection>
+      </FormDialogShell>
     </Dialog>
   );
 }

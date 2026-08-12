@@ -1,11 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/MoneyInput";
@@ -16,11 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+import { FormField } from "@/components/FormField";
+import { FormDialogShell, FormFooter } from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
 import { DatePicker } from "@/components/DatePicker";
 import type {
   DocumentType,
@@ -122,16 +114,22 @@ export function DocumentFormDialog({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Editar documento" : "Adicionar documento"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel required>Tipo</FormLabel>
+      <FormDialogShell
+        title={isEditing ? "Editar documento" : "Adicionar documento"}
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={() => setOpen(false)}
+            onSubmit={handleSave}
+            submitLabel={
+              isEditing ? "Salvar alterações" : "Adicionar documento"
+            }
+            loading={loading}
+          />
+        }
+      >
+        <FormSection title="Documento">
+          <FormField label="Tipo" required>
             <Select
               value={form.type}
               onValueChange={(v) =>
@@ -149,22 +147,24 @@ export function DocumentFormDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
 
           {form.type === "other" && (
-            <div>
-              <FormLabel required>Descrição</FormLabel>
+            <FormField label="Descrição" required>
               <Input
                 value={form.custom_type ?? ""}
                 onChange={(e) =>
                   setForm({ ...form, custom_type: e.target.value })
                 }
               />
-            </div>
+            </FormField>
           )}
 
-          <div>
-            <FormLabel required>Vencimento</FormLabel>
+          <FormField
+            label="Vencimento"
+            required
+            hint="Usamos esta data para alertas de vencimento."
+          >
             <DatePicker
               date={
                 form.due_date
@@ -180,10 +180,9 @@ export function DocumentFormDialog({
                 })
               }
             />
-          </div>
+          </FormField>
 
-          <div>
-            <FormLabel optional>Valor (R$)</FormLabel>
+          <FormField label="Valor (R$)" optional>
             <MoneyInput
               value={form.cost ?? ""}
               onChange={(value) =>
@@ -193,7 +192,7 @@ export function DocumentFormDialog({
                 })
               }
             />
-          </div>
+          </FormField>
 
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -212,19 +211,8 @@ export function DocumentFormDialog({
             />
             Já pago
           </label>
-
-          {formError && (
-            <p className="text-sm text-destructive">{formError}</p>
-          )}
-          <Button onClick={handleSave} disabled={loading} className="w-full">
-            {loading
-              ? "Salvando…"
-              : isEditing
-                ? "Salvar alterações"
-                : "Adicionar documento"}
-          </Button>
-        </div>
-      </DialogContent>
+        </FormSection>
+      </FormDialogShell>
     </Dialog>
   );
 }

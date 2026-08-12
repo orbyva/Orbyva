@@ -116,8 +116,8 @@ Deno.serve(async (req) => {
 
   const html = emailShell({
     eyebrow: "Orbyva · Viagem",
-    title: `${greet} — convite para ${tripLabel}`,
-    bodyHtml: `<p style="margin:0;"><strong style="color:#e4e4e7;">${inviter}</strong> te convidou para planejar junto no Orbyva — roteiro, prazos e lugares no mesmo lugar.</p>`,
+    title: `${greet}, convite para ${tripLabel}`,
+    bodyHtml: `<p style="margin:0;"><strong style="color:#e4e4e7;">${inviter}</strong> te convidou para planejar junto no Orbyva, roteiro, prazos e lugares no mesmo lugar.</p>`,
     ctaLabel: "Aceitar convite",
     ctaUrl: inviteLink,
     footer: "O link expira em até 14 dias. Se não esperava este e-mail, ignore.",

@@ -8,7 +8,7 @@ type DimensionsEmptyHintProps = {
   missing: "tipos" | "classes" | "naturezas";
 };
 
-/** Aviso quando a lista de classificação está vazia — evita select em branco. */
+/** Aviso quando a lista de classificação está vazia, evita select em branco. */
 export function DimensionsEmptyHint({
   subject,
   missing,

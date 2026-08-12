@@ -130,7 +130,7 @@ export function BookReadingNotes({
                 min={0}
                 value={page}
                 onChange={(e) => setPage(e.target.value)}
-                placeholder="—"
+                placeholder="·"
               />
             </div>
             <div className="min-w-0 flex-1">

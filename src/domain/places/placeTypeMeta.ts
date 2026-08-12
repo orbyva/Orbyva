@@ -6,7 +6,7 @@ import type { PlaceType } from "@/types/places";
  *
  * Cor aqui é **identidade**, nunca estado: os tons não usam os tokens
  * `success`/`warning`/`destructive`/`primary`, reservados para status.
- * O domínio guarda só a chave do ícone — quem resolve para Lucide é
+ * O domínio guarda só a chave do ícone, quem resolve para Lucide é
  * `PlaceTypeIcon`, como `travelModes.ts` faz com `TravelModeIcon`.
  */
 export type PlaceTypeIconKey =

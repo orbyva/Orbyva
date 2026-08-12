@@ -65,7 +65,7 @@ export async function fetchMemberTripIds(userId: string): Promise<string[]> {
     .select("trip_id")
     .eq("user_id", userId);
   if (error) {
-    // Tabela ainda não migrada — ignora
+    // Tabela ainda não migrada, ignora
     if (error.message.includes("trip_member") || error.code === "42P01") {
       return [];
     }

@@ -70,7 +70,7 @@ function loadSeriesEpisodeAlertsOnce(): Promise<AppAlert[]> {
   return seriesEnrichInflight;
 }
 
-/** TMDB depois — não bloqueia o cold path do sino/nav. */
+/** TMDB depois, não bloqueia o cold path do sino/nav. */
 function scheduleSeriesAlertsEnrichment(userId: string) {
   void loadSeriesEpisodeAlertsOnce()
     .then((seriesAlerts) => {
@@ -219,7 +219,7 @@ function mergeSeriesAlerts(
 }
 
 async function loadAppAlertsFresh(): Promise<AppAlert[]> {
-  // Sem TMDB no caminho crítico — séries entram via scheduleSeriesAlertsEnrichment.
+  // Sem TMDB no caminho crítico, séries entram via scheduleSeriesAlertsEnrichment.
   const [recurringResult, vehiclesResult, budgetResult, goalsResult] =
     await Promise.allSettled([
       fetchRecurringTransactions(),
@@ -320,7 +320,7 @@ export function buildAppAlertsFromDomains(input: {
         ? "Receita acima do previsto"
         : "Orçamento estourado",
       message: isIncome
-        ? `${name} superou a meta — ótimo sinal.`
+        ? `${name} superou a meta, ótimo sinal.`
         : `${name} passou do planejado.`,
       href: "/finance/budget",
     });

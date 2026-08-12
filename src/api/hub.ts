@@ -230,7 +230,7 @@ function assembleHomeBundle(domains: HomeEdgePayload): HomeBundle {
     finance: financeMonth,
   });
 
-  // timeline is async — caller awaits fetchTimeline in loadHomeBundle
+  // timeline is async, caller awaits fetchTimeline in loadHomeBundle
   return {
     summary,
     timeline: [],
@@ -260,7 +260,7 @@ function assembleHomeBundle(domains: HomeEdgePayload): HomeBundle {
 
 /**
  * Cold load do /home: tenta Edge `home-bundle` (1 request); fallback local.
- * Alertas de série (TMDB) ficam de fora — enriquecer com `enrichHomeAlertsWithSeries`.
+ * Alertas de série (TMDB) ficam de fora, enriquecer com `enrichHomeAlertsWithSeries`.
  */
 export async function loadHomeBundle(): Promise<HomeBundle> {
   const now = new Date();

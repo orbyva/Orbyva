@@ -1,13 +1,8 @@
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/MoneyInput";
 import {
   Select,
   SelectContent,
@@ -17,11 +12,9 @@ import {
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
 import { formatLocalIsoDate } from "@/lib/dates";
-import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+import { FormField, FormFieldRow } from "@/components/FormField";
+import { FormDialogShell, FormFooter } from "@/components/FormDialogShell";
+import { FormDisclosure, FormSection } from "@/components/FormSection";
 import type {
   FuelType,
   Vehicle,
@@ -90,6 +83,9 @@ export function VehicleFormDialog({
   const [form, setForm] = useState<VehicleCreateRequest>(
     vehicle ? toForm(vehicle) : emptyVehicle()
   );
+  const [showPurchase, setShowPurchase] = useState(
+    !!(vehicle?.purchase_date || vehicle?.purchase_value)
+  );
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -99,9 +95,11 @@ export function VehicleFormDialog({
     setOpen(value);
     if (value && vehicle) {
       setForm(toForm(vehicle));
+      setShowPurchase(!!(vehicle.purchase_date || vehicle.purchase_value));
     }
     if (value && !vehicle) {
       setForm(emptyVehicle());
+      setShowPurchase(false);
     }
     if (!value) setFormError("");
   }
@@ -157,16 +155,22 @@ export function VehicleFormDialog({
           <Button>Cadastrar veículo</Button>
         </DialogTrigger>
       )}
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Editar veículo" : "Cadastrar veículo"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel required>Tipo</FormLabel>
+      <FormDialogShell
+        title={isEditing ? "Editar veículo" : "Cadastrar veículo"}
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={() => setOpen(false)}
+            onSubmit={handleSave}
+            submitLabel={
+              isEditing ? "Salvar alterações" : "Cadastrar veículo"
+            }
+            loading={loading}
+          />
+        }
+      >
+        <FormSection title="Identificação">
+          <FormField label="Tipo" required>
             <Select
               value={normalizeVehicleKind(form.kind)}
               onValueChange={(v) => {
@@ -193,24 +197,21 @@ export function VehicleFormDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <FormLabel required>Marca</FormLabel>
+          </FormField>
+          <FormField label="Marca" required>
             <Input
               value={form.brand}
               onChange={(e) => setForm({ ...form, brand: e.target.value })}
             />
-          </div>
-          <div>
-            <FormLabel required>Modelo</FormLabel>
+          </FormField>
+          <FormField label="Modelo" required>
             <Input
               value={form.model}
               onChange={(e) => setForm({ ...form, model: e.target.value })}
             />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel optional>Ano</FormLabel>
+          </FormField>
+          <FormFieldRow>
+            <FormField label="Ano" optional>
               <Input
                 type="number"
                 value={form.year ?? ""}
@@ -221,39 +222,36 @@ export function VehicleFormDialog({
                   })
                 }
               />
-            </div>
-            <div>
-              <FormLabel optional>Placa</FormLabel>
+            </FormField>
+            <FormField label="Placa" optional>
               <Input
                 value={form.plate ?? ""}
                 onChange={(e) => setForm({ ...form, plate: e.target.value })}
               />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel optional>Cor</FormLabel>
-              <Input
-                value={form.color ?? ""}
-                onChange={(e) => setForm({ ...form, color: e.target.value })}
-              />
-            </div>
-            <div>
-              <FormLabel required>Km atual</FormLabel>
-              <Input
-                type="number"
-                value={form.current_km}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    current_km: Number(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-          </div>
-          <div>
-            <FormLabel optional>Combustível</FormLabel>
+            </FormField>
+          </FormFieldRow>
+          <FormField label="Cor" optional>
+            <Input
+              value={form.color ?? ""}
+              onChange={(e) => setForm({ ...form, color: e.target.value })}
+            />
+          </FormField>
+        </FormSection>
+
+        <FormSection title="Uso">
+          <FormField label="Km atual" required>
+            <Input
+              type="number"
+              value={form.current_km}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  current_km: Number(e.target.value) || 0,
+                })
+              }
+            />
+          </FormField>
+          <FormField label="Combustível" optional>
             <Select
               value={form.fuel_type ?? ""}
               onValueChange={(v) =>
@@ -274,36 +272,46 @@ export function VehicleFormDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <FormLabel optional>Data de compra</FormLabel>
-            <DatePicker
-              clearable
-              date={
-                form.purchase_date
-                  ? new Date(`${form.purchase_date}T12:00:00`)
-                  : undefined
-              }
-              onSelect={(d) =>
-                setForm({
-                  ...form,
-                  purchase_date: d ? formatLocalIsoDate(d) : null,
-                })
-              }
-            />
-          </div>
-          {formError && (
-            <p className="text-sm text-destructive">{formError}</p>
-          )}
-          <Button onClick={handleSave} disabled={loading} className="w-full">
-            {loading
-              ? "Salvando…"
-              : isEditing
-                ? "Salvar alterações"
-                : "Cadastrar veículo"}
-          </Button>
-        </div>
-      </DialogContent>
+          </FormField>
+        </FormSection>
+
+        <FormDisclosure
+          title="Dados de compra"
+          description="Data e valor de aquisição do veículo."
+          open={showPurchase}
+          onOpenChange={setShowPurchase}
+        >
+          <FormFieldRow>
+            <FormField label="Data de compra" optional>
+              <DatePicker
+                clearable
+                date={
+                  form.purchase_date
+                    ? new Date(`${form.purchase_date}T12:00:00`)
+                    : undefined
+                }
+                onSelect={(d) =>
+                  setForm({
+                    ...form,
+                    purchase_date: d ? formatLocalIsoDate(d) : null,
+                  })
+                }
+              />
+            </FormField>
+            <FormField label="Valor de compra (R$)" optional>
+              <MoneyInput
+                value={form.purchase_value ?? ""}
+                onChange={(value) =>
+                  setForm({
+                    ...form,
+                    purchase_value: value === "" ? null : value,
+                  })
+                }
+              />
+            </FormField>
+          </FormFieldRow>
+        </FormDisclosure>
+      </FormDialogShell>
     </Dialog>
   );
 }

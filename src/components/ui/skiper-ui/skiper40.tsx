@@ -249,7 +249,7 @@ const Link005 = ({
 };
 
 /**
- * Skiper 40 Animated Link — React
+ * Skiper 40 Animated Link, React
  * Inspired by and adapted from https://cursor.com/?from=home
  * We respect the original creators. This is an inspired rebuild with our own taste and does not claim any ownership.
  * These animations aren’t associated with the cursor.com . They’re independent recreations meant to study interaction design

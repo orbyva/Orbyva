@@ -1,28 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
 import { MoneyInput } from "@/components/MoneyInput";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
 import { MonthYearPicker } from "@/components/MonthYearPicker";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
+import { ClassSearchPicker } from "@/components/ClassSearchPicker";
+import { FormField, FormFieldRow } from "@/components/FormField";
+import {
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormDisclosure, FormSection } from "@/components/FormSection";
 import { Separator } from "@/components/ui/separator";
-import { sortByNamePt } from "@/lib/utils";
 
 import type {
   Dimension,
@@ -62,8 +53,6 @@ export function BudgetFormDialog({
   defaultBudgetMonth,
 }: BudgetFormDialogProps) {
   const [formError, setFormError] = useState("");
-  const [selectedNature, setSelectedNature] = useState<number | null>(null);
-  const [selectedType, setSelectedType] = useState<number | null>(null);
   const [applyAllMonths, setApplyAllMonths] = useState(false);
 
   const monthValue = newBudget.budget_month || defaultBudgetMonth;
@@ -74,52 +63,30 @@ export function BudgetFormDialog({
     setApplyAllMonths(false);
   }, [open]);
 
-  useEffect(() => {
-    if (isEditing && newBudget.type_id && dimensions.length > 0) {
-      for (const nature of dimensions) {
-        const foundType = nature.types.find(
-          (type) => type.id === newBudget.type_id
-        );
+  function clearInternalState() {
+    setFormError("");
+    setApplyAllMonths(false);
+  }
 
-        if (foundType) {
-          setSelectedNature(nature.id);
-          setSelectedType(foundType.id);
-          break;
-        }
-      }
-    }
-  }, [isEditing, newBudget.type_id, dimensions]);
-
-  const naturesSorted = useMemo(() => sortByNamePt(dimensions), [dimensions]);
-  const selectedNatureObj = dimensions.find((n) => n.id === selectedNature);
-  const types = useMemo(
-    () => sortByNamePt(selectedNatureObj?.types ?? []),
-    [selectedNatureObj]
-  );
-  const selectedTypeObj = types.find((t) => t.id === selectedType);
-  const classes = useMemo(
-    () => sortByNamePt(selectedTypeObj?.classes ?? []),
-    [selectedTypeObj]
-  );
+  function close() {
+    clearInternalState();
+    setOpen(false);
+    onClose();
+  }
 
   function handleSubmit() {
-    if (!selectedNature) {
-      setFormError("Selecione a Natureza.");
-      return;
-    }
-
-    if (!selectedType) {
+    if (!newBudget.type_id || !newBudget.class_id) {
       setFormError("Selecione a categoria.");
       return;
     }
 
     if (!newBudget.planned_value || newBudget.planned_value <= 0) {
-      setFormError("Informe um Valor válido.");
+      setFormError("Informe um valor válido.");
       return;
     }
 
     if (!newBudget.budget_month && !defaultBudgetMonth) {
-      setFormError("Selecione o Mês/Ano.");
+      setFormError("Selecione o mês/ano.");
       return;
     }
 
@@ -129,23 +96,12 @@ export function BudgetFormDialog({
     });
   }
 
-  function clearInternalState() {
-    setSelectedNature(null);
-    setSelectedType(null);
-    setFormError("");
-    setApplyAllMonths(false);
-  }
-
   return (
     <Dialog
       open={open}
       onOpenChange={(openVal) => {
-        setOpen(openVal);
-
-        if (!openVal) {
-          clearInternalState();
-          onClose();
-        }
+        if (!openVal) close();
+        else setOpen(true);
       }}
     >
       {!isEditing && (
@@ -168,138 +124,69 @@ export function BudgetFormDialog({
         </DialogTrigger>
       )}
 
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Editar orçamento" : "Novo orçamento"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-5 pt-2">
-            <FormLabel required>Natureza</FormLabel>
-
-            <Select
-              value={selectedNature ? String(selectedNature) : ""}
-              onValueChange={(value) => {
-                setSelectedNature(Number(value));
-                setSelectedType(null);
+      <FormDialogShell
+        title={isEditing ? "Editar orçamento" : "Novo orçamento"}
+        description="Defina o valor planejado por categoria. Isso alimenta o dashboard."
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={close}
+            onSubmit={handleSubmit}
+            submitLabel={
+              isEditing
+                ? "Salvar alterações"
+                : applyAllMonths
+                  ? `Salvar nos 12 meses de ${selectedYear}`
+                  : "Adicionar orçamento"
+            }
+          />
+        }
+      >
+        <FormSection
+          title="Classificação"
+          subtitle="Busque categoria ou subcategoria, igual às transações."
+        >
+          <FormField
+            label="Categoria"
+            required
+            hint="Busque por nome ou caminho completo."
+          >
+            <ClassSearchPicker
+              dimensions={dimensions}
+              value={newBudget.class_id}
+              hideLabel
+              autoFocus={!isEditing}
+              onChange={(opt) =>
                 setNewBudget({
                   ...newBudget,
-                  type_id: null,
-                  class_id: null,
-                });
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione a Natureza" />
-              </SelectTrigger>
+                  type_id: opt?.typeId ?? null,
+                  class_id: opt?.id ?? null,
+                })
+              }
+            />
+          </FormField>
+        </FormSection>
 
-              <SelectContent>
-                {naturesSorted.map((nature) => (
-                  <SelectItem key={nature.id} value={String(nature.id)}>
-                    {nature.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <Separator />
 
-            {selectedNature && (
-              <div
-                className={
-                  selectedType
-                    ? "grid grid-cols-2 gap-3"
-                    : "grid grid-cols-1 gap-3"
+        <FormSection title="Planejamento">
+          <FormFieldRow>
+            <FormField label="Valor planejado" required>
+              <MoneyInput
+                placeholder="0,00"
+                value={newBudget.planned_value || ""}
+                onChange={(value) =>
+                  setNewBudget({
+                    ...newBudget,
+                    planned_value: value === "" ? 0 : value,
+                  })
                 }
-              >
-                <div className="space-y-3">
-                  <FormLabel required>Categoria</FormLabel>
-
-                  <Select
-                    value={selectedType ? String(selectedType) : ""}
-                    onValueChange={(value) => {
-                      const typeId = Number(value);
-
-                      setSelectedType(typeId);
-
-                      setNewBudget({
-                        ...newBudget,
-                        type_id: typeId,
-                        class_id: null,
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione a categoria" />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      {types.map((type) => (
-                        <SelectItem key={type.id} value={String(type.id)}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedType ? (
-                  <div className="space-y-3">
-                    <FormLabel optional>Subcategoria</FormLabel>
-
-                    <Select
-                      value={
-                        newBudget.class_id
-                          ? String(newBudget.class_id)
-                          : "general"
-                      }
-                      onValueChange={(value) => {
-                        setNewBudget({
-                          ...newBudget,
-                          class_id: value === "general" ? null : Number(value),
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione a subcategoria" />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        <SelectItem value="general">Geral da categoria</SelectItem>
-
-                        {classes.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-              </div>
-            )}
-
-          <Separator />
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-3">
-                <FormLabel required>Valor planejado</FormLabel>
-                <MoneyInput
-                  placeholder="0,00"
-                  value={newBudget.planned_value || ""}
-                  onChange={(value) =>
-                    setNewBudget({
-                      ...newBudget,
-                      planned_value: value === "" ? 0 : value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <FormLabel required>
-                {applyAllMonths ? `Ano ${selectedYear}` : "Mês / Ano"}
-              </FormLabel>
+              />
+            </FormField>
+            <FormField
+              label={applyAllMonths ? `Ano ${selectedYear}` : "Mês / Ano"}
+              required
+            >
               <MonthYearPicker
                 value={monthValue}
                 allMonthsSelected={applyAllMonths}
@@ -310,37 +197,24 @@ export function BudgetFormDialog({
                   })
                 }
               />
-              {!isEditing ? (
-                <label className="flex cursor-pointer items-start gap-2.5 rounded-md border px-3 py-2.5 text-sm transition hover:bg-muted/40">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 accent-primary"
-                    checked={applyAllMonths}
-                    onChange={(e) => setApplyAllMonths(e.target.checked)}
-                  />
-                  <span>
-                    <span className="font-medium">
-                      Usar em todos os meses de {selectedYear}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
-                      Cria o mesmo valor nos 12 meses deste ano.
-                    </span>
-                  </span>
-                </label>
-              ) : null}
-            </div>
+            </FormField>
+          </FormFieldRow>
 
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-
-          <Button onClick={handleSubmit} className="w-full">
-            {isEditing
-              ? "Salvar alterações"
-              : applyAllMonths
-                ? `Salvar nos 12 meses de ${selectedYear}`
-                : "Adicionar orçamento"}
-          </Button>
-        </div>
-      </DialogContent>
+          {!isEditing ? (
+            <FormDisclosure
+              title={`Replicar em todos os meses de ${selectedYear}`}
+              description="Sobrescreve orçamentos já definidos nessa categoria."
+              open={applyAllMonths}
+              onOpenChange={setApplyAllMonths}
+              variant="toggle"
+            >
+              <p className="text-xs text-muted-foreground">
+                Cria o mesmo valor nos 12 meses deste ano.
+              </p>
+            </FormDisclosure>
+          ) : null}
+        </FormSection>
+      </FormDialogShell>
     </Dialog>
   );
 }

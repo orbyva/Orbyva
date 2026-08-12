@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { updateBook } from "@/api/books";
 import type { Book, BookStatus, BookUpdateRequest } from "@/types/books";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
 import { ScoreRating } from "@/components/ScoreRating";
+import { FormField } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
+import { Separator } from "@/components/ui/separator";
 import {
   BOOK_STATUS_LABELS,
   formatAuthors,
@@ -194,11 +196,31 @@ export function BookEditModal({
   const showPageField = intent === "start" || intent === "resume";
   const showFinishFields = intent === "finish";
 
+  const submitLabel =
+    intent === "start"
+      ? "Começar"
+      : intent === "abandon"
+        ? "Confirmar"
+        : intent === "resume"
+          ? "Retomar"
+          : book.status === "read"
+            ? "Salvar alterações"
+            : "Salvar";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogTitle>{title}</DialogTitle>
-
+      <FormDialogShell
+        title={title}
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={() => onOpenChange(false)}
+            onSubmit={() => void handleSave()}
+            submitLabel={submitLabel}
+            loading={loading}
+          />
+        }
+      >
         <div className="flex items-start gap-3 sm:gap-4">
           <img
             src={book.cover_url || "/placeholder.svg"}
@@ -223,135 +245,143 @@ export function BookEditModal({
           </div>
         </div>
 
-        <div className={FORM_FIELDS_CLASS}>
-          {(book.status === "to_read" ||
-            book.status === "reading" ||
-            book.status === "abandoned") && (
-            <div className="flex flex-wrap gap-2">
-              {book.status === "to_read" && (
-                <>
+        {(book.status === "to_read" ||
+          book.status === "reading" ||
+          book.status === "abandoned") && (
+          <>
+            <Separator />
+            <FormSection title="Ação">
+              <div className="flex flex-wrap gap-2">
+                {book.status === "to_read" && (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={intent === "start" ? "default" : "outline"}
+                      onClick={() => setIntent("start")}
+                    >
+                      Começar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={intent === "abandon" ? "default" : "outline"}
+                      onClick={() => setIntent("abandon")}
+                    >
+                      Abandonar
+                    </Button>
+                  </>
+                )}
+                {book.status === "reading" && (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={intent === "finish" ? "default" : "outline"}
+                      onClick={() => setIntent("finish")}
+                    >
+                      Terminei
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={intent === "abandon" ? "default" : "outline"}
+                      onClick={() => setIntent("abandon")}
+                    >
+                      Abandonar
+                    </Button>
+                  </>
+                )}
+                {book.status === "abandoned" && (
                   <Button
                     type="button"
                     size="sm"
-                    variant={intent === "start" ? "default" : "outline"}
-                    onClick={() => setIntent("start")}
+                    variant={intent === "resume" ? "default" : "outline"}
+                    onClick={() => setIntent("resume")}
                   >
-                    Começar
+                    Retomar
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={intent === "abandon" ? "default" : "outline"}
-                    onClick={() => setIntent("abandon")}
-                  >
-                    Abandonar
-                  </Button>
-                </>
-              )}
-              {book.status === "reading" && (
-                <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={intent === "finish" ? "default" : "outline"}
-                    onClick={() => setIntent("finish")}
-                  >
-                    Terminei
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={intent === "abandon" ? "default" : "outline"}
-                    onClick={() => setIntent("abandon")}
-                  >
-                    Abandonar
-                  </Button>
-                </>
-              )}
-              {book.status === "abandoned" && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={intent === "resume" ? "default" : "outline"}
-                  onClick={() => setIntent("resume")}
-                >
-                  Retomar
-                </Button>
-              )}
-            </div>
-          )}
-
-          {showPageField && (
-            <div>
-              <FormLabel optional>Página atual</FormLabel>
-              <Input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={book.page_count ?? undefined}
-                placeholder={
-                  book.page_count
-                    ? `Ex.: 42 (de ${book.page_count})`
-                    : "Ex.: 42"
-                }
-                value={currentPage}
-                onChange={(e) => setCurrentPage(e.target.value)}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Onde você parou — seu marca-página digital.
-              </p>
-            </div>
-          )}
-
-          {intent === "abandon" && (
-            <p className="text-sm text-muted-foreground">
-              O livro vai para a aba Abandonei. Você pode retomar depois.
-            </p>
-          )}
-
-          {showFinishFields && (
-            <>
-              <div>
-                <FormLabel optional>Nota</FormLabel>
-                <div className="space-y-2">
-                  <ScoreRating value={rating} onChange={setRating} />
-                  {rating != null && rating > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {formatBookRating(rating)}/10 —{" "}
-                      {getBookRatingLabel(rating)} · clique na metade esquerda
-                      para meia nota
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
+            </FormSection>
+          </>
+        )}
 
-              <div>
-                <FormLabel
-                  required={book.status !== "read"}
-                  optional={book.status === "read"}
-                >
-                  {book.status === "read"
+        {showPageField && (
+          <>
+            <Separator />
+            <FormSection title="Progresso">
+              <FormField
+                label="Página atual"
+                optional
+                hint="Onde você parou, seu marca-página digital."
+              >
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={book.page_count ?? undefined}
+                  placeholder={
+                    book.page_count
+                      ? `Ex.: 42 (de ${book.page_count})`
+                      : "Ex.: 42"
+                  }
+                  value={currentPage}
+                  onChange={(e) => setCurrentPage(e.target.value)}
+                />
+              </FormField>
+            </FormSection>
+          </>
+        )}
+
+        {intent === "abandon" && (
+          <p className="text-sm text-muted-foreground">
+            O livro vai para a aba Abandonei. Você pode retomar depois.
+          </p>
+        )}
+
+        {showFinishFields && (
+          <>
+            <Separator />
+            <FormSection title="Opinião">
+              <FormField
+                label="Nota"
+                optional
+                hint={
+                  rating != null && rating > 0
+                    ? `${formatBookRating(rating)}/10 - ${getBookRatingLabel(rating)} · clique na metade esquerda para meia nota`
+                    : undefined
+                }
+              >
+                <ScoreRating value={rating} onChange={setRating} />
+              </FormField>
+
+              <FormField
+                label={
+                  book.status === "read"
                     ? "Nova data de leitura"
-                    : "Data da leitura"}
-                </FormLabel>
+                    : "Data da leitura"
+                }
+                required={book.status !== "read"}
+                optional={book.status === "read"}
+              >
                 <DatePicker
                   date={readDate}
                   onSelect={setReadDate}
                   placeholder="Selecione a data"
                 />
-              </div>
+              </FormField>
 
-              <div>
-                <FormLabel optional>O que achou?</FormLabel>
+              <FormField label="O que achou?" optional>
                 <textarea
                   className="flex min-h-[88px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   placeholder="Final, escrita, vibe, spoilers livres..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
-              </div>
+              </FormField>
 
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text· sm">
                 <input
                   type="checkbox"
                   checked={wouldRecommend}
@@ -360,39 +390,10 @@ export function BookEditModal({
                 />
                 Recomendaria
               </label>
-            </>
-          )}
-
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              className="w-full sm:flex-1"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => void handleSave()}
-              disabled={loading}
-              className="w-full sm:flex-1"
-            >
-              {loading
-                ? "Salvando…"
-                : intent === "start"
-                  ? "Começar"
-                  : intent === "abandon"
-                    ? "Confirmar"
-                    : intent === "resume"
-                      ? "Retomar"
-                      : book.status === "read"
-                        ? "Salvar alterações"
-                        : "Salvar"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
+            </FormSection>
+          </>
+        )}
+      </FormDialogShell>
     </Dialog>
   );
 }

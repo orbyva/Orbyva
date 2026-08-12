@@ -1,5 +1,5 @@
 /**
- * Ops interno — conceder Pro / estender trial / listar usuários.
+ * Ops interno, conceder Pro / estender trial / listar usuários.
  * NÃO é feature de produto. Allowlist: secret OPS_ADMIN_EMAILS (csv).
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";

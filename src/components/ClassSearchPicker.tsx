@@ -137,6 +137,8 @@ type ClassSearchPickerProps = {
   preferredNatureName?: string | null;
   label?: string;
   required?: boolean;
+  /** Quando o label já vem de um FormField pai. */
+  hideLabel?: boolean;
   autoFocus?: boolean;
   /** Inline create when the typed name has no exact match. Default true. */
   allowCreate?: boolean;
@@ -149,6 +151,7 @@ export function ClassSearchPicker({
   preferredNatureName = null,
   label = "Categoria",
   required = true,
+  hideLabel = false,
   autoFocus = true,
   allowCreate = true,
 }: ClassSearchPickerProps) {
@@ -357,7 +360,9 @@ export function ClassSearchPicker({
   if (natureOptions.length === 0) {
     return (
       <div className="space-y-2">
-        <FormLabel required={required}>{label}</FormLabel>
+        {!hideLabel ? (
+          <FormLabel required={required}>{label}</FormLabel>
+        ) : null}
         <DimensionsEmptyHint missing="classes" />
       </div>
     );
@@ -365,7 +370,9 @@ export function ClassSearchPicker({
 
   return (
     <div className="space-y-2">
-      <FormLabel required={required}>{label}</FormLabel>
+      {!hideLabel ? (
+        <FormLabel required={required}>{label}</FormLabel>
+      ) : null}
       {selected ? (
         <button
           type="button"

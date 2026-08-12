@@ -47,8 +47,8 @@ export function OfflineBanner({ pendingCount }: OfflineBannerProps) {
       >
         <WifiOff className="h-3.5 w-3.5 shrink-0" />
         {pending > 0
-          ? `Offline — ${pending} lançamento${pending === 1 ? "" : "s"} na fila para sincronizar.`
-          : "Você está offline — lançamentos vão para a fila; leitura usa o último snapshot."}
+          ? `Offline, ${pending} lançamento${pending === 1 ? "" : "s"} na fila para sincronizar.`
+          : "Você está offline, lançamentos vão para a fila; leitura usa o último snapshot."}
       </div>
     );
   }

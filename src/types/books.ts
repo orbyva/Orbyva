@@ -13,13 +13,13 @@ export interface Book {
   publisher?: string | null;
   isbn13?: string | null;
   status: BookStatus;
-  /** Marca-página — só faz sentido em status `reading`. */
+  /** Marca-página, só faz sentido em status `reading`. */
   current_page?: number | null;
   /** Nota do usuário de 0 a 10 (meias notas). */
   rating?: number | null;
   notes?: string | null;
   would_recommend?: boolean;
-  /** Favorito explícito — independente de nota / recomendaria. */
+  /** Favorito explícito, independente de nota / recomendaria. */
   is_favorite?: boolean;
   read_dates: string[];
   /** Nota média Google Books (0–5), só informativa. */

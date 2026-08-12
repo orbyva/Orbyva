@@ -2,17 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { updateMovie } from "@/api/movies";
 import { Movie, MovieStatus, MovieUpdateRequest } from "@/types/movies";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
 import { ScoreRating } from "@/components/ScoreRating";
+import { FormField } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
+import { Separator } from "@/components/ui/separator";
 import {
   MOVIE_STATUS_LABELS,
   MOVIE_TYPE_LABELS,
@@ -150,11 +152,31 @@ export function MovieEditModal({
 
   const showFinishFields = intent === "finish";
 
+  const submitLabel =
+    intent === "start"
+      ? "Começar"
+      : intent === "abandon"
+        ? "Confirmar"
+        : intent === "resume"
+          ? "Retomar"
+          : movie.status === MovieStatus.WATCHED
+            ? "Salvar alterações"
+            : "Salvar";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogTitle>{title}</DialogTitle>
-
+      <FormDialogShell
+        title={title}
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={() => onOpenChange(false)}
+            onSubmit={() => void handleSave()}
+            submitLabel={submitLabel}
+            loading={loading}
+          />
+        }
+      >
         <div className="flex items-start gap-3 sm:gap-4">
           <img
             src={movie.poster || "/placeholder.svg"}
@@ -174,139 +196,142 @@ export function MovieEditModal({
           </div>
         </div>
 
-        <div className={FORM_FIELDS_CLASS}>
-          {(movie.status === MovieStatus.TO_WATCH ||
-            movie.status === MovieStatus.WATCHING ||
-            movie.status === MovieStatus.ABANDONED) && (
-            <div className="flex flex-wrap gap-2">
-              {movie.status === MovieStatus.TO_WATCH && (
-                <>
+        {(movie.status === MovieStatus.TO_WATCH ||
+          movie.status === MovieStatus.WATCHING ||
+          movie.status === MovieStatus.ABANDONED) && (
+          <>
+            <Separator />
+            <FormSection title="Ação">
+              <div className="flex flex-wrap gap-2">
+                {movie.status === MovieStatus.TO_WATCH && (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={intent === "start" ? "default" : "outline"}
+                      onClick={() => setIntent("start")}
+                    >
+                      Começar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={intent === "finish" ? "default" : "outline"}
+                      onClick={() => setIntent("finish")}
+                    >
+                      Já assisti
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={intent === "abandon" ? "default" : "outline"}
+                      onClick={() => setIntent("abandon")}
+                    >
+                      Abandonar
+                    </Button>
+                  </>
+                )}
+                {movie.status === MovieStatus.WATCHING && (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={intent === "finish" ? "default" : "outline"}
+                      onClick={() => setIntent("finish")}
+                    >
+                      Terminei
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={intent === "abandon" ? "default" : "outline"}
+                      onClick={() => setIntent("abandon")}
+                    >
+                      Abandonar
+                    </Button>
+                  </>
+                )}
+                {movie.status === MovieStatus.ABANDONED && (
                   <Button
                     type="button"
                     size="sm"
-                    variant={intent === "start" ? "default" : "outline"}
-                    onClick={() => setIntent("start")}
+                    variant={intent === "resume" ? "default" : "outline"}
+                    onClick={() => setIntent("resume")}
                   >
-                    Começar
+                    Retomar
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={intent === "finish" ? "default" : "outline"}
-                    onClick={() => setIntent("finish")}
-                  >
-                    Já assisti
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={intent === "abandon" ? "default" : "outline"}
-                    onClick={() => setIntent("abandon")}
-                  >
-                    Abandonar
-                  </Button>
-                </>
-              )}
-              {movie.status === MovieStatus.WATCHING && (
-                <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={intent === "finish" ? "default" : "outline"}
-                    onClick={() => setIntent("finish")}
-                  >
-                    Terminei
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={intent === "abandon" ? "default" : "outline"}
-                    onClick={() => setIntent("abandon")}
-                  >
-                    Abandonar
-                  </Button>
-                </>
-              )}
-              {movie.status === MovieStatus.ABANDONED && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={intent === "resume" ? "default" : "outline"}
-                  onClick={() => setIntent("resume")}
-                >
-                  Retomar
-                </Button>
-              )}
-            </div>
-          )}
-
-          {intent === "start" && (
-            <p className="text-sm text-muted-foreground">
-              Vai para a aba Assistindo
-              {movie.type === "series"
-                ? " — acompanhe os episódios no detalhe."
-                : "."}
-            </p>
-          )}
-
-          {intent === "abandon" && (
-            <p className="text-sm text-muted-foreground">
-              Vai para a aba Abandonei. Você pode retomar depois.
-            </p>
-          )}
-
-          {intent === "resume" && (
-            <p className="text-sm text-muted-foreground">
-              Volta para Assistindo
-              {movie.type === "series"
-                ? " — o progresso de episódios é mantido."
-                : "."}
-            </p>
-          )}
-
-          {showFinishFields && (
-            <>
-              <div>
-                <FormLabel optional>Nota</FormLabel>
-                <div className="space-y-2">
-                  <ScoreRating value={rating} onChange={setRating} />
-                  {rating != null && rating > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {formatMovieRating(rating)}/10 —{" "}
-                      {getMovieRatingLabel(rating)} · clique na metade esquerda
-                      para meia nota
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
+            </FormSection>
+          </>
+        )}
 
-              <div>
-                <FormLabel
-                  required={movie.status !== MovieStatus.WATCHED}
-                  optional={movie.status === MovieStatus.WATCHED}
-                >
-                  {movie.status === MovieStatus.WATCHED
+        {intent === "start" && (
+          <p className="text-sm text-muted-foreground">
+            Vai para a aba Assistindo
+            {movie.type === "series"
+              ? ", acompanhe os episódios no detalhe."
+              : "."}
+          </p>
+        )}
+
+        {intent === "abandon" && (
+          <p className="text-sm text-muted-foreground">
+            Vai para a aba Abandonei. Você pode retomar depois.
+          </p>
+        )}
+
+        {intent === "resume" && (
+          <p className="text-sm text-muted-foreground">
+            Volta para Assistindo
+            {movie.type === "series"
+              ? ", o progresso de episódios é mantido."
+              : "."}
+          </p>
+        )}
+
+        {showFinishFields && (
+          <>
+            <Separator />
+            <FormSection title="Opinião">
+              <FormField
+                label="Nota"
+                optional
+                hint={
+                  rating != null && rating > 0
+                    ? `${formatMovieRating(rating)}/10 - ${getMovieRatingLabel(rating)} · clique na metade esquerda para meia nota`
+                    : undefined
+                }
+              >
+                <ScoreRating value={rating} onChange={setRating} />
+              </FormField>
+
+              <FormField
+                label={
+                  movie.status === MovieStatus.WATCHED
                     ? "Nova data assistida"
-                    : "Data assistida"}
-                </FormLabel>
+                    : "Data assistida"
+                }
+                required={movie.status !== MovieStatus.WATCHED}
+                optional={movie.status === MovieStatus.WATCHED}
+              >
                 <DatePicker
                   date={watchedDate}
                   onSelect={setWatchedDate}
                   placeholder="Selecione a data"
                 />
-              </div>
+              </FormField>
 
-              <div>
-                <FormLabel optional>O que achou?</FormLabel>
+              <FormField label="O que achou?" optional>
                 <textarea
                   className="flex min-h-[88px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   placeholder="Final, atuação, vibe, spoilers livres..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
-              </div>
+              </FormField>
 
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text· sm">
                 <input
                   type="checkbox"
                   checked={wouldRecommend}
@@ -315,39 +340,10 @@ export function MovieEditModal({
                 />
                 Recomendaria
               </label>
-            </>
-          )}
-
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              className="w-full sm:flex-1"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => void handleSave()}
-              disabled={loading}
-              className="w-full sm:flex-1"
-            >
-              {loading
-                ? "Salvando…"
-                : intent === "start"
-                  ? "Começar"
-                  : intent === "abandon"
-                    ? "Confirmar"
-                    : intent === "resume"
-                      ? "Retomar"
-                      : movie.status === MovieStatus.WATCHED
-                        ? "Salvar alterações"
-                        : "Salvar"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
+            </FormSection>
+          </>
+        )}
+      </FormDialogShell>
     </Dialog>
   );
 }

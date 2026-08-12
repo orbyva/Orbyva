@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +13,8 @@ type Props = {
 };
 
 /**
- * Horário opcional: vazio de verdade (sem default do browser em type=time).
- * Só monta o input time depois que o usuário escolhe definir.
+ * Horário opcional: começa como botão; ao definir, mantém o input montado
+ * mesmo se o valor ficar vazio (evita Backspace → history.back() ao desmontar).
  */
 export function OptionalTimeInput({
   value,
@@ -23,8 +24,13 @@ export function OptionalTimeInput({
   "aria-label": ariaLabel,
 }: Props) {
   const hasValue = Boolean(value.trim());
+  const [open, setOpen] = useState(hasValue);
 
-  if (!hasValue) {
+  useEffect(() => {
+    if (hasValue) setOpen(true);
+  }, [hasValue]);
+
+  if (!open) {
     return (
       <Button
         type="button"
@@ -33,7 +39,10 @@ export function OptionalTimeInput({
           "h-10 w-full justify-start font-normal text-muted-foreground",
           className
         )}
-        onClick={() => onChange("09:00")}
+        onClick={() => {
+          setOpen(true);
+          onChange(value.trim() || "09:00");
+        }}
         aria-label={ariaLabel ?? "Definir horário"}
       >
         Sem horário · definir
@@ -49,6 +58,19 @@ export function OptionalTimeInput({
         step={60}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          // Evita que o Backspace “vaze” para a navegação do browser
+          // caso o input perca o valor no meio da edição.
+          if (e.key === "Backspace" || e.key === "Delete") {
+            e.stopPropagation();
+          }
+        }}
+        onBlur={() => {
+          // Só recolhe depois do ciclo de clique (ex.: botão limpar).
+          window.setTimeout(() => {
+            if (!value.trim()) setOpen(false);
+          }, 0);
+        }}
         aria-label={ariaLabel}
         className="flex-1"
       />
@@ -59,7 +81,11 @@ export function OptionalTimeInput({
         className="h-10 w-10 shrink-0 text-muted-foreground"
         aria-label="Limpar horário"
         title="Limpar horário"
-        onClick={() => onChange("")}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          onChange("");
+          setOpen(false);
+        }}
       >
         <X className="h-4 w-4" />
       </Button>

@@ -35,7 +35,7 @@ export type GoalSurplusFit = {
   summary: string;
 };
 
-/** Prefixo legado — só para import/sync de lançamentos antigos. */
+/** Prefixo legado, só para import/sync de lançamentos antigos. */
 export function goalAporteDescription(title: string): string {
   return `Aporte meta: ${title.trim()}`;
 }
@@ -50,7 +50,7 @@ export function goalClassName(title: string): string {
   return title.trim();
 }
 
-/** @deprecated use goalMetaDescription — era o nome da classe. */
+/** @deprecated use goalMetaDescription, era o nome da classe. */
 export function goalMetaClassName(title: string): string {
   return goalMetaDescription(title);
 }
@@ -189,11 +189,11 @@ export function getFinancialGoalInsight(
     monthlyLabel =
       "Defina um prazo para calcular quanto o saldo do mês precisa cobrir.";
   } else if (monthsRemaining === 0) {
-    monthlyLabel = `Prazo encerrado — ainda faltam ${formatAmount(remaining, money, goal.unit ?? "")}.`;
+    monthlyLabel = `Prazo encerrado, ainda faltam ${formatAmount(remaining, money, goal.unit ?? "")}.`;
   } else {
     monthlyTarget = remaining / monthsRemaining;
     monthlyLabel = money
-      ? `Para o prazo: ${formatBRL(monthlyTarget)}/mês por ${monthsRemaining} mês${monthsRemaining === 1 ? "" : "es"} — pago com o saldo dos lançamentos, sem virar despesa.`
+      ? `Para o prazo: ${formatBRL(monthlyTarget)}/mês por ${monthsRemaining} mês${monthsRemaining === 1 ? "" : "es"}, pago com o saldo dos lançamentos, sem virar despesa.`
       : `Avance ${formatAmount(monthlyTarget, false, goal.unit ?? "")}/mês por ${monthsRemaining} mês${monthsRemaining === 1 ? "" : "es"}.`;
   }
 
@@ -208,7 +208,7 @@ export function getFinancialGoalInsight(
       remaining <= 0
         ? "Meta financeira concluída."
         : money
-          ? `Faltam ${formatBRL(remaining)}. Use o saldo do mês (receita − despesa) para avançar — sem lançar gasto.`
+          ? `Faltam ${formatBRL(remaining)}. Use o saldo do mês (receita − despesa) para avançar, sem lançar gasto.`
           : `Faltam ${remaining}${goal.unit ? ` ${goal.unit}` : ""}. Atualize o progresso na meta.`,
   };
 }
@@ -245,7 +245,7 @@ export function evaluateGoalAgainstSurplus(
       coverageRatio: null,
       headroom: surplus,
       status: "done",
-      summary: "Meta concluída — o saldo do mês fica livre.",
+      summary: "Meta concluída, o saldo do mês fica livre.",
     };
   }
 
@@ -292,7 +292,7 @@ export function evaluateGoalAgainstSurplus(
       coverageRatio,
       headroom: 0,
       status: "exact",
-      summary: `Saldo do mês: ${formatBRL(surplus)} — fecha o aporte do mês na meta.`,
+      summary: `Saldo do mês: ${formatBRL(surplus)}, fecha o aporte do mês na meta.`,
     };
   }
 
@@ -420,10 +420,10 @@ export function buildGoalInstallmentDraft(
   if (monthly <= 0 || n <= 0) {
     summary = "Informe o valor mensal e a quantidade de parcelas.";
   } else if (coversGoal) {
-    summary = `${formatBRL(monthly)} × ${n} = ${formatBRL(total)} — cobre a falta da meta.`;
+    summary = `${formatBRL(monthly)} × ${n} = ${formatBRL(total)}, cobre a falta da meta.`;
   } else {
     const short = Math.round((rem - total) * 100) / 100;
-    summary = `${formatBRL(monthly)} × ${n} = ${formatBRL(total)} — ainda faltam ${formatBRL(short)} depois do plano.`;
+    summary = `${formatBRL(monthly)} × ${n} = ${formatBRL(total)}, ainda faltam ${formatBRL(short)} depois do plano.`;
   }
   return {
     monthlyAmount: monthly,

@@ -27,7 +27,7 @@ function extractErrorParts(error: unknown): ErrorParts {
   return { message: "", code: "" };
 }
 
-/** Mensagens já amigáveis em PT (ou de negócio) — não sobrescrever. */
+/** Mensagens já amigáveis em PT (ou de negócio), não sobrescrever. */
 function looksTechnical(message: string): boolean {
   if (!message.trim()) return true;
   return (

@@ -129,7 +129,7 @@ export function HubDaySummary({
                 })}
                 {habitsDone === habitsCount && habits.length > 0 ? (
                   <li className="px-1 pt-0.5 text-xs text-muted-foreground">
-                    Todos marcados —{" "}
+                    Todos marcados , {" "}
                     <Link to="/habits" className="underline underline-offset-2">
                       ver semana
                     </Link>

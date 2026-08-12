@@ -162,15 +162,15 @@ export function PrivacyPage() {
           e-mails transacionais/product (Resend, quando configurado),
           estabilidade, segurança e melhoria do produto. Catálogos externos
           (filmes, livros, música, mapas) são consultados sob demanda para
-          enriquecer o que você busca — não vendemos seus dados.
+          enriquecer o que você busca, não vendemos seus dados.
         </p>
       </PublicSection>
 
       <PublicSection title="Seus direitos (LGPD)">
         <LegalList
           items={[
-            "Exportar — Conta → Exportar dados (CSV)",
-            "Excluir — Conta → Excluir conta e dados",
+            "Exportar, Conta → Exportar dados (CSV)",
+            "Excluir, Conta → Excluir conta e dados",
             "Acesso e correção dos dados que você mesmo edita no app",
             "Preferências de comunicação por e-mail, quando disponíveis na Conta",
           ]}
@@ -180,15 +180,15 @@ export function PrivacyPage() {
       <PublicSection title="Subprocessadores">
         <LegalList
           items={[
-            "Supabase — autenticação, banco de dados e storage",
-            "Google — login OAuth; opcionalmente Books, Places, Routes e Weather via Edge Functions",
-            "Stripe — pagamentos do plano Pro (quando ativo)",
-            "Resend — e-mails (auth, welcome, waitlist etc., quando configurado)",
-            "Spotify / MusicBrainz — catálogo de música via Edge (sem login Spotify da sua conta)",
-            "TMDB / OMDb — catálogo de cinema (quando configurado)",
-            "Sentry — monitoramento de erros (quando configurado)",
-            "PostHog — analytics de produto (quando configurado)",
-            "Vercel — hospedagem do front",
+            "Supabase, autenticação, banco de dados e storage",
+            "Google, login OAuth; opcionalmente Books, Places, Routes e Weather via Edge Functions",
+            "Stripe, pagamentos do plano Pro (quando ativo)",
+            "Resend, e-mails (auth, welcome, waitlist etc., quando configurado)",
+            "Spotify / MusicBrainz, catálogo de música via Edge (sem login Spotify da sua conta)",
+            "TMDB / OMDb, catálogo de cinema (quando configurado)",
+            "Sentry, monitoramento de erros (quando configurado)",
+            "PostHog, analytics de produto (quando configurado)",
+            "Vercel, hospedagem do front",
           ]}
         />
       </PublicSection>

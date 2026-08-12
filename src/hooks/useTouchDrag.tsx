@@ -3,7 +3,7 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { DROP_ZONE_SELECTOR } from "@/lib/dropZone";
 
-/** Arraste só começa depois deste deslocamento — evita disparar em toques. */
+/** Arraste só começa depois deste deslocamento, evita disparar em toques. */
 const ACTIVATION_PX = 6;
 /** Faixa nas bordas da viewport que rola a tela durante o arraste. */
 const EDGE_PX = 96;

@@ -48,7 +48,7 @@ import {
 type SeriesEpisodesPanelProps = {
   movie: Movie;
   onMoviePatch?: (patch: Partial<Movie>) => void;
-  /** Contagem de episódios assistidos — para atualizar o card sem F5. */
+  /** Contagem de episódios assistidos, para atualizar o card sem F5. */
   onWatchedEpisodesChange?: (count: number) => void;
   /** Ações quietas (ex.: Terminei / Abandonei) no topo, sob o progresso. */
   lifecycleActions?: ReactNode;
@@ -101,7 +101,7 @@ export function SeriesEpisodesPanel({
   const tmdbTvIdRef = useRef(movie.tmdb_tv_id);
   tmdbTvIdRef.current = movie.tmdb_tv_id;
 
-  // Só sincroniza status vindo de fora (ex.: modal Editar) — nunca no meio de um toggle.
+  // Só sincroniza status vindo de fora (ex.: modal Editar), nunca no meio de um toggle.
   useEffect(() => {
     movieStatusRef.current = movie.status;
   }, [movie.status, movie.imdb_id]);

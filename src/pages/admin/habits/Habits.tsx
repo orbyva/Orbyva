@@ -3,12 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Flame, Trash2, Check, Pen, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -19,12 +14,13 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { FormField } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-  ICON_EDIT_BUTTON_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
+import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
@@ -569,32 +565,38 @@ export default function Habits() {
           }
         }}
       >
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>
-              {editingId ? "Editar hábito" : "Novo hábito"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className={FORM_FIELDS_CLASS}>
-            <div>
-              <FormLabel required>Nome</FormLabel>
+        <FormDialogShell
+          title={editingId ? "Editar hábito" : "Novo hábito"}
+          description="Defina a rotina e, se quiser, vincule a uma meta."
+          footer={
+            <FormFooter
+              onCancel={() => {
+                setOpen(false);
+                setEditingId(null);
+                setForm(emptyHabit());
+              }}
+              onSubmit={() => void handleSave()}
+              submitLabel={editingId ? "Salvar alterações" : "Criar hábito"}
+            />
+          }
+        >
+          <FormSection title="Hábito">
+            <FormField label="Nome" required>
               <Input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="Ex: Beber 2L · Sem delivery"
               />
-            </div>
-            <div>
-              <FormLabel optional>Descrição</FormLabel>
+            </FormField>
+            <FormField label="Descrição" optional>
               <Input
                 value={form.description ?? ""}
                 onChange={(e) =>
                   setForm({ ...form, description: e.target.value })
                 }
               />
-            </div>
-            <div>
-              <FormLabel required>Tipo</FormLabel>
+            </FormField>
+            <FormField label="Tipo" required>
               <Select
                 value={form.kind ?? "build"}
                 onValueChange={(v) =>
@@ -611,9 +613,8 @@ export default function Habits() {
                   </SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <FormLabel required>Frequência</FormLabel>
+            </FormField>
+            <FormField label="Frequência" required>
               <Select
                 value={form.frequency}
                 onValueChange={(v) => {
@@ -622,7 +623,9 @@ export default function Habits() {
                     ...form,
                     frequency,
                     target_per_week:
-                      frequency === "daily" ? 7 : Math.min(form.target_per_week || 3, 7),
+                      frequency === "daily"
+                        ? 7
+                        : Math.min(form.target_per_week || 3, 7),
                   });
                 }}
               >
@@ -634,10 +637,9 @@ export default function Habits() {
                   <SelectItem value="weekly">N vezes por semana</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
             {form.frequency === "weekly" ? (
-              <div>
-                <FormLabel required>Vezes por semana</FormLabel>
+              <FormField label="Vezes por semana" required>
                 <Input
                   type="number"
                   min={1}
@@ -650,10 +652,24 @@ export default function Habits() {
                     })
                   }
                 />
-              </div>
+              </FormField>
             ) : null}
-            <div>
-              <FormLabel optional>Vincular a uma meta</FormLabel>
+          </FormSection>
+          <FormSection title="Meta">
+            <FormField
+              label="Vincular a uma meta"
+              optional
+              hint={
+                activeGoals.length === 0 ? (
+                  <>
+                    Sem metas ativas.{" "}
+                    <Link to="/goals" className="underline underline-offset-2">
+                      Criar meta
+                    </Link>
+                  </>
+                ) : undefined
+              }
+            >
               <Select
                 value={form.goal_id ?? "none"}
                 onValueChange={(v) =>
@@ -677,18 +693,13 @@ export default function Habits() {
                   ))}
                 </SelectContent>
               </Select>
-              {activeGoals.length === 0 ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Sem metas ativas.{" "}
-                  <Link to="/goals" className="underline underline-offset-2">
-                    Criar meta
-                  </Link>
-                </p>
-              ) : null}
-            </div>
+            </FormField>
             {form.goal_id ? (
-              <div>
-                <FormLabel required>Incremento na meta por check-in</FormLabel>
+              <FormField
+                label="Incremento na meta por check-in"
+                required
+                hint="Ao marcar o dia, soma esse valor ao progresso da meta."
+              >
                 <Input
                   type="number"
                   min={0.01}
@@ -702,16 +713,10 @@ export default function Habits() {
                   }
                   placeholder="Ex: 1 (livro) ou 0,5 (km)"
                 />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Ao marcar o dia, soma esse valor ao progresso da meta.
-                </p>
-              </div>
+              </FormField>
             ) : null}
-            <Button onClick={() => void handleSave()} className="w-full">
-              {editingId ? "Salvar alterações" : "Criar hábito"}
-            </Button>
-          </div>
-        </DialogContent>
+          </FormSection>
+        </FormDialogShell>
       </Dialog>
     </PageShell>
   );

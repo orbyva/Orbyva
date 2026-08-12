@@ -1,4 +1,4 @@
-/** Insights mês a mês do ledger (Fase D) — puro, sem I/O. */
+/** Insights mês a mês do ledger (Fase D), puro, sem I/O. */
 
 const MONTH_SHORT = [
   "jan",

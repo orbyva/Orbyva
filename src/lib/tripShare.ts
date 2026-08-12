@@ -232,7 +232,7 @@ export function buildTripShareText(
       const emoji = PLACE_TYPE_EMOJI[place.type] ?? "📍";
       const score =
         place.rating != null && place.rating > 0
-          ? ` — ${formatRating(place.rating)}/5`
+          ? `, ${formatRating(place.rating)}/5`
           : "";
       parts.push(`${emoji} ${place.name}${score}`);
     }

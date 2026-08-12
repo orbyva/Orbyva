@@ -1,8 +1,5 @@
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,7 +9,11 @@ import { TransactionCreateRequest } from "@/types/finance";
 import { useEffect, useMemo, useState } from "react";
 import { Dimension } from "@/types/finance";
 import { DatePicker } from "@/components/DatePicker";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
+import { FormField, FormFieldRow } from "@/components/FormField";
+import {
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
 import { FormSection } from "@/components/FormSection";
 import { Separator } from "@/components/ui/separator";
 import { ClassSearchPicker } from "@/components/ClassSearchPicker";
@@ -36,9 +37,7 @@ interface TransactionFormDialogProps {
   dimensions: Dimension[];
   isEditing: boolean;
   onClose: () => void;
-  /** Prefill / filter Natureza by name (e.g. "Despesa") when creating. */
   preferredNatureName?: string | null;
-  /** Oculta o botão trigger (ex.: Quick Add host). */
   hideTrigger?: boolean;
 }
 
@@ -54,7 +53,8 @@ export function TransactionFormDialog({
   preferredNatureName = null,
   hideTrigger = false,
 }: TransactionFormDialogProps) {
-  const [formError, setFormError] = useState<string>("");
+  const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [trips, setTrips] = useState<Trip[]>([]);
   const [linkedTripId, setLinkedTripId] = useState<string | null>(null);
 
@@ -87,26 +87,37 @@ export function TransactionFormDialog({
     if (!showTripLink) setLinkedTripId(null);
   }, [showTripLink]);
 
+  function close() {
+    setFormError("");
+    setFieldErrors({});
+    setLinkedTripId(null);
+    setOpen(false);
+    onClose();
+  }
+
   const handleSubmit = () => {
+    const next: Record<string, string> = {};
     if (!newTransaction.class_id) {
-      setFormError("Selecione a subcategoria.");
-      return;
+      next.class_id = "Selecione a categoria.";
     }
     if (!newTransaction.value || newTransaction.value <= 0) {
-      setFormError("Informe um Valor válido.");
-      return;
+      next.value = "Informe um valor válido.";
     }
     if (!newTransaction.description.trim()) {
-      setFormError("Informe a Descrição.");
-      return;
+      next.description = "Informe a descrição.";
     }
     if (
       !newTransaction.transaction_at ||
       isNaN(new Date(newTransaction.transaction_at).getTime())
     ) {
-      setFormError("Selecione uma Data válida.");
+      next.transaction_at = "Selecione uma data válida.";
+    }
+    if (Object.keys(next).length > 0) {
+      setFieldErrors(next);
+      setFormError("Revise os campos destacados para salvar.");
       return;
     }
+    setFieldErrors({});
     setFormError("");
     createTransaction(showTripLink ? linkedTripId : null);
   };
@@ -115,12 +126,8 @@ export function TransactionFormDialog({
     <Dialog
       open={open}
       onOpenChange={(openVal) => {
-        setOpen(openVal);
-        if (!openVal) {
-          setFormError("");
-          setLinkedTripId(null);
-          onClose();
-        }
+        if (!openVal) close();
+        else setOpen(true);
       }}
     >
       {!isEditing && !hideTrigger && (
@@ -128,19 +135,35 @@ export function TransactionFormDialog({
           <Button className="w-full sm:w-auto">Adicionar transação</Button>
         </DialogTrigger>
       )}
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Editar transação" : "Nova transação"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-5 pt-2">
-          <FormSection title="Classificação">
+      <FormDialogShell
+        title={isEditing ? "Editar transação" : "Nova transação"}
+        description="Registre um gasto ou receita. Classifique primeiro, o resto fica mais rápido."
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={close}
+            onSubmit={handleSubmit}
+            submitLabel={
+              isEditing ? "Salvar alterações" : "Adicionar transação"
+            }
+          />
+        }
+      >
+        <FormSection
+          title="Classificação"
+          subtitle="Natureza e subcategoria definem relatórios e orçamento."
+        >
+          <FormField
+            label="Categoria"
+            required
+            error={fieldErrors.class_id}
+            hint="Busque por nome ou caminho completo."
+          >
             <ClassSearchPicker
               dimensions={dimensions}
               value={newTransaction.class_id || null}
               preferredNatureName={isEditing ? null : preferredNatureName}
+              hideLabel
               onChange={(opt) =>
                 setNewTransaction({
                   ...newTransaction,
@@ -148,24 +171,55 @@ export function TransactionFormDialog({
                 })
               }
             />
-          </FormSection>
+          </FormField>
+        </FormSection>
 
-          <Separator />
+        <Separator />
 
-          <FormSection title="Detalhes">
-            <FormLabel required>Valor</FormLabel>
-            <MoneyInput
-              placeholder="0,00"
-              value={newTransaction.value || ""}
-              onChange={(value) =>
-                setNewTransaction({
-                  ...newTransaction,
-                  value: value === "" ? 0 : value,
-                })
-              }
-            />
+        <FormSection title="Detalhes">
+          <FormFieldRow>
+            <FormField label="Valor" required error={fieldErrors.value}>
+              <MoneyInput
+                placeholder="0,00"
+                value={newTransaction.value || ""}
+                onChange={(value) =>
+                  setNewTransaction({
+                    ...newTransaction,
+                    value: value === "" ? 0 : value,
+                  })
+                }
+              />
+            </FormField>
+            <FormField
+              label="Data"
+              required
+              error={fieldErrors.transaction_at}
+            >
+              <DatePicker
+                date={
+                  newTransaction.transaction_at &&
+                  !isNaN(new Date(newTransaction.transaction_at).getTime())
+                    ? new Date(newTransaction.transaction_at)
+                    : new Date()
+                }
+                onSelect={(date) =>
+                  setNewTransaction({
+                    ...newTransaction,
+                    transaction_at: date
+                      ? date.toISOString()
+                      : new Date().toISOString(),
+                  })
+                }
+              />
+            </FormField>
+          </FormFieldRow>
 
-            <FormLabel required>Descrição</FormLabel>
+          <FormField
+            label="Descrição"
+            required
+            error={fieldErrors.description}
+            hint="Aparece no extrato e na busca global."
+          >
             <Input
               type="text"
               placeholder="Ex: Supermercado, Salário..."
@@ -177,58 +231,37 @@ export function TransactionFormDialog({
                 })
               }
             />
+          </FormField>
 
-            <FormLabel required>Data</FormLabel>
-            <DatePicker
-              date={
-                newTransaction.transaction_at &&
-                !isNaN(new Date(newTransaction.transaction_at).getTime())
-                  ? new Date(newTransaction.transaction_at)
-                  : new Date()
-              }
-              onSelect={(date) =>
-                setNewTransaction({
-                  ...newTransaction,
-                  transaction_at: date
-                    ? date.toISOString()
-                    : new Date().toISOString(),
-                })
-              }
-            />
-
-            {showTripLink ? (
-              <div>
-                <FormLabel optional>Vincular à viagem</FormLabel>
-                <Select
-                  value={linkedTripId ?? "none"}
-                  onValueChange={(v) =>
-                    setLinkedTripId(v === "none" ? null : v)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Escolha a viagem" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Não vincular</SelectItem>
-                    {trips.map((trip) => (
-                      <SelectItem key={trip.id} value={trip.id}>
-                        {trip.title}
-                        {trip.destination ? ` · ${trip.destination}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
-          </FormSection>
-
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-
-          <Button onClick={handleSubmit} className="w-full">
-            {isEditing ? "Salvar alterações" : "Adicionar transação"}
-          </Button>
-        </div>
-      </DialogContent>
+          {showTripLink ? (
+            <FormField
+              label="Vincular à viagem"
+              optional
+              hint="Opcional, útil para fechar o custo da viagem."
+            >
+              <Select
+                value={linkedTripId ?? "none"}
+                onValueChange={(v) =>
+                  setLinkedTripId(v === "none" ? null : v)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Escolha a viagem" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Não vincular</SelectItem>
+                  {trips.map((trip) => (
+                    <SelectItem key={trip.id} value={trip.id}>
+                      {trip.title}
+                      {trip.destination ? ` · ${trip.destination}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          ) : null}
+        </FormSection>
+      </FormDialogShell>
     </Dialog>
   );
 }

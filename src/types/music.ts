@@ -20,7 +20,7 @@ export interface Album {
   rating?: number | null;
   notes?: string | null;
   would_recommend?: boolean;
-  /** Favorito explícito — independente de nota / recomendaria. */
+  /** Favorito explícito, independente de nota / recomendaria. */
   is_favorite?: boolean;
   listened_dates: string[];
   /** Notas por faixa: `"disc:position"` → 0–10. */

@@ -18,7 +18,7 @@ export type MonthSpendShareInput = {
   month: number;
   receita: number;
   despesa: number;
-  /** Teto de despesa (orçamento) do mês — opcional. */
+  /** Teto de despesa (orçamento) do mês, opcional. */
   budgetPlanned?: number | null;
 };
 

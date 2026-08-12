@@ -24,7 +24,7 @@ function garmentSvg(props: IconProps) {
   };
 }
 
-/** Regata — sem mangas, alças. */
+/** Regata, sem mangas, alças. */
 function TankIcon(props: IconProps) {
   return (
     <svg {...garmentSvg(props)}>
@@ -47,7 +47,7 @@ function ShirtIcon(props: IconProps) {
 }
 
 /**
- * Manga longa — mangas descem quase até a barra da peça
+ * Manga longa, mangas descem quase até a barra da peça
  * (bem distintas da manga curta).
  */
 function LongSleeveIcon(props: IconProps) {
@@ -67,7 +67,7 @@ function LongSleeveIcon(props: IconProps) {
   );
 }
 
-/** Casaco leve — jaqueta curta com zíper/fechamento. */
+/** Casaco leve, jaqueta curta com zíper/fechamento. */
 function JacketIcon(props: IconProps) {
   return (
     <svg {...garmentSvg(props)}>
@@ -80,7 +80,7 @@ function JacketIcon(props: IconProps) {
 }
 
 /**
- * Casaco quente — sobretudo longo: gola/lapela, mangas longas, barra baixa.
+ * Casaco quente, sobretudo longo: gola/lapela, mangas longas, barra baixa.
  * Bem distinto da jaqueta curta.
  */
 function CoatIcon(props: IconProps) {
@@ -136,7 +136,7 @@ function WarmPantsIcon(props: IconProps) {
 }
 
 /**
- * Shorts / bermuda — pernas curtas e abertas, cintura marcada.
+ * Shorts / bermuda, pernas curtas e abertas, cintura marcada.
  */
 function ShortsIcon(props: IconProps) {
   return (

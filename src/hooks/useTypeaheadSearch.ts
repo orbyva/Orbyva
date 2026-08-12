@@ -43,7 +43,7 @@ export function useTypeaheadSearch(options: {
       return;
     }
 
-    // Mesma query já resolvida — evita “reload” ao reativar o passo de busca.
+    // Mesma query já resolvida, evita “reload” ao reativar o passo de busca.
     if (lastSearchedRef.current === q) return;
 
     const controller = new AbortController();

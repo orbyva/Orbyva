@@ -83,7 +83,7 @@ function movieStatusTone(status: MovieStatus): StatusPillTone {
   }
 }
 
-/** Ações de ciclo quietas — fora do footer, sem cara de “Salvar”. */
+/** Ações de ciclo quietas, fora do footer, sem cara de “Salvar”. */
 function WatchingLifecycleLinks({
   onFinish,
   onAbandon,

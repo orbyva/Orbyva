@@ -80,7 +80,7 @@ export async function fetchTrips(): Promise<Trip[]> {
   );
 }
 
-/** Progresso de checklist por viagem (só trip_id + done — lista). */
+/** Progresso de checklist por viagem (só trip_id + done, lista). */
 export async function fetchChecklistProgressForTrips(
   tripIds: string[]
 ): Promise<Map<string, { done: number; total: number }>> {
@@ -126,7 +126,7 @@ export async function fetchTripById(id: string): Promise<Trip | null> {
   return data;
 }
 
-/** Places no detalhe — sem embed de trip (já temos a viagem). */
+/** Places no detalhe, sem embed de trip (já temos a viagem). */
 const PLACE_DETAIL_SELECT =
   "id, user_id, trip_id, name, type, status, rating, notes, visited_date, amount, transaction_id, address, lat, lng, geoapify_place_id, google_place_id, would_recommend, created_at";
 
@@ -321,7 +321,7 @@ export async function fetchTripFull(id: string): Promise<TripFull | null> {
 
 /**
  * Só dias + atividades (para ida/volta e sync leve).
- * Sem expenses/places/members — bem mais barato que o bundle completo.
+ * Sem expenses/places/members, bem mais barato que o bundle completo.
  */
 export async function fetchTripItineraryLite(
   tripId: string
@@ -596,7 +596,7 @@ export async function deleteTrip(id: string): Promise<void> {
     if (unlinkError) throw new Error(unlinkError.message);
   }
 
-  // Lugares da viagem (para visitar / visitados) — alinhado ao diálogo de exclusão.
+  // Lugares da viagem (para visitar / visitados), alinhado ao diálogo de exclusão.
   const { error: placesError } = await supabase
     .from("place_visit")
     .delete()
@@ -1083,7 +1083,7 @@ export async function fetchTripItinerary(tripId: string): Promise<TripItineraryD
 export async function createItineraryActivity(
   activity: TripItineraryActivityCreateRequest
 ): Promise<TripItineraryActivity> {
-  // RLS cobre acesso — evita waterfall day → assertTripAccess.
+  // RLS cobre acesso, evita waterfall day → assertTripAccess.
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -1183,7 +1183,7 @@ export async function updateItineraryActivity(
   data: TripItineraryActivityUpdateRequest
 ): Promise<void> {
   const { id, ...fields } = data;
-  // Update direto (RLS cobre acesso) — sem day/trip/assert extras.
+  // Update direto (RLS cobre acesso), sem day/trip/assert extras.
   const { error } = await supabase
     .from("trip_itinerary_activity")
     .update(fields)
@@ -1229,7 +1229,7 @@ export async function setItineraryVisitStatus(
             skipped_at: null,
           };
 
-  // Update direto (RLS cobre acesso) — sem assert + fetches extras.
+  // Update direto (RLS cobre acesso), sem assert + fetches extras.
   const { error } = await supabase
     .from("trip_itinerary_activity")
     .update(patch)
@@ -1238,7 +1238,7 @@ export async function setItineraryVisitStatus(
 }
 
 export async function deleteItineraryActivity(id: string): Promise<void> {
-  // Delete direto (RLS cobre acesso) — sem assert + fetches extras.
+  // Delete direto (RLS cobre acesso), sem assert + fetches extras.
   const { error } = await supabase
     .from("trip_itinerary_activity")
     .delete()

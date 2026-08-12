@@ -1,14 +1,10 @@
-import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { FormField } from "@/components/FormField";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
 import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import { formatBRL } from "@/lib/currency";
 import type { Dimension } from "@/types/dimensions";
@@ -40,35 +36,38 @@ export function TripSplitRegisterDialog({
         if (!open) onOpenChange(false);
       }}
     >
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>Registrar despesa</DialogTitle>
-        </DialogHeader>
-        {expense ? (
-          <div className={FORM_FIELDS_CLASS}>
+      {expense ? (
+        <FormDialogShell
+          title="Registrar despesa"
+          footer={
+            <FormFooter
+              onCancel={() => onOpenChange(false)}
+              onSubmit={onConfirm}
+              submitLabel="Confirmar"
+              submitDisabled={!classId}
+            />
+          }
+        >
+          <FormSection title="Essencial">
             <p className="text-sm text-muted-foreground">
-              {expense.description} — sua fatia{" "}
+              {expense.description}, sua fatia{" "}
               {formatBRL(
                 expense.splits?.find((s) => s.user_id === userId)?.amount ?? 0
               )}
             </p>
-            <ClassSearchPicker
-              dimensions={dimensions}
-              value={classId > 0 ? classId : null}
-              preferredNatureName="Despesa"
-              autoFocus={false}
-              onChange={(opt) => onClassIdChange(opt?.id ?? 0)}
-            />
-            <Button
-              className="w-full"
-              disabled={!classId}
-              onClick={onConfirm}
-            >
-              Confirmar
-            </Button>
-          </div>
-        ) : null}
-      </DialogContent>
+            <FormField label="Categoria" required>
+              <ClassSearchPicker
+                dimensions={dimensions}
+                value={classId > 0 ? classId : null}
+                preferredNatureName="Despesa"
+                autoFocus={false}
+                hideLabel
+                onChange={(opt) => onClassIdChange(opt?.id ?? 0)}
+              />
+            </FormField>
+          </FormSection>
+        </FormDialogShell>
+      ) : null}
     </Dialog>
   );
 }

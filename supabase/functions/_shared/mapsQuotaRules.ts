@@ -1,5 +1,5 @@
 /**
- * Regras puras de cota Maps — espelho de src/domain/maps/quotaRules.ts
+ * Regras puras de cota Maps, espelho de src/domain/maps/quotaRules.ts
  * (Edge Deno não importa o front; manter sincronizado).
  */
 export type MapsProvider =
@@ -140,7 +140,7 @@ export function quotaDeniedPayload(
   return {
     error:
       result.reason === "error"
-        ? "Controle de cota indisponível — requisições bloqueadas por segurança."
+        ? "Controle de cota indisponível, requisições bloqueadas por segurança."
         : `Limite gratuito de ${bucket} atingido (${period}). Novas chamadas liberam no próximo período.`,
     code: "MAPS_QUOTA_EXCEEDED" as const,
     reason: result.reason,

@@ -6,7 +6,7 @@ export { formatLocalIsoDate } from "@/lib/dates";
  * Helpers compartilhados de insights de entretenimento (Cinema / Livros / Música).
  *
  * Onda 2 (não nesta entrega): `buildYearRecap(year, { movies, books, albums })`
- * + share canvas — reutilizar `isEntertainmentFavorite`, `datesTouchYear` e as
+ * + share canvas, reutilizar `isEntertainmentFavorite`, `datesTouchYear` e as
  * stats de cada domínio. Entrada discreta no módulo/Conta; mínimo ~3 itens no ano.
  */
 
@@ -35,7 +35,7 @@ function parseOneDateToken(raw: unknown): string | null {
     return `${br[3]}-${br[2].padStart(2, "0")}-${br[1].padStart(2, "0")}`;
   }
 
-  // Date.toString() residual — tenta parse
+  // Date.toString() residual, tenta parse
   const parsed = new Date(value);
   if (!Number.isNaN(parsed.getTime())) {
     return formatLocalIsoDate(parsed);

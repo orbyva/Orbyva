@@ -370,7 +370,7 @@ export function RecurringTable({
                           </p>
                         </div>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">·</span>
                       )}
                     </TableCell>
 

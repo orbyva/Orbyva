@@ -9,7 +9,7 @@ import { E2eCleanup, e2eStamp, firstId } from "./helpers/cleanup";
 
 const env = e2eEnv();
 
-/** Mês civil local (mesmo critério da tela de Orçamento) — evita UTC vs fuso. */
+/** Mês civil local (mesmo critério da tela de Orçamento), evita UTC vs fuso. */
 function localBudgetMonth(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
@@ -62,12 +62,12 @@ test.describe("orçamento e parcelas", () => {
     test.skip(!klass, "Sem classe de Despesa no usuário E2E");
 
     const month = localBudgetMonth();
-    // Valor raro na UI (R$ 777,77) — evita colisão com seed real.
+    // Valor raro na UI (R$ 777,77), evita colisão com seed real.
     const stamp = 777.77;
     const amountRe = /777[,.]77/;
 
     try {
-      // Orçamento no tipo (class_id null) — mesmo padrão do activation e da aba Despesas.
+      // Orçamento no tipo (class_id null), mesmo padrão do activation e da aba Despesas.
       const existing = await rest("monthly_budget", session.access_token, {
         method: "GET",
         query: `select=id,planned_value&type_id=eq.${klass!.type_id}&class_id=is.null&budget_month=eq.${month}&limit=1`,

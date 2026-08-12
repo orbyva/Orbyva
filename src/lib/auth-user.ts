@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 
-/** Sessão ausente — esperado em race/logout; não é bug de produto. */
+/** Sessão ausente, esperado em race/logout; não é bug de produto. */
 export class AuthRequiredError extends Error {
   readonly code = "AUTH_REQUIRED" as const;
 
@@ -20,7 +20,7 @@ export function isAuthRequiredError(error: unknown): boolean {
 
 /**
  * ID do usuário autenticado (UUID).
- * Usa a sessão em cache (`getSession`) — `getUser()` força rede e atrasa
+ * Usa a sessão em cache (`getSession`), `getUser()` força rede e atrasa
  * ações otimistas (marcar parcela paga, etc.).
  */
 export async function getCurrentUserId(): Promise<string> {

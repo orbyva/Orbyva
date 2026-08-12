@@ -71,7 +71,7 @@ export function MaintenanceTable({
                 {item.km_at_service.toLocaleString("pt-BR")} km
               </TableCell>
               <TableCell>
-                {item.cost != null ? formatBRL(item.cost) : "—"}
+                {item.cost != null ? formatBRL(item.cost) : "·"}
               </TableCell>
               <TableCell className="text-sm">
                 {item.next_km != null && (
@@ -79,7 +79,7 @@ export function MaintenanceTable({
                 )}
                 {item.next_km != null && item.next_date && " · "}
                 {item.next_date && formatDateBR(item.next_date)}
-                {!item.next_km && !item.next_date && "—"}
+                {!item.next_km && !item.next_date && "·"}
               </TableCell>
               <TableCell>
                 <div className="flex gap-1">

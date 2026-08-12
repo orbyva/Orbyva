@@ -22,7 +22,7 @@ export const PLANS = {
     id: "free" as const,
     name: "Teste",
     priceLabel: `${TRIAL_DAYS} dias grátis`,
-    blurb: "Tudo liberado para sentir o controle do mês — sem cartão.",
+    blurb: "Tudo liberado para sentir o controle do mês, sem cartão.",
     features: [
       `${TRIAL_DAYS} dias com acesso completo`,
       "Teto de gastos, contas e o saldo do mês",
@@ -35,7 +35,7 @@ export const PLANS = {
     id: "pro" as const,
     name: "Pro",
     priceLabel: "R$ 19,90/mês",
-    blurb: "Controle do mês + vida organizada — sem prazo.",
+    blurb: "Controle do mês + vida organizada, sem prazo.",
     features: [
       "Teto, contas, parcelas e saldo sem limite",
       "Vida completa (hábitos, viagens, cinema…)",
