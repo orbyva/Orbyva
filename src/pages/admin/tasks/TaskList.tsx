@@ -41,6 +41,9 @@ import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
 import { TaskDescriptionField } from "./TaskDescriptionField";
 import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
 import { TagCombobox } from "./TagCombobox";
+import { ProjectsRail } from "./ProjectsRail";
+import { ProjectPicker } from "./ProjectPicker";
+import { TaskQuadrant } from "./TaskQuadrant";
 import {
   CompletedTasksSection,
   KanbanCard,
@@ -74,6 +77,7 @@ import { fetchRecurringTransactions } from "@/api/recurring";
 import {
   AGENDA_BUCKET_LABELS,
   AGENDA_BUCKET_ORDER,
+  bucketForDueDate,
   collapseRecurringSeries,
   detectExternalProvider,
   filterTasks,
@@ -81,6 +85,8 @@ import {
   findSeriesTasks,
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
+  PRIORITY_OPTIONS,
+  rankProjectsByActivity,
   sortTasksByCompletedAtDesc,
   sortTasksByDueDate,
 } from "@/domain/tasks";
@@ -91,11 +97,13 @@ import type {
   Task,
   TaskCreateRequest,
   TaskDependency,
+  TaskPriority,
   TaskStatus,
 } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
+import { useDimensions } from "@/hooks/useDimensions";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -126,6 +134,7 @@ export default function TaskList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [recurrings, setRecurrings] = useState<Recurring[]>([]);
+  const { dimensions } = useDimensions();
   const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -136,6 +145,10 @@ export default function TaskList() {
   const [tagFilter, setTagFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [statusView, setStatusView] = useState<TaskStatusView>("pending");
+  /** Chips de filtro rápido da aba Lista — só afetam essa aba (Kanban/Gantt seguem usando
+   * `visibleTasks`/`ganttTasks` sem esse recorte). */
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | null>(null);
+  const [todayOnly, setTodayOnly] = useState(false);
   const [subtaskDrafts, setSubtaskDrafts] = useState<string[]>([]);
   const [kanbanSubtaskDrafts, setKanbanSubtaskDrafts] = useState<Record<string, string>>({});
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
@@ -209,20 +222,39 @@ export default function TaskList() {
   const showPending = statusView === "pending" || statusView === "all";
   const showDone = statusView === "done" || statusView === "all";
 
+  const todayIso = useMemo(() => formatLocalIsoDate(new Date()), []);
+
+  /** Chips de Prioridade/"Hoje" — só entram na aba Lista (Kanban/Gantt usam `visibleTasks` puro). */
+  const applyListQuickFilters = useCallback(
+    (list: Task[]) => {
+      const withPriority = priorityFilter ? filterTasks(list, { priority: priorityFilter }) : list;
+      return todayOnly
+        ? withPriority.filter((t) => bucketForDueDate(t.due_date, todayIso) === "today")
+        : withPriority;
+    },
+    [priorityFilter, todayOnly, todayIso]
+  );
+
   const pendingTasks = useMemo(
-    () => sortTasksByDueDate(filterTasksByStatusView(visibleTasks, "pending")),
-    [visibleTasks]
+    () => applyListQuickFilters(sortTasksByDueDate(filterTasksByStatusView(visibleTasks, "pending"))),
+    [visibleTasks, applyListQuickFilters]
   );
 
   const doneTasks = useMemo(
-    () => sortTasksByCompletedAtDesc(filterTasksByStatusView(visibleTasks, "done")),
-    [visibleTasks]
+    () => applyListQuickFilters(sortTasksByCompletedAtDesc(filterTasksByStatusView(visibleTasks, "done"))),
+    [visibleTasks, applyListQuickFilters]
   );
 
-  const agendaGroups = useMemo(() => {
-    const todayIso = formatLocalIsoDate(new Date());
-    return groupTasksByAgendaBucket(collapseRecurringSeries(pendingTasks), todayIso);
-  }, [pendingTasks]);
+  const agendaGroups = useMemo(
+    () => groupTasksByAgendaBucket(collapseRecurringSeries(pendingTasks), todayIso),
+    [pendingTasks, todayIso]
+  );
+
+  /** Projeto específico selecionado na `ProjectsRail` — "all"/"null" não contam. */
+  const quadrantProjectTasks = useMemo(() => {
+    if (projectFilter === "all" || projectFilter === "null") return null;
+    return pendingTasks;
+  }, [pendingTasks, projectFilter]);
 
   const nothingToShow =
     (!showPending || pendingTasks.length === 0) && (!showDone || doneTasks.length === 0);
@@ -235,6 +267,12 @@ export default function TaskList() {
   const subtasksByParent = useMemo(() => groupSubtasksByParent(tasks), [tasks]);
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+
+  // Ordenação usada pelo `ProjectPicker` do formulário de tarefa — projetos mais ativos primeiro.
+  const projectsByActivity = useMemo(
+    () => rankProjectsByActivity(projects, tasks),
+    [projects, tasks]
+  );
 
   // Gantt precisa das subtarefas também (a lib hierarquiza pai→filho sozinha), diferente de
   // `visibleTasks` (que já exclui subtarefas pras outras visões).
@@ -540,17 +578,60 @@ export default function TaskList() {
           )}
         </div>
 
-        <TabsContent value="lista" className="mt-4 space-y-4">
-          <Select value={statusView} onValueChange={(v) => setStatusView(v as TaskStatusView)}>
-            <SelectTrigger className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">Pendentes</SelectItem>
-              <SelectItem value="done">Concluídas</SelectItem>
-              <SelectItem value="all">Todas</SelectItem>
-            </SelectContent>
-          </Select>
+        <TabsContent value="lista" className="mt-4 flex flex-col gap-4 md:flex-row">
+          <div className="hidden shrink-0 md:block">
+            <ProjectsRail
+              projects={projects}
+              activeProjectId={projectFilter}
+              onSelect={setProjectFilter}
+            />
+          </div>
+          <div className="min-w-0 flex-1 space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={statusView} onValueChange={(v) => setStatusView(v as TaskStatusView)}>
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pendentes</SelectItem>
+                <SelectItem value="done">Concluídas</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {PRIORITY_OPTIONS.filter(
+                (entry): entry is [TaskPriority, string] => entry[0] !== null
+              ).map(([p, label]) => (
+                <Button
+                  key={p}
+                  type="button"
+                  size="sm"
+                  variant={priorityFilter === p ? "secondary" : "outline"}
+                  className={cn("h-7 px-2.5 text-xs", priorityFilter === p && "border border-primary/40")}
+                  onClick={() => setPriorityFilter((prev) => (prev === p ? null : p))}
+                >
+                  {label}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                size="sm"
+                variant={todayOnly ? "secondary" : "outline"}
+                className={cn("h-7 px-2.5 text-xs", todayOnly && "border border-primary/40")}
+                onClick={() => setTodayOnly((prev) => !prev)}
+              >
+                Hoje
+              </Button>
+            </div>
+          </div>
+
+          {!loading && quadrantProjectTasks && (
+            <TaskQuadrant
+              tasks={quadrantProjectTasks}
+              todayIso={todayIso}
+              onSelectTask={openEdit}
+            />
+          )}
 
           {loading ? (
             <TableLoadingSkeleton rows={6} />
@@ -590,6 +671,13 @@ export default function TaskList() {
                           onDelete={() => handleDelete(task.id)}
                           isTimerRunning={runningEntry?.task_id === task.id}
                           onToggleTimer={() => toggleTimer(task)}
+                          projectBadge={
+                            task.project_id && projectById.get(task.project_id) ? (
+                              <Badge variant="outline" className="text-[10px]">
+                                {projectById.get(task.project_id)!.name}
+                              </Badge>
+                            ) : undefined
+                          }
                           extraActions={
                             task.status === "done" && !task.linked_recurring_id ? (
                               <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
@@ -624,6 +712,13 @@ export default function TaskList() {
                   onDelete={handleDelete}
                   isTimerRunning={(task) => runningEntry?.task_id === task.id}
                   defaultOpen={statusView === "done"}
+                  projectBadge={(task) =>
+                    task.project_id && projectById.get(task.project_id) ? (
+                      <Badge variant="outline" className="text-[10px]">
+                        {projectById.get(task.project_id)!.name}
+                      </Badge>
+                    ) : undefined
+                  }
                   extraActions={(task) =>
                     !task.linked_recurring_id ? (
                       <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
@@ -639,6 +734,7 @@ export default function TaskList() {
               )}
             </div>
           )}
+          </div>
         </TabsContent>
 
         <TabsContent value="kanban" className="mt-4">
@@ -790,24 +886,13 @@ export default function TaskList() {
               </div>
               <div>
                 <FormLabel optional>Projeto</FormLabel>
-                <Select
-                  value={form.project_id ?? "none"}
-                  onValueChange={(v) =>
-                    setForm({ ...form, project_id: v === "none" ? null : v })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem projeto</SelectItem>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="mt-1.5">
+                  <ProjectPicker
+                    projects={projectsByActivity}
+                    value={form.project_id}
+                    onChange={(projectId) => setForm({ ...form, project_id: projectId })}
+                  />
+                </div>
               </div>
               <TaskPriorityField
                 value={form.priority ?? null}
@@ -826,6 +911,8 @@ export default function TaskList() {
                 }}
                 recurrings={recurrings}
                 onChange={(next) => setForm({ ...form, ...next })}
+                dimensions={dimensions}
+                onRecurringCreated={(rec) => setRecurrings((prev) => [rec, ...prev])}
               />
             </TabsContent>
 

@@ -2,20 +2,8 @@ import { Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormLabel } from "@/components/FormLabel";
 import { cn } from "@/lib/utils";
+import { PRIORITY_LABELS, PRIORITY_OPTIONS } from "@/domain/tasks/priority";
 import type { TaskPriority } from "@/types/tasks";
-
-const PRIORITY_OPTIONS: [TaskPriority | null, string][] = [
-  [null, "Nenhuma"],
-  ["low", "Baixa"],
-  ["medium", "Média"],
-  ["high", "Alta"],
-];
-
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  low: "Baixa",
-  medium: "Média",
-  high: "Alta",
-};
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   low: "text-blue-500",

@@ -1,13 +1,17 @@
+import type { TaskPriority } from "@/types/tasks";
+
 export interface TaskFilter {
   projectId?: string | null;
   tagId?: string;
   dueBefore?: string;
+  priority?: TaskPriority;
 }
 
 interface FilterableTask {
   project_id: string | null;
   tag_ids: string[];
   due_date: string | null;
+  priority?: TaskPriority | null;
 }
 
 export function filterTasks<T extends FilterableTask>(
@@ -22,6 +26,7 @@ export function filterTasks<T extends FilterableTask>(
     if (filter.dueBefore && (!task.due_date || task.due_date > filter.dueBefore)) {
       return false;
     }
+    if (filter.priority && task.priority !== filter.priority) return false;
     return true;
   });
 }

@@ -177,6 +177,7 @@ export function TaskListRow({
   isTimerRunning,
   onToggleTimer,
   extraActions,
+  projectBadge,
 }: {
   task: Task;
   subtasks: Task[];
@@ -198,6 +199,9 @@ export function TaskListRow({
   onToggleTimer?: () => void;
   /** Ações extras (ex.: "Lançar transação") renderizadas antes de editar/excluir. */
   extraActions?: ReactNode;
+  /** Badge do projeto — mesma ideia do `KanbanCard`: só faz sentido numa lista que cruza
+   * projetos (aba Lista de `TaskList.tsx`). */
+  projectBadge?: ReactNode;
 }) {
   const taskTags = task.tag_ids
     .map((id) => allTags.find((t) => t.id === id))
@@ -268,6 +272,7 @@ export function TaskListRow({
                   ))}
                 </SelectContent>
               </Select>
+              {projectBadge}
               {task.linked_recurring_id && (
                 <Badge variant="outline" className="text-[10px]">
                   Vinculada a Recorrência
@@ -351,6 +356,7 @@ export function CompletedTasksSection({
   onDelete,
   isTimerRunning,
   extraActions,
+  projectBadge,
   defaultOpen = false,
 }: {
   tasks: Task[];
@@ -367,6 +373,7 @@ export function CompletedTasksSection({
   onDelete: (taskId: string) => void;
   isTimerRunning: (task: Task) => boolean;
   extraActions?: (task: Task) => ReactNode;
+  projectBadge?: (task: Task) => ReactNode;
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -400,6 +407,7 @@ export function CompletedTasksSection({
             onDelete={() => onDelete(task.id)}
             isTimerRunning={isTimerRunning(task)}
             extraActions={extraActions?.(task)}
+            projectBadge={projectBadge?.(task)}
           />
         ))}
       </CollapsibleContent>

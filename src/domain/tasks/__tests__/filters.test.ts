@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { filterTasks, sortTasksByDueDate } from "@/domain/tasks/filters";
 
-type Row = { id: string; project_id: string | null; tag_ids: string[]; due_date: string | null };
+type Row = {
+  id: string;
+  project_id: string | null;
+  tag_ids: string[];
+  due_date: string | null;
+  priority?: "low" | "medium" | "high" | null;
+};
 
 const rows: Row[] = [
-  { id: "1", project_id: "p1", tag_ids: ["casa"], due_date: "2026-08-10" },
-  { id: "2", project_id: "p2", tag_ids: ["trabalho"], due_date: "2026-08-05" },
-  { id: "3", project_id: null, tag_ids: ["casa", "urgente"], due_date: null },
+  { id: "1", project_id: "p1", tag_ids: ["casa"], due_date: "2026-08-10", priority: "high" },
+  { id: "2", project_id: "p2", tag_ids: ["trabalho"], due_date: "2026-08-05", priority: "low" },
+  { id: "3", project_id: null, tag_ids: ["casa", "urgente"], due_date: null, priority: null },
 ];
 
 describe("filterTasks", () => {
@@ -28,6 +34,10 @@ describe("filterTasks", () => {
 
   it("filtra por projeto null (sem projeto)", () => {
     expect(filterTasks(rows, { projectId: null }).map((r) => r.id)).toEqual(["3"]);
+  });
+
+  it("filtra por prioridade", () => {
+    expect(filterTasks(rows, { priority: "high" }).map((r) => r.id)).toEqual(["1"]);
   });
 });
 

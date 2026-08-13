@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { topOngoingTasksForProject } from "@/domain/tasks/projects";
+import { rankProjectsByActivity, topOngoingTasksForProject } from "@/domain/tasks/projects";
 
 type Row = {
   id: string;
@@ -54,5 +54,64 @@ describe("topOngoingTasksForProject", () => {
       task({ id: "4", due_date: null }),
     ];
     expect(topOngoingTasksForProject(tasks, "p1", 2).map((t) => t.id)).toEqual(["3", "2"]);
+  });
+});
+
+describe("rankProjectsByActivity", () => {
+  function project(overrides: { id: string; created_at?: string }) {
+    return { ...overrides };
+  }
+
+  function activityTask(overrides: {
+    project_id: string | null;
+    parent_task_id?: string | null;
+    created_at?: string;
+  }) {
+    return { parent_task_id: null, ...overrides };
+  }
+
+  it("ordena por contagem de tarefas de topo, mais tarefas primeiro", () => {
+    const projects = [
+      project({ id: "p1", created_at: "2026-01-01" }),
+      project({ id: "p2", created_at: "2026-01-02" }),
+    ];
+    const tasks = [
+      activityTask({ project_id: "p1", created_at: "2026-01-01" }),
+      activityTask({ project_id: "p2", created_at: "2026-01-01" }),
+      activityTask({ project_id: "p2", created_at: "2026-01-02" }),
+    ];
+    expect(rankProjectsByActivity(projects, tasks).map((p) => p.id)).toEqual(["p2", "p1"]);
+  });
+
+  it("desempata por created_at da tarefa mais recente do projeto", () => {
+    const projects = [project({ id: "p1" }), project({ id: "p2" })];
+    const tasks = [
+      activityTask({ project_id: "p1", created_at: "2026-01-01" }),
+      activityTask({ project_id: "p2", created_at: "2026-01-05" }),
+    ];
+    expect(rankProjectsByActivity(projects, tasks).map((p) => p.id)).toEqual(["p2", "p1"]);
+  });
+
+  it("exclui subtarefas da contagem", () => {
+    const projects = [project({ id: "p1" }), project({ id: "p2" })];
+    const tasks = [
+      activityTask({ project_id: "p1", parent_task_id: "parent", created_at: "2026-01-01" }),
+      activityTask({ project_id: "p2", created_at: "2026-01-01" }),
+    ];
+    expect(rankProjectsByActivity(projects, tasks).map((p) => p.id)).toEqual(["p2", "p1"]);
+  });
+
+  it("projetos sem tarefas ficam por último, ordenados por created_at do próprio projeto", () => {
+    const projects = [
+      project({ id: "empty-old", created_at: "2026-01-01" }),
+      project({ id: "empty-new", created_at: "2026-01-05" }),
+      project({ id: "active", created_at: "2026-01-03" }),
+    ];
+    const tasks = [activityTask({ project_id: "active", created_at: "2026-01-01" })];
+    expect(rankProjectsByActivity(projects, tasks).map((p) => p.id)).toEqual([
+      "active",
+      "empty-new",
+      "empty-old",
+    ]);
   });
 });

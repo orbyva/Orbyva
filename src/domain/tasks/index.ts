@@ -6,6 +6,7 @@ export * from "./gantt";
 export * from "./dependencies";
 export * from "./timeTracking";
 export * from "./filters";
+export * from "./priority";
 export * from "./linkedInstallments";
 export * from "./calendar";
 export * from "./externalLink";

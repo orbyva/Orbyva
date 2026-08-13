@@ -44,6 +44,8 @@ interface RecurringFormDialogProps {
   isEditing: boolean;
   onClose: () => void;
   dimensions: Dimension[];
+  /** Renderiza o botão "Nova recorrência" que abre o dialog. Desative quando o open/close for controlado por um gatilho externo (ex.: embutido em outro formulário). Padrão: true. */
+  trigger?: boolean;
 }
 
 function resolvePlanMode(rec: RecurringCreateRequest): PlanMode {
@@ -90,6 +92,7 @@ export function RecurringFormDialog({
   isEditing,
   onClose,
   dimensions,
+  trigger = true,
 }: RecurringFormDialogProps) {
   const [formError, setFormError] = useState<string>("");
   const [totalValue, setTotalValue] = useState<number | "">("");
@@ -242,7 +245,7 @@ export function RecurringFormDialog({
         }
       }}
     >
-      {!isEditing && (
+      {!isEditing && trigger && (
         <DialogTrigger asChild>
           <Button className="w-full sm:w-auto">Nova recorrência</Button>
         </DialogTrigger>

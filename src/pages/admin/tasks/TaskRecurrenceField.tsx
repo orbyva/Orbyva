@@ -11,10 +11,32 @@ import { DatePicker } from "@/components/DatePicker";
 import { FormLabel } from "@/components/FormLabel";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 import { weekdayOrdinalInMonth } from "@/domain/tasks";
+import { buildFixedYearPlan } from "@/domain/recurring";
+import { createRecurringApi } from "@/api/recurring";
+import { RecurringFormDialog } from "@/pages/admin/finance/components/RecurringFormDialog";
 import type { RecurrenceFrequency, RecurrenceMonthlyMode, RecurrenceRule } from "@/types/tasks";
-import type { Recurring } from "@/types/recurring";
+import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
+import type { Dimension } from "@/types/dimensions";
+import { toast } from "@/hooks/use-toast";
 import { useState } from "react";
+
+function defaultRecurringCreateRequest(): RecurringCreateRequest {
+  const payment_start_date = new Date().toISOString().split("T")[0];
+  const plan = buildFixedYearPlan(payment_start_date);
+  return {
+    class_id: 0,
+    value: 0,
+    description: "",
+    frequency: "Mensal",
+    validity: plan.validity,
+    due_day: 10,
+    installment_count: plan.installment_count,
+    payment_start_date,
+    status: true,
+  };
+}
 
 type RecurrenceMode = "none" | "simple" | "linked";
 type EndMode = "never" | "until" | "count";
@@ -77,12 +99,20 @@ export function TaskRecurrenceField({
   value,
   recurrings,
   onChange,
+  dimensions,
+  onRecurringCreated,
 }: {
   value: TaskRecurrenceValue;
   recurrings: Recurring[];
   onChange: (next: TaskRecurrenceValue) => void;
+  dimensions: Dimension[];
+  onRecurringCreated: (recurring: Recurring) => void;
 }) {
   const [mode, setMode] = useState<RecurrenceMode>(() => modeFor(value));
+  const [newRecurringOpen, setNewRecurringOpen] = useState(false);
+  const [newRecurring, setNewRecurring] = useState<RecurringCreateRequest>(
+    defaultRecurringCreateRequest
+  );
   const [frequency, setFrequency] = useState<RecurrenceFrequency>(
     value.recurrence_rule?.frequency ?? "daily"
   );
@@ -209,6 +239,24 @@ export function TaskRecurrenceField({
       due_time: nextTime,
       recurrence_rule: value.recurrence_rule ? buildRule({ dueTimeVal: nextTime }) : null,
     });
+  }
+
+  async function handleCreateRecurring(payload?: RecurringCreateRequest) {
+    const data = payload ?? newRecurring;
+    try {
+      const created = await createRecurringApi(data);
+      onRecurringCreated(created);
+      onChange({ ...value, linked_recurring_id: created.id });
+      setNewRecurringOpen(false);
+      setNewRecurring(defaultRecurringCreateRequest());
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível criar a recorrência."),
+        variant: "destructive",
+        duration: 2000,
+      });
+    }
   }
 
   return (
@@ -406,27 +454,49 @@ export function TaskRecurrenceField({
       {mode === "linked" && (
         <div className="space-y-1.5">
           <FormLabel optional>Vincular a uma Recorrência Financeira</FormLabel>
-          <Select
-            value={value.linked_recurring_id ?? "none"}
-            onValueChange={(v) =>
-              onChange({ ...value, linked_recurring_id: v === "none" ? null : v })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhuma</SelectItem>
-              {recurrings.map((rec) => (
-                <SelectItem key={rec.id} value={rec.id}>
-                  {rec.description}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select
+              value={value.linked_recurring_id ?? "none"}
+              onValueChange={(v) =>
+                onChange({ ...value, linked_recurring_id: v === "none" ? null : v })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhuma</SelectItem>
+                {recurrings.map((rec) => (
+                  <SelectItem key={rec.id} value={rec.id}>
+                    {rec.description}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-9 shrink-0"
+              onClick={() => setNewRecurringOpen(true)}
+            >
+              Nova recorrência
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground">
             As datas dessa tarefa vêm das parcelas em aberto da Recorrência escolhida.
           </p>
+          <RecurringFormDialog
+            open={newRecurringOpen}
+            setOpen={setNewRecurringOpen}
+            newRecurring={newRecurring}
+            setNewRecurring={setNewRecurring}
+            createRecurring={handleCreateRecurring}
+            isEditing={false}
+            trigger={false}
+            onClose={() => setNewRecurring(defaultRecurringCreateRequest())}
+            dimensions={dimensions}
+          />
         </div>
       )}
     </div>

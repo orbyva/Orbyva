@@ -87,6 +87,7 @@ import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
+import { useDimensions } from "@/hooks/useDimensions";
 import { getErrorMessage } from "@/lib/errors";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateTimeBR } from "@/lib/currency";
@@ -118,6 +119,7 @@ export default function ProjectDetail() {
   const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [recurrings, setRecurrings] = useState<Recurring[]>([]);
+  const { dimensions } = useDimensions();
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [formTab, setFormTab] = useState<TaskFormTab>("geral");
@@ -772,6 +774,8 @@ export default function ProjectDetail() {
                 }}
                 recurrings={recurrings}
                 onChange={(next) => setForm({ ...form, ...next })}
+                dimensions={dimensions}
+                onRecurringCreated={(rec) => setRecurrings((prev) => [rec, ...prev])}
               />
             </TabsContent>
 
