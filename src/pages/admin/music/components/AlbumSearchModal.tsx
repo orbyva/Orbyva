@@ -1,12 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import {
   catalogCoverUrl,
   searchAlbums,
@@ -18,11 +13,13 @@ import { Loader2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
 import { ScoreRating } from "@/components/ScoreRating";
+import { FormField } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
+import { Separator } from "@/components/ui/separator";
 import {
   ALBUM_TYPE_LABELS,
   formatAlbumRating,
@@ -166,8 +163,8 @@ export function AlbumSearchModal({
       would_recommend: status === "listened" ? wouldRecommend : true,
       listened_dates:
         status === "listened" && listenedDate
-            ? [formatLocalIsoDate(listenedDate)]
-            : [],
+          ? [formatLocalIsoDate(listenedDate)]
+          : [],
     };
 
     try {
@@ -223,38 +220,47 @@ export function AlbumSearchModal({
           </DialogTrigger>
         ) : null}
 
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogTitle>
-            {step === "search" ? "Buscar álbum" : "Adicionar à lista"}
-          </DialogTitle>
-
+        <FormDialogShell
+          title={step === "search" ? "Buscar álbum" : "Adicionar à lista"}
+          errorSummary={formError || undefined}
+          footer={
+            step === "details" ? (
+              <FormFooter
+                onCancel={() => setStep("search")}
+                onSubmit={() => void handleSave()}
+                submitLabel="Adicionar à lista"
+                cancelLabel="Voltar"
+                loading={loading}
+              />
+            ) : undefined
+          }
+        >
           {step === "search" ? (
-            <div className={FORM_FIELDS_CLASS}>
-              <FormLabel required>Busca</FormLabel>
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="Digite álbum ou artista…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  autoComplete="off"
-                  className={loading ? "pr-9" : undefined}
-                />
-                {loading ? (
-                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                    <Loader2
-                      className="h-4 w-4 animate-spin text-muted-foreground"
-                      aria-hidden
-                    />
-                  </div>
-                ) : null}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Resultados aparecem conforme você digita.
-              </p>
-              {formError && (
-                <p className="text-sm text-destructive">{formError}</p>
-              )}
+            <FormSection title="Busca">
+              <FormField
+                label="Termo"
+                required
+                hint="Resultados aparecem conforme você digita."
+              >
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Digite álbum ou artista…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    autoComplete="off"
+                    className={loading ? "pr-9" : undefined}
+                  />
+                  {loading ? (
+                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2
+                        className="h-4 w-4 animate-spin text-muted-foreground"
+                        aria-hidden
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </FormField>
 
               {searchResults.length > 0 && (
                 <div className="max-h-[55vh] space-y-2 overflow-y-auto sm:max-h-[300px]">
@@ -299,7 +305,7 @@ export function AlbumSearchModal({
                     </p>
                     <p className="text-sm text-muted-foreground">
                       O catálogo não trouxe resultados. Cadastre manualmente com
-                      capa — usamos o que você digitou como ponto de partida.
+                      capa, usamos o que você digitou como ponto de partida.
                     </p>
                   </div>
                   <Button
@@ -327,7 +333,7 @@ export function AlbumSearchModal({
                   </Button>
                 </div>
               )}
-            </div>
+            </FormSection>
           ) : (
             <>
               <div className="flex items-start gap-3 sm:gap-4">
@@ -357,56 +363,64 @@ export function AlbumSearchModal({
                 </div>
               </div>
 
-              <div className={FORM_FIELDS_CLASS}>
-                <FormLabel required>Status</FormLabel>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button
-                    type="button"
-                    variant={status === "to_listen" ? "default" : "outline"}
-                    onClick={() => setStatus("to_listen")}
-                    className="w-full sm:w-auto"
-                  >
-                    Para ouvir
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={status === "listened" ? "default" : "outline"}
-                    onClick={() => setStatus("listened")}
-                    className="w-full sm:w-auto"
-                  >
-                    Ouvido
-                  </Button>
-                </div>
+              <Separator />
 
-                {status === "listened" && (
-                  <>
-                    <div>
-                      <FormLabel optional>Nota</FormLabel>
-                      <div className="space-y-2">
-                        <ScoreRating value={rating} onChange={setRating} />
-                        {rating != null && rating > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            {formatAlbumRating(rating)}/10 —{" "}
-                            {getAlbumRatingLabel(rating)}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <FormLabel required>Data</FormLabel>
-                    <DatePicker
-                      date={listenedDate}
-                      onSelect={setListenedDate}
-                    />
-                    <div>
-                      <FormLabel optional>O que achou?</FormLabel>
+              <FormSection title="Lista">
+                <FormField label="Status" required>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      variant={status === "to_listen" ? "default" : "outline"}
+                      onClick={() => setStatus("to_listen")}
+                      className="w-full sm:w-auto"
+                    >
+                      Para ouvir
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={status === "listened" ? "default" : "outline"}
+                      onClick={() => setStatus("listened")}
+                      className="w-full sm:w-auto"
+                    >
+                      Ouvido
+                    </Button>
+                  </div>
+                </FormField>
+              </FormSection>
+
+              {status === "listened" && (
+                <>
+                  <Separator />
+                  <FormSection title="Opinião">
+                    <FormField
+                      label="Nota"
+                      optional
+                      hint={
+                        rating != null && rating > 0
+                          ? `${formatAlbumRating(rating)}/10 - ${getAlbumRatingLabel(rating)}`
+                          : undefined
+                      }
+                    >
+                      <ScoreRating value={rating} onChange={setRating} />
+                    </FormField>
+
+                    <FormField label="Data" required>
+                      <DatePicker
+                        date={listenedDate}
+                        onSelect={setListenedDate}
+                      />
+                    </FormField>
+
+                    <FormField label="O que achou?" optional>
                       <textarea
                         className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         placeholder="Sua opinião..."
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                       />
-                    </div>
-                    <label className="flex items-center gap-2 text-sm">
+                    </FormField>
+
+                    <label className="flex items-center gap-2 text· sm">
                       <input
                         type="checkbox"
                         checked={wouldRecommend}
@@ -415,33 +429,12 @@ export function AlbumSearchModal({
                       />
                       Recomendaria
                     </label>
-                  </>
-                )}
-
-                {formError && (
-                  <p className="text-sm text-destructive">{formError}</p>
-                )}
-
-                <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                  <Button
-                    variant="outline"
-                    className="w-full sm:flex-1"
-                    onClick={() => setStep("search")}
-                  >
-                    Voltar
-                  </Button>
-                  <Button
-                    onClick={() => void handleSave()}
-                    disabled={loading}
-                    className="w-full sm:flex-1"
-                  >
-                    {loading ? "Salvando…" : "Adicionar à lista"}
-                  </Button>
-                </div>
-              </div>
+                  </FormSection>
+                </>
+              )}
             </>
           )}
-        </DialogContent>
+        </FormDialogShell>
       </Dialog>
 
       <AlbumManualModal

@@ -30,7 +30,7 @@ export function emailShell(opts: {
 
   const footer =
     opts.footer ??
-    "Se não quiser mais estes e-mails, abra Conta no app e desative o envio — ou ignore esta mensagem.";
+    "Se não quiser mais estes e-mails, abra Conta no app e desative o envio, ou ignore esta mensagem.";
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">

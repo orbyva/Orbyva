@@ -27,7 +27,7 @@ export function usePlan() {
       setLoading(false);
       return;
     }
-    // Soft refresh (volta de aba / token) — não desmonta o shell/modais
+    // Soft refresh (volta de aba / token), não desmonta o shell/modais
     if (!opts?.soft || !hasProfileRef.current) {
       setLoading(true);
     }
@@ -40,7 +40,7 @@ export function usePlan() {
       maybeRequestWelcomeEmail(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao carregar plano");
-      // Não resetar trial com now() — usa created_at do auth se já houver perfil em memória
+      // Não resetar trial com now(), usa created_at do auth se já houver perfil em memória
       setProfile((prev) => {
         if (prev) return prev;
         return {

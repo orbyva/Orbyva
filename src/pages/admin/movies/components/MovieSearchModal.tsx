@@ -1,12 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import {
   fetchCinemaByImdbId,
   fetchCinemaDetails,
@@ -20,11 +15,13 @@ import { Loader2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
 import { ScoreRating } from "@/components/ScoreRating";
+import { FormField } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
+import { Separator } from "@/components/ui/separator";
 import { formatMovieRating, getMovieRatingLabel } from "@/domain/movies";
 import { formatLocalIsoDate } from "@/domain/entertainment/insights";
 import { getErrorMessage } from "@/lib/errors";
@@ -238,36 +235,47 @@ export function MovieSearchModal({
         </DialogTrigger>
       ) : null}
 
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogTitle>
-          {step === "search" ? "Buscar título" : "Adicionar à lista"}
-        </DialogTitle>
-
+      <FormDialogShell
+        title={step === "search" ? "Buscar título" : "Adicionar à lista"}
+        errorSummary={formError || undefined}
+        footer={
+          step === "details" ? (
+            <FormFooter
+              onCancel={() => setStep("search")}
+              onSubmit={() => void handleSaveMovie()}
+              submitLabel="Adicionar à lista"
+              cancelLabel="Voltar"
+              loading={loading}
+            />
+          ) : undefined
+        }
+      >
         {step === "search" ? (
-          <div className={FORM_FIELDS_CLASS}>
-            <FormLabel required>Busca</FormLabel>
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="Digite o título ou IMDb ID…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                autoComplete="off"
-                className={loading ? "pr-9" : undefined}
-              />
-              {loading ? (
-                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                  <Loader2
-                    className="h-4 w-4 animate-spin text-muted-foreground"
-                    aria-hidden
-                  />
-                </div>
-              ) : null}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Resultados aparecem conforme você digita.
-            </p>
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
+          <FormSection title="Busca">
+            <FormField
+              label="Termo"
+              required
+              hint="Resultados aparecem conforme você digita."
+            >
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Digite o título ou IMDb ID…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  autoComplete="off"
+                  className={loading ? "pr-9" : undefined}
+                />
+                {loading ? (
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2
+                      className="h-4 w-4 animate-spin text-muted-foreground"
+                      aria-hidden
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </FormField>
 
             {searchResults.length > 0 && (
               <div className="max-h-[55vh] space-y-2 overflow-y-auto sm:max-h-[300px]">
@@ -279,7 +287,7 @@ export function MovieSearchModal({
                         : hit.imdb_id || `${hit.title}-${hit.year}`
                     }
                     className="flex cursor-pointer items-center gap-3 rounded-md p-2 hover:bg-muted/50"
-                    onClick={() => handleSelectMovie(hit)}
+                    onClick={() => void handleSelectMovie(hit)}
                   >
                     <img
                       src={hit.poster || "/placeholder.svg"}
@@ -300,7 +308,7 @@ export function MovieSearchModal({
                 ))}
               </div>
             )}
-          </div>
+          </FormSection>
         ) : (
           <>
             <div className="flex items-start gap-3 sm:gap-4">
@@ -327,64 +335,69 @@ export function MovieSearchModal({
               </div>
             </div>
 
-            <div className={FORM_FIELDS_CLASS}>
-              <FormLabel required>Status</FormLabel>
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <Button
-                  type="button"
-                  variant={status === "to_watch" ? "default" : "outline"}
-                  onClick={() => setStatus("to_watch")}
-                  className="w-full sm:w-auto"
-                >
-                  Para assistir
-                </Button>
-                <Button
-                  type="button"
-                  variant={status === "watching" ? "default" : "outline"}
-                  onClick={() => setStatus("watching")}
-                  className="w-full sm:w-auto"
-                >
-                  Assistindo
-                </Button>
-                <Button
-                  type="button"
-                  variant={status === "watched" ? "default" : "outline"}
-                  onClick={() => setStatus("watched")}
-                  className="w-full sm:w-auto"
-                >
-                  Assistido
-                </Button>
-              </div>
+            <Separator />
 
-              {status === "watched" && (
-                <>
-                  <div>
-                    <FormLabel optional>Nota</FormLabel>
-                    <div className="space-y-2">
-                      <ScoreRating value={rating} onChange={setRating} />
-                      {rating != null && rating > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          {formatMovieRating(rating)}/10 —{" "}
-                          {getMovieRatingLabel(rating)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+            <FormSection title="Lista">
+              <FormField label="Status" required>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <Button
+                    type="button"
+                    variant={status === "to_watch" ? "default" : "outline"}
+                    onClick={() => setStatus("to_watch")}
+                    className="w-full sm:w-auto"
+                  >
+                    Para assistir
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={status === "watching" ? "default" : "outline"}
+                    onClick={() => setStatus("watching")}
+                    className="w-full sm:w-auto"
+                  >
+                    Assistindo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={status === "watched" ? "default" : "outline"}
+                    onClick={() => setStatus("watched")}
+                    className="w-full sm:w-auto"
+                  >
+                    Assistido
+                  </Button>
+                </div>
+              </FormField>
+            </FormSection>
 
-                  <FormLabel required>Data assistida</FormLabel>
-                  <DatePicker date={watchedDate} onSelect={setWatchedDate} />
+            {status === "watched" && (
+              <>
+                <Separator />
+                <FormSection title="Opinião">
+                  <FormField
+                    label="Nota"
+                    optional
+                    hint={
+                      rating != null && rating > 0
+                        ? `${formatMovieRating(rating)}/10 - ${getMovieRatingLabel(rating)}`
+                        : undefined
+                    }
+                  >
+                    <ScoreRating value={rating} onChange={setRating} />
+                  </FormField>
 
-                  <div>
-                    <FormLabel optional>O que achou?</FormLabel>
+                  <FormField label="Data assistida" required>
+                    <DatePicker date={watchedDate} onSelect={setWatchedDate} />
+                  </FormField>
+
+                  <FormField label="O que achou?" optional>
                     <textarea
                       className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       placeholder="Sua opinião..."
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                     />
-                  </div>
+                  </FormField>
 
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-2 text· sm">
                     <input
                       type="checkbox"
                       checked={wouldRecommend}
@@ -393,33 +406,12 @@ export function MovieSearchModal({
                     />
                     Recomendaria
                   </label>
-                </>
-              )}
-
-              {formError && (
-                <p className="text-sm text-destructive">{formError}</p>
-              )}
-
-              <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                <Button
-                  variant="outline"
-                  className="w-full sm:flex-1"
-                  onClick={() => setStep("search")}
-                >
-                  Voltar
-                </Button>
-                <Button
-                  onClick={handleSaveMovie}
-                  disabled={loading}
-                  className="w-full sm:flex-1"
-                >
-                    {loading ? "Salvando…" : "Adicionar à lista"}
-                </Button>
-              </div>
-            </div>
+                </FormSection>
+              </>
+            )}
           </>
         )}
-      </DialogContent>
+      </FormDialogShell>
     </Dialog>
   );
 }

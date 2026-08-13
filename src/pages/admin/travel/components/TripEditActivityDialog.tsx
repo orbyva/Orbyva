@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -15,11 +10,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { OptionalTimeInput } from "@/components/OptionalTimeInput";
+import { FormField, FormFieldRow } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
 import {
   PlaceCatalogSearch,
   type PlaceCatalogPick,
@@ -131,6 +127,14 @@ export function TripEditActivityDialog({
   const canEstimate =
     canEstimateMode && hasRoute && (hasDepart || hasArrive);
 
+  const dialogTitle = isCreate
+    ? form.category === "transport"
+      ? "Adicionar deslocamento"
+      : "Adicionar visita"
+    : form.category === "transport"
+      ? "Editar deslocamento"
+      : "Editar visita";
+
   async function fetchDurationSeconds(): Promise<number | null> {
     const routesMode = routesModeForTransport(transportMode);
     if (!routesMode || !form.origin || !form.destination) return null;
@@ -199,53 +203,53 @@ export function TripEditActivityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>
-            {isCreate
-              ? form.category === "transport"
-                ? "Adicionar deslocamento"
-                : "Adicionar visita"
-              : form.category === "transport"
-                ? "Editar deslocamento"
-                : "Editar visita"}
-          </DialogTitle>
-        </DialogHeader>
-        <div className={FORM_FIELDS_CLASS}>
+      <FormDialogShell
+        title={dialogTitle}
+        footer={
+          <FormFooter
+            onCancel={() => onOpenChange(false)}
+            onSubmit={() => onSave(form)}
+            submitLabel={isCreate ? "Adicionar" : "Salvar"}
+          />
+        }
+      >
+        <FormSection
+          title={category === "transport" ? "Rota" : "Local"}
+        >
           {category === "transport" ? (
             <>
-              <div className="space-y-1">
+              <PlaceCatalogSearch
+                label="Origem"
+                required
+                scope="regions"
+                bias={geoBias}
+                requestUserLocation={false}
+                selectedLabel={form.origin?.label ?? null}
+                onClear={() => {
+                  const origin = null;
+                  setForm((prev) => ({
+                    ...prev,
+                    origin,
+                    title: syncTransferTitle(origin, prev.destination),
+                  }));
+                  setEstimateNote(null);
+                }}
+                onPick={(hit) => {
+                  const origin = pickToEndpoint(hit);
+                  setForm((prev) => ({
+                    ...prev,
+                    origin,
+                    title: syncTransferTitle(origin, prev.destination),
+                  }));
+                  setEstimateNote(null);
+                }}
+              />
+              <FormField
+                label="Destino"
+                required
+                hint='País, estado ou cidade, obrigatórios. O nome fica "Origem → Destino".'
+              >
                 <PlaceCatalogSearch
-                  label="Origem"
-                  required
-                  scope="regions"
-                  bias={geoBias}
-                  requestUserLocation={false}
-                  selectedLabel={form.origin?.label ?? null}
-                  onClear={() => {
-                    const origin = null;
-                    setForm((prev) => ({
-                      ...prev,
-                      origin,
-                      title: syncTransferTitle(origin, prev.destination),
-                    }));
-                    setEstimateNote(null);
-                  }}
-                  onPick={(hit) => {
-                    const origin = pickToEndpoint(hit);
-                    setForm((prev) => ({
-                      ...prev,
-                      origin,
-                      title: syncTransferTitle(origin, prev.destination),
-                    }));
-                    setEstimateNote(null);
-                  }}
-                />
-              </div>
-              <div className="space-y-1">
-                <PlaceCatalogSearch
-                  label="Destino"
-                  required
                   scope="regions"
                   bias={geoBias}
                   requestUserLocation={false}
@@ -269,16 +273,18 @@ export function TripEditActivityDialog({
                     setEstimateNote(null);
                   }}
                 />
-                <p className="text-xs text-muted-foreground">
-                  País, estado ou cidade — obrigatórios. O nome fica “Origem →
-                  Destino”.
-                </p>
-              </div>
+              </FormField>
             </>
           ) : (
-            <div className="space-y-1">
+            <FormField
+              label="Local"
+              hint={
+                !linkedLabel
+                  ? "Busque o local para calcular o trajeto no roteiro."
+                  : undefined
+              }
+            >
               <PlaceCatalogSearch
-                label="Local"
                 bias={geoBias}
                 requestUserLocation={false}
                 selectedLabel={linkedLabel}
@@ -323,29 +329,24 @@ export function TripEditActivityDialog({
                   });
                 }}
               />
-              {!linkedLabel ? (
-                <p className="text-xs text-muted-foreground">
-                  Busque o local para calcular o trajeto no roteiro.
-                </p>
-              ) : null}
-            </div>
+            </FormField>
           )}
+        </FormSection>
 
+        <FormSection title="Detalhes">
           {category !== "transport" ? (
-            <div>
-              <FormLabel required>Título</FormLabel>
+            <FormField label="Título" required>
               <Input
                 value={form.title}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, title: e.target.value }))
                 }
               />
-            </div>
+            </FormField>
           ) : null}
 
           {category === "transport" ? (
-            <div>
-              <FormLabel>Modo</FormLabel>
+            <FormField label="Modo" hint={transportModeHint(transportMode)}>
               <Select
                 value={transportMode}
                 onValueChange={(v) => {
@@ -367,17 +368,14 @@ export function TripEditActivityDialog({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {transportModeHint(transportMode)}
-              </p>
-            </div>
+            </FormField>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel optional>
-                {category === "transport" ? "Saída" : "Horário"}
-              </FormLabel>
+          <FormFieldRow>
+            <FormField
+              label={category === "transport" ? "Saída" : "Horário"}
+              optional
+            >
               <OptionalTimeInput
                 value={form.activity_time}
                 onChange={(next) => {
@@ -391,10 +389,9 @@ export function TripEditActivityDialog({
                   category === "transport" ? "Horário de saída" : "Horário"
                 }
               />
-            </div>
+            </FormField>
             {category === "transport" ? (
-              <div>
-                <FormLabel optional>Chegada</FormLabel>
+              <FormField label="Chegada" optional>
                 <OptionalTimeInput
                   value={form.arrival_time}
                   onChange={(next) => {
@@ -406,10 +403,9 @@ export function TripEditActivityDialog({
                   }}
                   aria-label="Horário de chegada"
                 />
-              </div>
+              </FormField>
             ) : (
-              <div>
-                <FormLabel optional>Tipo</FormLabel>
+              <FormField label="Tipo">
                 <Select
                   value={category}
                   onValueChange={(v) =>
@@ -434,9 +430,9 @@ export function TripEditActivityDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </FormField>
             )}
-          </div>
+          </FormFieldRow>
 
           {canEstimateMode ? (
             <div className="space-y-1">
@@ -466,10 +462,10 @@ export function TripEditActivityDialog({
             </div>
           ) : null}
 
-          <div>
-            <FormLabel optional>
-              {category === "transport" ? "Link da passagem" : "Link"}
-            </FormLabel>
+          <FormField
+            label={category === "transport" ? "Link da passagem" : "Link"}
+            optional
+          >
             <Input
               value={form.link_url}
               onChange={(e) =>
@@ -481,7 +477,8 @@ export function TripEditActivityDialog({
                   : "https://…"
               }
             />
-          </div>
+          </FormField>
+
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -496,20 +493,17 @@ export function TripEditActivityDialog({
             />
             Já reservado
           </label>
-          <div>
-            <FormLabel optional>Notas</FormLabel>
+
+          <FormField label="Notas" optional>
             <Input
               value={form.notes}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, notes: e.target.value }))
               }
             />
-          </div>
-          <Button onClick={() => onSave(form)} className="w-full">
-            {isCreate ? "Adicionar" : "Salvar"}
-          </Button>
-        </div>
-      </DialogContent>
+          </FormField>
+        </FormSection>
+      </FormDialogShell>
     </Dialog>
   );
 }

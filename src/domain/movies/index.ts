@@ -31,7 +31,7 @@ function cleanListToken(value: string): string {
 
 /**
  * Supabase pode devolver text[], JSON stringificado (`["A","B"]`)
- * ou CSV — normaliza para string[] limpa.
+ * ou CSV, normaliza para string[] limpa.
  */
 export function asStringList(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -122,7 +122,7 @@ export function getMovieCardRating(movie: Movie): {
 }
 
 export function getDisplayScore(movie: Movie): string | number {
-  return getMovieCardRating(movie)?.value ?? "—";
+  return getMovieCardRating(movie)?.value ?? "·";
 }
 
 export function getLatestWatchedDate(

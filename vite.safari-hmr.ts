@@ -22,7 +22,7 @@ export function viteSafariHmrNoReload(): Plugin {
         /await waitForSuccessfulPing\(url\.href\);\s*location\.reload\(\);/,
         `await waitForSuccessfulPing(url.href);
           console.info(
-            "[vite] HMR reconnect — reload ignorado (preserva modais/estado)"
+            "[vite] HMR reconnect, reload ignorado (preserva modais/estado)"
           );`
       );
 

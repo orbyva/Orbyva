@@ -21,7 +21,7 @@ export function TripBudgetSummary({
         <div>
           <p className="text-xs text-muted-foreground">Orçamento</p>
           <p className="font-bold">
-            {hasBudget ? formatBRL(trip.budget as number) : "—"}
+            {hasBudget ? formatBRL(trip.budget as number) : "·"}
           </p>
         </div>
         <div>

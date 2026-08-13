@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { loadEnv } from "vite";
 
-// Playwright não carrega .env sozinho — espelha Vite (.env, .env.local, …).
+// Playwright não carrega .env sozinho, espelha Vite (.env, .env.local, …).
 const loaded = loadEnv(process.env.MODE || "test", process.cwd(), "");
 for (const [key, value] of Object.entries(loaded)) {
   if (process.env[key] === undefined) process.env[key] = value;

@@ -103,7 +103,7 @@ export function findNextPendingVisit(
   return upcoming ?? pool[0] ?? null;
 }
 
-/** ~55 km — visita no destino do deslocamento (não na origem da volta). */
+/** ~55 km, visita no destino do deslocamento (não na origem da volta). */
 function visitNearTransferDestination(
   visit: VisitLike,
   transfer: VisitLike
@@ -216,7 +216,7 @@ export function formatDurationFriendly(
   totalSeconds: number | null | undefined
 ): string {
   if (totalSeconds == null || !Number.isFinite(totalSeconds) || totalSeconds < 0) {
-    return "—";
+    return "·";
   }
   const totalMinutes = Math.round(totalSeconds / 60);
   if (totalMinutes < 60) return `${totalMinutes} min`;
@@ -381,7 +381,7 @@ export function describeRouteInsight(params: {
     };
   }
 
-  // Horário vencido: o “atraso” de cada modalidade seria só ruído — quem
+  // Horário vencido: o “atraso” de cada modalidade seria só ruído, quem
   // informa isso é o cabeçalho, uma vez (isScheduledTimePast).
   const scheduleMissed = isScheduledTimePast({ arrivalHHmm, nowMinutes });
   return {

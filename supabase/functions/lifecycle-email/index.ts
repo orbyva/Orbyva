@@ -50,7 +50,7 @@ const KIND_META: Record<
   },
   trial_expired: {
     sentCol: "trial_expired_email_sent_at",
-    subject: () => "O teste acabou — continue no Pro",
+    subject: () => "O teste acabou, continue no Pro",
   },
   onboarding_nudge: {
     sentCol: "onboarding_nudge_sent_at",
@@ -75,7 +75,7 @@ function contentFor(
     case "trial_ending":
       return emailShell({
         eyebrow: "Orbyva · Teste",
-        title: `${greet} — o teste está acabando`,
+        title: `${greet}, o teste está acabando`,
         bodyHtml: `<p style="margin:0;">Restam poucos dias do acesso completo. Se o orçamento e as parcelas já ajudaram, o Pro mantém tudo por R$&nbsp;19,90/mês.</p>`,
         ctaLabel: "Ver planos na Conta",
         ctaUrl: `${siteUrl}/account`,
@@ -83,15 +83,15 @@ function contentFor(
     case "trial_expired":
       return emailShell({
         eyebrow: "Orbyva · Teste encerrado",
-        title: `${greet} — continue de onde parou`,
-        bodyHtml: `<p style="margin:0;">O período de teste terminou. Seus dados continuam salvos — assine o Pro para voltar aos lançamentos e ao life OS.</p>`,
+        title: `${greet}, continue de onde parou`,
+        bodyHtml: `<p style="margin:0;">O período de teste terminou. Seus dados continuam salvos, assine o Pro para voltar aos lançamentos e ao life OS.</p>`,
         ctaLabel: "Assinar Pro",
         ctaUrl: `${siteUrl}/account?trial=expired`,
       });
     case "onboarding_nudge":
       return emailShell({
         eyebrow: "Orbyva · Ativação",
-        title: `${greet} — ainda sem a 1ª despesa`,
+        title: `${greet}, ainda sem a 1ª despesa`,
         bodyHtml: `<p style="margin:0;">O hub fica vivo quando os lançamentos começam. Dois minutos: uma categoria e um valor.</p>`,
         ctaLabel: "Lançar transação",
         ctaUrl: `${siteUrl}/finance/transactions`,
@@ -110,13 +110,13 @@ function contentFor(
       }
       const body =
         lines.length === 0
-          ? `<p style="margin:0;">Nada crítico no radar — vale um olhar rápido no hub.</p>`
+          ? `<p style="margin:0;">Nada crítico no radar, vale um olhar rápido no hub.</p>`
           : `<ul style="margin:0;padding-left:18px;">${lines
               .map((l) => `<li>${l}</li>`)
               .join("")}</ul>`;
       return emailShell({
         eyebrow: "Orbyva · Alertas",
-        title: `${greet} — o que precisa de atenção`,
+        title: `${greet}, o que precisa de atenção`,
         bodyHtml: body,
         ctaLabel: "Abrir alertas",
         ctaUrl: `${siteUrl}/home`,

@@ -1,4 +1,4 @@
-/** Fila de escrita offline (outbox) — lançamentos sem rede, sync ao voltar. */
+/** Fila de escrita offline (outbox), lançamentos sem rede, sync ao voltar. */
 
 import type { TransactionCreateRequest } from "@/types/finance";
 import { isNavigatorOffline } from "@/lib/offlineCache";

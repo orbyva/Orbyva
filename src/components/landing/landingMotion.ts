@@ -1,4 +1,4 @@
-/** Motion compartilhado da landing — framer-motion + reduced-motion.
+/** Motion compartilhado da landing, framer-motion + reduced-motion.
  * Só opacity: translateY + overflow nos ancestrais corta descendentes (g, y).
  */
 

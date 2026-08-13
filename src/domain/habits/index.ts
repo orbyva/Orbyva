@@ -1,6 +1,6 @@
 import type { Habit, HabitKind, HabitLog, WeekStripDay } from "@/types/habits";
 
-/** Data local YYYY-MM-DD (não UTC — evita streak/check-in errados à noite no BR). */
+/** Data local YYYY-MM-DD (não UTC, evita streak/check-in errados à noite no BR). */
 export function getTodayIso(d = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");

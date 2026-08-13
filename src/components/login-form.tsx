@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/BrandLogo";
+import { FormField } from "@/components/FormField";
 import { BRAND } from "@/lib/brand";
 import { supabase } from "@/lib/supabase";
 import { track } from "@/lib/analytics";
@@ -18,6 +18,17 @@ function modeFromSearch(raw: string | null): AuthMode {
   if (raw === "forgot" || raw === "reset") return "forgot";
   if (raw === "recovery") return "recovery";
   return "login";
+}
+
+function AuthErrorCallout({ message }: { message: string }) {
+  return (
+    <div
+      className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+      role="alert"
+    >
+      {message}
+    </div>
+  );
 }
 
 export function LoginForm({
@@ -286,8 +297,7 @@ export function LoginForm({
                 className="grid gap-3"
                 onSubmit={(e) => void handleNewPassword(e)}
               >
-                <div className="grid gap-2">
-                  <Label htmlFor="password">Nova senha</Label>
+                <FormField label="Nova senha" required htmlFor="password">
                   <Input
                     id="password"
                     type="password"
@@ -298,20 +308,15 @@ export function LoginForm({
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Mínimo 6 caracteres"
                   />
-                </div>
-                {error ? (
-                  <p className="text-sm text-destructive" role="alert">
-                    {error}
-                  </p>
-                ) : null}
+                </FormField>
+                {error ? <AuthErrorCallout message={error} /> : null}
                 <Button type="submit" disabled={busy} className="w-full">
                   {busy ? "Aguarde…" : "Salvar senha"}
                 </Button>
               </form>
             ) : isForgot ? (
               <form className="grid gap-3" onSubmit={(e) => void handleForgot(e)}>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">E-mail</Label>
+                <FormField label="E-mail" required htmlFor="email">
                   <Input
                     id="email"
                     type="email"
@@ -321,12 +326,8 @@ export function LoginForm({
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="voce@email.com"
                   />
-                </div>
-                {error ? (
-                  <p className="text-sm text-destructive" role="alert">
-                    {error}
-                  </p>
-                ) : null}
+                </FormField>
+                {error ? <AuthErrorCallout message={error} /> : null}
                 {message ? (
                   <p className="text-sm text-muted-foreground">{message}</p>
                 ) : null}
@@ -347,8 +348,7 @@ export function LoginForm({
                 className="grid gap-3"
                 onSubmit={(e) => void handleEmailAuth(e)}
               >
-                <div className="grid gap-2">
-                  <Label htmlFor="email">E-mail</Label>
+                <FormField label="E-mail" required htmlFor="email">
                   <Input
                     id="email"
                     type="email"
@@ -358,38 +358,37 @@ export function LoginForm({
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="voce@email.com"
                   />
-                </div>
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label htmlFor="password">
-                      {isSignup ? "Crie uma senha" : "Senha"}
-                    </Label>
+                </FormField>
+                <FormField
+                  label={isSignup ? "Crie uma senha" : "Senha"}
+                  required
+                  htmlFor="password"
+                >
+                  <div className="space-y-1.5">
                     {!isSignup ? (
-                      <button
-                        type="button"
-                        className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                        onClick={() => switchMode("forgot")}
-                      >
-                        Esqueci a senha
-                      </button>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                          onClick={() => switchMode("forgot")}
+                        >
+                          Esqueci a senha
+                        </button>
+                      </div>
                     ) : null}
+                    <Input
+                      id="password"
+                      type="password"
+                      autoComplete={isSignup ? "new-password" : "current-password"}
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={isSignup ? "Mínimo 6 caracteres" : undefined}
+                    />
                   </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete={isSignup ? "new-password" : "current-password"}
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={isSignup ? "Mínimo 6 caracteres" : undefined}
-                  />
-                </div>
-                {error ? (
-                  <p className="text-sm text-destructive" role="alert">
-                    {error}
-                  </p>
-                ) : null}
+                </FormField>
+                {error ? <AuthErrorCallout message={error} /> : null}
                 {message ? (
                   <p className="text-sm text-muted-foreground">{message}</p>
                 ) : null}
@@ -442,7 +441,7 @@ export function LoginForm({
               />
               {isSignup ? (
                 <p className="max-w-[16rem] text-sm text-muted-foreground">
-                  Comece agora — orçamento, parcelas e o resto da vida na mesma
+                  Comece agora: orçamento, parcelas e o resto da vida na mesma
                   órbita.
                 </p>
               ) : null}

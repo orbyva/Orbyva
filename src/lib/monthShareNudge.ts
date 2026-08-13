@@ -1,4 +1,4 @@
-/** Nudge mensal de compartilhar resumo — 1x por user/mês. */
+/** Nudge mensal de compartilhar resumo, 1x por user/mês. */
 
 function key(userId: string, yearMonth: string): string {
   return `orbyva_month_share_nudge_v1:${userId}:${yearMonth}`;

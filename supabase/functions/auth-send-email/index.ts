@@ -1,5 +1,5 @@
 /**
- * Supabase Auth Hook — Send Email.
+ * Supabase Auth Hook, Send Email.
  * Confirmação, magic link, reset de senha e change email via Resend.
  *
  * Dashboard → Authentication → Hooks → Send Email → URL desta function.
@@ -56,7 +56,7 @@ function copyFor(action: EmailAction, firstName?: string) {
       return {
         subject: "Confirme seu e-mail no Orbyva",
         eyebrow: "Orbyva · Confirmação",
-        title: `${greet} — confirme para começar`,
+        title: `${greet}, confirme para começar`,
         body: "Falta um clique para liberar seus 7 dias de teste com orçamento, parcelas e o life OS.",
         cta: "Confirmar e-mail",
       };
@@ -65,7 +65,7 @@ function copyFor(action: EmailAction, firstName?: string) {
       return {
         subject: "Seu link para entrar no Orbyva",
         eyebrow: "Orbyva · Login",
-        title: `${greet} — link mágico`,
+        title: `${greet}, link mágico`,
         body: "Use o botão abaixo para entrar sem senha. O link expira em breve.",
         cta: "Entrar no Orbyva",
       };
@@ -73,7 +73,7 @@ function copyFor(action: EmailAction, firstName?: string) {
       return {
         subject: "Redefinir senha do Orbyva",
         eyebrow: "Orbyva · Senha",
-        title: `${greet} — redefinir senha`,
+        title: `${greet}, redefinir senha`,
         body: "Recebemos um pedido para trocar sua senha. Se não foi você, ignore este e-mail.",
         cta: "Escolher nova senha",
       };
@@ -81,7 +81,7 @@ function copyFor(action: EmailAction, firstName?: string) {
       return {
         subject: "Confirme o novo e-mail no Orbyva",
         eyebrow: "Orbyva · E-mail",
-        title: `${greet} — confirme o novo e-mail`,
+        title: `${greet}, confirme o novo e-mail`,
         body: "Confirme para passar a usar este endereço na sua conta Orbyva.",
         cta: "Confirmar novo e-mail",
       };
@@ -89,13 +89,13 @@ function copyFor(action: EmailAction, firstName?: string) {
       return {
         subject: "Você foi convidado para o Orbyva",
         eyebrow: "Orbyva · Convite",
-        title: `${greet} — bem-vindo`,
+        title: `${greet}, bem-vindo`,
         body: "Aceite o convite para criar sua conta e entrar no life OS.",
         cta: "Aceitar convite",
       };
     default:
       return {
-        subject: "Orbyva — ação necessária",
+        subject: "Orbyva, ação necessária",
         eyebrow: "Orbyva",
         title: greet,
         body: "Abra o link para continuar.",

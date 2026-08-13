@@ -19,19 +19,21 @@ export function FormLabel({
   return (
     <Label htmlFor={htmlFor} className={cn(className)}>
       {children}
-      {required && <span className="text-destructive"> *</span>}
-      {optional && (
+      {required ? <span className="text-destructive"> *</span> : null}
+      {optional ? (
         <span className="ml-1 text-xs font-normal text-muted-foreground">
           (opcional)
         </span>
-      )}
+      ) : null}
     </Label>
   );
 }
 
+/** Legacy full-scroll dialog body. Prefer FormDialogShell. */
 export const FORM_DIALOG_CONTENT_CLASS =
   "max-w-lg sm:max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6";
 
+/** Legacy wide full-scroll dialog body. Prefer FormDialogShell wide. */
 export const FORM_DIALOG_CONTENT_CLASS_WIDE =
   "max-w-xl sm:max-w-3xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6";
 
@@ -55,6 +57,6 @@ export const FORM_SEGMENT_TRIGGER_CLASS =
 export const PAGE_HEADER_ACTIONS_CLASS =
   "flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap";
 
-/** Icon-only edit action — muted in light/dark; pair with text-destructive on delete. */
+/** Icon-only edit action, muted in light/dark; pair with text-destructive on delete. */
 export const ICON_EDIT_BUTTON_CLASS =
   "text-muted-foreground hover:text-foreground";

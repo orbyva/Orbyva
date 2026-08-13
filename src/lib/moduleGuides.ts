@@ -39,7 +39,7 @@ export type ModuleGuideConfig = {
 
 /**
  * Guia contextual por módulo, sob demanda. Um único componente
- * (`ModuleGuide`) renderiza qualquer um destes — não há tour forçado.
+ * (`ModuleGuide`) renderiza qualquer um destes, não há tour forçado.
  */
 export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
   finance: {
@@ -58,15 +58,15 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Planeje o mês",
-        body: "No Orçamento, defina tetos por categoria e veja o quanto já gastou versus o planejado — com alertas se estourar.",
+        body: "No Orçamento, defina tetos por categoria e veja o quanto já gastou versus o planejado, com alertas se estourar.",
       },
       {
         title: "Fixas e parceladas",
-        body: "Em Recorrências, use Mensal fixa para contas mensais ou anuais (até dezembro do ano da data de início) ou Parcelada Nx (só mensal, valor total ÷ N). A aba Registros lista e liquida; a Projeção soma parcelas do mês (incluindo pagas) com lançamentos avulsos — gráfico com saldo e simulação de compra.",
+        body: "Em Recorrências, use Mensal fixa para contas mensais ou anuais (até dezembro do ano da data de início) ou Parcelada Nx (só mensal, valor total ÷ N). A aba Registros lista e liquida; a Projeção soma parcelas do mês (incluindo pagas) com lançamentos avulsos, gráfico com saldo e simulação de compra.",
       },
       {
         title: "Leia o painel",
-        body: "Em Finanças (dashboard) você vê saldo, receitas, despesas e o desenho do mês — e pode compartilhar um resumo.",
+        body: "Em Finanças (dashboard) você vê saldo, receitas, despesas e o desenho do mês, e pode compartilhar um resumo.",
       },
     ],
   },
@@ -82,7 +82,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Lugares da viagem",
-        body: "Na aba Lugares, salve o que quer conhecer (Para visitar) e depois avalie o que já foi — com nota e valor gasto opcional.",
+        body: "Na aba Lugares, salve o que quer conhecer (Para visitar) e depois avalie o que já foi, com nota e valor gasto opcional.",
       },
       {
         title: "Monte roteiro e checklist",
@@ -94,11 +94,11 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Controle o orçamento",
-        body: "Defina um teto e lance despesas — inclusive divididas. Tudo conversa com os seus lançamentos.",
+        body: "Defina um teto e lance despesas, inclusive divididas. Tudo conversa com os seus lançamentos.",
       },
       {
         title: "Compartilhe e avalie",
-        body: "Gere um card da viagem para compartilhar. No fim, avalie lugares visitados — eles entram no módulo Lugares.",
+        body: "Gere um card da viagem para compartilhar. No fim, avalie lugares visitados, eles entram no módulo Lugares.",
       },
     ],
   },
@@ -106,7 +106,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "habits",
     icon: Flame,
     title: "Como funcionam os Hábitos",
-    hook: "Um toque por dia — na lista ou no hub. Hoje para marcar; Mês para ver o padrão.",
+    hook: "Um toque por dia, na lista ou no hub. Hoje para marcar; Mês para ver o padrão.",
     steps: [
       {
         title: "Crie com frequência e tipo",
@@ -126,7 +126,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "goals",
     icon: Target,
     title: "Como funcionam as Metas",
-    hook: "Objetivos de vida com barra de progresso — financeiras alimentadas pelo saldo do mês.",
+    hook: "Objetivos de vida com barra de progresso, financeiras alimentadas pelo saldo do mês.",
     steps: [
       {
         title: "Crie a meta",
@@ -146,7 +146,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "places",
     icon: MapPin,
     title: "Como funcionam os Lugares",
-    hook: "Lista Para visitar + diário do que você já conheceu — com nota para lembrar e compartilhar.",
+    hook: "Lista Para visitar + diário do que você já conheceu, com nota para lembrar e compartilhar.",
     steps: [
       {
         title: "Salve o que quer conhecer",
@@ -158,7 +158,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Compartilhe a opinião",
-        body: "Gere um card do lugar para compartilhar — com nota e o que você achou.",
+        body: "Gere um card do lugar para compartilhar, com nota e o que você achou.",
       },
       {
         title: "Vem das viagens também",
@@ -170,7 +170,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "car",
     icon: Car,
     title: "Como funciona o Veículo",
-    hook: "Manutenções, combustível e documentos do carro ou moto — sem planilha paralela.",
+    hook: "Manutenções, combustível e documentos do carro ou moto, sem planilha paralela.",
     steps: [
       {
         title: "Cadastre o veículo",
@@ -190,23 +190,23 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     id: "movies",
     icon: Film,
     title: "Como funciona o Cinema",
-    hook: "Watchlist, assistindo, assistidos e abandonados — com nota e card para compartilhar.",
+    hook: "Watchlist, assistindo, assistidos e abandonados, com nota e card para compartilhar.",
     steps: [
       {
         title: "Monte a watchlist",
-        body: "Salve o que quer assistir — filme ou série — e não dependa da memória (nem do algoritmo).",
+        body: "Salve o que quer assistir, filme ou série, e não dependa da memória (nem do algoritmo).",
       },
       {
         title: "Comece a assistir",
-        body: "Mova para Assistindo. Em séries, marque episódios e veja o progresso no card — igual ao marca-página dos livros.",
+        body: "Mova para Assistindo. Em séries, marque episódios e veja o progresso no card, igual ao marca-página dos livros.",
       },
       {
         title: "Termine ou abandone",
-        body: "Ao terminar, avalie e compartilhe. Se largar, marque como Abandonei — dá para retomar.",
+        body: "Ao terminar, avalie e compartilhe. Se largar, marque como Abandonei, dá para retomar.",
       },
       {
         title: "Compartilhe a opinião",
-        body: "Gere um card com poster e nota para compartilhar onde quiser — sua opinião, do seu jeito.",
+        body: "Gere um card com poster e nota para compartilhar onde quiser, sua opinião, do seu jeito.",
       },
     ],
   },
@@ -218,7 +218,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
     steps: [
       {
         title: "Monte a lista",
-        body: "Busque no Google Books e salve o que quer ler — capa, autor e sinopse vêm prontos.",
+        body: "Busque no Google Books e salve o que quer ler, capa, autor e sinopse vêm prontos.",
       },
       {
         title: "Comece a ler",
@@ -226,7 +226,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Termine ou abandone",
-        body: "Ao terminar, avalie e compartilhe. Se largar o livro, marque como Abandonei — dá para retomar.",
+        body: "Ao terminar, avalie e compartilhe. Se largar o livro, marque como Abandonei, dá para retomar.",
       },
       {
         title: "Compartilhe a opinião",

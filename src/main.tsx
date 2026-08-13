@@ -50,7 +50,7 @@ const updateSW = registerSW({
           if (!ping.ok) return;
           await registration.update();
         } catch {
-          /* ignore — próximo ciclo tenta de novo */
+          /* ignore, próximo ciclo tenta de novo */
         }
       })();
     };
@@ -61,7 +61,7 @@ const updateSW = registerSW({
     });
   },
   onRegisterError() {
-    /* silencioso — falha transitória de rede */
+    /* silencioso, falha transitória de rede */
   },
 });
 

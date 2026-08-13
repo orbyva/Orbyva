@@ -204,7 +204,7 @@ export function RecurringProjection({
     [ledgerLines.payLines]
   );
 
-  // Modo completo: parcelas do mês (incl. pagas) + avulsos listados — mesma conta da lista.
+  // Modo completo: parcelas do mês (incl. pagas) + avulsos listados, mesma conta da lista.
   const receiveTotal = openOnly
     ? projection.receiveTotal
     : projection.receiveTotal + avulsoReceive;
@@ -350,7 +350,7 @@ export function RecurringProjection({
                 Simular compra
               </CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
-                Simulador de compra — não grava nada. 1ª parcela em {simStartTitle}.
+                Simulador de compra, não grava nada. 1ª parcela em {simStartTitle}.
               </p>
             </div>
             <Button
@@ -426,7 +426,7 @@ export function RecurringProjection({
                 <p className="flex h-10 items-center text-sm font-semibold tabular-nums">
                   {simulation
                     ? `${formatBRL(simulation.installmentValue)} × ${simulation.installmentCount}`
-                    : "—"}
+                    : "·"}
                 </p>
               </div>
             </div>
@@ -447,7 +447,7 @@ export function RecurringProjection({
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Sem parcela da simulação em {monthTitle} — começa em{" "}
+                  Sem parcela da simulação em {monthTitle}, começa em{" "}
                   {simStartTitle}.
                 </p>
               )
@@ -510,10 +510,10 @@ export function RecurringProjection({
           >
             <span>
               {simulation
-                ? "Projeção — com simulação de compra"
+                ? "Projeção · com simulação de compra"
                 : openOnly
-                  ? "Projeção — só em aberto (daqui pra frente)"
-                  : "Projeção — parcelas do mês (incl. pagas) + lançamentos avulsos"}
+                  ? "Projeção · só em aberto (daqui pra frente)"
+                  : "Projeção · parcelas do mês (incl. pagas) + lançamentos avulsos"}
             </span>
             <ChevronDown
               className={cn(

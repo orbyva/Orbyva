@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     const greet = firstName ? `Oi, ${firstName}` : "Oi";
     const html = emailShell({
       eyebrow: "Orbyva · Hábitos",
-      title: `${greet} — check-in de hoje`,
+      title: `${greet}, check-in de hoje`,
       bodyHtml: `<p style="margin:0;">Ainda dá tempo de marcar o dia. ${pending.length} hábito${pending.length === 1 ? "" : "s"} sem check-in:</p>
         ${emailListBlock(pending.slice(0, 5))}`,
       ctaLabel: "Abrir hábitos",

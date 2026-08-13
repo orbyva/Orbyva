@@ -14,7 +14,7 @@ const targets = readdirSync(dist).filter(
 );
 
 if (targets.length === 0) {
-  console.error("minify-sw: nenhum sw.js/workbox-*.js em dist/ — rode o build antes.");
+  console.error("minify-sw: nenhum sw.js/workbox-*.js em dist/, rode o build antes.");
   process.exit(1);
 }
 

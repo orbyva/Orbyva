@@ -65,7 +65,7 @@ function PhoneFrame({
 }
 
 /**
- * Phone Mockups 1 — réplica visual do componente 21st (solaceui):
+ * Phone Mockups 1 · réplica visual do componente 21st (solaceui):
  * 3 iPhones (centro + peeks) no desktop; 1 phone no mobile (sem corte).
  */
 export default function PhoneMockupBasic({

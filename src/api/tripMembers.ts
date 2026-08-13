@@ -58,7 +58,7 @@ export async function ensureTripOwnerMember(
 
   if (!error) return;
 
-  // Coluna avatar_url ainda não existe — tenta sem ela
+  // Coluna avatar_url ainda não existe, tenta sem ela
   if (error.message.includes("avatar_url") || error.code === "PGRST204") {
     const withoutAvatar = { ...payload };
     delete withoutAvatar.avatar_url;
@@ -161,7 +161,7 @@ export async function fetchInviteByToken(
   });
 
   if (error) {
-    // RPC ainda não aplicada — fail closed (não vazar pending via SELECT)
+    // RPC ainda não aplicada, fail closed (não vazar pending via SELECT)
     if (
       error.code === "PGRST202" ||
       error.message.includes("get_trip_invite_by_token")
@@ -216,7 +216,7 @@ export async function removeTripMember(
 export async function leaveTrip(tripId: string): Promise<void> {
   const access = await assertTripAccess(tripId);
   if (access.isOwner) {
-    throw new Error("O dono não pode sair — transfira ou exclua a viagem.");
+    throw new Error("O dono não pode sair, transfira ou exclua a viagem.");
   }
   const { error } = await supabase
     .from("trip_member")

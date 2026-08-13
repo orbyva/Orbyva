@@ -124,7 +124,7 @@ export function isFirstBudgetDone(userId: string): boolean {
   return readRaw(userId).firstBudgetDone;
 }
 
-/** Tour + 1ª transação — ativação finance-first. */
+/** Tour + 1ª transação, ativação finance-first. */
 export function isActivationDone(userId: string): boolean {
   const s = readRaw(userId);
   return s.tourDone && s.firstTxDone;
@@ -210,7 +210,7 @@ export const ONBOARDING_STEPS = [
   {
     id: "welcome",
     title: `Bem-vindo ao ${BRAND.name}`,
-    body: `Orçamento, parcelas e o mês em clareza — mais hábitos, viagens e cinema no mesmo app. Tudo liberado desde o primeiro acesso.`,
+    body: `Orçamento, parcelas e o mês em clareza, mais hábitos, viagens e cinema no mesmo app. Tudo liberado desde o primeiro acesso.`,
   },
   {
     id: "dimensions",
@@ -225,6 +225,6 @@ export const ONBOARDING_STEPS = [
   {
     id: "budget",
     title: "Orçamento do mês (recomendado)",
-    body: "Defina o teto de despesa (e, se quiser, meta de receita). É o que transforma os lançamentos em controle de verdade — pode pular e fazer depois.",
+    body: "Defina o teto de despesa (e, se quiser, meta de receita). É o que transforma os lançamentos em controle de verdade, pode pular e fazer depois.",
   },
 ] as const;

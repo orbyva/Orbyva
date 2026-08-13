@@ -1,5 +1,5 @@
 /**
- * Console interno (/ops) — NÃO é feature de produto.
+ * Console interno (/ops), NÃO é feature de produto.
  * Fora do AdminLayout; allowlist no Edge (OPS_ADMIN_EMAILS).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -230,7 +230,7 @@ export default function OpsConsole() {
         <div className="w-full max-w-md space-y-3 rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
           <h1 className="font-display text-lg font-semibold">Acesso negado</h1>
           <p className="text-sm text-muted-foreground">
-            Esta rota é só para operadores. Conta: {user?.email ?? "—"}.
+            Esta rota é só para operadores. Conta: {user?.email ?? "·"}.
           </p>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button asChild variant="outline">

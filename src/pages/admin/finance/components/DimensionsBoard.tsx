@@ -108,7 +108,7 @@ export function DimensionsBoard({
     },
   });
 
-  // Carrega classes (e repara órfãs) uma vez — não a cada criação de categoria.
+  // Carrega classes (e repara órfãs) uma vez, não a cada criação de categoria.
   // Marca `classesBooted` só após sucesso (Strict Mode cancela o 1º efeito).
   useEffect(() => {
     if (types.length === 0) {
@@ -872,7 +872,7 @@ export function DimensionsBoard({
           <AlertDialogHeader>Excluir categoria?</AlertDialogHeader>
           <p className="text-sm text-muted-foreground">
             Se ainda houver subcategorias nesta categoria, a exclusão será
-            bloqueada — exclua ou mova as subcategorias antes.
+            bloqueada, exclua ou mova as subcategorias antes.
           </p>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>

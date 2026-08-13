@@ -9,7 +9,7 @@ export type DocumentMetaInput = {
   description?: string;
   path?: string;
   image?: string;
-  /** Se false, não prefixa com Orbyva — */
+  /** Se false, não prefixa com Orbyva, */
   brandSuffix?: boolean;
 };
 

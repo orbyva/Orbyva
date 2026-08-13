@@ -114,7 +114,7 @@ export function BudgetAlerts({
             <>
               {exceededExpenses.map(({ parent, mainCause }) => (
                 <div key={parent.id}>
-                  <span className="font-medium">{parent.type_name}</span> —{" "}
+                  <span className="font-medium">{parent.type_name}</span> , {" "}
                   {formatBRL(Math.abs(Number(parent.remaining_value || 0)))} acima
                   {mainCause && (
                     <span className="block text-[11px] opacity-80">
@@ -147,7 +147,7 @@ export function BudgetAlerts({
             <>
               {exceededIncome.map((item) => (
                 <div key={item.id}>
-                  <span className="font-medium">{item.type_name}</span> — +{" "}
+                  <span className="font-medium">{item.type_name}</span>, +{" "}
                   {formatBRL(
                     Number(item.income_value || 0) -
                       Number(item.planned_value || 0)

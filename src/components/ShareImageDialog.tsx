@@ -460,7 +460,7 @@ export function ShareImageDialog({
                     </Button>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      Opcional — sem foto o card usa um layout ilustrado.
+                      Opcional, sem foto o card usa um layout ilustrado.
                     </p>
                   )}
                 </div>

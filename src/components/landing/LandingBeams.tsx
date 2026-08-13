@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Background Beams light (Aceternity / 21st) — CSS beams sky Orbyva.
+ * Background Beams light (Aceternity / 21st), CSS beams sky Orbyva.
  * Sem Three.js; respeita prefers-reduced-motion via `.landing-beams`.
  */
 export function LandingBeams({ className }: { className?: string }) {

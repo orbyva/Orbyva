@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Marquee no espírito Cult UI — faixa de confiança sem cards. */
+/** Marquee no espírito Cult UI, faixa de confiança sem cards. */
 export function LandingTrustMarquee({
   items,
   className,

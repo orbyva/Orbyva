@@ -24,7 +24,7 @@ export function useLocalDay(): string {
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onFocus);
 
-    // Checa a cada minuto — barato e pega virada de dia com o app aberto.
+    // Checa a cada minuto, barato e pega virada de dia com o app aberto.
     const id = window.setInterval(sync, 60_000);
 
     return () => {

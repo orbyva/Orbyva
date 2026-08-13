@@ -300,7 +300,7 @@ export async function generateAlbumShareImage(
 
   let cursorY: number;
   const centerX = SHARE_W / 2;
-  // Capa menor quando há faixas — libera espaço sem apertar o layout.
+  // Capa menor quando há faixas, libera espaço sem apertar o layout.
   const heroSize = hasTracks ? (notes ? 420 : 480) : 680;
 
   if (cover) {
@@ -427,7 +427,7 @@ export function buildAlbumShareText(
     for (const t of rated.slice(0, 12)) {
       const idx = t.disc > 1 ? `${t.disc}.${t.position}` : t.position;
       parts.push(
-        `• ${idx}. ${t.title} — ${formatAlbumRating(t.rating)}/10`
+        `• ${idx}. ${t.title}, ${formatAlbumRating(t.rating)}/10`
       );
     }
     if (rated.length > 12) {

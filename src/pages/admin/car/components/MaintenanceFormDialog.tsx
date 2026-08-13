@@ -1,11 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/MoneyInput";
@@ -18,11 +12,9 @@ import {
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
 import { formatLocalIsoDate } from "@/lib/dates";
-import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+import { FormField, FormFieldRow } from "@/components/FormField";
+import { FormDialogShell, FormFooter } from "@/components/FormDialogShell";
+import { FormDisclosure, FormSection } from "@/components/FormSection";
 import type { Dimension } from "@/types/dimensions";
 import type {
   Maintenance,
@@ -85,6 +77,9 @@ export function MaintenanceFormDialog({
       ? { ...maintenance }
       : emptyMaintenance(vehicle.id)
   );
+  const [showNextReview, setShowNextReview] = useState(
+    !!(maintenance?.next_km || maintenance?.next_date)
+  );
   const [registerExpense, setRegisterExpense] = useState(false);
   const [selectedType, setSelectedType] = useState<number | null>(null);
   const [classId, setClassId] = useState(0);
@@ -96,11 +91,13 @@ export function MaintenanceFormDialog({
   useEffect(() => {
     if (open && maintenance) {
       setForm({ ...maintenance });
+      setShowNextReview(!!(maintenance.next_km || maintenance.next_date));
     } else if (open && !maintenance) {
       setForm({
         ...emptyMaintenance(vehicle.id),
         km_at_service: vehicle.current_km,
       });
+      setShowNextReview(false);
       setRegisterExpense(false);
       setSelectedType(null);
       setClassId(0);
@@ -219,16 +216,22 @@ export function MaintenanceFormDialog({
           <Button className="w-full sm:w-auto">Registrar manutenção</Button>
         </DialogTrigger>
       )}
-      <DialogContent className={`${FORM_DIALOG_CONTENT_CLASS} max-h-[90vh] overflow-y-auto`}>
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Editar manutenção" : "Registrar manutenção"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel required>Tipo</FormLabel>
+      <FormDialogShell
+        title={isEditing ? "Editar manutenção" : "Registrar manutenção"}
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={() => setOpen(false)}
+            onSubmit={handleSave}
+            submitLabel={
+              isEditing ? "Salvar alterações" : "Registrar manutenção"
+            }
+            loading={loading}
+          />
+        }
+      >
+        <FormSection title="Serviço">
+          <FormField label="Tipo" required>
             <Select
               value={form.type}
               onValueChange={(v) => handleTypeChange(v as MaintenanceType)}
@@ -246,23 +249,21 @@ export function MaintenanceFormDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
 
           {form.type === "other" && (
-            <div>
-              <FormLabel required>Descrição do serviço</FormLabel>
+            <FormField label="Descrição do serviço" required>
               <Input
                 value={form.custom_type ?? ""}
                 onChange={(e) =>
                   setForm({ ...form, custom_type: e.target.value })
                 }
               />
-            </div>
+            </FormField>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel required>Data</FormLabel>
+          <FormFieldRow>
+            <FormField label="Data" required>
               <DatePicker
                 date={
                   form.service_date
@@ -278,9 +279,8 @@ export function MaintenanceFormDialog({
                   })
                 }
               />
-            </div>
-            <div>
-              <FormLabel required>Km no serviço</FormLabel>
+            </FormField>
+            <FormField label="Km no serviço" required>
               <Input
                 type="number"
                 value={form.km_at_service}
@@ -288,12 +288,11 @@ export function MaintenanceFormDialog({
                   handleKmChange(Number(e.target.value) || 0)
                 }
               />
-            </div>
-          </div>
+            </FormField>
+          </FormFieldRow>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel optional>Custo (R$)</FormLabel>
+          <FormFieldRow>
+            <FormField label="Custo (R$)" optional>
               <MoneyInput
                 value={form.cost ?? ""}
                 onChange={(value) =>
@@ -303,101 +302,90 @@ export function MaintenanceFormDialog({
                   })
                 }
               />
-            </div>
-            <div>
-              <FormLabel optional>Oficina</FormLabel>
+            </FormField>
+            <FormField label="Oficina" optional>
               <Input
                 value={form.shop ?? ""}
                 onChange={(e) => setForm({ ...form, shop: e.target.value })}
               />
-            </div>
-          </div>
+            </FormField>
+          </FormFieldRow>
 
-          <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-            <p className="text-sm font-medium">Próxima troca (alertas)</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <FormLabel optional>Próximo km</FormLabel>
-                <Input
-                  type="number"
-                  value={form.next_km ?? ""}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      next_km: e.target.value
-                        ? Number(e.target.value)
-                        : null,
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <FormLabel optional>Próxima data</FormLabel>
-                <DatePicker
-                  clearable
-                  date={
-                    form.next_date
-                      ? new Date(`${form.next_date}T12:00:00`)
-                      : undefined
-                  }
-                  onSelect={(d) =>
-                    setForm({
-                      ...form,
-                      next_date: d ? formatLocalIsoDate(d) : null,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Preencha pelo menos um dos dois para receber alertas de troca.
-            </p>
-          </div>
+          <FormField label="Observações" optional>
+            <Input
+              value={form.notes ?? ""}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </FormField>
+        </FormSection>
 
-          {!isEditing && (
-            <div className="space-y-3 rounded-lg border p-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={registerExpense}
-                  onChange={(e) => setRegisterExpense(e.target.checked)}
-                  className="rounded"
-                />
-                Registrar como despesa em Finanças
-              </label>
+        <FormDisclosure
+          title="Próxima revisão"
+          description="Preencha pelo menos km ou data para receber alertas de troca."
+          open={showNextReview}
+          onOpenChange={setShowNextReview}
+        >
+          <FormFieldRow>
+            <FormField label="Próximo km" optional>
+              <Input
+                type="number"
+                value={form.next_km ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    next_km: e.target.value
+                      ? Number(e.target.value)
+                      : null,
+                  })
+                }
+              />
+            </FormField>
+            <FormField label="Próxima data" optional>
+              <DatePicker
+                clearable
+                date={
+                  form.next_date
+                    ? new Date(`${form.next_date}T12:00:00`)
+                    : undefined
+                }
+                onSelect={(d) =>
+                  setForm({
+                    ...form,
+                    next_date: d ? formatLocalIsoDate(d) : null,
+                  })
+                }
+              />
+            </FormField>
+          </FormFieldRow>
+        </FormDisclosure>
 
-              {registerExpense && (
+        {!isEditing && (
+          <div className="space-y-3 rounded-lg border p-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={registerExpense}
+                onChange={(e) => setRegisterExpense(e.target.checked)}
+                className="rounded"
+              />
+              Registrar como despesa em Finanças
+            </label>
+
+            {registerExpense && (
+              <FormField label="Categoria" required>
                 <ExpenseCategoryPicker
                   dimensions={dimensions}
                   selectedType={selectedType}
                   classId={classId}
                   onTypeChange={setSelectedType}
                   onClassChange={setClassId}
+                  hideLabel
                 />
-              )}
-            </div>
-          )}
-
-          <div>
-            <FormLabel optional>Observações</FormLabel>
-            <Input
-              value={form.notes ?? ""}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
+              </FormField>
+            )}
           </div>
-
-          {formError && (
-            <p className="text-sm text-destructive">{formError}</p>
-          )}
-          <Button onClick={handleSave} disabled={loading} className="w-full">
-            {loading
-              ? "Salvando…"
-              : isEditing
-                ? "Salvar alterações"
-                : "Registrar manutenção"}
-          </Button>
-        </div>
-      </DialogContent>
+        )}
+      </FormDialogShell>
     </Dialog>
   );
 }

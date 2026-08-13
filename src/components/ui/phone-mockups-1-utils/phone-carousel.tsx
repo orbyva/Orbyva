@@ -30,7 +30,7 @@ type PhoneCarouselProps = {
 
 /**
  * Carrossel 3-up (peek | center | peek) no desktop;
- * no mobile só o centro — transição rápida sem “buraco” entre slides.
+ * no mobile só o centro, transição rápida sem “buraco” entre slides.
  */
 export function PhoneCarousel({
   screens,
@@ -46,7 +46,7 @@ export function PhoneCarousel({
   pausedRef.current = paused;
   const reduceMotion = useReducedMotion();
 
-  // Prefetch só vizinhos (webp) — não todos os slides de uma vez.
+  // Prefetch só vizinhos (webp), não todos os slides de uma vez.
   useEffect(() => {
     const neighbors = [
       screens[(index - 1 + n) % n],
@@ -125,7 +125,7 @@ export function PhoneCarousel({
         </div>
       </div>
 
-      {/* Desktop 3-up — peeks estáveis, só o centro faz crossfade */}
+      {/* Desktop 3-up, peeks estáveis, só o centro faz crossfade */}
       <div className="relative mx-auto hidden h-[560px] max-w-xl items-center justify-center sm:flex">
         <div className="pointer-events-none absolute inset-x-[8%] top-1/2 z-0 h-[55%] -translate-y-1/2 rounded-full bg-sky-500/20 blur-3xl" />
 

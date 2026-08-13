@@ -1,6 +1,6 @@
 import { rest } from "./auth";
 
-/** Prefixo padronizado — teardown apaga por description like `E2E%`. */
+/** Prefixo padronizado, teardown apaga por description like `E2E%`. */
 export const E2E_MARKER = "E2E";
 
 export function e2eStamp(kind?: string): string {
@@ -36,7 +36,7 @@ export class E2eCleanup {
     if (id != null) this.recurringIds.push(id);
   }
 
-  /** Orçamento que já existia — restaura o valor ao fim (não apaga). */
+  /** Orçamento que já existia, restaura o valor ao fim (não apaga). */
   trackBudgetRestore(id: number, previousPlanned: number) {
     this.budgetRestores.push({ id, planned_value: previousPlanned });
   }

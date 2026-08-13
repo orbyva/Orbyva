@@ -4,7 +4,7 @@ import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 export default function LoginPage() {
   useDocumentMeta({
     title: "Entrar",
-    description: "Acesse sua conta Orbyva — finanças e life OS na mesma órbita.",
+    description: "Acesse sua conta Orbyva: finanças e life OS na mesma órbita.",
     path: "/login",
   });
 

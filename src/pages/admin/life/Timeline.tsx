@@ -63,7 +63,7 @@ export default function Timeline() {
     return (
       <PageShell
         title="Timeline"
-        description="Tudo que importa — parcelas, manutenções, metas, viagens e hábitos."
+        description="Tudo que importa, parcelas, manutenções, metas, viagens e hábitos."
       >
         <TableLoadingSkeleton rows={8} />
       </PageShell>
@@ -73,7 +73,7 @@ export default function Timeline() {
   return (
     <PageShell
       title="Timeline"
-      description="Tudo que importa — parcelas, manutenções, metas, viagens e hábitos."
+      description="Tudo que importa, parcelas, manutenções, metas, viagens e hábitos."
     >
       <Tabs value={filter} onValueChange={(v) => setFilter(v as TimelineModule | "all")}>
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">

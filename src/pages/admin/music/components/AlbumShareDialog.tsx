@@ -94,7 +94,7 @@ export function AlbumShareDialog({
               : "Texto copiado",
         description:
           result === "downloaded"
-            ? "A imagem foi baixada — use no app que preferir."
+            ? "A imagem foi baixada, use no app que preferir."
             : result === "copied"
               ? "O texto foi copiado para a área de transferência."
               : undefined,
@@ -151,7 +151,7 @@ export function AlbumShareDialog({
               />
             ) : (
               <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">
-                Sem prévia — ainda dá para compartilhar o texto.
+                Sem prévia, ainda dá para compartilhar o texto.
               </div>
             )}
           </div>

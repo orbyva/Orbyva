@@ -32,7 +32,7 @@ const PROFILE_SELECT =
 const LAST_SEEN_CLIENT_KEY = "orbyva_last_seen_touch_v1";
 
 /**
- * Heartbeat de retenção — atualiza `profiles.last_seen_at` (RPC, throttle 30 min no DB).
+ * Heartbeat de retenção, atualiza `profiles.last_seen_at` (RPC, throttle 30 min no DB).
  * No client, no máximo 1 chamada / hora por aba (evita spam em HMR / focus).
  */
 export async function touchLastSeen(): Promise<void> {
@@ -49,7 +49,7 @@ export async function touchLastSeen(): Promise<void> {
 
   const { error } = await supabase.rpc("touch_last_seen");
   if (error) {
-    // Migration ainda não aplicada — silencioso
+    // Migration ainda não aplicada, silencioso
     if (
       error.code === "PGRST202" ||
       (error.message ?? "").toLowerCase().includes("could not find the function")
@@ -68,7 +68,7 @@ export async function touchLastSeen(): Promise<void> {
     /* ignore */
   }
 }
-/** Só em builds locais explícitos — nunca confiar em prod sem flag de servidor. */
+/** Só em builds locais explícitos, nunca confiar em prod sem flag de servidor. */
 function forceProFromEnv(): boolean {
   return (
     import.meta.env.DEV === true &&
@@ -89,7 +89,7 @@ function isMissingProfilesTable(error: {
 
 /**
  * Fallback só se a tabela profiles não existir.
- * Usa auth.users.created_at — sem localStorage (não resetável pelo usuário).
+ * Usa auth.users.created_at, sem localStorage (não resetável pelo usuário).
  */
 function fallbackProfile(
   userId: string,
@@ -122,7 +122,7 @@ export async function ensureProfile(): Promise<UserProfile> {
     if (isMissingProfilesTable(error)) {
       return fallbackProfile(userId, authUser?.created_at);
     }
-    // Migration email_lifecycle / trial_ends_at ainda não aplicada — lê colunas base.
+    // Migration email_lifecycle / trial_ends_at ainda não aplicada, lê colunas base.
     if (
       (error.message ?? "").toLowerCase().includes("email_") ||
       (error.message ?? "").toLowerCase().includes("trial_ends_at")
@@ -154,7 +154,7 @@ export async function ensureProfile(): Promise<UserProfile> {
     if (isMissingProfilesTable(insertError)) {
       return fallbackProfile(userId, authUser?.created_at);
     }
-    // Corrida com trigger de signup — tenta ler de novo
+    // Corrida com trigger de signup, tenta ler de novo
     const retry = await supabase
       .from("profiles")
       .select(PROFILE_SELECT)
@@ -230,7 +230,7 @@ async function invokeBillingUrl(
 }
 
 export async function createCheckoutSession(): Promise<{ url: string }> {
-  // URLs de retorno ficam no edge (SITE_URL) — não envia origin do cliente
+  // URLs de retorno ficam no edge (SITE_URL), não envia origin do cliente
   return invokeBillingUrl("stripe-checkout", "Checkout indisponível");
 }
 

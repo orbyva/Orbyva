@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +13,16 @@ import {
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
 import { ExpenseCategoryPicker } from "@/components/ExpenseCategoryPicker";
+import { FormField, FormFieldRow } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import {
   FORM_SEGMENT_TABS_CLASS,
   FORM_SEGMENT_TRIGGER_CLASS,
 } from "@/components/FormLabel";
+import { FormDisclosure, FormSection } from "@/components/FormSection";
 import { MoneyInput } from "@/components/MoneyInput";
 import { StarRating } from "@/components/StarRating";
 import { PlaceCatalogSearch } from "@/components/PlaceCatalogSearch";
@@ -346,6 +344,24 @@ export function PlaceFormDialog({
     !linkedToLedger &&
     dimensions.length > 0;
 
+  const dialogTitle =
+    intent === "register_visit"
+      ? "Registrar visita"
+      : isEditing
+        ? "Editar lugar"
+        : defaultStatus === "visited"
+          ? "Adicionar visitado"
+          : "Adicionar para visitar";
+
+  const submitLabel =
+    intent === "register_visit"
+      ? "Registrar visita"
+      : isEditing
+        ? "Salvar alterações"
+        : "Adicionar lugar";
+
+  const onVisitasTab = intent === "edit" && place && editTab === "visitas";
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
@@ -364,371 +380,338 @@ export function PlaceFormDialog({
           </DialogTrigger>
         )
       ) : null}
-      <DialogContent
-        className={cn(FORM_DIALOG_CONTENT_CLASS, "gap-3")}
+      <FormDialogShell
+        title={dialogTitle}
+        footer={
+          onVisitasTab ? undefined : (
+            <FormFooter
+              onCancel={() => setOpen(false)}
+              onSubmit={() => void handleSave()}
+              submitLabel={submitLabel}
+              cancelLabel={
+                intent === "register_visit" ? "Pular avaliação" : undefined
+              }
+              loading={loading}
+            />
+          )
+        }
       >
-        <DialogHeader className="space-y-1">
-          <DialogTitle>
-            {intent === "register_visit"
-              ? "Registrar visita"
-              : isEditing
-                ? "Editar lugar"
-                : defaultStatus === "visited"
-                  ? "Adicionar visitado"
-                  : "Adicionar para visitar"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="grid gap-3">
-          {intent === "edit" && place ? (
-            <Tabs
-              value={editTab}
-              onValueChange={(v) => setEditTab(v as "lugar" | "visitas")}
-              className="w-full"
-            >
-              <TabsList className={FORM_SEGMENT_TABS_CLASS}>
-                <TabsTrigger
-                  value="lugar"
-                  className={FORM_SEGMENT_TRIGGER_CLASS}
-                >
-                  Lugar
-                </TabsTrigger>
-                <TabsTrigger
-                  value="visitas"
-                  className={FORM_SEGMENT_TRIGGER_CLASS}
-                >
-                  Visitas
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          ) : null}
-
-          {intent === "edit" && place && editTab === "visitas" ? (
-            <PlaceVisitsPanel placeVisitId={place.id} onChanged={onSaved} />
-          ) : (
-          <>
-          {!lockStatus && intent !== "edit" ? (
-          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-            <button
-              type="button"
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                status === "to_visit"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => setStatus("to_visit")}
-            >
-              Para visitar
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                status === "visited"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => setStatus("visited")}
-            >
-              Visitado
-            </button>
-          </div>
-          ) : null}
-
-          {intent === "register_visit" ? (
-            <p className="text-sm text-muted-foreground">
-              {form.name || place?.name}
-              {form.address ? ` · ${form.address}` : null}
-            </p>
-          ) : null}
-
-          {intent !== "register_visit" ? (
-          <>
-          <div>
-            <PlaceCatalogSearch
-              selectedLabel={
-                form.google_place_id || form.lat != null
-                  ? form.name || null
-                  : null
-              }
-              onClear={() =>
-                setForm((prev) => ({
-                  ...prev,
-                  geoapify_place_id: null,
-                  google_place_id: null,
-                  lat: null,
-                  lng: null,
-                }))
-              }
-              onPick={(hit) =>
-                setForm((prev) => ({
-                  ...prev,
-                  name: hit.name,
-                  address: hit.address ?? "",
-                  lat: hit.lat,
-                  lng: hit.lng,
-                  geoapify_place_id: null,
-                  google_place_id: hit.google_place_id,
-                  type: hit.type,
-                }))
-              }
-            />
-          </div>
-
-          <div>
-            <FormLabel required>Nome</FormLabel>
-            <Input
-              value={form.name}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  name: e.target.value,
-                  // Digitação manual invalida o vínculo de mapa.
-                  google_place_id: null,
-                  geoapify_place_id: null,
-                  lat: null,
-                  lng: null,
-                })
-              }
-            />
-          </div>
-
-          <div
-            className={cn(
-              "grid gap-3",
-              tripLocked ? "grid-cols-1" : "grid-cols-2"
-            )}
+        {intent === "edit" && place ? (
+          <Tabs
+            value={editTab}
+            onValueChange={(v) => setEditTab(v as "lugar" | "visitas")}
+            className="w-full"
           >
-            <div>
-              <FormLabel required>Tipo</FormLabel>
-              <Select
-                value={form.type}
-                onValueChange={(v) =>
-                  setForm({ ...form, type: v as PlaceType })
-                }
+            <TabsList className={FORM_SEGMENT_TABS_CLASS}>
+              <TabsTrigger
+                value="lugar"
+                className={FORM_SEGMENT_TRIGGER_CLASS}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(PLACE_TYPE_LABELS).map(([k, l]) => (
-                    <SelectItem key={k} value={k}>
-                      {l}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {!tripLocked ? (
-              <div>
-                <FormLabel optional>Viagem</FormLabel>
-                <Select
-                  value={form.trip_id ?? "none"}
-                  onValueChange={(v) =>
-                    setForm({ ...form, trip_id: v === "none" ? null : v })
-                  }
+                Lugar
+              </TabsTrigger>
+              <TabsTrigger
+                value="visitas"
+                className={FORM_SEGMENT_TRIGGER_CLASS}
+              >
+                Visitas
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ) : null}
+
+        {onVisitasTab ? (
+          <PlaceVisitsPanel placeVisitId={place.id} onChanged={onSaved} />
+        ) : (
+          <>
+            {!lockStatus && intent !== "edit" ? (
+              <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    status === "to_visit"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setStatus("to_visit")}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Local" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem viagem</SelectItem>
-                    {trips.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  Para visitar
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    status === "visited"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setStatus("visited")}
+                >
+                  Visitado
+                </button>
               </div>
             ) : null}
-          </div>
-          </>
-          ) : null}
 
-          {(status === "visited" || intent === "register_visit") ? (
-            <>
-              <div className="flex items-end justify-between gap-3">
-                <div className="min-w-0">
-                  <FormLabel optional>Nota</FormLabel>
-                  <StarRating
-                    value={form.rating ?? 0}
-                    onChange={(r) => setForm({ ...form, rating: r })}
-                    allowHalf
-                  />
-                </div>
-                <div className="shrink-0">
-                  <FormLabel>Recomendaria</FormLabel>
-                  <div className="flex gap-1">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant={form.would_recommend ? "default" : "outline"}
-                      className="h-9 w-9"
-                      aria-label="Recomendaria"
-                      onClick={() =>
-                        setForm({ ...form, would_recommend: true })
-                      }
-                    >
-                      <ThumbsUp className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant={
-                        !form.would_recommend ? "destructive" : "outline"
-                      }
-                      className="h-9 w-9"
-                      aria-label="Não recomendaria"
-                      onClick={() =>
-                        setForm({ ...form, would_recommend: false })
-                      }
-                    >
-                      <ThumbsDown className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
+            {intent === "register_visit" ? (
+              <p className="text-sm text-muted-foreground">
+                {form.name || place?.name}
+                {form.address ? ` · ${form.address}` : null}
+              </p>
+            ) : null}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <FormLabel required>Data</FormLabel>
-                  <DatePicker
-                    date={
-                      form.visited_date
-                        ? new Date(`${form.visited_date}T12:00:00`)
-                        : undefined
-                    }
-                    onSelect={(d) =>
+            {intent !== "register_visit" ? (
+              <FormSection title="Essencial">
+                <PlaceCatalogSearch
+                  selectedLabel={
+                    form.google_place_id || form.lat != null
+                      ? form.name || null
+                      : null
+                  }
+                  onClear={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      geoapify_place_id: null,
+                      google_place_id: null,
+                      lat: null,
+                      lng: null,
+                    }))
+                  }
+                  onPick={(hit) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      name: hit.name,
+                      address: hit.address ?? "",
+                      lat: hit.lat,
+                      lng: hit.lng,
+                      geoapify_place_id: null,
+                      google_place_id: hit.google_place_id,
+                      type: hit.type,
+                    }))
+                  }
+                />
+                <FormField label="Nome" required>
+                  <Input
+                    value={form.name}
+                    onChange={(e) =>
                       setForm({
                         ...form,
-                        visited_date: d
-                          ? d.toISOString().split("T")[0]
-                          : form.visited_date,
+                        name: e.target.value,
+                        // Digitação manual invalida o vínculo de mapa.
+                        google_place_id: null,
+                        geoapify_place_id: null,
+                        lat: null,
+                        lng: null,
                       })
                     }
                   />
-                </div>
-                <div>
-                  <FormLabel optional>Valor</FormLabel>
-                  <MoneyInput
-                    value={form.amount ?? ""}
-                    onChange={(value) => {
-                      const next = value === "" ? null : value;
-                      setForm({ ...form, amount: next });
-                      if (next == null || next <= 0) setRegisterExpense(false);
-                    }}
+                </FormField>
+                <FormFieldRow className={tripLocked ? "sm:grid-cols-1" : undefined}>
+                  <FormField label="Tipo" required>
+                    <Select
+                      value={form.type}
+                      onValueChange={(v) =>
+                        setForm({ ...form, type: v as PlaceType })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(PLACE_TYPE_LABELS).map(([k, l]) => (
+                          <SelectItem key={k} value={k}>
+                            {l}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
+                  {!tripLocked ? (
+                    <FormField label="Viagem" optional>
+                      <Select
+                        value={form.trip_id ?? "none"}
+                        onValueChange={(v) =>
+                          setForm({
+                            ...form,
+                            trip_id: v === "none" ? null : v,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Local" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem viagem</SelectItem>
+                          {trips.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormField>
+                  ) : null}
+                </FormFieldRow>
+                <FormField label="Endereço" optional>
+                  <Input
+                    placeholder="Rua, bairro..."
+                    value={form.address ?? ""}
+                    onChange={(e) =>
+                      setForm({ ...form, address: e.target.value })
+                    }
                   />
-                </div>
-              </div>
-            </>
-          ) : null}
-
-          <div>
-            <FormLabel optional>Endereço</FormLabel>
-            <Input
-              placeholder="Rua, bairro..."
-              value={form.address ?? ""}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <FormLabel optional>
-              {status === "visited" ? "Comentário" : "Notas"}
-            </FormLabel>
-            <Input
-              placeholder={
-                status === "visited"
-                  ? "Pratos, ambiente..."
-                  : "Por que quer ir..."
-              }
-              value={form.notes ?? ""}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
-          </div>
-
-          {linkedToLedger && hasAmount ? (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Nos lançamentos — salvar atualiza o registro
-              </p>
-              {dimensions.length > 0 ? (
-                <ExpenseCategoryPicker
-                  dimensions={dimensions}
-                  selectedType={selectedType}
-                  classId={classId}
-                  onTypeChange={setSelectedType}
-                  onClassChange={setClassId}
-                />
-              ) : null}
-            </div>
-          ) : null}
-
-          {status === "visited" &&
-          hasAmount &&
-          Boolean(form.trip_id) &&
-          !linkedToLedger ? (
-            <p className="text-xs text-muted-foreground">
-              O valor entra nos gastos da viagem
-              {showLedgerToggle ? " (e nos lançamentos, se marcar abaixo)" : ""}.
-            </p>
-          ) : null}
-
-          {showLedgerToggle ? (
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={registerExpense}
-                  onChange={(e) => setRegisterExpense(e.target.checked)}
-                  className="rounded"
-                />
-                Registrar em Finanças
-              </label>
-              {registerExpense ? (
-                <ExpenseCategoryPicker
-                  dimensions={dimensions}
-                  selectedType={selectedType}
-                  classId={classId}
-                  onTypeChange={setSelectedType}
-                  onClassChange={setClassId}
-                />
-              ) : null}
-            </div>
-          ) : null}
-
-          <div
-            className={
-              intent === "register_visit" ? "flex flex-col gap-2" : undefined
-            }
-          >
-            <Button onClick={handleSave} disabled={loading} className="w-full">
-              {loading
-                ? "Salvando…"
-                : intent === "register_visit"
-                  ? "Registrar visita"
-                  : isEditing
-                    ? "Salvar alterações"
-                    : "Adicionar lugar"}
-            </Button>
-            {intent === "register_visit" ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-muted-foreground"
-                disabled={loading}
-                onClick={() => setOpen(false)}
-              >
-                Pular avaliação
-              </Button>
+                </FormField>
+                <FormField
+                  label={status === "visited" ? "Comentário" : "Notas"}
+                  optional
+                >
+                  <Input
+                    placeholder={
+                      status === "visited"
+                        ? "Pratos, ambiente..."
+                        : "Por que quer ir..."
+                    }
+                    value={form.notes ?? ""}
+                    onChange={(e) =>
+                      setForm({ ...form, notes: e.target.value })
+                    }
+                  />
+                </FormField>
+              </FormSection>
             ) : null}
-          </div>
+
+            {(status === "visited" || intent === "register_visit") ? (
+              <FormSection title="Visita">
+                <div className="flex items-end justify-between gap-3">
+                  <FormField label="Nota" optional className="min-w-0 flex-1">
+                    <StarRating
+                      value={form.rating ?? 0}
+                      onChange={(r) => setForm({ ...form, rating: r })}
+                      allowHalf
+                    />
+                  </FormField>
+                  <FormField label="Recomendaria" className="shrink-0">
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={
+                          form.would_recommend ? "default" : "outline"
+                        }
+                        className="h-9 w-9"
+                        aria-label="Recomendaria"
+                        onClick={() =>
+                          setForm({ ...form, would_recommend: true })
+                        }
+                      >
+                        <ThumbsUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={
+                          !form.would_recommend ? "destructive" : "outline"
+                        }
+                        className="h-9 w-9"
+                        aria-label="Não recomendaria"
+                        onClick={() =>
+                          setForm({ ...form, would_recommend: false })
+                        }
+                      >
+                        <ThumbsDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </FormField>
+                </div>
+                <FormFieldRow>
+                  <FormField label="Data" required>
+                    <DatePicker
+                      date={
+                        form.visited_date
+                          ? new Date(`${form.visited_date}T12:00:00`)
+                          : undefined
+                      }
+                      onSelect={(d) =>
+                        setForm({
+                          ...form,
+                          visited_date: d
+                            ? d.toISOString().split("T")[0]
+                            : form.visited_date,
+                        })
+                      }
+                    />
+                  </FormField>
+                  <FormField label="Valor" optional>
+                    <MoneyInput
+                      value={form.amount ?? ""}
+                      onChange={(value) => {
+                        const next = value === "" ? null : value;
+                        setForm({ ...form, amount: next });
+                        if (next == null || next <= 0) {
+                          setRegisterExpense(false);
+                        }
+                      }}
+                    />
+                  </FormField>
+                </FormFieldRow>
+              </FormSection>
+            ) : null}
+
+            {linkedToLedger && hasAmount ? (
+              <FormSection title="Finanças">
+                <p className="text-xs text-muted-foreground">
+                  Nos lançamentos, salvar atualiza o registro
+                </p>
+                {dimensions.length > 0 ? (
+                  <FormField label="Categoria" required>
+                    <ExpenseCategoryPicker
+                      dimensions={dimensions}
+                      selectedType={selectedType}
+                      classId={classId}
+                      onTypeChange={setSelectedType}
+                      onClassChange={setClassId}
+                      hideLabel
+                    />
+                  </FormField>
+                ) : null}
+              </FormSection>
+            ) : null}
+
+            {status === "visited" &&
+            hasAmount &&
+            Boolean(form.trip_id) &&
+            !linkedToLedger ? (
+              <p className="text-xs text-muted-foreground">
+                O valor entra nos gastos da viagem
+                {showLedgerToggle
+                  ? " (e nos lançamentos, se marcar abaixo)"
+                  : ""}
+                .
+              </p>
+            ) : null}
+
+            {showLedgerToggle ? (
+              <FormDisclosure
+                title="Registrar em Finanças"
+                description="Cria um lançamento no extrato com o valor desta visita."
+                open={registerExpense}
+                onOpenChange={setRegisterExpense}
+                variant="toggle"
+              >
+                <FormField label="Categoria" required>
+                  <ExpenseCategoryPicker
+                    dimensions={dimensions}
+                    selectedType={selectedType}
+                    classId={classId}
+                    onTypeChange={setSelectedType}
+                    onClassChange={setClassId}
+                    hideLabel
+                  />
+                </FormField>
+              </FormDisclosure>
+            ) : null}
           </>
-          )}
-        </div>
-      </DialogContent>
+        )}
+      </FormDialogShell>
     </Dialog>
   );
 }

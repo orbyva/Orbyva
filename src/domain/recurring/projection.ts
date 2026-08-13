@@ -53,7 +53,7 @@ export type MonthCashBalance = {
   /** Parcelas do mês ainda em aberto. */
   openReceive: number;
   openPay: number;
-  /** Parcelas do mês (pagas + em aberto) — o gasto/receita comprometido. */
+  /** Parcelas do mês (pagas + em aberto), o gasto/receita comprometido. */
   parcelReceive: number;
   parcelPay: number;
   /** Lançamentos avulsos, sem a parte já coberta pelas parcelas pagas do mês. */
@@ -375,7 +375,7 @@ type LedgerTxLike = {
 
 /**
  * Soma lançamentos avulsos (sem vínculo com parcela) por mês.
- * Use este mapa no gráfico — já é a fatia “avulsa”, sem liquidação de parcela.
+ * Use este mapa no gráfico, já é a fatia “avulsa”, sem liquidação de parcela.
  */
 export function indexAvulsoLedgerByYm(
   transactions: LedgerTxLike[]

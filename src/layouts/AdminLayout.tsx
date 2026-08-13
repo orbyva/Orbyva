@@ -155,12 +155,12 @@ export default function AdminLayout() {
     location.pathname.split("/").filter(Boolean).slice(-1)[0] ?? "home"
   useDocumentMeta({
     title: BREADCRUMB_LABELS[segment] ?? "App",
-    description: "Orbyva — sua vida em uma só órbita.",
+    description: "Orbyva · sua vida em uma só órbita.",
     path: location.pathname,
     brandSuffix: true,
   })
 
-  // Só bloqueia no carregamento inicial — refresh de plano não desmonta modais
+  // Só bloqueia no carregamento inicial; refresh de plano não desmonta modais
   if (planLoading && !profile) {
     return <LoadingFallback />
   }
@@ -188,8 +188,8 @@ export default function AdminLayout() {
             >
               <p>
                 {trialDaysLeft <= 1
-                  ? "Último dia do teste — assine o Pro para não perder o acesso."
-                  : `Teste acaba em ${trialDaysLeft} dias — vale ativar orçamento e recorrências agora.`}
+                  ? "Último dia do teste: assine o Pro para não perder o acesso."
+                  : `Teste acaba em ${trialDaysLeft} dias. Vale ativar orçamento e recorrências agora.`}
               </p>
               <Link
                 to="/account"

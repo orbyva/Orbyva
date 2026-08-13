@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Fase D — falha o CI se chunks gzip estourarem o orçamento.
+ * Fase D, falha o CI se chunks gzip estourarem o orçamento.
  * Rode após `npm run build` (lê dist/assets/*.js).
  */
 import fs from "node:fs";
@@ -11,11 +11,11 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const assetsDir = path.join(__dirname, "..", "dist", "assets");
 
-/** Entry / shell (index-*.js) — gzip max */
+/** Entry / shell (index-*.js), gzip max */
 const MAX_ENTRY_GZIP = 380 * 1024;
-/** Qualquer outro chunk de app (rotas) — gzip max */
+/** Qualquer outro chunk de app (rotas), gzip max */
 const MAX_ROUTE_GZIP = 160 * 1024;
-/** Vendor pesado permitido (recharts etc.) — gzip max */
+/** Vendor pesado permitido (recharts etc.), gzip max */
 const MAX_VENDOR_GZIP = 200 * 1024;
 
 const VENDOR_RE =

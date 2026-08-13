@@ -34,7 +34,7 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
-/** Busca álbuns/EPs — Spotify preferido; MB se não configurado, erro ou vazio. */
+/** Busca álbuns/EPs, Spotify preferido; MB se não configurado, erro ou vazio. */
 export async function searchAlbums(
   query: string,
   signal?: AbortSignal

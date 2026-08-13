@@ -66,7 +66,7 @@ function budgetSection(rows: BudgetRow[]): string {
   const expenses = expenseBudgets(rows);
   if (expenses.length === 0) {
     return `<p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Orçamento</p>
-      <p style="margin:8px 0 0;color:#a1a1aa;font-size:14px;">Sem teto definido este mês — vale montar em Finanças → Orçamento.</p>`;
+      <p style="margin:8px 0 0;color:#a1a1aa;font-size:14px;">Sem teto definido este mês, vale montar em Finanças → Orçamento.</p>`;
   }
 
   const planned = expenses.reduce(
@@ -103,7 +103,7 @@ function habitsSection(
 ): string {
   if (habits.length === 0) {
     return `<p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Hábitos</p>
-      <p style="margin:8px 0 0;color:#a1a1aa;font-size:14px;">Nenhum hábito ainda — o hub Vida conta check-ins da semana.</p>`;
+      <p style="margin:8px 0 0;color:#a1a1aa;font-size:14px;">Nenhum hábito ainda, o hub Vida conta check-ins da semana.</p>`;
   }
 
   const done = logs.filter((l) => l.completed);
@@ -142,13 +142,13 @@ function parcelsSection(rows: RecurringRow[]): string {
   const parcels = rows.map((r) => ({
     title: r.description?.trim() || "Recorrência",
     meta: `${formatBRL(Number(r.value) || 0)} · dia ${
-      r.due_day != null ? String(r.due_day) : "—"
+      r.due_day != null ? String(r.due_day) : "·"
     }`,
   }));
 
   if (parcels.length === 0) {
     return `<p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Próximas recorrências</p>
-      <p style="margin:8px 0 0;color:#a1a1aa;font-size:14px;">Nenhuma em aberto — cadastre em Finanças → Parcelas se tiver.</p>`;
+      <p style="margin:8px 0 0;color:#a1a1aa;font-size:14px;">Nenhuma em aberto, cadastre em Finanças → Parcelas se tiver.</p>`;
   }
 
   return `<p style="margin:20px 0 0;color:#e4e4e7;font-size:14px;font-weight:600;">Próximas recorrências</p>
@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
 
     const html = emailShell({
       eyebrow: "Orbyva · Digest semanal",
-      title: `${greet} — como vai ${monthLabelPt()}?`,
+      title: `${greet}, como vai ${monthLabelPt()}?`,
       bodyHtml,
       ctaLabel: "Ver orçamento",
       ctaUrl: `${siteUrl}/finance/budget`,

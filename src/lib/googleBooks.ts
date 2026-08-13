@@ -1,5 +1,5 @@
 /**
- * Google Books API — busca e detalhes de volumes.
+ * Google Books API, busca e detalhes de volumes.
  * Docs: https://developers.google.com/books/docs/v1/using
  */
 import type { Book } from "@/types/books";
@@ -234,7 +234,7 @@ async function fetchVolumeHits(q: string): Promise<RankedHit[]> {
 
 /**
  * Busca por ISBN, título ou autor.
- * Combina frase + intitle + inauthor e ranqueia no cliente —
+ * Combina frase + intitle + inauthor e ranqueia no cliente , 
  * a query solta do Google Books é péssima para títulos curtos/comuns.
  */
 export async function searchGoogleBooks(

@@ -203,7 +203,7 @@ function HourSlotButton({
             <span className="h-6 w-6" />
           )}
           <span className="text-[11px] font-medium tabular-nums">
-            {feels != null ? `${Math.round(feels)}°` : "—"}
+            {feels != null ? `${Math.round(feels)}°` : "·"}
           </span>
         </button>
       </PopoverTrigger>
@@ -234,7 +234,7 @@ function BandSlotButton({ band }: { band: ClothingHourBand }) {
             <span className="h-6 w-6" />
           )}
           <span className="text-[11px] font-medium tabular-nums">
-            {feels != null ? `${Math.round(feels)}°` : "—"}
+            {feels != null ? `${Math.round(feels)}°` : "·"}
           </span>
         </button>
       </PopoverTrigger>
@@ -510,7 +510,7 @@ export function ItineraryDayWeather({
             ? `Sensação ~${Math.round(suggestion.feelsLikeDayC)}°C`
             : null,
           suggestion.maxC != null && suggestion.minC != null
-            ? `mín ${Math.round(suggestion.minC)}° - máx ${Math.round(suggestion.maxC)}°`
+            ? `mín ${Math.round(suggestion.minC)}°, máx ${Math.round(suggestion.maxC)}°`
             : null,
           suggestion.outfitPhrase || null,
         ].filter((b): b is string => !!b)
@@ -676,7 +676,7 @@ export function ItineraryDayWeather({
                       {suggestion.dayPart.tempC != null ||
                       suggestion.maxC != null
                         ? `${Math.round(suggestion.dayPart.tempC ?? suggestion.maxC!)}°`
-                        : "—"}
+                        : "·"}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -693,7 +693,7 @@ export function ItineraryDayWeather({
                       {suggestion.feelsLikeNightC != null ||
                       suggestion.minC != null
                         ? `${Math.round(suggestion.feelsLikeNightC ?? suggestion.minC!)}°`
-                        : "—"}
+                        : "·"}
                     </span>
                   </div>
                 </div>

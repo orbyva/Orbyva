@@ -67,7 +67,7 @@ export function HubLedgerHero({
                 !balancePositive && "text-primary-foreground/90"
               )}
             >
-              {balance != null ? formatBRL(balance) : "—"}
+              {balance != null ? formatBRL(balance) : "·"}
             </p>
             {momDespesa ? (
               <p className="mt-1 text-[11px] text-primary-foreground/75">
@@ -90,7 +90,7 @@ export function HubLedgerHero({
               Receitas
             </p>
             <p className="mt-0.5 text-sm font-semibold tabular-nums">
-              {receita != null ? formatBRL(receita) : "—"}
+              {receita != null ? formatBRL(receita) : "·"}
             </p>
           </div>
           <div>
@@ -98,7 +98,7 @@ export function HubLedgerHero({
               Despesas
             </p>
             <p className="mt-0.5 text-sm font-semibold tabular-nums">
-              {despesa != null ? formatBRL(despesa) : "—"}
+              {despesa != null ? formatBRL(despesa) : "·"}
             </p>
           </div>
         </div>

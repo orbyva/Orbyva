@@ -46,7 +46,7 @@ interface PlaceDetailDialogProps {
   onMarkVisited?: () => void;
   onDelete?: () => void;
   onOpinionSaved?: () => void;
-  /** Viagem compartilhada — mostra médias/opiniões do grupo. */
+  /** Viagem compartilhada, mostra médias/opiniões do grupo. */
   isSharedTrip?: boolean;
 }
 

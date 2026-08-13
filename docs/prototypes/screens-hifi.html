@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbyva · Protótipo hi-fi (não aplicado)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --background: 60 6% 97%;
+      --foreground: 20 14% 4%;
+      --card: 0 0% 100%;
+      --card-foreground: 20 14% 4%;
+      --primary: 199 89% 36%;
+      --primary-foreground: 0 0% 100%;
+      --muted: 60 5% 94%;
+      --muted-foreground: 25 6% 42%;
+      --accent: 199 80% 94%;
+      --accent-foreground: 199 89% 28%;
+      --destructive: 0 72% 51%;
+      --success: 142 71% 38%;
+      --warning: 32 95% 44%;
+      --cinema: 292 72% 45%;
+      --travel: 175 70% 32%;
+      --car: 24 95% 53%;
+      --life: 160 84% 39%;
+      --hub: 239 84% 45%;
+      --border: 20 6% 90%;
+      --radius: 0.625rem;
+      --font: "Plus Jakarta Sans", system-ui, sans-serif;
+      --display: Syne, "Plus Jakarta Sans", sans-serif;
+      --phone-w: 390px;
+      --phone-h: 844px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      color: hsl(var(--foreground));
+      background:
+        radial-gradient(1200px 600px at 10% -10%, hsl(199 89% 36% / 0.08), transparent 55%),
+        radial-gradient(900px 500px at 90% 0%, hsl(175 70% 32% / 0.06), transparent 50%),
+        hsl(var(--background));
+      min-height: 100vh;
+      line-height: 1.45;
+    }
+
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 20px 64px;
+    }
+
+    .banner {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding: 16px 18px;
+      border: 1px solid hsl(var(--border));
+      border-radius: 14px;
+      background: hsl(var(--card));
+    }
+    .banner h1 {
+      font-family: var(--display);
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .banner p { color: hsl(var(--muted-foreground)); font-size: 0.9rem; max-width: 52ch; margin-top: 4px; }
+    .badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: hsl(var(--warning));
+      background: hsl(var(--warning) / 0.12);
+      border: 1px solid hsl(var(--warning) / 0.35);
+      padding: 6px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 22px;
+    }
+    .tab {
+      appearance: none;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--card));
+      color: hsl(var(--muted-foreground));
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .tab:hover { border-color: hsl(var(--primary) / 0.35); color: hsl(var(--foreground)); }
+    .tab.active {
+      background: hsl(var(--primary));
+      border-color: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+    @media (min-width: 900px) {
+      .stage { grid-template-columns: minmax(0, 1fr) 340px; }
+    }
+
+    .mode {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      background: hsl(var(--muted));
+      border-radius: 12px;
+      margin-bottom: 18px;
+    }
+    .mode button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 9px;
+      color: hsl(var(--muted-foreground));
+      cursor: pointer;
+    }
+    .mode button.on {
+      background: hsl(var(--card));
+      color: hsl(var(--foreground));
+      box-shadow: 0 1px 2px hsl(20 14% 4% / 0.06);
+    }
+
+    .phones {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 36px;
+      justify-content: center;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+    .phone-wrap[data-role="before"] { display: none; }
+    .phone-wrap[data-role="after"] { display: block; }
+    body[data-mode="before"] .phone-wrap[data-role="before"] { display: block; }
+    body[data-mode="before"] .phone-wrap[data-role="after"] { display: none; }
+    body[data-mode="compare"] .phone-wrap[data-role="before"],
+    body[data-mode="compare"] .phone-wrap[data-role="after"] { display: block; }
+    body[data-mode="compare"] .phones { justify-content: flex-start; flex-wrap: nowrap; }
+
+    .phone-wrap { width: var(--phone-w); }
+    .phone-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: hsl(var(--muted-foreground));
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .phone-label strong { color: hsl(var(--foreground)); font-weight: 700; }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      border-radius: 36px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--background));
+      box-shadow:
+        0 0 0 10px hsl(20 10% 12%),
+        0 24px 48px hsl(20 14% 4% / 0.18);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .status {
+      height: 44px;
+      padding: 12px 22px 0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .notch {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110px;
+      height: 28px;
+      background: hsl(20 10% 12%);
+      border-radius: 18px;
+      z-index: 5;
+    }
+
+    .screen {
+      flex: 1;
+      overflow: auto;
+      padding: 8px 16px 88px;
+      scrollbar-width: thin;
+    }
+    .screen::-webkit-scrollbar { width: 4px; }
+    .screen::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 4px; }
+
+    .bottom-nav {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      border-top: 1px solid hsl(var(--border));
+      background: hsl(var(--background) / 0.92);
+      backdrop-filter: blur(12px);
+      padding: 6px 8px 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 4px;
+      z-index: 4;
+    }
+    .bn-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: hsl(var(--muted-foreground));
+      padding: 4px;
+      border: 0;
+      background: transparent;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .bn-item.active { color: hsl(var(--primary)); }
+    .bn-plus {
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      background: hsl(var(--primary));
+      color: white;
+      display: grid;
+      place-items: center;
+      font-size: 1.35rem;
+      font-weight: 500;
+      margin: -6px auto 0;
+      box-shadow: 0 8px 16px hsl(var(--primary) / 0.35);
+    }
+
+    .eyebrow {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: hsl(var(--primary));
+    }
+    .title {
+      font-family: var(--display);
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-top: 2px;
+    }
+    .sub { color: hsl(var(--muted-foreground)); font-size: 0.88rem; margin-top: 4px; }
+
+    .hero {
+      margin-top: 16px;
+      padding: 18px;
+      border-radius: 16px;
+      background: hsl(var(--card));
+      border: 1px solid hsl(var(--border));
+    }
+    .hero .amount {
+      font-family: var(--display);
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-top: 4px;
+    }
+    .hero .delta { font-size: 0.82rem; color: hsl(var(--success)); font-weight: 600; margin-top: 2px; }
+    .cta-row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .btn {
+      appearance: none;
+      border: 0;
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .btn-primary { background: hsl(var(--primary)); color: white; }
+    .btn-ghost {
+      background: hsl(var(--muted));
+      color: hsl(var(--foreground));
+      border: 1px solid hsl(var(--border));
+    }
+
+    .section { margin-top: 20px; }
+    .section-h {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+    .section-h h3 { font-size: 0.95rem; font-weight: 700; }
+    .section-h span { font-size: 0.78rem; color: hsl(var(--muted-foreground)); font-weight: 600; }
+
+    .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .chip {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: hsl(var(--muted));
+      color: hsl(var(--muted-foreground));
+      border: 1px solid transparent;
+    }
+    .chip.on {
+      background: hsl(var(--accent));
+      color: hsl(var(--accent-foreground));
+      border-color: hsl(var(--primary) / 0.2);
+    }
+    .chip.warn {
+      background: hsl(var(--warning) / 0.12);
+      color: hsl(32 80% 32%);
+    }
+    .chip.ok {
+      background: hsl(var(--success) / 0.12);
+      color: hsl(142 60% 28%);
+    }
+
+    .list { display: flex; flex-direction: column; }
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid hsl(var(--border));
+    }
+    .row:last-child { border-bottom: 0; }
+    .avatar {
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      background: hsl(var(--accent));
+      color: hsl(var(--accent-foreground));
+    }
+    .avatar.life { background: hsl(var(--life) / 0.15); color: hsl(var(--life)); }
+    .avatar.travel { background: hsl(var(--travel) / 0.15); color: hsl(var(--travel)); }
+    .avatar.cinema { background: hsl(var(--cinema) / 0.15); color: hsl(var(--cinema)); }
+    .avatar.car { background: hsl(var(--car) / 0.15); color: hsl(var(--car)); }
+    .avatar.muted { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+    .row-main { flex: 1; min-width: 0; }
+    .row-title { font-size: 0.9rem; font-weight: 600; }
+    .row-meta { font-size: 0.75rem; color: hsl(var(--muted-foreground)); margin-top: 1px; }
+    .row-val { font-size: 0.9rem; font-weight: 700; white-space: nowrap; }
+    .row-val.neg { color: hsl(var(--foreground)); }
+    .row-val.pos { color: hsl(var(--success)); }
+
+    .check {
+      width: 22px; height: 22px;
+      border-radius: 7px;
+      border: 1.5px solid hsl(var(--border));
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+    .check.on {
+      background: hsl(var(--primary));
+      border-color: hsl(var(--primary));
+      color: white;
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 99px;
+      background: hsl(var(--muted));
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      background: hsl(var(--primary));
+      border-radius: inherit;
+    }
+    .bar.warn > i { background: hsl(var(--warning)); }
+    .bar.ok > i { background: hsl(var(--success)); }
+
+    .card-soft {
+      padding: 14px;
+      border-radius: 14px;
+      background: hsl(var(--card));
+      border: 1px solid hsl(var(--border));
+    }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-mini .k { font-size: 0.72rem; color: hsl(var(--muted-foreground)); font-weight: 600; }
+    .stat-mini .v { font-family: var(--display); font-size: 1.15rem; font-weight: 700; margin-top: 2px; }
+
+    .pill-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      background: hsl(var(--muted));
+      border-radius: 12px;
+      margin: 14px 0 4px;
+    }
+    .pill-tabs button {
+      flex: 1;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 8px 6px;
+      border-radius: 9px;
+      color: hsl(var(--muted-foreground));
+      cursor: pointer;
+    }
+    .pill-tabs button.on {
+      background: hsl(var(--card));
+      color: hsl(var(--foreground));
+      box-shadow: 0 1px 2px hsl(20 14% 4% / 0.06);
+    }
+
+    .media-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .poster {
+      aspect-ratio: 2/3;
+      border-radius: 12px;
+      background: linear-gradient(145deg, hsl(var(--cinema) / 0.35), hsl(239 40% 20%));
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      color: white;
+      font-size: 0.78rem;
+      font-weight: 700;
+      min-height: 140px;
+    }
+    .poster.book { background: linear-gradient(145deg, hsl(199 60% 40%), hsl(175 40% 25%)); }
+    .poster.album { background: linear-gradient(145deg, hsl(24 80% 45%), hsl(20 40% 18%)); }
+
+    .notes {
+      position: sticky;
+      top: 20px;
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--card));
+    }
+    .notes h2 {
+      font-family: var(--display);
+      font-size: 1.05rem;
+      margin-bottom: 10px;
+    }
+    .notes ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .notes li {
+      font-size: 0.86rem;
+      color: hsl(var(--muted-foreground));
+      padding-left: 14px;
+      position: relative;
+    }
+    .notes li::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0.55em;
+      width: 6px; height: 6px;
+      border-radius: 99px;
+      background: hsl(var(--primary));
+    }
+    .notes .hint {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid hsl(var(--border));
+      font-size: 0.8rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .screen-panel { display: none; }
+    .screen-panel.active { display: contents; }
+
+    .dense .row { padding: 8px 0; }
+    .dense .row-meta { font-size: 0.68rem; }
+    .clutter {
+      opacity: 0.92;
+    }
+    .clutter .mini-card {
+      padding: 10px 12px;
+      border: 1px solid hsl(var(--border));
+      border-radius: 12px;
+      background: hsl(var(--card));
+      margin-top: 8px;
+      font-size: 0.8rem;
+    }
+    .clutter .mini-card strong { display: block; font-size: 0.82rem; margin-bottom: 2px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="banner">
+      <div>
+        <h1>Orbyva · protótipo hi-fi das telas</h1>
+        <p>
+          Interativo, com tipografia e tokens reais do app. Nada disto está no código de produção.
+          Clique nas abas e na barra inferior do telefone.
+        </p>
+      </div>
+      <span class="badge">Protótipo · não aplicado</span>
+    </div>
+
+    <div class="tabs" id="tabs" role="tablist"></div>
+
+    <div class="mode" id="mode" role="group" aria-label="Modo de visualização">
+      <button type="button" data-mode="after" class="on">Proposta</button>
+      <button type="button" data-mode="before">Atual</button>
+      <button type="button" data-mode="compare">Comparar</button>
+    </div>
+
+    <div class="stage">
+      <div class="phones">
+        <!-- AFTER first (default) -->
+        <div class="phone-wrap" data-role="after">
+          <div class="phone-label"><strong>Proposta</strong><span>alta fidelidade</span></div>
+          <div class="phone" id="phone-after" aria-label="Proposta">
+            <div class="notch"></div>
+            <div class="status"><span>9:41</span><span>●●● 5G</span></div>
+            <div class="screen" id="after-root"></div>
+            <nav class="bottom-nav" id="after-nav" aria-label="Nav proposta">
+              <button type="button" class="bn-item" data-go="home">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1v-10.5z"/></svg>
+                Início
+              </button>
+              <button type="button" class="bn-item" data-go="finance"><span class="bn-plus">+</span></button>
+              <button type="button" class="bn-item" data-go="habits">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                Hoje
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        <!-- BEFORE -->
+        <div class="phone-wrap" data-role="before">
+          <div class="phone-label"><strong>Hoje (atual)</strong><span>densidade alta</span></div>
+          <div class="phone" id="phone-before" aria-label="Tela atual">
+            <div class="notch"></div>
+            <div class="status"><span>9:41</span><span>●●● 5G</span></div>
+            <div class="screen clutter" id="before-root"></div>
+            <nav class="bottom-nav" aria-label="Nav atual">
+              <button type="button" class="bn-item active" data-go="home">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1v-10.5z"/></svg>
+                Início
+              </button>
+              <button type="button" class="bn-item" data-go="finance"><span class="bn-plus">+</span></button>
+              <button type="button" class="bn-item" data-go="home">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+                Alertas
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <aside class="notes" id="notes">
+        <h2 id="notes-title">Início</h2>
+        <ul id="notes-list"></ul>
+        <p class="hint">Troque de tela pelas abas acima ou tocando na barra do telefone. Use Proposta / Atual / Comparar.</p>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const SCREENS = [
+      {
+        id: "home",
+        label: "Início",
+        notes: [
+          "Um âncora: saldo do mês + CTAs claros.",
+          "Faixa Hoje com hábitos e próximos 2 eventos, sem scroll infinito.",
+          "Grid de módulos some da home (fica no menu / busca).",
+          "Alertas só quando urgentes, como chip, não como card enorme.",
+        ],
+        before() {
+          return `
+            <div class="eyebrow">Olá, Pedro</div>
+            <div class="title" style="font-size:1.25rem">Início</div>
+            <div class="mini-card"><strong>Saldo do mês</strong>R$ 1.240 · receitas · despesas · MoM</div>
+            <div class="mini-card"><strong>3 alertas</strong>Orçamento · Recorrência · IPVA</div>
+            <div class="mini-card"><strong>Hábitos de hoje</strong>4 checks + lista completa</div>
+            <div class="mini-card"><strong>Próximos</strong>Timeline · 5 itens misturados</div>
+            <div class="mini-card"><strong>Módulos</strong>Grade 3×4 (segundo menu)</div>
+            <div class="mini-card"><strong>Nudges</strong>Share do mês · ledger parado</div>
+          `;
+        },
+        after() {
+          return `
+            <div class="eyebrow">Orbyva</div>
+            <div class="title">Agosto</div>
+            <p class="sub">Controle do mês em uma olhada</p>
+            <div class="hero">
+              <div class="eyebrow">Saldo do mês</div>
+              <div class="amount">R$ 1.240</div>
+              <div class="delta">+8% vs julho</div>
+              <div class="cta-row">
+                <button class="btn btn-ghost" type="button" data-go="finance">Ver lançamentos</button>
+                <button class="btn btn-primary" type="button">Nova despesa</button>
+              </div>
+            </div>
+            <div class="section">
+              <div class="section-h"><h3>Hoje</h3><span>qua 12</span></div>
+              <div class="chip-row">
+                <span class="chip ok">3/4 hábitos</span>
+                <span class="chip warn">1 alerta</span>
+              </div>
+              <div class="list">
+                <div class="row">
+                  <div class="avatar life">18</div>
+                  <div class="row-main">
+                    <div class="row-title">Academia</div>
+                    <div class="row-meta">Hábitos · 18:00</div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="avatar muted">$</div>
+                  <div class="row-main">
+                    <div class="row-title">Conta de luz</div>
+                    <div class="row-meta">Amanhã · Recorrente</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        },
+      },
+      {
+        id: "finance",
+        label: "Finanças",
+        notes: [
+          "Uma entrada Finanças com tabs: Extrato · Orçamento · Recorrente.",
+          "Mês sticky + filtro único (sheet), sem pilha de pills.",
+          "Linha: título + valor em destaque; meta secundária.",
+          "Ações de editar/excluir só no detalhe ou swipe, não na lista.",
+        ],
+        before() {
+          return `
+            <div class="title" style="font-size:1.25rem">Transações</div>
+            <div class="chip-row" style="margin-top:12px">
+              <span class="chip on">Mês</span><span class="chip">Natureza</span>
+              <span class="chip">Busca</span><span class="chip">+ Adicionar</span>
+            </div>
+            <div class="list dense">
+              ${["Mercado R$ 186 · Despesa · Casa · editar · excluir",
+                 "Salário R$ 8.200 · Receita · Trabalho · editar · excluir",
+                 "Aluguel R$ 2.800 · Despesa · Moradia · editar · excluir",
+                 "Uber R$ 42 · Despesa · Transporte · editar · excluir"].map(t => `
+                <div class="mini-card" style="margin-top:8px">${t}</div>`).join("")}
+            </div>
+          `;
+        },
+        after() {
+          return `
+            <div class="eyebrow">Finanças</div>
+            <div class="title">Agosto</div>
+            <div class="pill-tabs">
+              <button type="button" class="on">Extrato</button>
+              <button type="button">Orçamento</button>
+              <button type="button">Recorrente</button>
+            </div>
+            <div class="cta-row" style="margin-top:10px;margin-bottom:4px">
+              <button class="btn btn-ghost" type="button">Filtros</button>
+              <button class="btn btn-primary" type="button">Nova</button>
+            </div>
+            <div class="grid2" style="margin:12px 0 4px">
+              <div class="card-soft stat-mini"><div class="k">Receitas</div><div class="v" style="color:hsl(var(--success))">R$ 9.4k</div></div>
+              <div class="card-soft stat-mini"><div class="k">Despesas</div><div class="v">R$ 8.2k</div></div>
+            </div>
+            <div class="list">
+              ${[
+                ["Mercado", "Hoje · Casa", "−186", "neg"],
+                ["Salário", "05/08 · Trabalho", "+8.200", "pos"],
+                ["Aluguel", "10/08 · Moradia", "−2.800", "neg"],
+                ["Uber", "Ontem · Transporte", "−42", "neg"],
+              ].map(([t,m,v,k]) => `
+                <div class="row">
+                  <div class="avatar">${t.slice(0,1)}</div>
+                  <div class="row-main">
+                    <div class="row-title">${t}</div>
+                    <div class="row-meta">${m}</div>
+                  </div>
+                  <div class="row-val ${k}">${v}</div>
+                </div>`).join("")}
+            </div>
+          `;
+        },
+      },
+      {
+        id: "travel",
+        label: "Viagens",
+        notes: [
+          "Lista com destino + datas como âncora; orçamento como meta secundária.",
+          "Estado da viagem (planejando / em curso / feita) como chip, não badge solto.",
+          "CTA único: Nova viagem. Detalhe carrega itinerário e gastos.",
+        ],
+        before() {
+          return `
+            <div class="title" style="font-size:1.25rem">Viagens</div>
+            <div class="mini-card"><strong>Filtros · mapa · membros · clima</strong>Tudo no topo da lista</div>
+            <div class="mini-card"><strong>Lisboa · 12–20 set</strong>orçamento · split · 4 dias · editar · compartilhar</div>
+            <div class="mini-card"><strong>Serra · ago</strong>orçamento · split · editar · clima</div>
+          `;
+        },
+        after() {
+          return `
+            <div class="eyebrow">Viagens</div>
+            <div class="title">Próximas</div>
+            <div class="cta-row"><button class="btn btn-primary" type="button">Nova viagem</button></div>
+            <div class="section">
+              <div class="card-soft" style="margin-bottom:10px">
+                <div class="chip-row"><span class="chip on">Em 31 dias</span></div>
+                <div class="row-title" style="font-size:1.05rem">Lisboa</div>
+                <div class="row-meta">12–20 set · 2 pessoas</div>
+                <div class="bar" style="margin-top:10px"><i style="width:42%"></i></div>
+                <div class="row-meta" style="margin-top:4px">Orçamento · R$ 4.2k / 10k</div>
+              </div>
+              <div class="card-soft">
+                <div class="chip-row"><span class="chip">Feita</span></div>
+                <div class="row-title" style="font-size:1.05rem">Serra Gaúcha</div>
+                <div class="row-meta">01–04 ago · 4 pessoas</div>
+              </div>
+            </div>
+          `;
+        },
+      },
+      {
+        id: "habits",
+        label: "Hábitos",
+        notes: [
+          "Modo dia: checklist grande, um toque.",
+          "Streak e estatísticas abaixo ou em aba Semana.",
+          "Criar hábito separado do check diário.",
+        ],
+        before() {
+          return `
+            <div class="title" style="font-size:1.25rem">Hábitos</div>
+            <div class="mini-card">Calendário · streak · histórico · metas · lembretes</div>
+            <div class="mini-card">Lista densa com 8 colunas de contexto</div>
+          `;
+        },
+        after() {
+          return `
+            <div class="eyebrow">Hábitos</div>
+            <div class="title">Quarta</div>
+            <p class="sub">3 de 4 feitos · sequência 12 dias</p>
+            <div class="pill-tabs" style="margin-top:14px">
+              <button type="button" class="on">Hoje</button>
+              <button type="button">Semana</button>
+            </div>
+            <div class="list">
+              ${[
+                ["Beber água", true],
+                ["Ler 20 min", true],
+                ["Sem delivery", false],
+                ["Treino", true],
+              ].map(([n, ok]) => `
+                <div class="row">
+                  <div class="check ${ok ? "on" : ""}">${ok ? "✓" : ""}</div>
+                  <div class="row-main">
+                    <div class="row-title">${n}</div>
+                    <div class="row-meta">${ok ? "feito" : "pendente"}</div>
+                  </div>
+                </div>`).join("")}
+            </div>
+            <div class="cta-row" style="margin-top:16px">
+              <button class="btn btn-ghost" type="button">Gerenciar hábitos</button>
+            </div>
+          `;
+        },
+      },
+      {
+        id: "media",
+        label: "Mídia",
+        notes: [
+          "Mesmo esqueleto para Cinema / Livros / Música.",
+          "Grid visual + status (quero / vendo / feito).",
+          "Busca e adicionar no topo; filtros em sheet.",
+        ],
+        before() {
+          return `
+            <div class="title" style="font-size:1.25rem">Cinema</div>
+            <div class="mini-card">Tabela / lista com notas, ano, status, ações</div>
+            <div class="mini-card">Filtros e ordenação competem com capa</div>
+          `;
+        },
+        after() {
+          return `
+            <div class="eyebrow">Cinema</div>
+            <div class="title">Sua lista</div>
+            <div class="pill-tabs">
+              <button type="button" class="on">Quero</button>
+              <button type="button">Vendo</button>
+              <button type="button">Feito</button>
+            </div>
+            <div class="cta-row">
+              <button class="btn btn-ghost" type="button">Buscar</button>
+              <button class="btn btn-primary" type="button">Adicionar</button>
+            </div>
+            <div class="media-grid" style="margin-top:14px">
+              <div class="poster">Dune · Parte 2</div>
+              <div class="poster" style="background:linear-gradient(145deg,hsl(175 50% 30%),hsl(239 40% 18%))">Past Lives</div>
+              <div class="poster book">O problema dos 3 corpos</div>
+              <div class="poster album">Blonde · Frank Ocean</div>
+            </div>
+          `;
+        },
+      },
+      {
+        id: "car",
+        label: "Veículos",
+        notes: [
+          "Hero do veículo ativo + próximo custo (IPVA / revisão).",
+          "Tabs: Abastecimentos · Manutenção · Docs.",
+          "Evitar três tabelas na mesma viewport.",
+        ],
+        before() {
+          return `
+            <div class="title" style="font-size:1.25rem">Veículos</div>
+            <div class="mini-card">Tabela combustível + manutenção + docs juntas</div>
+            <div class="mini-card">Muitos CTAs sem hierarquia</div>
+          `;
+        },
+        after() {
+          return `
+            <div class="eyebrow">Veículos</div>
+            <div class="title">Civic 2019</div>
+            <div class="hero" style="margin-top:12px">
+              <div class="eyebrow" style="color:hsl(var(--car))">Próximo</div>
+              <div style="font-family:var(--display);font-weight:700;font-size:1.2rem;margin-top:4px">Revisão · 12 mil km</div>
+              <div class="row-meta" style="margin-top:4px">Faltam ~1.400 km · estimativa set</div>
+            </div>
+            <div class="pill-tabs">
+              <button type="button" class="on">Combustível</button>
+              <button type="button">Manutenção</button>
+              <button type="button">Docs</button>
+            </div>
+            <div class="list">
+              ${[
+                ["Posto Shell", "Hoje · 42 L", "R$ 268"],
+                ["Ipiranga", "03/08 · 38 L", "R$ 241"],
+              ].map(([t,m,v]) => `
+                <div class="row">
+                  <div class="avatar car">AB</div>
+                  <div class="row-main">
+                    <div class="row-title">${t}</div>
+                    <div class="row-meta">${m}</div>
+                  </div>
+                  <div class="row-val">${v}</div>
+                </div>`).join("")}
+            </div>
+            <div class="cta-row"><button class="btn btn-primary" type="button">Registrar abastecimento</button></div>
+          `;
+        },
+      },
+    ];
+
+    let current = "home";
+    document.body.dataset.mode = "after";
+
+    document.querySelectorAll("#mode button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.body.dataset.mode = btn.dataset.mode;
+        document.querySelectorAll("#mode button").forEach((b) => {
+          b.classList.toggle("on", b === btn);
+        });
+      });
+    });
+
+    function notesFor(id) {
+      const s = SCREENS.find((x) => x.id === id);
+      document.getElementById("notes-title").textContent = s.label;
+      document.getElementById("notes-list").innerHTML = s.notes
+        .map((n) => `<li>${n}</li>`)
+        .join("");
+    }
+
+    function render() {
+      const s = SCREENS.find((x) => x.id === current);
+      document.getElementById("before-root").innerHTML = s.before();
+      document.getElementById("after-root").innerHTML = s.after();
+      notesFor(current);
+
+      document.querySelectorAll(".tab").forEach((t) => {
+        t.classList.toggle("active", t.dataset.id === current);
+      });
+      document.querySelectorAll("#after-nav .bn-item").forEach((b) => {
+        b.classList.toggle("active", b.dataset.go === current);
+      });
+
+      // wire in-screen CTAs
+      document.querySelectorAll("#after-root [data-go]").forEach((el) => {
+        el.addEventListener("click", () => setScreen(el.dataset.go));
+      });
+    }
+
+    function setScreen(id) {
+      if (!SCREENS.some((s) => s.id === id)) return;
+      current = id;
+      render();
+    }
+
+    // tabs
+    const tabs = document.getElementById("tabs");
+    SCREENS.forEach((s) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "tab";
+      b.dataset.id = s.id;
+      b.textContent = s.label;
+      b.addEventListener("click", () => setScreen(s.id));
+      tabs.appendChild(b);
+    });
+
+    document.querySelectorAll("[data-go]").forEach((el) => {
+      el.addEventListener("click", () => setScreen(el.dataset.go));
+    });
+
+    render();
+  </script>
+</body>
+</html>

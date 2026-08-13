@@ -38,22 +38,22 @@ const KINDS: Record<
   welcome: {
     sentCol: "welcome_sent_at",
     subject: "Você entrou na lista do Orbyva",
-    title: (g) => `${g} — estamos preparando sua órbita`,
-    body: "Obrigado por entrar na waitlist. Orbyva é o life OS com finanças no centro — orçamento, parcelas, hábitos e mais. Avisamos quando liberar (ou quando o checkout estiver aberto).",
+    title: (g) => `${g}, estamos preparando sua órbita`,
+    body: "Obrigado por entrar na waitlist. Orbyva é o life OS com finanças no centro, orçamento, parcelas, hábitos e mais. Avisamos quando liberar (ou quando o checkout estiver aberto).",
     cta: "Conhecer o Orbyva",
   },
   nurture_d3: {
     sentCol: "nurture_d3_sent_at",
     subject: "Orbyva · o que o life OS resolve",
-    title: (g) => `${g} — um app, várias órbitas`,
+    title: (g) => `${g}, um app, várias órbitas`,
     body: "Enquanto a lista anda: no Orbyva você lança despesas, define o teto do mês, acompanha parcelas e ainda tem hábitos, metas e viagens no mesmo lugar. Sem planilha paralela.",
     cta: "Ver a landing",
   },
   nurture_d7: {
     sentCol: "nurture_d7_sent_at",
     subject: "Orbyva · ainda na lista?",
-    title: (g) => `${g} — um empurrão leve`,
-    body: "Faz uma semana na waitlist. Se o Pro já estiver aberto no site, vale tentar o cadastro — senão, respondemos assim que houver vaga. Obrigado por esperar com a gente.",
+    title: (g) => `${g}, um empurrão leve`,
+    body: "Faz uma semana na waitlist. Se o Pro já estiver aberto no site, vale tentar o cadastro, senão, respondemos assim que houver vaga. Obrigado por esperar com a gente.",
     cta: "Abrir orbyva.app",
   },
 };

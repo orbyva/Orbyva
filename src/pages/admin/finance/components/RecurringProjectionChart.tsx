@@ -46,7 +46,7 @@ const SIM_COLOR = "hsl(32 95% 44%)";
 
 type RecurringProjectionChartProps = {
   recurring: Recurring[];
-  /** Mês em foco na planilha — a janela do gráfico gira em torno dele. */
+  /** Mês em foco na planilha, a janela do gráfico gira em torno dele. */
   anchor: YearMonth;
   pastMonths?: number;
   futureMonths?: number;
@@ -134,8 +134,8 @@ export function RecurringProjectionChart({
           {simulation
             ? `Com simulação de compra (${simulation.installmentCount}x) sobreposta nas despesas.`
             : openOnly
-              ? `Só em aberto — mês em foco e próximos meses.`
-              : `Parcelas do mês (incluindo pagas) + lançamentos avulsos — saldo para decidir novos compromissos.`}
+              ? `Só em aberto, mês em foco e próximos meses.`
+              : `Parcelas do mês (incluindo pagas) + lançamentos avulsos, saldo para decidir novos compromissos.`}
         </CardDescription>
       </CardHeader>
       <CardContent>

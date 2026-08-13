@@ -146,7 +146,7 @@ export default function Transactions() {
         toast({
           title: result.queued ? "Salvo offline" : "Sucesso",
           description: result.queued
-            ? "Sem rede — o lançamento entra na fila e sincroniza quando você voltar online."
+            ? "Sem rede, o lançamento entra na fila e sincroniza quando você voltar online."
             : "Transação adicionada com sucesso!",
           duration: result.queued ? 3500 : 2000,
         });
@@ -285,7 +285,7 @@ export default function Transactions() {
       <section className="space-y-3">
         {fromCache ? (
           <p className="text-xs text-muted-foreground">
-            Sem conexão — mostrando os últimos lançamentos salvos neste dispositivo.
+            Sem conexão, mostrando os últimos lançamentos salvos neste dispositivo.
           </p>
         ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

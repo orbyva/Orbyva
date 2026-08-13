@@ -2,9 +2,6 @@ import { useEffect, useState } from "react";
 import { Plus, Shirt, Trash2 } from "lucide-react";
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -19,11 +16,12 @@ import {
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/DatePicker";
 import { OptionalTimeInput } from "@/components/OptionalTimeInput";
+import { FormField, FormFieldRow } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormDisclosure, FormSection } from "@/components/FormSection";
 import { PlaceCatalogSearch } from "@/components/PlaceCatalogSearch";
 import { TripWeatherPackingPanel } from "@/components/TripWeatherPanels";
 import {
@@ -114,6 +112,7 @@ export function TripFormDialog({
   const [stops, setStops] = useState<TripStopDraft[]>([]);
   const [loading, setLoading] = useState(false);
   const [showPacking, setShowPacking] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [includeRoundTrip, setIncludeRoundTrip] = useState(false);
   const [outboundDepart, setOutboundDepart] = useState("");
   const [outboundArrive, setOutboundArrive] = useState("");
@@ -207,6 +206,13 @@ export function TripFormDialog({
         }
         if (cancelled) return;
         setStops(loadedStops);
+        setShowAdvanced(
+          Boolean(
+            trip.budget ||
+              trip.notes?.trim() ||
+              trip.status !== "planning"
+          )
+        );
 
         const tripOrigin: RoundTripHome | null = trip.origin_label?.trim()
           ? {
@@ -282,6 +288,7 @@ export function TripFormDialog({
         setForm(base);
         setStops([emptyStopDraft(base.start_date, base.end_date, 0)]);
         setShowPacking(false);
+        setShowAdvanced(false);
         resetRoundTripForm();
       }
     }
@@ -450,7 +457,7 @@ export function TripFormDialog({
     const firstStop = stopPayload[0];
     const lastStop = stopPayload[stopPayload.length - 1];
     const firstDay = days[0];
-    const lastDay = days[days.length - 1];
+    const lastDay = days[days.length, 1];
 
     const fresh = findRoundTripTransfers({
       itinerary: days,
@@ -551,7 +558,14 @@ export function TripFormDialog({
   }
 
   async function handleSave() {
-    if (!form.title.trim()) return;
+    if (!form.title.trim()) {
+      toast({
+        title: "Título obrigatório",
+        description: "Dê um nome para a viagem.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (form.end_date < form.start_date) {
       toast({
         title: "Datas inválidas",
@@ -569,7 +583,17 @@ export function TripFormDialog({
       return;
     }
 
-    const stopPayload = stops.map((s, i) => ({
+    const namedStops = stops.filter((s) => s.name.trim());
+    if (namedStops.length === 0) {
+      toast({
+        title: "Parada obrigatória",
+        description: "Informe ao menos uma cidade, estado ou país.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const stopPayload = namedStops.map((s, i) => ({
       name: s.name.trim(),
       place_id: s.place_id ?? null,
       lat: s.lat ?? null,
@@ -697,68 +721,78 @@ export function TripFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Editar viagem" : "Nova viagem"}</DialogTitle>
-        </DialogHeader>
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel required>Título</FormLabel>
+      <FormDialogShell
+        title={isEditing ? "Editar viagem" : "Nova viagem"}
+        wide
+        footer={
+          <FormFooter
+            onCancel={() => setOpen(false)}
+            onSubmit={() => void handleSave()}
+            submitLabel={
+              isEditing ? "Salvar alterações" : "Criar viagem"
+            }
+            loading={loading}
+          />
+        }
+      >
+        <FormSection title="Essencial">
+          <FormField label="Título" required>
             <Input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               placeholder="Ex: Eurotrip 2026"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel required>Início</FormLabel>
+          </FormField>
+          <FormFieldRow>
+            <FormField label="Início" required>
               <DatePicker
                 date={new Date(`${form.start_date}T12:00:00`)}
-                onSelect={(d) =>
-                  setForm({
-                    ...form,
-                    start_date: d
-                      ? d.toISOString().split("T")[0]
-                      : form.start_date,
-                  })
-                }
+                onSelect={(d) => {
+                  const next = d
+                    ? d.toISOString().split("T")[0]
+                    : form.start_date;
+                  setForm({ ...form, start_date: next });
+                  // Criação com 1 parada: a parada cobre a viagem inteira.
+                  if (!isEditing && stops.length === 1) {
+                    updateStop(stops[0].key, { start_date: next });
+                  }
+                }}
               />
-            </div>
-            <div>
-              <FormLabel required>Fim</FormLabel>
+            </FormField>
+            <FormField label="Fim" required>
               <DatePicker
                 date={new Date(`${form.end_date}T12:00:00`)}
-                onSelect={(d) =>
-                  setForm({
-                    ...form,
-                    end_date: d ? d.toISOString().split("T")[0] : form.end_date,
-                  })
-                }
+                onSelect={(d) => {
+                  const next = d
+                    ? d.toISOString().split("T")[0]
+                    : form.end_date;
+                  setForm({ ...form, end_date: next });
+                  if (!isEditing && stops.length === 1) {
+                    updateStop(stops[0].key, { end_date: next });
+                  }
+                }}
               />
-            </div>
-          </div>
+            </FormField>
+          </FormFieldRow>
+        </FormSection>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <FormLabel required>Paradas</FormLabel>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1"
-                onClick={addStop}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Cidade
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              País, estado ou cidade — com datas em cada parada (ex.: Madrid →
-              Berlim → Paris).
-            </p>
-            {stops.map((stop, index) => (
+        <FormSection
+          title="Paradas"
+          subtitle="Pode ser só uma cidade caso o destino seja apenas uma cidade, ou várias em sequência, com datas em cada parada (ex.: Madrid → Berlim → Paris)."
+        >
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1"
+              onClick={addStop}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Cidade
+            </Button>
+          </div>
+          {stops.map((stop, index) => (
               <div
                 key={stop.key}
                 className="space-y-2 rounded-lg border bg-muted/20 p-3"
@@ -783,6 +817,7 @@ export function TripFormDialog({
                 <PlaceCatalogSearch
                   label="Cidade / região"
                   scope="regions"
+                  required
                   requestUserLocation={false}
                   selectedLabel={stop.place_id || stop.name ? stop.name : null}
                   onClear={() =>
@@ -816,9 +851,8 @@ export function TripFormDialog({
                     placeholder="Ou digite o nome manualmente"
                   />
                 ) : null}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <FormLabel>Chegada</FormLabel>
+                <FormFieldRow>
+                  <FormField label="Chegada">
                     <DatePicker
                       date={new Date(`${stop.start_date}T12:00:00`)}
                       onSelect={(d) =>
@@ -829,9 +863,8 @@ export function TripFormDialog({
                         })
                       }
                     />
-                  </div>
-                  <div>
-                    <FormLabel>Saída</FormLabel>
+                  </FormField>
+                  <FormField label="Saída">
                     <DatePicker
                       date={new Date(`${stop.end_date}T12:00:00`)}
                       onSelect={(d) =>
@@ -842,12 +875,214 @@ export function TripFormDialog({
                         })
                       }
                     />
-                  </div>
-                </div>
+                  </FormField>
+                </FormFieldRow>
               </div>
             ))}
-          </div>
+        </FormSection>
 
+        <FormDisclosure
+          title={
+            isEditing
+              ? "Deslocamentos de ida e volta"
+              : "Incluir deslocamentos de ida e volta"
+          }
+          description="Gera trechos de transporte no roteiro entre origem e paradas."
+          open={includeRoundTrip}
+          onOpenChange={setIncludeRoundTrip}
+          variant="toggle"
+        >
+          <PlaceCatalogSearch
+            label="Origem (casa / partida)"
+            scope="regions"
+            requestUserLocation={false}
+            selectedLabel={homeOrigin?.label ?? null}
+            onClear={() => {
+              setHomeOrigin(null);
+              setOutboundEstimateNote(null);
+              setReturnEstimateNote(null);
+            }}
+            onPick={(hit) => {
+              setHomeOrigin({
+                label: hit.name,
+                lat: hit.lat,
+                lng: hit.lng,
+                place_id: hit.google_place_id,
+              });
+              setOutboundEstimateNote(null);
+              setReturnEstimateNote(null);
+            }}
+          />
+          <FormField label="Modo" hint={transportModeHint(roundTripMode)}>
+            <Select
+              value={roundTripMode}
+              onValueChange={(v) => {
+                setRoundTripMode(v as TripTransportMode);
+                setOutboundEstimateNote(null);
+                setReturnEstimateNote(null);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TRIP_TRANSPORT_MODES.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {TRIP_TRANSPORT_MODE_LABELS[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <div className="space-y-2">
+            <FormFieldRow>
+              <FormField label="Ida · saída" optional>
+                <OptionalTimeInput
+                  value={outboundDepart}
+                  onChange={(next) => {
+                    setOutboundDepart(next);
+                    setOutboundEstimateNote(null);
+                  }}
+                  aria-label="Saída da ida"
+                />
+              </FormField>
+              <FormField label="Ida · chegada" optional>
+                <OptionalTimeInput
+                  value={outboundArrive}
+                  onChange={(next) => {
+                    setOutboundArrive(next);
+                    setOutboundEstimateNote(null);
+                  }}
+                  aria-label="Chegada da ida"
+                />
+              </FormField>
+            </FormFieldRow>
+            {canEstimateMode ? (
+              <div className="space-y-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={
+                    estimatingLeg != null ||
+                    !outboundHasRoute ||
+                    (!outboundDepart.trim() && !outboundArrive.trim())
+                  }
+                  onClick={() => void handleEstimateLeg("outbound")}
+                >
+                  {estimatingLeg === "outbound"
+                    ? "Estimando ida…"
+                    : "Estimar ida pela rota"}
+                </Button>
+                {!outboundHasRoute ? (
+                  <p className="text-xs text-muted-foreground">
+                    Origem e 1ª parada precisam de coordenadas.
+                  </p>
+                ) : null}
+                {outboundEstimateNote ? (
+                  <p className="text-xs text-muted-foreground">
+                    {outboundEstimateNote}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <div className="space-y-2">
+            <FormFieldRow>
+              <FormField label="Volta · saída" optional>
+                <OptionalTimeInput
+                  value={returnDepart}
+                  onChange={(next) => {
+                    setReturnDepart(next);
+                    setReturnEstimateNote(null);
+                  }}
+                  aria-label="Saída da volta"
+                />
+              </FormField>
+              <FormField label="Volta · chegada" optional>
+                <OptionalTimeInput
+                  value={returnArrive}
+                  onChange={(next) => {
+                    setReturnArrive(next);
+                    setReturnEstimateNote(null);
+                  }}
+                  aria-label="Chegada da volta"
+                />
+              </FormField>
+            </FormFieldRow>
+            {canEstimateMode ? (
+              <div className="space-y-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={
+                    estimatingLeg != null ||
+                    !returnHasRoute ||
+                    (!returnDepart.trim() && !returnArrive.trim())
+                  }
+                  onClick={() => void handleEstimateLeg("return")}
+                >
+                  {estimatingLeg === "return"
+                    ? "Estimando volta…"
+                    : "Estimar volta pela rota"}
+                </Button>
+                {!returnHasRoute ? (
+                  <p className="text-xs text-muted-foreground">
+                    Última parada e origem precisam de coordenadas.
+                  </p>
+                ) : null}
+                {returnEstimateNote ? (
+                  <p className="text-xs text-muted-foreground">
+                    {returnEstimateNote}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </FormDisclosure>
+
+        <FormDisclosure
+          title="Opções avançadas"
+          description="Orçamento, status, notas e sugestão de mala."
+          open={showAdvanced}
+          onOpenChange={setShowAdvanced}
+        >
+          <FormField label="Orçamento" optional>
+            <MoneyInput
+              value={form.budget ?? null}
+              onChange={(v) =>
+                setForm({ ...form, budget: v === "" ? null : v })
+              }
+            />
+          </FormField>
+          <FormField label="Status" optional>
+            <Select
+              value={form.status}
+              onValueChange={(v) =>
+                setForm({ ...form, status: v as TripStatus })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(TRIP_STATUS_LABELS) as TripStatus[]).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {TRIP_STATUS_LABELS[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Notas" optional>
+            <Input
+              value={form.notes ?? ""}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </FormField>
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium">Sugestão de mala</p>
             <Button
@@ -870,228 +1105,8 @@ export function TripFormDialog({
           {showPacking ? (
             <TripWeatherPackingPanel stops={packingStops} />
           ) : null}
-
-          <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="rounded"
-                  checked={includeRoundTrip}
-                  onChange={(e) => setIncludeRoundTrip(e.target.checked)}
-                />
-                {isEditing
-                  ? "Deslocamentos de ida e volta"
-                  : "Incluir deslocamentos de ida e volta"}
-              </label>
-              {includeRoundTrip ? (
-                <div className="space-y-3">
-                  <PlaceCatalogSearch
-                    label="Origem (casa / partida)"
-                    scope="regions"
-                    requestUserLocation={false}
-                    selectedLabel={homeOrigin?.label ?? null}
-                    onClear={() => {
-                      setHomeOrigin(null);
-                      setOutboundEstimateNote(null);
-                      setReturnEstimateNote(null);
-                    }}
-                    onPick={(hit) => {
-                      setHomeOrigin({
-                        label: hit.name,
-                        lat: hit.lat,
-                        lng: hit.lng,
-                        place_id: hit.google_place_id,
-                      });
-                      setOutboundEstimateNote(null);
-                      setReturnEstimateNote(null);
-                    }}
-                  />
-                  <div>
-                    <FormLabel>Modo</FormLabel>
-                    <Select
-                      value={roundTripMode}
-                      onValueChange={(v) => {
-                        setRoundTripMode(v as TripTransportMode);
-                        setOutboundEstimateNote(null);
-                        setReturnEstimateNote(null);
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TRIP_TRANSPORT_MODES.map((key) => (
-                          <SelectItem key={key} value={key}>
-                            {TRIP_TRANSPORT_MODE_LABELS[key]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {transportModeHint(roundTripMode)}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <FormLabel optional>Ida · saída</FormLabel>
-                        <OptionalTimeInput
-                          value={outboundDepart}
-                          onChange={(next) => {
-                            setOutboundDepart(next);
-                            setOutboundEstimateNote(null);
-                          }}
-                          aria-label="Saída da ida"
-                        />
-                      </div>
-                      <div>
-                        <FormLabel optional>Ida · chegada</FormLabel>
-                        <OptionalTimeInput
-                          value={outboundArrive}
-                          onChange={(next) => {
-                            setOutboundArrive(next);
-                            setOutboundEstimateNote(null);
-                          }}
-                          aria-label="Chegada da ida"
-                        />
-                      </div>
-                    </div>
-                    {canEstimateMode ? (
-                      <div className="space-y-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          disabled={
-                            estimatingLeg != null ||
-                            !outboundHasRoute ||
-                            (!outboundDepart.trim() && !outboundArrive.trim())
-                          }
-                          onClick={() => void handleEstimateLeg("outbound")}
-                        >
-                          {estimatingLeg === "outbound"
-                            ? "Estimando ida…"
-                            : "Estimar ida pela rota"}
-                        </Button>
-                        {!outboundHasRoute ? (
-                          <p className="text-xs text-muted-foreground">
-                            Origem e 1ª parada precisam de coordenadas.
-                          </p>
-                        ) : null}
-                        {outboundEstimateNote ? (
-                          <p className="text-xs text-muted-foreground">
-                            {outboundEstimateNote}
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <FormLabel optional>Volta · saída</FormLabel>
-                        <OptionalTimeInput
-                          value={returnDepart}
-                          onChange={(next) => {
-                            setReturnDepart(next);
-                            setReturnEstimateNote(null);
-                          }}
-                          aria-label="Saída da volta"
-                        />
-                      </div>
-                      <div>
-                        <FormLabel optional>Volta · chegada</FormLabel>
-                        <OptionalTimeInput
-                          value={returnArrive}
-                          onChange={(next) => {
-                            setReturnArrive(next);
-                            setReturnEstimateNote(null);
-                          }}
-                          aria-label="Chegada da volta"
-                        />
-                      </div>
-                    </div>
-                    {canEstimateMode ? (
-                      <div className="space-y-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          disabled={
-                            estimatingLeg != null ||
-                            !returnHasRoute ||
-                            (!returnDepart.trim() && !returnArrive.trim())
-                          }
-                          onClick={() => void handleEstimateLeg("return")}
-                        >
-                          {estimatingLeg === "return"
-                            ? "Estimando volta…"
-                            : "Estimar volta pela rota"}
-                        </Button>
-                        {!returnHasRoute ? (
-                          <p className="text-xs text-muted-foreground">
-                            Última parada e origem precisam de coordenadas.
-                          </p>
-                        ) : null}
-                        {returnEstimateNote ? (
-                          <p className="text-xs text-muted-foreground">
-                            {returnEstimateNote}
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-          <div>
-            <FormLabel optional>Orçamento</FormLabel>
-            <MoneyInput
-              value={form.budget ?? null}
-              onChange={(v) =>
-                setForm({ ...form, budget: v === "" ? null : v })
-              }
-            />
-          </div>
-          <div>
-            <FormLabel optional>Status</FormLabel>
-            <Select
-              value={form.status}
-              onValueChange={(v) =>
-                setForm({ ...form, status: v as TripStatus })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(TRIP_STATUS_LABELS) as TripStatus[]).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {TRIP_STATUS_LABELS[s]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <FormLabel optional>Notas</FormLabel>
-            <Input
-              value={form.notes ?? ""}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
-          </div>
-          <Button onClick={() => void handleSave()} disabled={loading} className="w-full">
-            {loading
-              ? "Salvando…"
-              : isEditing
-                ? "Salvar alterações"
-                : "Criar viagem"}
-          </Button>
-        </div>
-      </DialogContent>
+        </FormDisclosure>
+      </FormDialogShell>
     </Dialog>
   );
 }

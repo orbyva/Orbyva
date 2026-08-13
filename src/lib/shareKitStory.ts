@@ -9,7 +9,7 @@ import {
   drawImageCover,
 } from "./shareKit";
 
-/** Frame do hero — idêntico ao pôster do cinema (com foto). */
+/** Frame do hero, idêntico ao pôster do cinema (com foto). */
 export const STORY_HERO = {
   w: 680,
   h: 1020,
@@ -25,7 +25,7 @@ export const STORY_HERO_COMPACT = {
   radius: 36,
 } as const;
 
-/** Sem foto — card ilustrado, evita caixa vazia gigante. */
+/** Sem foto, card ilustrado, evita caixa vazia gigante. */
 export const STORY_HERO_ILLUSTRATED = {
   w: 680,
   h: 620,
@@ -67,7 +67,7 @@ export function paintStoryBackdrop(
   ctx.fillRect(0, 0, SHARE_W, SHARE_H);
 }
 
-/** Header esquerdo — coordenadas idênticas ao cinema. */
+/** Header esquerdo, coordenadas idênticas ao cinema. */
 export function drawStoryHeader(
   ctx: CanvasRenderingContext2D,
   eyebrow: string
@@ -77,7 +77,7 @@ export function drawStoryHeader(
 
 
 /**
- * Card hero central — mesmo papel do pôster no cinema.
+ * Card hero central, mesmo papel do pôster no cinema.
  * Sem foto: slate + glow sky + emoji (+ caption opcional).
  */
 export function drawStoryHeroCard(
@@ -161,7 +161,7 @@ export function drawScorePill(
   options: {
     score: string;
     label: string;
-    /** @deprecated use topY — mantido por compat */
+    /** @deprecated use topY, mantido por compat */
     centerY?: number;
     topY?: number;
     width?: number;
@@ -265,7 +265,7 @@ function drawRecommendBadge(
   }
 }
 
-/** Chip de recomendação — ícone + texto centrados no chip (e no card). */
+/** Chip de recomendação, ícone + texto centrados no chip (e no card). */
 export function drawRecommendChip(
   ctx: CanvasRenderingContext2D,
   recommend: boolean,

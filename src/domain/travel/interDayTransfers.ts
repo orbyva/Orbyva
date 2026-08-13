@@ -106,7 +106,7 @@ export function sameDayTransferRouteEndpoints(
 }
 
 /**
- * Pares consecutivos do roteiro — sempre um slot de deslocamento entre eles.
+ * Pares consecutivos do roteiro, sempre um slot de deslocamento entre eles.
  * Atividade fica no dia de chegada (`toDay`).
  */
 export function listDayPairConnectors(
@@ -209,13 +209,13 @@ export function transferPlanningHint(
   const depart = activity.activity_time?.trim() || null;
   const arrive = activity.arrival_time?.trim() || null;
   if (arrive && depart) {
-    return `Saída ${depart} · chegada ${arrive} — planeje o próximo dia a partir da chegada`;
+    return `Saída ${depart} · chegada ${arrive}, planeje o próximo dia a partir da chegada`;
   }
   if (arrive) {
-    return `Chegada ${arrive} — planeje o dia a partir daí`;
+    return `Chegada ${arrive}, planeje o dia a partir daí`;
   }
   if (depart) {
-    return `Saída ${depart} — reserve tempo no dia anterior`;
+    return `Saída ${depart}, reserve tempo no dia anterior`;
   }
   return null;
 }
@@ -397,7 +397,7 @@ export function visitTimeConflictsWithTransfers(params: {
   activityTime: string | null | undefined;
   days: TripItineraryDay[];
   excludeActivityId?: string | null;
-  /** Parada do dia / lugar da visita — para saber se o deslocamento é ida. */
+  /** Parada do dia / lugar da visita, para saber se o deslocamento é ida. */
   atLocation?: LocationHint | null;
 }): TransferTimeConflict | null {
   const time = parseTimeToMinutes(params.activityTime);

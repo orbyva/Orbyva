@@ -52,7 +52,7 @@ test.describe("ativação completa", () => {
       const typeId = await pickTypeId(token);
       test.skip(
         !classId || !typeId,
-        "Usuário E2E sem categorias — complete o onboarding uma vez ou rode seed"
+        "Usuário E2E sem categorias, complete o onboarding uma vez ou rode seed"
       );
 
       const tx = await rest("transaction", token, {

@@ -10,7 +10,7 @@ type LandingMagneticCtaProps = {
 };
 
 /**
- * CTA da landing — hover/press leves em CSS (sem listener global de pointer).
+ * CTA da landing, hover/press leves em CSS (sem listener global de pointer).
  */
 export function LandingMagneticCta({
   href,

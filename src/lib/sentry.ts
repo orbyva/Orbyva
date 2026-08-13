@@ -7,12 +7,12 @@ let initialized = false;
 
 declare global {
   interface Window {
-    /** No console: `__orbyvaSentryTest()` — envia um ping ao Sentry. */
+    /** No console: `__orbyvaSentryTest()`, envia um ping ao Sentry. */
     __orbyvaSentryTest?: () => boolean;
   }
 }
 
-/** Ruído de WebViews (Instagram/Facebook etc.) — não é bug do Orbyva. */
+/** Ruído de WebViews (Instagram/Facebook etc.), não é bug do Orbyva. */
 export function isInAppBrowserBridgeNoise(
   event: Pick<Sentry.ErrorEvent, "exception">
 ): boolean {
@@ -31,7 +31,7 @@ export function isInAppBrowserBridgeNoise(
   return false;
 }
 
-/** Sessão ausente / logout — esperado; não poluir Issues. */
+/** Sessão ausente / logout, esperado; não poluir Issues. */
 export function isExpectedAuthNoise(
   event: Pick<Sentry.ErrorEvent, "exception">
 ): boolean {
@@ -50,7 +50,7 @@ export function initSentry() {
   if (!dsn) {
     if (import.meta.env.DEV) {
       console.info(
-        "[sentry] VITE_SENTRY_DSN ausente — erros não serão enviados."
+        "[sentry] VITE_SENTRY_DSN ausente, erros não serão enviados."
       );
     }
     return;
@@ -75,7 +75,7 @@ export function initSentry() {
       if (isInAppBrowserBridgeNoise(event)) return null;
       if (isExpectedAuthNoise(event)) return null;
       if (isAuthRequiredError(hint?.originalException)) return null;
-      // PostgREST cru (code/details/hint/message) — esperado virar Error tratado na UI.
+      // PostgREST cru (code/details/hint/message), esperado virar Error tratado na UI.
       const original = hint?.originalException;
       if (
         original &&

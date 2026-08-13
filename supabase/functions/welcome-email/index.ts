@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Claim atômico — evita double-send em abas paralelas.
+  // Claim atômico, evita double-send em abas paralelas.
   const claimedAt = new Date().toISOString();
   const { data: claimed, error: claimError } = await admin
     .from("profiles")

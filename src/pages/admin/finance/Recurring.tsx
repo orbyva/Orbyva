@@ -319,7 +319,7 @@ export default function Recurring() {
   return (
     <PageShell
       title="Recorrências"
-      description="Contas fixas (água, luz) e compras parceladas (10x, 12x) — lista, projeção do mês e simular compra."
+      description="Contas fixas (água, luz) e compras parceladas (10x, 12x), lista, projeção do mês e simular compra."
       actions={
         <>
           <ModuleGuideButton moduleId="finance" />
@@ -342,7 +342,7 @@ export default function Recurring() {
         <EmptyState
           icon={Repeat}
           title="Nenhuma recorrência cadastrada"
-          description="Cadastre contas fixas (água, luz) ou compras parceladas (12x) — o app avisa vencimentos e monta a projeção do mês."
+          description="Cadastre contas fixas (água, luz) ou compras parceladas (12x), o app avisa vencimentos e monta a projeção do mês."
           action={
             <Button
               onClick={() => {

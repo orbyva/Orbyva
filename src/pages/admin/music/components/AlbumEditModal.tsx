@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { updateAlbum, uploadAlbumCover } from "@/api/albums";
 import type { Album, AlbumUpdateRequest } from "@/types/music";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/DatePicker";
 import { ScoreRating } from "@/components/ScoreRating";
+import { FormField } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
 import {
   ALBUM_TYPE_LABELS,
   formatAlbumRating,
@@ -117,11 +117,18 @@ export function AlbumEditModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogTitle>
-          {isToListen ? "Avaliar álbum" : "Editar opinião"}
-        </DialogTitle>
-
+      <FormDialogShell
+        title={isToListen ? "Avaliar álbum" : "Editar opinião"}
+        errorSummary={formError || undefined}
+        footer={
+          <FormFooter
+            onCancel={() => onOpenChange(false)}
+            onSubmit={() => void handleSave()}
+            submitLabel={isToListen ? "Salvar" : "Salvar alterações"}
+            loading={loading}
+          />
+        }
+      >
         <div className="flex items-start gap-3 sm:gap-4">
           <img
             src={album.cover_url || "/placeholder.svg"}
@@ -141,39 +148,39 @@ export function AlbumEditModal({
           </div>
         </div>
 
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel optional>Nota</FormLabel>
-            <div className="space-y-2">
-              <ScoreRating value={rating} onChange={setRating} />
-              {rating != null && rating > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {formatAlbumRating(rating)}/10 — {getAlbumRatingLabel(rating)}
-                </p>
-              )}
-            </div>
-          </div>
+        <FormSection title="Opinião">
+          <FormField
+            label="Nota"
+            optional
+            hint={
+              rating != null && rating > 0
+                ? `${formatAlbumRating(rating)}/10 · ${getAlbumRatingLabel(rating)}`
+                : undefined
+            }
+          >
+            <ScoreRating value={rating} onChange={setRating} />
+          </FormField>
 
-          <div>
-            <FormLabel required={isToListen} optional={!isToListen}>
-              {isToListen ? "Data" : "Nova data"}
-            </FormLabel>
+          <FormField
+            label={isToListen ? "Data" : "Nova data"}
+            required={isToListen}
+            optional={!isToListen}
+          >
             <DatePicker
               date={listenedDate}
               onSelect={setListenedDate}
               placeholder="Selecione a data"
             />
-          </div>
+          </FormField>
 
-          <div>
-            <FormLabel optional>O que achou?</FormLabel>
+          <FormField label="O que achou?" optional>
             <textarea
               className="flex min-h-[88px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               placeholder="Produção, faixas, vibe..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
-          </div>
+          </FormField>
 
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -186,40 +193,16 @@ export function AlbumEditModal({
           </label>
 
           {!album.cover_url && (
-            <div>
-              <FormLabel optional>Adicionar capa</FormLabel>
+            <FormField label="Adicionar capa" optional>
               <Input
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/gif"
                 onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
               />
-            </div>
+            </FormField>
           )}
-
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              className="w-full sm:flex-1"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              className="w-full sm:flex-1"
-              disabled={loading}
-              onClick={() => void handleSave()}
-            >
-              {loading
-                ? "Salvando…"
-                : isToListen
-                  ? "Salvar"
-                  : "Salvar alterações"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
+        </FormSection>
+      </FormDialogShell>
     </Dialog>
   );
 }

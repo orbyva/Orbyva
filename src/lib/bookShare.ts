@@ -127,7 +127,7 @@ function drawCover(
 }
 
 /**
- * Card Stories — capa + nota / recomendação (padrão cinema/lugares).
+ * Card Stories, capa + nota / recomendação (padrão cinema/lugares).
  */
 export async function generateBookShareImage(
   book: Book,

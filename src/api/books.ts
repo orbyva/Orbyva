@@ -79,7 +79,7 @@ export async function fetchBooks(
   };
 }
 
-/** Lista completa do usuário — filtro/paginação no cliente. */
+/** Lista completa do usuário, filtro/paginação no cliente. */
 export async function fetchAllBooks(): Promise<Book[]> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase

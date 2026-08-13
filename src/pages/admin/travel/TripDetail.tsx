@@ -354,7 +354,7 @@ export default function TripDetail() {
     if (editingExpense?.transaction_id && !classId) {
       toast({
         title: "Selecione a categoria",
-        description: "Este gasto está no extrato — escolha a categoria.",
+        description: "Este gasto está no extrato, escolha a categoria.",
         variant: "destructive",
       });
       return;

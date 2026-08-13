@@ -37,7 +37,7 @@ function StarIcon({
 
   return (
     <span className={cn("relative inline-flex shrink-0", box)}>
-      {/* Contorno completo — metade direita fica vazia */}
+      {/* Contorno completo, metade direita fica vazia */}
       <Star
         className={cn(
           box,

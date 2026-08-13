@@ -8,15 +8,15 @@ import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 const MODULES = [
   {
     title: "Início e timeline",
-    body: "Resumo do dia — alertas, hábitos, saldo e o que vem a seguir — mais um feed de eventos de todos os módulos.",
+    body: "Resumo do dia, alertas, hábitos, saldo e o que vem a seguir, mais um feed de eventos de todos os módulos.",
   },
   {
     title: "Finanças",
-    body: "Teto de gastos por categoria, contas e parcelas com projeção — o núcleo do mês sob controle.",
+    body: "Teto de gastos por categoria, contas e parcelas com projeção, o núcleo do mês sob controle.",
   },
   {
     title: "Hábitos e metas",
-    body: "Check-ins e streaks no dia a dia; objetivos com progresso — inclusive quanto guardar por mês nas metas em R$.",
+    body: "Check-ins e streaks no dia a dia; objetivos com progresso, inclusive quanto guardar por mês nas metas em R$.",
   },
   {
     title: "Viagens e lugares",
@@ -24,11 +24,11 @@ const MODULES = [
   },
   {
     title: "Cinema, livros e música",
-    body: "Watchlist e notas de filmes/séries; estante de livros com marca-página; álbuns e faixas — tudo com card para Stories.",
+    body: "Watchlist e notas de filmes/séries; estante de livros com marca-página; álbuns e faixas, tudo com card para Stories.",
   },
   {
     title: "Veículos",
-    body: "Manutenção, combustível, quilometragem e documentos — sem perder prazo.",
+    body: "Manutenção, combustível, quilometragem e documentos, sem perder prazo.",
   },
 ] as const;
 
@@ -53,14 +53,14 @@ export function AboutPage() {
         {BRAND.name} é o seu{" "}
         <span className="text-zinc-200">{BRAND.wedge.toLowerCase()}</span>: o
         que você espalha em planilha, app de hábitos, cinema, viagem e bloco de
-        notas — numa só órbita, desde o primeiro dia.
+        notas, numa só órbita, desde o primeiro dia.
       </p>
 
       <PublicSection title="Por que existe">
         <p>
           Abrir um app para o cartão, outro para o hábito, outro para a viagem e
           outro para a watchlist cansa. O {BRAND.name} nasceu para juntar o
-          controle do mês — o que ainda cabe gastar, contas e o saldo — com o resto
+          controle do mês, o que ainda cabe gastar, contas e o saldo, com o resto
           da vida real, sem pedir senha de banco.
         </p>
       </PublicSection>
@@ -86,13 +86,13 @@ export function AboutPage() {
           Conta pessoal com login Google. Você começa com{" "}
           <span className="text-zinc-200">{PLANS.free.priceLabel}</span> e
           acesso completo; depois, Pro por{" "}
-          <span className="text-zinc-200">{PLANS.pro.priceLabel}</span> — assine
+          <span className="text-zinc-200">{PLANS.pro.priceLabel}</span>, assine
           na Conta quando quiser continuar. Seus dados ficam na sua órbita: dá
           para exportar CSV e excluir a conta quando quiser (LGPD).
         </p>
         <p>
           O produto evolui em público: PWA, alertas, compartilhamento de cards e
-          melhorias contínuas. Sem conectar conta do banco — você registra o que
+          melhorias contínuas. Sem conectar conta do banco, você registra o que
           quiser, do seu jeito.
         </p>
       </PublicSection>

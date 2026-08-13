@@ -225,7 +225,7 @@ export function PlaceCatalogSearch({
       </FormLabel>
       {locationDenied && !biasProp ? (
         <p className="text-xs text-muted-foreground">
-          Localização negada — a busca funciona, mas sem priorizar lugares
+          Localização negada, a busca funciona, mas sem priorizar lugares
           próximos.
         </p>
       ) : null}

@@ -13,7 +13,7 @@ export const BOOK_STATUS_LABELS: Record<BookStatus, string> = {
   abandoned: "Abandonei",
 };
 
-/** Google Books manda HTML na descrição — vira texto limpo. */
+/** Google Books manda HTML na descrição, vira texto limpo. */
 export function stripBookHtml(html: string): string {
   const withBreaks = html
     .replace(/<\/p>/gi, "\n\n")
@@ -216,7 +216,7 @@ export function getBookRatingLabel(rating: number): string {
   return "Ruim";
 }
 
-/** Badge do card: nota do usuário (lido) ou Google (para ler). Sem % — progresso é outra UI. */
+/** Badge do card: nota do usuário (lido) ou Google (para ler). Sem %, progresso é outra UI. */
 export function getBookCardRating(book: Book): {
   value: string;
   source: "user" | "google";
@@ -239,7 +239,7 @@ export function getBookCardRating(book: Book): {
 
 export function getDisplayBookScore(book: Book): string | number {
   const card = getBookCardRating(book);
-  return card?.value ?? "—";
+  return card?.value ?? "·";
 }
 
 export function getLatestReadDate(dates: Book["read_dates"]): string | null {

@@ -1,6 +1,6 @@
 /** Catálogo e helpers de ícones de categoria (sem React). */
 
-/** Catálogo de ícones de categoria — `id` = valor no banco; `label` = PT-BR na UI. */
+/** Catálogo de ícones de categoria, `id` = valor no banco; `label` = PT-BR na UI. */
 const TYPE_ICONS_RAW = [
   { id: "wallet", label: "Carteira" },
   { id: "piggy-bank", label: "Poupança" },
@@ -81,7 +81,7 @@ export const TYPE_ICONS = [...TYPE_ICONS_RAW].sort((a, b) =>
   a.label.localeCompare(b.label, "pt-BR")
 );
 
-/** @deprecated use TYPE_ICONS — mantido para imports existentes */
+/** @deprecated use TYPE_ICONS, mantido para imports existentes */
 export const TYPE_ICON_OPTIONS = TYPE_ICONS.map((i) => i.id);
 
 const ICON_LABELS: Record<string, string> = Object.fromEntries(

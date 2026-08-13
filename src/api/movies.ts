@@ -33,7 +33,7 @@ export async function fetchMovies(
   };
 }
 
-/** Só total (+ opcionalmente 1 linha) — hub / summary sem baixar catálogo. */
+/** Só total (+ opcionalmente 1 linha), hub / summary sem baixar catálogo. */
 export async function fetchMovieListMeta(
   status: MovieListFilter,
   opts?: { includeLatest?: boolean }
@@ -74,7 +74,7 @@ export async function fetchMovieListMeta(
   };
 }
 
-/** Lista completa do usuário — filtro/paginação no cliente (UX mais rápida). */
+/** Lista completa do usuário, filtro/paginação no cliente (UX mais rápida). */
 export async function fetchAllMovies(): Promise<Movie[]> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase

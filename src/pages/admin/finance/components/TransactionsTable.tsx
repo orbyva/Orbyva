@@ -131,7 +131,7 @@ function TransactionActions({
         <AlertDialogContent>
           <AlertDialogHeader>Excluir transação?</AlertDialogHeader>
           <p className="text-sm text-muted-foreground">
-            {transaction.description || "Esta transação"} —{" "}
+            {transaction.description || "Esta transação"} , {" "}
             {formatBRL(transaction.value)}. Esta ação não pode ser desfeita.
           </p>
           <AlertDialogFooter>
@@ -178,7 +178,7 @@ function TransactionsMobileList({
                 <TransactionIcon transaction={t} />
                 <div className="min-w-0 space-y-1.5">
                   <p className="font-medium leading-snug line-clamp-2">
-                    {t.description || "—"}
+                    {t.description || "·"}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {t.class?.type?.name} · {t.class?.name}
@@ -234,7 +234,7 @@ export function TransactionsTable({
       <EmptyState
         icon={Receipt}
         title="Nenhuma transação encontrada"
-        description="Adicione um lançamento ou ajuste os filtros de busca — os lançamentos são o centro do life OS."
+        description="Adicione um lançamento ou ajuste os filtros de busca, os lançamentos são o centro do life OS."
       />
     );
   }
@@ -308,7 +308,7 @@ export function TransactionsTable({
 
                   <TableCell>
                     <span className="line-clamp-2 leading-snug">
-                      {t.description || "—"}
+                      {t.description || "·"}
                     </span>
                   </TableCell>
 

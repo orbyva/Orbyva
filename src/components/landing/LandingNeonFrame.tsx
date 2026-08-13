@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Moldura do CTA final — CSS neon leve (sem RAF contínuo do OriginKit).
+ * Moldura do CTA final, CSS neon leve (sem RAF contínuo do OriginKit).
  */
 export function LandingNeonFrame({
   children,

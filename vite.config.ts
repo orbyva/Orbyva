@@ -25,7 +25,7 @@ export default defineConfig({
         name: "Orbyva",
         short_name: "Orbyva",
         description:
-          "Tudo da sua vida em uma só órbita — finanças, hábitos, metas, viagens e mais.",
+          "Tudo da sua vida em uma só órbita, finanças, hábitos, metas, viagens e mais.",
         theme_color: "#0EA5E9",
         background_color: "#0B0F1A",
         display: "standalone",
@@ -55,7 +55,7 @@ export default defineConfig({
       },
       workbox: {
         // generateSW com mode production crasha (@rollup/plugin-terser 1.0.0
-        // trava em worker) — geramos dev e minificamos em scripts/minify-sw.mjs.
+        // trava em worker), geramos dev e minificamos em scripts/minify-sw.mjs.
         mode: "development",
         cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,webp,svg,woff2,png}"],
@@ -150,7 +150,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          // Utils pequenos — NÃO deixar cair no chunk do recharts (clsx era engolido).
+          // Utils pequenos, NÃO deixar cair no chunk do recharts (clsx era engolido).
           if (
             id.includes("clsx") ||
             id.includes("tailwind-merge") ||
@@ -192,7 +192,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/tmdb-media/, ""),
       },
-      /** Capas Google Books — CORS quebra canvas do share. */
+      /** Capas Google Books, CORS quebra canvas do share. */
       "/books-media": {
         target: "https://books.google.com",
         changeOrigin: true,

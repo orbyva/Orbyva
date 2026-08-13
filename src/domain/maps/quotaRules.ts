@@ -152,7 +152,7 @@ export function quotaDeniedPayload(
   return {
     error:
       result.reason === "error"
-        ? "Controle de cota indisponível — requisições bloqueadas por segurança."
+        ? "Controle de cota indisponível, requisições bloqueadas por segurança."
         : `Limite gratuito de ${bucket} atingido (${period}). Novas chamadas liberam no próximo período.`,
     code: "MAPS_QUOTA_EXCEEDED" as const,
     reason: result.reason,

@@ -34,7 +34,7 @@ type TripMembersDialogProps = {
   myRole?: "owner" | "editor" | null;
   isShared?: boolean;
   onChanged?: () => void;
-  /** Gatilho só com ícone — para toolbars densas. */
+  /** Gatilho só com ícone, para toolbars densas. */
   compact?: boolean;
 };
 

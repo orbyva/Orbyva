@@ -139,7 +139,7 @@ export function applyStripeWebhookEvent(event: {
       };
     }
     case "invoice.paid": {
-      // Cobrança ok — se ainda houver subscription id, marca active/pro.
+      // Cobrança ok, se ainda houver subscription id, marca active/pro.
       // subscription.updated também cobre; este evento fecha race com payment_failed.
       const invoice = event.data.object as {
         customer?: string | { id?: string } | null;

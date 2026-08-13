@@ -10,24 +10,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/DatePicker";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { EmptyState } from "@/components/EmptyState";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { MoneyInput } from "@/components/MoneyInput";
+import { FormField, FormFieldRow } from "@/components/FormField";
 import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-  ICON_EDIT_BUTTON_CLASS,
-} from "@/components/FormLabel";
+  FormDialogShell,
+  FormFooter,
+} from "@/components/FormDialogShell";
+import { FormSection } from "@/components/FormSection";
+import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
@@ -274,29 +270,33 @@ function GoalFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle>{editing ? "Editar meta" : "Nova meta"}</DialogTitle>
-        </DialogHeader>
-        <div className={FORM_FIELDS_CLASS}>
-          <div>
-            <FormLabel required>Título</FormLabel>
+      <FormDialogShell
+        title={editing ? "Editar meta" : "Nova meta"}
+        description="Defina o objetivo e acompanhe o progresso."
+        footer={
+          <FormFooter
+            onCancel={() => onOpenChange(false)}
+            onSubmit={() => void onSave(draft)}
+            submitLabel={editing ? "Salvar alterações" : "Criar meta"}
+          />
+        }
+      >
+        <FormSection title="Essencial">
+          <FormField label="Título" required>
             <Input
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             />
-          </div>
-          <div>
-            <FormLabel optional>Descrição</FormLabel>
+          </FormField>
+          <FormField label="Descrição" optional>
             <Input
               value={draft.description ?? ""}
               onChange={(e) =>
                 setDraft({ ...draft, description: e.target.value })
               }
             />
-          </div>
-          <div>
-            <FormLabel required>Categoria</FormLabel>
+          </FormField>
+          <FormField label="Categoria" required>
             <Select
               value={draft.category}
               onValueChange={(v) =>
@@ -314,10 +314,11 @@ function GoalFormDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel required>Progresso atual</FormLabel>
+          </FormField>
+        </FormSection>
+        <FormSection title="Progresso">
+          <FormFieldRow>
+            <FormField label="Progresso atual" required>
               <Input
                 type="number"
                 value={draft.current_value || ""}
@@ -329,9 +330,8 @@ function GoalFormDialog({
                 }
                 placeholder="Quanto já avançou"
               />
-            </div>
-            <div>
-              <FormLabel required>Valor da meta</FormLabel>
+            </FormField>
+            <FormField label="Valor da meta" required>
               <Input
                 type="number"
                 value={draft.target_value || ""}
@@ -343,19 +343,17 @@ function GoalFormDialog({
                 }
                 placeholder="Objetivo final"
               />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel optional>Unidade</FormLabel>
+            </FormField>
+          </FormFieldRow>
+          <FormFieldRow>
+            <FormField label="Unidade" optional>
               <Input
                 placeholder="R$, km, livros..."
                 value={draft.unit ?? ""}
                 onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
               />
-            </div>
-            <div>
-              <FormLabel optional>Prazo</FormLabel>
+            </FormField>
+            <FormField label="Prazo" optional>
               <DatePicker
                 clearable
                 date={
@@ -370,16 +368,10 @@ function GoalFormDialog({
                   })
                 }
               />
-            </div>
-          </div>
-          <Button
-            onClick={() => void onSave(draft)}
-            className="w-full"
-          >
-            {editing ? "Salvar alterações" : "Criar meta"}
-          </Button>
-        </div>
-      </DialogContent>
+            </FormField>
+          </FormFieldRow>
+        </FormSection>
+      </FormDialogShell>
     </Dialog>
   );
 }
@@ -591,7 +583,7 @@ export default function Goals() {
           toast({
             title: "Nenhum aporte nos lançamentos",
             description:
-              "Não achei lançamentos desta meta — o progresso foi mantido.",
+              "Não achei lançamentos desta meta, o progresso foi mantido.",
             duration: 3200,
           });
           return;
@@ -626,7 +618,7 @@ export default function Goals() {
     const insight = getFinancialGoalInsight(poupancaGoal);
     const remaining =
       insight?.remaining ??
-      Math.max(0, poupancaGoal.target_value - poupancaGoal.current_value);
+      Math.max(0, poupancaGoal.target_value, poupancaGoal.current_value);
     const monthly = Number(routineMonthly) || 0;
     const installments = installmentsToCoverRemaining(remaining, monthly);
     return buildGoalInstallmentDraft(remaining, monthly, installments);
@@ -719,7 +711,7 @@ export default function Goals() {
       title="Metas Pessoais"
       description={
         monthSurplus != null
-          ? `Saldo deste mês nos lançamentos: ${formatBRL(monthSurplus)} — destino natural das metas financeiras.`
+          ? `Saldo deste mês nos lançamentos: ${formatBRL(monthSurplus)}, destino natural das metas financeiras.`
           : "Acompanhe seu progresso em objetivos de vida."
       }
       actions={
@@ -765,17 +757,25 @@ export default function Goals() {
           if (!next) setDestinarGoal(null);
         }}
       >
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>Destinar valor à meta</DialogTitle>
-          </DialogHeader>
+        <FormDialogShell
+          title="Destinar valor à meta"
+          description="Registra um aporte em Investimento · Meta e atualiza o progresso."
+          footer={
+            <FormFooter
+              onCancel={() => setDestinarGoal(null)}
+              onSubmit={() => void handleDestinarConfirm()}
+              submitLabel={
+                destinarBusy ? "Destinando…" : "Destinar e registrar lançamento"
+              }
+              loading={destinarBusy}
+              submitDisabled={destinarMax <= 0}
+            />
+          }
+        >
           {destinarGoal && destinarFit ? (
-            <div className={FORM_FIELDS_CLASS}>
+            <FormSection title="Aporte">
               <p className="text-sm text-muted-foreground">
-                Lança um aporte na natureza{" "}
-                <span className="font-medium text-foreground">Investimento</span>
-                , categoria{" "}
-                <span className="font-medium text-foreground">Meta</span>, subcategoria{" "}
+                Subcategoria{" "}
                 <span className="font-medium text-foreground">
                   {destinarGoal.title.trim()}
                 </span>{" "}
@@ -783,8 +783,7 @@ export default function Goals() {
                 <span className="font-medium text-foreground">
                   {goalMetaClassName(destinarGoal.title)}
                 </span>
-                ) e atualiza o progresso. Escolha quanto do saldo vai para esta
-                meta — o resto fica livre para outras.
+                ).
               </p>
               <p className="text-xs text-muted-foreground">
                 Saldo do mês:{" "}
@@ -802,14 +801,13 @@ export default function Goals() {
                   {formatBRL(destinarMax)}
                 </span>
               </p>
-              <div>
-                <FormLabel required>Valor do aporte</FormLabel>
+              <FormField label="Valor do aporte" required>
                 <MoneyInput
                   value={destinarAmount}
                   onChange={setDestinarAmount}
                   placeholder="0,00"
                 />
-              </div>
+              </FormField>
               {destinarPresets.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {destinarPresets.map((preset) => (
@@ -826,16 +824,9 @@ export default function Goals() {
                   ))}
                 </div>
               ) : null}
-              <Button
-                onClick={() => void handleDestinarConfirm()}
-                disabled={destinarBusy || destinarMax <= 0}
-                className="w-full"
-              >
-                {destinarBusy ? "Destinando…" : "Destinar e registrar lançamento"}
-              </Button>
-            </div>
+            </FormSection>
           ) : null}
-        </DialogContent>
+        </FormDialogShell>
       </Dialog>
 
       <Dialog
@@ -844,41 +835,56 @@ export default function Goals() {
           if (!next) setPoupancaGoal(null);
         }}
       >
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>Rotina em Recorrências (Meta)</DialogTitle>
-          </DialogHeader>
+        <FormDialogShell
+          title="Rotina em Recorrências (Meta)"
+          description="Planeje aportes mensais até fechar a falta da meta."
+          footer={
+            <FormFooter
+              onCancel={() => setPoupancaGoal(null)}
+              onSubmit={() => void handleCreatePoupançaRoutine()}
+              submitLabel={
+                poupancaBusy ? "Criando…" : "Criar em recorrências"
+              }
+              loading={poupancaBusy}
+              submitDisabled={
+                !routineDraft ||
+                routineDraft.monthlyAmount <= 0 ||
+                routineDraft.installments <= 0
+              }
+            />
+          }
+        >
           {poupancaGoal && routineDraft ? (
-            <div className={FORM_FIELDS_CLASS}>
+            <FormSection title="Planejamento">
               <p className="text-sm text-muted-foreground">
-                Você informa quanto planeja investir por mês. O app usa a{" "}
+                Falta atual:{" "}
                 <span className="font-medium text-foreground">
-                  falta atual da meta ({formatBRL(routineDraft.remaining)})
-                </span>{" "}
-                para calcular quantas parcelas criar no categoria Meta ·{" "}
-                {poupancaGoal.title.trim()} (descrição{" "}
-                {goalMetaClassName(poupancaGoal.title)}).
+                  {formatBRL(routineDraft.remaining)}
+                </span>
+                {" · "}
+                Meta · {poupancaGoal.title.trim()} (
+                {goalMetaClassName(poupancaGoal.title)})
               </p>
-              <div>
-                <FormLabel required>Valor planejado / mês</FormLabel>
-                <MoneyInput
-                  value={routineMonthly}
-                  onChange={setRoutineMonthly}
-                  placeholder="0,00"
-                />
-              </div>
-              <div>
-                <FormLabel required>Dia do vencimento</FormLabel>
-                <Input
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={poupancaDueDay}
-                  onChange={(e) =>
-                    setPoupancaDueDay(Number(e.target.value) || 1)
-                  }
-                />
-              </div>
+              <FormFieldRow>
+                <FormField label="Valor planejado / mês" required>
+                  <MoneyInput
+                    value={routineMonthly}
+                    onChange={setRoutineMonthly}
+                    placeholder="0,00"
+                  />
+                </FormField>
+                <FormField label="Dia do vencimento" required>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={poupancaDueDay}
+                    onChange={(e) =>
+                      setPoupancaDueDay(Number(e.target.value) || 1)
+                    }
+                  />
+                </FormField>
+              </FormFieldRow>
               {routineDraft.monthlyAmount > 0 ? (
                 <p className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
                   <span className="font-medium tabular-nums">
@@ -903,23 +909,12 @@ export default function Goals() {
                   meta.
                 </p>
               )}
-              <Button
-                onClick={() => void handleCreatePoupançaRoutine()}
-                disabled={
-                  poupancaBusy ||
-                  routineDraft.monthlyAmount <= 0 ||
-                  routineDraft.installments <= 0
-                }
-                className="w-full"
-              >
-                {poupancaBusy ? "Criando…" : "Criar em recorrências"}
-              </Button>
               <Button variant="link" className="h-auto p-0 text-xs" asChild>
                 <Link to="/finance/recurring">Abrir Recorrências</Link>
               </Button>
-            </div>
+            </FormSection>
           ) : null}
-        </DialogContent>
+        </FormDialogShell>
       </Dialog>
     </PageShell>
   );

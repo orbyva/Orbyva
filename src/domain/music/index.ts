@@ -137,9 +137,9 @@ export function getAlbumRatingLabel(rating: number): string {
 
 export function getDisplayAlbumScore(album: Album): string | number {
   if (album.status === "listened") {
-    return album.rating != null ? formatAlbumRating(album.rating) : "—";
+    return album.rating != null ? formatAlbumRating(album.rating) : "·";
   }
-  return "—";
+  return "·";
 }
 
 export function getAlbumCardRating(album: Album): string | null {
@@ -269,7 +269,7 @@ export function newManualAlbumId(): string {
 }
 
 export function formatTrackLength(lengthMs: number | null): string {
-  if (lengthMs == null || lengthMs <= 0) return "—";
+  if (lengthMs == null || lengthMs <= 0) return "·";
   const totalSec = Math.round(lengthMs / 1000);
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
@@ -289,7 +289,7 @@ export function parseAlbumSearchQuery(raw: string): {
     return { title: byMatch[1].trim(), artists: byMatch[2].trim() };
   }
 
-  const dashParts = q.split(/\s+[-–—]\s+/);
+  const dashParts = q.split(/\s+[-–, ]\s+/);
   if (dashParts.length === 2 && dashParts[0] && dashParts[1]) {
     // Padrão comum: "Artista - Álbum"
     return { title: dashParts[1].trim(), artists: dashParts[0].trim() };
