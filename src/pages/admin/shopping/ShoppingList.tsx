@@ -1,0 +1,281 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pen, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { EmptyState } from "@/components/EmptyState";
+import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import { PageShell } from "@/components/PageShell";
+import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
+import {
+  deleteShoppingCategory,
+  fetchShoppingCategories,
+} from "@/api/shopping/categories";
+import { deleteShoppingItem, fetchShoppingItems } from "@/api/shopping/items";
+import {
+  countPendingByCategory,
+  groupItemsByCategory,
+} from "@/domain/shopping/filters";
+import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
+import type {
+  ShoppingCategory,
+  ShoppingItem,
+  ShoppingItemStatus,
+} from "@/types/shopping";
+import { ShoppingCategoryDialog } from "./ShoppingCategoryDialog";
+import { ShoppingItemDialog } from "./ShoppingItemDialog";
+import { ShoppingItemRow } from "./ShoppingItemRow";
+
+function categoryDeleteDescription(itemCount: number): string {
+  if (itemCount === 0) return "A categoria não tem itens.";
+  if (itemCount === 1) return "1 item dela também será excluído.";
+  return `${itemCount} itens dela também serão excluídos.`;
+}
+
+export default function ShoppingList() {
+  const [categories, setCategories] = useState<ShoppingCategory[]>([]);
+  const [items, setItems] = useState<ShoppingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] =
+    useState<ShoppingCategory | null>(null);
+  const [itemDialogOpen, setItemDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
+  const [itemDialogCategoryId, setItemDialogCategoryId] = useState<
+    string | null
+  >(null);
+  const { toast } = useToast();
+
+  const load = useCallback(async () => {
+    try {
+      const [categoryList, itemList] = await Promise.all([
+        fetchShoppingCategories(),
+        fetchShoppingItems(),
+      ]);
+      setCategories(categoryList);
+      setItems(itemList);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(
+          error,
+          "Não foi possível carregar a lista de compras."
+        ),
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const groups = useMemo(
+    () => groupItemsByCategory(items, categories),
+    [items, categories]
+  );
+  const pendingByCategory = useMemo(
+    () => countPendingByCategory(items),
+    [items]
+  );
+
+  function openCreateCategory() {
+    setEditingCategory(null);
+    setCategoryDialogOpen(true);
+  }
+
+  function openEditCategory(category: ShoppingCategory) {
+    setEditingCategory(category);
+    setCategoryDialogOpen(true);
+  }
+
+  function openCreateItem(categoryId?: string) {
+    setEditingItem(null);
+    setItemDialogCategoryId(categoryId ?? null);
+    setItemDialogOpen(true);
+  }
+
+  function openEditItem(item: ShoppingItem) {
+    setEditingItem(item);
+    setItemDialogCategoryId(item.shopping_category_id);
+    setItemDialogOpen(true);
+  }
+
+  function handleStatusChange(id: string, status: ShoppingItemStatus) {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, status } : item))
+    );
+  }
+
+  async function handleDeleteCategory(id: string) {
+    try {
+      await deleteShoppingCategory(id);
+      toast({ title: "Categoria excluída", duration: 2000 });
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(
+          error,
+          "Não foi possível excluir a categoria."
+        ),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleDeleteItem(id: string) {
+    try {
+      await deleteShoppingItem(id);
+      toast({ title: "Item excluído", duration: 2000 });
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível excluir o item."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  return (
+    <PageShell
+      title="Lista de Compras"
+      description="Agrupe o que você precisa comprar por categoria e marque o que já comprou."
+      actions={
+        <>
+          <Button variant="outline" onClick={openCreateCategory}>
+            Nova categoria
+          </Button>
+          <Button
+            onClick={() => openCreateItem()}
+            disabled={categories.length === 0}
+          >
+            Novo item
+          </Button>
+        </>
+      }
+    >
+      {loading ? (
+        <TableLoadingSkeleton rows={4} />
+      ) : categories.length === 0 ? (
+        <EmptyState
+          icon={ShoppingCart}
+          title="Nenhuma categoria ainda"
+          description="Crie uma categoria (Mercado, Casa nova…) para começar a listar o que precisa comprar."
+          action={<Button onClick={openCreateCategory}>Nova categoria</Button>}
+        />
+      ) : (
+        <div className="space-y-4">
+          {groups.map(({ category, items: categoryItems }) => (
+            <section
+              key={category.id}
+              className="space-y-2.5 rounded-xl border bg-card p-3.5 shadow-sm sm:p-5"
+              style={
+                category.color
+                  ? { borderLeft: `3px solid ${category.color}` }
+                  : undefined
+              }
+            >
+              <header className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    {category.color && (
+                      <span
+                        aria-hidden="true"
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: category.color }}
+                      />
+                    )}
+                    <h2 className="truncate font-semibold">{category.name}</h2>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      {pendingByCategory[category.id] ?? 0} pendente
+                      {(pendingByCategory[category.id] ?? 0) === 1 ? "" : "s"}
+                    </Badge>
+                  </div>
+                  {category.description && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {category.description}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-8 w-8 ${ICON_EDIT_BUTTON_CLASS}`}
+                    onClick={() => openCreateItem(category.id)}
+                    aria-label={`Adicionar item em ${category.name}`}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-8 w-8 ${ICON_EDIT_BUTTON_CLASS}`}
+                    onClick={() => openEditCategory(category)}
+                    aria-label={`Editar categoria ${category.name}`}
+                  >
+                    <Pen className="h-3.5 w-3.5" />
+                  </Button>
+                  <ConfirmDeleteDialog
+                    title="Excluir esta categoria?"
+                    description={categoryDeleteDescription(
+                      categoryItems.length
+                    )}
+                    onConfirm={() => handleDeleteCategory(category.id)}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive"
+                      aria-label={`Excluir categoria ${category.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </ConfirmDeleteDialog>
+                </div>
+              </header>
+
+              {categoryItems.length === 0 ? (
+                <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                  Nenhum item nesta categoria ainda.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {categoryItems.map((item) => (
+                    <ShoppingItemRow
+                      key={item.id}
+                      item={item}
+                      onStatusChange={handleStatusChange}
+                      onEdit={() => openEditItem(item)}
+                      onDelete={() => handleDeleteItem(item.id)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
+
+      <ShoppingCategoryDialog
+        open={categoryDialogOpen}
+        onOpenChange={setCategoryDialogOpen}
+        category={editingCategory}
+        onSaved={load}
+      />
+      <ShoppingItemDialog
+        open={itemDialogOpen}
+        onOpenChange={setItemDialogOpen}
+        item={editingItem}
+        categories={categories}
+        defaultCategoryId={itemDialogCategoryId}
+        onSaved={load}
+      />
+    </PageShell>
+  );
+}

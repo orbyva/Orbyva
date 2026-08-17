@@ -1,5 +1,10 @@
 import { lazy, Suspense } from "react";
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+  type RouteObject,
+} from "react-router-dom";
 
 import ProtectedRoute from "./ProtectedRoute";
 import LoadingFallback from "./components/LoadingFallback";
@@ -36,6 +41,7 @@ const TaskProjectDetail = lazy(() => import("./pages/admin/tasks/ProjectDetail")
 const TasksLive = lazy(() => import("./pages/admin/tasks/Live"));
 const TasksAgenda = lazy(() => import("./pages/admin/tasks/AgendaCalendar"));
 const TasksTags = lazy(() => import("./pages/admin/tasks/Tags"));
+const ShoppingList = lazy(() => import("./pages/admin/shopping/ShoppingList"));
 
 const withSuspense = (Component: React.ReactNode) => (
   <Suspense fallback={<LoadingFallback />}>{Component}</Suspense>
@@ -65,7 +71,8 @@ const PrivacyPage = lazy(() =>
 const AboutPage = lazy(() => import("./pages/About"));
 const InviteAccept = lazy(() => import("./pages/InviteAccept"));
 
-const router = createBrowserRouter([
+/** Exportado para os testes conseguirem resolver uma URL sem subir o browser router. */
+export const appRoutes: RouteObject[] = [
   {
     path: "/",
     element: <LandingEntry />,
@@ -133,6 +140,8 @@ const router = createBrowserRouter([
             ],
           },
 
+          { path: "shopping-list", element: <ShoppingList /> },
+
           {
             path: "finance",
             children: [
@@ -162,7 +171,9 @@ const router = createBrowserRouter([
     path: "*",
     element: withSuspense(<NotFound />),
   },
-]);
+];
+
+const router = createBrowserRouter(appRoutes);
 
 export default function AppRouter() {
   return <RouterProvider router={router} />;
