@@ -41,7 +41,9 @@ Depende da 050 (tabelas, página e API do núcleo).
 - [x] `src/api/tasks/tasks.ts`: em `updateTask`, quando a tarefa tem `linked_shopping_item_id` e o `status` muda de/para `done`, sincronizar o item (grava direto em `shopping_item`, em `try/catch` que só loga) — mesmo formato do bloco que já sincroniza Recorrência Financeira. Verificação: `npm run build && npm run lint`.
 - [x] `src/pages/admin/shopping/ShoppingItemRow.tsx`: botão "Criar tarefa" quando o item não tem vínculo (chama `createTaskFromShoppingItem`, toast de sucesso com o título da tarefa); quando já tem, no lugar dele um badge "Tarefa" com o `TaskIconBadge` do ícone de compras, clicável, que leva à tarefa. Verificação: `npm run build && npm run lint`.
 - [x] `src/pages/admin/shopping/ShoppingList.tsx`: carregar os vínculos com uma chamada a `fetchTaskLinksForItems` após carregar os itens e repassar o mapa às linhas. Verificação: ~~aba Network do navegador~~ teste que conta as chamadas de vínculo num carregamento com muitos itens e afirma que é exatamente **1**, independentemente da quantidade de itens (navegador está fora deste fluxo, ver Notas).
-- [ ] Verificação fim a fim automatizada (substitui a manual, mesmo padrão de `ShoppingList.flow.test.tsx` da 050): backend falso em memória que imita o schema (inclusive `on delete set null`) — criar item → "Criar tarefa" → a tarefa existe com `icon_key: "shopping-cart"` e `linked_shopping_item_id`; concluir a tarefa e conferir que o item vira `purchased`; desmarcar o item e conferir que a tarefa volta a `todo`; excluir a tarefa e conferir que o item continua na lista, sem vínculo; excluir um item vinculado e conferir que a tarefa continua existindo, com o vínculo nulo.
+- [x] Verificação fim a fim automatizada (substitui a manual, mesmo padrão de `ShoppingList.flow.test.tsx` da 050): backend falso em memória que imita o schema (inclusive `on delete set null`) — criar item → "Criar tarefa" → a tarefa existe com `icon_key: "shopping-cart"` e `linked_shopping_item_id`; concluir a tarefa e conferir que o item vira `purchased`; desmarcar o item e conferir que a tarefa volta a `todo`; excluir a tarefa e conferir que o item continua na lista, sem vínculo; excluir um item vinculado e conferir que a tarefa continua existindo, com o vínculo nulo.
+
+- [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260816140000_task_shopping_item_link.sql` no banco remoto (`supabase db push`), junto com a da 050. Até lá `task.linked_shopping_item_id` não existe no banco real e o botão "Criar tarefa" falha. Depois de aplicada, um teste de fumaça na conta real fecha a feature.
 
 ## Prompts
 
@@ -62,7 +64,39 @@ Depende da 050 (tabelas, página e API do núcleo).
   categoria apaga o item sem apagar a tarefa (vínculo vira `NULL`); RLS de `task` segue ligada com
   4 policies. Reaplicar a migration é idempotente. **Continua pendente de `supabase db push` pelo
   usuário no banco remoto** (a 050 também está).
+- **Checagem de satisfação — rastreabilidade** (2026-08-16). Cada pedaço do recorte do `prompt:`
+  com o artefato que o comprova:
+  - "CRIAR UMA TAREFA A PARTIR DE UM ITEM NA LISTA DE COMPRAS" → botão na linha do item
+    (`ShoppingItemRow.test.tsx`: "clicar em 'Criar tarefa' chama a API com o id do item…") e a
+    inserção real em `task` (`shopping-task-link.test.ts`: "insere em `task` uma tarefa com o
+    ícone de compras e o vínculo com o item"; fluxo fim a fim em
+    `ShoppingList.task-link.flow.test.tsx`).
+  - "PARA ME COMPROMETER A COMPRÁ-LO EM UMA TAREFA DESIGNADA" → título "Comprar <item>",
+    relação 1:1 (com tarefa, o botão some e vira atalho) e sincronização nos dois sentidos:
+    `updateTask-shopping-sync.test.ts` (tarefa → item) e `shopping-task-link.test.ts`
+    (item → tarefa). Os dois foram checados por mutação: desligando cada `sync`, 5 testes
+    quebram em cada direção — não passam à toa.
+  - "ESSA TAREFA JÁ DEVE TER O ÍCONE VINCULADO" → `icon_key: "shopping-cart"` gravado na criação
+    (`taskLink.test.ts`: "grava sempre o ícone de compras, e essa chave existe no catálogo de
+    presets"), preset no grid (`TaskIconPicker.test.tsx`) e o ícone renderizado no atalho da
+    linha (`ShoppingItemRow.test.tsx`, `svg[aria-label="Compra"]`).
+  - Integridade do vínculo (`on delete set null`) → 8 assertivas no Postgres em Docker (nota
+    acima) + o fluxo fim a fim, que confere que excluir o item ou a categoria preserva a tarefa
+    com o vínculo nulo.
+- **Suíte completa (2026-08-16): 836 testes passando, 2 falhando** — as 2 falhas são as mesmas
+  pré-existentes e alheias registradas na 050 (`src/lib/__tests__/currency.test.ts` espera "—" e
+  `src/lib/currency.ts` devolve "·"); nenhum arquivo de moeda/data foi tocado aqui. Eram 782
+  passando ao fim da 050.
+- **A feature segue em `in-progress/`, não em `done/`** (desvio próprio, mesmo motivo da 050): a
+  migration ainda não foi aplicada no banco remoto — `supabase db push` só com autorização do
+  usuário —, então virou a tarefa final, explicitamente aguardando. Todo o resto está verificado.
 - **Verificações de navegador viraram teste** (2026-08-16, desvio próprio): duas tarefas pediam
   conferência manual (aba Network em `ShoppingList.tsx`, roteiro fim a fim). Navegador está fora
   deste fluxo, então viraram asserções de código — contagem de chamadas de vínculo por
   carregamento e um teste de fluxo contra backend falso, no mesmo padrão da 050.
+- **Não há rota de tarefa individual no app** (`/tasks` não aceita `?task=<id>`), então o atalho
+  da linha do item leva a `/tasks` e carrega o título da tarefa no `aria-label`/`title`. Criar
+  deep link para uma tarefa é mudança na página de Tarefas, fora do escopo desta feature.
+- `SHOPPING_TASK_ICON_KEY` mora em `src/domain/shopping/taskLink.ts`, não em `TaskIconBadge.tsx`:
+  a camada de domínio é quem grava a chave e não pode depender de um componente de UI (ver o
+  padrão de camadas em `docs/stack.md`).
