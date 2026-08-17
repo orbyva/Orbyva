@@ -23,7 +23,7 @@ O usuário quer acompanhar ingestão de água e alimentação dentro do cuidado 
 
 ## Tarefas
 - [x] Criar a migration `supabase/migrations/20260816200000_habit_is_health.sql` adicionando `is_health boolean not null default false` em `public.habit` (a tabela já tem RLS por `user_id`; a coluna não altera as políticas) — validada por `supabase/tests/habit_is_health/run.sh`
-- [ ] Adicionar `is_health?: boolean` ao tipo `Habit` em `src/types/` (arquivo onde `Habit` está declarado hoje) e propagar em `createHabit`/`updateHabit` em `src/api/habits.ts`
+- [x] Adicionar `is_health?: boolean` ao tipo `Habit` em `src/types/` (arquivo onde `Habit` está declarado hoje) e propagar em `createHabit`/`updateHabit` em `src/api/habits.ts` — coberto por `src/api/__tests__/habits.is-health.test.ts` (5 testes)
 - [ ] Adicionar `fetchHealthHabitsToday(): Promise<{ habit: Habit; doneToday: boolean }[]>` em `src/api/health.ts`, filtrando `habit.is_health = true` e cruzando com `habit_log` da data de hoje
 - [ ] Adicionar a seção "Hoje" ao `HealthDashboard.tsx` (criado na 060): lista dos hábitos de saúde com contador "X de N concluídos" e um botão de check-in por hábito, que grava em `habit_log` e atualiza a lista sem recarregar a página; erros via `useToast` + `getErrorMessage`
 - [ ] Adicionar ao dashboard o atalho "Novo hábito de saúde", abrindo o formulário de hábito existente já com `is_health: true` e com sugestões de nome ("Beber água", "Comer frutas", "Comer proteína")
