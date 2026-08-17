@@ -111,12 +111,12 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
       reaplicação idempotente. Verificação: `bash supabase/tests/notes_core/run.sh`.
       (Substitui a verificação manual pós-`db push`: a skill `next` proíbe navegador e o parent
       proíbe `db push`. O check no banco real depois do push ficou registrado em `## Notas`.)
-- [ ] Criar `src/types/notes.ts` com `Note` (campos da tabela, `project_id: string | null`) e
+- [x] Criar `src/types/notes.ts` com `Note` (campos da tabela, `project_id: string | null`) e
       `NoteDraft` (payload de create/update). Tipos definidos uma vez, reusados por api+domain.
-- [ ] Criar `src/domain/notes/noteDraft.ts` (exports nomeados, funções puras, sem I/O):
+- [x] Criar `src/domain/notes/noteDraft.ts` (exports nomeados, funções puras, sem I/O):
       `normalizeNoteDraft` (trim de título, título vazio vira `Sem título`, limite de tamanho) e
       `noteExcerpt(content, max)` (primeira linha não-vazia sem marcação, para o card da lista).
-- [ ] Criar `src/domain/notes/__tests__/noteDraft.test.ts` (Vitest) cobrindo: título só-espaços,
+- [x] Criar `src/domain/notes/__tests__/noteDraft.test.ts` (Vitest) cobrindo: título só-espaços,
       excerpt ignorando linhas de `#`/`-`, excerpt truncando sem cortar palavra no meio.
       Verificação: `npm test`.
 - [ ] Criar `src/api/notes/notes.ts`: `fetchNotes({ projectId? })`, `fetchNote(id)`, `createNote`,
