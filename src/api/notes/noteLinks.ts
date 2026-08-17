@@ -40,17 +40,36 @@ export async function fetchNotesLinkedTo(
   entityType: NoteLinkEntityType,
   entityId: string
 ): Promise<Note[]> {
+  const byEntity = await fetchNotesLinkedToMany(entityType, [entityId]);
+  return byEntity[entityId] ?? [];
+}
+
+/**
+ * A mesma consulta reversa para **várias** entidades de uma vez, agrupada por `entity_id`.
+ *
+ * Existe porque a lista de metas mostra as notas de cada meta: uma chamada por card seria uma ida
+ * ao banco por meta na abertura da página. Aqui são duas, independentemente de quantas entidades.
+ * `fetchNotesLinkedTo` é o caso de uma entidade só, delegando para cá — implementação única.
+ */
+export async function fetchNotesLinkedToMany(
+  entityType: NoteLinkEntityType,
+  entityIds: readonly string[]
+): Promise<Record<string, Note[]>> {
+  const ids = [...new Set(entityIds.filter(Boolean))];
+  if (ids.length === 0) return {};
+
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("note_link")
-    .select("note_id")
+    .select("note_id, entity_id")
     .eq("user_id", userId)
     .eq("entity_type", entityType)
-    .eq("entity_id", entityId);
+    .in("entity_id", ids);
   if (error) throw new Error(error.message);
 
-  const noteIds = [...new Set((data ?? []).map((row) => row.note_id))];
-  if (noteIds.length === 0) return [];
+  const rows = data ?? [];
+  const noteIds = [...new Set(rows.map((row) => row.note_id))];
+  if (noteIds.length === 0) return {};
 
   const { data: notes, error: notesError } = await supabase
     .from("note")
@@ -59,7 +78,20 @@ export async function fetchNotesLinkedTo(
     .in("id", noteIds)
     .order("updated_at", { ascending: false });
   if (notesError) throw new Error(notesError.message);
-  return notes ?? [];
+
+  const byId = new Map((notes ?? []).map((note) => [note.id, note]));
+  const grouped: Record<string, Note[]> = {};
+  for (const row of rows) {
+    const note = byId.get(row.note_id);
+    // Nota invisível pela RLS (ou apagada entre as duas consultas) não entra na lista.
+    if (!note) continue;
+    const bucket = (grouped[row.entity_id] ??= []);
+    // A mesma nota pode ter dois vínculos para a mesma entidade? O `unique` do banco impede — mas
+    // duas linhas de tipos diferentes com o mesmo `entity_id` não, e o filtro por tipo acima já
+    // resolve. Este `some` é a rede para o caso de a consulta mudar.
+    if (!bucket.some((existing) => existing.id === note.id)) bucket.push(note);
+  }
+  return grouped;
 }
 
 /**

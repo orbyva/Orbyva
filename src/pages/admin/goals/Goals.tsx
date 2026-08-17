@@ -56,7 +56,10 @@ import {
   resolveSyncedGoalProgress,
 } from "@/domain/goals/finance";
 import { ensureGoalMetaClass } from "@/domain/goals/poupanca";
+import { fetchNotesLinkedToMany } from "@/api/notes/noteLinks";
+import { EntityNotesSection } from "@/pages/admin/notes/EntityNotesSection";
 import type { GoalCategory, PersonalGoal, PersonalGoalCreateRequest } from "@/types/goals";
+import type { Note } from "@/types/notes";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { formatDateBR, formatBRL } from "@/lib/currency";
@@ -77,6 +80,7 @@ const emptyGoal = (): PersonalGoalCreateRequest => ({
 const GoalsGrid = memo(function GoalsGrid({
   goals,
   monthSurplus,
+  notesByGoal,
   onEdit,
   onDelete,
   onDestinar,
@@ -85,6 +89,8 @@ const GoalsGrid = memo(function GoalsGrid({
 }: {
   goals: PersonalGoal[];
   monthSurplus: number | null;
+  /** Notas vinculadas a cada meta (`note_link`, feature 056) — carregadas de uma vez pela página. */
+  notesByGoal: Record<string, Note[]>;
   onEdit: (goal: PersonalGoal) => void;
   onDelete: (id: string) => void | Promise<void>;
   onDestinar: (goal: PersonalGoal) => void;
@@ -242,6 +248,9 @@ const GoalsGrid = memo(function GoalsGrid({
                 </div>
               </div>
             ) : null}
+
+            {/* Vínculo no sentido inverso: as notas que falam desta meta (feature 056). */}
+            <EntityNotesSection notes={notesByGoal[goal.id] ?? []} />
           </article>
         );
       })}
@@ -378,6 +387,7 @@ function GoalFormDialog({
 
 export default function Goals() {
   const [goals, setGoals] = useState<PersonalGoal[]>([]);
+  const [notesByGoal, setNotesByGoal] = useState<Record<string, Note[]>>({});
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PersonalGoal | null>(null);
@@ -419,6 +429,15 @@ export default function Goals() {
         ).catch(() => null),
       ]);
       setGoals(list);
+      // As notas vinculadas às metas entram numa consulta só, depois de saber quais metas existem —
+      // uma chamada por card seria uma ida ao banco por meta. Falhar aqui não pode derrubar a
+      // página: nota é informação acessória da meta.
+      fetchNotesLinkedToMany(
+        "goal",
+        list.map((goal) => goal.id)
+      )
+        .then(setNotesByGoal)
+        .catch(() => setNotesByGoal({}));
       if (month) {
         setMonthSurplus(
           Number(month.receita_total || 0) - Number(month.despesa_total || 0)
@@ -735,6 +754,7 @@ export default function Goals() {
         <GoalsGrid
           goals={activeGoals}
           monthSurplus={monthSurplus}
+          notesByGoal={notesByGoal}
           onEdit={openEdit}
           onDelete={handleDelete}
           onDestinar={openDestinar}

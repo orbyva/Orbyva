@@ -229,10 +229,21 @@ Depende de: 055 (tabela `note`).
       vira toast destrutivo em vez de tela quebrada. Mais 4 testes de `mentionsWikiTitle` e 6 de
       API (`fetchNotesMentioning` escapando `%`/`_` do LIKE e não indo ao banco com título vazio;
       `fetchNotesSharingEntity` descartando par `(tipo, id)` que não bate e não consultando à toa).
-- [ ] Mostrar o vínculo no sentido inverso em pelo menos uma entidade não-projeto para provar o
+- [x] Mostrar o vínculo no sentido inverso em pelo menos uma entidade não-projeto para provar o
       padrão: seção "Notas" em `src/pages/admin/goals/Goals.tsx` (ou no detalhe de meta), usando
       `fetchNotesLinkedTo("goal", id)`. Verificação manual: criar vínculo pelo editor e ver a nota
       aparecer do outro lado.
+      Feito: `src/pages/admin/notes/EntityNotesSection.tsx` (apresentacional, reusável por qualquer
+      módulo) dentro do card da meta em `Goals.tsx`. Ajuste do plano: a página é uma **lista**, e
+      `fetchNotesLinkedTo` por card seria uma consulta por meta — entrou
+      `fetchNotesLinkedToMany("goal", ids)`, duas consultas para a página inteira, e
+      `fetchNotesLinkedTo` passou a delegar para ela (implementação única).
+      Verificação: `src/pages/admin/goals/__tests__/Goals.notes.test.tsx` (4 testes) — a nota
+      vinculada aparece no card **da sua** meta com link para `/notes/n1`, a carga é uma chamada só
+      com `type: "goal"` e todos os ids, meta sem nota não ganha bloco vazio, e falha na busca das
+      notas não derruba a página. Mais 2 testes de `fetchNotesLinkedToMany` na camada de API
+      (agrupamento por entidade, id repetido consultado uma vez, nota escondida pela RLS fora do
+      grupo).
 - [ ] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle`.
 
 ## Prompts

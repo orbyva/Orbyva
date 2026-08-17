@@ -3,6 +3,7 @@ import {
   addNoteLink,
   fetchLinksForNote,
   fetchNotesLinkedTo,
+  fetchNotesLinkedToMany,
   fetchNotesSharingEntity,
   removeNoteLink,
 } from "@/api/notes/noteLinks";
@@ -123,7 +124,13 @@ describe("api/noteLinks", () => {
   it("fetchNotesLinkedTo consulta o vínculo pela entidade e depois busca as notas pelos ids", async () => {
     const note = { id: "n1", title: "Materiais", content: "", project_id: null };
     results = [
-      { data: [{ note_id: "n1" }, { note_id: "n2" }], error: null },
+      {
+        data: [
+          { note_id: "n1", entity_id: "g1" },
+          { note_id: "n2", entity_id: "g1" },
+        ],
+        error: null,
+      },
       { data: [note], error: null },
     ];
 
@@ -131,12 +138,12 @@ describe("api/noteLinks", () => {
 
     const [linkQuery, noteQuery] = calls;
     expect(linkQuery.table).toBe("note_link");
-    expect(linkQuery.select).toBe("note_id");
+    expect(linkQuery.select).toBe("note_id, entity_id");
     expect(linkQuery.eq).toEqual([
       ["user_id", "user-1"],
       ["entity_type", "goal"],
-      ["entity_id", "g1"],
     ]);
+    expect(linkQuery.in).toEqual(["entity_id", ["g1"]]);
     // A segunda consulta é escopada no usuário também: id vindo do vínculo não é passe livre.
     expect(noteQuery.table).toBe("note");
     expect(noteQuery.eq).toEqual([["user_id", "user-1"]]);
@@ -151,12 +158,49 @@ describe("api/noteLinks", () => {
   });
 
   it("fetchNotesLinkedTo não repete id quando duas linhas apontam para a mesma nota", async () => {
+    const note = { id: "n1", title: "Duna", content: "", project_id: null };
     results = [
-      { data: [{ note_id: "n1" }, { note_id: "n1" }], error: null },
-      { data: [], error: null },
+      {
+        data: [
+          { note_id: "n1", entity_id: "b1" },
+          { note_id: "n1", entity_id: "b1" },
+        ],
+        error: null,
+      },
+      { data: [note], error: null },
     ];
-    await fetchNotesLinkedTo("book", "b1");
+    await expect(fetchNotesLinkedTo("book", "b1")).resolves.toEqual([note]);
     expect(calls[1].in).toEqual(["id", ["n1"]]);
+  });
+
+  it("fetchNotesLinkedToMany agrupa as notas por entidade numa consulta só", async () => {
+    const treino = { id: "n1", title: "Planilha de treinos", content: "", project_id: null };
+    const leitura = { id: "n2", title: "Lista de leitura", content: "", project_id: null };
+    results = [
+      {
+        data: [
+          { note_id: "n1", entity_id: "g1" },
+          { note_id: "n2", entity_id: "g2" },
+          // Nota que a RLS escondeu: não pode aparecer em grupo nenhum.
+          { note_id: "n9", entity_id: "g1" },
+        ],
+        error: null,
+      },
+      { data: [treino, leitura], error: null },
+    ];
+
+    await expect(
+      fetchNotesLinkedToMany("goal", ["g1", "g2", "g1"])
+    ).resolves.toEqual({ g1: [treino], g2: [leitura] });
+
+    // Ids repetidos entram uma vez só na consulta.
+    expect(calls[0].in).toEqual(["entity_id", ["g1", "g2"]]);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("fetchNotesLinkedToMany sem entidade nenhuma nem consulta", async () => {
+    await expect(fetchNotesLinkedToMany("goal", [])).resolves.toEqual({});
+    expect(calls).toHaveLength(0);
   });
 
   it("addNoteLink injeta o user_id e devolve a linha criada", async () => {
