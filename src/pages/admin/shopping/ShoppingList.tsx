@@ -17,6 +17,7 @@ import {
   fetchTaskLinksForItems,
 } from "@/api/shopping/items";
 import type { ShoppingItemTaskLink } from "@/api/shopping/items";
+import { fetchProjects } from "@/api/tasks/projects";
 import {
   countPendingByCategory,
   groupItemsByCategory,
@@ -28,6 +29,7 @@ import type {
   ShoppingItem,
   ShoppingItemStatus,
 } from "@/types/shopping";
+import type { Project } from "@/types/tasks";
 import { ShoppingCategoryDialog } from "./ShoppingCategoryDialog";
 import { ShoppingItemDialog } from "./ShoppingItemDialog";
 import { ShoppingItemRow } from "./ShoppingItemRow";
@@ -41,6 +43,8 @@ function categoryDeleteDescription(itemCount: number): string {
 export default function ShoppingList() {
   const [categories, setCategories] = useState<ShoppingCategory[]>([]);
   const [items, setItems] = useState<ShoppingItem[]>([]);
+  /** Projetos disponíveis — alimentam o filtro da página e o campo "Projeto" da categoria. */
+  const [projects, setProjects] = useState<Project[]>([]);
   /** Quais itens já viraram tarefa — carregado numa consulta só por load, nunca por item. */
   const [taskLinks, setTaskLinks] = useState<Map<string, ShoppingItemTaskLink>>(
     new Map()
@@ -58,12 +62,14 @@ export default function ShoppingList() {
 
   const load = useCallback(async () => {
     try {
-      const [categoryList, itemList] = await Promise.all([
+      const [categoryList, itemList, projectList] = await Promise.all([
         fetchShoppingCategories(),
         fetchShoppingItems(),
+        fetchProjects(),
       ]);
       setCategories(categoryList);
       setItems(itemList);
+      setProjects(projectList);
       // Uma única consulta `in (<ids da página>)` para descobrir quais itens já têm tarefa —
       // não uma por linha (ver Decisões da feature 051).
       setTaskLinks(await fetchTaskLinksForItems(itemList.map((item) => item.id)));
@@ -295,6 +301,7 @@ export default function ShoppingList() {
         open={categoryDialogOpen}
         onOpenChange={setCategoryDialogOpen}
         category={editingCategory}
+        projects={projects}
         onSaved={load}
       />
       <ShoppingItemDialog

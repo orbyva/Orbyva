@@ -33,6 +33,17 @@ vi.mock("@/api/shopping/items", () => ({
   createTaskFromShoppingItem: vi.fn(),
 }));
 
+// A página carrega os projetos para o filtro e para o campo "Projeto" da categoria (feature 052).
+const { projectFixtures } = vi.hoisted(() => ({
+  projectFixtures: [
+    { id: "p1", name: "Obra da casa" },
+    { id: "p2", name: "Setup do estúdio" },
+  ],
+}));
+vi.mock("@/api/tasks/projects", () => ({
+  fetchProjects: vi.fn(async () => projectFixtures),
+}));
+
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: toastMock }),

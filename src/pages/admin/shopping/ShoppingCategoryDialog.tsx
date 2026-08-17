@@ -13,6 +13,7 @@ import {
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
 import { LabelColorPicker } from "@/pages/admin/tasks/LabelColorPicker";
+import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
 import {
   createShoppingCategory,
   updateShoppingCategory,
@@ -23,12 +24,15 @@ import type {
   ShoppingCategory,
   ShoppingCategoryCreateRequest,
 } from "@/types/shopping";
+import type { Project } from "@/types/tasks";
 
 interface ShoppingCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** `null` = criar; categoria = editar. */
   category: ShoppingCategory | null;
+  /** Projetos disponíveis para vincular — a página já os carrega para o filtro. */
+  projects: Project[];
   onSaved: () => void;
 }
 
@@ -38,12 +42,14 @@ const emptyCategory = (): ShoppingCategoryCreateRequest => ({
   name: "",
   description: "",
   color: null,
+  project_id: null,
 });
 
 export function ShoppingCategoryDialog({
   open,
   onOpenChange,
   category,
+  projects,
   onSaved,
 }: ShoppingCategoryDialogProps) {
   const [form, setForm] = useState<ShoppingCategoryCreateRequest>(
@@ -60,6 +66,7 @@ export function ShoppingCategoryDialog({
             name: category.name,
             description: category.description ?? "",
             color: category.color ?? null,
+            project_id: category.project_id ?? null,
           }
         : emptyCategory()
     );
@@ -127,6 +134,20 @@ export function ShoppingCategoryDialog({
                 onChange={(color) => setForm({ ...form, color })}
               />
             </div>
+          </div>
+          <div>
+            <FormLabel optional>Projeto</FormLabel>
+            <p className="mb-1.5 text-xs text-muted-foreground">
+              Categoria de um projeto aparece ao filtrar a lista por ele. Sem
+              projeto, é uma categoria comum da casa.
+            </p>
+            <ProjectPicker
+              projects={projects}
+              value={form.project_id ?? null}
+              onChange={(projectId) =>
+                setForm({ ...form, project_id: projectId })
+              }
+            />
           </div>
           <Button
             onClick={handleSave}

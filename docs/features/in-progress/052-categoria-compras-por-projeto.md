@@ -26,9 +26,9 @@ Depende da 050 (tabela `shopping_category` e página agrupada). Independente da 
 
 ## Tarefas
 
-- [ ] Migration `supabase/migrations/20260816150000_shopping_category_project.sql`: `alter table public.shopping_category add column if not exists project_id uuid references public.project(id) on delete set null`; índice `shopping_category_project_idx on public.shopping_category (project_id)`; `comment on column`. Verificação: `supabase db push` só após confirmação do usuário.
-- [ ] `src/types/shopping.ts`: acrescentar `project_id?: string | null` a `ShoppingCategory` e ao `ShoppingCategoryCreateRequest`. Verificação: `npm run build`.
-- [ ] `src/pages/admin/shopping/ShoppingCategoryDialog.tsx`: campo "Projeto" (opcional, com opção "Nenhum") reusando o `ProjectPicker` de `src/pages/admin/tasks/ProjectPicker.tsx`. Verificação: `npm run build && npm run lint`.
+- [x] Migration `supabase/migrations/20260816150000_shopping_category_project.sql`: `alter table public.shopping_category add column if not exists project_id uuid references public.project(id) on delete set null`; índice `shopping_category_project_idx on public.shopping_category (project_id)`; `comment on column`. Verificação: `supabase db push` só após confirmação do usuário.
+- [x] `src/types/shopping.ts`: acrescentar `project_id?: string | null` a `ShoppingCategory` e ao `ShoppingCategoryCreateRequest`. Verificação: `npm run build`.
+- [x] `src/pages/admin/shopping/ShoppingCategoryDialog.tsx`: campo "Projeto" (opcional, com opção "Nenhum") reusando o `ProjectPicker` de `src/pages/admin/tasks/ProjectPicker.tsx`. Verificação: `npm run build && npm run lint`.
 - [ ] `src/domain/shopping/filters.ts`: `filterCategoriesByProject(categories, projectId)` — pura, retorna todas as categorias quando `projectId` é nulo. Verificação: `npm run build`.
 - [ ] `src/domain/shopping/__tests__/filters.test.ts`: testes Vitest de `filterCategoriesByProject` (sem filtro devolve tudo; com filtro devolve só as do projeto; categoria sem projeto não aparece em filtro nenhum). Verificação: `npm test`.
 - [ ] `src/api/shopping/categories.ts`: `fetchShoppingCategories({ projectId })` aceitando o filtro opcional no `select`. Verificação: `npm run build`.
@@ -36,6 +36,8 @@ Depende da 050 (tabela `shopping_category` e página agrupada). Independente da 
 - [ ] `src/pages/admin/shopping/ShoppingList.tsx`: no cabeçalho de cada categoria vinculada, exibir o nome do projeto quando a lista **não** está filtrada. Verificação: `npm run build`.
 - [ ] `src/pages/admin/tasks/ProjectDetail.tsx`: seção "Compras do projeto" com as categorias daquele projeto e seus itens (mesmo componente de lista agrupada da 050), `EmptyState` quando não há nenhuma, e link "Ver na Lista de Compras" apontando para `/shopping-list?project=<id>`. Verificação: `npm run build && npm run lint`.
 - [ ] Verificação manual do pedido literal ("ver os itens, por categorias, de um projeto em específico"): criar duas categorias em projetos diferentes e uma sem projeto, com itens em cada; filtrar a Lista de Compras por um projeto e confirmar que aparecem **só** as categorias dele, ainda agrupadas, com seus itens; abrir `/shopping-list?project=<id>` direto na URL e confirmar que já carrega filtrado; abrir a página do projeto e confirmar a seção "Compras do projeto" com o mesmo conteúdo; excluir o projeto e confirmar que a categoria sobrevive, sem vínculo, entre as categorias sem projeto.
+
+- [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260816150000_shopping_category_project.sql` no banco remoto (`supabase db push`), junto com as da 050 e da 051. Até lá `shopping_category.project_id` não existe no banco real e o filtro por projeto falha. Depois de aplicada, um teste de fumaça na conta real fecha a feature.
 
 ## Prompts
 
@@ -46,3 +48,14 @@ Depende da 050 (tabela `shopping_category` e página agrupada). Independente da 
 - **Recorte do prompt-mãe que esta feature cumpre**: "POSSO CRIAR UMA CATEGORIA RELACIONADA A UM PROJETO, DE MODO QUE POSSO VER OS ITENS, POR CATEGORIAS, DE UM PROJETO EM ESPECÍFICO". É esse recorte que o item 8 do `CLAUDE.md` deve conferir no fechamento — e a última tarefa da lista é exatamente a verificação dele.
 - Ordem de implementação: depende da **050**. Independente da **051** — as duas podem ser feitas em qualquer ordem depois da 050.
 - A migration desta feature é `20260816150000_shopping_category_project.sql`, distinta da 050 (`...130000...`) e da 051 (`...140000...`).
+- **Migration verificada sem `supabase db push`** (2026-08-16, mesmo método da 050/051): Postgres 16
+  descartável em Docker, com stubs de `auth.users`/`auth.uid()`/`enforce_app_access`/`personal_goal`
+  e as migrations `20260803121500_tasks_projects.sql`, `20260805130000_task_project_delete_set_null.sql`,
+  `20260816130000_shopping_list.sql` e `20260816140000_task_shopping_item_link.sql` aplicadas antes.
+  8 assertivas passaram: coluna `project_id` `uuid` nullable; FK → `project(id)` com
+  `confdeltype = 'n'` (`on delete set null`); índice `shopping_category_project_idx`;
+  `comment on column` presente; RLS de `shopping_category` segue ligada com 4 policies; excluir o
+  projeto zera o vínculo e preserva categoria **e** itens; FK rejeita projeto inexistente;
+  categoria sem projeto continua válida. Reaplicar a migration é idempotente. **Continua pendente
+  de `supabase db push` pelo usuário no banco remoto** (as da 050 e 051 também estão) — daí a
+  tarefa final explícita.

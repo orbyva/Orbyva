@@ -7,6 +7,7 @@ import {
   updateShoppingCategory,
 } from "@/api/shopping/categories";
 import type { ShoppingCategory } from "@/types/shopping";
+import type { Project } from "@/types/tasks";
 
 vi.mock("@/api/shopping/categories", () => ({
   createShoppingCategory: vi.fn(),
@@ -28,7 +29,15 @@ beforeEach(() => {
   mockedUpdate.mockResolvedValue(undefined);
 });
 
-function renderDialog(category: ShoppingCategory | null = null) {
+const PROJECTS = [
+  { id: "p1", name: "Obra da casa" },
+  { id: "p2", name: "Setup do estúdio" },
+] as Project[];
+
+function renderDialog(
+  category: ShoppingCategory | null = null,
+  projects: Project[] = PROJECTS
+) {
   const onSaved = vi.fn();
   const onOpenChange = vi.fn();
   render(
@@ -36,6 +45,7 @@ function renderDialog(category: ShoppingCategory | null = null) {
       open
       onOpenChange={onOpenChange}
       category={category}
+      projects={projects}
       onSaved={onSaved}
     />
   );
@@ -64,6 +74,7 @@ describe("ShoppingCategoryDialog", () => {
         name: "Mercado",
         description: "Compras da semana",
         color: null,
+        project_id: null,
       })
     );
     expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -89,7 +100,46 @@ describe("ShoppingCategoryDialog", () => {
         name: "Mercado",
         description: "Semana",
         color: "#22c55e",
+        project_id: null,
       })
+    );
+  });
+
+  it("cria a categoria vinculada ao projeto escolhido", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText(/Nome/), "Materiais");
+    await user.click(screen.getByRole("option", { name: "Obra da casa" }));
+    expect(screen.getByRole("option", { name: "Obra da casa" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+
+    await user.click(screen.getByRole("button", { name: "Criar categoria" }));
+
+    await waitFor(() =>
+      expect(mockedCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "Materiais", project_id: "p1" })
+      )
+    );
+  });
+
+  it("em modo edição, pré-seleciona o projeto da categoria e permite desvincular", async () => {
+    const user = userEvent.setup();
+    renderDialog({ id: "c2", name: "Materiais", project_id: "p2" });
+
+    expect(
+      screen.getByRole("option", { name: "Setup do estúdio" })
+    ).toHaveAttribute("aria-selected", "true");
+
+    await user.click(screen.getByRole("option", { name: "Sem projeto" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(mockedUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "c2", project_id: null })
+      )
     );
   });
 

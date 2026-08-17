@@ -6,6 +6,12 @@ export interface ShoppingCategory {
   name: string;
   description?: string | null;
   color?: string | null;
+  /**
+   * Projeto ao qual a categoria pertence (feature 052). Nulo = categoria comum da casa, que não
+   * aparece em filtro de projeto nenhum. O vínculo é da categoria, nunca do item — o item herda o
+   * projeto pela categoria em que está.
+   */
+  project_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }

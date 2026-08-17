@@ -68,6 +68,12 @@ vi.mock("@/api/shopping/items", () => ({
   createTaskFromShoppingItem: vi.fn(),
 }));
 
+// A página carrega os projetos para o filtro e para o campo "Projeto" da categoria (feature 052);
+// este fluxo é sobre o núcleo da 050, então nenhum projeto existe.
+vi.mock("@/api/tasks/projects", () => ({
+  fetchProjects: vi.fn(async () => []),
+}));
+
 // `toast` precisa ter identidade estável: o `load` da página é um `useCallback([toast])`, então
 // um mock novo a cada render dispararia refetch em loop.
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
