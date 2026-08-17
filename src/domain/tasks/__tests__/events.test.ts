@@ -3,6 +3,7 @@ import {
   eventLinkKind,
   isEventLinkValid,
   resolveEventProjectId,
+  validateEventDraft,
   type EventLinkTaskLike,
 } from "@/domain/tasks/events";
 
@@ -78,5 +79,64 @@ describe("isEventLinkValid", () => {
 
   it("recusa o par preenchido, igual à check constraint project_event_single_link", () => {
     expect(isEventLinkValid({ project_id: "proj-1", task_id: "task-1" })).toBe(false);
+  });
+});
+
+describe("validateEventDraft (feature 067)", () => {
+  const startsAt = new Date(2026, 7, 17, 9, 0).toISOString();
+
+  it("título vazio reprova com reason 'title'", () => {
+    expect(validateEventDraft({ title: "", startsAt })).toEqual({ ok: false, reason: "title" });
+  });
+
+  it("título só com espaços reprova com reason 'title'", () => {
+    expect(validateEventDraft({ title: "   ", startsAt })).toEqual({ ok: false, reason: "title" });
+  });
+
+  it("início ausente reprova com reason 'starts'", () => {
+    expect(validateEventDraft({ title: "Reunião", startsAt: "" })).toEqual({
+      ok: false,
+      reason: "starts",
+    });
+  });
+
+  it("início inválido reprova com reason 'starts'", () => {
+    expect(validateEventDraft({ title: "Reunião", startsAt: "não é data" })).toEqual({
+      ok: false,
+      reason: "starts",
+    });
+  });
+
+  it("fim anterior ao início reprova com reason 'ends'", () => {
+    expect(
+      validateEventDraft({
+        title: "Reunião",
+        startsAt,
+        endsAt: new Date(2026, 7, 17, 8, 0).toISOString(),
+      })
+    ).toEqual({ ok: false, reason: "ends" });
+  });
+
+  it("fim igual ao início reprova com reason 'ends' (a check exige ends_at > starts_at)", () => {
+    expect(validateEventDraft({ title: "Reunião", startsAt, endsAt: startsAt })).toEqual({
+      ok: false,
+      reason: "ends",
+    });
+  });
+
+  it("fim vazio ou nulo é válido — evento sem hora de término é o caso comum", () => {
+    expect(validateEventDraft({ title: "Reunião", startsAt, endsAt: "" })).toEqual({ ok: true });
+    expect(validateEventDraft({ title: "Reunião", startsAt, endsAt: null })).toEqual({ ok: true });
+    expect(validateEventDraft({ title: "Reunião", startsAt })).toEqual({ ok: true });
+  });
+
+  it("tudo preenchido e coerente é válido", () => {
+    expect(
+      validateEventDraft({
+        title: "Reunião",
+        startsAt,
+        endsAt: new Date(2026, 7, 17, 10, 0).toISOString(),
+      })
+    ).toEqual({ ok: true });
   });
 });

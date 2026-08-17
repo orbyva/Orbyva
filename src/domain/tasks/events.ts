@@ -50,3 +50,36 @@ export function resolveEventProjectId(
 export function isEventLinkValid(event: EventLinkLike): boolean {
   return !(event.project_id && event.task_id);
 }
+
+/** Motivo pelo qual um rascunho de evento não pode ser salvo (feature 067). */
+export type EventDraftInvalidReason = "title" | "starts" | "ends";
+
+export type EventDraftValidation =
+  | { ok: true }
+  | { ok: false; reason: EventDraftInvalidReason };
+
+/** Campos do formulário de evento que participam da validação. Datas em ISO. */
+export interface EventDraftLike {
+  title: string;
+  startsAt: string;
+  endsAt?: string | null;
+}
+
+/**
+ * Regras de preenchimento do formulário de evento (feature 067), na ordem em que o usuário
+ * encontra os campos: título, início, fim.
+ *
+ * O caso `"ends"` espelha a check `project_event_ends_after_starts` (`ends_at is null or ends_at >
+ * starts_at`) em TS, para o usuário ver a mensagem no próprio form em vez de descobrir pelo erro
+ * cru do Postgres. Fim vazio é válido — evento sem hora de término é o caso comum.
+ */
+export function validateEventDraft(draft: EventDraftLike): EventDraftValidation {
+  if (!draft.title.trim()) return { ok: false, reason: "title" };
+  if (!draft.startsAt) return { ok: false, reason: "starts" };
+  const start = new Date(draft.startsAt).getTime();
+  if (Number.isNaN(start)) return { ok: false, reason: "starts" };
+  if (!draft.endsAt) return { ok: true };
+  const end = new Date(draft.endsAt).getTime();
+  if (Number.isNaN(end) || end <= start) return { ok: false, reason: "ends" };
+  return { ok: true };
+}

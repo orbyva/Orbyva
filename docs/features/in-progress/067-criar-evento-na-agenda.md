@@ -69,7 +69,7 @@ inteira, como em `computeVirtualOccurrences`).
   local de `formatLocalIsoDate` (nada de fatiar `toISOString()`), + casos em
   `src/lib/__tests__/dates.test.ts` (ida e volta preservando hora local, minuto com zero à esquerda,
   string vazia/inválida devolvendo `""`)
-- [ ] Estender `src/domain/tasks/events.ts` (criado na 066) com `validateEventDraft({ title, startsAt,
+- [x] Estender `src/domain/tasks/events.ts` (criado na 066) com `validateEventDraft({ title, startsAt,
   endsAt })` devolvendo `{ ok: true } | { ok: false; reason: "title" | "starts" | "ends" }`, e cobrir
   em `src/domain/tasks/__tests__/events.test.ts`: título vazio/só espaços, início ausente, fim
   anterior ao início, fim igual ao início, fim vazio (válido), tudo preenchido (válido)
