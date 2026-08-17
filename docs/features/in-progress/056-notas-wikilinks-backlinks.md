@@ -126,9 +126,21 @@ Depende de: 055 (tabela `note`).
       15 testes passando, além dos pedidos: índices `start`/`end` conferidos por `slice`, link
       markdown comum `[texto](url)` não casa, fence com `~~~`, fence aberto e nunca fechado, código
       inline, crase solta e título vazio.
-- [ ] Renderizar wiki-link no preview: passar um componente customizado ao `MarkdownPreview`
+- [x] Renderizar wiki-link no preview: passar um componente customizado ao `MarkdownPreview`
       (criado na 055) que troca `[[Titulo]]` por link para `/notes/<id>` quando a nota existe, e
       por um chip "criar nota" quando não existe. Verificação manual nos dois estados.
+      Feito em `src/pages/admin/notes/NoteMarkdownPreview.tsx`. O `MarkdownPreview` ganhou os props
+      opcionais `components`/`urlTransform`; a conversão em si é `replaceWikiLinks` (domínio), que
+      reescreve `[[Título]]` como link markdown comum — nada de HTML cru, o `rehype-raw` continua
+      fora. O href de link quebrado usa um esquema sintético (`orbyva-wikilink-missing:`) e o
+      `urlTransform` só o libera; todo o resto segue no `defaultUrlTransform`.
+      `NoteDetail` passou a carregar `fetchNotes()` (dicionário de títulos) e a criar a nota que
+      falta, navegando para ela.
+      Verificação: `NoteMarkdownPreview.test.tsx` (9 testes) — link resolvido aponta para
+      `/notes/n7`, resolve ignorando caixa/espaço, o chip tem nome acessível "Criar nota <título>" e
+      o clique devolve o título, `[[…]]` dentro de código continua literal, o resto do Markdown
+      segue funcionando, `javascript:` continua barrado (href zerado) e HTML cru continua não
+      interpretado. Mais 9 testes de `replaceWikiLinks`/`indexNotesByTitle` em `wikiLinks.test.ts`.
 - [ ] Autocomplete de `[[` no CodeMirror via `@codemirror/autocomplete`: ao digitar `[[`, sugerir
       títulos das notas do usuário (buscar com debounce, reusando `fetchNotes` da 055).
 - [ ] Criar migration `supabase/migrations/<TIMESTAMP>_note_links.sql` (timestamp único — conferir

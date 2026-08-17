@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  indexNotesByTitle,
+  missingWikiLinkHref,
   normalizeWikiTitle,
+  parseMissingWikiLinkHref,
   parseWikiLinks,
+  replaceWikiLinks,
   wikiLinkTitles,
 } from "@/domain/notes/wikiLinks";
 
@@ -88,6 +92,67 @@ describe("wikiLinkTitles", () => {
       "Obra",
       "Reunião",
     ]);
+  });
+});
+
+describe("indexNotesByTitle", () => {
+  it("indexa por título normalizado", () => {
+    const index = indexNotesByTitle([{ id: "n1", title: "Obra da Casa" }]);
+    expect(index.get(normalizeWikiTitle("obra da casa"))).toBe("n1");
+  });
+
+  it("título repetido fica com a primeira nota da lista (a mais recente)", () => {
+    const index = indexNotesByTitle([
+      { id: "recente", title: "Sem título" },
+      { id: "antiga", title: "Sem título" },
+    ]);
+    expect(index.get(normalizeWikiTitle("Sem título"))).toBe("recente");
+  });
+});
+
+describe("replaceWikiLinks", () => {
+  const resolve = (title: string) =>
+    title === "Obra da casa" ? "/notes/n7" : null;
+
+  it("troca o link resolvido por link markdown para a nota", () => {
+    expect(replaceWikiLinks("ver [[Obra da casa]] hoje", resolve)).toBe(
+      "ver [Obra da casa](/notes/n7) hoje"
+    );
+  });
+
+  it("link sem nota vira o href sintético de 'criar nota'", () => {
+    const out = replaceWikiLinks("falta [[Pauta]]", resolve);
+    expect(out).toBe(`falta [Pauta](${missingWikiLinkHref("Pauta")})`);
+    expect(parseMissingWikiLinkHref(missingWikiLinkHref("Pauta"))).toBe("Pauta");
+  });
+
+  it("href normal não é confundido com o sintético", () => {
+    expect(parseMissingWikiLinkHref("/notes/n7")).toBeNull();
+    expect(parseMissingWikiLinkHref("https://exemplo.com")).toBeNull();
+  });
+
+  it("troca vários na mesma linha sem embaralhar as posições", () => {
+    expect(
+      replaceWikiLinks("[[Obra da casa]] e [[Obra da casa]]", resolve)
+    ).toBe("[Obra da casa](/notes/n7) e [Obra da casa](/notes/n7)");
+  });
+
+  it("não toca em ocorrência dentro de código", () => {
+    const content = "`[[Obra da casa]]` e [[Obra da casa]]";
+    expect(replaceWikiLinks(content, resolve)).toBe(
+      "`[[Obra da casa]]` e [Obra da casa](/notes/n7)"
+    );
+  });
+
+  it("escapa marcação no texto do link para o título não virar itálico", () => {
+    expect(replaceWikiLinks("[[a_b_c]]", () => "/notes/x")).toBe(
+      "[a\\_b\\_c](/notes/x)"
+    );
+  });
+
+  it("conteúdo sem wiki-link sai idêntico", () => {
+    const content = "# Título\n\ntexto [normal](https://exemplo.com)";
+    expect(replaceWikiLinks(content, resolve)).toBe(content);
   });
 });
 

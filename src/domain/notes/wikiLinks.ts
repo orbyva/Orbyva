@@ -138,3 +138,77 @@ export function wikiLinkTitles(content: string): string[] {
 export function normalizeWikiTitle(title: string): string {
   return title.trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
 }
+
+/**
+ * URL sintética dos wiki-links que **não** resolvem para nenhuma nota. O preview troca esse href
+ * por um chip "criar nota" em vez de um link — mesmo comportamento do Obsidian para link quebrado.
+ *
+ * É um esquema próprio, e não `/notes/…`, justamente para não existir a chance de virar navegação
+ * de verdade caso algum ponto do app renderize o markdown sem tratar o caso.
+ */
+export const WIKI_LINK_MISSING_SCHEME = "orbyva-wikilink-missing:";
+
+export function missingWikiLinkHref(title: string): string {
+  return `${WIKI_LINK_MISSING_SCHEME}${encodeURIComponent(title)}`;
+}
+
+/** Título de volta a partir do href sintético; `null` quando o href é um link normal. */
+export function parseMissingWikiLinkHref(href: string): string | null {
+  if (!href.startsWith(WIKI_LINK_MISSING_SCHEME)) return null;
+  try {
+    return decodeURIComponent(href.slice(WIKI_LINK_MISSING_SCHEME.length));
+  } catch {
+    // href corrompido (percent-encoding inválido) — melhor tratar como link comum do que estourar.
+    return null;
+  }
+}
+
+/**
+ * Índice `título normalizado → id` para resolver wiki-link sem uma consulta por ocorrência.
+ *
+ * Título repetido fica com a **primeira** nota da lista, que vem ordenada por `updated_at desc` —
+ * ou seja, a editada mais recentemente. Não há `unique` de título no banco (dois rascunhos "Sem
+ * título" são legítimos), então empate é caso previsto, não bug (ver Notas da 056).
+ */
+export function indexNotesByTitle(
+  notes: readonly { id: string; title: string }[]
+): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const note of notes) {
+    const key = normalizeWikiTitle(note.title);
+    if (!key || index.has(key)) continue;
+    index.set(key, note.id);
+  }
+  return index;
+}
+
+/** Escapa o que viraria marcação dentro do texto do link (`[[a_b_c]]` não pode virar itálico). */
+function escapeLinkText(title: string): string {
+  return title.replace(/([\\*_`~])/g, "\\$1");
+}
+
+/**
+ * Reescreve o conteúdo trocando cada `[[Título]]` por um link markdown comum — é assim que o
+ * `react-markdown` consegue renderizar wiki-link sem plugin de sintaxe nem HTML cru (que segue
+ * desligado, ver Decisões da 055).
+ *
+ * `resolveHref` devolve o destino da nota (`/notes/<id>`) ou `null` quando ela não existe; nesse
+ * caso entra `missingWikiLinkHref`, que o preview transforma no chip de criar.
+ *
+ * A troca é feita de trás para frente, sobre os índices de `parseWikiLinks`, para que cada
+ * substituição não desloque as posições das anteriores — e para que ocorrências dentro de bloco de
+ * código continuem literais.
+ */
+export function replaceWikiLinks(
+  content: string,
+  resolveHref: (title: string) => string | null
+): string {
+  const matches = parseWikiLinks(content);
+  let output = content;
+  for (let i = matches.length - 1; i >= 0; i -= 1) {
+    const { title, start, end } = matches[i];
+    const href = resolveHref(title) ?? missingWikiLinkHref(title);
+    output = `${output.slice(0, start)}[${escapeLinkText(title)}](${href})${output.slice(end)}`;
+  }
+  return output;
+}

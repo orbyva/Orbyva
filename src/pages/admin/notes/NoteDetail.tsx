@@ -6,7 +6,7 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import { deleteNote, fetchNote } from "@/api/notes/notes";
+import { createNote, deleteNote, fetchNote, fetchNotes } from "@/api/notes/notes";
 import { fetchProjects } from "@/api/tasks/projects";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -18,6 +18,7 @@ import { NoteEditor } from "./NoteEditor";
 export default function NoteDetail() {
   const { id } = useParams<{ id: string }>();
   const [note, setNote] = useState<Note | null>(null);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -31,11 +32,15 @@ export default function NoteDetail() {
       return;
     }
     try {
-      const [found, projectList] = await Promise.all([
+      // A lista inteira vem junto porque é o dicionário dos wiki-links: resolve `[[Título]]` e
+      // alimenta o autocomplete de `[[`. Uma consulta a mais aqui evita uma por ocorrência.
+      const [found, noteList, projectList] = await Promise.all([
         fetchNote(id),
+        fetchNotes(),
         fetchProjects(),
       ]);
       setNote(found);
+      setNotes(noteList);
       setProjects(projectList);
     } catch (error) {
       toast({
@@ -51,6 +56,24 @@ export default function NoteDetail() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /**
+   * Cria a nota que um wiki-link quebrado aponta e abre ela — o "criar nota faltante" do Obsidian.
+   * O markdown de quem apontou não é reescrito: o link passa a resolver porque agora existe uma
+   * nota com aquele título (ver Decisões da 056).
+   */
+  async function handleCreateLinkedNote(title: string) {
+    try {
+      const created = await createNote({ title, content: "", project_id: null });
+      navigate(`/notes/${created.id}`);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível criar a nota."),
+      });
+    }
+  }
 
   async function handleDelete() {
     if (!note) return;
@@ -105,6 +128,8 @@ export default function NoteDetail() {
         <NoteEditor
           note={note}
           projects={projects}
+          notes={notes}
+          onCreateNote={handleCreateLinkedNote}
           // Só reflete no header; recarregar do banco a cada autosave desperdiçaria consulta.
           onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}
         />

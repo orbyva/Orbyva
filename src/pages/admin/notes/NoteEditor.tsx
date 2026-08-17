@@ -3,8 +3,8 @@ import { Check, CircleAlert, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormLabel } from "@/components/FormLabel";
-import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
+import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
 import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
 import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
@@ -59,13 +59,19 @@ function SaveIndicator({ state }: { state: SaveState }) {
 export function NoteEditor({
   note,
   projects,
+  notes = [],
   onSaved,
+  onCreateNote,
   debounceMs = NOTE_AUTOSAVE_DEBOUNCE_MS,
 }: {
   note: Note;
   projects: Project[];
+  /** Todas as notas do usuário — é o dicionário que resolve `[[Título]]` para `/notes/<id>`. */
+  notes?: readonly Note[];
   /** Avisa a página de cima do estado recém-gravado (para o título do header acompanhar). */
   onSaved?: (note: Note) => void;
+  /** Cria a nota que um wiki-link quebrado aponta e navega para ela. */
+  onCreateNote?: (title: string) => void;
   debounceMs?: number;
 }) {
   const [title, setTitle] = useState(note.title);
@@ -166,7 +172,12 @@ export function NoteEditor({
           </TabsContent>
           <TabsContent value="preview" className="mt-1.5 rounded-md border px-3 py-2">
             {content.trim() ? (
-              <MarkdownPreview content={content} className="min-h-[45vh]" />
+              <NoteMarkdownPreview
+                content={content}
+                notes={notes}
+                onCreateNote={onCreateNote}
+                className="min-h-[45vh]"
+              />
             ) : (
               <p className="text-xs text-muted-foreground">
                 Nada para visualizar ainda.

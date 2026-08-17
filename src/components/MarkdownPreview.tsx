@@ -1,4 +1,5 @@
 import ReactMarkdown from "react-markdown";
+import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 
@@ -18,13 +19,33 @@ export const MARKDOWN_PREVIEW_CLASS =
 export function MarkdownPreview({
   content,
   className,
+  components,
+  urlTransform,
 }: {
   content: string;
   className?: string;
+  /**
+   * Renderizadores por elemento, repassados ao `react-markdown` — é por aqui que o módulo de Notas
+   * troca o `<a>` por wiki-link/chip de criar nota (feature 056), sem que este componente precise
+   * saber o que é uma nota.
+   */
+  components?: Components;
+  /**
+   * Saneamento de URL. O padrão do `react-markdown` (`defaultUrlTransform`) já barra esquemas
+   * perigosos como `javascript:`; quem sobrescrever **precisa** manter essa barreira e só abrir
+   * exceção para esquemas próprios conhecidos — ver `NoteMarkdownPreview`.
+   */
+  urlTransform?: (url: string) => string;
 }) {
   return (
     <div className={cn(MARKDOWN_PREVIEW_CLASS, className)}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={components}
+        urlTransform={urlTransform}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }
