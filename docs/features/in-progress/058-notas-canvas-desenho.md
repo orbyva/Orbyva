@@ -61,15 +61,26 @@ dentro de uma nota markdown). Independente da 056.
 
 ## Tarefas
 
-- [ ] Criar migration `supabase/migrations/<TIMESTAMP>_note_canvas.sql` (timestamp único — conferir
-      `ls supabase/migrations/`): `alter table public.note add column if not exists kind text not
-      null default 'markdown'`, `add column if not exists canvas_data jsonb`, e
-      `check (kind in ('markdown','canvas'))`. Sem tabela nova, então RLS, `wipe_own_data` e o
-      trigger de acesso já valem — confirmar isso lendo a migration da 055 antes de dar por
-      encerrado. **Confirmar com o usuário antes de `supabase db push`.**
-- [ ] Verificação manual pós-`db push` (manual por necessidade: sem Supabase local e o Vitest não
-      cobre I/O nem RLS): no SQL editor, confirmar que as notas existentes ficaram com
-      `kind = 'markdown'` e que um `update note set kind = 'outro'` é rejeitado pelo `check`.
+- [x] Criar migration `supabase/migrations/20260816180000_note_canvas.sql`:
+      `add column if not exists kind text not null default 'markdown'`,
+      `add column if not exists canvas_data jsonb` e o `check (kind in ('markdown','canvas'))`
+      (via `do $$` — Postgres 16 não tem `add constraint if not exists`). Sem tabela nova: RLS,
+      `wipe_own_data` e o trigger de acesso da 055 já valem — conferido lendo
+      `20260816160000_notes_core.sql` e afirmado no harness abaixo.
+      **`supabase db push` NÃO foi rodado** (regra do projeto: só com confirmação do usuário).
+- [x] Verificação da migration por harness em Docker, não à mão no SQL editor — mesmo caminho da
+      056 (`supabase/tests/note_links/`). Criado `supabase/tests/note_canvas/`
+      (`00_stubs.sql`, `01_seed.sql`, `02_assert_schema.sql`, `03_assert_behavior.sql`, `run.sh`),
+      rodando a migration sobre um Postgres 16 descartável com notas semeadas **antes** dela.
+      Afirma: `kind` é `text not null default 'markdown'` e `canvas_data` é `jsonb` nullable; as 3
+      notas antigas ficaram `kind = 'markdown'` com `canvas_data null` sem update nenhum;
+      `update note set kind = 'outro'` e `insert ... kind = 'excalidraw'` levam `check_violation`;
+      o JSON do Excalidraw faz round-trip em `jsonb` (2 elementos + `appState` de volta); a RLS da
+      055 continua barrando leitura e update de nota alheia depois da migration; `wipe_own_data`
+      apaga a nota-canvas junto. Reaplicar a migration é idempotente (as assertivas rodam duas
+      vezes). Resultado: `OK: 20260816180000_note_canvas.sql validada em Postgres 16.`
+      Ajuste no `run.sh`: `pg_isready` sozinho não serve de sinal de pronto (a imagem sobe um
+      servidor temporário no initdb), a espera é por um `select 1` que responda — ver Notas.
 - [ ] Atualizar `src/types/notes.ts`: `kind: NoteKind` e `canvas_data: unknown | null` em `Note`,
       com `NoteKind = "markdown" | "canvas"` espelhando o `check` do banco.
 - [ ] Instalar `@excalidraw/excalidraw@^0.18`. Verificação: `npm run build` — se o build acusar
