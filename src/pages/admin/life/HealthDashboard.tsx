@@ -191,7 +191,7 @@ export default function HealthDashboard() {
     <PageShell
       title="Saúde"
       eyebrow="Vida"
-      description="Hábitos do dia, medicações e consultas"
+      description="Hábitos do dia, medicações, consultas e progresso corporal"
       actions={
         <div className={PAGE_HEADER_ACTIONS_CLASS}>
           {/* "Lembretes" está sempre visível: é a única porta para o controle de notificações
