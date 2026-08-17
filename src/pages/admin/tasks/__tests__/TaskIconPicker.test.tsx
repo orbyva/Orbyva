@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TaskIconPicker } from "@/pages/admin/tasks/TaskIconPicker";
-import { TASK_ICON_PRESETS } from "@/pages/admin/tasks/TaskIconBadge";
+import {
+  SHOPPING_TASK_ICON_KEY,
+  TASK_ICON_PRESETS,
+} from "@/pages/admin/tasks/TaskIconBadge";
 import { uploadTaskIcon } from "@/api/tasks";
 
 vi.mock("@/api/tasks", () => ({
@@ -42,7 +45,7 @@ describe("TaskIconPicker", () => {
     expect(container.querySelector('svg[aria-label="Estrela"]')).toBeInTheDocument();
   });
 
-  it("abrir o popover mostra os 7 presets como botões clicáveis", async () => {
+  it("abrir o popover mostra os 8 presets como botões clicáveis", async () => {
     const user = userEvent.setup();
     render(
       <TaskIconPicker taskId="task-1" value={{ icon_key: null, icon_url: null }} onChange={vi.fn()} />
@@ -53,7 +56,46 @@ describe("TaskIconPicker", () => {
     for (const preset of TASK_ICON_PRESETS) {
       expect(await screen.findByRole("button", { name: preset.label })).toBeInTheDocument();
     }
-    expect(TASK_ICON_PRESETS).toHaveLength(7);
+    expect(TASK_ICON_PRESETS).toHaveLength(8);
+  });
+
+  // Feature 051: o preset de compras precisa existir no grid pra tarefa criada a partir de um
+  // item da lista nascer com o ícone certo — e continuar trocável como qualquer outra tarefa.
+  it("o preset 'Compra' (shopping-cart) aparece no grid e pode ser selecionado", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    expect(TASK_ICON_PRESETS.map((preset) => preset.key)).toContain(
+      SHOPPING_TASK_ICON_KEY
+    );
+    render(
+      <TaskIconPicker taskId="task-1" value={{ icon_key: null, icon_url: null }} onChange={onChange} />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Definir ícone" }));
+    await user.click(await screen.findByRole("button", { name: "Compra" }));
+
+    expect(onChange).toHaveBeenCalledWith({ icon_key: "shopping-cart", icon_url: null });
+  });
+
+  it("uma tarefa já criada com o ícone de compras pode trocar pra outro preset (ícone é gravado, não travado)", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <TaskIconPicker
+        taskId="task-1"
+        value={{ icon_key: SHOPPING_TASK_ICON_KEY, icon_url: null }}
+        onChange={onChange}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Trocar ícone" }));
+    expect(await screen.findByRole("button", { name: "Compra" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await user.click(screen.getByRole("button", { name: "Estrela" }));
+
+    expect(onChange).toHaveBeenCalledWith({ icon_key: "star", icon_url: null });
   });
 
   it("clicar num preset chama onChange com { icon_key, icon_url: null } e fecha o popover", async () => {

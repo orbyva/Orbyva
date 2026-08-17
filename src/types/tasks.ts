@@ -90,6 +90,10 @@ export interface Task {
   recurrence_rule: RecurrenceRule | null;
   linked_recurring_id: string | null;
   linked_installment_number: number | null;
+  /** Item da Lista de Compras que originou a tarefa (feature 051) — vínculo unidirecional 1:1.
+   * Concluir a tarefa marca o item como comprado e vice-versa; excluir o item zera esta coluna
+   * (`on delete set null`) sem apagar a tarefa. */
+  linked_shopping_item_id?: string | null;
   /** Link externo genérico (ex.: issue/PR do GitHub) — provider é detectado no cliente pela URL. */
   external_url?: string | null;
   external_provider?: string | null;
