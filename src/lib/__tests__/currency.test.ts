@@ -53,9 +53,9 @@ describe("formatDateBR", () => {
     expect(formatDateBR("2026-07-03T12:00:00.000Z")).toBe("03/07/2026");
   });
 
-  it("retorna travessão para nulo/indefinido", () => {
-    expect(formatDateBR(null)).toBe("—");
-    expect(formatDateBR(undefined)).toBe("—");
+  it("retorna o placeholder de sem-data para nulo/indefinido", () => {
+    expect(formatDateBR(null)).toBe("·");
+    expect(formatDateBR(undefined)).toBe("·");
   });
 });
 
@@ -70,7 +70,7 @@ describe("formatDateTimeBR", () => {
     expect(formatDateTimeBR("2026-07-03")).toBe("03/07/2026");
   });
 
-  it("sem data, retorna travessão mesmo com hora presente", () => {
-    expect(formatDateTimeBR(null, "09:30")).toBe("—");
+  it("sem data, retorna o placeholder mesmo com hora presente", () => {
+    expect(formatDateTimeBR(null, "09:30")).toBe("·");
   });
 });
