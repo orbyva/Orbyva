@@ -78,10 +78,25 @@ Depende de: 055 (tabela `note`).
       inchava). `npm run build` + `npm run check:bundle` OK. A prova de que o split funciona vem
       na tarefa seguinte, quando o `NoteEditor` passa a importar CodeMirror de fato e o chunk
       `codemirror-*.js` aparece no `dist/`.
-- [ ] Trocar o `<textarea>` de `src/pages/admin/notes/NoteEditor.tsx` por CodeMirror com
+- [x] Trocar o `<textarea>` de `src/pages/admin/notes/NoteEditor.tsx` por CodeMirror com
       `markdown()` + tema alinhado ao Tailwind (fonte e cores de `src/index.css`, respeitando dark
       mode). Manter autosave com debounce e o comportamento de `Tab` já existente.
       Verificação manual: escrever `# titulo` e `**negrito**` e ver o realce sem perder o texto cru.
+      Feito em `src/components/MarkdownCodeEditor.tsx` + `src/components/codemirror/`
+      (`markdownTheme.ts`, `tabKeymap.ts`). O tema é só `hsl(var(--…))` de `src/index.css`, então
+      acompanha o dark mode (classe `.dark`) sem tema duplicado.
+      Verificação (sem navegador — a skill `next` proíbe): `MarkdownCodeEditor.test.tsx` (4 testes)
+      monta o editor de verdade em jsdom e afirma comportamento — digitar `**negrito**` deixa os
+      asteriscos no documento (nada de WYSIWYG), `Tab` insere tab literal **sem** tirar o foco do
+      campo, `Shift+Tab` remove o tab de trás do cursor e não faz nada quando não há tab.
+      `Notes.flow.test.tsx` (12 testes, ajustado o assert de `toHaveValue` para `toHaveTextContent`)
+      prova que o autosave com debounce continua gravando o que se digita no CodeMirror.
+      Desvio necessário: o `markdown()` do `@codemirror/lang-markdown` embute `lang-html` +
+      `lang-javascript` + `lang-css` e levou o chunk `codemirror` a 212 KB gzip, acima do teto de
+      200 KB de vendor. Trocado por `new LanguageSupport(markdownLanguage, [keymap.of(
+      markdownKeymap)])` → 139 KB gzip, `npm run check:bundle` OK (chunk `codemirror` separado,
+      rotas `Notes` 1,8 KB e `NoteDetail` 3,1 KB). O `src/test/setup-jsdom.ts` ganhou stub de
+      `Range.getClientRects`, que o jsdom não implementa e o CodeMirror chama a cada medição.
 - [ ] Adicionar o *live preview* estilo Obsidian: um `ViewPlugin` com `Decoration.mark` que estiliza
       `**negrito**`/`_itálico_`/`# título` e `Decoration.replace` que esconde os marcadores, exceto
       na linha onde está o cursor. Verificação manual: mover o cursor para dentro de uma palavra em

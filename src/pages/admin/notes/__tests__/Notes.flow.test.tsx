@@ -284,7 +284,11 @@ describe("Notas — fluxo fim a fim", () => {
 
     view.unmount();
     renderApp("/notes/n1");
-    expect(await screen.findByLabelText("Conteúdo")).toHaveValue("não pode sumir");
+    // O corpo agora é um CodeMirror (feature 056): o texto vive no `contenteditable`, não num
+    // `value` de textarea.
+    expect(await screen.findByLabelText("Conteúdo")).toHaveTextContent(
+      "não pode sumir"
+    );
   });
 
   it("excluir a nota pela lista tira ela do banco e da tela", async () => {

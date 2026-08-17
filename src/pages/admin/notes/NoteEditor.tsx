@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormLabel } from "@/components/FormLabel";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
-import { MarkdownTextarea } from "@/components/MarkdownTextarea";
+import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
 import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
 import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
@@ -156,11 +156,11 @@ export function NoteEditor({
             </TabsTrigger>
           </TabsList>
           <TabsContent value="write" className="mt-1.5">
-            <MarkdownTextarea
-              aria-label="Conteúdo"
+            <MarkdownCodeEditor
+              label="Conteúdo"
               value={content}
               onChange={setContent}
-              className="min-h-[45vh] font-mono text-[13px] leading-relaxed"
+              className="min-h-[45vh] [&_.cm-editor]:min-h-[45vh]"
               placeholder="Markdown na veia — # títulos, listas, **negrito**, tabelas, checklist…"
             />
           </TabsContent>
