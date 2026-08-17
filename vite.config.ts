@@ -2,13 +2,53 @@
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type HtmlTagDescriptor, type Plugin } from "vite";
 import { viteSafariHmrNoReload } from "./vite.safari-hmr";
+
+/** Preload das woff2 above-the-fold e CSS do bundle sem bloquear FCP. */
+function preloadCriticalFonts(): Plugin {
+  return {
+    name: "orbyva-preload-critical-fonts",
+    transformIndexHtml: {
+      order: "post",
+      handler(html, ctx) {
+        if (!ctx.bundle) return html;
+        const tags: HtmlTagDescriptor[] = [];
+        for (const asset of Object.values(ctx.bundle)) {
+          if (asset.type !== "asset") continue;
+          const name = asset.fileName;
+          if (!name.endsWith(".woff2")) continue;
+          const critical =
+            name.includes("plus-jakarta-sans-latin-400-normal") ||
+            name.includes("syne-latin-600-normal");
+          if (!critical) continue;
+          tags.push({
+            tag: "link",
+            attrs: {
+              rel: "preload",
+              href: `/${name}`,
+              as: "font",
+              type: "font/woff2",
+              crossorigin: "",
+            },
+            injectTo: "head",
+          });
+        }
+        const next = html.replace(
+          /<link rel="stylesheet" crossorigin href="([^"]+\.css)">/g,
+          '<link rel="preload" as="style" href="$1">\n    <link rel="stylesheet" href="$1" media="print" data-boot-css>\n    <noscript><link rel="stylesheet" href="$1"></noscript>'
+        );
+        return { html: next, tags };
+      },
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
     viteSafariHmrNoReload(),
     react(),
+    preloadCriticalFonts(),
     VitePWA({
       registerType: "prompt",
       minify: true,

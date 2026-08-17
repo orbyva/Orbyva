@@ -1,8 +1,6 @@
+import { lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
-import {
-  PhoneCarousel,
-  type PhoneScreen,
-} from "@/components/ui/phone-mockups-1-utils/phone-carousel";
+import type { PhoneScreen } from "@/components/ui/phone-mockups-1-utils/phone-carousel";
 
 export type { PhoneScreen };
 
@@ -24,9 +22,16 @@ const DEFAULT_SCREENS: PhoneScreen[] = [
     label: "Viagens",
   },
 ];
+
 function marketingWebp(src: string) {
   return src.replace(/\.png$/i, ".webp");
 }
+
+const PhoneCarousel = lazy(() =>
+  import("@/components/ui/phone-mockups-1-utils/phone-carousel").then((m) => ({
+    default: m.PhoneCarousel,
+  }))
+);
 
 function PhoneFrame({
   screen,
@@ -52,14 +57,41 @@ function PhoneFrame({
           src={screen.src}
           alt={screen.alt}
           width={390}
-          height={844}
+          height={843}
+          sizes="(max-width: 639px) 260px, 240px"
           loading={priority ? "eager" : "lazy"}
-          decoding={priority ? "sync" : "async"}
+          decoding="async"
           fetchPriority={priority ? "high" : "low"}
           className="h-full w-full object-contain object-top"
           draggable={false}
         />
       </picture>
+    </div>
+  );
+}
+
+/** Primeiro frame estático: LCP sem esperar o chunk do framer-motion. */
+function HeroPhoneFallback({
+  screen,
+  className,
+}: {
+  screen: PhoneScreen;
+  className?: string;
+}) {
+  return (
+    <div className={cn("relative w-full select-none", className)}>
+      <div className="relative mx-auto w-full max-w-[260px] sm:hidden">
+        <div className="pointer-events-none absolute -inset-6 rounded-full bg-sky-500/20 blur-3xl" />
+        <div className="relative z-[1]">
+          <PhoneFrame screen={screen} priority />
+        </div>
+      </div>
+      <div className="relative mx-auto hidden h-[560px] max-w-xl items-center justify-center sm:flex">
+        <div className="pointer-events-none absolute inset-x-[8%] top-1/2 z-0 h-[55%] -translate-y-1/2 rounded-full bg-sky-500/20 blur-3xl" />
+        <div className="relative z-[2] aspect-[9/19] w-[46%] max-w-[240px]">
+          <PhoneFrame screen={screen} priority />
+        </div>
+      </div>
     </div>
   );
 }
@@ -77,15 +109,20 @@ export default function PhoneMockupBasic({
   className?: string;
   intervalMs?: number;
 }) {
+  const first = screens[0];
+  if (!first) return null;
+
   return (
-    <PhoneCarousel
-      screens={screens}
-      intervalMs={intervalMs}
-      className={className}
-      renderPhone={({ screen, offset }) => (
-        <PhoneFrame screen={screen} priority={offset === 0} />
-      )}
-    />
+    <Suspense fallback={<HeroPhoneFallback screen={first} className={className} />}>
+      <PhoneCarousel
+        screens={screens}
+        intervalMs={intervalMs}
+        className={className}
+        renderPhone={({ screen, offset }) => (
+          <PhoneFrame screen={screen} priority={offset === 0} />
+        )}
+      />
+    </Suspense>
   );
 }
 

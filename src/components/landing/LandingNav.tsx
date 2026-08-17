@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export type LandingNavItem = {
@@ -35,11 +34,11 @@ function scrollToY(targetY: number, durationMs: number, signal: { cancelled: boo
 }
 
 /**
- * Nav pill da landing: indicador deslizante + scroll suave (mais lento) ao clicar.
+ * Nav pill da landing: indicador CSS + scroll suave ao clicar.
+ * Sem framer-motion no first paint (LCP da home).
  */
 export function LandingNav({ items, className }: LandingNavProps) {
   const [active, setActive] = useState(items[0]?.href ?? "");
-  const reduceMotion = useReducedMotion();
   const scrollSignal = useRef({ cancelled: false });
 
   useEffect(() => {
@@ -86,6 +85,9 @@ export function LandingNav({ items, className }: LandingNavProps) {
     const top =
       el.getBoundingClientRect().top + window.scrollY - headerOffset;
 
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
     if (reduceMotion) {
       window.scrollTo(0, top);
       return;
@@ -113,22 +115,13 @@ export function LandingNav({ items, className }: LandingNavProps) {
             onClick={onNavClick(item.href)}
             className={cn(
               "relative rounded-full px-3.5 py-1.5 text-sm transition-colors",
-              isActive ? "text-white" : "text-zinc-400 hover:text-zinc-100"
+              isActive
+                ? "bg-white/10 text-white ring-1 ring-white/10"
+                : "text-zinc-400 hover:text-zinc-100"
             )}
             aria-current={isActive ? "true" : undefined}
           >
-            {isActive ? (
-              <motion.span
-                layoutId="landing-nav-pill"
-                className="absolute inset-0 rounded-full bg-white/10 ring-1 ring-white/10"
-                transition={
-                  reduceMotion
-                    ? { duration: 0 }
-                    : { type: "spring", stiffness: 320, damping: 36 }
-                }
-              />
-            ) : null}
-            <span className="relative z-10">{item.label}</span>
+            {item.label}
           </a>
         );
       })}

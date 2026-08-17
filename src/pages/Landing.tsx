@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Smartphone, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import PhoneMockupBasic from "@/components/ui/phone-mockups-1";
@@ -10,7 +9,6 @@ import { LandingMagneticCta } from "@/components/landing/LandingMagneticCta";
 import { LandingNeonFrame } from "@/components/landing/LandingNeonFrame";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { LandingTrustMarquee } from "@/components/landing/LandingTrustMarquee";
-import { GradientHeading } from "@/components/cult-ui/gradient-heading";
 import { Link001 } from "@/components/ui/skiper-ui/skiper40";
 import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
@@ -175,19 +173,19 @@ export default function Landing() {
         <LandingNav items={NAV} />
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-zinc-300 hover:text-white"
-            asChild
+          <Link
+            to="/login"
+            className="inline-flex h-8 items-center rounded-md px-3 text-xs text-zinc-300 hover:text-white"
           >
-            <Link to="/login">Entrar</Link>
-          </Button>
-          <Button size="sm" className="rounded-full px-4" asChild>
-            <Link to={ctaTo} onClick={() => track("landing_cta_nav")}>
-              {ctaLabel}
-            </Link>
-          </Button>
+            Entrar
+          </Link>
+          <Link
+            to={ctaTo}
+            onClick={() => track("landing_cta_nav")}
+            className="inline-flex h-8 items-center rounded-full bg-sky-400 px-4 text-xs font-medium text-sky-950 hover:bg-sky-300"
+          >
+            {ctaLabel}
+          </Link>
         </div>
       </header>
 
@@ -195,15 +193,11 @@ export default function Landing() {
         <section className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pb-12 pt-6 sm:px-8 sm:pt-10 lg:grid-cols-[0.95fr_1.05fr] lg:gap-12 lg:pb-20">
           <div className="landing-hero-copy">
             <BrandWordmark size="lg" showSubtitle={false} />
-            <GradientHeading
-              as="h1"
-              variant="sky"
-              size="xl"
-              weight="semi"
-              className="mt-4 font-display"
-            >
-              {BRAND.tagline}.
-            </GradientHeading>
+            <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
+              <span className="block overflow-visible bg-gradient-to-br from-sky-300 via-white to-sky-200 bg-clip-text pb-[0.2em] leading-[1.35] text-transparent">
+                {BRAND.tagline}.
+              </span>
+            </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-zinc-400 sm:text-lg">
               {BRAND.heroSupport}
             </p>
@@ -358,11 +352,13 @@ export default function Landing() {
       >
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs leading-tight text-zinc-400">{heroSub}</p>
-          <Button size="sm" className="rounded-full px-5" asChild>
-            <Link to={ctaTo} onClick={() => track("landing_cta_sticky")}>
-              {ctaLabel}
-            </Link>
-          </Button>
+          <Link
+            to={ctaTo}
+            onClick={() => track("landing_cta_sticky")}
+            className="inline-flex h-8 shrink-0 items-center rounded-full bg-sky-400 px-5 text-xs font-medium text-sky-950 hover:bg-sky-300"
+          >
+            {ctaLabel}
+          </Link>
         </div>
       </div>
     </div>

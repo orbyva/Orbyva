@@ -52,7 +52,7 @@ function clearUserScopedCaches() {
   }
 }
 
-/** Uma única sessão auth para o app, evita N× getUser/onAuthStateChange. */
+/** Uma única sessão auth para o app. `getSession` é local; `getUser()` iria à rede e atrasaria LCP. */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,11 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    void supabase.auth.getUser().then(({ data }) => {
+    void supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
-      setUser(data.user);
-      if (data.user) {
-        identifyAnalytics(data.user.id);
+      const sessionUser = data.session?.user ?? null;
+      setUser(sessionUser);
+      if (sessionUser) {
+        identifyAnalytics(sessionUser.id);
         void applyPendingReferral().catch(() => undefined);
       }
       setLoading(false);

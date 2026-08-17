@@ -4,10 +4,10 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
 import ProtectedRoute from "./ProtectedRoute";
 import LoadingFallback from "./components/LoadingFallback";
 import { useAuth } from "@/hooks/useAuth";
+import Landing from "./pages/Landing";
 
 const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 const Login = lazy(() => import("./pages/admin/Login"));
-const Landing = lazy(() => import("./pages/Landing"));
 const Movies = lazy(() => import("./pages/admin/movies/Movies"));
 const Books = lazy(() => import("./pages/admin/books/Books"));
 const Music = lazy(() => import("./pages/admin/music/Music"));
@@ -38,7 +38,7 @@ const withSuspense = (Component: React.ReactNode) => (
 function LandingEntry() {
   const { user, loading } = useAuth();
   if (!loading && user) return <Navigate to="/home" replace />;
-  return withSuspense(<Landing />);
+  return <Landing />;
 }
 
 function LoginEntry() {

@@ -34,21 +34,39 @@
     <meta name="twitter:description" content="Orçamento, parcelas e lançamentos — com hábitos, metas, viagens e cinema no mesmo app." />
     <meta name="twitter:image" content="https://orbyva.app/marketing/hub.png" />
 
-    <script>
-      // Preload LCP só na home — evita puxar hub nas outras rotas do SPA.
-      if (location.pathname === "/" || location.pathname === "") {
-        var l = document.createElement("link");
-        l.rel = "preload";
-        l.as = "image";
-        l.href = "/marketing/hub.webp";
-        l.type = "image/webp";
-        l.fetchPriority = "high";
-        document.head.appendChild(l);
+    <!-- FCP: CSS crítico inline (CSP style-src unsafe-inline). Sem scripts inline — CSP script-src 'self'. -->
+    <style>
+      html, body, #root {
+        margin: 0;
+        min-height: 100%;
+        background: #070b14;
+        color: #fafafa;
       }
-    </script>
+      .boot-shell {
+        padding: 1.25rem 1.25rem 0;
+      }
+      .boot-wordmark {
+        margin: 0;
+        font: 700 1.35rem/1.2 system-ui, -apple-system, sans-serif;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .boot-wordmark span { color: #38bdf8; }
+    </style>
+    <link
+      rel="preload"
+      as="image"
+      href="/marketing/hub.webp"
+      type="image/webp"
+      fetchpriority="high"
+    />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-shell" aria-hidden="true">
+        <p class="boot-wordmark"><span>O</span>RBYV<span>Ʌ</span></p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

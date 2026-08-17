@@ -45,9 +45,21 @@ export function PhoneCarousel({
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   const reduceMotion = useReducedMotion();
+  const [showPeeks, setShowPeeks] = useState(false);
 
-  // Prefetch só vizinhos (webp), não todos os slides de uma vez.
   useEffect(() => {
+    const enable = () => setShowPeeks(true);
+    if (typeof window.requestIdleCallback === "function") {
+      const idle = window.requestIdleCallback(enable, { timeout: 1600 });
+      return () => window.cancelIdleCallback(idle);
+    }
+    const t = window.setTimeout(enable, 400);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  // Prefetch só vizinhos (webp), depois do LCP / peeks.
+  useEffect(() => {
+    if (!showPeeks) return;
     const neighbors = [
       screens[(index - 1 + n) % n],
       screens[(index + 1) % n],
@@ -56,7 +68,7 @@ export function PhoneCarousel({
       const img = new Image();
       img.src = screen!.src.replace(/\.png$/i, ".webp");
     }
-  }, [screens, index, n]);
+  }, [screens, index, n, showPeeks]);
 
   const go = useCallback(
     (nextDir: -1 | 1) => {
@@ -130,11 +142,13 @@ export function PhoneCarousel({
         <div className="pointer-events-none absolute inset-x-[8%] top-1/2 z-0 h-[55%] -translate-y-1/2 rounded-full bg-sky-500/20 blur-3xl" />
 
         <div className="absolute left-[6%] z-[1] w-[38%] max-w-[200px] -translate-y-1 scale-[0.82] opacity-55 transition-[opacity] duration-200">
-          {renderPhone({
-            screen: left,
-            offset: -1,
-            index: (index - 1 + n) % n,
-          })}
+          {showPeeks
+            ? renderPhone({
+                screen: left,
+                offset: -1,
+                index: (index - 1 + n) % n,
+              })
+            : null}
         </div>
 
         <div className="relative z-[2] aspect-[9/19] w-[46%] max-w-[240px]">
@@ -150,11 +164,13 @@ export function PhoneCarousel({
         </div>
 
         <div className="absolute right-[6%] z-[1] w-[38%] max-w-[200px] -translate-y-1 scale-[0.82] opacity-55 transition-[opacity] duration-200">
-          {renderPhone({
-            screen: right,
-            offset: 1,
-            index: (index + 1) % n,
-          })}
+          {showPeeks
+            ? renderPhone({
+                screen: right,
+                offset: 1,
+                index: (index + 1) % n,
+              })
+            : null}
         </div>
       </div>
 
