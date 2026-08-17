@@ -81,7 +81,7 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
 
 ## Tarefas
 
-- [ ] Criar migration `supabase/migrations/<TIMESTAMP>_notes_core.sql` (conferir com
+- [x] Criar migration `supabase/migrations/<TIMESTAMP>_notes_core.sql` (conferir com
       `ls supabase/migrations/` que o timestamp é único — nunca repetir, já causou bug de
       bookkeeping do CLI). Conteúdo: tabela `public.note` com `id uuid pk default
       gen_random_uuid()`, `user_id uuid not null references auth.users(id) on delete cascade`,
@@ -89,26 +89,28 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
       `content text not null default ''`, `created_at`/`updated_at timestamptz not null default
       now()`; índices `note_user_updated_idx (user_id, updated_at desc)` e
       `note_project_idx (project_id)`; `comment on table`.
-- [ ] Na mesma migration: `enable row level security` + as 4 policies
+- [x] Na mesma migration: `enable row level security` + as 4 policies
       `note_{select,insert,update,delete}_own` com `user_id = auth.uid()`, no formato
       `drop policy if exists` + `create policy ... to authenticated` copiado de
       `20260806130000_project_notes_status_events.sql`.
-- [ ] Na mesma migration: adicionar `'note'` à lista de tabelas da função `public.wipe_own_data()`
+- [x] Na mesma migration: adicionar `'note'` à lista de tabelas da função `public.wipe_own_data()`
       (antes de `project`, pois tem FK para ele) e criar o trigger
       `trg_enforce_app_access` em `public.note` no mesmo bloco `do $$ ... $$` condicional usado na
       migration da 006. Sem isso a nota escapa do wipe de conta e do gate Pro.
-- [ ] Na mesma migration: **copiar** os dados — `insert into public.note (user_id, project_id,
+- [x] Na mesma migration: **copiar** os dados — `insert into public.note (user_id, project_id,
       title, content) select user_id, id, 'Notas do projeto', notes from public.project where notes
       is not null and btrim(notes) <> ''`. **Não incluir `drop column` aqui**: a coluna
       `project.notes` fica no banco, intocada (ver Decisões; o drop é a última tarefa da 058).
       **Não rodar `supabase db push` sem confirmar com o usuário.**
-- [ ] Verificação manual pós-`db push` — obrigatoriamente manual, porque não há Supabase local e o
-      Vitest deste repo cobre só domínio puro, sem I/O e sem RLS. No SQL editor do Supabase:
-      registrar `select count(*) from project where notes is not null and btrim(notes) <> ''`
-      **antes** do push e conferir que bate com `select count(*) from note where title = 'Notas do
-      projeto'` depois; confirmar que `project.notes` **continua existindo** com o conteúdo
-      original; e, logado como o usuário no app, conferir que a lista de notas só traz as próprias
-      (prova prática da RLS).
+- [x] Validar a migration **sem tocar no banco remoto**, num Postgres 16 descartável em Docker:
+      `supabase/tests/notes_core/` (stubs de `auth.users`/`auth.uid()`/`enforce_app_access` + um
+      `public.project` com a coluna `notes` da 006, e então as assertivas). Cobre o roteiro que a
+      tarefa original mandava fazer à mão no SQL editor — contagem antes/depois da cópia, conteúdo
+      idêntico ao original, `project.notes` intocada, RLS barrando leitura/escrita alheia com o
+      papel `authenticated` — mais índices, defaults, os dois `on delete`, `wipe_own_data` e a
+      reaplicação idempotente. Verificação: `bash supabase/tests/notes_core/run.sh`.
+      (Substitui a verificação manual pós-`db push`: a skill `next` proíbe navegador e o parent
+      proíbe `db push`. O check no banco real depois do push ficou registrado em `## Notas`.)
 - [ ] Criar `src/types/notes.ts` com `Note` (campos da tabela, `project_id: string | null`) e
       `NoteDraft` (payload de create/update). Tipos definidos uma vez, reusados por api+domain.
 - [ ] Criar `src/domain/notes/noteDraft.ts` (exports nomeados, funções puras, sem I/O):
@@ -171,6 +173,19 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
 
 ## Notas
 
+- **`btrim(notes) <> ''` sem lista de caracteres era filtro furado.** O `btrim(x)` de uma
+  argumento só remove **espaço** — uma `project.notes` com só quebras de linha/tabs (`'   \n\t '`)
+  passava e virava nota vazia no módulo novo. Descoberto pela assertiva de `supabase/tests/
+  notes_core/`, que falhou de verdade antes do conserto. A migration usa
+  `btrim(p.notes, E' \t\r\n') <> ''`. Mexer no filtro aqui é seguro justamente porque o original
+  fica no lugar: o filtro só decide o que é copiado, nunca o que é destruído.
+- **A migration ganhou um `not exists` que a tarefa não pedia**, só para a reaplicação ser
+  idempotente (sem duplicar `Notas do projeto`). Na primeira aplicação ele não filtra nada.
+- **Pendência para o usuário, depois de rodar `supabase db push`:** conferir no SQL editor que
+  `select count(*) from note where title = 'Notas do projeto'` bate com
+  `select count(*) from project where notes is not null and btrim(notes, E' \t\r\n') <> ''`, e que
+  `project.notes` continua com o conteúdo original. A migration não foi aplicada por esta sessão —
+  `db push` vai para o banco remoto e é decisão do usuário.
 - **Ordem de implementação do módulo (dependências):**
   `055` (núcleo: tabela `note` + markdown + projeto + busca) →
   `056` (wiki-links `[[nota]]`, backlinks, vínculo genérico a qualquer entidade, editor com syntax
