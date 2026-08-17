@@ -175,9 +175,13 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
       Verificação: `src/api/__tests__/search-notes.test.ts` (5 testes) roda o roteiro que a tarefa
       mandava fazer à mão — buscar um trecho que só existe no corpo da nota e conferir que o hit
       leva a `/notes/n1` — contra um duplo do Supabase que registra tabela, escopo e `ilike`.
-- [ ] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle` — este último
-      confirma que o chunk da rota `/notes` cabe nos 160 KB gzip (deve caber folgado: nenhuma
-      dependência nova nesta feature).
+- [x] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle`. Resultado:
+      build OK; lint 0 erros (13 warnings pré-existentes de `react-refresh`, nenhum nos arquivos
+      novos); `npm test` 925 passando / 2 falhando — as 2 são as pré-existentes e alheias de
+      `src/lib/__tests__/currency.test.ts` (esperam `"—"`, `src/lib/currency.ts` devolve `"·"`),
+      fora do escopo desta feature; `check:bundle` OK, com os chunks da rota em 2,1 KB
+      (`NoteDetail`), 1,8 KB (`Notes`), 0,8 KB (`api/notes`) e 0,4 KB (`noteDraft`) contra o teto
+      de 160 KB — nenhuma dependência nova, como previsto.
 
 ## Prompts
 
@@ -209,6 +213,31 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
   `select count(*) from project where notes is not null and btrim(notes, E' \t\r\n') <> ''`, e que
   `project.notes` continua com o conteúdo original. A migration não foi aplicada por esta sessão —
   `db push` vai para o banco remoto e é decisão do usuário.
+- **Checagem de satisfação (2026-08-16), item do `prompt:` → artefato que prova.** O prompt-mãe
+  cobre as quatro features; o que a 055 se propôs a cumprir está abaixo, com o teste que passou:
+  - *CRIAÇÃO DE NOTAS* → `Notes.flow.test.tsx` "criar uma nota abre o editor dela e a nota nasce
+    com título padrão" e "excluir a nota pela lista tira ela do banco e da tela"; CRUD da camada
+    de I/O em `notes-api.test.ts` (12 testes).
+  - *MARKDOWN NA VEIA* → `Notes.flow.test.tsx` "a aba Visualizar renderiza o Markdown do corpo da
+    nota" (título, lista, checklist GFM virando `checkbox`, negrito) e
+    `TaskDescriptionField.test.tsx` "HTML cru NÃO é interpretado", que trava a decisão de
+    segurança em assertiva.
+  - *VINCULAM-SE A PROJETOS* → `Notes.flow.test.tsx` "vincular a nota a um projeto persiste e
+    aparece na lista" e "excluir o projeto preserva a nota, só desfaz o vínculo";
+    `ProjectNotesSection.test.tsx` "criar pela página do projeto já nasce vinculada"; no banco, a
+    assertiva de `on delete set null` em `supabase/tests/notes_core/04_assert_fk_wipe.sql`.
+  - *CONVERSAM COM TUDO* (o que cabia aqui: achar nota de qualquer lugar) →
+    `search-notes.test.ts` "um trecho que só existe no corpo da nota devolve o hit apontando para
+    o editor". O vínculo genérico com qualquer entidade é da 056.
+  - *POSSIBILIDADE DE PLUGINS*, *CANVAS/DESENHOS*, *FLOWCHARTS*, *DIAGRAMAS BÁSICOS* → **fora do
+    escopo da 055 por decisão do refino**, são 057 e 058. Não há artefato porque não foram
+    implementados; é a ordem combinada, não pendência esquecida.
+  - Suíte completa: `npm test` → 925 passando, 2 falhando. As 2 são pré-existentes e alheias
+    (`src/lib/__tests__/currency.test.ts` espera `"—"`, `src/lib/currency.ts` devolve `"·"`).
+    Antes desta feature eram 859/2; a 055 acrescentou 66 testes e nenhuma falha nova.
+- **A migration NÃO foi aplicada.** `supabase db push` vai para o banco remoto e é decisão do
+  usuário; a validação foi toda em Postgres 16 descartável (ver a tarefa correspondente e a
+  pendência mais abaixo).
 - **Desvio do plano: as notas do projeto viraram seção, não aba.** A tarefa pedia uma quarta aba ao
   lado de Kanban/Lista/Gantt. Não foi feito assim porque a feature 052, no mesmo arquivo, já deixou
   a decisão escrita em comentário: aquelas abas alternam entre *visões das tarefas* do projeto, e
