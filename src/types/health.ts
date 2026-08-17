@@ -1,3 +1,4 @@
+import type { Habit } from "@/types/habits";
 import type { Task } from "@/types/tasks";
 
 /**
@@ -17,4 +18,17 @@ export interface HealthSummary {
    * quando não há nenhuma agendada. Mesma origem da dose: consulta é tarefa, não tabela própria.
    */
   nextConsultation: Task | null;
+}
+
+/**
+ * Hábito de saúde (água, alimentação — feature 062) com o estado do check-in de hoje.
+ *
+ * Não há tabela de nutrição: o hábito é um `habit` comum com `is_health = true`, e "bebi água
+ * hoje" é a linha de `habit_log` do dia. Por isso o registro é booleano — quantidade (litros,
+ * gramas) ficou fora do escopo até existir a feature completa que a alimente.
+ */
+export interface HealthHabitToday {
+  habit: Habit;
+  /** Há `habit_log` de hoje com `completed = true` para este hábito. */
+  doneToday: boolean;
 }

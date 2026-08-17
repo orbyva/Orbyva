@@ -1,7 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { formatLocalIsoDate } from "@/lib/dates";
-import type { HealthSummary } from "@/types/health";
+import type { Habit } from "@/types/habits";
+import type { HealthHabitToday, HealthSummary } from "@/types/health";
 import type { Task } from "@/types/tasks";
 
 /**
@@ -48,4 +49,54 @@ export async function loadHealthSummary(): Promise<HealthSummary> {
   ]);
 
   return { nextMedicationDose, nextConsultation };
+}
+
+/**
+ * Hábitos de saúde (feature 062) com o check-in de hoje — o que a seção "Hoje" do Health Dashboard
+ * lista. São `habit` comuns marcados com `is_health`, então o histórico, o streak e a meta semanal
+ * continuam saindo do módulo de Hábitos; aqui só interessa "fez hoje ou não".
+ *
+ * Enquanto a migration `20260816200000_habit_is_health.sql` não for aplicada, a coluna não existe e
+ * o Postgres devolve erro — nesse caso a seção fica vazia em vez de derrubar o dashboard inteiro
+ * (que já mostra dose e consulta desde a 060/061). Mesmo tratamento defensivo de `createHabit`.
+ */
+export async function fetchHealthHabitsToday(): Promise<HealthHabitToday[]> {
+  const userId = await getCurrentUserId();
+  const today = formatLocalIsoDate(new Date());
+
+  const { data, error } = await supabase
+    .from("habit")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_health", true)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    if (/is_health/i.test(error.message)) return [];
+    throw new Error(error.message);
+  }
+
+  const habits = (data ?? []) as Habit[];
+  if (habits.length === 0) return [];
+
+  // `habit_log` não tem `user_id`: o escopo vem do dono do hábito, e os ids acima já são só do
+  // usuário logado (a RLS confirma isso no banco — supabase/tests/habit_is_health).
+  const { data: logs, error: logsError } = await supabase
+    .from("habit_log")
+    .select("habit_id, completed")
+    .in("habit_id", habits.map((habit) => habit.id))
+    .eq("date", today);
+
+  if (logsError) throw new Error(logsError.message);
+
+  const doneIds = new Set(
+    (logs ?? [])
+      .filter((log: { completed: boolean }) => log.completed)
+      .map((log: { habit_id: string }) => log.habit_id)
+  );
+
+  return habits.map((habit) => ({
+    habit,
+    doneToday: doneIds.has(habit.id),
+  }));
 }
