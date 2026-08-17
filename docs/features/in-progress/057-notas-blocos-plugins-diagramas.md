@@ -69,12 +69,15 @@ ordem.
 
 ## Tarefas
 
-- [ ] Criar `src/domain/notes/blockLanguage.ts` (puro, exports nomeados): `parseBlockLanguage(className)`
+- [x] Criar `src/domain/notes/blockLanguage.ts` (puro, exports nomeados): `parseBlockLanguage(className)`
       extraindo `<lang>` de `language-<lang>` e normalizando para minúsculas, devolvendo `null` quando
       não houver linguagem. É a parte testável, e por isso mora em `domain/` e não em `components/`.
-- [ ] Criar `src/domain/notes/__tests__/blockLanguage.test.ts`: `language-Mermaid` → `mermaid`,
+      A varredura é por token (`className.split(/\s+/)`), não `startsWith`: o `react-markdown` entrega
+      a classe no meio de outras.
+- [x] Criar `src/domain/notes/__tests__/blockLanguage.test.ts`: `language-Mermaid` → `mermaid`,
       `className` vazio ou ausente → `null`, `className` com classes extras não quebra.
-      Verificação: `npm test`.
+      Verificação: `npx vitest run src/domain/notes/__tests__/blockLanguage.test.ts` — 6 testes
+      passando, incluindo `language-` sem linguagem → `null` e `hljs language-mermaid extra`.
 - [ ] Criar `src/components/markdown/blockRegistry.ts`: tipo `BlockRenderer = ComponentType<{ code:
       string }>` e um `Record<string, BlockRenderer>` exportado, com lookup via
       `parseBlockLanguage` e fallback para o bloco de código normal quando não houver renderer.
