@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Pen, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ExternalLink, Loader2, Pen, Trash2 } from "lucide-react";
+import { badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
-import { setShoppingItemStatus } from "@/api/shopping/items";
+import { TaskIconBadge } from "@/pages/admin/tasks/TaskIconBadge";
+import {
+  createTaskFromShoppingItem,
+  setShoppingItemStatus,
+} from "@/api/shopping/items";
+import type { ShoppingItemTaskLink } from "@/api/shopping/items";
+import { SHOPPING_TASK_ICON_KEY } from "@/domain/shopping/taskLink";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
@@ -11,8 +19,12 @@ import type { ShoppingItem, ShoppingItemStatus } from "@/types/shopping";
 
 interface ShoppingItemRowProps {
   item: ShoppingItem;
+  /** Tarefa já vinculada a este item, se houver — vem do mapa carregado uma vez pela página. */
+  taskLink?: ShoppingItemTaskLink | null;
   /** Avisa a página do novo status para ela atualizar contagem/ordem sem refetch. */
   onStatusChange: (id: string, status: ShoppingItemStatus) => void;
+  /** Avisa a página da tarefa recém-criada para ela atualizar o mapa de vínculos sem refetch. */
+  onTaskCreated?: (itemId: string, link: ShoppingItemTaskLink) => void;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -26,11 +38,14 @@ function formatQuantity(item: ShoppingItem): string {
 
 export function ShoppingItemRow({
   item,
+  taskLink,
   onStatusChange,
+  onTaskCreated,
   onEdit,
   onDelete,
 }: ShoppingItemRowProps) {
   const [status, setStatus] = useState<ShoppingItemStatus>(item.status);
+  const [creatingTask, setCreatingTask] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -60,6 +75,30 @@ export function ShoppingItemRow({
     }
   }
 
+  async function handleCreateTask() {
+    setCreatingTask(true);
+    try {
+      const task = await createTaskFromShoppingItem(item.id);
+      onTaskCreated?.(item.id, {
+        taskId: task.id,
+        title: task.title,
+        status: task.status,
+      });
+      toast({ title: `Tarefa "${task.title}" criada`, duration: 2500 });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(
+          error,
+          "Não foi possível criar a tarefa deste item."
+        ),
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingTask(false);
+    }
+  }
+
   return (
     <li className="flex items-center gap-2 rounded-lg border bg-card p-2.5">
       <input
@@ -84,6 +123,33 @@ export function ShoppingItemRow({
           </p>
         )}
       </div>
+      {taskLink ? (
+        // Relação 1:1 — com a tarefa existindo, o botão de criar dá lugar ao atalho pra ela.
+        <Link
+          to="/tasks"
+          aria-label={`Ver tarefa "${taskLink.title}"`}
+          title={taskLink.title}
+          className={cn(
+            badgeVariants({ variant: "outline" }),
+            "shrink-0 gap-1 text-[10px] font-normal hover:bg-muted"
+          )}
+        >
+          <TaskIconBadge iconKey={SHOPPING_TASK_ICON_KEY} className="h-3 w-3" />
+          Tarefa
+        </Link>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 shrink-0 gap-1 px-2 text-xs"
+          onClick={handleCreateTask}
+          disabled={creatingTask}
+          aria-label={`Criar tarefa para ${item.title}`}
+        >
+          {creatingTask && <Loader2 className="h-3 w-3 animate-spin" />}
+          Criar tarefa
+        </Button>
+      )}
       {item.provider_link && (
         <Button
           variant="ghost"
