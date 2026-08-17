@@ -172,6 +172,29 @@ export async function fetchMedicationDoses(medicationId: string): Promise<Task[]
 }
 
 /**
+ * Todas as doses do usuário a partir de uma data — a janela de adesão da lista de tratamentos.
+ * Uma query só para todos os tratamentos: agrupar por `medication_id` no cliente é mais barato que
+ * uma query por tratamento.
+ */
+export async function fetchDosesSince(since: string): Promise<Task[]> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("task")
+    .select("*")
+    .eq("user_id", userId)
+    .not("medication_id", "is", null)
+    .gte("due_date", since)
+    .order("due_date", { ascending: true, nullsFirst: false });
+
+  if (error) {
+    if (isMissingMedicationRelation(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as Task[];
+}
+
+/**
  * Materializa em `task` as doses que faltam de **um** tratamento e devolve as linhas criadas.
  *
  * `existingDoses` são as doses já materializadas dele; passar a lista de fora é o que permite

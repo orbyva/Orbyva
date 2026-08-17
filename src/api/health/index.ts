@@ -1,5 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
+import { fetchDosesSince, fetchMedications } from "@/api/health/medications";
+import { computeAdherence } from "@/domain/health/adherence";
 import { formatLocalIsoDate } from "@/lib/dates";
 import type { Habit } from "@/types/habits";
 import type {
@@ -66,24 +68,43 @@ function isMissingRelation(message: string): boolean {
   );
 }
 
-/** Resumo do sub-módulo Vida > Saúde: dose (060), consulta (061), métricas e lembretes (063). */
+/** Janela da adesão exibida no dashboard e na lista de tratamentos — as duas têm de bater. */
+const ADHERENCE_DAYS = 30;
+
+/**
+ * Resumo do sub-módulo Vida > Saúde: dose (060), consulta (061), métricas e lembretes (063),
+ * tratamentos e adesão (064).
+ */
 export async function loadHealthSummary(): Promise<HealthSummary> {
   const userId = await getCurrentUserId();
   const today = formatLocalIsoDate(new Date());
+  const windowStart = new Date();
+  windowStart.setDate(windowStart.getDate() - ADHERENCE_DAYS);
 
-  const [nextMedicationDose, nextConsultation, latestMetrics, reminderPreferences] =
-    await Promise.all([
-      fetchNextPendingTask(userId, "is_medication", today),
-      fetchNextPendingTask(userId, "is_consultation", today),
-      fetchHealthMetrics(),
-      fetchReminderPreferences(),
-    ]);
+  const [
+    nextMedicationDose,
+    nextConsultation,
+    latestMetrics,
+    reminderPreferences,
+    medications,
+    recentDoses,
+  ] = await Promise.all([
+    fetchNextPendingTask(userId, "is_medication", today),
+    fetchNextPendingTask(userId, "is_consultation", today),
+    fetchHealthMetrics(),
+    fetchReminderPreferences(),
+    fetchMedications(true),
+    fetchDosesSince(formatLocalIsoDate(windowStart)),
+  ]);
 
   return {
     nextMedicationDose,
     nextConsultation,
     latestMetrics,
     reminderPreferences,
+    // Calculada aqui, não guardada: a fonte é a mesma lista de doses que a tela mostra.
+    medicationAdherence: computeAdherence(recentDoses),
+    activeMedicationCount: medications.length,
   };
 }
 

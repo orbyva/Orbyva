@@ -128,7 +128,7 @@ describe("Health Dashboard — fluxo", () => {
       await screen.findByRole("heading", { name: "Saúde", level: 1 })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Próxima dose", level: 2 })
+      screen.getByRole("heading", { name: "Medicações", level: 2 })
     ).toBeInTheDocument();
     expect(await screen.findByText("Nenhuma dose agendada")).toBeInTheDocument();
     expect(
@@ -305,7 +305,7 @@ describe("Health Dashboard — fluxo", () => {
     );
     // A página continua de pé: o cabeçalho da seção segue lá.
     expect(
-      screen.getByRole("heading", { name: "Próxima dose", level: 2 })
+      screen.getByRole("heading", { name: "Medicações", level: 2 })
     ).toBeInTheDocument();
   });
 });

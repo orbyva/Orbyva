@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Check,
   GlassWater,
@@ -24,6 +25,7 @@ import {
 } from "@/api/health";
 import { toggleHabitLog } from "@/api/habits";
 import { frequencyLabel } from "@/domain/habits";
+import { formatRate } from "@/domain/health/adherence";
 import {
   METRIC_LABEL,
   METRIC_TYPES,
@@ -176,6 +178,7 @@ export default function HealthDashboard() {
 
   const nextDose = summary?.nextMedicationDose ?? null;
   const nextConsultation = summary?.nextConsultation ?? null;
+  const adherence = summary?.medicationAdherence ?? null;
   const habitsDone = healthHabits.filter((item) => item.doneToday).length;
 
   // Progresso (feature 063): tudo derivado da mesma janela de medições — nada disso vem pronto do
@@ -380,6 +383,9 @@ export default function HealthDashboard() {
         )}
       </section>
 
+      {/* Medicações (feature 064): o tratamento virou entidade própria (`medication`), então esta
+          seção resume — próxima dose e adesão — e a gestão (cadastrar, editar, encerrar) mora em
+          `/life/health/medications`. */}
       <section
         aria-labelledby="health-next-dose"
         className="rounded-xl border bg-card shadow-sm"
@@ -389,18 +395,35 @@ export default function HealthDashboard() {
             <HeartPulse className="h-4 w-4" />
           </span>
           <h2 id="health-next-dose" className="text-sm font-semibold">
-            Próxima dose
+            Medicações
           </h2>
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+          >
+            <Link to="/life/health/medications">Ver medicações</Link>
+          </Button>
         </header>
 
         {loading ? (
           <TableLoadingSkeleton rows={1} columns={3} />
         ) : nextDose ? (
           <div className="flex flex-col gap-1 px-4 py-4">
+            <p className="text-xs text-muted-foreground">Próxima dose</p>
             <p className="text-base font-semibold">{nextDose.title}</p>
             <p className="text-sm text-muted-foreground">
               {formatDateTimeBR(nextDose.due_date, nextDose.due_time)}
             </p>
+            {/* Sem dose vencida na janela não há adesão a mostrar: "0%" para quem acabou de
+                cadastrar seria uma acusação falsa. */}
+            {adherence && adherence.total > 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="health-adherence">
+                Adesão 30 dias: {formatRate(adherence.takenRate)} ({adherence.taken} de{" "}
+                {adherence.total}) · {formatRate(adherence.onTimeRate)} no horário
+              </p>
+            ) : null}
           </div>
         ) : (
           <EmptyState

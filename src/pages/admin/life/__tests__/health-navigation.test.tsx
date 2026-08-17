@@ -19,6 +19,16 @@ import { loadHealthSummary } from "@/api/health";
 
 vi.mock("@/api/health", () => ({ loadHealthSummary: vi.fn() }));
 
+// A lista de tratamentos (064) é montada de verdade pela rota — a API é mockada para o teste ser
+// sobre a navegação, não sobre o Supabase.
+vi.mock("@/api/health/medications", () => ({
+  fetchMedications: vi.fn(async () => []),
+  fetchDosesSince: vi.fn(async () => []),
+  deactivateMedication: vi.fn(),
+  createMedicationWithDoses: vi.fn(),
+  updateMedication: vi.fn(),
+}));
+
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: toastMock }),
@@ -31,6 +41,16 @@ beforeEach(() => {
     nextConsultation: null,
     latestMetrics: [],
     reminderPreferences: [],
+    medicationAdherence: {
+      total: 0,
+      taken: 0,
+      onTime: 0,
+      late: 0,
+      missed: 0,
+      takenRate: 0,
+      onTimeRate: 0,
+    },
+    activeMedicationCount: 0,
   });
 });
 
@@ -106,6 +126,36 @@ describe("rota /life/health", () => {
       await screen.findByRole(
         "heading",
         { name: "Saúde", level: 1 },
+        { timeout: 10_000 }
+      )
+    ).toBeInTheDocument();
+  }, 15_000);
+});
+
+describe("rota /life/health/medications (feature 064)", () => {
+  it("a URL resolve para uma rota registrada, e não para o 404", () => {
+    const matches = matchRoutes(appRoutes, "/life/health/medications");
+    expect(matches).not.toBeNull();
+    const paths = matches!.map((m) => m.route.path);
+    expect(paths).toContain("life/health/medications");
+    expect(paths).not.toContain("*");
+  });
+
+  it("o elemento casado renderiza a lista de tratamentos", async () => {
+    const matches = matchRoutes(appRoutes, "/life/health/medications")!;
+    const element = matches[matches.length - 1].route.element;
+
+    render(
+      <MemoryRouter initialEntries={["/life/health/medications"]}>
+        <Suspense fallback={<p>carregando</p>}>{element}</Suspense>
+      </MemoryRouter>
+    );
+
+    // Mesmo timeout folgado da rota acima: a página é `lazy()`.
+    expect(
+      await screen.findByRole(
+        "heading",
+        { name: "Medicações", level: 1 },
         { timeout: 10_000 }
       )
     ).toBeInTheDocument();

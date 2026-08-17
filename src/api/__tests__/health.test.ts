@@ -31,6 +31,8 @@ const store = {
   health_metric: [] as AnyRow[],
   /** `public.reminder_preference` (feature 063). */
   reminder_preference: [] as AnyRow[],
+  /** `public.medication` (feature 064). */
+  medication: [] as AnyRow[],
   /** Quando setado, a próxima query nessa tabela devolve este erro (tabela ainda sem migration). */
   errorByTable: {} as Record<string, string | undefined>,
 };
@@ -39,12 +41,15 @@ function tableRows(table: string): AnyRow[] {
   if (table === "task") return store.tasks as unknown as AnyRow[];
   if (table === "health_metric") return store.health_metric;
   if (table === "reminder_preference") return store.reminder_preference;
+  if (table === "medication") return store.medication;
   throw new Error(`tabela inesperada no teste: ${table}`);
 }
 
 interface RecordedQuery {
   table: string;
   eq: [string, unknown][];
+  /** `.not(coluna, "is", null)` — como `fetchDosesSince` filtra as doses (feature 064). */
+  notNull: string[];
   gte: [string, unknown][];
   order: [string, { ascending?: boolean; nullsFirst?: boolean }][];
   limit: number;
@@ -54,7 +59,7 @@ interface RecordedQuery {
 const queries: RecordedQuery[] = [];
 
 function makeBuilder(table: string) {
-  const recorded: RecordedQuery = { table, eq: [], gte: [], order: [], limit: 0 };
+  const recorded: RecordedQuery = { table, eq: [], notNull: [], gte: [], order: [], limit: 0 };
   queries.push(recorded);
 
   let rows = [...tableRows(table)];
@@ -140,6 +145,14 @@ function makeBuilder(table: string) {
       rows = rows.filter((row) => row[column] === value);
       return builder;
     },
+    not(column: string, operator: string, value: unknown) {
+      if (operator !== "is" || value !== null) {
+        throw new Error(`.not() inesperado no teste: ${operator} ${String(value)}`);
+      }
+      recorded.notNull.push(column);
+      rows = rows.filter((row) => row[column] != null);
+      return builder;
+    },
     gte(column: string, value: string) {
       recorded.gte.push([column, value]);
       rows = rows.filter((row) => {
@@ -182,6 +195,7 @@ beforeEach(() => {
   store.tasks = [];
   store.health_metric = [];
   store.reminder_preference = [];
+  store.medication = [];
   store.errorByTable = {};
   queries.length = 0;
 });
@@ -253,7 +267,83 @@ describe("loadHealthSummary", () => {
       nextConsultation: null,
       latestMetrics: [],
       reminderPreferences: [],
+      // Feature 064: sem dose vencida a adesão é zerada, não "0% de adesão" acusatório — quem lê
+      // isso na tela é o guard `total > 0` do dashboard.
+      medicationAdherence: {
+        total: 0,
+        taken: 0,
+        onTime: 0,
+        late: 0,
+        missed: 0,
+        takenRate: 0,
+        onTimeRate: 0,
+      },
+      activeMedicationCount: 0,
     });
+  });
+
+  it("conta só os tratamentos ativos do próprio usuário (feature 064)", async () => {
+    store.medication = [
+      { id: "m1", user_id: "user-1", name: "Losartana", active: true },
+      { id: "m2", user_id: "user-1", name: "Antigo", active: false },
+      { id: "m3", user_id: "user-2", name: "De outro", active: true },
+    ];
+
+    const summary = await loadHealthSummary();
+
+    expect(summary.activeMedicationCount).toBe(1);
+  });
+
+  it("adesão do resumo sai das doses dos últimos 30 dias, não de uma coluna (feature 064)", async () => {
+    store.tasks = [
+      // No horário (17/07 é dentro da janela de 30 dias a partir de 16/08).
+      medication({
+        id: "d1",
+        title: "Losartana",
+        due_date: "2026-08-14",
+        due_time: "08:00",
+        dose_time: "08:00",
+        medication_id: "m1",
+        status: "done",
+        completed_at: new Date(2026, 7, 14, 8, 10).toISOString(),
+      }),
+      // Atrasada: mais de 60 min depois do agendado.
+      medication({
+        id: "d2",
+        title: "Losartana",
+        due_date: "2026-08-15",
+        due_time: "08:00",
+        dose_time: "08:00",
+        medication_id: "m1",
+        status: "done",
+        completed_at: new Date(2026, 7, 15, 12, 0).toISOString(),
+      }),
+      // Vencida e não tomada.
+      medication({
+        id: "d3",
+        title: "Losartana",
+        due_date: "2026-08-16",
+        due_time: "08:00",
+        dose_time: "08:00",
+        medication_id: "m1",
+      }),
+      // Tarefa comum, sem `medication_id`: o `.not(medication_id, is, null)` tem de deixá-la fora.
+      { user_id: "user-1", id: "x", title: "Comprar pão", due_date: "2026-08-15", status: "todo" },
+    ];
+
+    const summary = await loadHealthSummary();
+
+    expect(summary.medicationAdherence).toMatchObject({
+      total: 3,
+      taken: 2,
+      onTime: 1,
+      late: 1,
+      missed: 1,
+    });
+    // A query de doses filtra por `medication_id not null` e pela janela.
+    const dosesQuery = queries.find((q) => q.notNull.includes("medication_id"));
+    expect(dosesQuery?.table).toBe("task");
+    expect(dosesQuery?.gte).toEqual([["due_date", "2026-07-17"]]);
   });
 
   it("devolve a dose mais próxima, com título, data e horário", async () => {

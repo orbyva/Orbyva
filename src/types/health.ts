@@ -1,3 +1,4 @@
+import type { AdherenceSummary } from "@/domain/health/adherence";
 import type { Habit } from "@/types/habits";
 import type { Task } from "@/types/tasks";
 
@@ -26,6 +27,14 @@ export interface HealthSummary {
   latestMetrics: HealthMetric[];
   /** Preferências de lembrete do usuário (feature 063) — uma linha por `entity_type` configurado. */
   reminderPreferences: ReminderPreference[];
+  /**
+   * Adesão às medicações nos últimos 30 dias (feature 064) — sempre **calculada** das doses
+   * (`computeAdherence`), nunca lida de uma coluna: guardar o número exigiria recalculá-lo a cada
+   * marcação de dose e ele ficaria dessincronizado no primeiro erro.
+   */
+  medicationAdherence: AdherenceSummary;
+  /** Quantos tratamentos ativos existem (feature 064) — o que a seção "Medicações" resume. */
+  activeMedicationCount: number;
 }
 
 /**
