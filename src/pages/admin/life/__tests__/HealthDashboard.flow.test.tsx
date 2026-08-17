@@ -24,6 +24,9 @@ const { store } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/api/health", () => ({
+  // A seção "Hoje" (feature 062) tem fluxo próprio em `HealthDashboard.habits.test.tsx`; aqui ela
+  // fica vazia de propósito, pra este arquivo continuar sendo sobre dose e consulta.
+  fetchHealthHabitsToday: vi.fn(async () => []),
   loadHealthSummary: vi.fn(async () => {
     if (store.failNextLoad) {
       const error = store.failNextLoad;
