@@ -53,6 +53,7 @@ async function materializeRecurringInstances(
         recurrence_rule: null,
         recurrence_origin_id: origin.id,
         is_medication: origin.is_medication ?? false,
+        is_consultation: origin.is_consultation ?? false,
       });
     }
   }

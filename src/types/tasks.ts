@@ -117,6 +117,11 @@ export interface Task {
   /** Marca a tarefa (e a série materializada a partir dela) como uma medicação (feature 049) —
    * usado pra exibir o histórico de doses tomadas no dialog "Ocorrências de...". */
   is_medication?: boolean;
+  /** Marca a tarefa (e a série materializada a partir dela) como uma consulta médica (feature 061)
+   * — o especialista vai no `title` ("Cardiologista — Dr. Silva"), local/preparo na `description`.
+   * Usado pra renderizar o item com ícone de estetoscópio no calendário geral e pra exibir
+   * "Compareceu às" (a partir de `completed_at`) no dialog "Ocorrências de...". */
+  is_consultation?: boolean;
   created_at?: string;
   updated_at?: string;
 }
