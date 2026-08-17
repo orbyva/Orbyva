@@ -83,10 +83,10 @@ inteira, como em `computeVirtualOccurrences`).
 - [x] No `EventFormDialog`, implementar o seletor de vínculo (segmento "Sem vínculo | Projeto |
   Tarefa" + `ProjectPicker`/`TaskPicker`), zerando o id do outro lado ao trocar de segmento e
   escondendo o seletor inteiro quando `lockedLink` estiver presente
-- [ ] Em `AgendaGrid.tsx`: importar `createProjectEvent`/`updateProjectEvent`, adicionar estado
+- [x] Em `AgendaGrid.tsx`: importar `createProjectEvent`/`updateProjectEvent`, adicionar estado
   `eventDialog` (`{ open, editing, prefillStartsAt }`) e o botão "Novo evento" no header, ao lado do
   filtro de projeto
-- [ ] Em `AgendaGrid.tsx`: implementar `handleSaveEvent` (create ou update conforme `editing`, toast
+- [x] Em `AgendaGrid.tsx`: implementar `handleSaveEvent` (create ou update conforme `editing`, toast
   de erro com `getErrorMessage`, fecha o dialog e chama `load()`) e ligar `handleDeleteEvent`
   (já existe) ao `onDelete` do dialog novo
 - [ ] Em `AgendaGrid.tsx` (visão mês): clique na área vazia da célula do dia abre o dialog de criação
@@ -134,6 +134,11 @@ inteira, como em `computeVirtualOccurrences`).
   sugerido pelo clique num dia/slot, que a tarefa da `AgendaGrid` previa guardar no estado
   `eventDialog`) e `extraActions` (slot para o "Ir para o projeto" do modo edição, que é específico
   da Agenda e não pode nascer dentro de um componente que a 068 vai reusar).
+- `handleSaveEvent` re-lança o erro depois do toast: o `EventFormDialog` só continua aberto se
+  `onSave` rejeitar, então engolir a exceção na Agenda faria o dialog fechar como se tivesse
+  salvado. Os mocks `vi.mock("@/api/tasks", ...)` de `AgendaGrid.test.tsx` e
+  `AgendaGrid.consultation.test.tsx` ganharam `createProjectEvent`/`updateProjectEvent` (mesmo
+  problema já registrado nas Notas da 065/066).
 - `src/pages/admin/tasks/__tests__/TaskPicker.test.tsx` não estava no plano, mas entrou junto com o
   componente: a verificação é só por código (sem navegador) e o `EventFormDialog.test.tsx` previsto
   cobre a escolha do vínculo, não o que é específico do picker — busca case-insensitive, teto de 50

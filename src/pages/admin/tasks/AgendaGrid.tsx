@@ -12,7 +12,16 @@ import {
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CornerDownRight, DollarSign, ExternalLink, Stethoscope, Trash2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  CornerDownRight,
+  DollarSign,
+  ExternalLink,
+  Plus,
+  Stethoscope,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -28,9 +37,11 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { FORM_DIALOG_CONTENT_CLASS, FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { AgendaHourGrid } from "./AgendaHourGrid";
+import { EventFormDialog } from "./EventFormDialog";
 import { TaskIconBadge } from "./TaskIconBadge";
 import { TaskFormFields, type TaskFormTab } from "./TaskFormFields";
 import {
+  createProjectEvent,
   createTag,
   createTask,
   deleteProjectEvent,
@@ -39,6 +50,7 @@ import {
   fetchProjects,
   fetchTags,
   fetchTasks,
+  updateProjectEvent,
   updateTask,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
@@ -59,7 +71,15 @@ import {
 } from "@/domain/tasks/taskDraft";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR } from "@/lib/currency";
-import type { Project, ProjectEvent, SubtaskDraft, Tag, Task, TaskCreateRequest } from "@/types/tasks";
+import type {
+  Project,
+  ProjectEvent,
+  ProjectEventCreateRequest,
+  SubtaskDraft,
+  Tag,
+  Task,
+  TaskCreateRequest,
+} from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useDimensions } from "@/hooks/useDimensions";
@@ -211,6 +231,13 @@ export function AgendaGrid() {
   const [formTab, setFormTab] = useState<TaskFormTab>("geral");
   const [form, setForm] = useState<TaskCreateRequest>(emptyTask());
   const [viewingEvent, setViewingEvent] = useState<ProjectEvent | null>(null);
+  /** Dialog de criar/editar evento (feature 067). `editing: null` = criação; `prefillStartsAt` é o
+   * início sugerido pelo clique num dia (mês) ou num slot de hora (semana/dia). */
+  const [eventDialog, setEventDialog] = useState<{
+    open: boolean;
+    editing: ProjectEvent | null;
+    prefillStartsAt: string | null;
+  }>({ open: false, editing: null, prefillStartsAt: null });
   const { toast } = useToast();
 
   const load = useCallback(async () => {
@@ -475,10 +502,50 @@ export function AgendaGrid() {
     await removeExistingSubtaskDraft(subtaskMutationCtx, subtask);
   }
 
+  function closeEventDialog() {
+    setEventDialog({ open: false, editing: null, prefillStartsAt: null });
+  }
+
+  /** Abre o dialog em modo criação. `startsAt` (ISO) vem do dia/slot clicado; sem ele o usuário
+   * escolhe a data no próprio form (botão "Novo evento" do header). */
+  function openEventCreate(startsAt: string | null) {
+    setDayModalKey(null);
+    setEventDialog({ open: true, editing: null, prefillStartsAt: startsAt });
+  }
+
+  /**
+   * Cria ou edita conforme o `editing` do dialog. O erro é toast **e** re-lançado: quem mostra a
+   * mensagem é a Agenda, mas quem decide continuar aberto é o `EventFormDialog` — sem o re-lançar,
+   * ele fecharia achando que deu certo e o usuário perderia o que digitou.
+   */
+  async function handleSaveEvent(draft: ProjectEventCreateRequest) {
+    const editing = eventDialog.editing;
+    try {
+      if (editing) {
+        await updateProjectEvent({ id: editing.id, ...draft });
+      } else {
+        await createProjectEvent(draft);
+      }
+      closeEventDialog();
+      await load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(
+          error,
+          editing ? "Não foi possível salvar o evento." : "Não foi possível criar o evento."
+        ),
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
   async function handleDeleteEvent(id: string) {
     try {
       await deleteProjectEvent(id);
       setViewingEvent(null);
+      closeEventDialog();
       load();
     } catch (error) {
       toast({
@@ -539,6 +606,10 @@ export function AgendaGrid() {
               ))}
             </SelectContent>
           </Select>
+          <Button size="sm" className="h-8 gap-1.5" onClick={() => openEventCreate(null)}>
+            <Plus className="h-3.5 w-3.5" />
+            Novo evento
+          </Button>
         </div>
       </div>
 
@@ -734,6 +805,19 @@ export function AgendaGrid() {
           )}
         </DialogContent>
       </Dialog>
+
+      <EventFormDialog
+        open={eventDialog.open}
+        onOpenChange={(v) => (v ? undefined : closeEventDialog())}
+        editing={eventDialog.editing}
+        projects={projects}
+        tasks={tasks}
+        prefillStartsAt={eventDialog.prefillStartsAt}
+        onSave={handleSaveEvent}
+        onDelete={
+          eventDialog.editing ? () => handleDeleteEvent(eventDialog.editing!.id) : undefined
+        }
+      />
     </div>
   );
 }

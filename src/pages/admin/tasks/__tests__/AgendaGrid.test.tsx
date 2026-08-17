@@ -42,6 +42,8 @@ vi.mock("@/api/tasks", () => ({
   createTask: vi.fn(),
   deleteTask: vi.fn(),
   updateTask: vi.fn(),
+  createProjectEvent: vi.fn(),
+  updateProjectEvent: vi.fn(),
   deleteProjectEvent: vi.fn(),
 }));
 
