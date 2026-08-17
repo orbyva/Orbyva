@@ -76,11 +76,11 @@ inteira, como em `computeVirtualOccurrences`).
 - [x] Criar `src/pages/admin/tasks/TaskPicker.tsx`: `Input` de busca + lista rolável com
   `role="listbox"` espelhando `ProjectPicker.tsx`, opção "Sem tarefa", filtro por título
   case-insensitive, teto de itens renderizados e rótulo do projeto da tarefa como texto secundário
-- [ ] Criar `src/pages/admin/tasks/EventFormDialog.tsx` com os campos Título/Início/Fim e as props
+- [x] Criar `src/pages/admin/tasks/EventFormDialog.tsx` com os campos Título/Início/Fim e as props
   `open`, `onOpenChange`, `editing: ProjectEvent | null`, `projects`, `tasks`, `lockedLink?`
   (`{ kind: "project"; id: string }` para a 068), `onSave(draft)`, `onDelete?`; estado `saving`
   interno; botão desabilitado por `validateEventDraft`; erro de `onSave` não fecha o dialog
-- [ ] No `EventFormDialog`, implementar o seletor de vínculo (segmento "Sem vínculo | Projeto |
+- [x] No `EventFormDialog`, implementar o seletor de vínculo (segmento "Sem vínculo | Projeto |
   Tarefa" + `ProjectPicker`/`TaskPicker`), zerando o id do outro lado ao trocar de segmento e
   escondendo o seletor inteiro quando `lockedLink` estiver presente
 - [ ] Em `AgendaGrid.tsx`: importar `createProjectEvent`/`updateProjectEvent`, adicionar estado
@@ -127,6 +127,13 @@ inteira, como em `computeVirtualOccurrences`).
 ## Prompts
 
 ## Notas
+- As duas tarefas do `EventFormDialog` (campos e seletor de vínculo) foram entregues no mesmo
+  commit: sem o seletor, as props `projects`/`tasks` ficam sem uso e `tsc`/`eslint` reprovam o
+  arquivo, então não havia como verificar a primeira sozinha.
+- O `EventFormDialog` ganhou duas props que o plano não listava: `prefillStartsAt` (o início
+  sugerido pelo clique num dia/slot, que a tarefa da `AgendaGrid` previa guardar no estado
+  `eventDialog`) e `extraActions` (slot para o "Ir para o projeto" do modo edição, que é específico
+  da Agenda e não pode nascer dentro de um componente que a 068 vai reusar).
 - `src/pages/admin/tasks/__tests__/TaskPicker.test.tsx` não estava no plano, mas entrou junto com o
   componente: a verificação é só por código (sem navegador) e o `EventFormDialog.test.tsx` previsto
   cobre a escolha do vínculo, não o que é específico do picker — busca case-insensitive, teto de 50
