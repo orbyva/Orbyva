@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Notes from "@/pages/admin/notes/Notes";
@@ -95,6 +95,29 @@ const { mermaidMock } = vi.hoisted(() => ({
   },
 }));
 vi.mock("mermaid", () => ({ default: mermaidMock }));
+
+/**
+ * O Excalidraw (feature 058) também é trocado por um duplo: são 2,7 MB que não rodam em jsdom.
+ * O duplo mantém a fronteira do módulo real (`initialScene`/`theme`/`onSceneChange`), que é o que
+ * este fluxo precisa — provar que criar um canvas leva ao editor de canvas, e não ao de markdown.
+ */
+const { canvasSpy } = vi.hoisted(() => ({
+  canvasSpy: { onSceneChange: null as ((data: unknown) => void) | null },
+}));
+vi.mock("@/pages/admin/notes/ExcalidrawCanvas", () => ({
+  default: ({
+    initialScene,
+    onSceneChange,
+  }: {
+    initialScene: { elements: readonly unknown[] };
+    onSceneChange?: (data: unknown) => void;
+  }) => {
+    canvasSpy.onSceneChange = onSceneChange ?? null;
+    return (
+      <div data-testid="excalidraw">{`elementos: ${initialScene.elements.length}`}</div>
+    );
+  },
+}));
 
 // `toast` precisa ter identidade estável: o `load` das páginas é `useCallback([toast])`.
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
@@ -468,5 +491,142 @@ describe("Notas — fluxo fim a fim", () => {
       expect.any(String),
       expect.stringContaining("# Fluxo")
     );
+  });
+
+  // ---- canvas de desenho (feature 058) -------------------------------------------------------
+
+  it("'Novo canvas' cria a nota com kind = canvas e abre o editor de desenho", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await user.click(await screen.findByRole("button", { name: /Novo canvas/ }));
+
+    expect(await screen.findByTestId("excalidraw")).toBeInTheDocument();
+    expect(store.notes).toHaveLength(1);
+    expect(store.notes[0].kind).toBe("canvas");
+    // Editor de canvas, não o de markdown: não há aba Escrever/Visualizar.
+    expect(screen.queryByRole("tab", { name: "Escrever" })).toBeNull();
+    expect(screen.getByLabelText("Título")).toBeInTheDocument();
+  });
+
+  it("desenhar num canvas grava o canvas_data e recarregar a página traz o desenho de volta", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(await screen.findByRole("button", { name: /Novo canvas/ }));
+    await screen.findByTestId("excalidraw");
+
+    canvasSpy.onSceneChange?.({
+      elements: [
+        { id: "r1", type: "rectangle" },
+        { id: "a1", type: "arrow" },
+      ],
+      appState: {},
+      files: null,
+    });
+
+    await waitFor(
+      () =>
+        expect(
+          (store.notes[0].canvas_data as { elements: unknown[] } | null)?.elements
+        ).toHaveLength(2),
+      AUTOSAVE
+    );
+
+    // Recarregar = remontar refazendo os fetches, como um F5 faria.
+    cleanup();
+    renderApp(`/notes/${store.notes[0].id}`);
+    expect(await screen.findByText("elementos: 2")).toBeInTheDocument();
+  });
+
+  it("a lista mostra o canvas com a contagem de elementos, não excerpt de texto", async () => {
+    store.notes = [
+      {
+        id: "n1",
+        title: "Arquitetura",
+        content: "",
+        project_id: null,
+        kind: "canvas",
+        canvas_data: {
+          elements: [{ id: "r1" }, { id: "a1" }, { id: "t1" }],
+        },
+        updated_at: stamp(),
+      },
+      {
+        id: "n2",
+        title: "Pauta",
+        content: "combinar o cronograma",
+        project_id: null,
+        updated_at: stamp(),
+      },
+    ];
+    renderApp();
+
+    expect(await screen.findByText("Canvas · 3 elementos")).toBeInTheDocument();
+    // A nota markdown continua com o excerpt de sempre — o card não virou canvas para todo mundo.
+    expect(screen.getByText("combinar o cronograma")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Canvas")).toHaveLength(1);
+    expect(screen.getAllByLabelText("Nota")).toHaveLength(1);
+  });
+
+  it("canvas vazio diz que está vazio, e o singular do contador é 'elemento'", async () => {
+    store.notes = [
+      {
+        id: "n1",
+        title: "Em branco",
+        content: "",
+        project_id: null,
+        kind: "canvas",
+        canvas_data: { elements: [] },
+        updated_at: stamp(),
+      },
+      {
+        id: "n2",
+        title: "Um traço",
+        content: "",
+        project_id: null,
+        kind: "canvas",
+        canvas_data: { elements: [{ id: "r1" }] },
+        updated_at: stamp(),
+      },
+    ];
+    renderApp();
+
+    expect(await screen.findByText("Canvas vazio")).toBeInTheDocument();
+    expect(screen.getByText("Canvas · 1 elemento")).toBeInTheDocument();
+  });
+
+  it("nota antiga, sem kind gravado, continua abrindo no editor de markdown", async () => {
+    // É a nota que a migration da 055 copiou de `project.notes`: o `default 'markdown'` da coluna
+    // é o que a mantém funcionando sem migração de dados (feature 058).
+    store.notes = [
+      {
+        id: "n1",
+        title: "Notas do projeto",
+        content: "# Pauta\n\ncombinar o cronograma",
+        project_id: "p1",
+        updated_at: stamp(),
+      },
+    ];
+    renderApp("/notes/n1");
+
+    expect(await screen.findByRole("tab", { name: "Escrever" })).toBeInTheDocument();
+    expect(screen.queryByTestId("excalidraw")).toBeNull();
+
+    // E o filtro da lista (busca por título/conteúdo, 055) continua achando as duas coisas.
+    cleanup();
+    store.notes.push({
+      id: "n2",
+      title: "Arquitetura",
+      content: "",
+      project_id: null,
+      kind: "canvas",
+      canvas_data: { elements: [{ id: "r1" }] },
+      updated_at: stamp(),
+    });
+    renderApp();
+    const filter = await screen.findByLabelText("Filtrar notas");
+    await userEvent.setup().type(filter, "arquitet");
+    expect(screen.getByText("Arquitetura")).toBeInTheDocument();
+    expect(screen.queryByText("Notas do projeto")).toBeNull();
   });
 });

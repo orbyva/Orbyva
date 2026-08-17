@@ -151,12 +151,20 @@ dentro de uma nota markdown). Independente da 056.
       gzip e `Notes` 1,9 → 2,4 KB, que é o código do próprio editor (estado, debounce, painéis), não
       o Excalidraw — 4,7 MB de lib com 1,8 KB de crescimento de rota é a prova de que o
       `React.lazy` funcionou.
-- [ ] Fazer a criação de nota oferecer os dois tipos: no `Notes.tsx` (055), botão dividido
-      "Nova nota" / "Novo canvas" definindo `kind`. A rota `/notes/:id` monta `NoteEditor` ou
-      `CanvasEditor` conforme `note.kind`.
-- [ ] Diferenciar canvas na lista de `Notes.tsx`: ícone próprio e, no lugar do excerpt de texto,
-      a contagem de elementos do desenho (`canvas_data.elements.length`) — excerpt de markdown não
-      faz sentido para canvas.
+- [x] Fazer a criação de nota oferecer os dois tipos: `Notes.tsx` ganhou "Novo canvas" ao lado de
+      "Nova nota", e a rota `/notes/:id` monta `NoteEditor` ou `CanvasEditor` conforme `note.kind`.
+      Ajuste do plano: **dois botões lado a lado** em vez de um botão dividido com menu — são só
+      duas opções, e esconder o canvas atrás de um clique a mais o tornaria invisível para quem não
+      sabe que ele existe.
+      Verificação: `Notes.flow.test.tsx` (2 testes novos) — clicar em "Novo canvas" grava
+      `kind: "canvas"` no store e monta o editor de desenho (sem as abas Escrever/Visualizar);
+      desenhar grava `canvas_data` com 2 elementos e **remontar a página** (o F5 do teste) traz o
+      desenho de volta.
+- [x] Diferenciar canvas na lista de `Notes.tsx`: ícone próprio (`PenTool`, com `aria-label`
+      "Canvas" contra "Nota") e, no lugar do excerpt, a contagem de elementos.
+      Verificação: `Notes.flow.test.tsx` (2 testes novos) — numa lista mista sai
+      "Canvas · 3 elementos" para o desenho e o excerpt de sempre para a nota de texto, com um
+      ícone de cada; canvas sem traço nenhum diz "Canvas vazio" e um traço só usa o singular.
 - [ ] Criar `src/components/markdown/CanvasBlock.tsx`: lê o id do bloco ` ```orbyva-canvas `, busca
       a nota, renderiza o desenho em modo leitura com `exportToSvg` (também via import dinâmico),
       anexando o `SVGSVGElement` retornado por `ref` — nunca via `dangerouslySetInnerHTML` — e um
