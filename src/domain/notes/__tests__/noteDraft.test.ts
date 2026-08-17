@@ -33,6 +33,29 @@ describe("normalizeNoteDraft", () => {
     expect(title).toBe("a".repeat(NOTE_TITLE_MAX - 1));
   });
 
+  // Feature 058: `kind`/`canvas_data` são o contrato com o `check` de `note.kind`.
+  it("rascunho sem kind vira 'markdown', o mesmo default da coluna", () => {
+    const normalized = normalizeNoteDraft(draft());
+    expect(normalized.kind).toBe("markdown");
+    expect(normalized.canvas_data).toBeNull();
+  });
+
+  it("rascunho de canvas mantém kind e o desenho", () => {
+    const canvas_data = { elements: [{ id: "r1", type: "rectangle" }] };
+    const normalized = normalizeNoteDraft(
+      draft({ kind: "canvas", canvas_data })
+    );
+    expect(normalized.kind).toBe("canvas");
+    expect(normalized.canvas_data).toEqual(canvas_data);
+  });
+
+  it("desenho em nota markdown é descartado — seria dado órfão", () => {
+    const normalized = normalizeNoteDraft(
+      draft({ kind: "markdown", canvas_data: { elements: [{ id: "r1" }] } })
+    );
+    expect(normalized.canvas_data).toBeNull();
+  });
+
   it("não mexe no content — Markdown cru, indentação inclusive", () => {
     const content = "```\n    codigo indentado\n```\n";
     expect(normalizeNoteDraft(draft({ content })).content).toBe(content);

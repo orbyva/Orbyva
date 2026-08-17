@@ -81,8 +81,21 @@ dentro de uma nota markdown). Independente da 056.
       vezes). Resultado: `OK: 20260816180000_note_canvas.sql validada em Postgres 16.`
       Ajuste no `run.sh`: `pg_isready` sozinho não serve de sinal de pronto (a imagem sobe um
       servidor temporário no initdb), a espera é por um `select 1` que responda — ver Notas.
-- [ ] Atualizar `src/types/notes.ts`: `kind: NoteKind` e `canvas_data: unknown | null` em `Note`,
-      com `NoteKind = "markdown" | "canvas"` espelhando o `check` do banco.
+- [x] Atualizar `src/types/notes.ts`: `kind: NoteKind` e `canvas_data` em `Note`, com
+      `NOTE_KINDS`/`NoteKind` espelhando o `check` do banco (mesmo padrão de
+      `NOTE_LINK_ENTITY_TYPES` da 056).
+      Ajuste do plano: em vez de `canvas_data: unknown | null` (que colapsa em `unknown` e obrigaria
+      a cast em todo uso), o tipo é `NoteCanvasData | null` — uma descrição **estrutural mínima** do
+      `.excalidraw` (`elements` + `appState` + `files`), para o card da lista poder contar elementos
+      sem importar tipo de dentro do pacote de 2,7 MB. Quem desenha faz o cast na fronteira.
+      `NoteDraft` ganhou `kind?`/`canvas_data?` (opcionais: a maioria das criações é markdown e o
+      banco já tem default) e `normalizeNoteDraft` passou a devolver `NormalizedNoteDraft`, com os
+      dois já resolvidos.
+      Verificação: `noteDraft.test.ts` (3 testes novos) — rascunho sem `kind` vira `markdown` com
+      `canvas_data` nulo, rascunho de canvas preserva `kind` e o desenho, e desenho mandado numa
+      nota markdown é descartado (seria dado órfão); `notes-api.test.ts` (1 teste novo) — o payload
+      real do `insert` de um canvas leva `kind: "canvas"` e o `canvas_data`, e o de nota comum leva
+      `kind: "markdown"`. Suíte de `src/domain/notes` + `src/api/notes`: 92 testes passando.
 - [ ] Instalar `@excalidraw/excalidraw@^0.18`. Verificação: `npm run build` — se o build acusar
       conflito de peer dependency com React 19 vindo de dependências transitivas (Radix), resolver
       via `overrides` no `package.json` (o projeto já usa esse mecanismo), **não** com

@@ -46,6 +46,8 @@ beforeEach(() => {
     title: "Pauta da reunião",
     content: "",
     project_id: null,
+    kind: "markdown",
+    canvas_data: null,
   });
   vi.mocked(fetchProjects).mockResolvedValue([]);
   if (!window.matchMedia) {

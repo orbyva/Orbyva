@@ -12,7 +12,7 @@ import type { Note } from "@/types/notes";
  */
 
 function note(id: string, title: string): Note {
-  return { id, title, content: "", project_id: null };
+  return { id, title, content: "", project_id: null, kind: "markdown", canvas_data: null };
 }
 
 function renderPreview(

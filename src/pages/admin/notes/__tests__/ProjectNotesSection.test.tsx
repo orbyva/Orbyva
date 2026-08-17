@@ -10,18 +10,31 @@ import type { Note, NoteDraft } from "@/types/notes";
  * projeto e cria uma nova já vinculada. Backend falso em memória, como no fluxo da lista.
  */
 
+/**
+ * Linha semeada no backend falso. `kind`/`canvas_data` (feature 058) ficam opcionais aqui e são
+ * preenchidos na saída de `fetchNotes`, exatamente como o default da coluna faz no Postgres —
+ * assim o fixture continua dizendo só o que importa para o teste.
+ */
+type NoteRow = Partial<Note> & Pick<Note, "id" | "title" | "content" | "project_id">;
+
 const { store } = vi.hoisted(() => ({
-  store: { notes: [] as Note[], seq: 0 },
+  store: { notes: [] as NoteRow[], seq: 0 },
 }));
 
 vi.mock("@/api/notes/notes", () => ({
   fetchNotes: vi.fn(async ({ projectId }: { projectId?: string | null } = {}) =>
     store.notes
       .filter((n) => (projectId ? n.project_id === projectId : true))
-      .map((n) => ({ ...n }))
+      .map((n): Note => ({ kind: "markdown", canvas_data: null, ...n }))
   ),
   createNote: vi.fn(async (draft: NoteDraft) => {
-    const created: Note = { id: `n${++store.seq}`, ...draft, title: "Sem título" };
+    const created: Note = {
+      id: `n${++store.seq}`,
+      kind: "markdown",
+      canvas_data: null,
+      ...draft,
+      title: "Sem título",
+    };
     store.notes.push(created);
     return { ...created };
   }),

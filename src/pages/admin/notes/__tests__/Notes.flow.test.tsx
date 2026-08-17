@@ -15,9 +15,16 @@ import type { Note, NoteDraft, NoteUpdateRequest } from "@/types/notes";
  * a página (remontar, refazendo os fetches) e excluir.
  */
 
+/**
+ * Linha semeada no backend falso. `kind`/`canvas_data` (feature 058) ficam opcionais aqui e são
+ * preenchidos na saída de `fetchNotes`/`fetchNote`, exatamente como o default da coluna faz no
+ * Postgres — o fixture continua dizendo só o que importa para cada teste.
+ */
+type NoteRow = Partial<Note> & Pick<Note, "id" | "title" | "content" | "project_id">;
+
 const { store } = vi.hoisted(() => ({
   store: {
-    notes: [] as Note[],
+    notes: [] as NoteRow[],
     projects: [] as { id: string; name: string }[],
     seq: 0,
     clock: 0,
@@ -34,13 +41,13 @@ vi.mock("@/api/notes/notes", () => ({
   fetchNotes: vi.fn(async ({ projectId }: { projectId?: string | null } = {}) =>
     store.notes
       .filter((n) => (projectId ? n.project_id === projectId : true))
-      .map((n) => ({ ...n }))
+      .map((n): Note => ({ kind: "markdown", canvas_data: null, ...n }))
       // `order("updated_at", { ascending: false })`
       .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))
   ),
   fetchNote: vi.fn(async (id: string) => {
     const found = store.notes.find((n) => n.id === id);
-    return found ? { ...found } : null;
+    return found ? ({ kind: "markdown", canvas_data: null, ...found } as Note) : null;
   }),
   createNote: vi.fn(async (draft: NoteDraft) => {
     const at = stamp();

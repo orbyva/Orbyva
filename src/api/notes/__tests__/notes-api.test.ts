@@ -159,16 +159,44 @@ describe("api/notes", () => {
       createNote({ title: "   ", content: "corpo", project_id: "" })
     ).resolves.toEqual(created);
     expect(lastCall().table).toBe("note");
-    // Título vazio virou "Sem título" (coluna not null) e project_id "" virou null (FK).
+    // Título vazio virou "Sem título" (coluna not null), project_id "" virou null (FK) e o
+    // rascunho sem `kind` foi gravado como markdown, o default da coluna (feature 058).
     expect(lastCall().payload).toEqual([
       {
         title: "Sem título",
         content: "corpo",
         project_id: null,
+        kind: "markdown",
+        canvas_data: null,
         user_id: "user-1",
       },
     ]);
     expect(lastCall().single).toBe(true);
+  });
+
+  it("createNote grava o canvas com kind = 'canvas' e o desenho em canvas_data", async () => {
+    const created = { id: "n2", title: "Arquitetura" };
+    nextResult = { data: created, error: null };
+    const canvas_data = { elements: [{ id: "r1", type: "rectangle" }] };
+
+    await createNote({
+      title: "Arquitetura",
+      content: "",
+      project_id: null,
+      kind: "canvas",
+      canvas_data,
+    });
+
+    expect(lastCall().payload).toEqual([
+      {
+        title: "Arquitetura",
+        content: "",
+        project_id: null,
+        kind: "canvas",
+        canvas_data,
+        user_id: "user-1",
+      },
+    ]);
   });
 
   it("updateNote filtra por id + user_id e carimba updated_at", async () => {

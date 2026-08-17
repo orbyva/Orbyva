@@ -1,5 +1,5 @@
 import { stripMarkdown } from "@/lib/markdown";
-import type { NoteDraft } from "@/types/notes";
+import type { NormalizedNoteDraft, NoteDraft } from "@/types/notes";
 
 /** Título de nota sem nome — a coluna é `not null`, então nunca sobra vazio. */
 export const UNTITLED_NOTE_TITLE = "Sem título";
@@ -12,13 +12,20 @@ export const NOTE_TITLE_MAX = 120;
  * que `NOTE_TITLE_MAX`; `project_id` vazio vira `null` (é FK nullable, `""` não é id de nada).
  * O `content` passa intacto — é Markdown cru, e cortar espaço nele mudaria o que o usuário
  * escreveu (indentação de bloco de código, por exemplo).
+ *
+ * `kind` omitido vira `'markdown'`, o mesmo default da coluna (feature 058) — assim quem cria nota
+ * de texto (a maioria das chamadas) não precisa dizer nada. `canvas_data` só acompanha quando o
+ * rascunho é de canvas: mandar desenho em nota markdown seria dado órfão.
  */
-export function normalizeNoteDraft(draft: NoteDraft): NoteDraft {
+export function normalizeNoteDraft(draft: NoteDraft): NormalizedNoteDraft {
   const title = draft.title.trim().slice(0, NOTE_TITLE_MAX).trim();
+  const kind = draft.kind ?? "markdown";
   return {
     title: title || UNTITLED_NOTE_TITLE,
     content: draft.content,
     project_id: draft.project_id ? draft.project_id : null,
+    kind,
+    canvas_data: kind === "canvas" ? (draft.canvas_data ?? null) : null,
   };
 }
 
