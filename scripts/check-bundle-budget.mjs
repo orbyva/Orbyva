@@ -18,8 +18,30 @@ const MAX_ROUTE_GZIP = 160 * 1024;
 /** Vendor pesado permitido (recharts etc.), gzip max */
 const MAX_VENDOR_GZIP = 200 * 1024;
 
+/** Vendor lazy (mermaid), gzip max por chunk — ver LAZY_VENDOR_RE. */
+const MAX_LAZY_VENDOR_GZIP = 200 * 1024;
+
 const VENDOR_RE =
-  /^(react-vendor|recharts|radix|supabase|sentry|motion|ui-utils|codemirror)-/;
+  /^(react-vendor|recharts|d3|radix|supabase|sentry|motion|ui-utils|codemirror)-/;
+
+/**
+ * Chunks do mermaid (feature 057), carregados só quando uma nota tem um bloco ```mermaid — nunca no
+ * caminho crítico de rota nenhuma. Por isso têm limite próprio em vez de entrar no teto de rota.
+ *
+ * Eles **não** passam por `manualChunks` de propósito: o mermaid já se divide por tipo de diagrama
+ * (`sequenceDiagram`, `cynefin`, `architectureDiagram`…), então quem abre um flowchart baixa o
+ * flowchart e mais nada. Forçar um chunk `mermaid` único foi medido: 888 KB gzip num arquivo só,
+ * contra 133 KB do `mermaid.core` com a divisão natural. A consequência é esta lista de nomes, que
+ * vem dos nomes de chunk do próprio mermaid, que carregam o sufixo de 8 caracteres do build dele
+ * (`cynefin-VYW2F7L2`, `sequenceDiagram-SI44F4Z6`) — é esse sufixo que a segunda metade do regex
+ * reconhece. Nome novo que escape da lista cai no teto de rota e **falha** aqui: falha ruidosa, de
+ * conserto de uma linha, que é o comportamento desejado (o contrário seria um chunk gigante passar
+ * despercebido).
+ */
+const LAZY_VENDOR_BASE_RE =
+  /^(mermaid\.core|cytoscape|cose-bilkent|cose-base|layout-base|fcose|katex|dagre|roughjs)/;
+/** `sequenceDiagram-SI44F4Z6-<hash do vite>.js` — o do meio é o sufixo do build do mermaid. */
+const LAZY_VENDOR_FILE_RE = /-[A-Z0-9]{8}-[A-Za-z0-9_-]+\.js$/;
 
 function gzipSize(buf) {
   return zlib.gzipSync(buf).length;
@@ -58,6 +80,9 @@ for (const file of files) {
   } else if (VENDOR_RE.test(base) || VENDOR_RE.test(file)) {
     limit = MAX_VENDOR_GZIP;
     kind = "vendor";
+  } else if (LAZY_VENDOR_BASE_RE.test(base) || LAZY_VENDOR_FILE_RE.test(file)) {
+    limit = MAX_LAZY_VENDOR_GZIP;
+    kind = "lazy";
   }
   const ok = gz <= limit;
   rows.push({ file, kind, gz, limit, ok });

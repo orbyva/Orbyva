@@ -104,17 +104,56 @@ ordem.
       código): `NoteDetail` 8,1 KB, `Notes` 1,8 KB, `api/notes` 0,6 KB gzip, `check:bundle` OK —
       os mesmos números da 056. A prova de que o `await import()` mantém isso vem na tarefa do
       `MermaidBlock`, quando o import passa a existir de verdade.
-- [ ] Declarar `mermaid` em `manualChunks` (`vite.config.ts:151`) e adicioná-lo ao `VENDOR_RE` de
+- [x] Declarar `mermaid` em `manualChunks` (`vite.config.ts:151`) e adicioná-lo ao `VENDOR_RE` de
       `scripts/check-bundle-budget.mjs`, com comentário explicando que é lazy e por isso tem
       limite próprio.
-- [ ] Criar `src/components/markdown/MermaidBlock.tsx`: `await import("mermaid")` dentro de
+      **Desvio, com medição** (ver Notas): declarar `mermaid` num `manualChunks` único **piora** —
+      medido, 888,3 KB gzip num arquivo só, porque colapsa o code-split por tipo de diagrama que a
+      própria Decisão desta feature queria preservar (e exigiria subir o teto de vendor para ~900 KB).
+      Sem `manualChunks`, o Rollup já divide sozinho: `mermaid.core` 140,1 KB, `cytoscape` 139,1 KB,
+      `cynefin` 151,5 KB, `katex` 75,8 KB, 54 chunks no total, um por tipo de diagrama.
+      O que foi feito então: `check-bundle-budget.mjs` ganhou a classe **`lazy`**
+      (`MAX_LAZY_VENDOR_GZIP` = 200 KB, `LAZY_VENDOR_BASE_RE`/`LAZY_VENDOR_FILE_RE`), que reconhece
+      os chunks do mermaid pelo sufixo de 8 caracteres do build dele
+      (`sequenceDiagram-SI44F4Z6-…`) e pelos pacotes que só ele usa. Nenhum teto foi afrouxado:
+      rota continua 160 KB, vendor 200 KB.
+      Consertado no caminho um estouro real que a instalação do mermaid causou: o `manualChunks`
+      mandava todo `node_modules/d3-` para o chunk `recharts`, e o mermaid traz a família d3 inteira
+      — `recharts` foi de 112,9 para 128,0 KB gzip, cobrado de **toda rota de gráfico**. Agora só o
+      d3 que o `victory-vendor` usa vai para um chunk `d3` compartilhado (26,1 KB) e o resto do d3
+      cai nos chunks lazy do mermaid: `recharts` 89,5 KB. Rota de gráfico paga 115,6 KB (era 112,9
+      antes do mermaid) e o diagrama não arrasta mais o recharts inteiro.
+- [x] Criar `src/components/markdown/MermaidBlock.tsx`: `await import("mermaid")` dentro de
       `useEffect`, `mermaid.initialize` com `securityLevel: "strict"` e tema seguindo o dark mode do
       app, `mermaid.parse` antes de `mermaid.render`, id único por instância, skeleton enquanto
       carrega e caixa de erro quando a sintaxe é inválida. Registrar como `mermaid` no
       `blockRegistry`.
-- [ ] Verificação manual do `MermaidBlock`: numa nota, um ```mermaid com `graph TD; A-->B;` desenha
-      o flowchart; um bloco com sintaxe quebrada mostra o erro sem derrubar o resto da nota;
-      alternar light/dark redesenha com o tema certo.
+      O id vem de um contador de módulo, não de `useId`: `useId` devolve `:r3:`, que não é seletor
+      de CSS válido e o mermaid usa o id em seletores que ele gera. O tema segue a classe `dark` do
+      `<html>` (é assim que o app guarda o tema, ver `nav-user.tsx`) por `MutationObserver`, já que
+      não há contexto de React para assinar.
+- [x] Verificação do `MermaidBlock` (por teste, não por navegador — a skill `next` proíbe Chrome):
+      `src/components/__tests__/MermaidBlock.test.tsx` (8 testes), com o mermaid trocado por um
+      duplo (ele mede texto com `getBBox`, que o jsdom não implementa). Afirma: o fence
+      ```mermaid de uma nota chega ao renderer com o código exato (`graph TD;\n  A-->B;`) e vira
+      SVG na tela; `initialize` recebe `securityLevel: "strict"`; sintaxe inválida vira caixa
+      `role="alert"` com a mensagem do mermaid **e o resto da nota continua renderizando** (título e
+      parágrafo seguem na tela); `parse` barra antes de `render`; o esqueleto cobre a espera do
+      import dinâmico; e alternar a classe `dark` do `<html>` redesenha com `theme: "dark"`
+      (`render` chamado duas vezes).
+- [x] **Tarefa acrescentada** (não estava no plano — ver Notas): `src/components/markdown/sanitizeSvg.ts`,
+      segunda barreira sobre o SVG antes de ele entrar na página. O `securityLevel: "strict"` é
+      barreira de terceiro e fica a um `initialize` de distância de ser afrouxada por engano,
+      enquanto a decisão da 055 (HTML cru desligado) vale para o app inteiro — e "o mermaid
+      sanitiza" não era afirmável por nenhum teste deste repo. `sanitizeSvgMarkup` analisa o SVG num
+      documento **inerte** do `DOMParser` (sem contexto de navegação: script não roda e imagem não
+      carrega, que é o furo de limpar depois de inserir), remove `<script>`, `<foreignObject>`,
+      `<iframe>`/`<object>`/`<embed>`, todo atributo `on*` e URL `javascript:`, e devolve o resto.
+      Verificação: `src/components/__tests__/sanitizeSvg.test.tsx` (7 testes) — nó, aresta e texto
+      sobrevivem; `<script>`, `onerror`/`onclick`/`ONLOAD`, `JaVaScRiPt: ` com espaço e
+      `<foreignObject>` não; `href="/notes/n1"` continua; e o SVG limpo, **inserido de verdade num
+      elemento da página**, não deixa handler nenhum. Mais o teste do `MermaidBlock` "o SVG entra na
+      página já limpo de script e de handler".
 - [ ] Adicionar ao editor (`NoteEditor.tsx`) um atalho "Inserir diagrama" que injeta um esqueleto
       ```mermaid com `graph TD` — descoberta da funcionalidade, já que ninguém digita a sintaxe de
       cabeça.
@@ -139,6 +178,32 @@ ordem.
 
 ## Notas
 
+- **Desvio do plano, com medição: `mermaid` num `manualChunks` próprio piora o bundle.** A tarefa
+  mandava declarar `mermaid` no `manualChunks` do `vite.config.ts`. Foi tentado e medido: um chunk
+  `mermaid` de **888,3 KB gzip**, que `check:bundle` reprova (`[FAIL] route 888.3 KB / 160.0 KB`).
+  A razão é que `manualChunks` colapsa em um arquivo tudo que o mermaid importa dinamicamente,
+  matando o code-split por tipo de diagrama que a própria Decisão desta feature usa como argumento
+  ("só baixa o tipo usado"). Sem `manualChunks`, o Rollup preserva a divisão do mermaid: 54 chunks,
+  o maior com 151,5 KB. Então a extensibilidade foi para o *outro lado* — o script de orçamento
+  ganhou a classe `lazy`, com limite próprio de 200 KB e comentário explicando o porquê. Nenhum teto
+  foi afrouxado. Se um dia um chunk de diagrama passar de 200 KB, o CI falha e a saída continua
+  sendo import dinâmico, não limite maior.
+- **Bug real encontrado no caminho: instalar o mermaid engordou o chunk `recharts` em 15 KB gzip.**
+  O `manualChunks` tinha um `id.includes("node_modules/d3-")` genérico apontando para `recharts`, e
+  o mermaid traz a família d3 inteira (`d3-sankey`, `d3-geo`, `d3-force`, `d3-zoom`…). Resultado:
+  toda rota de gráfico baixaria d3 que só o diagrama usa (112,9 → 128,0 KB). A regra passou a listar
+  só o d3 que o `victory-vendor` (dependência do recharts) importa, num chunk `d3` compartilhado; o
+  resto do d3 fica sem regra e o Rollup o coloca dentro dos chunks lazy do mermaid. `recharts` caiu
+  para 89,5 KB e o `d3` compartilhado tem 26,1 KB. Efeito colateral bom: um diagrama numa nota não
+  arrasta mais o chunk do recharts inteiro.
+- **Tarefa acrescentada por decisão própria: `sanitizeSvg.ts`.** As Decisões diziam que
+  `securityLevel: "strict"` bastava e que o app não precisaria de sanitizador. Continua verdade que
+  não entrou dependência nova — mas a barreira era 100% de terceiro (e o mermaid, aliás, embute o
+  DOMPurify dele) e nenhum teste deste repo conseguia afirmar nada sobre ela. `sanitizeSvgMarkup`
+  são ~40 linhas sem dependência, com superfície pequena e conhecida (um gerador só), e é o que
+  torna "SVG do mermaid não injeta script" uma assertiva de teste em vez de uma promessa de
+  changelog. Não substitui `rehype-sanitize`/`dompurify` para HTML arbitrário, e a regra da 055
+  continua valendo: ligar `rehype-raw` exige um sanitizador de verdade no mesmo commit.
 - Terceira das quatro features do módulo: `055` → `056` → **`057`** → `058`. Depende do
   `MarkdownPreview` da 055. Independente da 058.
 - O registry de blocos é a peça que a 058 vai reusar para renderizar o canvas embutido numa nota —

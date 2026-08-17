@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { MermaidBlock } from "@/components/markdown/MermaidBlock";
 import { parseBlockLanguage } from "@/domain/notes/blockLanguage";
 
 /**
@@ -27,7 +28,9 @@ export type BlockRenderer = ComponentType<{ code: string }>;
  * Linguagem (minúscula, como `parseBlockLanguage` devolve) → componente.
  * Linguagem sem entrada aqui cai no bloco de código normal, com realce nenhum e nada quebrado.
  */
-export const blockRenderers: Record<string, BlockRenderer> = {};
+export const blockRenderers: Record<string, BlockRenderer> = {
+  mermaid: MermaidBlock,
+};
 
 /**
  * Renderer para a `className` que o `react-markdown` entrega no elemento `code`

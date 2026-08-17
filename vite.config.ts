@@ -5,6 +5,13 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { viteSafariHmrNoReload } from "./vite.safari-hmr";
 
+/**
+ * Pacotes d3 que o `victory-vendor` (dependência do recharts) importa, mais os transitivos deles.
+ * Qualquer outro `d3-*` no `node_modules` chegou junto com o mermaid.
+ */
+const RECHARTS_D3_RE =
+  /node_modules\/(d3-array|d3-color|d3-ease|d3-format|d3-interpolate|d3-path|d3-scale|d3-shape|d3-time|d3-time-format|d3-timer|internmap)\//;
+
 export default defineConfig({
   plugins: [
     viteSafariHmrNoReload(),
@@ -160,11 +167,20 @@ export default defineConfig({
           }
           if (
             id.includes("node_modules/recharts") ||
-            id.includes("node_modules/victory-vendor") ||
-            id.includes("node_modules/d3-")
+            id.includes("node_modules/victory-vendor")
           ) {
             return "recharts";
           }
+          /**
+           * d3 tem **dois** consumidores desde a 057: o recharts (via `victory-vendor`, nas rotas
+           * de gráfico) e o mermaid (nos diagramas, carregado sob demanda). Só os pacotes que o
+           * `victory-vendor` puxa ficam num chunk compartilhado; o resto do d3
+           * (`d3-sankey`, `d3-geo`, `d3-force`…) é exclusivo do mermaid e fica de fora de
+           * propósito — sem `return`, o Rollup o coloca dentro dos chunks lazy do mermaid.
+           * Com o `d3-` genérico aqui, o chunk `recharts` engordava 15 KB gzip com d3 que só o
+           * diagrama usa, e toda rota de gráfico pagava por isso.
+           */
+          if (RECHARTS_D3_RE.test(id)) return "d3";
           if (id.includes("framer-motion")) return "motion";
           // CodeMirror (editor de notas, feature 056) é vendor pesado e só carrega na rota de
           // notas — sem chunk próprio ele entraria no chunk da rota e estouraria o teto de 160 KB.
