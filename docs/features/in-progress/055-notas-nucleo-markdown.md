@@ -133,19 +133,26 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
       dentro do campo, e HTML cru continua NÃO sendo interpretado (a decisão de segurança da 055
       virou assertiva, não só comentário). O handler de `Tab` saiu junto, para
       `src/components/MarkdownTextarea.tsx`, senão o `NoteEditor` teria que duplicá-lo.
-- [ ] Criar `src/pages/admin/notes/NoteEditor.tsx`: input de título, textarea de conteúdo com o
+- [x] Criar `src/pages/admin/notes/NoteEditor.tsx`: input de título, textarea de conteúdo com o
       handler de `Tab` de `TaskDescriptionField`, abas Escrever/Visualizar usando
       `MarkdownPreview`, e `ProjectPicker` (`src/pages/admin/tasks/ProjectPicker.tsx`) para o
       vínculo. Autosave com debounce ~800 ms + indicador `Salvando…`/`Salvo`; erro via `useToast`
-      + `getErrorMessage`.
-- [ ] Criar `src/pages/admin/notes/Notes.tsx` (default export): `PageShell` com eyebrow
+      + `getErrorMessage`. Verificação: `Notes.flow.test.tsx` (12 testes) — escrever grava sozinho
+      (sem botão Salvar), o preview renderiza GFM (checklist vira checkbox), o vínculo com projeto
+      persiste, e remontar a página traz de volta o que foi escrito.
+- [x] Criar `src/pages/admin/notes/Notes.tsx` (default export): `PageShell` com eyebrow
       "Produtividade", lista de notas (título + excerpt + projeto + data), campo de filtro por
       texto, `EmptyState` quando vazio, `TableLoadingSkeleton` no loading e
-      `ConfirmDeleteDialog` no excluir — mesmo padrão de `Goals.tsx`/`Habits.tsx`.
-- [ ] Registrar as rotas em `src/routes.tsx` com `lazy()` como as demais: `notes` → `Notes` e
-      `notes/:id` → página de detalhe que monta o `NoteEditor`.
-- [ ] Adicionar `{ title: "Notas", url: "/notes" }` ao grupo **Produtividade** em
-      `src/components/app-sidebar.tsx` (depois de "Projetos").
+      `ConfirmDeleteDialog` no excluir — mesmo padrão de `Goals.tsx`/`Habits.tsx`. O filtro é
+      `filterNotes` (`src/domain/notes/filters.ts`, puro, 5 testes), local: a lista já está em
+      memória e ir ao banco a cada tecla seria uma consulta por caractere.
+- [x] Registrar as rotas em `src/routes.tsx` com `lazy()` como as demais: `notes` → `Notes` e
+      `notes/:id` → página de detalhe (`NoteDetail.tsx`) que monta o `NoteEditor`. Verificação:
+      `notes-navigation.test.tsx` resolve as duas URLs contra `appRoutes` de verdade e monta o
+      elemento casado (não cai no `*`).
+- [x] Adicionar `{ title: "Notas", url: "/notes" }` ao grupo **Produtividade** em
+      `src/components/app-sidebar.tsx` (depois de "Projetos"). Verificação:
+      `notes-navigation.test.tsx` renderiza a sidebar e confere o `href` e o estado ativo.
 - [ ] Adicionar aba **Notas** em `src/pages/admin/tasks/ProjectDetail.tsx` (junto de
       Kanban/Lista/Gantt, `TabsList` na linha ~628): lista as notas com `project_id` daquele
       projeto, com ação de criar nota já vinculada. É o vínculo no sentido projeto → nota.
