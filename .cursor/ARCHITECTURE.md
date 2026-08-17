@@ -78,7 +78,7 @@ A sidebar agrupa quatro blocos. Cada módulo tende a ter: página(s) em `pages/a
 | Entretenimento | Cinema, livros, música | `/movies`, `/books`, `/music` |
 | Vida | Hábitos, metas, lugares, viagens, veículos | `/habits`, `/goals`, `/places`, `/travel`, `/car` |
 
-Rotas públicas/marketing: `/login`, `/about`, `/terms`, `/privacy`, `/invite/:code`. Ops interno: `/ops` (fora do menu). Páginas `/about`, `/terms` e `/privacy` usam o shell público (`components/PublicPageShell`) alinhado à landing.
+Rotas públicas/marketing: `/`, `/quanto-ainda-cabe` (alias `/cabe-no-mes`), `/login`, `/about`, `/terms`, `/privacy`, `/invite/:code`. Ops interno: `/ops` (fora do menu). Páginas `/about`, `/terms` e `/privacy` usam o shell público (`components/PublicPageShell`) alinhado à landing.
 
 Abaixo: o que cada módulo faz, onde vive no código e **APIs externas / Edge** quando aplicável. Persistência do usuário é sempre **Supabase Postgres + RLS** (salvo indicação contrária).
 
@@ -86,10 +86,17 @@ Abaixo: o que cada módulo faz, onde vive no código e **APIs externas / Edge** 
 
 #### Landing (`/`)
 
-Marketing do life OS, planos (trial 7 dias → Pro) e waitlist.
+Marketing do life OS, planos (trial 7 dias → Pro) e isca **Quanto ainda cabe no mês**.
 
 * **Código:** `pages/Landing` / `pages/landing/`; UI de marketing em `components/landing/` + registries Cult UI / Skiper UI / OriginKit (`components/cult-ui`, `components/ui/skiper-ui`, `components/originkit`); `api/waitlist.ts`
 * **APIs:** insert em tabela `waitlist` (Supabase). Edge `waitlist-email` existe no backend para growth; o join da landing não depende dela no client. Checkout Pro: ver Conta / billing (Stripe).
+
+#### Quanto ainda cabe no mês (`/quanto-ainda-cabe`)
+
+Ferramenta pública (sem login): renda + contas fixas + compra opcional → cabe / aperta / não cabe. Captura e-mail na `waitlist` com `source=quanto-ainda-cabe`; a Edge `waitlist-email` envia 3 toques (welcome, D3, D7) nesse tom. Números da calculadora não são persistidos.
+
+* **Código:** `pages/QuantoAindaCabe`; regra em `domain/marketing/cabeNoMes.ts`
+* **APIs:** `api/waitlist.ts` (insert anon). Alias `/cabe-no-mes` redireciona.
 
 #### Dashboard / hub (`/home`)
 

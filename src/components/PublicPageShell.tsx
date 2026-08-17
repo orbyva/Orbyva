@@ -83,6 +83,9 @@ export function PublicPageShell({
           <Link to="/" className="hover:text-zinc-300">
             Início
           </Link>
+          <Link to="/quanto-ainda-cabe" className="hover:text-zinc-300">
+            Quanto cabe no mês?
+          </Link>
           <Link to="/about" className="hover:text-zinc-300">
             Sobre
           </Link>

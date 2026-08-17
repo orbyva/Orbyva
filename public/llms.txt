@@ -5,6 +5,7 @@ App web (PWA) em português. Cadastro em https://orbyva.app/login. Contato: orby
 
 ## Páginas
 - [Início](https://orbyva.app/): landing, proposta e trial
+- [Quanto ainda cabe no mês](https://orbyva.app/quanto-ainda-cabe): ferramenta grátis (renda, contas, compra) sem login
 - [Sobre](https://orbyva.app/about): o que o Orbyva faz e módulos
 - [Entrar](https://orbyva.app/login): login e cadastro (7 dias grátis)
 - [Termos de uso](https://orbyva.app/terms): conta, planos e uso aceitável

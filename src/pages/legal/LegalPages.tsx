@@ -4,7 +4,8 @@ import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
-const UPDATED_AT = "10 de agosto de 2026";
+const TERMS_UPDATED_AT = "10 de agosto de 2026";
+const PRIVACY_UPDATED_AT = "17 de agosto de 2026";
 
 function LegalIntro({ children }: { children: ReactNode }) {
   return (
@@ -38,7 +39,7 @@ export function TermsPage() {
         Termos de uso
       </h1>
       <p className="mt-2 text-sm text-zinc-500">
-        Última atualização: {UPDATED_AT}
+        Última atualização: {TERMS_UPDATED_AT}
       </p>
       <LegalIntro>
         Ao usar o {BRAND.name} ({BRAND.tagline}), você concorda com estes termos.
@@ -136,7 +137,7 @@ export function PrivacyPage() {
         Privacidade e LGPD
       </h1>
       <p className="mt-2 text-sm text-zinc-500">
-        Última atualização: {UPDATED_AT}
+        Última atualização: {PRIVACY_UPDATED_AT}
       </p>
       <LegalIntro>
         Esta política explica como o {BRAND.name} trata dados pessoais, em
@@ -148,6 +149,7 @@ export function PrivacyPage() {
         <LegalList
           items={[
             "Dados de autenticação (nome, e-mail e foto via Google OAuth)",
+            "E-mail informado na ferramenta pública “Quanto ainda cabe no mês”, para a sequência curta de aquecimento (não guardamos os valores digitados)",
             "Conteúdo que você cria (lançamentos, orçamento, recorrências, hábitos, metas, viagens, lugares, cinema, livros, música, veículos etc.)",
             "Preferências de conta e de e-mail (quando disponíveis na Conta)",
             "Código de indicação, se você chegou por convite",

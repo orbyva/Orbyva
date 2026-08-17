@@ -5,6 +5,7 @@ import LoadingFallback from "./components/LoadingFallback";
 import Landing from "./pages/Landing";
 
 const AuthRoot = lazy(() => import("./AuthRoot"));
+const QuantoAindaCabePage = lazy(() => import("./pages/QuantoAindaCabe"));
 const ProtectedRoute = lazy(() => import("./ProtectedRoute"));
 const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 const LoginEntry = lazy(() => import("./pages/admin/LoginEntry"));
@@ -57,6 +58,14 @@ const router = createBrowserRouter([
   {
     path: "/invite/:code",
     element: withSuspense(<InviteAccept />),
+  },
+  {
+    path: "/quanto-ainda-cabe",
+    element: withSuspense(<QuantoAindaCabePage />),
+  },
+  {
+    path: "/cabe-no-mes",
+    element: <Navigate to="/quanto-ainda-cabe" replace />,
   },
   {
     path: "/about",

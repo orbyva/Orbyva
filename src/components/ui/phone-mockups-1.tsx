@@ -47,6 +47,24 @@ const PhoneCarousel = lazy(() =>
 const FRAME_CLASS =
   "relative mx-auto overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 shadow-[0_25px_60px_-20px_rgba(14,165,233,0.45)] ring-1 ring-white/10 sm:rounded-[2rem]";
 
+function hideBootLcp() {
+  const boot = document.getElementById("boot");
+  const img = document.getElementById("boot-lcp") as HTMLImageElement | null;
+  boot?.setAttribute("hidden", "");
+  if (!img) return;
+  img.classList.remove("boot-lcp-pinned");
+  img.style.visibility = "hidden";
+  img.style.transform = "";
+  img.style.transformOrigin = "";
+  img.style.width = "";
+  img.style.height = "";
+  img.style.borderRadius = "";
+}
+
+/**
+ * Encaixa #boot-lcp no slot só no fallback do Suspense (antes do carrossel).
+ * Não esconde o overlay no cleanup — o PhoneFrame do hub faz o handoff.
+ */
 function useBootLcpPin(slotRef: RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
     const img = document.getElementById("boot-lcp") as HTMLImageElement | null;
@@ -61,10 +79,17 @@ function useBootLcpPin(slotRef: RefObject<HTMLDivElement | null>) {
     const place = () => {
       const r = slot.getBoundingClientRect();
       if (r.width < 8 || r.height < 8) return;
-      const base = Math.min(220, window.innerWidth * 0.62) || r.width;
-      const scale = r.width / base;
+      const cs = getComputedStyle(slot);
+      const bl = parseFloat(cs.borderLeftWidth) || 0;
+      const bt = parseFloat(cs.borderTopWidth) || 0;
+      const br = parseFloat(cs.borderRightWidth) || 0;
+      const bb = parseFloat(cs.borderBottomWidth) || 0;
+      const radius = parseFloat(cs.borderTopLeftRadius) || 0;
+      img.style.width = `${r.width - bl - br}px`;
+      img.style.height = `${r.height - bt - bb}px`;
+      img.style.borderRadius = `${Math.max(0, radius - Math.max(bl, bt))}px`;
       img.style.transformOrigin = "top left";
-      img.style.transform = `translate3d(${r.left}px, ${r.top}px, 0) scale(${scale})`;
+      img.style.transform = `translate3d(${r.left + bl}px, ${r.top + bt}px, 0)`;
     };
 
     place();
@@ -76,10 +101,6 @@ function useBootLcpPin(slotRef: RefObject<HTMLDivElement | null>) {
       ro.disconnect();
       window.removeEventListener("scroll", place);
       window.removeEventListener("resize", place);
-      img.classList.remove("boot-lcp-pinned");
-      img.style.transform = "";
-      img.style.transformOrigin = "";
-      img.style.visibility = "hidden";
     };
   }, [slotRef]);
 }
@@ -87,11 +108,27 @@ function useBootLcpPin(slotRef: RefObject<HTMLDivElement | null>) {
 function PhoneFrame({
   screen,
   className,
+  lcp = false,
 }: {
   screen: PhoneScreen;
   className?: string;
+  lcp?: boolean;
 }) {
   const webp = marketingWebp(screen.src);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useLayoutEffect(() => {
+    if (!lcp) return;
+    const el = imgRef.current;
+    if (!el) return;
+    if (el.complete) {
+      hideBootLcp();
+      return;
+    }
+    const onLoad = () => hideBootLcp();
+    el.addEventListener("load", onLoad);
+    return () => el.removeEventListener("load", onLoad);
+  }, [lcp]);
 
   return (
     <div
@@ -101,14 +138,15 @@ function PhoneFrame({
       <picture>
         <source type="image/webp" srcSet={webp} />
         <img
+          ref={imgRef}
           src={screen.src}
           alt={screen.alt}
-          width={390}
-          height={843}
+          width={474}
+          height={1024}
           sizes="220px"
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
+          loading={lcp ? "eager" : "lazy"}
+          decoding={lcp ? "sync" : "async"}
+          fetchPriority={lcp ? "high" : "low"}
           draggable={false}
           style={{
             display: "block",
@@ -150,7 +188,7 @@ function AdoptedLcpPhone() {
 
 /**
  * Phone Mockups 1 · réplica visual do componente 21st (solaceui).
- * Slot com tamanho inline (CLS); 1º slide reusa #boot-lcp.
+ * #boot-lcp só no first paint; o carrossel usa <img> normal (sem overlay).
  */
 export default function PhoneMockupBasic({
   screens = DEFAULT_SCREENS,
@@ -170,13 +208,9 @@ export default function PhoneMockupBasic({
         <PhoneCarousel
           screens={screens}
           intervalMs={intervalMs}
-          renderPhone={({ screen, offset }) =>
-            offset === 0 && screen.src === HUB_SRC ? (
-              <LcpPhoneFrame />
-            ) : (
-              <PhoneFrame screen={screen} />
-            )
-          }
+          renderPhone={({ screen }) => (
+            <PhoneFrame screen={screen} lcp={screen.src === HUB_SRC} />
+          )}
         />
       </Suspense>
     </div>

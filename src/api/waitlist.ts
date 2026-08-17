@@ -1,8 +1,14 @@
+import { CABE_NO_MES_WAITLIST_SOURCE } from "@/domain/marketing/cabeNoMes";
 import { supabase } from "@/lib/supabase";
+
+export const WAITLIST_SOURCE = {
+  LANDING: "landing",
+  CABE_NO_MES: CABE_NO_MES_WAITLIST_SOURCE,
+} as const;
 
 export async function joinWaitlist(
   email: string,
-  source = "landing"
+  source = WAITLIST_SOURCE.LANDING
 ): Promise<void> {
   const normalized = email.trim().toLowerCase();
   if (!normalized || !normalized.includes("@")) {
@@ -16,11 +22,11 @@ export async function joinWaitlist(
 
   if (error) {
     if (error.code === "23505") {
-      throw new Error("Esse e-mail já está na lista.");
+      return;
     }
     if (error.code === "42P01" || error.code === "PGRST205") {
       throw new Error(
-        "Lista de espera temporariamente indisponível. Tente mais tarde."
+        "Lista temporariamente indisponível. Tente mais tarde."
       );
     }
     throw new Error(error.message);

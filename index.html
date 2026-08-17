@@ -65,6 +65,7 @@
       .boot-wordmark span { color: #38bdf8; }
       .boot-lcp {
         position: fixed;
+        box-sizing: border-box;
         top: 0;
         left: 0;
         display: block;
@@ -74,11 +75,13 @@
         border-radius: 1.75rem;
         border: 3px solid #27272a;
         background: #09090b;
+        object-fit: contain;
+        object-position: top;
         transform: translate3d(calc(50vw - min(110px, 31vw)), 4.5rem, 0);
-        will-change: transform;
       }
       .boot-lcp.boot-lcp-pinned {
         border: 0;
+        will-change: auto;
       }
     </style>
     <link
@@ -97,8 +100,8 @@
         class="boot-lcp"
         src="/marketing/hub.webp"
         alt="Início: saldo do mês, alertas e resumo do dia"
-        width="390"
-        height="843"
+        width="474"
+        height="1024"
         fetchpriority="high"
         decoding="sync"
       />

@@ -15,7 +15,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 A sidebar agrupa o app em quatro blocos:
 
 ### Início
-- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro), waitlist; marketing com motion OriginKit + Cult UI + Skiper UI (free); módulos por ícones (sem prints repetidos); card do cronômetro flutuante
+- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro); isca **Quanto ainda cabe no mês** (`/quanto-ainda-cabe`, sem login); marketing com motion OriginKit + Cult UI + Skiper UI (free); módulos por ícones (sem prints repetidos); card do cronômetro flutuante
 - **Dashboard** (`/home`) — resumo do dia: hábitos, saldo, alertas, atalhos; botão **+** abre um popover compacto e formulários de criação no overlay (sem sair da tela, quando suportado)
 - **Timeline** (`/timeline`) — eventos agregados de todos os módulos
 

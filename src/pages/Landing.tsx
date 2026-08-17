@@ -59,7 +59,7 @@ const NAV = [
 
 const TRUST = [
   "Parece 5 apps. Custa 1.",
-  "Teto do mês no bolso",
+  "Quanto ainda cabe no mês",
   "7 dias grátis",
   "Life OS incluso",
   "Cancele em 1 clique",
@@ -263,6 +263,15 @@ export default function Landing() {
               />
             </div>
             <p className="mt-3 text-xs text-zinc-500">{heroSub}</p>
+            <p className="mt-2 text-xs text-zinc-500">
+              <Link
+                to="/quanto-ainda-cabe"
+                onClick={() => track("landing_cta_cabe_no_mes")}
+                className="text-sky-300/90 underline-offset-2 hover:text-sky-200 hover:underline"
+              >
+                Ou veja quanto ainda no orçamento mensal, sem cadastro
+              </Link>
+            </p>
           </div>
 
           <div className="landing-hero-visual relative w-full min-w-0">
@@ -377,6 +386,9 @@ export default function Landing() {
             © {new Date().getFullYear()} {BRAND.name} · {BRAND.domain}
           </span>
           <div className="flex flex-wrap items-center gap-4">
+            <Link to="/quanto-ainda-cabe" className="hover:text-zinc-300">
+              Quanto ainda cabe no mês
+            </Link>
             <Link to="/about" className="hover:text-zinc-300">
               Sobre
             </Link>

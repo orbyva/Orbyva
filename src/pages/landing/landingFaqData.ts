@@ -4,7 +4,11 @@ import { PLANS } from "@/lib/plan";
 export const FAQS = [
   {
     q: "O que é o Orbyva?",
-    a: "Um life OS: teto de gastos, contas e parcelas, e o resto da vida no mesmo lugar (hábitos, metas, viagens, lugares, cinema, livros, música e veículos). Tudo liberado no primeiro acesso.",
+    a: "Um life OS: orçamento do mês, contas e parcelas, e o resto da vida no mesmo lugar (hábitos, metas, viagens, lugares, cinema, livros, música e veículos). Tudo liberado no primeiro acesso.",
+  },
+  {
+    q: "Posso ver se uma compra cabe no mês sem criar conta?",
+    a: "Sim. Em Quanto ainda cabe no mês você informa renda, contas fixas e o valor da compra e vê se cabe, aperta ou não cabe. O teste de 7 dias é para quem quer esse restante atualizando sozinho no app.",
   },
   {
     q: "Como o Orbyva ajuda no dinheiro do mês?",
