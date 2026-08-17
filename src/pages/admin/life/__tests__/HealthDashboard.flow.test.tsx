@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import HealthDashboard from "@/pages/admin/life/HealthDashboard";
+import type { Medication, MedicationCreateRequest } from "@/types/health";
 import type { Task, TaskCreateRequest } from "@/types/tasks";
 
 /**
@@ -17,6 +18,7 @@ import type { Task, TaskCreateRequest } from "@/types/tasks";
 const { store } = vi.hoisted(() => ({
   store: {
     tasks: [] as Task[],
+    medications: [] as Medication[],
     seq: 0,
     /** Quando setado, o próximo `loadHealthSummary` estoura — simula falha de rede. */
     failNextLoad: null as Error | null,
@@ -55,7 +57,7 @@ vi.mock("@/api/health", () => ({
   }),
 }));
 
-// O dialog de medicação (feature 049) grava por `createTask` — o falso escreve na mesma lista que
+// O dialog de consulta (feature 061) grava por `createTask` — o falso escreve na mesma lista que
 // o resumo lê, então o que a tela mostra depois vem mesmo do que foi salvo.
 vi.mock("@/api/tasks", () => ({
   createTask: vi.fn(async (draft: TaskCreateRequest) => {
@@ -63,6 +65,35 @@ vi.mock("@/api/tasks", () => ({
     store.tasks.push(created);
     return created;
   }),
+}));
+
+// Desde a 064 o dialog de medicação grava numa `medication`, e as doses saem da materialização.
+// O falso reproduz os dois lados: guarda o tratamento e escreve a dose de hoje na mesma lista de
+// tarefas que o resumo lê — é o que prova que cadastrar aqui faz a próxima dose aparecer.
+vi.mock("@/api/health/medications", () => ({
+  createMedicationWithDoses: vi.fn(async (input: MedicationCreateRequest) => {
+    const medication = { ...input, id: `m${++store.seq}`, active: true } as Medication;
+    store.medications.push(medication);
+    store.tasks.push({
+      id: `t${++store.seq}`,
+      project_id: null,
+      parent_task_id: null,
+      recurrence_origin_id: null,
+      title: medication.name,
+      status: "todo",
+      tag_ids: [],
+      due_date: medication.started_on,
+      due_time: medication.times[0]!,
+      dose_time: medication.times[0]!,
+      recurrence_rule: null,
+      linked_recurring_id: null,
+      linked_installment_number: null,
+      is_medication: true,
+      medication_id: medication.id,
+    });
+    return medication;
+  }),
+  updateMedication: vi.fn(),
 }));
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
@@ -84,6 +115,7 @@ beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(new Date(2026, 7, 16, 9, 0, 0));
   store.tasks = [];
+  store.medications = [];
   store.seq = 0;
   store.failNextLoad = null;
 });
@@ -152,19 +184,24 @@ describe("Health Dashboard — fluxo", () => {
     expect(screen.queryByText("Losartana")).toBeNull();
   });
 
-  it("cadastrar uma medicação pelo CTA salva a tarefa e a próxima dose aparece na tela", async () => {
+  it("cadastrar uma medicação pelo CTA cria o tratamento e a próxima dose aparece na tela", async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(await screen.findByRole("button", { name: "Cadastrar medicação" }));
 
     await user.type(await screen.findByLabelText(/Nome do remédio/), "Losartana");
-    await user.type(screen.getByLabelText(/Horário/), "08:00");
+    await user.type(screen.getByLabelText("Horário 1"), "08:00");
     await user.click(screen.getByRole("button", { name: "Criar" }));
 
-    // Gravou como tarefa de medicação pendente para hoje (é o que a 049 faz por baixo).
-    await waitFor(() => expect(store.tasks).toHaveLength(1));
+    // Desde a 064 o que se cria é um tratamento; a dose é a task materializada a partir dele.
+    await waitFor(() => expect(store.medications).toHaveLength(1));
+    expect(store.medications[0].times).toEqual(["08:00"]);
+    expect(store.medications[0].interval_days).toBe(1);
+    expect(store.medications[0].started_on).toBe("2026-08-16");
+    expect(store.tasks).toHaveLength(1);
     expect(store.tasks[0].is_medication).toBe(true);
+    expect(store.tasks[0].medication_id).toBe(store.medications[0].id);
     expect(store.tasks[0].status).toBe("todo");
     expect(store.tasks[0].due_date).toBe("2026-08-16");
     expect(store.tasks[0].due_time).toBe("08:00");

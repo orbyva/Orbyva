@@ -83,6 +83,27 @@ export async function createMedication(
   return data as Medication;
 }
 
+/**
+ * Cria o tratamento e já materializa as doses que ele deveria ter gerado até hoje, para o remédio
+ * aparecer no calendário na mesma hora em vez de só na próxima carga de tarefas.
+ *
+ * Falhar na materialização não pode virar erro na tela: o tratamento **foi** criado, e as doses
+ * saem na próxima `fetchTasks` de qualquer jeito. Mesmo tratamento das sincronizações de
+ * `updateTask` (`src/api/tasks/tasks.ts`).
+ */
+export async function createMedicationWithDoses(
+  input: MedicationCreateRequest
+): Promise<Medication> {
+  const medication = await createMedication(input);
+  try {
+    const userId = await getCurrentUserId();
+    await materializeMedicationDoses(medication, [], userId);
+  } catch (error) {
+    console.error("Falha ao materializar as doses da medicação:", error);
+  }
+  return medication;
+}
+
 export async function updateMedication(
   input: MedicationUpdateRequest
 ): Promise<void> {

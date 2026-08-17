@@ -4,21 +4,29 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import TaskList from "@/pages/admin/tasks/TaskList";
 import {
-  createTask,
   fetchDependencies,
   fetchProjects,
   fetchTags,
   fetchTasks,
 } from "@/api/tasks";
+import { createMedicationWithDoses } from "@/api/health/medications";
 import { fetchRecurringTransactions } from "@/api/recurring";
 import type { Task } from "@/types/tasks";
 
 /**
- * Atalho "Nova medicação" (feature 049) — cobre a abertura do dialog a partir do header e do
- * botão que aparece no `EmptyState` (lista vazia), e que criar com sucesso recarrega a lista
- * (novo `fetchTasks`) e fecha o dialog. O conteúdo do form em si (validação, payload de
- * `createTask`) já é coberto isoladamente em `MedicationQuickCreateDialog.test.tsx`.
+ * Atalho "Nova medicação" (features 049 e 064) — cobre a abertura do dialog a partir do header e
+ * do botão que aparece no `EmptyState` (lista vazia), e que criar com sucesso recarrega a lista
+ * (novo `fetchTasks`) e fecha o dialog. O conteúdo do form em si (validação, payload) já é coberto
+ * isoladamente em `MedicationQuickCreateDialog.test.tsx`.
+ *
+ * Desde a 064 o dialog grava numa `medication` (`createMedicationWithDoses`), não mais numa tarefa
+ * recorrente — daí o mock de `@/api/health/medications` no lugar do de `createTask`.
  */
+
+vi.mock("@/api/health/medications", () => ({
+  createMedicationWithDoses: vi.fn(async () => ({ id: "med-1" })),
+  updateMedication: vi.fn(),
+}));
 
 vi.mock("@/api/tasks", () => ({
   fetchTasks: vi.fn(),
@@ -53,7 +61,7 @@ const mockedFetchProjects = vi.mocked(fetchProjects);
 const mockedFetchTags = vi.mocked(fetchTags);
 const mockedFetchDependencies = vi.mocked(fetchDependencies);
 const mockedFetchRecurringTransactions = vi.mocked(fetchRecurringTransactions);
-const mockedCreateTask = vi.mocked(createTask);
+const mockedCreateMedication = vi.mocked(createMedicationWithDoses);
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -86,7 +94,7 @@ describe("TaskList — atalho Nova medicação", () => {
   beforeEach(() => {
     toastMock.mockReset();
     mockedFetchTasks.mockReset();
-    mockedCreateTask.mockReset();
+    mockedCreateMedication.mockClear();
   });
 
   it("clicar em 'Nova medicação' no header abre o MedicationQuickCreateDialog", async () => {
@@ -119,7 +127,6 @@ describe("TaskList — atalho Nova medicação", () => {
   it("criar medicação com sucesso recarrega a lista e fecha o dialog", async () => {
     const user = userEvent.setup();
     mockLoad([makeTask()]);
-    mockedCreateTask.mockResolvedValue(makeTask({ id: "med-1", title: "Losartana" }));
     render(
       <MemoryRouter>
         <TaskList />
@@ -130,9 +137,10 @@ describe("TaskList — atalho Nova medicação", () => {
     await user.click(screen.getAllByRole("button", { name: "Nova medicação" })[0]);
     const dialog = within(screen.getByRole("dialog"));
     await user.type(dialog.getByLabelText(/Nome do remédio/), "Losartana");
-    await user.type(dialog.getByLabelText(/Horário/), "08:00");
+    await user.type(dialog.getByLabelText("Horário 1"), "08:00");
     await user.click(dialog.getByRole("button", { name: "Criar" }));
 
+    await waitFor(() => expect(mockedCreateMedication).toHaveBeenCalled());
     await waitFor(() => expect(mockedFetchTasks).toHaveBeenCalledTimes(2));
     expect(screen.queryByText("Nova medicação", { selector: "h2" })).not.toBeInTheDocument();
   });
