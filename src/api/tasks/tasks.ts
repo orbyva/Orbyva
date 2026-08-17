@@ -7,6 +7,7 @@ import {
   updateRecurringParcelPayment,
 } from "@/api/recurring";
 import { resolveItemStatusFromTask } from "@/domain/shopping/taskLink";
+import { materializeAllMedicationDoses } from "@/api/health/medications";
 import { formatLocalIsoDate } from "@/lib/dates";
 import type {
   Task,
@@ -20,7 +21,16 @@ async function materializeRecurringInstances(
   tasks: Task[]
 ): Promise<Task[]> {
   const origins = tasks.filter(
-    (task) => task.recurrence_rule && !task.recurrence_origin_id && task.due_date
+    (task) =>
+      task.recurrence_rule &&
+      !task.recurrence_origin_id &&
+      task.due_date &&
+      // Séries de medicação (feature 064) são materializadas por `materializeMedicationDoses`, a
+      // partir de `medication.times` — este caminho só sabe do `time` singular da regra e geraria
+      // uma dose a mais por dia, em duplicidade com aquele. O backfill preserva a
+      // `recurrence_rule` da origem de propósito (é o registro do que a série era), então é este
+      // filtro, e não o apagamento da regra, que impede a dupla materialização.
+      !task.medication_id
   );
   if (origins.length === 0) return tasks;
 
@@ -147,7 +157,10 @@ export async function fetchTasks(): Promise<Task[]> {
     .order("due_date", { ascending: true, nullsFirst: false });
   if (error) throw new Error(error.message);
   const withRecurring = await materializeRecurringInstances(userId, data ?? []);
-  return materializeLinkedInstances(userId, withRecurring);
+  const withLinked = await materializeLinkedInstances(userId, withRecurring);
+  // Doses de medicação (feature 064): mesmo ponto do fluxo das outras duas materializações, para
+  // as doses aparecerem no calendário/agenda sem tela nova.
+  return materializeAllMedicationDoses(userId, withLinked);
 }
 
 export async function fetchTaskById(id: string): Promise<Task | null> {
