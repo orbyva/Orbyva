@@ -169,10 +169,12 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
       alimentada com uma linha que **ainda tem** `notes` preenchido (como o `select("*")` vai
       devolver de verdade) e nem o card nem o formulário mostram o valor. Só o build não provaria
       isso: tipo removido não impede o valor de chegar em runtime.
-- [ ] Adicionar `kind: "note"` em `src/api/search.ts` (`GlobalSearchKind`, o `Promise.all` com
-      `ilike` em `title`/`content`, e o push do hit com `href: /notes/<id>`).
-      Verificação manual: buscar por um trecho que só exista dentro de uma nota e ver o hit levar
-      ao editor certo.
+- [x] Adicionar `kind: "note"` em `src/api/search.ts` (`GlobalSearchKind`, o `Promise.all` com
+      `ilike` em `title`/`content`, o push do hit com `href: /notes/<id>` e o rótulo "Nota" em
+      `SEARCH_KIND_LABEL`). O subtítulo do hit reusa `noteExcerpt`, então vem sem marcação.
+      Verificação: `src/api/__tests__/search-notes.test.ts` (5 testes) roda o roteiro que a tarefa
+      mandava fazer à mão — buscar um trecho que só existe no corpo da nota e conferir que o hit
+      leva a `/notes/n1` — contra um duplo do Supabase que registra tabela, escopo e `ilike`.
 - [ ] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle` — este último
       confirma que o chunk da rota `/notes` cabe nos 160 KB gzip (deve caber folgado: nenhuma
       dependência nova nesta feature).
