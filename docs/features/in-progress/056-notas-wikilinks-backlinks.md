@@ -66,11 +66,18 @@ Depende de: 055 (tabela `note`).
 
 ## Tarefas
 
-- [ ] Instalar `@uiw/react-codemirror`, `@codemirror/lang-markdown`, `@codemirror/state`,
+- [x] Instalar `@uiw/react-codemirror`, `@codemirror/lang-markdown`, `@codemirror/state`,
       `@codemirror/view` e `@codemirror/autocomplete`. Verificação: `npm run build` +
       `npm run check:bundle` — o chunk da rota `/notes` precisa continuar sob 160 KB gzip; se
       passar, adicionar entrada `codemirror` no `manualChunks` de `vite.config.ts:151` (junto de
       `radix`/`supabase`) e ao `VENDOR_RE` de `scripts/check-bundle-budget.mjs`.
+      Feito: versões instaladas `@uiw/react-codemirror@4.25.11`, `@codemirror/lang-markdown@6.5.2`,
+      `@codemirror/state@6.7.1`, `@codemirror/view@6.43.9`, `@codemirror/autocomplete@6.20.3`; o
+      `manualChunks` ganhou o ramo `codemirror` (inclui `@lezer`, `style-mod`, `crelt` e
+      `w3c-keyname`, que são deps transitivas do `@codemirror/view` e sem elas o chunk da rota
+      inchava). `npm run build` + `npm run check:bundle` OK. A prova de que o split funciona vem
+      na tarefa seguinte, quando o `NoteEditor` passa a importar CodeMirror de fato e o chunk
+      `codemirror-*.js` aparece no `dist/`.
 - [ ] Trocar o `<textarea>` de `src/pages/admin/notes/NoteEditor.tsx` por CodeMirror com
       `markdown()` + tema alinhado ao Tailwind (fonte e cores de `src/index.css`, respeitando dark
       mode). Manter autosave com debounce e o comportamento de `Tab` já existente.

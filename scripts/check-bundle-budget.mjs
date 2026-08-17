@@ -19,7 +19,7 @@ const MAX_ROUTE_GZIP = 160 * 1024;
 const MAX_VENDOR_GZIP = 200 * 1024;
 
 const VENDOR_RE =
-  /^(react-vendor|recharts|radix|supabase|sentry|motion|ui-utils)-/;
+  /^(react-vendor|recharts|radix|supabase|sentry|motion|ui-utils|codemirror)-/;
 
 function gzipSize(buf) {
   return zlib.gzipSync(buf).length;

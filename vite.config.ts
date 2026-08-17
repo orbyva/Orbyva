@@ -166,6 +166,18 @@ export default defineConfig({
             return "recharts";
           }
           if (id.includes("framer-motion")) return "motion";
+          // CodeMirror (editor de notas, feature 056) é vendor pesado e só carrega na rota de
+          // notas — sem chunk próprio ele entraria no chunk da rota e estouraria o teto de 160 KB.
+          if (
+            id.includes("@codemirror") ||
+            id.includes("@uiw/react-codemirror") ||
+            id.includes("@lezer") ||
+            id.includes("node_modules/style-mod") ||
+            id.includes("node_modules/crelt") ||
+            id.includes("node_modules/w3c-keyname")
+          ) {
+            return "codemirror";
+          }
           if (id.includes("@sentry")) return "sentry";
           if (id.includes("@supabase")) return "supabase";
           if (id.includes("@radix-ui")) return "radix";
