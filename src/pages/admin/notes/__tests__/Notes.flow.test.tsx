@@ -75,6 +75,20 @@ vi.mock("@/api/tasks/projects", () => ({
   fetchProjects: vi.fn(async () => store.projects.map((p) => ({ ...p }))),
 }));
 
+/**
+ * O mermaid (feature 057) é trocado por um duplo: ele mede texto com `getBBox`, que o jsdom não
+ * implementa. O que interessa aqui é o caminho — botão do editor → bloco no documento → preview
+ * chamando o renderer com o código do bloco.
+ */
+const { mermaidMock } = vi.hoisted(() => ({
+  mermaidMock: {
+    initialize: vi.fn(),
+    parse: vi.fn(async () => true),
+    render: vi.fn(async (id: string) => ({ svg: `<svg id="${id}"></svg>` })),
+  },
+}));
+vi.mock("mermaid", () => ({ default: mermaidMock }));
+
 // `toast` precisa ter identidade estável: o `load` das páginas é `useCallback([toast])`.
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({
@@ -406,5 +420,46 @@ describe("Notas — fluxo fim a fim", () => {
   it("abrir uma nota que não existe mais mostra o estado vazio, não uma tela quebrada", async () => {
     renderApp("/notes/inexistente");
     expect(await screen.findByText("Nota não encontrada")).toBeInTheDocument();
+  });
+
+  it('"Inserir diagrama" escreve um bloco mermaid válido, salva e o preview desenha', async () => {
+    const user = userEvent.setup();
+    store.notes = [
+      {
+        id: "n1",
+        title: "Fluxo do projeto",
+        content: "# Fluxo",
+        project_id: null,
+        updated_at: stamp(),
+      },
+    ];
+    renderApp("/notes/n1");
+
+    await user.click(
+      await screen.findByRole("button", { name: /inserir diagrama/i })
+    );
+
+    // O esqueleto entra no documento cru (markdown na veia) e o autosave grava sozinho.
+    await waitFor(
+      () => expect(store.notes[0].content).toContain("```mermaid"),
+      AUTOSAVE
+    );
+    expect(store.notes[0].content).toContain("graph TD");
+    expect(store.notes[0].content.startsWith("# Fluxo\n\n")).toBe(true);
+
+    await user.click(screen.getByRole("tab", { name: "Visualizar" }));
+
+    const preview = within(screen.getAllByRole("tabpanel")[0]);
+    const diagram = await preview.findByTestId("mermaid-diagram");
+    expect(diagram.querySelector("svg")).not.toBeNull();
+    // O código desenhado é o do bloco, não o markdown inteiro.
+    expect(mermaidMock.render).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("graph TD")
+    );
+    expect(mermaidMock.render).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("# Fluxo")
+    );
   });
 });

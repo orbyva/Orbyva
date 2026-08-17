@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CircleAlert, Loader2 } from "lucide-react";
+import { Check, CircleAlert, Loader2, Workflow } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormLabel } from "@/components/FormLabel";
@@ -11,6 +12,7 @@ import { BacklinksPanel } from "@/pages/admin/notes/BacklinksPanel";
 import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
 import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
+import { appendMermaidSnippet } from "@/domain/notes/mermaidSnippet";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import type { Note } from "@/types/notes";
@@ -175,14 +177,31 @@ export function NoteEditor({
           value={tab}
           onValueChange={(v) => setTab(v === "preview" ? "preview" : "write")}
         >
-          <TabsList className="h-8">
-            <TabsTrigger value="write" className="text-xs">
-              Escrever
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="text-xs">
-              Visualizar
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <TabsList className="h-8">
+              <TabsTrigger value="write" className="text-xs">
+                Escrever
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="text-xs">
+                Visualizar
+              </TabsTrigger>
+            </TabsList>
+            {/* Descoberta da funcionalidade: ninguém digita sintaxe de mermaid de cabeça. O botão
+                leva de volta para a aba de escrever, senão o esqueleto some atrás do preview. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => {
+                setTab("write");
+                setContent((current) => appendMermaidSnippet(current));
+              }}
+            >
+              <Workflow className="h-3.5 w-3.5" aria-hidden="true" />
+              Inserir diagrama
+            </Button>
+          </div>
           <TabsContent value="write" className="mt-1.5">
             <MarkdownCodeEditor
               label="Conteúdo"

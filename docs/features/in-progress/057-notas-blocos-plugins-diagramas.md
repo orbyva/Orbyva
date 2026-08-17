@@ -154,9 +154,20 @@ ordem.
       `<foreignObject>` não; `href="/notes/n1"` continua; e o SVG limpo, **inserido de verdade num
       elemento da página**, não deixa handler nenhum. Mais o teste do `MermaidBlock` "o SVG entra na
       página já limpo de script e de handler".
-- [ ] Adicionar ao editor (`NoteEditor.tsx`) um atalho "Inserir diagrama" que injeta um esqueleto
+- [x] Adicionar ao editor (`NoteEditor.tsx`) um atalho "Inserir diagrama" que injeta um esqueleto
       ```mermaid com `graph TD` — descoberta da funcionalidade, já que ninguém digita a sintaxe de
       cabeça.
+      Botão ao lado das abas Escrever/Visualizar; o texto injetado é `appendMermaidSnippet`
+      (`src/domain/notes/mermaidSnippet.ts`, puro), e o esqueleto já é um grafo **desenhável**
+      (`graph TD` com decisão e dois caminhos), não uma cerca vazia — colar e ver o desenho é o que
+      ensina a sintaxe. O botão também volta para a aba Escrever, senão o texto novo apareceria
+      atrás do preview.
+      Verificação: `mermaidSnippet.test.ts` (6 testes — nota vazia, separação por linha em branco,
+      sem empilhar linhas, inserir duas vezes deixa dois blocos fechados, o fence é reconhecido por
+      `parseBlockLanguage`) e `Notes.flow.test.tsx` `"Inserir diagrama" escreve um bloco mermaid
+      válido, salva e o preview desenha` — clica no botão de verdade, espera o autosave gravar o
+      ```mermaid no store, abre a aba Visualizar e afirma que saiu um `<svg>` e que o renderer
+      recebeu **só o código do bloco**, não o markdown inteiro.
 - [ ] Documentar o registry num comentário de cabeçalho em `blockRegistry.ts`: como registrar um
       renderer novo, em 3 linhas. É o que faz o "plugin" ser usável daqui a seis meses.
 - [ ] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle`.
