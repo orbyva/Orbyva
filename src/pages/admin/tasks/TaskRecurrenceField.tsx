@@ -13,6 +13,7 @@ import { formatLocalIsoDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { weekdayOrdinalInMonth } from "@/domain/tasks";
+import { TaskDurationQuickPick } from "./TaskDurationQuickPick";
 import { buildFixedYearPlan } from "@/domain/recurring";
 import { createRecurringApi } from "@/api/recurring";
 import { RecurringFormDialog } from "@/pages/admin/finance/components/RecurringFormDialog";
@@ -70,6 +71,7 @@ interface TaskRecurrenceValue {
   due_date: string | null;
   due_time?: string | null;
   start_date?: string | null;
+  estimated_duration?: number | null;
   recurrence_rule: RecurrenceRule | null;
   linked_recurring_id: string | null;
 }
@@ -101,12 +103,20 @@ export function TaskRecurrenceField({
   onChange,
   dimensions,
   onRecurringCreated,
+  isSubtask,
+  parentDueDate,
 }: {
   value: TaskRecurrenceValue;
   recurrings: Recurring[];
   onChange: (next: TaskRecurrenceValue) => void;
   dimensions: Dimension[];
   onRecurringCreated: (recurring: Recurring) => void;
+  /** Subtarefa não tem série independente da mãe — some com a seção de recorrência inteira e
+   * com Início/Duração estimada, deixando só Prazo/Horário (`isSubtaskDueDateValid` valida o
+   * prazo contra `parentDueDate` no `handleSave` de quem monta o form). */
+  isSubtask?: boolean;
+  /** Prazo da tarefa-mãe — usado só como `maxDate` do DatePicker quando `isSubtask`. */
+  parentDueDate?: string | null;
 }) {
   const [mode, setMode] = useState<RecurrenceMode>(() => modeFor(value));
   const [newRecurringOpen, setNewRecurringOpen] = useState(false);
@@ -259,6 +269,35 @@ export function TaskRecurrenceField({
     }
   }
 
+  if (isSubtask) {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <FormLabel optional>Prazo</FormLabel>
+          <DatePicker
+            clearable
+            date={value.due_date ? new Date(`${value.due_date}T12:00:00`) : undefined}
+            onSelect={(d) =>
+              onChange({ ...value, due_date: d ? formatLocalIsoDate(d) : null, recurrence_rule: null })
+            }
+            maxDate={parentDueDate ? new Date(`${parentDueDate}T12:00:00`) : undefined}
+          />
+        </div>
+        {value.due_date && (
+          <div>
+            <FormLabel optional>Horário</FormLabel>
+            <Input
+              type="time"
+              value={value.due_time ?? ""}
+              onChange={(e) => onChange({ ...value, due_time: e.target.value || null })}
+              className="h-9"
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -304,6 +343,15 @@ export function TaskRecurrenceField({
               date={value.due_date ? new Date(`${value.due_date}T12:00:00`) : undefined}
               onSelect={(d) => selectDueDate(d ? formatLocalIsoDate(d) : null)}
             />
+          </div>
+          <div>
+            <FormLabel optional>Duração estimada</FormLabel>
+            <div className="mt-1.5">
+              <TaskDurationQuickPick
+                value={value.estimated_duration}
+                onChange={(minutes) => onChange({ ...value, estimated_duration: minutes })}
+              />
+            </div>
           </div>
           {value.due_date && (
             <div>

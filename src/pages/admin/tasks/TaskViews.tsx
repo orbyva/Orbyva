@@ -1,9 +1,11 @@
 import {
-  Calendar,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Circle,
+  CircleDashed,
   ExternalLink,
   Github,
   GripVertical,
@@ -13,6 +15,7 @@ import {
   Square,
   Trash2,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
@@ -28,23 +31,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { TaskDeleteDialog } from "./TaskDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { detectGitHubLink, isRecurringTask } from "@/domain/tasks";
-import type { Tag, Task, TaskStatus } from "@/types/tasks";
+import type { Project, Tag, Task, TaskPriority, TaskStatus } from "@/types/tasks";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { contrastTextColor } from "@/lib/color";
-import { formatDateTimeBR } from "@/lib/currency";
 import { stripMarkdown } from "@/lib/markdown";
-import { TaskPriorityFlag } from "./TaskPriorityField";
+import { TaskQuickFields } from "./TaskQuickFields";
+import type { TaskIconValue } from "./TaskIconPicker";
 
 export const STATUSES: TaskStatus[] = ["todo", "doing", "done"];
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "A fazer",
   doing: "Fazendo",
   done: "Feito",
+};
+/** Ícone por status — mesmo vocabulário visual usado na Lista (Select de status) e no Kanban
+ * (indicador no card), reforçando o que já é implícito pela coluna/rótulo (feature 033). */
+export const STATUS_ICONS: Record<TaskStatus, LucideIcon> = {
+  todo: Circle,
+  doing: CircleDashed,
+  done: CheckCircle2,
 };
 
 /** Chip de link externo — reconhece issue/PR do GitHub pela URL (sem chamada de rede) e mostra
@@ -86,56 +96,25 @@ export function TagBadge({ tag }: { tag: Tag }) {
   );
 }
 
-export function SubtaskChecklist({
-  subtasks,
-  onToggle,
-  onOpenSubtask,
-}: {
-  subtasks: Task[];
-  onToggle: (subtask: Task) => void;
-  onOpenSubtask: (subtask: Task) => void;
-}) {
-  return (
-    <ul className="mt-2 space-y-1 border-t pt-2">
-      {subtasks.map((s) => (
-        <li key={s.id} className="flex items-start gap-2 py-0.5">
-          <input
-            type="checkbox"
-            checked={s.status === "done"}
-            onChange={() => onToggle(s)}
-            className="mt-0.5 shrink-0"
-          />
-          <button
-            type="button"
-            className="min-w-0 flex-1 text-left"
-            onClick={() => onOpenSubtask(s)}
-          >
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span
-                className={cn(
-                  "truncate text-xs",
-                  s.status === "done" && "text-muted-foreground line-through"
-                )}
-              >
-                {s.title}
-              </span>
-              {s.due_date && (
-                <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground">
-                  <Calendar className="h-2.5 w-2.5" />
-                  {formatDateTimeBR(s.due_date, s.due_time)}
-                </span>
-              )}
-            </div>
-            {s.description && (
-              <p className="truncate text-[10px] text-muted-foreground">
-                {stripMarkdown(s.description)}
-              </p>
-            )}
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
+/**
+ * Handlers de quick action parametrizados por subtarefa — usados por `TaskListRow` pra bindar
+ * uma `TaskListRow` aninhada por subtarefa (feature 046), no mesmo espírito de como
+ * `CompletedTasksSection` já bindava por tarefa de topo antes de existir aninhamento. `onProjectChange`
+ * fica de fora de propósito: subtarefa herda o projeto do pai (mesma regra da feature 036), então o
+ * badge de projeto da linha aninhada é sempre somente-leitura (na prática, omitido).
+ */
+export interface SubtaskRowActions {
+  onDelete: (subtask: Task) => void;
+  onStatusChange: (subtask: Task, status: TaskStatus) => void;
+  onOpenSeries?: (subtask: Task) => void;
+  isTimerRunning?: (subtask: Task) => boolean;
+  onToggleTimer?: (subtask: Task) => void;
+  onIconChange?: (subtask: Task, next: TaskIconValue) => void;
+  onPriorityChange?: (subtask: Task, priority: TaskPriority | null) => void;
+  onDueChange?: (
+    subtask: Task,
+    next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }
+  ) => void;
 }
 
 export function ExpandSubtasksButton({
@@ -163,6 +142,7 @@ export function ExpandSubtasksButton({
 
 export function TaskListRow({
   task,
+  allTasks,
   subtasks,
   allTags,
   expanded,
@@ -174,12 +154,23 @@ export function TaskListRow({
   onOpenSeries,
   onEdit,
   onDelete,
+  onDeleteAll,
   isTimerRunning,
   onToggleTimer,
   extraActions,
   projectBadge,
+  onIconChange,
+  onPriorityChange,
+  onDueChange,
+  onProjectChange,
+  projects,
+  isNested = false,
+  subtaskActions,
 }: {
   task: Task;
+  /** Lista completa de tarefas do usuário — usada pelo `TaskDeleteDialog` pra calcular a série
+   * (via `findSeriesTasks`) quando `task` é uma recorrência simples. */
+  allTasks: Task[];
   subtasks: Task[];
   /** Catálogo completo de tags do usuário — usado pra resolver `task.tag_ids` nos badges coloridos. */
   allTags: Tag[];
@@ -194,23 +185,63 @@ export function TaskListRow({
   onOpenSeries: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** Exclui todas as ocorrências de uma recorrência simples de uma vez — opção só exibida no
+   * `TaskDeleteDialog` quando `task` é elegível (`isSimpleRecurringTask`) e essa prop é passada;
+   * ausente, o dialog se comporta como antes (só "Excluir"). */
+  onDeleteAll?: (ids: string[]) => void;
   /** Timer "Live" rodando pra esta tarefa agora. */
   isTimerRunning?: boolean;
   onToggleTimer?: () => void;
   /** Ações extras (ex.: "Lançar transação") renderizadas antes de editar/excluir. */
   extraActions?: ReactNode;
-  /** Badge do projeto — mesma ideia do `KanbanCard`: só faz sentido numa lista que cruza
-   * projetos (aba Lista de `TaskList.tsx`). */
+  /** Badge do projeto somente-leitura — usado quando `onProjectChange` não é passado (mantém
+   * compatibilidade com quem ainda monta o badge por fora, ex. `KanbanCard`). Ignorado quando
+   * `onProjectChange` está presente (vira `ProjectBadgeButton` clicável). */
   projectBadge?: ReactNode;
+  /** Presente = edição rápida de ícone inline (popover com `TaskIconPicker`), no lugar do
+   * `TaskIconBadge` estático (feature 035). */
+  onIconChange?: (next: TaskIconValue) => void;
+  /** Presente = edição rápida de prioridade inline (popover com `TaskPriorityField`), no lugar do
+   * ícone estático `TaskPriorityFlag` (feature 029). */
+  onPriorityChange?: (priority: TaskPriority | null) => void;
+  /** Presente = edição rápida de prazo+horário+duração inline (popover com `DatePicker` +
+   * horário + duração estimada), no lugar do texto estático de prazo — só se aplica a tarefas não
+   * concluídas ("Concluída em..." continua somente-leitura) (feature 029). */
+  onDueChange?: (next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }) => void;
+  /** Presente (junto com `projects`) = badge de projeto clicável (`ProjectBadgeButton`) no lugar
+   * de `projectBadge` estático (feature 029). */
+  onProjectChange?: (projectId: string | null) => void;
+  /** Catálogo de projetos (já ordenado por atividade) — obrigatório junto com `onProjectChange`. */
+  projects?: Project[];
+  /** `true` = esta linha é uma subtarefa renderizada aninhada sob a linha da tarefa-mãe (feature
+   * 046): aplica indentação/borda visual distinta e desliga `ExpandSubtasksButton`/o próprio
+   * aninhamento (sem sub-subtarefas — modelo de 2 níveis já estabelecido pela feature 036). */
+  isNested?: boolean;
+  /** Handlers de quick action parametrizados por subtarefa — obrigatório pra renderizar
+   * subtarefas de verdade quando `expanded`; ignorado em linhas já `isNested` (não há 3º nível). */
+  subtaskActions?: SubtaskRowActions;
 }) {
   const taskTags = task.tag_ids
     .map((id) => allTags.find((t) => t.id === id))
     .filter((t): t is Tag => !!t);
   const recurring = isRecurringTask(task);
   const done = task.status === "done";
+  const quickFields = TaskQuickFields({
+    task,
+    onIconChange,
+    onPriorityChange,
+    onDueChange,
+    onProjectChange,
+    projects,
+    projectBadge,
+  });
+  const StatusIcon = STATUS_ICONS[task.status];
   return (
     <div
-      className="cursor-pointer rounded-lg border bg-card p-3 transition-colors hover:border-primary/40"
+      className={cn(
+        "cursor-pointer rounded-lg border bg-card p-3 transition-colors hover:border-primary/40",
+        isNested && "ml-6 border-l-2 border-l-primary/30 bg-muted/20"
+      )}
       onClick={onEdit}
     >
       <div className="flex items-center justify-between gap-3">
@@ -246,7 +277,7 @@ export function TaskListRow({
                   <Repeat className="h-3 w-3" />
                 </button>
               )}
-              <TaskPriorityFlag priority={task.priority} />
+              {quickFields.priority}
               <p
                 className={cn(
                   "truncate font-medium",
@@ -257,37 +288,41 @@ export function TaskListRow({
               </p>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              {quickFields.icon}
               <Select value={task.status} onValueChange={(v) => onStatusChange(v as TaskStatus)}>
                 <SelectTrigger
                   onClick={(e) => e.stopPropagation()}
+                  title={STATUS_LABELS[task.status]}
+                  aria-label={`Status: ${STATUS_LABELS[task.status]}`}
                   className="h-5 w-auto gap-1 border-none bg-transparent px-1.5 py-0 text-[10px] font-semibold text-muted-foreground shadow-none hover:bg-muted [&>svg]:h-3 [&>svg]:w-3"
                 >
-                  <SelectValue />
+                  <SelectValue>
+                    <span className="flex items-center gap-1">
+                      <StatusIcon className="h-3 w-3" />
+                    </span>
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {STATUSES.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {STATUS_LABELS[status]}
-                    </SelectItem>
-                  ))}
+                  {STATUSES.map((status) => {
+                    const ItemIcon = STATUS_ICONS[status];
+                    return (
+                      <SelectItem key={status} value={status}>
+                        <span className="flex items-center gap-1.5">
+                          <ItemIcon className="h-3 w-3" />
+                          {STATUS_LABELS[status]}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
-              {projectBadge}
+              {quickFields.project}
               {task.linked_recurring_id && (
                 <Badge variant="outline" className="text-[10px]">
                   Vinculada a Recorrência
                 </Badge>
               )}
-              {done && task.completed_at ? (
-                <span>Concluída em {formatDateTimeBR(task.completed_at)}</span>
-              ) : (
-                task.due_date && (
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {formatDateTimeBR(task.due_date, task.due_time)}
-                  </span>
-                )
-              )}
+              {quickFields.due}
               {taskTags.map((tag) => (
                 <TagBadge key={tag.id} tag={tag} />
               ))}
@@ -316,21 +351,58 @@ export function TaskListRow({
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={onEdit}>
             <Pen className="h-3.5 w-3.5" />
           </Button>
-          <ConfirmDeleteDialog title="Excluir esta tarefa?" onConfirm={onDelete}>
+          <TaskDeleteDialog task={task} allTasks={allTasks} onConfirm={onDelete} onConfirmAll={onDeleteAll}>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
-          </ConfirmDeleteDialog>
-          <ExpandSubtasksButton count={subtasks.length} expanded={expanded} onClick={onToggleExpand} />
+          </TaskDeleteDialog>
+          {!isNested && (
+            <ExpandSubtasksButton count={subtasks.length} expanded={expanded} onClick={onToggleExpand} />
+          )}
         </div>
       </div>
-      {expanded && subtasks.length > 0 && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <SubtaskChecklist
-            subtasks={subtasks}
-            onToggle={onToggleSubtask}
-            onOpenSubtask={onOpenSubtask}
-          />
+      {!isNested && expanded && subtasks.length > 0 && (
+        <div className="mt-2 space-y-2 border-t pt-2" onClick={(e) => e.stopPropagation()}>
+          {subtasks.map((subtask) => (
+            <TaskListRow
+              key={subtask.id}
+              task={subtask}
+              allTasks={allTasks}
+              subtasks={[]}
+              allTags={allTags}
+              expanded={false}
+              onToggleExpand={() => {}}
+              onToggleSubtask={onToggleSubtask}
+              onOpenSubtask={onOpenSubtask}
+              onToggleDone={() => onToggleSubtask(subtask)}
+              onStatusChange={(status) => subtaskActions?.onStatusChange(subtask, status)}
+              onOpenSeries={() => subtaskActions?.onOpenSeries?.(subtask)}
+              onEdit={() => onOpenSubtask(subtask)}
+              onDelete={() => subtaskActions?.onDelete(subtask)}
+              isTimerRunning={subtaskActions?.isTimerRunning?.(subtask)}
+              onToggleTimer={
+                subtaskActions?.onToggleTimer
+                  ? () => subtaskActions.onToggleTimer!(subtask)
+                  : undefined
+              }
+              onIconChange={
+                subtaskActions?.onIconChange
+                  ? (next) => subtaskActions.onIconChange!(subtask, next)
+                  : undefined
+              }
+              onPriorityChange={
+                subtaskActions?.onPriorityChange
+                  ? (priority) => subtaskActions.onPriorityChange!(subtask, priority)
+                  : undefined
+              }
+              onDueChange={
+                subtaskActions?.onDueChange
+                  ? (next) => subtaskActions.onDueChange!(subtask, next)
+                  : undefined
+              }
+              isNested
+            />
+          ))}
         </div>
       )}
     </div>
@@ -343,6 +415,7 @@ export function TaskListRow({
  * e fechada dentro de "Todas". */
 export function CompletedTasksSection({
   tasks,
+  allTasks,
   allTags,
   subtasksByParent,
   expandedTasks,
@@ -354,12 +427,21 @@ export function CompletedTasksSection({
   onOpenSeries,
   onEdit,
   onDelete,
+  onDeleteAll,
   isTimerRunning,
   extraActions,
   projectBadge,
   defaultOpen = false,
+  onIconChange,
+  onPriorityChange,
+  onDueChange,
+  onProjectChange,
+  projects,
+  subtaskActions,
 }: {
   tasks: Task[];
+  /** Lista completa de tarefas do usuário — repassada ao `TaskDeleteDialog` de cada `TaskListRow`. */
+  allTasks: Task[];
   allTags: Tag[];
   subtasksByParent: Map<string, Task[]>;
   expandedTasks: Set<string>;
@@ -371,10 +453,20 @@ export function CompletedTasksSection({
   onOpenSeries: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
+  onDeleteAll?: (ids: string[]) => void;
   isTimerRunning: (task: Task) => boolean;
   extraActions?: (task: Task) => ReactNode;
   projectBadge?: (task: Task) => ReactNode;
   defaultOpen?: boolean;
+  /** Repassadas por tarefa a cada `TaskListRow` — mesma edição rápida inline da feature 029. */
+  onIconChange?: (task: Task, next: TaskIconValue) => void;
+  onPriorityChange?: (task: Task, priority: TaskPriority | null) => void;
+  onDueChange?: (task: Task, next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }) => void;
+  onProjectChange?: (task: Task, projectId: string | null) => void;
+  projects?: Project[];
+  /** Repassado direto a cada `TaskListRow` — já vem parametrizado por tarefa (feature 046), mesmo
+   * formato que os handlers acima, só sem precisar de wrapping aqui. */
+  subtaskActions?: SubtaskRowActions;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   if (tasks.length === 0) return null;
@@ -394,6 +486,7 @@ export function CompletedTasksSection({
           <TaskListRow
             key={task.id}
             task={task}
+            allTasks={allTasks}
             subtasks={subtasksByParent.get(task.id) ?? []}
             allTags={allTags}
             expanded={expandedTasks.has(task.id)}
@@ -405,9 +498,20 @@ export function CompletedTasksSection({
             onOpenSeries={() => onOpenSeries(task)}
             onEdit={() => onEdit(task)}
             onDelete={() => onDelete(task.id)}
+            onDeleteAll={onDeleteAll}
             isTimerRunning={isTimerRunning(task)}
             extraActions={extraActions?.(task)}
             projectBadge={projectBadge?.(task)}
+            onIconChange={onIconChange ? (next) => onIconChange(task, next) : undefined}
+            onPriorityChange={
+              onPriorityChange ? (priority) => onPriorityChange(task, priority) : undefined
+            }
+            onDueChange={onDueChange ? (next) => onDueChange(task, next) : undefined}
+            onProjectChange={
+              onProjectChange ? (projectId) => onProjectChange(task, projectId) : undefined
+            }
+            projects={projects}
+            subtaskActions={subtaskActions}
           />
         ))}
       </CollapsibleContent>
@@ -427,8 +531,124 @@ export function KanbanColumn({ status, children }: { status: TaskStatus; childre
   );
 }
 
+/**
+ * Mini-card de subtarefa dentro do `KanbanCard` do pai (feature 047) — substitui o antigo
+ * checklist de checkboxes por um card real, sempre agrupado sob o pai, na coluna do pai (a
+ * subtarefa não é sortable/arrastável entre colunas: essa tensão de design foi resolvida
+ * explicitamente na feature, ver `docs/features/done/047-*.md`). Reaproveita `TaskQuickFields`
+ * (ícone/prioridade/prazo) e o mesmo Select de status por `STATUS_ICONS` que `TaskListRow` usa,
+ * só num layout compacto e sem `GripVertical`.
+ */
+function KanbanSubtaskCard({
+  subtask,
+  onToggleSubtask,
+  onOpenSubtask,
+  subtaskActions,
+}: {
+  subtask: Task;
+  onToggleSubtask: (subtask: Task) => void;
+  onOpenSubtask: (subtask: Task) => void;
+  subtaskActions?: SubtaskRowActions;
+}) {
+  const done = subtask.status === "done";
+  const quickFields = TaskQuickFields({
+    task: subtask,
+    onIconChange: subtaskActions?.onIconChange
+      ? (next) => subtaskActions.onIconChange!(subtask, next)
+      : undefined,
+    onPriorityChange: subtaskActions?.onPriorityChange
+      ? (priority) => subtaskActions.onPriorityChange!(subtask, priority)
+      : undefined,
+    onDueChange: subtaskActions?.onDueChange
+      ? (next) => subtaskActions.onDueChange!(subtask, next)
+      : undefined,
+  });
+  const StatusIcon = STATUS_ICONS[subtask.status];
+  return (
+    <div
+      className="cursor-pointer rounded-lg border bg-muted/30 p-2 transition-colors hover:border-primary/40"
+      onClick={() => onOpenSubtask(subtask)}
+    >
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSubtask(subtask);
+          }}
+          aria-label={done ? "Reabrir subtarefa" : "Concluir subtarefa"}
+          className={cn(
+            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+            done
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-muted-foreground/40 hover:border-primary"
+          )}
+        >
+          {done && <Check className="h-2.5 w-2.5" />}
+        </button>
+        {quickFields.priority}
+        <p
+          className={cn(
+            "min-w-0 flex-1 truncate text-xs font-medium",
+            done && "text-muted-foreground line-through"
+          )}
+        >
+          {subtask.title}
+        </p>
+      </div>
+      <div
+        className="mt-1 flex flex-wrap items-center gap-1.5 pl-[22px] text-[10px] text-muted-foreground"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {quickFields.icon}
+        {subtaskActions ? (
+          <Select
+            value={subtask.status}
+            onValueChange={(v) => subtaskActions.onStatusChange(subtask, v as TaskStatus)}
+          >
+            <SelectTrigger
+              title={STATUS_LABELS[subtask.status]}
+              aria-label={`Status: ${STATUS_LABELS[subtask.status]}`}
+              className="h-4 w-auto gap-1 border-none bg-transparent px-1 py-0 text-[10px] font-semibold text-muted-foreground shadow-none hover:bg-muted [&>svg]:h-2.5 [&>svg]:w-2.5"
+            >
+              <SelectValue>
+                <span className="flex items-center gap-1">
+                  <StatusIcon className="h-2.5 w-2.5" />
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {STATUSES.map((status) => {
+                const ItemIcon = STATUS_ICONS[status];
+                return (
+                  <SelectItem key={status} value={status}>
+                    <span className="flex items-center gap-1.5">
+                      <ItemIcon className="h-3 w-3" />
+                      {STATUS_LABELS[status]}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span
+            className="flex items-center gap-1"
+            title={STATUS_LABELS[subtask.status]}
+            aria-label={`Status: ${STATUS_LABELS[subtask.status]}`}
+          >
+            <StatusIcon className="h-2.5 w-2.5" />
+          </span>
+        )}
+        {quickFields.due}
+      </div>
+    </div>
+  );
+}
+
 export function KanbanCard({
   task,
+  allTasks,
   colIndex,
   subtasks,
   allTags,
@@ -438,29 +658,66 @@ export function KanbanCard({
   onToggleSubtask,
   onEdit,
   onDelete,
+  onDeleteAll,
   onMoveStatus,
   isTimerRunning,
   onToggleTimer,
   onOpenSubtask,
   /** Badge do projeto — só faz sentido num Kanban que cruza projetos (ex.: aba Kanban de
-   * `TaskList.tsx`); o Kanban de dentro de um projeto (`ProjectDetail.tsx`) não passa isso. */
+   * `TaskList.tsx`); o Kanban de dentro de um projeto (`ProjectDetail.tsx`) não passa isso.
+   * Ignorado quando `onProjectChange` + `projects` estão presentes (vira `ProjectBadgeButton`
+   * clicável, feature 033). */
   projectBadge,
+  onIconChange,
+  onPriorityChange,
+  onDueChange,
+  onProjectChange,
+  projects,
+  subtaskActions,
 }: {
   task: Task;
+  /** Lista completa de tarefas do usuário — repassada ao `TaskDeleteDialog`. */
+  allTasks: Task[];
   colIndex: number;
   subtasks: Task[];
   allTags: Tag[];
   subtaskDraft: string;
   onSubtaskDraftChange: (value: string) => void;
   onAddSubtask: () => void;
+  /** Toggle binário concluir/reabrir por subtarefa — usado pelo botão redondo do mini-card
+   * (feature 047), mesmo espírito do botão equivalente em `TaskListRow`. */
   onToggleSubtask: (subtask: Task) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onDeleteAll?: (ids: string[]) => void;
   onMoveStatus: (direction: -1 | 1) => void;
   isTimerRunning?: boolean;
   onToggleTimer?: () => void;
   onOpenSubtask: (subtask: Task) => void;
   projectBadge?: ReactNode;
+  /** Presente = edição rápida de ícone inline (mesmo popover de `TaskListRow`), no lugar do
+   * `TaskIconBadge` estático (feature 035). */
+  onIconChange?: (next: TaskIconValue) => void;
+  /** Presente = edição rápida de prioridade inline (mesmo popover de `TaskListRow`), no lugar do
+   * ícone estático `TaskPriorityFlag` (feature 033). */
+  onPriorityChange?: (priority: TaskPriority | null) => void;
+  /** Presente = edição rápida de prazo+horário+duração inline, no lugar do texto estático de
+   * prazo (feature 033). */
+  onDueChange?: (next: {
+    due_date: string | null;
+    due_time: string | null;
+    estimated_duration: number | null;
+  }) => void;
+  /** Presente (junto com `projects`) = badge de projeto clicável no lugar de `projectBadge`
+   * estático (feature 033). */
+  onProjectChange?: (projectId: string | null) => void;
+  /** Catálogo de projetos (já ordenado por atividade) — obrigatório junto com `onProjectChange`. */
+  projects?: Project[];
+  /** Handlers de quick action parametrizados por subtarefa (mesma interface que `TaskListRow`
+   * usa desde a feature 046) — presente = mini-card de subtarefa ganha status editável (Select,
+   * sem mudar de coluna) e ícone/prioridade/prazo clicáveis; ausente = cai pro visual
+   * somente-leitura equivalente (feature 047). */
+  subtaskActions?: SubtaskRowActions;
 }) {
   const taskTags = task.tag_ids
     .map((id) => allTags.find((t) => t.id === id))
@@ -473,6 +730,16 @@ export function KanbanCard({
     transition,
   };
   const doneSubtasks = subtasks.filter((s) => s.status === "done").length;
+  const quickFields = TaskQuickFields({
+    task,
+    onIconChange,
+    onPriorityChange,
+    onDueChange,
+    onProjectChange,
+    projects,
+    projectBadge,
+  });
+  const StatusIcon = STATUS_ICONS[task.status];
 
   return (
     <article
@@ -496,7 +763,7 @@ export function KanbanCard({
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
-          <TaskPriorityFlag priority={task.priority} />
+          {quickFields.priority}
           <p className="min-w-0 truncate text-sm font-medium">{task.title}</p>
         </div>
         <div className="flex shrink-0 gap-0.5" onClick={(e) => e.stopPropagation()}>
@@ -519,23 +786,33 @@ export function KanbanCard({
           >
             <Pen className="h-3 w-3" />
           </Button>
-          <ConfirmDeleteDialog
-            title="Excluir esta tarefa?"
+          <TaskDeleteDialog
+            task={task}
+            allTasks={allTasks}
             description={
               subtasks.length > 0 ? "As subtarefas também serão excluídas." : undefined
             }
             onConfirm={onDelete}
+            onConfirmAll={onDeleteAll}
           >
             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
               <Trash2 className="h-3 w-3" />
             </Button>
-          </ConfirmDeleteDialog>
+          </TaskDeleteDialog>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        {projectBadge}
-        {task.due_date && <span>Prazo: {formatDateTimeBR(task.due_date, task.due_time)}</span>}
+        {quickFields.icon}
+        <span
+          className="flex items-center gap-1"
+          title={STATUS_LABELS[task.status]}
+          aria-label={`Status: ${STATUS_LABELS[task.status]}`}
+        >
+          <StatusIcon className="h-3 w-3" />
+        </span>
+        {quickFields.project}
+        {quickFields.due}
         {task.linked_recurring_id && (
           <Badge variant="outline" className="text-[10px]">
             Vinculada a Recorrência
@@ -559,45 +836,17 @@ export function KanbanCard({
       )}
 
       {subtasks.length > 0 && (
-        <ul className="space-y-1 border-t pt-2" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-1.5 border-t pt-2" onClick={(e) => e.stopPropagation()}>
           {subtasks.map((subtask) => (
-            <li key={subtask.id} className="flex items-start gap-2 py-0.5">
-              <input
-                type="checkbox"
-                checked={subtask.status === "done"}
-                onChange={() => onToggleSubtask(subtask)}
-                className="mt-0.5 shrink-0"
-              />
-              <button
-                type="button"
-                className="min-w-0 flex-1 text-left"
-                onClick={() => onOpenSubtask(subtask)}
-              >
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span
-                    className={cn(
-                      "truncate text-xs",
-                      subtask.status === "done" && "text-muted-foreground line-through"
-                    )}
-                  >
-                    {subtask.title}
-                  </span>
-                  {subtask.due_date && (
-                    <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground">
-                      <Calendar className="h-2.5 w-2.5" />
-                      {formatDateTimeBR(subtask.due_date, subtask.due_time)}
-                    </span>
-                  )}
-                </div>
-                {subtask.description && (
-                  <p className="truncate text-[10px] text-muted-foreground">
-                    {stripMarkdown(subtask.description)}
-                  </p>
-                )}
-              </button>
-            </li>
+            <KanbanSubtaskCard
+              key={subtask.id}
+              subtask={subtask}
+              onToggleSubtask={onToggleSubtask}
+              onOpenSubtask={onOpenSubtask}
+              subtaskActions={subtaskActions}
+            />
           ))}
-        </ul>
+        </div>
       )}
 
       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>

@@ -36,7 +36,6 @@ const TaskProjectDetail = lazy(() => import("./pages/admin/tasks/ProjectDetail")
 const TasksLive = lazy(() => import("./pages/admin/tasks/Live"));
 const TasksAgenda = lazy(() => import("./pages/admin/tasks/AgendaCalendar"));
 const TasksTags = lazy(() => import("./pages/admin/tasks/Tags"));
-const TasksGantt = lazy(() => import("./pages/admin/tasks/TasksGantt"));
 
 const withSuspense = (Component: React.ReactNode) => (
   <Suspense fallback={<LoadingFallback />}>{Component}</Suspense>
@@ -121,7 +120,13 @@ const router = createBrowserRouter([
               { index: true, element: <TaskList /> },
               { path: "projects", element: <TaskProjects /> },
               { path: "projects/:id", element: <TaskProjectDetail /> },
-              { path: "gantt", element: <TasksGantt /> },
+              // `/tasks/gantt` (`TasksGantt.tsx`) foi removida na feature 044: rota separada, sem
+              // link em nenhum lugar do app (nem sidebar — `app-sidebar.tsx` só lista `/tasks` e
+              // `/tasks/projects` — nem em nenhuma outra página), redundante com a aba "Gantt" já
+              // existente aqui dentro de `/tasks` (`TaskList.tsx`), e sem paridade de props
+              // interativas (sem `onOpenTask`/quick actions) — corrigir isso teria sido manter duas
+              // implementações do mesmo Gantt em paridade. `?view=gantt` seleciona a aba direto.
+              { path: "gantt", element: <Navigate to="/tasks?view=gantt" replace /> },
               { path: "live", element: <TasksLive /> },
               { path: "agenda", element: <TasksAgenda /> },
               { path: "tags", element: <TasksTags /> },

@@ -12,7 +12,7 @@ import {
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, DollarSign, ExternalLink, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CornerDownRight, DollarSign, ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,58 +24,88 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/DatePicker";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS } from "@/components/FormLabel";
+import { FORM_DIALOG_CONTENT_CLASS, FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import { TaskPriorityField } from "./TaskPriorityField";
-import { TaskDescriptionField } from "./TaskDescriptionField";
+import { AgendaHourGrid } from "./AgendaHourGrid";
+import { TaskIconBadge } from "./TaskIconBadge";
+import { TaskFormFields, type TaskFormTab } from "./TaskFormFields";
 import {
+  createTag,
+  createTask,
   deleteProjectEvent,
+  deleteTask,
   fetchProjectEvents,
   fetchProjects,
+  fetchTags,
   fetchTasks,
   updateTask,
 } from "@/api/tasks";
+import { fetchRecurringTransactions } from "@/api/recurring";
 import {
   computeMonthGridDays,
   computeVirtualOccurrences,
   computeWeekDays,
   groupCalendarItemsByDay,
-  type CalendarItem,
+  groupSubtasksByParent,
+  isSubtaskDueDateValid,
 } from "@/domain/tasks";
+import {
+  addSubtaskToEditing as addSubtaskDraftToEditing,
+  emptyTask,
+  removeExistingSubtask as removeExistingSubtaskDraft,
+  type SubtaskMutationContext,
+} from "@/domain/tasks/taskDraft";
 import { formatLocalIsoDate } from "@/lib/dates";
-import type { Project, ProjectEvent, Task } from "@/types/tasks";
+import { formatDateBR } from "@/lib/currency";
+import type { Project, ProjectEvent, SubtaskDraft, Tag, Task, TaskCreateRequest } from "@/types/tasks";
+import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
+import { useDimensions } from "@/hooks/useDimensions";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTH_MAX_CHIPS_PER_DAY = 3;
-const WEEK_MAX_CHIPS_PER_DAY = 8;
 
 type CalendarViewMode = "month" | "week" | "day";
 
-const STATUS_DOT_CLASS: Record<Task["status"], string> = {
+export const STATUS_DOT_CLASS: Record<Task["status"], string> = {
   todo: "bg-muted-foreground/50",
   doing: "bg-blue-500",
   done: "bg-green-500",
 };
 
-function dayKey(date: Date): string {
+export function dayKey(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
-function isVirtualTask(task: Task): boolean {
+export function isVirtualTask(task: Task): boolean {
   return task.id.startsWith("virtual:");
 }
 
-function TaskChip({
+/** Indicador discreto de que um chip/bloco pertence a uma subtarefa (tem `parent_task_id`) — a
+ * Agenda não tem aninhamento visual como Lista/Kanban (grade de tempo, cada item no seu próprio
+ * horário), então o vínculo com a tarefa-mãe é só sinalizado, nunca forçado espacialmente
+ * (feature 048). */
+export function SubtaskLinkIcon({ className }: { className?: string }) {
+  return (
+    <CornerDownRight
+      className={cn("h-2.5 w-2.5 shrink-0 text-muted-foreground", className)}
+      aria-hidden="true"
+    />
+  );
+}
+
+export function TaskChip({
   task,
+  parentTitle,
   onClick,
 }: {
   task: Task;
+  /** Título da tarefa-mãe, só quando `task.parent_task_id` existe — alimenta o tooltip do
+   * indicador de vínculo (feature 048). */
+  parentTitle?: string;
   onClick: () => void;
 }) {
   if (isVirtualTask(task)) {
@@ -89,13 +119,17 @@ function TaskChip({
       </div>
     );
   }
+  const isSubtask = !!task.parent_task_id;
   return (
     <button
       type="button"
       onClick={onClick}
+      title={isSubtask ? `Subtarefa de "${parentTitle ?? "…"}"` : undefined}
       className="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[10px] hover:bg-muted"
     >
       <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_DOT_CLASS[task.status])} />
+      <TaskIconBadge iconKey={task.icon_key} iconUrl={task.icon_url} className="h-3 w-3" />
+      {isSubtask && <SubtaskLinkIcon />}
       <span className={cn("truncate", task.status === "done" && "text-muted-foreground line-through")}>
         {task.title}
       </span>
@@ -106,7 +140,7 @@ function TaskChip({
   );
 }
 
-function EventChip({
+export function EventChip({
   event,
   projectColor,
   onClick,
@@ -130,78 +164,6 @@ function EventChip({
   );
 }
 
-/** Linha da visão diária — mais espaço que o chip de 10px do mês/semana, com horário explícito
- * (ou "Sem horário") em vez de só ordenar silenciosamente por ele. */
-function DayViewItemRow({
-  item,
-  projectColor,
-  onOpenTask,
-  onOpenEvent,
-}: {
-  item: CalendarItem<Task, ProjectEvent>;
-  projectColor: string | null;
-  onOpenTask: (task: Task) => void;
-  onOpenEvent: (event: ProjectEvent) => void;
-}) {
-  if (item.kind === "task") {
-    const { task } = item;
-    const done = task.status === "done";
-    const virtual = isVirtualTask(task);
-    return (
-      <button
-        type="button"
-        disabled={virtual}
-        onClick={() => onOpenTask(task)}
-        title={virtual ? "Próxima ocorrência — ainda não criada, aparece automaticamente nesse dia" : undefined}
-        className={cn(
-          "flex w-full items-center gap-3 rounded-lg border p-3 text-left",
-          virtual ? "cursor-default opacity-60" : "hover:bg-muted"
-        )}
-      >
-        <span
-          className={cn(
-            "h-2.5 w-2.5 shrink-0 rounded-full",
-            virtual ? "border border-muted-foreground/60" : STATUS_DOT_CLASS[task.status]
-          )}
-        />
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate text-sm font-medium",
-            done && "text-muted-foreground line-through",
-            virtual && "italic"
-          )}
-        >
-          {task.title}
-        </span>
-        {task.linked_recurring_id && (
-          <DollarSign className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label="Vinculada a Recorrência" />
-        )}
-        <span className="shrink-0 text-xs text-muted-foreground">
-          {task.due_time ? task.due_time.slice(0, 5) : "Sem horário"}
-        </span>
-      </button>
-    );
-  }
-
-  const { event } = item;
-  return (
-    <button
-      type="button"
-      onClick={() => onOpenEvent(event)}
-      className="flex w-full items-center gap-3 rounded-lg border p-3 text-left hover:bg-muted"
-    >
-      <span
-        className="h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: projectColor ?? "hsl(var(--muted-foreground))" }}
-      />
-      <span className="min-w-0 flex-1 truncate text-sm font-medium">{event.title}</span>
-      <span className="shrink-0 text-xs text-muted-foreground">
-        {format(new Date(event.starts_at), "HH:mm")}
-      </span>
-    </button>
-  );
-}
-
 /** Grade de calendário (mês/semana/dia) — extraída de `AgendaCalendar.tsx` (a página `/tasks/agenda`)
  * pra ser reutilizada como aba dentro de `TaskList.tsx`. A página standalone continua existindo,
  * só embrulhando isso num `PageShell`. */
@@ -209,25 +171,34 @@ export function AgendaGrid() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [events, setEvents] = useState<ProjectEvent[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [recurrings, setRecurrings] = useState<Recurring[]>([]);
+  const { dimensions } = useDimensions();
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
   const [focusDate, setFocusDate] = useState(() => new Date());
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [dayModalKey, setDayModalKey] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [formTab, setFormTab] = useState<TaskFormTab>("geral");
+  const [form, setForm] = useState<TaskCreateRequest>(emptyTask());
   const [viewingEvent, setViewingEvent] = useState<ProjectEvent | null>(null);
   const { toast } = useToast();
 
   const load = useCallback(async () => {
     try {
-      const [taskList, projectList, eventList] = await Promise.all([
+      const [taskList, projectList, eventList, tagList, recurringList] = await Promise.all([
         fetchTasks(),
         fetchProjects(),
         fetchProjectEvents(),
+        fetchTags(),
+        fetchRecurringTransactions(),
       ]);
       setTasks(taskList);
       setProjects(projectList);
       setEvents(eventList);
+      setTags(tagList);
+      setRecurrings(recurringList);
     } catch (error) {
       toast({
         title: "Erro",
@@ -244,6 +215,11 @@ export function AgendaGrid() {
   }, [load]);
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+
+  // Mapa de subtarefas por tarefa-mãe, montado localmente a partir do `tasks` já buscado pela
+  // Agenda — mesmo padrão usado em `TaskList.tsx`/`ProjectDetail.tsx` — pra alimentar
+  // `TaskSubtasksField` dentro do form unificado (feature 043).
+  const subtasksByParent = useMemo(() => groupSubtasksByParent(tasks), [tasks]);
 
   const gridDays = useMemo(() => {
     if (viewMode === "month") return computeMonthGridDays(focusDate);
@@ -300,16 +276,26 @@ export function AgendaGrid() {
     });
   }, [tasks, gridDays]);
 
+  // Subtarefas com `due_date` próprio entram na Agenda como qualquer tarefa de topo (feature 048)
+  // — só ficam de fora as sem prazo (nada pra posicionar na grade) e as parcelas de recorrência
+  // financeira ainda não geradas, mesmo critério de antes.
   const filteredTasks = useMemo(
     () =>
       [...tasks, ...virtualTasks].filter(
         (t) =>
-          !t.parent_task_id &&
           !(t.linked_recurring_id && t.linked_installment_number == null) &&
           (projectFilter === "all" ? true : t.project_id === projectFilter)
       ),
     [tasks, virtualTasks, projectFilter]
   );
+
+  // Mapa id -> tarefa, usado só pra resolver o título da tarefa-mãe no tooltip do indicador de
+  // vínculo de subtarefa (`SubtaskLinkIcon`) nos chips/blocos da Agenda (feature 048).
+  const taskById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
+
+  function parentTitleFor(task: Task): string | undefined {
+    return task.parent_task_id ? taskById.get(task.parent_task_id)?.title : undefined;
+  }
 
   const filteredEvents = useMemo(
     () =>
@@ -328,6 +314,32 @@ export function AgendaGrid() {
   function openTaskFromChip(task: Task) {
     setDayModalKey(null);
     setEditingTask(task);
+    setForm({
+      project_id: task.project_id,
+      parent_task_id: task.parent_task_id,
+      title: task.title,
+      description: task.description ?? "",
+      status: task.status,
+      tag_ids: task.tag_ids,
+      due_date: task.due_date,
+      due_time: task.due_time ?? null,
+      start_date: task.start_date ?? null,
+      priority: task.priority ?? null,
+      recurrence_rule: task.recurrence_rule,
+      linked_recurring_id: task.linked_recurring_id,
+      external_url: task.external_url ?? null,
+      external_provider: task.external_provider ?? null,
+      icon_key: task.icon_key ?? null,
+      icon_url: task.icon_url ?? null,
+      is_milestone: task.is_milestone ?? false,
+    });
+    setFormTab("geral");
+  }
+
+  async function handleCreateTag(name: string, color: string): Promise<Tag> {
+    const tag = await createTag({ name, color });
+    setTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
+    return tag;
   }
 
   function openEventFromChip(event: ProjectEvent) {
@@ -352,14 +364,31 @@ export function AgendaGrid() {
     }
   }
 
-  async function saveTaskEdit(payload: {
-    title: string;
-    description: string;
-    due_date: string | null;
-    due_time: string | null;
-    priority: Task["priority"];
-  }) {
+  async function handleSaveTaskEdit() {
     if (!editingTask) return;
+    if (!form.title.trim()) {
+      setFormTab("geral");
+      return;
+    }
+    if (form.parent_task_id) {
+      const parentTask = tasks.find((t) => t.id === form.parent_task_id);
+      if (parentTask && !isSubtaskDueDateValid(form.due_date, parentTask.due_date)) {
+        setFormTab("data");
+        toast({
+          title: "Erro",
+          description: `O prazo não pode passar de ${formatDateBR(parentTask.due_date)}, prazo da tarefa principal.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    const isLinked = !!form.linked_recurring_id;
+    const isEditingInstance = editingTask.linked_installment_number != null;
+    const payload: TaskCreateRequest = {
+      ...form,
+      due_date: isLinked && !isEditingInstance ? null : form.due_date,
+      due_time: isLinked && !isEditingInstance ? null : form.due_time,
+    };
     const id = editingTask.id;
     const previous = tasks;
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...payload } : t)));
@@ -374,6 +403,25 @@ export function AgendaGrid() {
         variant: "destructive",
       });
     }
+  }
+
+  /** Contexto compartilhado pelas mutações de subtarefa extraídas pra `taskDraft.ts` (feature 042)
+   * — mesmo padrão de `TaskList.tsx`/`ProjectDetail.tsx`, agora reaproveitado pela Agenda
+   * (feature 043). */
+  const subtaskMutationCtx: SubtaskMutationContext = {
+    editing: editingTask,
+    createTask,
+    deleteTask,
+    onSuccess: load,
+    onError: (message) => toast({ title: "Erro", description: message, variant: "destructive" }),
+  };
+
+  async function addSubtaskToEditing(title: string) {
+    await addSubtaskDraftToEditing(subtaskMutationCtx, title);
+  }
+
+  async function removeExistingSubtask(subtask: SubtaskDraft) {
+    await removeExistingSubtaskDraft(subtaskMutationCtx, subtask);
   }
 
   async function handleDeleteEvent(id: string) {
@@ -445,32 +493,15 @@ export function AgendaGrid() {
 
       {loading ? (
         <TableLoadingSkeleton rows={5} />
-      ) : viewMode === "day" ? (
-        (() => {
-          const key = dayKey(focusDate);
-          const items = itemsByDay.get(key) ?? [];
-          return (
-            <div className="space-y-1.5 rounded-lg border p-3">
-              {items.length === 0 ? (
-                <p className="p-6 text-center text-sm text-muted-foreground">Nada agendado nesse dia.</p>
-              ) : (
-                items.map((item) => (
-                  <DayViewItemRow
-                    key={item.kind === "task" ? item.task.id : item.event.id}
-                    item={item}
-                    projectColor={
-                      item.kind === "event"
-                        ? (projectById.get(item.event.project_id)?.color ?? null)
-                        : null
-                    }
-                    onOpenTask={openTaskFromChip}
-                    onOpenEvent={openEventFromChip}
-                  />
-                ))
-              )}
-            </div>
-          );
-        })()
+      ) : viewMode === "day" || viewMode === "week" ? (
+        <AgendaHourGrid
+          days={gridDays}
+          itemsByDay={itemsByDay}
+          projectById={projectById}
+          taskById={taskById}
+          onOpenTask={openTaskFromChip}
+          onOpenEvent={openEventFromChip}
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <div className="grid grid-cols-7 border-b bg-muted/40">
@@ -484,19 +515,14 @@ export function AgendaGrid() {
             {gridDays.map((day) => {
               const key = dayKey(day);
               const items = itemsByDay.get(key) ?? [];
-              const maxChips = viewMode === "week" ? WEEK_MAX_CHIPS_PER_DAY : MONTH_MAX_CHIPS_PER_DAY;
-              const visible = items.slice(0, maxChips);
+              const visible = items.slice(0, MONTH_MAX_CHIPS_PER_DAY);
               const overflow = items.length - visible.length;
-              const inMonth = viewMode === "month" ? isSameMonth(day, focusDate) : true;
+              const inMonth = isSameMonth(day, focusDate);
               const isToday = isSameDay(day, today);
               return (
                 <div
                   key={key}
-                  className={cn(
-                    "border-b border-r p-1",
-                    viewMode === "week" ? "min-h-40 sm:min-h-52" : "min-h-24 sm:min-h-28",
-                    !inMonth && "bg-muted/20"
-                  )}
+                  className={cn("min-h-24 border-b border-r p-1 sm:min-h-28", !inMonth && "bg-muted/20")}
                 >
                   <span
                     className={cn(
@@ -510,7 +536,12 @@ export function AgendaGrid() {
                   <div className="space-y-0.5">
                     {visible.map((item) =>
                       item.kind === "task" ? (
-                        <TaskChip key={item.task.id} task={item.task} onClick={() => openTaskFromChip(item.task)} />
+                        <TaskChip
+                          key={item.task.id}
+                          task={item.task}
+                          parentTitle={parentTitleFor(item.task)}
+                          onClick={() => openTaskFromChip(item.task)}
+                        />
                       ) : (
                         <EventChip
                           key={item.event.id}
@@ -547,7 +578,12 @@ export function AgendaGrid() {
           <div className="space-y-1">
             {dayModalItems.map((item) =>
               item.kind === "task" ? (
-                <TaskChip key={item.task.id} task={item.task} onClick={() => openTaskFromChip(item.task)} />
+                <TaskChip
+                  key={item.task.id}
+                  task={item.task}
+                  parentTitle={parentTitleFor(item.task)}
+                  onClick={() => openTaskFromChip(item.task)}
+                />
               ) : (
                 <EventChip
                   key={item.event.id}
@@ -561,12 +597,56 @@ export function AgendaGrid() {
         </DialogContent>
       </Dialog>
 
-      <CalendarTaskDialog
-        task={editingTask}
-        onOpenChange={(v) => !v && setEditingTask(null)}
-        onToggleDone={() => editingTask && toggleTaskDone(editingTask)}
-        onSave={saveTaskEdit}
-      />
+      <Dialog open={!!editingTask} onOpenChange={(v) => !v && setEditingTask(null)}>
+        <DialogContent className={FORM_DIALOG_CONTENT_CLASS_LG}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {editingTask && (
+                <button
+                  type="button"
+                  onClick={() => toggleTaskDone(editingTask)}
+                  aria-label={editingTask.status === "done" ? "Reabrir tarefa" : "Concluir tarefa"}
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                    editingTask.status === "done"
+                      ? "border-primary bg-primary"
+                      : "border-muted-foreground/40 hover:border-primary"
+                  )}
+                />
+              )}
+              Editar tarefa
+            </DialogTitle>
+          </DialogHeader>
+          {editingTask?.linked_recurring_id && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <DollarSign className="h-3.5 w-3.5" />
+              Vinculada a uma Recorrência Financeira — concluir aqui já reflete em Finanças.
+            </p>
+          )}
+          {editingTask && (
+            <TaskFormFields
+              formTab={formTab}
+              onFormTabChange={setFormTab}
+              form={form}
+              setForm={setForm}
+              editing={editingTask}
+              tasks={tasks}
+              tags={tags}
+              onCreateTag={handleCreateTag}
+              recurrings={recurrings}
+              onRecurringCreated={(rec) => setRecurrings((prev) => [rec, ...prev])}
+              dimensions={dimensions}
+              subtasks={(subtasksByParent.get(editingTask.id) ?? []).map((s) => ({ id: s.id, title: s.title }))}
+              onAddSubtask={addSubtaskToEditing}
+              onRemoveSubtask={(subtask) => removeExistingSubtask(subtask)}
+              projects={projects}
+            />
+          )}
+          <Button onClick={handleSaveTaskEdit} className="w-full">
+            Salvar alterações
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!viewingEvent} onOpenChange={(v) => !v && setViewingEvent(null)}>
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
@@ -602,118 +682,5 @@ export function AgendaGrid() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function CalendarTaskDialog({
-  task,
-  onOpenChange,
-  onToggleDone,
-  onSave,
-}: {
-  task: Task | null;
-  onOpenChange: (open: boolean) => void;
-  onToggleDone: () => void;
-  onSave: (payload: {
-    title: string;
-    description: string;
-    due_date: string | null;
-    due_time: string | null;
-    priority: Task["priority"];
-  }) => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [dueDate, setDueDate] = useState<string | null>(null);
-  const [dueTime, setDueTime] = useState<string | null>(null);
-  const [priority, setPriority] = useState<Task["priority"]>(null);
-
-  useEffect(() => {
-    if (!task) return;
-    setTitle(task.title);
-    setDescription(task.description ?? "");
-    setDueDate(task.due_date);
-    setDueTime(task.due_time ?? null);
-    setPriority(task.priority ?? null);
-  }, [task]);
-
-  if (!task) {
-    return <Dialog open={false} onOpenChange={onOpenChange} />;
-  }
-
-  const done = task.status === "done";
-
-  function handleSave() {
-    if (!title.trim()) return;
-    onSave({ title: title.trim(), description, due_date: dueDate, due_time: dueTime, priority });
-  }
-
-  return (
-    <Dialog open={!!task} onOpenChange={onOpenChange}>
-      <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onToggleDone}
-              aria-label={done ? "Reabrir tarefa" : "Concluir tarefa"}
-              className={cn(
-                "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                done ? "border-primary bg-primary" : "border-muted-foreground/40 hover:border-primary"
-              )}
-            />
-            Editar tarefa
-          </DialogTitle>
-        </DialogHeader>
-        <div className={FORM_FIELDS_CLASS}>
-          {task.linked_recurring_id && (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <DollarSign className="h-3.5 w-3.5" />
-              Vinculada a uma Recorrência Financeira — concluir aqui já reflete em Finanças.
-            </p>
-          )}
-          <div>
-            <FormLabel required>Título</FormLabel>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div>
-            <FormLabel optional>Descrição</FormLabel>
-            <TaskDescriptionField value={description} onChange={setDescription} />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <FormLabel optional>Prazo</FormLabel>
-              <DatePicker
-                clearable
-                date={dueDate ? new Date(`${dueDate}T12:00:00`) : undefined}
-                onSelect={(d) => setDueDate(d ? formatLocalIsoDate(d) : null)}
-              />
-            </div>
-            {dueDate && (
-              <div>
-                <FormLabel optional>Horário</FormLabel>
-                <Input
-                  type="time"
-                  value={dueTime ?? ""}
-                  onChange={(e) => setDueTime(e.target.value || null)}
-                  className="h-9"
-                />
-              </div>
-            )}
-          </div>
-          <TaskPriorityField value={priority ?? null} onChange={setPriority} />
-          <Button onClick={handleSave} className="w-full">
-            Salvar alterações
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            Recorrência, tags, subtarefas e projeto: edite em{" "}
-            <Link to="/tasks" className="underline underline-offset-2">
-              Tarefas
-            </Link>
-            .
-          </p>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

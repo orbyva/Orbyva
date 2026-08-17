@@ -1,9 +1,36 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeItemPosition,
   computeMonthGridDays,
   computeWeekDays,
+  DEFAULT_ITEM_DURATION_MINUTES,
+  getItemTimeRange,
   groupCalendarItemsByDay,
+  layoutTimedItems,
+  splitTimedItems,
+  type CalendarItem,
 } from "@/domain/tasks/calendar";
+
+interface TestTask {
+  id: string;
+  due_date: string | null;
+  due_time?: string | null;
+  estimated_duration?: number | null;
+}
+
+interface TestEvent {
+  id: string;
+  starts_at: string;
+  ends_at?: string | null;
+}
+
+function taskItem(task: TestTask): CalendarItem<TestTask, TestEvent> {
+  return { kind: "task", task };
+}
+
+function eventItem(event: TestEvent): CalendarItem<TestTask, TestEvent> {
+  return { kind: "event", event };
+}
 
 describe("computeMonthGridDays", () => {
   it("cobre o mês inteiro com folga até domingo/sábado", () => {
@@ -84,5 +111,138 @@ describe("groupCalendarItemsByDay", () => {
       "evt",
       "no-time",
     ]);
+  });
+
+  it("dia focado (feature 038, Gantt): isola corretamente o dia escolhido, com/sem due_time, sem vazar itens de outros dias", () => {
+    // Cenário do Gantt "focando" um dia específico (`GanttChart` faz `itemsByDay.get(dayKey(focusedDay))`):
+    // o mapa continua agrupando tudo, mas só a chave do dia focado deve conter os itens daquele dia,
+    // ordenados (com due_time primeiro), e nada dos outros dias deve aparecer ali.
+    const map = groupCalendarItemsByDay(
+      [
+        { id: "focused-no-time", due_date: "2026-08-20" },
+        { id: "focused-with-time", due_date: "2026-08-20", due_time: "09:00" },
+        { id: "other-day", due_date: "2026-08-21" },
+      ],
+      [] as TestEvent[]
+    );
+    const focusedDayItems = map.get("2026-08-20")!;
+    expect(focusedDayItems.map((i) => (i.kind === "task" ? i.task.id : i.event.id))).toEqual([
+      "focused-with-time",
+      "focused-no-time",
+    ]);
+    expect(map.get("2026-08-21")).toHaveLength(1);
+  });
+});
+
+describe("getItemTimeRange", () => {
+  it("tarefa com due_time e estimated_duration usa a duração real", () => {
+    const range = getItemTimeRange(
+      taskItem({ id: "t1", due_date: "2026-08-10", due_time: "09:30", estimated_duration: 90 })
+    );
+    expect(range).toEqual({ startMinutes: 9 * 60 + 30, durationMinutes: 90 });
+  });
+
+  it("tarefa com due_time sem estimated_duration usa a duração default", () => {
+    const range = getItemTimeRange(taskItem({ id: "t2", due_date: "2026-08-10", due_time: "14:00" }));
+    expect(range).toEqual({ startMinutes: 14 * 60, durationMinutes: DEFAULT_ITEM_DURATION_MINUTES });
+  });
+
+  it("tarefa sem due_time não entra na grade (retorna null)", () => {
+    const range = getItemTimeRange(taskItem({ id: "t3", due_date: "2026-08-10" }));
+    expect(range).toBeNull();
+  });
+
+  it("evento com ends_at calcula a duração real a partir do intervalo", () => {
+    const range = getItemTimeRange(
+      eventItem({ id: "e1", starts_at: "2026-08-10T10:00:00-03:00", ends_at: "2026-08-10T11:15:00-03:00" })
+    );
+    expect(range).toEqual({ startMinutes: 10 * 60, durationMinutes: 75 });
+  });
+
+  it("evento sem ends_at usa a duração default", () => {
+    const range = getItemTimeRange(eventItem({ id: "e2", starts_at: "2026-08-10T10:00:00-03:00" }));
+    expect(range).toEqual({ startMinutes: 10 * 60, durationMinutes: DEFAULT_ITEM_DURATION_MINUTES });
+  });
+});
+
+describe("splitTimedItems", () => {
+  it("separa itens com horário dos sem horário", () => {
+    const items = [
+      taskItem({ id: "timed", due_date: "2026-08-10", due_time: "08:00" }),
+      taskItem({ id: "untimed", due_date: "2026-08-10" }),
+      eventItem({ id: "evt", starts_at: "2026-08-10T09:00:00-03:00" }),
+    ];
+    const { timed, untimed } = splitTimedItems(items);
+    expect(timed.map((t) => (t.item.kind === "task" ? t.item.task.id : t.item.event.id))).toEqual([
+      "timed",
+      "evt",
+    ]);
+    expect(untimed).toHaveLength(1);
+    expect(untimed[0].kind === "task" && untimed[0].task.id).toBe("untimed");
+  });
+});
+
+describe("computeItemPosition", () => {
+  it("calcula top/height como % de 24h", () => {
+    // 12:00 (720min) por 60min = 50% do dia, 60/1440 ~= 4.1667%
+    const pos = computeItemPosition({ startMinutes: 12 * 60, durationMinutes: 60 });
+    expect(pos.topPercent).toBeCloseTo(50, 5);
+    expect(pos.heightPercent).toBeCloseTo((60 / 1440) * 100, 5);
+  });
+
+  it("clampa a altura pra não vazar além da meia-noite seguinte", () => {
+    // começa 23:50, duração de 1h — vazaria 50min além da meia-noite sem o clamp
+    const pos = computeItemPosition({ startMinutes: 23 * 60 + 50, durationMinutes: 60 });
+    expect(pos.topPercent + pos.heightPercent).toBeCloseTo(100, 5);
+  });
+});
+
+describe("layoutTimedItems", () => {
+  it("item isolado ocupa a coluna inteira (widthPercent 100, leftPercent 0)", () => {
+    const { timed } = layoutTimedItems([
+      taskItem({ id: "solo", due_date: "2026-08-10", due_time: "08:00" }),
+    ]);
+    expect(timed).toHaveLength(1);
+    expect(timed[0].leftPercent).toBe(0);
+    expect(timed[0].widthPercent).toBe(100);
+  });
+
+  it("itens sequenciais sem sobreposição ocupam a coluna inteira cada um", () => {
+    const { timed } = layoutTimedItems([
+      taskItem({ id: "a", due_date: "2026-08-10", due_time: "08:00", estimated_duration: 30 }),
+      taskItem({ id: "b", due_date: "2026-08-10", due_time: "09:00", estimated_duration: 30 }),
+    ]);
+    expect(timed.every((t) => t.widthPercent === 100 && t.leftPercent === 0)).toBe(true);
+  });
+
+  it("dois itens com horários cruzados dividem a largura da coluna lado a lado", () => {
+    const { timed } = layoutTimedItems([
+      taskItem({ id: "a", due_date: "2026-08-10", due_time: "08:00", estimated_duration: 60 }),
+      taskItem({ id: "b", due_date: "2026-08-10", due_time: "08:30", estimated_duration: 60 }),
+    ]);
+    expect(timed).toHaveLength(2);
+    const [a, b] = timed;
+    expect(a.widthPercent).toBe(50);
+    expect(b.widthPercent).toBe(50);
+    expect([a.leftPercent, b.leftPercent].sort()).toEqual([0, 50]);
+  });
+
+  it("três itens sobrepostos entre si dividem a coluna em três", () => {
+    const { timed } = layoutTimedItems([
+      taskItem({ id: "a", due_date: "2026-08-10", due_time: "08:00", estimated_duration: 90 }),
+      taskItem({ id: "b", due_date: "2026-08-10", due_time: "08:15", estimated_duration: 90 }),
+      taskItem({ id: "c", due_date: "2026-08-10", due_time: "08:30", estimated_duration: 90 }),
+    ]);
+    expect(timed.every((t) => t.widthPercent === 100 / 3)).toBe(true);
+    expect(new Set(timed.map((t) => t.leftPercent)).size).toBe(3);
+  });
+
+  it("itens sem horário não entram no layout, ficam em untimed", () => {
+    const { timed, untimed } = layoutTimedItems([
+      taskItem({ id: "a", due_date: "2026-08-10", due_time: "08:00" }),
+      taskItem({ id: "b", due_date: "2026-08-10" }),
+    ]);
+    expect(timed).toHaveLength(1);
+    expect(untimed).toHaveLength(1);
   });
 });

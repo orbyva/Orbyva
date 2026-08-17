@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ListTodo, Plus, Timer } from "lucide-react";
 import {
@@ -18,7 +18,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -35,12 +34,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
-import { TaskRecurrenceField } from "./TaskRecurrenceField";
-import { TaskSubtasksField, type SubtaskDraft } from "./TaskSubtasksField";
-import { TaskDescriptionField } from "./TaskDescriptionField";
-import { TaskTimeEntriesField } from "./TaskTimeEntriesField";
-import { SubtaskEditDialog, type SubtaskEditPayload } from "./SubtaskEditDialog";
-import { TaskPriorityField } from "./TaskPriorityField";
+import { type SubtaskDraft } from "./TaskSubtasksField";
+import { type TaskIconValue } from "./TaskIconPicker";
 import {
   CompletedTasksSection,
   KanbanCard,
@@ -48,20 +43,19 @@ import {
   STATUSES,
   STATUS_LABELS,
   TaskListRow,
+  type SubtaskRowActions,
 } from "./TaskViews";
-import { TagCombobox } from "./TagCombobox";
+import { TaskFormFields, type TaskFormTab } from "./TaskFormFields";
 import { GanttChart } from "./GanttChart";
-import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-} from "@/components/FormLabel";
+import { formatTimeOfDay } from "./TimeEntryRow";
+import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
   createTag,
   createTask,
   deleteTask,
+  deleteTasks,
   fetchDependencies,
   fetchProjectById,
   fetchTags,
@@ -73,16 +67,30 @@ import {
   AGENDA_BUCKET_LABELS,
   AGENDA_BUCKET_ORDER,
   collapseRecurringSeries,
-  detectExternalProvider,
   filterTasksByStatusView,
   findSeriesTasks,
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
+  isDoseLate,
+  isSubtaskDueDateValid,
   sortTasksByCompletedAtDesc,
   sortTasksByDueDate,
 } from "@/domain/tasks";
-import type { TaskStatusView } from "@/domain/tasks";
-import type { Project, Tag, Task, TaskCreateRequest, TaskDependency, TaskStatus } from "@/types/tasks";
+import type { AgendaBucket, TaskStatusView } from "@/domain/tasks";
+import {
+  addSubtaskToEditing as addSubtaskDraftToEditing,
+  emptyTask,
+  removeExistingSubtask as removeExistingSubtaskDraft,
+  type SubtaskMutationContext,
+} from "@/domain/tasks/taskDraft";
+import type {
+  Project,
+  Tag,
+  Task,
+  TaskDependency,
+  TaskPriority,
+  TaskStatus,
+} from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
@@ -90,27 +98,7 @@ import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { useDimensions } from "@/hooks/useDimensions";
 import { getErrorMessage } from "@/lib/errors";
 import { formatLocalIsoDate } from "@/lib/dates";
-import { formatDateTimeBR } from "@/lib/currency";
-import { cn } from "@/lib/utils";
-
-const emptyTask = (projectId: string): TaskCreateRequest => ({
-  project_id: projectId,
-  parent_task_id: null,
-  title: "",
-  description: "",
-  status: "todo",
-  tag_ids: [],
-  due_date: null,
-  due_time: null,
-  start_date: null,
-  priority: null,
-  recurrence_rule: null,
-  linked_recurring_id: null,
-  external_url: null,
-  external_provider: null,
-});
-
-type TaskFormTab = "geral" | "data" | "organizacao" | "registros";
+import { formatDateBR, formatDateTimeBR } from "@/lib/currency";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -132,7 +120,6 @@ export default function ProjectDetail() {
   const [statusView, setStatusView] = useState<TaskStatusView>("pending");
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
-  const [editingSubtask, setEditingSubtask] = useState<Task | null>(null);
   const { toast } = useToast();
   const { runningEntry, start: startTimer, stop: stopTimer } = useActiveTimer();
 
@@ -156,6 +143,10 @@ export default function ProjectDetail() {
 
   useBreadcrumbTitle(project?.name);
 
+  /** Snapshot de `due_date` por tarefa, como veio do último `load()` — mesma técnica de
+   * `TaskList.tsx` pra editar o prazo inline (`handleDueChange`) não mover o card na hora. */
+  const frozenDueDatesRef = useRef<Map<string, string | null>>(new Map());
+
   const load = useCallback(async () => {
     if (!id) return;
     try {
@@ -167,7 +158,9 @@ export default function ProjectDetail() {
         fetchRecurringTransactions(),
       ]);
       setProject(projectData);
-      setTasks(taskList.filter((t) => t.project_id === id));
+      const projectTasks = taskList.filter((t) => t.project_id === id);
+      frozenDueDatesRef.current = new Map(projectTasks.map((t) => [t.id, t.due_date]));
+      setTasks(projectTasks);
       setDependencies(dependencyList);
       setTags(tagList);
       setRecurrings(recurringList);
@@ -214,10 +207,24 @@ export default function ProjectDetail() {
   const showPending = statusView === "pending" || statusView === "all";
   const showDone = statusView === "done" || statusView === "all";
 
-  const pendingTasks = useMemo(
-    () => sortTasksByDueDate(filterTasksByStatusView(listTasks, "pending")),
-    [listTasks]
+  /** Envolve tarefas com o `due_date` congelado (`frozenDueDatesRef`) pra usar como chave de
+   * ordenação/bucket sem alterar o objeto `Task` real (o card continua mostrando o prazo live). */
+  const withFrozenDueDate = useCallback(
+    (list: Task[]) =>
+      list.map((task) => ({
+        task,
+        due_date: frozenDueDatesRef.current.has(task.id)
+          ? (frozenDueDatesRef.current.get(task.id) ?? null)
+          : task.due_date,
+      })),
+    []
   );
+
+  const pendingTasks = useMemo(() => {
+    return sortTasksByDueDate(withFrozenDueDate(filterTasksByStatusView(listTasks, "pending"))).map(
+      (entry) => entry.task
+    );
+  }, [listTasks, withFrozenDueDate]);
 
   const doneTasks = useMemo(
     () => sortTasksByCompletedAtDesc(filterTasksByStatusView(listTasks, "done")),
@@ -229,8 +236,14 @@ export default function ProjectDetail() {
 
   const agendaGroups = useMemo(() => {
     const todayIso = formatLocalIsoDate(new Date());
-    return groupTasksByAgendaBucket(collapseRecurringSeries(pendingTasks), todayIso);
-  }, [pendingTasks]);
+    const grouped = groupTasksByAgendaBucket(
+      withFrozenDueDate(collapseRecurringSeries(pendingTasks)),
+      todayIso
+    );
+    return Object.fromEntries(
+      AGENDA_BUCKET_ORDER.map((bucket) => [bucket, grouped[bucket].map((entry) => entry.task)])
+    ) as Record<AgendaBucket, Task[]>;
+  }, [pendingTasks, withFrozenDueDate]);
 
   const seriesTasks = useMemo(
     () => (seriesTask ? findSeriesTasks(tasks, seriesTask) : []),
@@ -277,6 +290,9 @@ export default function ProjectDetail() {
       linked_recurring_id: task.linked_recurring_id,
       external_url: task.external_url ?? null,
       external_provider: task.external_provider ?? null,
+      icon_key: task.icon_key ?? null,
+      icon_url: task.icon_url ?? null,
+      is_milestone: task.is_milestone ?? false,
     });
     setNewTaskSubtasks([]);
     setFormTab("geral");
@@ -293,6 +309,18 @@ export default function ProjectDetail() {
     if (!form.title.trim()) {
       setFormTab("geral");
       return;
+    }
+    if (form.parent_task_id) {
+      const parentTask = tasks.find((t) => t.id === form.parent_task_id);
+      if (parentTask && !isSubtaskDueDateValid(form.due_date, parentTask.due_date)) {
+        setFormTab("data");
+        toast({
+          title: "Erro",
+          description: `O prazo não pode passar de ${formatDateBR(parentTask.due_date)}, prazo da tarefa principal.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
     const isLinked = !!form.linked_recurring_id;
     const isEditingInstance = !!(editing && editing.linked_installment_number != null);
@@ -327,37 +355,22 @@ export default function ProjectDetail() {
     }
   }
 
+  /** Contexto compartilhado pelas mutações de subtarefa extraídas pra `taskDraft.ts` (feature
+   * 042) — cada call site injeta suas próprias `createTask`/`deleteTask`/`load`/`toast`. */
+  const subtaskMutationCtx: SubtaskMutationContext = {
+    editing,
+    createTask,
+    deleteTask,
+    onSuccess: load,
+    onError: (message) => toast({ title: "Erro", description: message, variant: "destructive" }),
+  };
+
   async function addSubtaskToEditing(title: string) {
-    if (!editing) return;
-    try {
-      await createTask({
-        ...emptyTask(id!),
-        project_id: editing.project_id,
-        parent_task_id: editing.id,
-        title,
-      });
-      load();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Não foi possível adicionar a subtarefa."),
-        variant: "destructive",
-      });
-    }
+    await addSubtaskDraftToEditing(subtaskMutationCtx, title);
   }
 
   async function removeExistingSubtask(subtask: SubtaskDraft) {
-    if (!subtask.id) return;
-    try {
-      await deleteTask(subtask.id);
-      load();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Não foi possível remover a subtarefa."),
-        variant: "destructive",
-      });
-    }
+    await removeExistingSubtaskDraft(subtaskMutationCtx, subtask);
   }
 
   async function handleDelete(taskId: string) {
@@ -369,6 +382,68 @@ export default function ProjectDetail() {
       toast({
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível excluir a tarefa."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleDeleteSeries(ids: string[]) {
+    try {
+      await deleteTasks(ids);
+      toast({ title: "Ocorrências excluídas", duration: 2000 });
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível excluir as ocorrências."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  /** Edição rápida inline da aba Lista (feature 029) — prioridade e prazo/horário direto no card,
+   * sem abrir o form completo. Projeto fica de fora aqui: todas as tarefas já pertencem a este
+   * projeto, não há ambiguidade a resolver. */
+  async function handlePriorityChange(taskId: string, priority: TaskPriority | null) {
+    try {
+      await updateTask({ id: taskId, priority });
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível atualizar a prioridade."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  /** Diferente de `handlePriorityChange` (que chama `load()`), atualiza só localmente —
+   * `load()` também atualizaria `frozenDueDatesRef` (o snapshot que trava a posição/bucket da
+   * tarefa), fazendo o card pular pro bucket novo na hora. */
+  async function handleDueChange(
+    taskId: string,
+    next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }
+  ) {
+    try {
+      await updateTask({ id: taskId, ...next });
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...next } : t)));
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível atualizar o prazo."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleIconChange(taskId: string, next: TaskIconValue) {
+    try {
+      await updateTask({ id: taskId, ...next });
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível atualizar o ícone."),
         variant: "destructive",
       });
     }
@@ -386,25 +461,6 @@ export default function ProjectDetail() {
       toast({
         title: "Erro",
         description: getErrorMessage(error, errorMessage),
-        variant: "destructive",
-      });
-    }
-  }
-
-  /** Mesmo princípio de `applyStatusChange`: atualiza na hora, reverte se a chamada falhar. */
-  async function saveSubtaskEdit(payload: SubtaskEditPayload) {
-    if (!editingSubtask) return;
-    const id = editingSubtask.id;
-    const previous = tasks;
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...payload } : t)));
-    setEditingSubtask(null);
-    try {
-      await updateTask({ id, ...payload });
-    } catch (error) {
-      setTasks(previous);
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Não foi possível salvar a subtarefa."),
         variant: "destructive",
       });
     }
@@ -471,6 +527,22 @@ export default function ProjectDetail() {
       });
     }
   }
+
+  /** Quick actions da linha aninhada de subtarefa na Lista (feature 046) — mesmos handlers já
+   * usados pela linha de topo, só parametrizados por subtarefa em vez de já vir bindados por
+   * `TaskListRow`. Projeto fica de fora: todas as tarefas já pertencem a este projeto, mesma
+   * regra já seguida pela linha de topo aqui (sem `onProjectChange`/`projects`). */
+  const subtaskActions: SubtaskRowActions = {
+    onDelete: (subtask) => handleDelete(subtask.id),
+    onStatusChange: (subtask, status) =>
+      applyStatusChange(subtask, status, "Não foi possível atualizar a subtarefa."),
+    onOpenSeries: (subtask) => setSeriesTask(subtask),
+    isTimerRunning: (subtask) => runningEntry?.task_id === subtask.id,
+    onToggleTimer: (subtask) => toggleTimer(subtask),
+    onIconChange: (subtask, next) => handleIconChange(subtask.id, next),
+    onPriorityChange: (subtask, priority) => handlePriorityChange(subtask.id, priority),
+    onDueChange: (subtask, next) => handleDueChange(subtask.id, next),
+  };
 
   if (!loading && !project) {
     return (
@@ -568,6 +640,7 @@ export default function ProjectDetail() {
                               <KanbanCard
                                 key={task.id}
                                 task={task}
+                                allTasks={tasks}
                                 colIndex={colIndex}
                                 subtasks={subtasks}
                                 allTags={tags}
@@ -577,12 +650,17 @@ export default function ProjectDetail() {
                                 }
                                 onAddSubtask={() => addSubtask(task)}
                                 onToggleSubtask={toggleSubtask}
-                                onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
+                                onOpenSubtask={openEdit}
                                 onEdit={() => openEdit(task)}
                                 onDelete={() => handleDelete(task.id)}
+                                onDeleteAll={handleDeleteSeries}
                                 onMoveStatus={(direction) => moveStatus(task, direction)}
                                 isTimerRunning={runningEntry?.task_id === task.id}
                                 onToggleTimer={() => toggleTimer(task)}
+                                onIconChange={(next) => handleIconChange(task.id, next)}
+                                onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
+                                onDueChange={(next) => handleDueChange(task.id, next)}
+                                subtaskActions={subtaskActions}
                               />
                             );
                           })
@@ -638,12 +716,13 @@ export default function ProjectDetail() {
                             <TaskListRow
                               key={task.id}
                               task={task}
+                              allTasks={tasks}
                               subtasks={subtasksByParent.get(task.id) ?? []}
                               allTags={tags}
                               expanded={expandedTasks.has(task.id)}
                               onToggleExpand={() => toggleExpanded(task.id)}
                               onToggleSubtask={toggleSubtask}
-                              onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
+                              onOpenSubtask={openEdit}
                               onToggleDone={() => toggleSubtask(task)}
                               onStatusChange={(status) =>
                                 applyStatusChange(task, status, "Não foi possível atualizar a tarefa.")
@@ -651,8 +730,13 @@ export default function ProjectDetail() {
                               onOpenSeries={() => setSeriesTask(task)}
                               onEdit={() => openEdit(task)}
                               onDelete={() => handleDelete(task.id)}
+                              onDeleteAll={handleDeleteSeries}
                               isTimerRunning={runningEntry?.task_id === task.id}
                               onToggleTimer={() => toggleTimer(task)}
+                              onIconChange={(next) => handleIconChange(task.id, next)}
+                              onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
+                              onDueChange={(next) => handleDueChange(task.id, next)}
+                              subtaskActions={subtaskActions}
                             />
                           ))}
                         </div>
@@ -663,12 +747,13 @@ export default function ProjectDetail() {
                   <CompletedTasksSection
                     key={statusView}
                     tasks={doneTasks}
+                    allTasks={tasks}
                     allTags={tags}
                     subtasksByParent={subtasksByParent}
                     expandedTasks={expandedTasks}
                     onToggleExpand={toggleExpanded}
                     onToggleSubtask={toggleSubtask}
-                    onOpenSubtask={(subtask) => setEditingSubtask(subtask)}
+                    onOpenSubtask={openEdit}
                     onToggleDone={toggleSubtask}
                     onStatusChange={(task, status) =>
                       applyStatusChange(task, status, "Não foi possível atualizar a tarefa.")
@@ -676,8 +761,13 @@ export default function ProjectDetail() {
                     onOpenSeries={(task) => setSeriesTask(task)}
                     onEdit={openEdit}
                     onDelete={handleDelete}
+                    onDeleteAll={handleDeleteSeries}
                     isTimerRunning={(task) => runningEntry?.task_id === task.id}
                     defaultOpen={statusView === "done"}
+                    onIconChange={(task, next) => handleIconChange(task.id, next)}
+                    onPriorityChange={(task, priority) => handlePriorityChange(task.id, priority)}
+                    onDueChange={(task, next) => handleDueChange(task.id, next)}
+                    subtaskActions={subtaskActions}
                     extraActions={(task) =>
                       !task.linked_recurring_id ? (
                         <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
@@ -696,17 +786,20 @@ export default function ProjectDetail() {
           </TabsContent>
 
           <TabsContent value="gantt" className="mt-4">
-            <GanttChart tasks={ganttTasks} dependencies={dependencies} onDataChanged={load} />
+            <GanttChart
+              tasks={ganttTasks}
+              dependencies={dependencies}
+              fullTasks={ganttTasks}
+              fullProjects={project ? [project] : []}
+              onOpenTask={openEdit}
+              onDataChanged={load}
+              onIconChange={handleIconChange}
+              onPriorityChange={handlePriorityChange}
+              onDueChange={handleDueChange}
+            />
           </TabsContent>
         </Tabs>
       )}
-
-      <SubtaskEditDialog
-        subtask={editingSubtask}
-        parentDueDate={tasks.find((t) => t.id === editingSubtask?.parent_task_id)?.due_date ?? null}
-        onOpenChange={(v) => !v && setEditingSubtask(null)}
-        onSave={saveSubtaskEdit}
-      />
 
       <Dialog open={!!seriesTask} onOpenChange={(v) => !v && setSeriesTask(null)}>
         <DialogContent>
@@ -714,17 +807,34 @@ export default function ProjectDetail() {
             <DialogTitle>Ocorrências de "{seriesTask?.title}"</DialogTitle>
           </DialogHeader>
           <div className="space-y-1.5">
-            {seriesTasks.map((t) => (
-              <div
-                key={t.id}
-                className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 text-sm"
-              >
-                <span>{t.due_date ? formatDateTimeBR(t.due_date, t.due_time) : "Sem prazo"}</span>
-                <Badge variant="outline" className="text-[10px]">
-                  {t.status === "todo" ? "A fazer" : t.status === "doing" ? "Fazendo" : "Feito"}
-                </Badge>
-              </div>
-            ))}
+            {seriesTask?.is_medication && !seriesTasks.some((t) => t.status === "done") && (
+              <p className="text-xs text-muted-foreground">Nenhuma dose registrada ainda.</p>
+            )}
+            {seriesTasks.map((t) => {
+              const isDose = seriesTask?.is_medication && t.status === "done" && t.completed_at;
+              return (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 text-sm"
+                >
+                  {isDose ? (
+                    <span className="flex items-center gap-2">
+                      Tomado às {formatTimeOfDay(t.completed_at as string)}
+                      {isDoseLate(t) && (
+                        <Badge variant="destructive" className="text-[10px]">
+                          Atrasada
+                        </Badge>
+                      )}
+                    </span>
+                  ) : (
+                    <span>{t.due_date ? formatDateTimeBR(t.due_date, t.due_time) : "Sem prazo"}</span>
+                  )}
+                  <Badge variant="outline" className="text-[10px]">
+                    {t.status === "todo" ? "A fazer" : t.status === "doing" ? "Fazendo" : "Feito"}
+                  </Badge>
+                </div>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
@@ -734,98 +844,32 @@ export default function ProjectDetail() {
           <DialogHeader>
             <DialogTitle>{editing ? "Editar tarefa" : "Nova tarefa"}</DialogTitle>
           </DialogHeader>
-          <Tabs value={formTab} onValueChange={(v) => setFormTab(v as TaskFormTab)}>
-            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4">
-              <TabsTrigger value="geral">Geral</TabsTrigger>
-              <TabsTrigger value="data">Data e repetição</TabsTrigger>
-              <TabsTrigger value="organizacao">Organização</TabsTrigger>
-              {editing && <TabsTrigger value="registros">Registros de tempo</TabsTrigger>}
-            </TabsList>
-
-            <TabsContent value="geral" className={cn(FORM_FIELDS_CLASS, "mt-4")}>
-              <div>
-                <FormLabel required>Título</FormLabel>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                />
-              </div>
-              <div>
-                <FormLabel optional>Descrição</FormLabel>
-                <TaskDescriptionField
-                  value={form.description ?? ""}
-                  onChange={(description) => setForm({ ...form, description })}
-                />
-              </div>
-              <TaskPriorityField
-                value={form.priority ?? null}
-                onChange={(priority) => setForm({ ...form, priority })}
-              />
-            </TabsContent>
-
-            <TabsContent value="data" className={cn(FORM_FIELDS_CLASS, "mt-4")}>
-              <TaskRecurrenceField
-                value={{
-                  due_date: form.due_date,
-                  due_time: form.due_time,
-                  start_date: form.start_date,
-                  recurrence_rule: form.recurrence_rule,
-                  linked_recurring_id: form.linked_recurring_id,
-                }}
-                recurrings={recurrings}
-                onChange={(next) => setForm({ ...form, ...next })}
-                dimensions={dimensions}
-                onRecurringCreated={(rec) => setRecurrings((prev) => [rec, ...prev])}
-              />
-            </TabsContent>
-
-            <TabsContent value="organizacao" className={cn(FORM_FIELDS_CLASS, "mt-4")}>
-              <div>
-                <FormLabel optional>Tags</FormLabel>
-                <TagCombobox
-                  allTags={tags}
-                  selectedIds={form.tag_ids}
-                  onChange={(tag_ids) => setForm({ ...form, tag_ids })}
-                  onCreateTag={handleCreateTag}
-                />
-              </div>
-              <div>
-                <FormLabel optional>Link externo</FormLabel>
-                <Input
-                  value={form.external_url ?? ""}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      external_url: e.target.value || null,
-                      external_provider: detectExternalProvider(e.target.value),
-                    })
-                  }
-                  placeholder="https://github.com/owner/repo/issues/123"
-                />
-              </div>
-              <TaskSubtasksField
-                subtasks={
-                  editing
-                    ? (subtasksByParent.get(editing.id) ?? []).map((s) => ({ id: s.id, title: s.title }))
-                    : newTaskSubtasks.map((title) => ({ title }))
-                }
-                onAdd={(title) =>
-                  editing ? addSubtaskToEditing(title) : setNewTaskSubtasks((prev) => [...prev, title])
-                }
-                onRemove={(subtask, index) =>
-                  editing
-                    ? removeExistingSubtask(subtask)
-                    : setNewTaskSubtasks((prev) => prev.filter((_, i) => i !== index))
-                }
-              />
-            </TabsContent>
-
-            {editing && (
-              <TabsContent value="registros" className={cn(FORM_FIELDS_CLASS, "mt-4")}>
-                <TaskTimeEntriesField taskId={editing.id} />
-              </TabsContent>
-            )}
-          </Tabs>
+          <TaskFormFields
+            formTab={formTab}
+            onFormTabChange={setFormTab}
+            form={form}
+            setForm={setForm}
+            editing={editing}
+            tasks={tasks}
+            tags={tags}
+            onCreateTag={handleCreateTag}
+            recurrings={recurrings}
+            onRecurringCreated={(rec) => setRecurrings((prev) => [rec, ...prev])}
+            dimensions={dimensions}
+            subtasks={
+              editing
+                ? (subtasksByParent.get(editing.id) ?? []).map((s) => ({ id: s.id, title: s.title }))
+                : newTaskSubtasks.map((title) => ({ title }))
+            }
+            onAddSubtask={(title) =>
+              editing ? addSubtaskToEditing(title) : setNewTaskSubtasks((prev) => [...prev, title])
+            }
+            onRemoveSubtask={(subtask, index) =>
+              editing
+                ? removeExistingSubtask(subtask)
+                : setNewTaskSubtasks((prev) => prev.filter((_, i) => i !== index))
+            }
+          />
           <Button onClick={handleSave} className="w-full">
             {editing ? "Salvar alterações" : "Criar tarefa"}
           </Button>

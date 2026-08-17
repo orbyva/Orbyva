@@ -46,6 +46,7 @@ async function materializeRecurringInstances(
         due_time: origin.recurrence_rule?.time ?? null,
         recurrence_rule: null,
         recurrence_origin_id: origin.id,
+        is_medication: origin.is_medication ?? false,
       });
     }
   }
@@ -224,12 +225,54 @@ async function syncLinkedInstallmentFromTask(
   );
 }
 
+/**
+ * Envia um ícone customizado pra uma tarefa (bucket `task-icons`, mesmo padrão de
+ * `uploadAlbumCover` em `src/api/albums.ts`) e devolve a URL pública. Não atualiza `task` sozinho
+ * — quem chama decide quando gravar `icon_url` (ex.: junto de `icon_key: null` via `updateTask`).
+ */
+export async function uploadTaskIcon(taskId: string, file: File): Promise<string> {
+  const userId = await getCurrentUserId();
+  const ext =
+    file.type === "image/png"
+      ? "png"
+      : file.type === "image/webp"
+        ? "webp"
+        : file.type === "image/svg+xml"
+          ? "svg"
+          : "jpg";
+  const path = `${userId}/${taskId}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from("task-icons")
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage.from("task-icons").getPublicUrl(path);
+  return data.publicUrl;
+}
+
 export async function deleteTask(id: string): Promise<void> {
   const userId = await getCurrentUserId();
   const { error } = await supabase
     .from("task")
     .delete()
     .eq("id", id)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Exclui várias tarefas de uma vez (ex.: todas as ocorrências de uma recorrência simples) num
+ * único `DELETE ... WHERE id IN (...)`, mais barato e atômico que N chamadas de `deleteTask`.
+ */
+export async function deleteTasks(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("task")
+    .delete()
+    .in("id", ids)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
 }

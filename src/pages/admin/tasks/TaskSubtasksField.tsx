@@ -3,12 +3,9 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormLabel } from "@/components/FormLabel";
+import type { SubtaskDraft } from "@/types/tasks";
 
-export interface SubtaskDraft {
-  /** Presente só quando já é uma subtarefa real (modo edição) — ausente = ainda não salva. */
-  id?: string;
-  title: string;
-}
+export type { SubtaskDraft };
 
 /**
  * Lista editável de subtarefas (adicionar/remover), usada tanto na criação (linhas ainda não

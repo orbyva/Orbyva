@@ -1,0 +1,59 @@
+import { AlertCircle, Bell, Bookmark, CheckCircle2, Flag, Pin, Star } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export interface TaskIconPreset {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+/** Catálogo fixo de presets — ícones lucide comuns pra marcação rápida de tarefas (feature 035).
+ * Cada um é identificado por uma `icon_key` string estável (gravada em `task.icon_key`). */
+export const TASK_ICON_PRESETS: TaskIconPreset[] = [
+  { key: "flag", label: "Bandeira", icon: Flag },
+  { key: "star", label: "Estrela", icon: Star },
+  { key: "bookmark", label: "Marcador", icon: Bookmark },
+  { key: "pin", label: "Fixado", icon: Pin },
+  { key: "bell", label: "Lembrete", icon: Bell },
+  { key: "alert-circle", label: "Atenção", icon: AlertCircle },
+  { key: "check-circle", label: "Concluído", icon: CheckCircle2 },
+];
+
+const TASK_ICON_PRESET_MAP: Record<string, TaskIconPreset> = Object.fromEntries(
+  TASK_ICON_PRESETS.map((preset) => [preset.key, preset])
+);
+
+/**
+ * Exibição somente-leitura do ícone de uma tarefa — reutilizada em todas as visualizações
+ * (Lista, Kanban, Gantt, Agenda). Prioriza `iconUrl` (renderiza como `<img>`) sobre `iconKey`
+ * (ícone lucide do preset correspondente); sem nenhum dos dois, não renderiza nada.
+ */
+export function TaskIconBadge({
+  iconKey,
+  iconUrl,
+  className,
+}: {
+  iconKey?: string | null;
+  iconUrl?: string | null;
+  className?: string;
+}) {
+  if (iconUrl) {
+    return (
+      <img
+        src={iconUrl}
+        alt=""
+        className={cn("h-3.5 w-3.5 shrink-0 rounded-sm object-cover", className)}
+      />
+    );
+  }
+  const preset = iconKey ? TASK_ICON_PRESET_MAP[iconKey] : null;
+  if (!preset) return null;
+  const Icon = preset.icon;
+  return (
+    <Icon
+      className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground", className)}
+      aria-label={preset.label}
+    />
+  );
+}

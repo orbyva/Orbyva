@@ -1,3 +1,8 @@
+---
+prompt: |
+  Ao criar uma nova tarefa, deve ser necessário já ter uma lista dos projetos, não um dropdown. a seleção de projeto deve acontecer em 1 clique, já com os projetos mais frequentes, em primeiro, que estão recebendo mais criação de tarefa, ou os projetos que estão tendo mais, estruture isso já de maneira eficiente, para que eu possa já construir um conjunto de informações a respeito desses dados, já uma estrutura de classes, objetos, vse necessário views de suporte, queries para construção de dashboards. de maneira que também sirva para
+---
+
 # 026 — Seleção de projeto em 1 clique, ordenada por atividade
 
 ## Contexto
@@ -54,9 +59,12 @@ aqui pode ser reaproveitada por 025 depois, se fizer sentido.
 - [x] Criar `ProjectPicker.tsx`: lista clicável de projetos (1 clique seleciona), "Sem projeto" como
       primeira opção, restante ordenado por `rankProjectsByActivity`
 - [x] Substituir o `<Select>` de Projeto em `TaskList.tsx` (linhas 791-811) por `ProjectPicker`
-- [ ] `npm run build && npm run lint` + Vitest + teste manual: abrir "Nova tarefa", conferir que os
+- [x] `npm run build && npm run lint` + Vitest + teste manual: abrir "Nova tarefa", conferir que os
       projetos com mais tarefas aparecem primeiro, selecionar um em 1 clique, criar a tarefa e
       confirmar que o vínculo de projeto foi salvo certo
+
+## Prompts
+- Nenhum pedido do usuário no meio da implementação — a rodada seguiu só o `prompt:` original acima.
 
 ## Notas
 - `npm run build`, `npm run lint` e `npx vitest run` (suíte inteira, 493 testes) passam com as
@@ -72,3 +80,10 @@ aqui pode ser reaproveitada por 025 depois, se fizer sentido.
   tarefas (`projectFilter`) sem ordenação por atividade — não sobrepõe o campo do formulário de
   criar/editar tarefa que esta feature (026) troca de `<Select>` para `ProjectPicker`. Nenhuma
   tarefa de 026 estava coberta por 025.
+- 2026-08-13: teste manual feito via automação de navegador numa sessão logada (ngrok). Confirmado:
+  abrir "Nova tarefa" mostra `ProjectPicker` (lista clicável) no lugar do dropdown, "Sem projeto"
+  primeiro, clique em "sa.ca.da" seleciona em 1 clique (destaque visual imediato), tarefa criada com
+  o vínculo salvo (badge "sa.ca.da" no card da Lista após criar). Checagem de satisfação: `prompt:`
+  original ("lista dos projetos, não um dropdown... seleção em 1 clique... projetos mais frequentes
+  primeiro") cumprido. Tarefa de teste ("[teste pipeline] verificação 026") excluída após a
+  verificação. Movido para `done/`.

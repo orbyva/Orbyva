@@ -55,8 +55,8 @@ não um erro a corrigir.
 - [x] `git add src/components/FirstTxChecklist.tsx src/pages/ops/OpsConsole.tsx` (arquivos resolvidos
       e staged — `git ls-files -u` vazio, `git status` confirma "All conflicts fixed but you are
       still merging").
-- [ ] Finalizar o merge com `git commit` (mensagem baseada em `.git/MERGE_MSG`) — **ação do usuário**,
-      não automatizada nesta sessão (ver Notas).
+- [x] Finalizar o merge com `git commit` (mensagem baseada em `.git/MERGE_MSG`) — feito pelo usuário
+      (commit `1ec9c04`).
 - [x] `npx tsc --noEmit`, `npm run build && npm run lint` limpos.
 - [x] Verificação manual: checklist de ativação (`FirstTxChecklist`) renderiza o texto correto
       ("Conteúdo e Vida já estão no menu", conferido por leitura do JSX resolvido, sem marcadores
@@ -70,8 +70,8 @@ não um erro a corrigir.
 ## Notas
 - 2026-08-13: Merge de `master` → `feat/produtividade` (`MERGE_HEAD` `53a6da39...`) resolvido nos dois
   arquivos conflitantes e staged (`git add`). O `git commit` que finaliza o merge foi deliberadamente
-  **não executado** nesta sessão — instrução explícita do usuário foi resolver e deixar staged, sem
-  finalizar o commit de merge sozinho, por afetar histórico compartilhado. O repositório segue em
-  estado "merging" (`git status` mostra "All conflicts fixed but you are still merging"); falta só
-  rodar `git commit` (mensagem sugerida: a que já está em `.git/MERGE_MSG`) para o usuário concluir.
-  Por isso o arquivo permanece em `in-progress/`, não `done/`, até esse commit acontecer.
+  **não executado** pelo agente — instrução explícita foi resolver e deixar staged, sem finalizar o
+  commit de merge sozinho, por afetar histórico compartilhado. O usuário rodou o commit ele mesmo
+  (`1ec9c04`). Checagem de satisfação: `prompt:` original ("ajuste o erro de conclict") cumprido —
+  `tsc --noEmit`/`npm run build`/`npm run lint` limpos após o merge, sem marcadores de conflito
+  residuais. Movido para `done/`.

@@ -94,6 +94,20 @@ export interface Task {
   external_url?: string | null;
   external_provider?: string | null;
   completed_at?: string | null;
+  /** Estimated time to complete in minutes. */
+  estimated_duration?: number | null;
+  /** Chave de um ícone preset fixo (ex.: "flag", "star") — mutuamente exclusivo com `icon_url`;
+   * selecionar um preset limpa o outro. Exibição prioriza `icon_url` quando presente. */
+  icon_key?: string | null;
+  /** URL pública de um ícone customizado enviado pelo usuário (bucket `task-icons`) — mutuamente
+   * exclusivo com `icon_key`. */
+  icon_url?: string | null;
+  /** Marca a tarefa como um marco no Gantt (feature 037) — sem duração, um ponto na linha do
+   * tempo (`due_date`) em vez de uma barra. */
+  is_milestone?: boolean;
+  /** Marca a tarefa (e a série materializada a partir dela) como uma medicação (feature 049) —
+   * usado pra exibir o histórico de doses tomadas no dialog "Ocorrências de...". */
+  is_medication?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -123,4 +137,10 @@ export interface TaskTimeEntry {
   started_at: string;
   ended_at: string | null;
   created_at?: string;
+}
+
+export interface SubtaskDraft {
+  /** Presente só quando já é uma subtarefa real (modo edição) — ausente = ainda não salva. */
+  id?: string;
+  title: string;
 }

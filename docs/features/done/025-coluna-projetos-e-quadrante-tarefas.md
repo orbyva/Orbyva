@@ -1,3 +1,8 @@
+---
+prompt: |
+  é necessário mudar a visão inicial da tela de 'Tarefas', preciso de filtros mais diretos, para poder organiazr os projetos. preciso que cada task fique de alguma forma agrupada. por exemplo, tenha uma marcação muito clara de qual projeto ela pertence. e uma coluna com todos os projetos na esqueda entre a lista e a barra de navegação lateral. de modo que eu consiga clicar e já filtrar por projeto. tanto quando eu clico em um projeto, mostrar tipo em um quadrante, as de prioridade, as de hoje.
+---
+
 # 025 — Coluna de projetos e quadrante na visão inicial de Tarefas
 
 ## Contexto
@@ -65,9 +70,12 @@ proximidade.
       (reaproveitando `TaskPriority`/`groupTasksByAgendaBucket`)
 - [x] Adicionar chips/atalhos de filtro rápido (Prioridade, "Hoje") na aba Lista, ligados ao
       `priority` novo em `filterTasks` e ao filtro de prazo já existente
-- [ ] `npm run build && npm run lint` + teste manual: clicar num projeto na coluna filtra a Lista e
+- [x] `npm run build && npm run lint` + teste manual: clicar num projeto na coluna filtra a Lista e
       mostra o quadrante, badge de projeto aparece em cada card, filtros rápidos funcionam, layout não
       quebra em mobile
+
+## Prompts
+- Nenhum pedido do usuário no meio da implementação — a rodada seguiu só o `prompt:` original acima.
 
 ## Notas
 - `TaskListRow` **não** aceitava `projectBadge` antes desta rodada (só `KanbanCard` tinha essa prop,
@@ -96,3 +104,13 @@ proximidade.
   `TaskRecurrenceField.tsx`, `RecurringFormDialog.tsx` e moveu `002-...md` de `done/` pra
   `in-progress/` enquanto eu trabalhava. Não toquei nesses arquivos; só sinalizando pra quem revisar
   não estranhar esses diffs não relacionados no `git status`.
+- 2026-08-13: teste manual feito via automação de navegador numa sessão logada (ngrok). A janela do
+  navegador ficou travada em largura mobile (~335px) apesar de `resize_window` — não foi possível
+  ver visualmente o `ProjectsRail` (que é `hidden md:block`, só aparece em desktop). Confirmado nesse
+  viewport: badge de projeto nos cards da Lista, chips de Prioridade/"Hoje" filtrando corretamente, e
+  o quadrante (Por prioridade / Por prazo) aparecendo ao selecionar um projeto específico via o
+  `<Select>` de fallback mobile — que dispara o mesmo `projectFilter` que o `ProjectsRail` dispararia
+  em desktop, então a lógica de filtro/quadrante está validada, só não a apresentação visual da coluna
+  em si. Checagem de satisfação: `prompt:` original (filtros mais diretos, marcação de projeto,
+  coluna clicável, quadrante) cumprido na lógica testável; a peça visual desktop-only fica sem
+  confirmação visual direta nesta sessão. Movido para `done/`.

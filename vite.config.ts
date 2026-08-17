@@ -218,12 +218,17 @@ export default defineConfig({
         rewrite: (p) => p.replace(/^\/spotify-media/, ""),
       },
     },
-    allowedHosts: ["localhost", "upswing-repose-easter.ngrok-free.dev"]
+    allowedHosts: ["localhost", "5757-146-70-163-204.ngrok-free.app"]
   },
   test: {
     globals: true,
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // Testes de componente (`.test.tsx`) precisam de DOM real (render, click, assert em nós) —
+    // `environmentMatchGlobs` mantém o resto da suíte (`.test.ts`, lógica pura) em "node", mais
+    // rápido e sem custo de jsdom.
+    environmentMatchGlobs: [["src/**/*.test.tsx", "jsdom"]],
+    setupFiles: ["./src/test/setup-jsdom.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     env: {
       VITE_SUPABASE_URL: "https://example.supabase.co",
       VITE_SUPABASE_ANON_KEY: "test-anon-key",

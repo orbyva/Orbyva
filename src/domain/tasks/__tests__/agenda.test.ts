@@ -6,6 +6,7 @@ import {
   findSeriesTasks,
   groupTasksByAgendaBucket,
   isRecurringTask,
+  isSimpleRecurringTask,
   sortTasksByCompletedAtDesc,
 } from "@/domain/tasks/agenda";
 
@@ -218,5 +219,32 @@ describe("isRecurringTask", () => {
     expect(isRecurringTask(task({ id: "2", recurrence_origin_id: "origin" }))).toBe(true);
     expect(isRecurringTask(task({ id: "3", linked_recurring_id: "rec1" }))).toBe(true);
     expect(isRecurringTask(task({ id: "4" }))).toBe(false);
+  });
+});
+
+describe("isSimpleRecurringTask", () => {
+  it("true para origem de recorrência simples (recurrence_rule)", () => {
+    expect(
+      isSimpleRecurringTask(
+        task({ id: "1", recurrence_rule: { frequency: "daily", interval: 1 } })
+      )
+    ).toBe(true);
+  });
+
+  it("true para ocorrência materializada de recorrência simples (recurrence_origin_id)", () => {
+    expect(isSimpleRecurringTask(task({ id: "2", recurrence_origin_id: "origin" }))).toBe(true);
+  });
+
+  it("false para tarefa vinculada a Recorrência Financeira, mesmo com recurrence_origin_id", () => {
+    expect(
+      isSimpleRecurringTask(
+        task({ id: "3", recurrence_origin_id: "template", linked_recurring_id: "rec1" })
+      )
+    ).toBe(false);
+    expect(isSimpleRecurringTask(task({ id: "4", linked_recurring_id: "rec1" }))).toBe(false);
+  });
+
+  it("false para tarefa comum, sem nenhuma recorrência", () => {
+    expect(isSimpleRecurringTask(task({ id: "5" }))).toBe(false);
   });
 });

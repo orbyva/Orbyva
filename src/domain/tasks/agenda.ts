@@ -157,6 +157,16 @@ export function isRecurringTask(task: SeriesTask): boolean {
   return !!(task.recurrence_rule || task.recurrence_origin_id || task.linked_recurring_id);
 }
 
+/**
+ * `true` só para recorrência simples (`recurrence_rule`/`recurrence_origin_id`), nunca para
+ * tarefas vinculadas a uma Recorrência Financeira (`linked_recurring_id`) — essas têm sync
+ * bidirecional próprio (`syncLinkedInstallmentFromTask`) e exclusão em massa é fora do escopo
+ * da feature 028 (ver Decisões em `docs/features/todo/028-excluir-recorrencia-de-tarefa.md`).
+ */
+export function isSimpleRecurringTask(task: SeriesTask): boolean {
+  return !!(task.recurrence_rule || task.recurrence_origin_id) && !task.linked_recurring_id;
+}
+
 /** Todas as ocorrências (passadas e futuras) da mesma série de `representative`, ordenadas por prazo. */
 export function findSeriesTasks<T extends SeriesTask>(allTasks: T[], representative: T): T[] {
   const key = seriesKey(representative);
