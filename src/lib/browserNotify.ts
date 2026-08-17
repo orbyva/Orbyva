@@ -153,6 +153,33 @@ export function maybeNotifyCriticalAlerts(count: number): void {
   });
 }
 
+/**
+ * Notificação local pontual do navegador (feature 063 — lembretes de saúde). Devolve `false` quando
+ * não dá para notificar (browser sem Notification API ou permissão não concedida), para quem chama
+ * decidir o que fazer — no Health Dashboard, o toast in-app aparece de qualquer jeito.
+ *
+ * Não passa pelo `isBrowserNotifyEnabled()`: aquele toggle é do sino de alertas do app. Quem liga e
+ * desliga o lembrete de saúde é a linha de `reminder_preference` do próprio usuário; exigir os dois
+ * faria o lembrete configurado na tela simplesmente não chegar, sem explicação.
+ *
+ * É notificação **local**, com a aba aberta. Push com o app fechado depende de um service worker
+ * com handler de `push` — o SW deste projeto é gerado pelo workbox (`generateSW`) e não aceita
+ * código próprio; ver as Notas da feature 063.
+ */
+export function sendBrowserNotification(
+  title: string,
+  options: { body: string; tag?: string }
+): boolean {
+  if (typeof window === "undefined" || !("Notification" in window)) return false;
+  if (Notification.permission !== "granted") return false;
+  new Notification(title, {
+    body: options.body,
+    icon: "/logo-mark.webp",
+    tag: options.tag,
+  });
+  return true;
+}
+
 /** Nome do evento de preferências de alerta (para AlertsBell). */
 export const ALERT_PREFS_EVENT = PREFS_EVENT;
 export const LEGACY_ALERT_PREFS_EVENT = "fintrack-alert-prefs";

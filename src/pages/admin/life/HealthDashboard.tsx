@@ -17,7 +17,11 @@ import { RecordMetricDialog } from "@/pages/admin/life/RecordMetricDialog";
 import { ReminderPreferencesDialog } from "@/pages/admin/life/ReminderPreferencesDialog";
 import { ConsultationQuickCreateDialog } from "@/pages/admin/tasks/ConsultationQuickCreateDialog";
 import { MedicationQuickCreateDialog } from "@/pages/admin/tasks/MedicationQuickCreateDialog";
-import { fetchHealthHabitsToday, loadHealthSummary } from "@/api/health";
+import {
+  fetchHealthHabitsToday,
+  loadHealthSummary,
+  markReminderNotified,
+} from "@/api/health";
 import { toggleHabitLog } from "@/api/habits";
 import { frequencyLabel } from "@/domain/habits";
 import {
@@ -30,12 +34,22 @@ import {
   formatMetricValue,
   latestByType,
 } from "@/domain/health/metrics";
+import {
+  REMINDER_ENTITY_DESCRIPTION,
+  REMINDER_ENTITY_LABEL,
+  isReminderDue,
+} from "@/domain/health/reminder";
+import { sendBrowserNotification } from "@/lib/browserNotify";
 import { formatDateBR, formatDateTimeBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { useLocalDay } from "@/hooks/useLocalDay";
 import { useToast } from "@/hooks/use-toast";
-import type { HealthHabitToday, HealthSummary } from "@/types/health";
+import type {
+  HealthHabitToday,
+  HealthSummary,
+  ReminderPreference,
+} from "@/types/health";
 
 /**
  * Porta de entrada do sub-módulo Vida > Saúde (feature 060). Hoje mostra a próxima dose de
@@ -55,6 +69,55 @@ export default function HealthDashboard() {
   const today = useLocalDay();
   const { toast } = useToast();
 
+  /**
+   * Disparo local dos lembretes vencidos (feature 063). Roda na carga do dashboard, com a aba
+   * aberta — é o transporte que o app tem hoje (`sendBrowserNotification` + toast); push com o app
+   * fechado está fora desta feature.
+   *
+   * Depois de notificar, grava `last_notified_at` na preferência e atualiza o estado local com o
+   * horário gravado: é isso que impede o mesmo lembrete de tocar de novo a cada recarga. Não
+   * recarrega o resumo aqui de propósito — recarregar dentro do próprio efeito de carga seria um
+   * laço.
+   */
+  const fireDueReminders = useCallback(
+    async (preferences: ReminderPreference[]) => {
+      const now = new Date();
+      const due = preferences.filter((pref) => isReminderDue(pref, now));
+      if (due.length === 0) return;
+
+      for (const pref of due) {
+        const title = REMINDER_ENTITY_LABEL[pref.entity_type];
+        const body = REMINDER_ENTITY_DESCRIPTION[pref.entity_type];
+        toast({ title, description: body, duration: 8000 });
+        sendBrowserNotification(title, {
+          body,
+          // Uma notificação por tipo: o navegador substitui a anterior em vez de empilhar.
+          tag: `orbyva-reminder-${pref.entity_type}`,
+        });
+
+        try {
+          const updated = await markReminderNotified(pref.entity_type, now);
+          setSummary((current) =>
+            current
+              ? {
+                  ...current,
+                  reminderPreferences: current.reminderPreferences.map((item) =>
+                    item.entity_type === pref.entity_type
+                      ? { ...item, last_notified_at: updated.last_notified_at }
+                      : item
+                  ),
+                }
+              : current
+          );
+        } catch {
+          // Falhar em marcar não pode derrubar a tela: o pior caso é o lembrete repetir na
+          // próxima carga, e um toast de erro aqui só assustaria sem o usuário poder agir.
+        }
+      }
+    },
+    [toast]
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -64,6 +127,7 @@ export default function HealthDashboard() {
       ]);
       setSummary(nextSummary);
       setHealthHabits(habits);
+      void fireDueReminders(nextSummary.reminderPreferences ?? []);
     } catch (error) {
       toast({
         title: "Erro",
@@ -76,7 +140,7 @@ export default function HealthDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, fireDueReminders]);
 
   useEffect(() => {
     load();

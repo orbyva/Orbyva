@@ -18,6 +18,7 @@ import {
   REMINDER_FREQUENCY_LABEL,
   nextReminderAt,
 } from "@/domain/health/reminder";
+import { requestBrowserNotifyPermission } from "@/lib/browserNotify";
 import { formatDateTimeBR } from "@/lib/currency";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { getErrorMessage } from "@/lib/errors";
@@ -114,6 +115,11 @@ export function ReminderPreferencesDialog({
     );
     setSavingType(next.entity_type);
     try {
+      // Ligar o lembrete é o gesto do usuário que justifica pedir a permissão de notificação —
+      // pedir na carga da página seria bloqueado pelo navegador e ignorado por quem não pediu nada.
+      // Negar não impede nada: o aviso in-app (toast) continua valendo.
+      if (next.enabled) await requestBrowserNotifyPermission();
+
       await upsertReminderPreference(next.entity_type, {
         frequency: next.frequency,
         time_of_day: next.time_of_day,
