@@ -1,4 +1,4 @@
-import { lazy, Suspense, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useLayoutEffect, useRef, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import type { PhoneScreen } from "@/components/ui/phone-mockups-1-utils/phone-carousel";
 
@@ -23,6 +23,8 @@ const DEFAULT_SCREENS: PhoneScreen[] = [
   },
 ];
 
+const HUB_SRC = DEFAULT_SCREENS[0]!.src;
+
 function marketingWebp(src: string) {
   return src.replace(/\.png$/i, ".webp");
 }
@@ -33,50 +35,10 @@ const PhoneCarousel = lazy(() =>
   }))
 );
 
-function PhoneFrame({
-  screen,
-  priority,
-  className,
-}: {
-  screen: PhoneScreen;
-  priority?: boolean;
-  className?: string;
-}) {
-  const webp = marketingWebp(screen.src);
+const FRAME_CLASS =
+  "relative mx-auto aspect-[9/19] w-full overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 shadow-[0_25px_60px_-20px_rgba(14,165,233,0.45)] ring-1 ring-white/10 sm:rounded-[2rem]";
 
-  return (
-    <div
-      className={cn(
-        "relative mx-auto aspect-[9/19] w-full overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 shadow-[0_25px_60px_-20px_rgba(14,165,233,0.45)] ring-1 ring-white/10 sm:rounded-[2rem]",
-        className
-      )}
-    >
-      <picture>
-        <source type="image/webp" srcSet={webp} />
-        <img
-          src={screen.src}
-          alt={screen.alt}
-          width={390}
-          height={843}
-          sizes="(max-width: 639px) 260px, 240px"
-          loading={priority ? "eager" : "lazy"}
-          decoding="async"
-          fetchPriority={priority ? "high" : "low"}
-          className="h-full w-full object-contain object-top"
-          draggable={false}
-        />
-      </picture>
-    </div>
-  );
-}
-
-/**
- * Não move o #boot-lcp (appendChild zera o timestamp de LCP no Chrome).
- * Cobre o slot com position:fixed no mesmo nó.
- */
-function AdoptedLcpPhone({ className }: { className?: string }) {
-  const slotRef = useRef<HTMLDivElement>(null);
-
+function useBootLcpPin(slotRef: RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
     const img = document.getElementById("boot-lcp") as HTMLImageElement | null;
     const slot = slotRef.current;
@@ -89,6 +51,7 @@ function AdoptedLcpPhone({ className }: { className?: string }) {
 
     const place = () => {
       const r = slot.getBoundingClientRect();
+      if (r.width < 8 || r.height < 8) return;
       img.style.transform = `translate3d(${r.left}px, ${r.top}px, 0)`;
     };
 
@@ -105,8 +68,55 @@ function AdoptedLcpPhone({ className }: { className?: string }) {
       img.style.transform = "";
       img.style.visibility = "hidden";
     };
-  }, []);
+  }, [slotRef]);
+}
 
+function PhoneFrame({
+  screen,
+  className,
+}: {
+  screen: PhoneScreen;
+  className?: string;
+}) {
+  const webp = marketingWebp(screen.src);
+
+  return (
+    <div className={cn(FRAME_CLASS, className)}>
+      <picture>
+        <source type="image/webp" srcSet={webp} />
+        <img
+          src={screen.src}
+          alt={screen.alt}
+          width={390}
+          height={843}
+          sizes="(max-width: 639px) 260px, 240px"
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
+          className="h-full w-full object-contain object-top"
+          draggable={false}
+        />
+      </picture>
+    </div>
+  );
+}
+
+/** Primeiro slide: slot vazio + #boot-lcp por cima (sem segundo <img> no LCP). */
+function LcpPhoneFrame({ className }: { className?: string }) {
+  const slotRef = useRef<HTMLDivElement>(null);
+  useBootLcpPin(slotRef);
+
+  return (
+    <div
+      ref={slotRef}
+      data-lcp-slot
+      className={cn(FRAME_CLASS, className)}
+      style={{ aspectRatio: "390 / 843" }}
+    />
+  );
+}
+
+function AdoptedLcpPhone({ className }: { className?: string }) {
   return (
     <div className={cn("relative w-full select-none", className)}>
       <div className="relative mx-auto w-full max-w-[260px]">
@@ -114,16 +124,9 @@ function AdoptedLcpPhone({ className }: { className?: string }) {
           aria-hidden
           className="pointer-events-none absolute -inset-6 rounded-full bg-sky-500/20 blur-3xl"
         />
-        <div
-          ref={slotRef}
-          data-lcp-slot
-          className="relative z-[1] overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 shadow-[0_25px_60px_-20px_rgba(14,165,233,0.45)] ring-1 ring-white/10"
-          style={{
-            width: "min(260px, 70vw)",
-            aspectRatio: "390 / 843",
-            margin: "0 auto",
-          }}
-        />
+        <div className="relative z-[1]">
+          <LcpPhoneFrame />
+        </div>
       </div>
     </div>
   );
@@ -131,7 +134,7 @@ function AdoptedLcpPhone({ className }: { className?: string }) {
 
 /**
  * Phone Mockups 1 · réplica visual do componente 21st (solaceui).
- * Carrossel só após clique — um segundo <img> no load redefiniria o LCP.
+ * Centro do 1º slide reusa #boot-lcp; o chunk do carrossel entra em lazy.
  */
 export default function PhoneMockupBasic({
   screens = DEFAULT_SCREENS,
@@ -143,25 +146,7 @@ export default function PhoneMockupBasic({
   intervalMs?: number;
 }) {
   const first = screens[0];
-  const [carousel, setCarousel] = useState(false);
   if (!first) return null;
-
-  if (!carousel) {
-    return (
-      <div className={className}>
-        <AdoptedLcpPhone />
-        <div className="mt-4 flex justify-center">
-          <button
-            type="button"
-            className="text-xs text-zinc-500 underline-offset-4 hover:text-zinc-300 hover:underline"
-            onClick={() => setCarousel(true)}
-          >
-            Ver Finanças e Viagens
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <Suspense fallback={<AdoptedLcpPhone className={className} />}>
@@ -169,9 +154,13 @@ export default function PhoneMockupBasic({
         screens={screens}
         intervalMs={intervalMs}
         className={className}
-        renderPhone={({ screen, offset }) => (
-          <PhoneFrame screen={screen} priority={offset === 0} />
-        )}
+        renderPhone={({ screen, offset }) =>
+          offset === 0 && screen.src === HUB_SRC ? (
+            <LcpPhoneFrame />
+          ) : (
+            <PhoneFrame screen={screen} />
+          )
+        }
       />
     </Suspense>
   );

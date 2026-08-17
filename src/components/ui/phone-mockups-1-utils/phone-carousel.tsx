@@ -46,6 +46,7 @@ export function PhoneCarousel({
   pausedRef.current = paused;
   const reduceMotion = useReducedMotion();
   const [showPeeks, setShowPeeks] = useState(false);
+  const [autoplayOn, setAutoplayOn] = useState(false);
 
   useEffect(() => {
     const enable = () => setShowPeeks(true);
@@ -89,14 +90,24 @@ export function PhoneCarousel({
   );
 
   useEffect(() => {
-    if (n < 2 || intervalMs <= 0) return;
+    const start = () => setAutoplayOn(true);
+    const t = window.setTimeout(start, 8000);
+    window.addEventListener("pointerdown", start, { once: true, passive: true });
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("pointerdown", start);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!autoplayOn || n < 2 || intervalMs <= 0) return;
     const id = window.setInterval(() => {
       if (pausedRef.current) return;
       setDir(1);
       setIndex((i) => (i + 1) % n);
     }, intervalMs);
     return () => window.clearInterval(id);
-  }, [n, intervalMs]);
+  }, [autoplayOn, n, intervalMs]);
 
   if (n === 0) return null;
 

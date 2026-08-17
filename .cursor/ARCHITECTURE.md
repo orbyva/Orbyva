@@ -243,6 +243,7 @@ Detalhe de produto/UX por tela: [`README.md`](../README.md) (seção Módulos).
 * Landing (`/`) sem Supabase no grafo; LCP é o `<img id="boot-lcp">` do HTML (o nó permanece no `#boot`; o React só posiciona com CSS).
 * Listas de cinema/livros/música: cache em memória (`lib/memoryCache` + `useCachedCatalog`) com revalidação.
 * PWA: `vite-plugin-pwa`; budget de bundle: `npm run check:bundle`.
+* `/llms.txt` estático em `public/llms.txt` (Markdown: H1 + listas com links). O SW não faz fallback da SPA nesse path.
 * Proxies Vite/Vercel para mídia externa (CORS + canvas de share): `/spotify-media`, `/caa-media`, `/books-media`, etc. (`vercel.json`).
 
 ---

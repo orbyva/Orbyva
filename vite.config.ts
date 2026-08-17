@@ -80,6 +80,9 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,ico,webp,svg,woff2,png}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
+          /^\/llms\.txt$/,
+          /^\/robots\.txt$/,
+          /^\/sitemap\.xml$/,
           /^\/tmdb-media/,
           /^\/books-media/,
           /^\/mb-api/,

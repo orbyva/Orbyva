@@ -89,6 +89,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 - Fontes latin-only; PWA registra o SW em idle
 - Listas de Cinema/Livros/Música: cache em memória (`memoryCache` + `useCachedCatalog`) com revalidação
 - Bundle budget em `npm run check:bundle`
+- `/llms.txt` (Markdown com H1 + links) para agentes; arquivo estático em `public/`, não a SPA
 
 ### Backend: Supabase
 
