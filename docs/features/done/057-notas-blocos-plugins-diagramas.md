@@ -168,9 +168,23 @@ ordem.
       válido, salva e o preview desenha` — clica no botão de verdade, espera o autosave gravar o
       ```mermaid no store, abre a aba Visualizar e afirma que saiu um `<svg>` e que o renderer
       recebeu **só o código do bloco**, não o markdown inteiro.
-- [ ] Documentar o registry num comentário de cabeçalho em `blockRegistry.ts`: como registrar um
+- [x] Documentar o registry num comentário de cabeçalho em `blockRegistry.ts`: como registrar um
       renderer novo, em 3 linhas. É o que faz o "plugin" ser usável daqui a seis meses.
-- [ ] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle`.
+      O cabeçalho tem o procedimento em 3 passos, o aviso de `await import()` para dependência
+      pesada, o aviso de que o código do fence é texto do usuário (com ponteiro para `sanitizeSvg`)
+      e o ponteiro para o segundo ponto de extensão (`remarkPlugins.ts`). Verificação de que a
+      documentação bate com o código: `MarkdownPreview.blocks.test.tsx` executa exatamente o
+      procedimento descrito (registra `demo` em `blockRenderers` e afirma o que sai na tela) — se o
+      passo a passo deixar de valer, o teste quebra.
+- [x] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle`. Resultado:
+      build OK; lint 0 erros (13 warnings pré-existentes de `react-refresh`, nenhum nos arquivos
+      novos); `npm test` **1058 passando / 2 falhando** — as 2 são as pré-existentes e alheias de
+      `src/lib/__tests__/currency.test.ts` (esperam `"—"`, `src/lib/currency.ts` devolve `"·"`), as
+      mesmas registradas pela 055 e pela 056; a 057 acrescentou 36 testes (1022 → 1058) e nenhuma
+      falha nova. `check:bundle` OK: rotas de notas em `NoteDetail` 8,2 KB e `Notes` 1,9 KB gzip
+      (eram 8,1 e 1,8 antes do mermaid — o diagrama não entrou no caminho crítico), `recharts`
+      89,5 KB + `d3` 26,1 KB, `codemirror` 138,9 KB, e os 54 chunks `lazy` do mermaid, o maior com
+      151,5 KB contra o teto de 200 KB.
 
 ## Prompts
 
@@ -189,6 +203,37 @@ ordem.
 
 ## Notas
 
+- **Checagem de satisfação (2026-08-17), item do `prompt:` → artefato que prova.** O prompt-mãe
+  cobre as quatro features do módulo; o que a 057 se propôs a cumprir está abaixo, com o teste que
+  passou:
+  - *MARKDOWN NA VEIA COM POSSIBILIDADE DE PLUGINS* → o registry existe e é usável em 3 linhas:
+    `MarkdownPreview.blocks.test.tsx` (8 testes) registra um renderer novo exatamente como o
+    cabeçalho de `blockRegistry.ts` manda e afirma que ` ```demo ` passa a ser desenhado por ele,
+    recebendo o código cru do fence, sem quebrar bloco de linguagem não registrada
+    (```ts continua `pre > code.language-ts`), código inline ou o resto do Markdown;
+    `blockLanguage.test.ts` (6 testes) cobre a extração da linguagem. O segundo ponto de extensão,
+    o do parser, é `MARKDOWN_REMARK_PLUGINS`, com o teste de que GFM continua valendo depois da
+    troca. "Na veia" continua verdade: o documento salvo é markdown puro, o plugin só muda o
+    *render*.
+  - *FLOWCHARTS* e *DIAGRAMAS BÁSICOS* → `MermaidBlock.test.tsx` (8 testes): o fence
+    ```mermaid de uma nota chega ao mermaid com o código exato e vira `<svg>` na tela; e o caminho
+    do usuário inteiro em `Notes.flow.test.tsx` `"Inserir diagrama" escreve um bloco mermaid válido,
+    salva e o preview desenha` — clique no botão, autosave gravando o bloco, aba Visualizar
+    desenhando. Sintaxe quebrada vira caixa `role="alert"` **sem derrubar o resto da nota** (teste
+    dedicado, com título e parágrafo ainda na tela). Trocar o tema redesenha com `theme: "dark"`.
+  - *Segurança do que o mermaid gera* (requisito herdado da 055, não do texto do prompt) →
+    `initialize` com `securityLevel: "strict"` afirmado em teste, mais `sanitizeSvg.test.tsx`
+    (7 testes) provando que `<script>`, `on*`, `javascript:` e `<foreignObject>` não entram na
+    página, inclusive com o SVG inserido de verdade num elemento.
+  - *CRIAÇÃO DE CANVAS/DESENHOS* → **fora do escopo da 057 por decisão do refino**, é a 058. Não há
+    artefato porque não foi implementado; é a ordem combinada, não pendência esquecida. O mesmo vale
+    para o `drop column` de `project.notes`, última tarefa da 058.
+  - Suíte completa: `npm test` → 1058 passando, 2 falhando (as pré-existentes de `currency.test.ts`).
+    Antes desta feature eram 1022/2.
+  - **Por que foi para `done/`:** ao contrário de 050/051/052/055/056, esta feature **não tem
+    migration** — nada aqui depende de `supabase db push`. Todas as tarefas foram verificadas por
+    código. A tabela `note` de que o módulo vive continua pendente de push pela 055, e é lá que essa
+    pendência está registrada.
 - **Desvio do plano, com medição: `mermaid` num `manualChunks` próprio piora o bundle.** A tarefa
   mandava declarar `mermaid` no `manualChunks` do `vite.config.ts`. Foi tentado e medido: um chunk
   `mermaid` de **888,3 KB gzip**, que `check:bundle` reprova (`[FAIL] route 888.3 KB / 160.0 KB`).

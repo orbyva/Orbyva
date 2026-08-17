@@ -20,7 +20,12 @@ import { parseBlockLanguage } from "@/domain/notes/blockLanguage";
  *
  * **O que o renderer recebe é texto do usuário.** Quem produz HTML/SVG a partir dele é responsável
  * pela sanitização — o `MarkdownPreview` não tem `rehype-raw` de propósito (decisão da 055) e um
- * plugin não pode ser o buraco por onde HTML cru volta.
+ * plugin não pode ser o buraco por onde HTML cru volta. Ver `sanitizeSvg.ts`, que é a rede que o
+ * `MermaidBlock` usa antes de deixar um SVG entrar na página.
+ *
+ * O outro ponto de extensão é o *parser*, não o render: `remarkPlugins.ts`.
+ * O procedimento acima está exercitado em `MarkdownPreview.blocks.test.tsx`, que registra um
+ * renderer de mentira exatamente assim e afirma o que aparece na tela.
  */
 export type BlockRenderer = ComponentType<{ code: string }>;
 
