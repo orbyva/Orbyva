@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import type { Element } from "hast";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { findBlockRenderer } from "@/components/markdown/blockRegistry";
+import { MARKDOWN_REMARK_PLUGINS } from "@/components/markdown/remarkPlugins";
 import { cn } from "@/lib/utils";
 
 /** Tipografia do Markdown renderizado — compartilhada por descrição de tarefa e nota. */
@@ -53,7 +53,7 @@ export function MarkdownPreview({
   return (
     <div className={cn(MARKDOWN_PREVIEW_CLASS, className)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={MARKDOWN_REMARK_PLUGINS}
         components={merged}
         urlTransform={urlTransform}
       >

@@ -93,8 +93,11 @@ ordem.
       Ajuste do plano: o componente `pre` também foi sobrescrito, para **desembrulhar** o bloco com
       renderer — dentro do `<pre>` o SVG herdaria `white-space: pre` e fonte monoespaçada. Bloco sem
       renderer continua dentro do `<pre>` de sempre.
-- [ ] Criar `src/components/markdown/remarkPlugins.ts` exportando o array central de plugins remark
+- [x] Criar `src/components/markdown/remarkPlugins.ts` exportando o array central de plugins remark
       (começando com `remarkGfm`) e passar a usá-lo no `MarkdownPreview`, em vez do array inline.
+      `MARKDOWN_REMARK_PLUGINS: PluggableList`. Verificação: `MarkdownPreview.blocks.test.tsx`
+      "o array central de plugins remark está ligado (GFM continua valendo)" — tabela, checklist
+      marcado e `~~riscado~~` continuam saindo depois da troca (o array inline sumiu).
 - [ ] Instalar `mermaid@^11`. Verificação: `npm run build` + `npm run check:bundle` — confirmar que
       o chunk da rota `/notes` **não** cresceu (prova de que o import dinâmico funcionou).
 - [ ] Declarar `mermaid` em `manualChunks` (`vite.config.ts:151`) e adicioná-lo ao `VENDOR_RE` de

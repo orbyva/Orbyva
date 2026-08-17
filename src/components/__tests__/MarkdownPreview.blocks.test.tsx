@@ -68,6 +68,18 @@ describe("MarkdownPreview + registry de blocos", () => {
     expect(screen.getByText("forte").tagName).toBe("STRONG");
   });
 
+  it("o array central de plugins remark está ligado (GFM continua valendo)", () => {
+    render(
+      <MarkdownPreview
+        content={"| a | b |\n| - | - |\n| 1 | 2 |\n\n- [x] feito\n\n~~riscado~~"}
+      />
+    );
+
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByText("riscado").tagName).toBe("DEL");
+  });
+
   it("HTML cru continua não sendo interpretado", () => {
     const { container } = render(
       <MarkdownPreview content={"<img src=x onerror=alert(1)>"} />
