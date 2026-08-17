@@ -23,20 +23,44 @@ export function sanitizeSvgMarkup(svg: string): string {
   const root = doc.body;
   if (!root) return "";
 
+  scrubTree(root);
+
+  return root.innerHTML;
+}
+
+/**
+ * A mesma limpeza, sobre um elemento que já existe — o caso do canvas (feature 058), em que o
+ * `exportToSvg` do Excalidraw devolve um `SVGSVGElement` pronto em vez de uma string.
+ *
+ * Anexar o nó direto é **mais seguro** que serializar e reinserir com `dangerouslySetInnerHTML`:
+ * não há uma segunda passagem de parser entre a limpeza e a tela. A limpeza acontece enquanto o
+ * elemento ainda está **fora do documento**, que é o momento em que ele não tem efeito nenhum.
+ * Modifica no lugar e devolve o mesmo elemento, por conveniência de quem chama.
+ */
+export function sanitizeSvgElement<T extends Element>(svg: T): T {
+  scrubTree(svg);
+  // O nó raiz também é conteúdo: `<svg onload=…>` não seria pego por uma varredura só dos filhos.
+  scrubAttributes(svg);
+  return svg;
+}
+
+function scrubTree(root: Element): void {
   for (const element of Array.from(root.querySelectorAll("*"))) {
     const tag = element.tagName.toLowerCase();
     if (FORBIDDEN_TAGS.has(tag)) {
       element.remove();
       continue;
     }
-    for (const attribute of Array.from(element.attributes)) {
-      if (isDangerousAttribute(attribute.name, attribute.value)) {
-        element.removeAttribute(attribute.name);
-      }
+    scrubAttributes(element);
+  }
+}
+
+function scrubAttributes(element: Element): void {
+  for (const attribute of Array.from(element.attributes)) {
+    if (isDangerousAttribute(attribute.name, attribute.value)) {
+      element.removeAttribute(attribute.name);
     }
   }
-
-  return root.innerHTML;
 }
 
 /**

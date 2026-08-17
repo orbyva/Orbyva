@@ -165,13 +165,30 @@ dentro de uma nota markdown). Independente da 056.
       Verificação: `Notes.flow.test.tsx` (2 testes novos) — numa lista mista sai
       "Canvas · 3 elementos" para o desenho e o excerpt de sempre para a nota de texto, com um
       ícone de cada; canvas sem traço nenhum diz "Canvas vazio" e um traço só usa o singular.
-- [ ] Criar `src/components/markdown/CanvasBlock.tsx`: lê o id do bloco ` ```orbyva-canvas `, busca
-      a nota, renderiza o desenho em modo leitura com `exportToSvg` (também via import dinâmico),
-      anexando o `SVGSVGElement` retornado por `ref` — nunca via `dangerouslySetInnerHTML` — e um
-      link "Abrir canvas". Estado de erro quando o id não existe ou não é do usuário. Registrar
-      como `orbyva-canvas` no `blockRegistry` da 057.
-- [ ] Adicionar no `CanvasEditor` a ação "Copiar referência", que põe na área de transferência o
-      bloco ` ```orbyva-canvas ` já com o id — é o que torna o embed descobrível.
+- [x] Criar `src/components/markdown/CanvasBlock.tsx`: lê o id do bloco ` ```orbyva-canvas `, busca
+      a nota, desenha em modo leitura com `exportToSvg` (import dinâmico), anexa o `SVGSVGElement`
+      por `ref` (`replaceChildren`) — sem `dangerouslySetInnerHTML` — e mostra "Abrir canvas: …".
+      Registrado como `orbyva-canvas` no `blockRegistry` da 057, em 3 linhas, exatamente como o
+      cabeçalho do registry manda.
+      `sanitizeSvg.ts` ganhou `sanitizeSvgElement` (a mesma regra, sobre nó em vez de string), para
+      a limpeza acontecer com o SVG ainda **fora** do documento e sem uma segunda passagem de
+      parser entre limpar e mostrar.
+      Verificação: `CanvasBlock.test.tsx` (9 testes) — o id do fence vira `fetchNote("c1")` e o
+      desenho aparece; `<script>`, `onclick`, `href="javascript:"` e `<foreignObject>` não entram
+      na página e o `<rect>` sobrevive; o link aponta para `/notes/c1`; canvas em branco nem chama
+      o Excalidraw; id inexistente (ou escondido pela RLS) e nota de texto viram caixa `role=alert`;
+      bloco vazio nem vai ao banco; falha ao desenhar **não derruba o resto da nota** (título e
+      parágrafo seguem na tela); e o fence chega ao renderer pelo registry, desembrulhado do
+      `<pre>`. Mais 3 testes de `sanitizeSvgElement` em `sanitizeSvg.test.tsx`, incluindo o `on*`
+      da própria raiz `<svg>` e o nó inserido de verdade na página.
+      `npm run check:bundle` OK: `MarkdownPreview` 50,0 KB gzip (era 48,5) — o Excalidraw **não**
+      entrou junto, só o componente.
+- [x] Adicionar no `CanvasEditor` a ação "Copiar referência", que põe na área de transferência o
+      bloco ` ```orbyva-canvas ` já com o id.
+      Verificação: `CanvasEditor.test.tsx` — clicar no botão escreve exatamente
+      "```orbyva-canvas\nc1\n```\n" no `navigator.clipboard` e o rótulo vira "Copiado"; e
+      `canvasScene.test.ts` afirma que esse fence é reconhecido por `parseBlockLanguage`, ou seja,
+      o que o botão copia é o que o registry sabe desenhar.
 - [ ] Verificação manual do fluxo completo: criar canvas → desenhar → recarregar a página e ver o
       desenho preservado → copiar a referência → colar numa nota markdown → ver o SVG renderizado
       → clicar e chegar no canvas certo.

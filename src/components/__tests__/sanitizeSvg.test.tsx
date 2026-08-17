@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeSvgMarkup } from "@/components/markdown/sanitizeSvg";
+import {
+  sanitizeSvgElement,
+  sanitizeSvgMarkup,
+} from "@/components/markdown/sanitizeSvg";
 
 /** Arquivo `.tsx` só para cair no ambiente jsdom (o sanitizador usa `DOMParser`). */
 describe("sanitizeSvgMarkup", () => {
@@ -72,5 +75,50 @@ describe("sanitizeSvgMarkup", () => {
   it("entrada vazia ou lixo não explode", () => {
     expect(sanitizeSvgMarkup("")).toBe("");
     expect(sanitizeSvgMarkup("<svg><rect>")).toContain("<rect");
+  });
+});
+
+/**
+ * Variante sobre nó pronto — o caso do canvas (058), em que `exportToSvg` devolve um
+ * `SVGSVGElement` e anexá-lo por `ref` dispensa `dangerouslySetInnerHTML`.
+ */
+describe("sanitizeSvgElement", () => {
+  function parseSvg(markup: string): SVGSVGElement {
+    const host = document.createElement("div");
+    host.innerHTML = markup;
+    return host.firstElementChild as SVGSVGElement;
+  }
+
+  it("limpa o nó no lugar e devolve o mesmo elemento", () => {
+    const svg = parseSvg(
+      '<svg onload="alert(0)"><rect onclick="alert(1)"></rect><script>alert(2)</script>' +
+        '<foreignObject><b>html</b></foreignObject><text>fica</text></svg>'
+    );
+
+    const clean = sanitizeSvgElement(svg);
+
+    expect(clean).toBe(svg);
+    // O `on*` da própria raiz também sai — varrer só os filhos deixaria `<svg onload>` passar.
+    expect(clean.getAttribute("onload")).toBeNull();
+    expect(clean.querySelector("script")).toBeNull();
+    expect(clean.querySelector("foreignObject")).toBeNull();
+    expect(clean.querySelector("rect")?.getAttribute("onclick")).toBeNull();
+    expect(clean.querySelector("text")?.textContent).toBe("fica");
+  });
+
+  it("o nó limpo, inserido de verdade na página, não deixa handler nenhum", () => {
+    const svg = sanitizeSvgElement(
+      parseSvg('<svg><a href="javascript:alert(1)"><rect onmouseover="x()"></rect></a></svg>')
+    );
+    document.body.appendChild(svg);
+
+    expect(document.querySelector("rect")?.getAttribute("onmouseover")).toBeNull();
+    expect(document.querySelector("a")?.getAttribute("href")).toBeNull();
+    svg.remove();
+  });
+
+  it("link interno do desenho continua clicável", () => {
+    const svg = sanitizeSvgElement(parseSvg('<svg><a href="/notes/c1"><text>ir</text></a></svg>'));
+    expect(svg.querySelector("a")?.getAttribute("href")).toBe("/notes/c1");
   });
 });

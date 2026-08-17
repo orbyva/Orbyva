@@ -1,6 +1,8 @@
 import type { ComponentType } from "react";
 import { MermaidBlock } from "@/components/markdown/MermaidBlock";
+import { CanvasBlock } from "@/components/markdown/CanvasBlock";
 import { parseBlockLanguage } from "@/domain/notes/blockLanguage";
+import { CANVAS_BLOCK_LANGUAGE } from "@/domain/notes/canvasScene";
 
 /**
  * # Registry de renderers de bloco — os "plugins" do Markdown (feature 057)
@@ -35,6 +37,8 @@ export type BlockRenderer = ComponentType<{ code: string }>;
  */
 export const blockRenderers: Record<string, BlockRenderer> = {
   mermaid: MermaidBlock,
+  // ```orbyva-canvas com o id de uma nota-canvas → o desenho da 058, em modo leitura.
+  [CANVAS_BLOCK_LANGUAGE]: CanvasBlock,
 };
 
 /**
