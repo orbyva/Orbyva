@@ -13,6 +13,7 @@ import { PageShell } from "@/components/PageShell";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { HealthHabitQuickCreateDialog } from "@/pages/admin/habits/HealthHabitQuickCreateDialog";
+import { RecordMetricDialog } from "@/pages/admin/life/RecordMetricDialog";
 import { ConsultationQuickCreateDialog } from "@/pages/admin/tasks/ConsultationQuickCreateDialog";
 import { MedicationQuickCreateDialog } from "@/pages/admin/tasks/MedicationQuickCreateDialog";
 import { fetchHealthHabitsToday, loadHealthSummary } from "@/api/health";
@@ -48,6 +49,7 @@ export default function HealthDashboard() {
   const [medicationDialogOpen, setMedicationDialogOpen] = useState(false);
   const [consultationDialogOpen, setConsultationDialogOpen] = useState(false);
   const [habitDialogOpen, setHabitDialogOpen] = useState(false);
+  const [metricDialogOpen, setMetricDialogOpen] = useState(false);
   const today = useLocalDay();
   const { toast } = useToast();
 
@@ -234,6 +236,16 @@ export default function HealthDashboard() {
           <h2 id="health-progress" className="text-sm font-semibold">
             Progresso
           </h2>
+          {measuredTypes.length > 0 ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setMetricDialogOpen(true)}
+            >
+              Registrar medição
+            </Button>
+          ) : null}
         </header>
 
         {loading ? (
@@ -243,6 +255,11 @@ export default function HealthDashboard() {
             icon={Ruler}
             title="Nenhuma medição registrada"
             description="Registre peso, altura e medidas para acompanhar a evolução ao longo do tempo."
+            action={
+              <Button onClick={() => setMetricDialogOpen(true)}>
+                Registrar medição
+              </Button>
+            }
           />
         ) : (
           <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -375,6 +392,12 @@ export default function HealthDashboard() {
           />
         )}
       </section>
+
+      <RecordMetricDialog
+        open={metricDialogOpen}
+        onOpenChange={setMetricDialogOpen}
+        onRecorded={load}
+      />
 
       <HealthHabitQuickCreateDialog
         open={habitDialogOpen}

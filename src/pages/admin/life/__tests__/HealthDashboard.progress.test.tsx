@@ -1,17 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import HealthDashboard from "@/pages/admin/life/HealthDashboard";
-import type { HealthMetric, MetricType } from "@/types/health";
+import type { HealthMetric, HealthMetricCreateRequest, MetricType } from "@/types/health";
 
 /**
- * Seção "Progresso" do Health Dashboard (feature 063) contra um backend falso em memória. Substitui
- * a verificação manual no navegador (proibida pela skill `next`): estado vazio → card por tipo com
- * valor, data e variação → IMC derivado de peso + altura → IMC ausente quando falta a altura.
+ * Seção "Progresso" do Health Dashboard (feature 063) contra um backend falso em memória — o que o
+ * diálogo grava é a mesma lista que a seção lê, então o que aparece na tela depois vem mesmo do que
+ * foi salvo. Substitui a verificação manual no navegador (proibida pela skill `next`): estado vazio
+ * → registrar peso e altura pelo diálogo → card por tipo com valor, data e variação → IMC derivado
+ * → erro de gravação virando toast.
  */
 
 const { store } = vi.hoisted(() => ({
-  store: { metrics: [] as HealthMetric[] },
+  store: {
+    metrics: [] as HealthMetric[],
+    /** Quando setado, o próximo `recordHealthMetric` estoura — simula falha de rede. */
+    failNextRecord: null as Error | null,
+  },
 }));
 
 vi.mock("@/api/health", () => ({
@@ -22,6 +29,16 @@ vi.mock("@/api/health", () => ({
     reminderPreferences: [],
   })),
   fetchHealthHabitsToday: vi.fn(async () => []),
+  recordHealthMetric: vi.fn(async (input: HealthMetricCreateRequest) => {
+    if (store.failNextRecord) {
+      const error = store.failNextRecord;
+      store.failNextRecord = null;
+      throw error;
+    }
+    const created = { id: `m${store.metrics.length + 100}`, ...input };
+    store.metrics = [created, ...store.metrics];
+    return created;
+  }),
 }));
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
@@ -55,6 +72,7 @@ function progressSection() {
 beforeEach(() => {
   vi.clearAllMocks();
   store.metrics = [];
+  store.failNextRecord = null;
 });
 
 describe("Health Dashboard — seção Progresso", () => {
@@ -132,5 +150,68 @@ describe("Health Dashboard — seção Progresso", () => {
 
     await screen.findByRole("heading", { name: "Progresso", level: 2 });
     expect(within(progressSection()).queryByRole("article", { name: "IMC" })).toBeNull();
+  });
+});
+
+describe("Health Dashboard — registrar medição", () => {
+  it("grava o peso digitado com vírgula e o card aparece com o valor salvo", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Registrar medição" }));
+
+    await user.type(await screen.findByLabelText(/Valor/), "78,4");
+    await user.clear(screen.getByLabelText(/Data/));
+    await user.type(screen.getByLabelText(/Data/), "2026-08-16");
+    await user.click(screen.getByRole("button", { name: "Registrar" }));
+
+    await waitFor(() => expect(store.metrics).toHaveLength(1));
+    // Vírgula do teclado brasileiro chegou ao banco como número, não como string quebrada.
+    expect(store.metrics[0]!.value).toBe(78.4);
+    expect(store.metrics[0]!.metric_type).toBe("weight");
+    expect(store.metrics[0]!.recorded_date).toBe("2026-08-16");
+
+    // E a tela recarregou sozinha mostrando a medição recém-gravada.
+    const peso = within(progressSection()).getByRole("article", { name: "Peso" });
+    expect(within(peso).getByText("78,4 kg")).toBeInTheDocument();
+  });
+
+  it("observação vazia não vira string em branco no banco", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Registrar medição" }));
+    await user.type(await screen.findByLabelText(/Valor/), "84");
+    await user.click(screen.getByRole("button", { name: "Registrar" }));
+
+    await waitFor(() => expect(store.metrics).toHaveLength(1));
+    expect(store.metrics[0]!.notes).toBeNull();
+  });
+
+  it("não deixa registrar sem valor", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Registrar medição" }));
+
+    expect(await screen.findByRole("button", { name: "Registrar" })).toBeDisabled();
+    expect(store.metrics).toHaveLength(0);
+  });
+
+  it("falha ao gravar vira toast de erro e nada entra na lista", async () => {
+    const user = userEvent.setup();
+    store.failNextRecord = new Error("Failed to fetch");
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Registrar medição" }));
+    await user.type(await screen.findByLabelText(/Valor/), "78");
+    await user.click(screen.getByRole("button", { name: "Registrar" }));
+
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Erro", variant: "destructive" })
+      )
+    );
+    expect(store.metrics).toHaveLength(0);
   });
 });
