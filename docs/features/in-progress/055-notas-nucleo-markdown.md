@@ -119,9 +119,12 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
 - [x] Criar `src/domain/notes/__tests__/noteDraft.test.ts` (Vitest) cobrindo: título só-espaços,
       excerpt ignorando linhas de `#`/`-`, excerpt truncando sem cortar palavra no meio.
       Verificação: `npm test`.
-- [ ] Criar `src/api/notes/notes.ts`: `fetchNotes({ projectId? })`, `fetchNote(id)`, `createNote`,
+- [x] Criar `src/api/notes/notes.ts`: `fetchNotes({ projectId? })`, `fetchNote(id)`, `createNote`,
       `updateNote`, `deleteNote` — todas filtrando por `user_id` via `getCurrentUserId()` e
       setando `updated_at` no update, no mesmo formato de `src/api/tasks/projectEvents.ts`.
+      Verificação: `src/api/notes/__tests__/notes-api.test.ts` (12 testes) contra o duplo do query
+      builder de `shopping-api.test.ts` — prova tabela, escopo `user_id`, ordenação, payload
+      normalizado e propagação de erro do PostgREST.
 - [ ] Extrair o markdown de `src/pages/admin/tasks/TaskDescriptionField.tsx` para
       `src/components/MarkdownPreview.tsx` (a constante `MARKDOWN_PREVIEW_CLASS` + o
       `<ReactMarkdown remarkPlugins={[remarkGfm]}>`), e trocar `TaskDescriptionField` para
