@@ -155,7 +155,7 @@ Depende de: 055 (tabela `note`).
       teste de ponta a ponta em `Notes.flow.test.tsx` ("digitar `[[` no editor sugere os títulos"),
       que digita no editor de verdade, confere o popup, aceita com Enter e afirma que o documento
       gravado virou `ver [[Lista de materiais]]`.
-- [ ] Criar migration `supabase/migrations/<TIMESTAMP>_note_links.sql` (timestamp único — conferir
+- [x] Criar migration `supabase/migrations/<TIMESTAMP>_note_links.sql` (timestamp único — conferir
       `ls supabase/migrations/`): tabela `public.note_link` com `id uuid pk`, `user_id uuid not
       null references auth.users(id) on delete cascade`, `note_id uuid not null references
       public.note(id) on delete cascade`, `entity_type text not null`, `entity_id text not null`,
@@ -163,15 +163,27 @@ Depende de: 055 (tabela `note`).
       `check (entity_type in ('project','task','book','movie','album','trip','place','goal','habit','vehicle'))`;
       `unique (note_id, entity_type, entity_id)`; índices `(user_id, note_id)` e
       `(user_id, entity_type, entity_id)` — o segundo serve a consulta reversa.
-- [ ] Na mesma migration: RLS habilitada + 4 policies `note_link_*_own` (`user_id = auth.uid()`),
+      Feito em `supabase/migrations/20260816170000_note_links.sql` (timestamp conferido: o maior em
+      `supabase/migrations/` era `20260816160000`).
+- [x] Na mesma migration: RLS habilitada + 4 policies `note_link_*_own` (`user_id = auth.uid()`),
       `note_link` na lista de `public.wipe_own_data()` e trigger `trg_enforce_app_access` — mesmo
       formato de `20260806130000_project_notes_status_events.sql`.
       **Confirmar com o usuário antes de `supabase db push`.**
-- [ ] Verificação manual pós-`db push` (manual por necessidade: sem Supabase local, e o Vitest deste
+      `note_link` entra no `wipe_own_data` **antes** de `note`, por causa da FK. `db push` não foi
+      rodado (é decisão do usuário — ver a última tarefa).
+- [x] Verificação manual pós-`db push` (manual por necessidade: sem Supabase local, e o Vitest deste
       repo não cobre I/O nem RLS): no SQL editor, tentar inserir em `note_link` um `entity_type`
       fora da lista e confirmar que o `check` rejeita; inserir o mesmo `(note_id, entity_type,
       entity_id)` duas vezes e confirmar que o `unique` rejeita; apagar uma nota e confirmar que os
       `note_link` dela somem junto (`on delete cascade`).
+      Virou harness em Postgres 16 descartável no Docker — `bash supabase/tests/note_links/run.sh`,
+      mesmo formato do `notes_core/` da 055 —, porque a skill `next` proíbe navegador e o `db push`
+      vai para o banco remoto. Rodou inteiro e passou: `check` rejeita `entity_type` fora da lista e
+      aceita os da lista; `unique` barra a duplicata na mesma nota e permite a mesma entidade em
+      outra nota; apagar a nota apaga só os vínculos dela; apagar o usuário apaga só os dele;
+      vínculo órfão é aceito (é o que a referência polimórfica exige); `wipe_own_data` apaga os
+      vínculos do usuário e nenhum alheio; RLS com o papel `authenticated` barra leitura, insert,
+      update e delete alheios; schema, índices, FKs, trigger e reaplicação idempotente conferidos.
 - [ ] Adicionar `NoteLink` e `NoteLinkEntityType` a `src/types/notes.ts`, com o union de tipos
       espelhando exatamente o `check` do banco (é o contrato entre os dois).
 - [ ] Criar `src/api/notes/noteLinks.ts`: `fetchLinksForNote(noteId)`,
