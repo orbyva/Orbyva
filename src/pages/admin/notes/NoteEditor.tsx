@@ -6,6 +6,7 @@ import { FormLabel } from "@/components/FormLabel";
 import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
 import { wikiLinkAutocomplete } from "@/components/codemirror/wikiLinkCompletion";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
+import { NoteLinksPanel } from "@/pages/admin/notes/NoteLinksPanel";
 import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
 import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
@@ -216,6 +217,9 @@ export function NoteEditor({
           onChange={setProjectId}
         />
       </div>
+
+      {/* Vínculo primário (acima) é o projeto; estes são os secundários, com qualquer entidade. */}
+      <NoteLinksPanel noteId={note.id} projects={projects} />
     </div>
   );
 }

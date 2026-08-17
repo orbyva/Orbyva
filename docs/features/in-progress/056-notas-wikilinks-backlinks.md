@@ -200,10 +200,21 @@ Depende de: 055 (tabela `note`).
       Decisão registrada: a consulta reversa faz **duas** consultas porque não há FK para a entidade
       e o join embutido do PostgREST só serviria para a FK existente (`note_id`); e a duplicata fica
       por conta do `unique` do banco, sem checagem prévia que abriria corrida.
-- [ ] Criar `src/pages/admin/notes/NoteLinksPanel.tsx`: no editor, uma seção "Vínculos" listando os
+- [x] Criar `src/pages/admin/notes/NoteLinksPanel.tsx`: no editor, uma seção "Vínculos" listando os
       `note_link` com ícone por tipo, e um seletor (`cmdk`, já no `package.json`) para adicionar —
       reusando `ProjectPicker` quando o tipo for projeto. Mutações com `useToast` +
       `getErrorMessage`.
+      O diálogo de vincular tem duas vias: `ProjectPicker` (projeto, o caso mais comum) e a busca
+      global do Ctrl+K (`searchGlobal`) para meta/livro/viagem/hábito/filme/álbum/lugar/veículo —
+      sem tela de seleção por módulo e sem consulta nova. O rótulo é congelado no vínculo (`label`),
+      então a lista continua legível depois de a entidade sumir. Rota e nome de cada tipo saem de
+      `src/domain/notes/noteLinkTargets.ts` (puro).
+      Verificação: `NoteLinksPanel.test.tsx` (8 testes) — só os vínculos daquela nota aparecem, cada
+      um leva à rota certa (`/goals`, `/travel/t1`, `/tasks/projects/p1`), entidade apagada vira
+      "Referência removida" em vez de sumir, vincular por projeto e pela busca grava com o tipo
+      certo (inclusive o mapa `music` → `album`), lançamento não é oferecido, vincular repetido
+      avisa em vez de gravar duplicado, e remoção que o banco recusa devolve o vínculo à tela com
+      toast destrutivo.
 - [ ] Criar `src/pages/admin/notes/BacklinksPanel.tsx`: lista "Mencionada em" — notas cujo
       `content` contém `[[<título desta nota>]]` (query `ilike` em `src/api/notes/notes.ts`) e
       notas ligadas via `note_link`. `EmptyState` quando não houver nenhuma.
