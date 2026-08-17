@@ -6,6 +6,7 @@ import ProjectDetail from "@/pages/admin/tasks/ProjectDetail";
 import {
   fetchDependencies,
   fetchProjectById,
+  fetchProjectEvents,
   fetchTags,
   fetchTasks,
   updateTask,
@@ -27,12 +28,16 @@ vi.mock("@/api/tasks", () => ({
   fetchTasks: vi.fn(),
   fetchTags: vi.fn(),
   fetchDependencies: vi.fn(),
+  fetchProjectEvents: vi.fn(),
   createTask: vi.fn(),
   updateTask: vi.fn(),
   deleteTask: vi.fn(),
   deleteTasks: vi.fn(),
   createTag: vi.fn(),
   uploadTaskIcon: vi.fn(),
+  updateProject: vi.fn(),
+  createProjectEvent: vi.fn(),
+  deleteProjectEvent: vi.fn(),
 }));
 
 vi.mock("@/api/recurring", () => ({
@@ -55,6 +60,7 @@ const mockedFetchTasks = vi.mocked(fetchTasks);
 const mockedFetchTags = vi.mocked(fetchTags);
 const mockedFetchDependencies = vi.mocked(fetchDependencies);
 const mockedFetchRecurringTransactions = vi.mocked(fetchRecurringTransactions);
+const mockedFetchProjectEvents = vi.mocked(fetchProjectEvents);
 const mockedUpdateTask = vi.mocked(updateTask);
 
 const PROJECT_ID = "project-1";
@@ -88,6 +94,7 @@ async function renderWithTasks(tasks: Task[], project: Project = makeProject()) 
   mockedFetchTags.mockResolvedValue([]);
   mockedFetchDependencies.mockResolvedValue([]);
   mockedFetchRecurringTransactions.mockResolvedValue([]);
+  mockedFetchProjectEvents.mockResolvedValue([]);
 
   const utils = render(
     <MemoryRouter initialEntries={[`/tasks/projects/${PROJECT_ID}`]}>

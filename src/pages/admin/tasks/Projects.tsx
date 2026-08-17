@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
-import { FolderKanban, GripVertical, Pen, Plus, Trash2 } from "lucide-react";
+import { FolderKanban, GripVertical, Pen, Trash2 } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -21,32 +21,14 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import {
-  FormLabel,
-  FORM_DIALOG_CONTENT_CLASS,
-  FORM_FIELDS_CLASS,
-  ICON_EDIT_BUTTON_CLASS,
-} from "@/components/FormLabel";
+import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
+import { ProjectFormDialog, STATUS_LABELS, formatEventDate } from "./ProjectFormDialog";
 import {
   createProject,
   createProjectEvent,
@@ -70,19 +52,9 @@ import type {
 } from "@/types/tasks";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
-import { formatDateTimeBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LabelColorPicker } from "./LabelColorPicker";
-import { TagCombobox } from "./TagCombobox";
 import { TagBadge } from "./TaskViews";
-
-const STATUS_LABELS: Record<ProjectStatus, string> = {
-  planned: "Planejado",
-  active: "Ativo",
-  completed: "Concluído",
-  archived: "Arquivado",
-};
 
 const KANBAN_STATUSES: ProjectStatus[] = ["planned", "active", "completed"];
 
@@ -95,11 +67,6 @@ const emptyProject = (): ProjectCreateRequest => ({
   status: "planned",
   tag_ids: [],
 });
-
-function formatEventDate(iso: string): string {
-  const time = new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  return formatDateTimeBR(iso, time);
-}
 
 function ProjectCard({
   project,
@@ -264,8 +231,6 @@ export default function Projects() {
   const [form, setForm] = useState(emptyProject());
   const [view, setView] = useState<"lista" | "kanban">("lista");
   const [showArchived, setShowArchived] = useState(false);
-  const [eventTitle, setEventTitle] = useState("");
-  const [eventStartsAt, setEventStartsAt] = useState("");
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const { toast } = useToast();
 
@@ -388,8 +353,6 @@ export default function Projects() {
       status: project.status,
       tag_ids: project.tag_ids,
     });
-    setEventTitle("");
-    setEventStartsAt("");
     setOpen(true);
   }
 
@@ -430,17 +393,15 @@ export default function Projects() {
     }
   }
 
-  async function handleAddEvent() {
-    if (!editing || !eventTitle.trim() || !eventStartsAt) return;
+  async function handleAddEvent({ title, startsAt }: { title: string; startsAt: string }) {
+    if (!editing) return;
     try {
       await createProjectEvent({
         project_id: editing.id,
-        title: eventTitle.trim(),
-        starts_at: new Date(eventStartsAt).toISOString(),
+        title,
+        starts_at: new Date(startsAt).toISOString(),
         ends_at: null,
       });
-      setEventTitle("");
-      setEventStartsAt("");
       load();
     } catch (error) {
       toast({
@@ -566,128 +527,19 @@ export default function Projects() {
         </Tabs>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>{editing ? "Editar projeto" : "Novo projeto"}</DialogTitle>
-          </DialogHeader>
-          <div className={FORM_FIELDS_CLASS}>
-            <div>
-              <FormLabel required>Nome</FormLabel>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <FormLabel optional>Descrição</FormLabel>
-              <Input
-                value={form.description ?? ""}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
-            <div>
-              <FormLabel required>Status</FormLabel>
-              <Select
-                value={form.status}
-                onValueChange={(v) => setForm({ ...form, status: v as ProjectStatus })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(STATUS_LABELS).map(([k, l]) => (
-                    <SelectItem key={k} value={k}>
-                      {l}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <FormLabel optional>Cor</FormLabel>
-              <div className="mt-1.5">
-                <LabelColorPicker
-                  color={form.color ?? "#94a3b8"}
-                  onChange={(color) => setForm({ ...form, color })}
-                />
-              </div>
-            </div>
-            <div>
-              <FormLabel optional>Labels</FormLabel>
-              <TagCombobox
-                allTags={tags}
-                selectedIds={form.tag_ids}
-                onChange={(tag_ids) => setForm({ ...form, tag_ids })}
-                onCreateTag={handleCreateTag}
-              />
-            </div>
-            <div>
-              <FormLabel optional>Notas</FormLabel>
-              <textarea
-                className="flex min-h-[64px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                placeholder="Contexto, decisões, links úteis…"
-                value={form.notes ?? ""}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </div>
-
-            {editing && (
-              <div>
-                <FormLabel optional>Eventos (reuniões, horários de trabalho)</FormLabel>
-                <div className="mt-1.5 space-y-1.5">
-                  {(eventsByProject.get(editing.id) ?? []).map((e) => (
-                    <div
-                      key={e.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2 text-xs"
-                    >
-                      <span className="min-w-0 truncate">
-                        {e.title} — {formatEventDate(e.starts_at)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 shrink-0 text-destructive"
-                        onClick={() => handleDeleteEvent(e.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                  <div className="flex gap-1.5">
-                    <Input
-                      placeholder="Título"
-                      value={eventTitle}
-                      onChange={(e) => setEventTitle(e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                    <Input
-                      type="datetime-local"
-                      value={eventStartsAt}
-                      onChange={(e) => setEventStartsAt(e.target.value)}
-                      className="h-8 w-48 text-xs"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={handleAddEvent}
-                      aria-label="Adicionar evento"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <Button onClick={handleSave} className="w-full">
-              {editing ? "Salvar alterações" : "Criar projeto"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ProjectFormDialog
+        open={open}
+        onOpenChange={setOpen}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        tags={tags}
+        onCreateTag={handleCreateTag}
+        events={editing ? (eventsByProject.get(editing.id) ?? []) : []}
+        onSave={handleSave}
+        onAddEvent={handleAddEvent}
+        onDeleteEvent={handleDeleteEvent}
+      />
     </PageShell>
   );
 }

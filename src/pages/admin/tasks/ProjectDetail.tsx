@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ListTodo, Plus, Timer } from "lucide-react";
+import { ArrowLeft, ListTodo, Pen, Plus, Timer } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -48,18 +48,23 @@ import {
 import { TaskFormFields, type TaskFormTab } from "./TaskFormFields";
 import { GanttChart } from "./GanttChart";
 import { formatTimeOfDay } from "./TimeEntryRow";
+import { ProjectFormDialog } from "./ProjectFormDialog";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
+  createProjectEvent,
   createTag,
   createTask,
+  deleteProjectEvent,
   deleteTask,
   deleteTasks,
   fetchDependencies,
   fetchProjectById,
+  fetchProjectEvents,
   fetchTags,
   fetchTasks,
+  updateProject,
   updateTask,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
@@ -85,6 +90,8 @@ import {
 } from "@/domain/tasks/taskDraft";
 import type {
   Project,
+  ProjectCreateRequest,
+  ProjectEvent,
   Tag,
   Task,
   TaskDependency,
@@ -99,6 +106,28 @@ import { useDimensions } from "@/hooks/useDimensions";
 import { getErrorMessage } from "@/lib/errors";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR, formatDateTimeBR } from "@/lib/currency";
+
+const emptyProjectForm = (): ProjectCreateRequest => ({
+  name: "",
+  description: "",
+  color: null,
+  notes: "",
+  goal_id: null,
+  status: "planned",
+  tag_ids: [],
+});
+
+function projectToForm(project: Project): ProjectCreateRequest {
+  return {
+    name: project.name,
+    description: project.description ?? "",
+    color: project.color ?? null,
+    notes: project.notes ?? "",
+    goal_id: project.goal_id ?? null,
+    status: project.status,
+    tag_ids: project.tag_ids,
+  };
+}
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -120,6 +149,9 @@ export default function ProjectDetail() {
   const [statusView, setStatusView] = useState<TaskStatusView>("pending");
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
+  const [projectEvents, setProjectEvents] = useState<ProjectEvent[]>([]);
+  const [editProjectOpen, setEditProjectOpen] = useState(false);
+  const [projectForm, setProjectForm] = useState<ProjectCreateRequest>(emptyProjectForm());
   const { toast } = useToast();
   const { runningEntry, start: startTimer, stop: stopTimer } = useActiveTimer();
 
@@ -150,13 +182,15 @@ export default function ProjectDetail() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [projectData, taskList, dependencyList, tagList, recurringList] = await Promise.all([
-        fetchProjectById(id),
-        fetchTasks(),
-        fetchDependencies(),
-        fetchTags(),
-        fetchRecurringTransactions(),
-      ]);
+      const [projectData, taskList, dependencyList, tagList, recurringList, eventList] =
+        await Promise.all([
+          fetchProjectById(id),
+          fetchTasks(),
+          fetchDependencies(),
+          fetchTags(),
+          fetchRecurringTransactions(),
+          fetchProjectEvents(),
+        ]);
       setProject(projectData);
       const projectTasks = taskList.filter((t) => t.project_id === id);
       frozenDueDatesRef.current = new Map(projectTasks.map((t) => [t.id, t.due_date]));
@@ -164,6 +198,7 @@ export default function ProjectDetail() {
       setDependencies(dependencyList);
       setTags(tagList);
       setRecurrings(recurringList);
+      setProjectEvents(eventList.filter((e) => e.project_id === id));
     } catch (error) {
       toast({
         title: "Erro",
@@ -297,6 +332,60 @@ export default function ProjectDetail() {
     setNewTaskSubtasks([]);
     setFormTab("geral");
     setOpen(true);
+  }
+
+  function openEditProject() {
+    if (!project) return;
+    setProjectForm(projectToForm(project));
+    setEditProjectOpen(true);
+  }
+
+  async function handleSaveProject() {
+    if (!project) return;
+    try {
+      await updateProject({ id: project.id, ...projectForm });
+      toast({ title: "Projeto salvo!", duration: 2000 });
+      setEditProjectOpen(false);
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível salvar o projeto."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleAddProjectEvent({ title, startsAt }: { title: string; startsAt: string }) {
+    if (!project) return;
+    try {
+      await createProjectEvent({
+        project_id: project.id,
+        title,
+        starts_at: new Date(startsAt).toISOString(),
+        ends_at: null,
+      });
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível adicionar o evento."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleDeleteProjectEvent(eventId: string) {
+    try {
+      await deleteProjectEvent(eventId);
+      load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível excluir o evento."),
+        variant: "destructive",
+      });
+    }
   }
 
   async function handleCreateTag(name: string, color: string): Promise<Tag> {
@@ -567,6 +656,12 @@ export default function ProjectDetail() {
       eyebrow="Produtividade"
       actions={
         <>
+          {project && (
+            <Button variant="outline" onClick={openEditProject}>
+              <Pen className="h-4 w-4" />
+              Editar projeto
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link to={`/tasks/live?project=${id}`}>
               <Timer className="h-4 w-4" />
@@ -875,6 +970,22 @@ export default function ProjectDetail() {
           </Button>
         </DialogContent>
       </Dialog>
+
+      {project && (
+        <ProjectFormDialog
+          open={editProjectOpen}
+          onOpenChange={setEditProjectOpen}
+          editing={project}
+          form={projectForm}
+          setForm={setProjectForm}
+          tags={tags}
+          onCreateTag={handleCreateTag}
+          events={projectEvents}
+          onSave={handleSaveProject}
+          onAddEvent={handleAddProjectEvent}
+          onDeleteEvent={handleDeleteProjectEvent}
+        />
+      )}
     </PageShell>
   );
 }

@@ -6,6 +6,7 @@ import ProjectDetail from "@/pages/admin/tasks/ProjectDetail";
 import {
   fetchDependencies,
   fetchProjectById,
+  fetchProjectEvents,
   fetchTags,
   fetchTasks,
 } from "@/api/tasks";
@@ -23,12 +24,16 @@ vi.mock("@/api/tasks", () => ({
   fetchTasks: vi.fn(),
   fetchTags: vi.fn(),
   fetchDependencies: vi.fn(),
+  fetchProjectEvents: vi.fn(),
   createTask: vi.fn(),
   updateTask: vi.fn(),
   deleteTask: vi.fn(),
   deleteTasks: vi.fn(),
   createTag: vi.fn(),
   uploadTaskIcon: vi.fn(),
+  updateProject: vi.fn(),
+  createProjectEvent: vi.fn(),
+  deleteProjectEvent: vi.fn(),
 }));
 
 vi.mock("@/api/recurring", () => ({
@@ -51,6 +56,7 @@ const mockedFetchTasks = vi.mocked(fetchTasks);
 const mockedFetchTags = vi.mocked(fetchTags);
 const mockedFetchDependencies = vi.mocked(fetchDependencies);
 const mockedFetchRecurringTransactions = vi.mocked(fetchRecurringTransactions);
+const mockedFetchProjectEvents = vi.mocked(fetchProjectEvents);
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -81,6 +87,7 @@ async function renderInListaView(tasks: Task[]) {
   mockedFetchTags.mockResolvedValue([]);
   mockedFetchDependencies.mockResolvedValue([]);
   mockedFetchRecurringTransactions.mockResolvedValue([]);
+  mockedFetchProjectEvents.mockResolvedValue([]);
 
   const user = userEvent.setup();
   render(
