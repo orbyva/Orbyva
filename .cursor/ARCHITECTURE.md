@@ -244,6 +244,7 @@ Detalhe de produto/UX por tela: [`README.md`](../README.md) (seção Módulos).
 * Listas de cinema/livros/música: cache em memória (`lib/memoryCache` + `useCachedCatalog`) com revalidação.
 * PWA: `vite-plugin-pwa`; budget de bundle: `npm run check:bundle`.
 * `/llms.txt` estático em `public/llms.txt` (Markdown: H1 + listas com links). O SW não faz fallback da SPA nesse path.
+* `/sitemap.xml` e `/robots.txt` estáticos em `public/` (só rotas públicas; app autenticado fica fora).
 * Proxies Vite/Vercel para mídia externa (CORS + canvas de share): `/spotify-media`, `/caa-media`, `/books-media`, etc. (`vercel.json`).
 
 ---

@@ -11,4 +11,5 @@ App web (PWA) em português. Cadastro em https://orbyva.app/login. Contato: orby
 - [Privacidade](https://orbyva.app/privacy): política de privacidade (LGPD)
 
 ## Optional
+- [Sitemap](https://orbyva.app/sitemap.xml): URLs públicas para indexação
 - [Instagram](https://instagram.com/orbyva): canal @orbyva

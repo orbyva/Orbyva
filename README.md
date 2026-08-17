@@ -90,6 +90,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 - Listas de Cinema/Livros/Música: cache em memória (`memoryCache` + `useCachedCatalog`) com revalidação
 - Bundle budget em `npm run check:bundle`
 - `/llms.txt` (Markdown com H1 + links) para agentes; arquivo estático em `public/`, não a SPA
+- `/sitemap.xml` (páginas públicas) + `/robots.txt`; o SW não faz fallback da SPA nesses paths
 
 ### Backend: Supabase
 
