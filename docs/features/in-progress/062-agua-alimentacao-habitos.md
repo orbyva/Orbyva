@@ -22,7 +22,7 @@ O usuário quer acompanhar ingestão de água e alimentação dentro do cuidado 
 - **Lembretes não entram aqui.** O agendamento de lembrete para água e alimentação é modelado na 063, que trata `reminder_preference` para o sub-módulo inteiro.
 
 ## Tarefas
-- [ ] Criar a migration `supabase/migrations/20260816120200_habit_is_health.sql` adicionando `is_health boolean not null default false` em `public.habit` (a tabela já tem RLS por `user_id`; a coluna não altera as políticas)
+- [x] Criar a migration `supabase/migrations/20260816200000_habit_is_health.sql` adicionando `is_health boolean not null default false` em `public.habit` (a tabela já tem RLS por `user_id`; a coluna não altera as políticas) — validada por `supabase/tests/habit_is_health/run.sh`
 - [ ] Adicionar `is_health?: boolean` ao tipo `Habit` em `src/types/` (arquivo onde `Habit` está declarado hoje) e propagar em `createHabit`/`updateHabit` em `src/api/habits.ts`
 - [ ] Adicionar `fetchHealthHabitsToday(): Promise<{ habit: Habit; doneToday: boolean }[]>` em `src/api/health.ts`, filtrando `habit.is_health = true` e cruzando com `habit_log` da data de hoje
 - [ ] Adicionar a seção "Hoje" ao `HealthDashboard.tsx` (criado na 060): lista dos hábitos de saúde com contador "X de N concluídos" e um botão de check-in por hábito, que grava em `habit_log` e atualiza a lista sem recarregar a página; erros via `useToast` + `getErrorMessage`
@@ -48,4 +48,6 @@ O usuário quer acompanhar ingestão de água e alimentação dentro do cuidado 
 - **`nutrition_log` foi removido do escopo**, junto com `src/api/nutrition.ts` e seus tipos. Motivo registrado nas Decisões: schema sem UI que o alimente é tabela morta em produção. Não é "adiado com schema pronto" — é fora do escopo até existir a feature completa.
 - Um hábito de saúde continua sendo um hábito comum: aparece na página de Hábitos, conta nos insights globais e no `HomeBundle`. `is_health` só decide se ele também aparece no Health Dashboard.
 - `habit_log` é único por (`habit_id`, `date`) — o check-in do dashboard deve fazer upsert, não insert, para não conflitar com um check-in feito pela página de Hábitos no mesmo dia.
-- Migration timestamp `20260816120200`: único, distinto do da 061 (`20260816120100`) e dos escolhidos por 063 e 064.
+- **Desvio do plano (timestamp da migration)**: o refino previa `20260816120200`, mas as migrations já commitadas vão até `20260816190000` (061) — um timestamp anterior entraria fora de ordem na fila de pendentes, erro real que a 061 pegou. A migration desta feature é `20260816200000_habit_is_health.sql`.
+- **Migration validada sem tocar o banco remoto**: `supabase/tests/habit_is_health/` sobe um Postgres 16 descartável em Docker, aplica a migration duas vezes (idempotência) sobre o schema anterior à 062 e roda assertivas de schema, de RLS (incluindo `habit_log`, que não tem `user_id` próprio) e 6 controles negativos que sabotam o banco e exigem que as assertivas acusem. `bash supabase/tests/habit_is_health/run.sh` → `OK`.
+- A migration acrescenta também o índice parcial `habit_user_health_idx on public.habit (user_id) where is_health`, para o dashboard não varrer os hábitos não-saúde.
