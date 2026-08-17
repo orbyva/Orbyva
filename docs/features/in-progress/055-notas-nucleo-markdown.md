@@ -182,6 +182,13 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
       fora do escopo desta feature; `check:bundle` OK, com os chunks da rota em 2,1 KB
       (`NoteDetail`), 1,8 KB (`Notes`), 0,8 KB (`api/notes`) e 0,4 KB (`noteDraft`) contra o teto
       de 160 KB — nenhuma dependência nova, como previsto.
+- [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260816160000_notes_core.sql` no banco
+      remoto (`supabase db push`), junto com as das features 050, 051 e 052. Até lá a tabela `note`
+      não existe no banco real e o módulo de Notas não funciona em produção. Depois de aplicada,
+      conferir no SQL editor que `select count(*) from note where title = 'Notas do projeto'` bate
+      com `select count(*) from project where notes is not null and btrim(notes, E' \t\r\n') <> ''`,
+      e que `project.notes` continua com o conteúdo original — é essa conferência que autoriza o
+      `drop column` da feature 058.
 
 ## Prompts
 
