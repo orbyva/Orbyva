@@ -64,7 +64,7 @@ inteira, como em `computeVirtualOccurrences`).
   não descobrir pelo erro cru do Postgres).
 
 ## Tarefas
-- [ ] Adicionar `toLocalDateTimeInputValue(iso: string): string` e
+- [x] Adicionar `toLocalDateTimeInputValue(iso: string): string` e
   `localDateTimeInputToIso(value: string): string` em `src/lib/dates.ts`, com o mesmo cuidado de fuso
   local de `formatLocalIsoDate` (nada de fatiar `toISOString()`), + casos em
   `src/lib/__tests__/dates.test.ts` (ida e volta preservando hora local, minuto com zero à esquerda,
