@@ -97,11 +97,23 @@ Depende de: 055 (tabela `note`).
       markdownKeymap)])` → 139 KB gzip, `npm run check:bundle` OK (chunk `codemirror` separado,
       rotas `Notes` 1,8 KB e `NoteDetail` 3,1 KB). O `src/test/setup-jsdom.ts` ganhou stub de
       `Range.getClientRects`, que o jsdom não implementa e o CodeMirror chama a cada medição.
-- [ ] Adicionar o *live preview* estilo Obsidian: um `ViewPlugin` com `Decoration.mark` que estiliza
+- [x] Adicionar o *live preview* estilo Obsidian: um `ViewPlugin` com `Decoration.mark` que estiliza
       `**negrito**`/`_itálico_`/`# título` e `Decoration.replace` que esconde os marcadores, exceto
       na linha onde está o cursor. Verificação manual: mover o cursor para dentro de uma palavra em
       negrito e ver os `**` reaparecerem; sair da linha e sumirem. Verificação de que é view-only:
       salvar, recarregar a página e conferir que o conteúdo continua com os `**` no texto.
+      Feito em `src/components/codemirror/livePreview.ts`. As decorações são uma **função pura de
+      `EditorState`** (`buildLivePreviewDecorations`), e o `ViewPlugin` só a chama — foi assim que a
+      verificação manual do navegador virou teste de verdade.
+      Verificação: `src/components/codemirror/__tests__/livePreview.test.ts` (10 testes) afirma
+      quais trechos ganham classe (`cm-md-strong`/`em`/`strike`/`code`, `cm-md-h1..h3`) e quais
+      somem — com o cursor na linha 2, `hidden()` devolve `["**", "**"]`; com o cursor dentro do
+      negrito, devolve `[]`; o `#` some junto com o espaço seguinte; dentro de fence ``` nada é
+      decorado nem escondido. Mais o teste de ponta a ponta em `MarkdownCodeEditor.test.tsx`
+      ("o live preview está ligado"), que monta o editor real, move o cursor com `Ctrl+End` e afirma
+      que os `**` sumiram do DOM **e** continuam no documento — a prova de que é view-only.
+      Ajuste do plano: `CodeMark` só é escondido quando o pai é `InlineCode`; a cerca ``` de bloco
+      continua visível, senão o bloco perderia o limite na tela (descoberto por teste que falhou).
 - [ ] Criar `src/domain/notes/wikiLinks.ts` (exports nomeados, puro): `parseWikiLinks(content)`
       devolvendo `{ title, start, end }[]`, tolerando `[[a]] [[b]]` na mesma linha, ignorando
       ocorrências dentro de bloco de código (``` ... ```) e de código inline.

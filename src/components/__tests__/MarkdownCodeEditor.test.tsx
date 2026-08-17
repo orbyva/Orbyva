@@ -63,6 +63,26 @@ describe("MarkdownCodeEditor", () => {
     expect(doc()).toBe("- item");
   });
 
+  it("o live preview está ligado: formata o trecho e esconde a marcação fora da linha do cursor", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={"**negrito**\nsegunda linha"} />);
+
+    const field = screen.getByRole("textbox", { name: "Conteúdo" });
+    // Com o cursor na linha 1 (posição inicial), a marcação continua à mostra para poder ser
+    // editada — é o comportamento do Obsidian.
+    expect(field.textContent).toContain("**negrito**");
+    expect(field.querySelector(".cm-md-strong")).not.toBeNull();
+
+    await user.click(field);
+    await user.keyboard("{Control>}{End}{/Control}");
+
+    // Cursor na linha 2: os `**` da linha 1 somem da tela…
+    expect(field.textContent).not.toContain("**");
+    expect(field.textContent).toContain("negrito");
+    // …mas continuam no documento. Decoração é camada de view, não edição.
+    expect(doc()).toBe("**negrito**\nsegunda linha");
+  });
+
   it("Shift+Tab não apaga nada quando o caractere anterior não é tab", async () => {
     const user = userEvent.setup();
     render(<Harness initial="texto" />);
