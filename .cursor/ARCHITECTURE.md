@@ -239,9 +239,8 @@ Detalhe de produto/UX por tela: [`README.md`](../README.md) (seção Módulos).
 ## 4. Front: rotas e performance
 
 * Entrada: `main.tsx` → `routes.tsx` (React Router v7 + `createBrowserRouter`).
-* App autenticado atrás de `ProtectedRoute` + `useAuth` (`getSession` local no boot).
-* Landing (`/`) importada de forma estática (FCP/LCP); demais módulos em `React.lazy` + `Suspense`. `AdminLayout` pré-carrega chunks de Entretenimento em idle.
-* Home pública: shell HTML + CSS crítico em `index.html`; preload de `/marketing/hub.webp` só em `/`; fontes latin-only; SW em idle.
+* App autenticado atrás de `AuthRoot` (lazy) + `ProtectedRoute` + `useAuth`.
+* Landing (`/`) sem Supabase no grafo; LCP é o `<img id="boot-lcp">` do HTML (o nó permanece no `#boot`; o React só posiciona com CSS).
 * Listas de cinema/livros/música: cache em memória (`lib/memoryCache` + `useCachedCatalog`) com revalidação.
 * PWA: `vite-plugin-pwa`; budget de bundle: `npm run check:bundle`.
 * Proxies Vite/Vercel para mídia externa (CORS + canvas de share): `/spotify-media`, `/caa-media`, `/books-media`, etc. (`vercel.json`).

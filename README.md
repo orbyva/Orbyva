@@ -84,8 +84,8 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 ### Front: rotas e performance
 
 - `routes.tsx` — React Router v7; app atrás de `ProtectedRoute`
-- Landing (`/`) no grafo estático (sem waterfall de `React.lazy`); demais módulos em lazy
-- First paint da home: shell HTML + CSS crítico; LCP (`/marketing/hub.webp`) com preload e sem `opacity: 0`
+- Landing (`/`) no grafo estático, sem Supabase; LCP é o `<img id="boot-lcp">` do HTML (o nó não é movido — `appendChild` zera o timestamp no Chrome)
+- First paint da home: shell HTML + CSS crítico; `/marketing/hub.webp` em preload
 - Fontes latin-only; PWA registra o SW em idle
 - Listas de Cinema/Livros/Música: cache em memória (`memoryCache` + `useCachedCatalog`) com revalidação
 - Bundle budget em `npm run check:bundle`

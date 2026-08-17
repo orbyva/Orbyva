@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { PhoneScreen } from "@/components/ui/phone-mockups-1-utils/phone-carousel";
 
@@ -70,35 +70,68 @@ function PhoneFrame({
   );
 }
 
-/** Primeiro frame estático: LCP sem esperar o chunk do framer-motion. */
-function HeroPhoneFallback({
-  screen,
-  className,
-}: {
-  screen: PhoneScreen;
-  className?: string;
-}) {
+/**
+ * Não move o #boot-lcp (appendChild zera o timestamp de LCP no Chrome).
+ * Cobre o slot com position:fixed no mesmo nó.
+ */
+function AdoptedLcpPhone({ className }: { className?: string }) {
+  const slotRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const img = document.getElementById("boot-lcp") as HTMLImageElement | null;
+    const slot = slotRef.current;
+    if (!img || !slot) return;
+
+    document.getElementById("boot")?.removeAttribute("hidden");
+    document.getElementById("boot-wordmark")?.setAttribute("hidden", "");
+    img.style.visibility = "visible";
+    img.classList.add("boot-lcp-pinned");
+
+    const place = () => {
+      const r = slot.getBoundingClientRect();
+      img.style.transform = `translate3d(${r.left}px, ${r.top}px, 0)`;
+    };
+
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(slot);
+    window.addEventListener("scroll", place, { passive: true });
+    window.addEventListener("resize", place);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("scroll", place);
+      window.removeEventListener("resize", place);
+      img.classList.remove("boot-lcp-pinned");
+      img.style.transform = "";
+      img.style.visibility = "hidden";
+    };
+  }, []);
+
   return (
     <div className={cn("relative w-full select-none", className)}>
-      <div className="relative mx-auto w-full max-w-[260px] sm:hidden">
-        <div className="pointer-events-none absolute -inset-6 rounded-full bg-sky-500/20 blur-3xl" />
-        <div className="relative z-[1]">
-          <PhoneFrame screen={screen} priority />
-        </div>
-      </div>
-      <div className="relative mx-auto hidden h-[560px] max-w-xl items-center justify-center sm:flex">
-        <div className="pointer-events-none absolute inset-x-[8%] top-1/2 z-0 h-[55%] -translate-y-1/2 rounded-full bg-sky-500/20 blur-3xl" />
-        <div className="relative z-[2] aspect-[9/19] w-[46%] max-w-[240px]">
-          <PhoneFrame screen={screen} priority />
-        </div>
+      <div className="relative mx-auto w-full max-w-[260px]">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -inset-6 rounded-full bg-sky-500/20 blur-3xl"
+        />
+        <div
+          ref={slotRef}
+          data-lcp-slot
+          className="relative z-[1] overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 shadow-[0_25px_60px_-20px_rgba(14,165,233,0.45)] ring-1 ring-white/10"
+          style={{
+            width: "min(260px, 70vw)",
+            aspectRatio: "390 / 843",
+            margin: "0 auto",
+          }}
+        />
       </div>
     </div>
   );
 }
 
 /**
- * Phone Mockups 1 · réplica visual do componente 21st (solaceui):
- * 3 iPhones (centro + peeks) no desktop; 1 phone no mobile (sem corte).
+ * Phone Mockups 1 · réplica visual do componente 21st (solaceui).
+ * Carrossel só após clique — um segundo <img> no load redefiniria o LCP.
  */
 export default function PhoneMockupBasic({
   screens = DEFAULT_SCREENS,
@@ -110,10 +143,28 @@ export default function PhoneMockupBasic({
   intervalMs?: number;
 }) {
   const first = screens[0];
+  const [carousel, setCarousel] = useState(false);
   if (!first) return null;
 
+  if (!carousel) {
+    return (
+      <div className={className}>
+        <AdoptedLcpPhone />
+        <div className="mt-4 flex justify-center">
+          <button
+            type="button"
+            className="text-xs text-zinc-500 underline-offset-4 hover:text-zinc-300 hover:underline"
+            onClick={() => setCarousel(true)}
+          >
+            Ver Finanças e Viagens
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <Suspense fallback={<HeroPhoneFallback screen={first} className={className} />}>
+    <Suspense fallback={<AdoptedLcpPhone className={className} />}>
       <PhoneCarousel
         screens={screens}
         intervalMs={intervalMs}

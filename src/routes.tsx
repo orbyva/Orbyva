@@ -1,13 +1,13 @@
 import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 
-import ProtectedRoute from "./ProtectedRoute";
 import LoadingFallback from "./components/LoadingFallback";
-import { useAuth } from "@/hooks/useAuth";
 import Landing from "./pages/Landing";
 
+const AuthRoot = lazy(() => import("./AuthRoot"));
+const ProtectedRoute = lazy(() => import("./ProtectedRoute"));
 const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
-const Login = lazy(() => import("./pages/admin/Login"));
+const LoginEntry = lazy(() => import("./pages/admin/LoginEntry"));
 const Movies = lazy(() => import("./pages/admin/movies/Movies"));
 const Books = lazy(() => import("./pages/admin/books/Books"));
 const Music = lazy(() => import("./pages/admin/music/Music"));
@@ -34,18 +34,9 @@ const withSuspense = (Component: React.ReactNode) => (
   <Suspense fallback={<LoadingFallback />}>{Component}</Suspense>
 );
 
-/** Não bloqueia o first paint anônimo esperando auth. */
+/** Landing anônima sem AuthProvider no grafo (LCP). */
 function LandingEntry() {
-  const { user, loading } = useAuth();
-  if (!loading && user) return <Navigate to="/home" replace />;
   return <Landing />;
-}
-
-function LoginEntry() {
-  const { user, loading } = useAuth();
-  if (loading) return <LoadingFallback />;
-  if (user) return <Navigate to="/home" replace />;
-  return withSuspense(<Login />);
 }
 
 const OpsConsole = lazy(() => import("./pages/ops/OpsConsole"));
@@ -64,10 +55,6 @@ const router = createBrowserRouter([
     element: <LandingEntry />,
   },
   {
-    path: "/login",
-    element: <LoginEntry />,
-  },
-  {
     path: "/invite/:code",
     element: withSuspense(<InviteAccept />),
   },
@@ -84,14 +71,21 @@ const router = createBrowserRouter([
     element: withSuspense(<PrivacyPage />),
   },
   {
-    element: <ProtectedRoute />,
+    element: withSuspense(<AuthRoot />),
     children: [
       {
-        path: "ops",
-        element: withSuspense(<OpsConsole />),
+        path: "login",
+        element: withSuspense(<LoginEntry />),
       },
       {
-        element: withSuspense(<AdminLayout />),
+        element: withSuspense(<ProtectedRoute />),
+        children: [
+          {
+            path: "ops",
+            element: withSuspense(<OpsConsole />),
+          },
+          {
+            element: withSuspense(<AdminLayout />),
         children: [
           { path: "home", element: <LifeDashboard /> },
           { path: "timeline", element: <Timeline /> },
@@ -126,6 +120,8 @@ const router = createBrowserRouter([
           { path: "books", element: <Books /> },
           { path: "music", element: <Music /> },
           { path: "car", element: <Car /> },
+        ],
+          },
         ],
       },
     ],

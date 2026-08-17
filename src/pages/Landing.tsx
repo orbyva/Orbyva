@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Smartphone, Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandWordmark } from "@/components/BrandWordmark";
@@ -14,7 +14,6 @@ import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
 import { isBillingConfigured } from "@/lib/billing-config";
 import { track } from "@/lib/analytics";
-import { useAuth } from "@/hooks/useAuth";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import { FAQ_JSON_LD } from "@/pages/landing/landingFaqData";
 
@@ -83,7 +82,7 @@ const ROADMAP = [
 const SECTION_IDS = ["controle", "planos"] as const;
 
 export default function Landing() {
-  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   useDocumentMeta({
     title: "Orbyva · Tudo da sua vida em uma só órbita",
     description:
@@ -94,6 +93,7 @@ export default function Landing() {
   });
   const billingLive = isBillingConfigured();
   const [showStickyCta, setShowStickyCta] = useState(false);
+  const [belowFold, setBelowFold] = useState(false);
   const seenSections = useRef(new Set<string>());
 
   useEffect(() => {
@@ -149,8 +149,62 @@ export default function Landing() {
     };
   }, []);
 
-  const ctaTo = !loading && user ? "/home" : "/login?mode=signup";
-  const ctaLabel = !loading && user ? "Abrir app" : "Começar grátis";
+  useEffect(() => {
+    return () => {
+      document.getElementById("boot")?.setAttribute("hidden", "");
+    };
+  }, []);
+
+  useEffect(() => {
+    let idle = 0;
+    let timeout = 0;
+    const show = () => setBelowFold(true);
+    const arm = () => {
+      if (typeof window.requestIdleCallback === "function") {
+        idle = window.requestIdleCallback(show, { timeout: 4000 });
+      } else {
+        timeout = window.setTimeout(show, 1500);
+      }
+    };
+    if (document.readyState === "complete") arm();
+    else window.addEventListener("load", arm, { once: true });
+    return () => {
+      if (idle) window.cancelIdleCallback(idle);
+      if (timeout) window.clearTimeout(timeout);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => {
+      void import("@/lib/supabase").then(({ supabase }) =>
+        supabase.auth.getSession().then(({ data }) => {
+          if (!cancelled && data.session?.user) {
+            navigate("/home", { replace: true });
+          }
+        })
+      );
+    };
+    let idle = 0;
+    let timeout = 0;
+    const arm = () => {
+      if (typeof window.requestIdleCallback === "function") {
+        idle = window.requestIdleCallback(run, { timeout: 4000 });
+      } else {
+        timeout = window.setTimeout(run, 2500);
+      }
+    };
+    if (document.readyState === "complete") arm();
+    else window.addEventListener("load", arm, { once: true });
+    return () => {
+      cancelled = true;
+      if (idle) window.cancelIdleCallback(idle);
+      if (timeout) window.clearTimeout(timeout);
+    };
+  }, [navigate]);
+
+  const ctaTo = "/login?mode=signup";
+  const ctaLabel = "Começar grátis";
   const heroSub = `7 dias grátis · depois Pro ${PLANS.pro.priceLabel}`;
 
   return (
@@ -222,17 +276,19 @@ export default function Landing() {
 
         <LandingTrustMarquee items={TRUST} />
 
-        <Suspense fallback={null}>
-          <LandingCompare />
-          <LandingFeatures />
-          <LandingProof ctaTo={ctaTo} />
-          <LandingPricing
-            ctaTo={ctaTo}
-            ctaLabel={ctaLabel}
-            showPlanCtas
-          />
-          <LandingFaq />
-        </Suspense>
+        {belowFold ? (
+          <Suspense fallback={null}>
+            <LandingCompare />
+            <LandingFeatures />
+            <LandingProof ctaTo={ctaTo} />
+            <LandingPricing
+              ctaTo={ctaTo}
+              ctaLabel={ctaLabel}
+              showPlanCtas
+            />
+            <LandingFaq />
+          </Suspense>
+        ) : null}
 
         <section className="relative mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
           <LandingNeonFrame className="px-6 py-14 text-center sm:px-12">

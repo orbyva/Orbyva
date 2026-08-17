@@ -34,7 +34,7 @@
     <meta name="twitter:description" content="Orçamento, parcelas e lançamentos — com hábitos, metas, viagens e cinema no mesmo app." />
     <meta name="twitter:image" content="https://orbyva.app/marketing/hub.png" />
 
-    <!-- FCP: CSS crítico inline (CSP style-src unsafe-inline). Sem scripts inline — CSP script-src 'self'. -->
+    <!-- FCP/LCP sem JS. Sem scripts inline (CSP script-src 'self'). -->
     <style>
       html, body, #root {
         margin: 0;
@@ -42,9 +42,18 @@
         background: #070b14;
         color: #fafafa;
       }
-      .boot-shell {
+      /* Fora do fluxo: não empurra o React e não zera o LCP (display:none no img). */
+      #boot {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        z-index: 5;
         padding: 1.25rem 1.25rem 0;
+        pointer-events: none;
       }
+      #boot[hidden] { display: none; }
+      #boot-wordmark[hidden] { display: none; }
       .boot-wordmark {
         margin: 0;
         font: 700 1.35rem/1.2 system-ui, -apple-system, sans-serif;
@@ -52,6 +61,23 @@
         text-transform: uppercase;
       }
       .boot-wordmark span { color: #38bdf8; }
+      .boot-lcp {
+        position: fixed;
+        top: 0;
+        left: 0;
+        display: block;
+        width: min(260px, 70vw);
+        height: auto;
+        margin: 0;
+        border-radius: 1.75rem;
+        border: 3px solid #27272a;
+        background: #09090b;
+        transform: translate3d(calc(50vw - min(130px, 35vw)), 4.5rem, 0);
+        will-change: transform;
+      }
+      .boot-lcp.boot-lcp-pinned {
+        border: 0;
+      }
     </style>
     <link
       rel="preload"
@@ -62,11 +88,20 @@
     />
   </head>
   <body>
-    <div id="root">
-      <div class="boot-shell" aria-hidden="true">
-        <p class="boot-wordmark"><span>O</span>RBYV<span>Ʌ</span></p>
-      </div>
+    <div id="boot">
+      <p id="boot-wordmark" class="boot-wordmark"><span>O</span>RBYV<span>Ʌ</span></p>
+      <img
+        id="boot-lcp"
+        class="boot-lcp"
+        src="/marketing/hub.webp"
+        alt="Início: saldo do mês, alertas e resumo do dia"
+        width="390"
+        height="843"
+        fetchpriority="high"
+        decoding="sync"
+      />
     </div>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

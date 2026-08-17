@@ -1,9 +1,8 @@
-import { StrictMode, lazy, Suspense } from "react";
+import { lazy, Suspense, StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AuthProvider } from "@/hooks/useAuth";
 import { track } from "@/lib/analytics";
 import { handleNeedRefresh } from "@/lib/pwaUpdate";
 import "./index.css";
@@ -16,6 +15,10 @@ document.querySelectorAll<HTMLLinkElement>("link[data-boot-css]").forEach((link)
   link.addEventListener("load", apply);
   if (link.sheet) apply();
 });
+
+if (window.location.pathname !== "/") {
+  document.getElementById("boot")?.setAttribute("hidden", "");
+}
 
 const PwaUpdateBanner = lazy(() =>
   import("@/components/PwaUpdateBanner").then((m) => ({
@@ -35,8 +38,8 @@ function afterLoad(fn: () => void) {
   else window.addEventListener("load", run, { once: true });
 }
 
-void import("@/lib/sentry").then(({ initSentry }) => {
-  afterLoad(initSentry);
+void afterLoad(() => {
+  void import("@/lib/sentry").then(({ initSentry }) => initSentry());
 });
 
 afterLoad(() => track("app_boot"));
@@ -88,15 +91,24 @@ afterLoad(() => {
   });
 });
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <AuthProvider>
+function Root() {
+  const [banner, setBanner] = useState(false);
+  useEffect(() => {
+    afterLoad(() => setBanner(true));
+  }, []);
+
+  return (
+    <StrictMode>
+      <ErrorBoundary>
         <AppRouter />
-        <Suspense fallback={null}>
-          <PwaUpdateBanner />
-        </Suspense>
-      </AuthProvider>
-    </ErrorBoundary>
-  </StrictMode>
-);
+        {banner ? (
+          <Suspense fallback={null}>
+            <PwaUpdateBanner />
+          </Suspense>
+        ) : null}
+      </ErrorBoundary>
+    </StrictMode>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(<Root />);
