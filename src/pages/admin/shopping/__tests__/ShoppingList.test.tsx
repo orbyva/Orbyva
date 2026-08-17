@@ -1,14 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import ShoppingList from "@/pages/admin/shopping/ShoppingList";
 import {
   deleteShoppingCategory,
   fetchShoppingCategories,
 } from "@/api/shopping/categories";
 import {
+  createTaskFromShoppingItem,
   deleteShoppingItem,
   fetchShoppingItems,
+  fetchTaskLinksForItems,
   setShoppingItemStatus,
 } from "@/api/shopping/items";
 import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
@@ -26,6 +29,8 @@ vi.mock("@/api/shopping/items", () => ({
   updateShoppingItem: vi.fn(),
   deleteShoppingItem: vi.fn(),
   setShoppingItemStatus: vi.fn(),
+  fetchTaskLinksForItems: vi.fn(),
+  createTaskFromShoppingItem: vi.fn(),
 }));
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
@@ -39,6 +44,8 @@ const mockedFetchItems = vi.mocked(fetchShoppingItems);
 const mockedDeleteCategory = vi.mocked(deleteShoppingCategory);
 const mockedDeleteItem = vi.mocked(deleteShoppingItem);
 const mockedSetStatus = vi.mocked(setShoppingItemStatus);
+const mockedFetchTaskLinks = vi.mocked(fetchTaskLinksForItems);
+const mockedCreateTask = vi.mocked(createTaskFromShoppingItem);
 
 const categories: ShoppingCategory[] = [
   { id: "c1", name: "Mercado", color: "#22c55e" },
@@ -61,6 +68,7 @@ beforeEach(() => {
   mockedDeleteCategory.mockResolvedValue(undefined);
   mockedDeleteItem.mockResolvedValue(undefined);
   mockedSetStatus.mockResolvedValue(undefined);
+  mockedFetchTaskLinks.mockResolvedValue(new Map());
 });
 
 function sectionFor(name: string): HTMLElement {
@@ -236,5 +244,94 @@ describe("ShoppingList", () => {
         expect.objectContaining({ variant: "destructive" })
       )
     );
+  });
+});
+
+/**
+ * Feature 051: descobrir "quais itens já têm tarefa" custa **uma** consulta por carregamento da
+ * página, não uma por item. Substitui a conferência na aba Network do navegador que a tarefa
+ * original pedia (navegador está fora deste fluxo).
+ */
+describe("ShoppingList — carregamento dos vínculos com tarefas", () => {
+  it("faz UMA chamada de vínculos por carregamento, com todos os ids, mesmo com 60 itens", async () => {
+    const many = Array.from({ length: 60 }, (_, i) =>
+      item(`i${i}`, i % 2 === 0 ? "c1" : "c2", `Item ${i}`)
+    );
+    mockedFetchItems.mockResolvedValue(many);
+    render(
+      <MemoryRouter>
+        <ShoppingList />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Item 59");
+    expect(mockedFetchTaskLinks).toHaveBeenCalledTimes(1);
+    expect(mockedFetchTaskLinks).toHaveBeenCalledWith(many.map((it) => it.id));
+    // 60 itens ⇒ 3 requisições no total (categorias, itens, vínculos) — nada de N+1.
+    expect(mockedFetchCategories).toHaveBeenCalledTimes(1);
+    expect(mockedFetchItems).toHaveBeenCalledTimes(1);
+  });
+
+  it("lista sem item nenhum ainda chama os vínculos uma vez, com lista vazia", async () => {
+    mockedFetchItems.mockResolvedValue([]);
+    render(
+      <MemoryRouter>
+        <ShoppingList />
+      </MemoryRouter>
+    );
+
+    await screen.findByRole("heading", { name: "Mercado" });
+    expect(mockedFetchTaskLinks).toHaveBeenCalledTimes(1);
+    expect(mockedFetchTaskLinks).toHaveBeenCalledWith([]);
+  });
+
+  it("repassa o vínculo para a linha certa: item com tarefa mostra o atalho, o outro mostra 'Criar tarefa'", async () => {
+    mockedFetchItems.mockResolvedValue([
+      item("i1", "c1", "Arroz"),
+      item("i2", "c1", "Feijão"),
+    ]);
+    mockedFetchTaskLinks.mockResolvedValue(
+      new Map([["i1", { taskId: "t1", title: "Comprar Arroz", status: "todo" as const }]])
+    );
+    render(
+      <MemoryRouter>
+        <ShoppingList />
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByRole("link", { name: 'Ver tarefa "Comprar Arroz"' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Criar tarefa para Arroz" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Criar tarefa para Feijão" })
+    ).toBeInTheDocument();
+  });
+
+  it("criar a tarefa de um item troca o botão pelo atalho sem refazer os fetches da página", async () => {
+    const user = userEvent.setup();
+    mockedFetchItems.mockResolvedValue([item("i1", "c1", "Arroz")]);
+    mockedCreateTask.mockResolvedValue({
+      id: "t1",
+      title: "Comprar Arroz",
+      status: "todo",
+    } as never);
+    render(
+      <MemoryRouter>
+        <ShoppingList />
+      </MemoryRouter>
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Criar tarefa para Arroz" })
+    );
+
+    expect(
+      await screen.findByRole("link", { name: 'Ver tarefa "Comprar Arroz"' })
+    ).toBeInTheDocument();
+    expect(mockedFetchTaskLinks).toHaveBeenCalledTimes(1);
+    expect(mockedFetchItems).toHaveBeenCalledTimes(1);
   });
 });

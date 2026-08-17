@@ -62,6 +62,10 @@ vi.mock("@/api/shopping/items", () => ({
     const target = store.items.find((i) => i.id === id);
     if (target) target.status = status;
   }),
+  // Feature 051: nenhum item deste fluxo tem tarefa; o vínculo em si é coberto por
+  // `ShoppingList.task-link.flow.test.tsx`, que roda contra um backend falso de Supabase.
+  fetchTaskLinksForItems: vi.fn(async () => new Map()),
+  createTaskFromShoppingItem: vi.fn(),
 }));
 
 // `toast` precisa ter identidade estável: o `load` da página é um `useCallback([toast])`, então

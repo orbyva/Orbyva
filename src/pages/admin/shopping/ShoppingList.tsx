@@ -11,7 +11,12 @@ import {
   deleteShoppingCategory,
   fetchShoppingCategories,
 } from "@/api/shopping/categories";
-import { deleteShoppingItem, fetchShoppingItems } from "@/api/shopping/items";
+import {
+  deleteShoppingItem,
+  fetchShoppingItems,
+  fetchTaskLinksForItems,
+} from "@/api/shopping/items";
+import type { ShoppingItemTaskLink } from "@/api/shopping/items";
 import {
   countPendingByCategory,
   groupItemsByCategory,
@@ -36,6 +41,10 @@ function categoryDeleteDescription(itemCount: number): string {
 export default function ShoppingList() {
   const [categories, setCategories] = useState<ShoppingCategory[]>([]);
   const [items, setItems] = useState<ShoppingItem[]>([]);
+  /** Quais itens já viraram tarefa — carregado numa consulta só por load, nunca por item. */
+  const [taskLinks, setTaskLinks] = useState<Map<string, ShoppingItemTaskLink>>(
+    new Map()
+  );
   const [loading, setLoading] = useState(true);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] =
@@ -55,6 +64,9 @@ export default function ShoppingList() {
       ]);
       setCategories(categoryList);
       setItems(itemList);
+      // Uma única consulta `in (<ids da página>)` para descobrir quais itens já têm tarefa —
+      // não uma por linha (ver Decisões da feature 051).
+      setTaskLinks(await fetchTaskLinksForItems(itemList.map((item) => item.id)));
     } catch (error) {
       toast({
         title: "Erro",
@@ -108,6 +120,21 @@ export default function ShoppingList() {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status } : item))
     );
+    // A API já sincronizou a tarefa vinculada; aqui só refletimos isso no que a tela mostra.
+    setTaskLinks((prev) => {
+      const link = prev.get(id);
+      if (!link) return prev;
+      const next = new Map(prev);
+      next.set(id, {
+        ...link,
+        status: status === "purchased" ? "done" : "todo",
+      });
+      return next;
+    });
+  }
+
+  function handleTaskCreated(itemId: string, link: ShoppingItemTaskLink) {
+    setTaskLinks((prev) => new Map(prev).set(itemId, link));
   }
 
   async function handleDeleteCategory(id: string) {
@@ -250,7 +277,9 @@ export default function ShoppingList() {
                     <ShoppingItemRow
                       key={item.id}
                       item={item}
+                      taskLink={taskLinks.get(item.id) ?? null}
                       onStatusChange={handleStatusChange}
+                      onTaskCreated={handleTaskCreated}
                       onEdit={() => openEditItem(item)}
                       onDelete={() => handleDeleteItem(item.id)}
                     />
