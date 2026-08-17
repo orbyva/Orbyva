@@ -159,10 +159,12 @@ describe("loadHealthSummary", () => {
     expect(query.limit).toBe(1);
   });
 
-  it("sem nada agendado, o resumo vem com os dois campos nulos", async () => {
+  it("sem nada agendado, o resumo vem com os campos vazios", async () => {
     expect(await loadHealthSummary()).toEqual({
       nextMedicationDose: null,
       nextConsultation: null,
+      latestMetrics: [],
+      reminderPreferences: [],
     });
   });
 

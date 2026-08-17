@@ -48,7 +48,15 @@ export async function loadHealthSummary(): Promise<HealthSummary> {
     fetchNextPendingTask(userId, "is_consultation", today),
   ]);
 
-  return { nextMedicationDose, nextConsultation };
+  // Métricas e preferências entram na tarefa seguinte da 063 (`fetchHealthMetrics` /
+  // `fetchReminderPreferences`); por ora o resumo declara os campos vazios para o contrato de
+  // `HealthSummary` valer desde já.
+  return {
+    nextMedicationDose,
+    nextConsultation,
+    latestMetrics: [],
+    reminderPreferences: [],
+  };
 }
 
 /**

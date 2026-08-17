@@ -29,6 +29,8 @@ beforeEach(() => {
   vi.mocked(loadHealthSummary).mockResolvedValue({
     nextMedicationDose: null,
     nextConsultation: null,
+    latestMetrics: [],
+    reminderPreferences: [],
   });
 });
 
