@@ -1,3 +1,4 @@
+import { stripMarkdown } from "@/lib/markdown";
 import type { NoteDraft } from "@/types/notes";
 
 /** Título de nota sem nome — a coluna é `not null`, então nunca sobra vazio. */
@@ -30,39 +31,20 @@ function isStructuralLine(line: string): boolean {
   );
 }
 
-/** Tira a marcação de bloco (lista, citação, checklist) do começo da linha. */
-function stripBlockMarkers(line: string): string {
-  return line
-    .replace(/^\s*>\s?/, "")
-    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
-    .replace(/^\[[ xX]\]\s*/, "");
-}
-
-/** Tira a marcação inline (ênfase, código, link, imagem) sem perder o texto. */
-function stripInlineMarkup(text: string): string {
-  return text
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/`([^`]*)`/g, "$1")
-    .replace(/(\*\*|__)(.*?)\1/g, "$2")
-    .replace(/(\*|_)(.*?)\1/g, "$2")
-    .replace(/~~(.*?)~~/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 /**
  * Resumo de uma linha para o card da lista: a primeira linha que tem conteúdo de verdade, sem
  * marcação, cortada em `max` sem partir palavra ao meio (com `…` quando cortou).
  *
  * Linhas estruturais (régua, cerca de código, título) são puladas — o card já mostra o título da
- * nota ao lado, então repetir o `# Título` do corpo não informa nada.
+ * nota ao lado, então repetir o `# Título` do corpo não informa nada. A limpeza da marcação em si
+ * é o `stripMarkdown` que o app já usa em outros cards; o que este acrescenta é escolher a linha e
+ * truncar em limite de palavra.
  */
 export function noteExcerpt(content: string, max = 140): string {
   for (const rawLine of content.split("\n")) {
     const line = rawLine.trim();
     if (!line || isStructuralLine(line)) continue;
-    const text = stripInlineMarkup(stripBlockMarkers(line));
+    const text = stripMarkdown(line);
     if (!text) continue;
     return truncateOnWord(text, max);
   }

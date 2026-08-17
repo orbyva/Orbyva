@@ -42,6 +42,8 @@ const TasksLive = lazy(() => import("./pages/admin/tasks/Live"));
 const TasksAgenda = lazy(() => import("./pages/admin/tasks/AgendaCalendar"));
 const TasksTags = lazy(() => import("./pages/admin/tasks/Tags"));
 const ShoppingList = lazy(() => import("./pages/admin/shopping/ShoppingList"));
+const Notes = lazy(() => import("./pages/admin/notes/Notes"));
+const NoteDetail = lazy(() => import("./pages/admin/notes/NoteDetail"));
 
 const withSuspense = (Component: React.ReactNode) => (
   <Suspense fallback={<LoadingFallback />}>{Component}</Suspense>
@@ -141,6 +143,14 @@ export const appRoutes: RouteObject[] = [
           },
 
           { path: "shopping-list", element: <ShoppingList /> },
+
+          {
+            path: "notes",
+            children: [
+              { index: true, element: <Notes /> },
+              { path: ":id", element: <NoteDetail /> },
+            ],
+          },
 
           {
             path: "finance",

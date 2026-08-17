@@ -90,6 +90,7 @@ const NAV_PRODUTIVIDADE: NavItem = {
   items: [
     { title: "Tarefas", url: "/tasks" },
     { title: "Projetos", url: "/tasks/projects" },
+    { title: "Notas", url: "/notes" },
     { title: "Lista de Compras", url: "/shopping-list" },
   ],
 }

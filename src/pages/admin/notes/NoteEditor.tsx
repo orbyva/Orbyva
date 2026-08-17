@@ -1,0 +1,189 @@
+import { useEffect, useRef, useState } from "react";
+import { Check, CircleAlert, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FormLabel } from "@/components/FormLabel";
+import { MarkdownPreview } from "@/components/MarkdownPreview";
+import { MarkdownTextarea } from "@/components/MarkdownTextarea";
+import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
+import { updateNote } from "@/api/notes/notes";
+import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
+import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
+import type { Note } from "@/types/notes";
+import type { Project } from "@/types/tasks";
+
+/** Janela do autosave. Curta o bastante para não perder nada, longa para não gravar por tecla. */
+export const NOTE_AUTOSAVE_DEBOUNCE_MS = 800;
+
+type SaveState = "idle" | "saving" | "saved" | "error";
+
+const SAVE_LABEL: Record<SaveState, string> = {
+  idle: "",
+  saving: "Salvando…",
+  saved: "Salvo",
+  error: "Não salvo",
+};
+
+function SaveIndicator({ state }: { state: SaveState }) {
+  if (state === "idle") return null;
+  const Icon =
+    state === "saving" ? Loader2 : state === "saved" ? Check : CircleAlert;
+  return (
+    <p
+      role="status"
+      aria-live="polite"
+      className={
+        state === "error"
+          ? "flex items-center gap-1.5 text-xs text-destructive"
+          : "flex items-center gap-1.5 text-xs text-muted-foreground"
+      }
+    >
+      <Icon
+        aria-hidden="true"
+        className={state === "saving" ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"}
+      />
+      {SAVE_LABEL[state]}
+    </p>
+  );
+}
+
+/**
+ * Editor de uma nota: título, corpo em Markdown cru (abas Escrever/Visualizar) e o vínculo com um
+ * projeto.
+ *
+ * **Autosave com debounce, sem botão Salvar.** Nota é texto longo — depender de um clique é como se
+ * perde conteúdo. Cada alteração reagenda a gravação em `debounceMs`; só o último estado vai para o
+ * banco. O `useToast` aparece só no erro: um toast por tecla seria ruído (ver Decisões da 055).
+ */
+export function NoteEditor({
+  note,
+  projects,
+  onSaved,
+  debounceMs = NOTE_AUTOSAVE_DEBOUNCE_MS,
+}: {
+  note: Note;
+  projects: Project[];
+  /** Avisa a página de cima do estado recém-gravado (para o título do header acompanhar). */
+  onSaved?: (note: Note) => void;
+  debounceMs?: number;
+}) {
+  const [title, setTitle] = useState(note.title);
+  const [content, setContent] = useState(note.content);
+  const [projectId, setProjectId] = useState<string | null>(note.project_id);
+  const [tab, setTab] = useState<"write" | "preview">("write");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const { toast } = useToast();
+
+  /**
+   * Trocar de nota recarrega os campos — e não pode disparar autosave, senão abrir uma nota já
+   * gravaria por cima dela. O `skipNextSave` cobre tanto a montagem quanto essa troca.
+   *
+   * A dependência é só `note.id`, de propósito: a página de cima reflete cada gravação no objeto
+   * `note`, então depender do conteúdo faria a nota salva sobrescrever o que o usuário digitou
+   * durante a gravação — e, junto do efeito de autosave abaixo, viraria um laço infinito.
+   */
+  const skipNextSave = useRef(true);
+  useEffect(() => {
+    skipNextSave.current = true;
+    setTitle(note.title);
+    setContent(note.content);
+    setProjectId(note.project_id);
+    setSaveState("idle");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.id]);
+
+  /**
+   * O que gravar fica num ref, não nas dependências do efeito de debounce: só alteração do usuário
+   * pode reagendar a gravação, nunca a identidade nova de `note`/`onSaved` vinda do re-render.
+   */
+  const saveRef = useRef<() => Promise<void>>(async () => {});
+  saveRef.current = async () => {
+    setSaveState("saving");
+    try {
+      await updateNote({ id: note.id, title, content, project_id: projectId });
+      setSaveState("saved");
+      onSaved?.({ ...note, title, content, project_id: projectId });
+    } catch (error) {
+      setSaveState("error");
+      toast({
+        variant: "destructive",
+        title: "Não foi possível salvar a nota",
+        description: getErrorMessage(error),
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (skipNextSave.current) {
+      skipNextSave.current = false;
+      return;
+    }
+    // "Salvando…" já na tecla: o usuário vê que a alteração foi registrada antes do debounce virar.
+    setSaveState("saving");
+    const timer = setTimeout(() => void saveRef.current(), debounceMs);
+    return () => clearTimeout(timer);
+  }, [title, content, projectId, debounceMs]);
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <FormLabel htmlFor="note-title">Título</FormLabel>
+          <SaveIndicator state={saveState} />
+        </div>
+        <Input
+          id="note-title"
+          value={title}
+          maxLength={NOTE_TITLE_MAX}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Título da nota"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <FormLabel>Conteúdo</FormLabel>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v === "preview" ? "preview" : "write")}
+        >
+          <TabsList className="h-8">
+            <TabsTrigger value="write" className="text-xs">
+              Escrever
+            </TabsTrigger>
+            <TabsTrigger value="preview" className="text-xs">
+              Visualizar
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="write" className="mt-1.5">
+            <MarkdownTextarea
+              aria-label="Conteúdo"
+              value={content}
+              onChange={setContent}
+              className="min-h-[45vh] font-mono text-[13px] leading-relaxed"
+              placeholder="Markdown na veia — # títulos, listas, **negrito**, tabelas, checklist…"
+            />
+          </TabsContent>
+          <TabsContent value="preview" className="mt-1.5 rounded-md border px-3 py-2">
+            {content.trim() ? (
+              <MarkdownPreview content={content} className="min-h-[45vh]" />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Nada para visualizar ainda.
+              </p>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <div className="space-y-1.5">
+        <FormLabel>Projeto</FormLabel>
+        <ProjectPicker
+          projects={projects}
+          value={projectId}
+          onChange={setProjectId}
+        />
+      </div>
+    </div>
+  );
+}
