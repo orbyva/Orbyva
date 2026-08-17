@@ -73,7 +73,7 @@ inteira, como em `computeVirtualOccurrences`).
   endsAt })` devolvendo `{ ok: true } | { ok: false; reason: "title" | "starts" | "ends" }`, e cobrir
   em `src/domain/tasks/__tests__/events.test.ts`: título vazio/só espaços, início ausente, fim
   anterior ao início, fim igual ao início, fim vazio (válido), tudo preenchido (válido)
-- [ ] Criar `src/pages/admin/tasks/TaskPicker.tsx`: `Input` de busca + lista rolável com
+- [x] Criar `src/pages/admin/tasks/TaskPicker.tsx`: `Input` de busca + lista rolável com
   `role="listbox"` espelhando `ProjectPicker.tsx`, opção "Sem tarefa", filtro por título
   case-insensitive, teto de itens renderizados e rótulo do projeto da tarefa como texto secundário
 - [ ] Criar `src/pages/admin/tasks/EventFormDialog.tsx` com os campos Título/Início/Fim e as props
@@ -127,3 +127,7 @@ inteira, como em `computeVirtualOccurrences`).
 ## Prompts
 
 ## Notas
+- `src/pages/admin/tasks/__tests__/TaskPicker.test.tsx` não estava no plano, mas entrou junto com o
+  componente: a verificação é só por código (sem navegador) e o `EventFormDialog.test.tsx` previsto
+  cobre a escolha do vínculo, não o que é específico do picker — busca case-insensitive, teto de 50
+  itens com o aviso de quantos ficaram de fora e o nome do projeto como texto secundário.
