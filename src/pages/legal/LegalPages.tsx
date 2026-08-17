@@ -185,7 +185,7 @@ export function PrivacyPage() {
             "Supabase, autenticação, banco de dados e storage",
             "Google, login OAuth; opcionalmente Books, Places, Routes e Weather via Edge Functions",
             "Stripe, pagamentos do plano Pro (quando ativo)",
-            "Resend, e-mails (auth, welcome, waitlist etc., quando configurado)",
+            "Resend, e-mails (auth, welcome, lifecycle etc., quando configurado)",
             "Spotify / MusicBrainz, catálogo de música via Edge (sem login Spotify da sua conta)",
             "TMDB / OMDb, catálogo de cinema (quando configurado)",
             "Sentry, monitoramento de erros (quando configurado)",

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { PublicPageShell } from "@/components/PublicPageShell";
 import { LandingAtmosphere } from "@/components/landing/LandingAtmosphere";
@@ -10,7 +10,6 @@ import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import {
   CABE_NO_MES_PATH,
   CABE_NO_MES_TITLE,
-  CABE_NO_MES_WAITLIST_SOURCE,
   cabeNoMesShareText,
   evaluateCabeNoMes,
   type CabeNoMesResult,
@@ -70,11 +69,6 @@ export function QuantoAindaCabePage() {
   const [income, setIncome] = useState<number | "">("");
   const [bills, setBills] = useState<number | "">("");
   const [purchase, setPurchase] = useState<number | "">("");
-  const [email, setEmail] = useState("");
-  const [honeypot, setHoneypot] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [emailDone, setEmailDone] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
 
   const result = useMemo(
     () =>
@@ -94,31 +88,6 @@ export function QuantoAindaCabePage() {
     if (!result) return;
     track("cabe_no_mes_result", { verdict: result.verdict });
   }, [result?.verdict]);
-
-  async function onEmailSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!result || emailDone || submitting) return;
-    setEmailError(null);
-
-    if (honeypot.trim()) {
-      setEmailDone(true);
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const { joinWaitlist } = await import("@/api/waitlist");
-      await joinWaitlist(email, CABE_NO_MES_WAITLIST_SOURCE);
-      setEmailDone(true);
-      track("cabe_no_mes_email", { verdict: result.verdict });
-    } catch (err) {
-      setEmailError(
-        err instanceof Error ? err.message : "Não deu para guardar o e-mail."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   async function onShare() {
     if (!result) return;
@@ -254,72 +223,20 @@ export function QuantoAindaCabePage() {
 
         {result ? (
           <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-6 sm:px-6">
-            {emailDone ? (
-              <div>
-                <p className="font-display text-lg font-semibold text-zinc-100">
-                  Combinado. A sequência começa em breve.
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                  Três toques curtos sobre o restante do mês e o convite ao
-                  teste. No app, esse número atualiza sozinho.
-                </p>
-                <Link
-                  to="/login?mode=signup"
-                  onClick={() => track("cabe_no_mes_cta_trial")}
-                  className="mt-5 inline-flex h-10 items-center rounded-full bg-sky-400 px-5 text-sm font-semibold text-sky-950 hover:bg-sky-300"
-                >
-                  Começar {PLANS.free.priceLabel}
-                </Link>
-              </div>
-            ) : (
-              <form onSubmit={(e) => void onEmailSubmit(e)}>
-                <p className="font-display text-lg font-semibold text-zinc-100">
-                  Quer o próximo passo no e-mail?
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                  Três e-mails curtos, sem spam. Não guardamos os valores que
-                  você digitou, só o e-mail.{" "}
-                  <Link to="/privacy" className="text-zinc-300 underline-offset-2 hover:underline">
-                    Privacidade
-                  </Link>
-                  .
-                </p>
-                <label htmlFor="website" className="sr-only">
-                  Site
-                </label>
-                <input
-                  id="website"
-                  name="website"
-                  tabIndex={-1}
-                  autoComplete="off"
-                  value={honeypot}
-                  onChange={(e) => setHoneypot(e.target.value)}
-                  className="absolute -left-[9999px] h-0 w-0 opacity-0"
-                />
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                  <input
-                    id="email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
-                    autoComplete="email"
-                    className="h-11 flex-1 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400/40"
-                  />
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-sky-400 px-5 text-sm font-semibold text-sky-950 hover:bg-sky-300 disabled:opacity-60"
-                  >
-                    {submitting ? "Enviando…" : "Mandar no e-mail"}
-                  </button>
-                </div>
-                {emailError ? (
-                  <p className="mt-2 text-sm text-rose-300">{emailError}</p>
-                ) : null}
-              </form>
-            )}
+            <p className="font-display text-lg font-semibold text-zinc-100">
+              Quer esse número vivo no app?
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              No Orbyva o restante atualiza com os lançamentos.{" "}
+              {PLANS.free.priceLabel}, sem cartão.
+            </p>
+            <Link
+              to="/login?mode=signup"
+              onClick={() => track("cabe_no_mes_cta_trial")}
+              className="mt-5 inline-flex h-10 items-center rounded-full bg-sky-400 px-5 text-sm font-semibold text-sky-950 hover:bg-sky-300"
+            >
+              Começar {PLANS.free.priceLabel}
+            </Link>
           </section>
         ) : null}
 

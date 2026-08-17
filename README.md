@@ -128,7 +128,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 /supabase
   ├─ migrations/        Schema / RLS / seeds (fonte da verdade)
   ├─ config.toml
-  └─ functions/         stripe-*, spotify-catalog, places-catalog, e-mails, waitlist…
+  └─ functions/         stripe-*, spotify-catalog, places-catalog, e-mails…
 /src
   ├─ api/               Cliente Supabase por domínio
   ├─ domain/            Regras puras + testes
@@ -296,7 +296,7 @@ Console em `/ops` (fora do menu): conceder Pro / estender teste. Requer migratio
 | `lifecycle-email` | Welcome (fallback), trial, nudges (cron + `CRON_SECRET`) |
 | `retention-d7-email` | Retorno D7 |
 | `weekly-digest-email` | Digest semanal |
-| `habit-reminder-email` / `trip-invite-email` / `waitlist-email` | Produto / growth |
+| `habit-reminder-email` / `trip-invite-email` | Produto / growth |
 
 Secrets comuns: `RESEND_API_KEY`, `RESEND_FROM`, `SITE_URL`, `CRON_SECRET`. Preferências na Conta.
 

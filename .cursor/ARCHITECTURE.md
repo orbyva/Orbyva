@@ -88,15 +88,15 @@ Abaixo: o que cada módulo faz, onde vive no código e **APIs externas / Edge** 
 
 Marketing do life OS, planos (trial 7 dias → Pro) e isca **Quanto ainda cabe no mês**.
 
-* **Código:** `pages/Landing` / `pages/landing/`; UI de marketing em `components/landing/` + registries Cult UI / Skiper UI / OriginKit (`components/cult-ui`, `components/ui/skiper-ui`, `components/originkit`); `api/waitlist.ts`
-* **APIs:** insert em tabela `waitlist` (Supabase). Edge `waitlist-email` existe no backend para growth; o join da landing não depende dela no client. Checkout Pro: ver Conta / billing (Stripe).
+* **Código:** `pages/Landing` / `pages/landing/`; UI de marketing em `components/landing/` + registries Cult UI / Skiper UI / OriginKit (`components/cult-ui`, `components/ui/skiper-ui`, `components/originkit`)
+* **APIs:** CTA de cadastro (`/login?mode=signup`) e checkout Pro (ver Conta / billing). Sem captura de waitlist no client.
 
 #### Quanto ainda cabe no mês (`/quanto-ainda-cabe`)
 
-Ferramenta pública (sem login): renda + contas fixas + compra opcional → cabe / aperta / não cabe. Captura e-mail na `waitlist` com `source=quanto-ainda-cabe`; a Edge `waitlist-email` envia 3 toques (welcome, D3, D7) nesse tom. Números da calculadora não são persistidos.
+Ferramenta pública (sem login): renda + contas fixas + compra opcional → cabe / aperta / não cabe. Depois do resultado, CTA para o teste (signup). Números da calculadora não são persistidos.
 
 * **Código:** `pages/QuantoAindaCabe`; regra em `domain/marketing/cabeNoMes.ts`
-* **APIs:** `api/waitlist.ts` (insert anon). Alias `/cabe-no-mes` redireciona.
+* **APIs:** nenhuma (cálculo local). Alias `/cabe-no-mes` redireciona.
 
 #### Dashboard / hub (`/home`)
 
@@ -281,7 +281,7 @@ Código em `supabase/functions/`. Shared: `_shared/cors.ts`, e-mail, cotas Maps,
 | `stripe-checkout` / `stripe-portal` / `stripe-webhook` | Billing Pro |
 | `auth-send-email` | Templates Auth (confirm, magic link, reset) |
 | `welcome-email` / `lifecycle-email` / `retention-d7-email` / `weekly-digest-email` | Lifecycle e retenção |
-| `habit-reminder-email` / `trip-invite-email` / `waitlist-email` | Produto / growth |
+| `habit-reminder-email` / `trip-invite-email` | Produto / growth |
 | `ops-admin` | Console interno `/ops` (allowlist `OPS_ADMIN_EMAILS`) |
 | `home-bundle` | Agregação para hub (quando usada) |
 
