@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sanitizeSvgMarkup } from "@/components/markdown/sanitizeSvg";
+import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
 
 /**
  * Renderer do bloco ` ```mermaid ` — flowchart, sequência, gantt, ER e o resto do que o mermaid
@@ -111,30 +112,5 @@ function mermaidErrorMessage(error: unknown): string {
   return "Não foi possível desenhar este diagrama.";
 }
 
-/**
- * O tema do app é a classe `dark` no `<html>` (ver `nav-user.tsx`), sem contexto de React para
- * assinar — daí o `MutationObserver`: alternar o tema redesenha o diagrama com as cores certas, em
- * vez de deixar um SVG claro num fundo escuro.
- */
-function useIsDarkTheme(): boolean {
-  const [isDark, setIsDark] = useState(readDarkTheme);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    setIsDark(root.classList.contains("dark"));
-    const observer = new MutationObserver(() =>
-      setIsDark(root.classList.contains("dark"))
-    );
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
-}
-
-function readDarkTheme(): boolean {
-  return (
-    typeof document !== "undefined" &&
-    document.documentElement.classList.contains("dark")
-  );
-}
+// `useIsDarkTheme` vivia aqui e virou `@/hooks/useIsDarkTheme` quando o canvas (058) precisou do
+// mesmo sinal: alternar o tema redesenha o diagrama com as cores certas.

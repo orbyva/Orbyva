@@ -102,15 +102,55 @@ dentro de uma nota markdown). Independente da 056.
       `npm run check:bundle` OK, com os chunks de rota inalterados (`NoteDetail` 8.4 KB, `Notes`
       1.9 KB gzip) — instalar sozinho não muda nada, é a linha de base contra a qual a tarefa do
       `CanvasEditor` vai ser medida.
-- [ ] Declarar `excalidraw` em `manualChunks` (`vite.config.ts:151`) e no `VENDOR_RE` de
-      `scripts/check-bundle-budget.mjs`, com limite próprio comentado.
-- [ ] Criar `src/pages/admin/notes/CanvasEditor.tsx`: `React.lazy` do `<Excalidraw />` dentro de
-      `Suspense` com skeleton, `initialData` vindo de `canvas_data`, `onChange` com debounce
-      ~1,5 s chamando `updateNote`, indicador `Salvando…`/`Salvo`, erro via `useToast` +
-      `getErrorMessage`. Tema do Excalidraw seguindo o dark mode do app.
-- [ ] Verificação de bundle do passo anterior: `npm run build && npm run check:bundle` e conferir
-      no output que o chunk `excalidraw` existe **separado** e que o chunk da rota `/notes` não
-      cresceu.
+- [x] Declarar `excalidraw` em `manualChunks` (`vite.config.ts`) e com limite próprio comentado em
+      `scripts/check-bundle-budget.mjs`.
+      **Desvio, com medição** (ver Notas): um `manualChunks` devolvendo `"excalidraw"` para tudo —
+      o que a tarefa pedia ao pé da letra — foi medido e **reprovado**: 4,71 MB num arquivo só
+      (1.532,1 KB gzip), porque colapsa os ~90 locales e os chunks internos da lib; de quebra o
+      Workbox nem consegue pré-cachear (limite de 2 MB por arquivo) e o `npm run build` falhava.
+      É a mesma armadilha que a 057 documentou com o mermaid.
+      O que foi feito: `manualChunks` devolve **um nome por arquivo do pacote**
+      (`excalidraw-<arquivo>`), preservando o split que o próprio Excalidraw já traçou (101 chunks:
+      core, subsetting de fonte, um por idioma) e dando nome **estável** para o orçamento
+      classificar — sem isso o Rollup nomearia o chunk principal a partir de um símbolo qualquer de
+      dentro da lib (`percentages-BXMCSKIN-…`).
+      No `check-bundle-budget.mjs`, classe nova `canvas` (`EXCALIDRAW_RE`, `MAX_EXCALIDRAW_GZIP`
+      750 KB) em vez de entrada no `VENDOR_RE`. **Nenhum teto existente foi afrouxado**: rota
+      continua 160 KB, vendor 200 KB, vendor lazy 200 KB. Os 750 KB são medição, não margem: o
+      subsetting de fonte do Excalidraw (com o wasm do harfbuzz embutido) é um **único arquivo-fonte
+      indivisível** de 719,6 KB gzip; os outros 100 chunks ficam todos abaixo de 171 KB.
+      Consertado no caminho um estouro real que o canvas causava fora do orçamento: o precache do
+      PWA subiu de 11.387 KiB para 15.905 KiB, ou seja, **todo usuário do app** baixaria 4,7 MB de
+      canvas na instalação. `globIgnores: ["**/excalidraw-*.js", "**/excalidraw-*.css"]` no
+      `VitePWA` devolveu o precache a 11.137 KiB; os chunks continuam disponíveis pela rede, sob
+      demanda (o nome estável do `manualChunks` é o que torna esse `globIgnores` possível).
+- [x] Criar `src/pages/admin/notes/CanvasEditor.tsx`: `React.lazy` + `Suspense` com skeleton,
+      `initialData` vindo de `canvas_data`, `onChange` com debounce de 1,5 s
+      (`CANVAS_AUTOSAVE_DEBOUNCE_MS`) chamando `updateNote`, indicador `Salvando…`/`Salvo`/
+      `Não salvo`, erro via `useToast` + `getErrorMessage`, tema seguindo o dark mode do app.
+      Três peças a mais que o plano não previa, todas por necessidade (ver Notas):
+      1. `src/pages/admin/notes/ExcalidrawCanvas.tsx` — módulo separado, o **único** ponto do app
+         com `import` de `@excalidraw/excalidraw` e do CSS dele (144 KB). Sem essa separação, o CSS
+         entraria no chunk da rota mesmo com o componente sob `React.lazy`.
+      2. `src/domain/notes/canvasScene.ts` (puro) — o que vai para o `jsonb` e o que volta dele.
+      3. `src/hooks/useIsDarkTheme.ts` — o hook que vivia privado dentro do `MermaidBlock` (057),
+         agora compartilhado pelos dois (terceira cópia do mesmo `MutationObserver` no app).
+      Verificação por teste, não por navegador: `canvasScene.test.ts` (14 testes) e
+      `CanvasEditor.test.tsx` (10 testes, com um Excalidraw de mentira — o real mede a tela e usa
+      wasm, não roda em jsdom). Afirmam: o esqueleto cobre a espera do `React.lazy`; o desenho
+      salvo chega ao canvas (2 elementos) e canvas novo abre em branco; desenhar grava
+      `canvas_data` com os elementos certos e mostra `Salvando…` → `Salvo`; **o `onChange` de
+      montagem não grava** (senão abrir um canvas carimbaria `updated_at` e reordenaria a lista);
+      três movimentos seguidos viram uma gravação só, com o último estado; renomear grava o título
+      e nem manda `canvas_data`; erro vira toast `destructive` + `Não salvo` sem perder o desenho da
+      tela; o tema segue a classe `dark` do `<html>`.
+- [x] Verificação de bundle: `npm run build && npm run check:bundle` com o canvas já ligado na rota
+      (antes disso não haveria chunk a medir). `Bundle budget OK.` Os 101 chunks `excalidraw-*`
+      existem **separados** — maior 719,6 KB, depois 171,0 / 157,7 / 144,6 KB e os ~90 locales
+      abaixo de 11 KB cada. O chunk da rota **não** engordou com a lib: `NoteDetail` 8,4 → 10,2 KB
+      gzip e `Notes` 1,9 → 2,4 KB, que é o código do próprio editor (estado, debounce, painéis), não
+      o Excalidraw — 4,7 MB de lib com 1,8 KB de crescimento de rota é a prova de que o
+      `React.lazy` funcionou.
 - [ ] Fazer a criação de nota oferecer os dois tipos: no `Notes.tsx` (055), botão dividido
       "Nova nota" / "Novo canvas" definindo `kind`. A rota `/notes/:id` monta `NoteEditor` ou
       `CanvasEditor` conforme `note.kind`.

@@ -18,15 +18,46 @@ const MAX_ROUTE_GZIP = 160 * 1024;
 /** Vendor pesado permitido (recharts etc.), gzip max */
 const MAX_VENDOR_GZIP = 200 * 1024;
 
-/** Vendor lazy (mermaid), gzip max por chunk — ver LAZY_VENDOR_RE. */
+/** Vendor lazy (mermaid), gzip max por chunk — ver LAZY_VENDOR_BASE_RE. */
 const MAX_LAZY_VENDOR_GZIP = 200 * 1024;
+
+/**
+ * Chunks do excalidraw (feature 058), classe própria — ver EXCALIDRAW_RE.
+ *
+ * **Nenhum teto foi afrouxado para caber o canvas**: rota continua 160 KB, vendor 200 KB e vendor
+ * lazy 200 KB. O que existe aqui é uma classe nova, para um vendor que só é baixado quando o
+ * usuário abre um canvas e que nunca encosta num chunk de rota (medido: `NoteDetail` 9,3 KB gzip
+ * com o canvas ligado, contra 8,4 KB antes).
+ *
+ * O limite é 750 KB porque um arquivo do pacote — o subsetting de fonte, com o wasm do harfbuzz
+ * embutido — tem 719,6 KB gzip sozinho e é **indivisível**: é um único arquivo-fonte do
+ * `@excalidraw/excalidraw`, não há import dinâmico nem `manualChunks` que o quebre. Os outros 100
+ * chunks do canvas ficam todos abaixo de 171 KB. Este número é medição, não margem: se subir, é
+ * porque a lib cresceu, e aí a discussão é trocar/atualizar a lib — não subir o teto.
+ *
+ * Estes chunks ficam **fora do precache do service worker** (`globIgnores` no `vite.config.ts`),
+ * senão todo usuário do app baixaria 4,7 MB de canvas na instalação do PWA.
+ */
+const MAX_EXCALIDRAW_GZIP = 750 * 1024;
+
+/**
+ * O prefixo `excalidraw-` vem do `manualChunks` (um chunk por arquivo do pacote) — é estável, ao
+ * contrário do nome que o Rollup daria sozinho (`percentages-BXMCSKIN-…`, tirado de um símbolo
+ * qualquer de dentro do bundle da lib).
+ */
+const EXCALIDRAW_RE = /^excalidraw-/;
 
 const VENDOR_RE =
   /^(react-vendor|recharts|d3|radix|supabase|sentry|motion|ui-utils|codemirror)-/;
 
 /**
- * Chunks do mermaid (feature 057), carregados só quando uma nota tem um bloco ```mermaid — nunca no
- * caminho crítico de rota nenhuma. Por isso têm limite próprio em vez de entrar no teto de rota.
+ * Chunks do mermaid (feature 057) e do excalidraw (feature 058), carregados só quando uma nota tem
+ * um bloco ```mermaid ou o usuário abre um canvas — nunca no caminho crítico de rota nenhuma. Por
+ * isso têm limite próprio em vez de entrar no teto de rota.
+ *
+ * O `excalidraw` **tem** `manualChunks` (ao contrário do mermaid): ele não se divide sozinho por
+ * funcionalidade, é um aplicativo de desenho inteiro, e sem a regra o Rollup espalharia pedaços
+ * dele por chunks compartilhados com rota. Um arquivo só, carregado por `React.lazy`.
  *
  * Eles **não** passam por `manualChunks` de propósito: o mermaid já se divide por tipo de diagrama
  * (`sequenceDiagram`, `cynefin`, `architectureDiagram`…), então quem abre um flowchart baixa o
@@ -77,6 +108,9 @@ for (const file of files) {
   if (base === "index" || file.startsWith("index-")) {
     limit = MAX_ENTRY_GZIP;
     kind = "entry";
+  } else if (EXCALIDRAW_RE.test(base) || EXCALIDRAW_RE.test(file)) {
+    limit = MAX_EXCALIDRAW_GZIP;
+    kind = "canvas";
   } else if (VENDOR_RE.test(base) || VENDOR_RE.test(file)) {
     limit = MAX_VENDOR_GZIP;
     kind = "vendor";

@@ -13,8 +13,13 @@ import { getErrorMessage } from "@/lib/errors";
 import type { Note } from "@/types/notes";
 import type { Project } from "@/types/tasks";
 import { NoteEditor } from "./NoteEditor";
+import { CanvasEditor } from "./CanvasEditor";
 
-/** Página de uma nota (`/notes/:id`) — carrega e monta o `NoteEditor`, que cuida do autosave. */
+/**
+ * Página de uma nota (`/notes/:id`) — carrega e monta o editor que corresponde ao `kind`: markdown
+ * vai para o `NoteEditor` (055), canvas para o `CanvasEditor` (058). Os dois cuidam do próprio
+ * autosave.
+ */
 export default function NoteDetail() {
   const { id } = useParams<{ id: string }>();
   const [note, setNote] = useState<Note | null>(null);
@@ -123,6 +128,12 @@ export default function NoteDetail() {
           title="Nota não encontrada"
           description="Ela pode ter sido excluída."
           action={<Button onClick={() => navigate("/notes")}>Voltar para as notas</Button>}
+        />
+      ) : note.kind === "canvas" ? (
+        <CanvasEditor
+          note={note}
+          projects={projects}
+          onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}
         />
       ) : (
         <NoteEditor

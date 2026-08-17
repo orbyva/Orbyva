@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { NotebookPen, Trash2 } from "lucide-react";
+import { NotebookPen, PenTool, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,10 +12,11 @@ import { createNote, deleteNote, fetchNotes } from "@/api/notes/notes";
 import { fetchProjects } from "@/api/tasks/projects";
 import { filterNotes } from "@/domain/notes/filters";
 import { noteExcerpt } from "@/domain/notes/noteDraft";
+import { canvasElementCount } from "@/domain/notes/canvasScene";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
-import type { Note } from "@/types/notes";
+import type { Note, NoteKind } from "@/types/notes";
 import type { Project } from "@/types/tasks";
 
 export default function Notes() {
@@ -62,16 +63,31 @@ export default function Notes() {
   /** O filtro é local: a lista inteira já está na memória e digitar não pode ir ao banco por tecla. */
   const visibleNotes = useMemo(() => filterNotes(notes, query), [notes, query]);
 
-  async function handleCreate() {
+  /**
+   * Cria e já abre. `kind` é o que decide qual editor a rota `/notes/:id` monta — nota e canvas
+   * moram na mesma tabela e na mesma lista (feature 058).
+   */
+  async function handleCreate(kind: NoteKind = "markdown") {
     setCreating(true);
     try {
-      const note = await createNote({ title: "", content: "", project_id: null });
+      const note = await createNote({
+        title: "",
+        content: "",
+        project_id: null,
+        kind,
+        // Canvas nasce com a cena vazia, não com `null`: o editor abre numa tela em branco de
+        // verdade, e o `check` do banco já garante o par kind/canvas_data.
+        canvas_data: kind === "canvas" ? { elements: [] } : null,
+      });
       navigate(`/notes/${note.id}`);
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: getErrorMessage(error, "Não foi possível criar a nota."),
+        description:
+          kind === "canvas"
+            ? getErrorMessage(error, "Não foi possível criar o canvas.")
+            : getErrorMessage(error, "Não foi possível criar a nota."),
       });
       setCreating(false);
     }
@@ -97,9 +113,21 @@ export default function Notes() {
       title="Notas"
       description="Markdown na veia — anotações soltas ou vinculadas a um projeto."
       actions={
-        <Button onClick={handleCreate} disabled={creating}>
-          Nova nota
-        </Button>
+        // Dois botões lado a lado em vez de um menu: são só duas opções, e escondê-las atrás de um
+        // clique a mais tornaria o canvas invisível para quem não sabe que ele existe.
+        <>
+          <Button
+            variant="outline"
+            onClick={() => handleCreate("canvas")}
+            disabled={creating}
+          >
+            <PenTool className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+            Novo canvas
+          </Button>
+          <Button onClick={() => handleCreate("markdown")} disabled={creating}>
+            Nova nota
+          </Button>
+        </>
       }
     >
       {notes.length > 0 && (
@@ -120,7 +148,8 @@ export default function Notes() {
           title="Nenhuma nota ainda"
           description="Crie uma nota para guardar o que não cabe numa tarefa — pauta de reunião, rascunho, decisão de projeto."
           action={
-            <Button onClick={handleCreate} disabled={creating}>
+            // `() =>` obrigatório: passar `handleCreate` direto entregaria o MouseEvent como `kind`.
+            <Button onClick={() => handleCreate("markdown")} disabled={creating}>
               Nova nota
             </Button>
           }
@@ -134,7 +163,10 @@ export default function Notes() {
       ) : (
         <ul className="space-y-2">
           {visibleNotes.map((note) => {
+            const isCanvas = note.kind === "canvas";
             const excerpt = noteExcerpt(note.content);
+            // Canvas não tem texto para resumir: o que informa é o tamanho do desenho.
+            const elementCount = isCanvas ? canvasElementCount(note.canvas_data) : 0;
             const projectName = projectNameById[note.project_id ?? ""];
             return (
               <li key={note.id}>
@@ -145,6 +177,17 @@ export default function Notes() {
                     onClick={() => navigate(`/notes/${note.id}`)}
                   >
                     <div className="flex flex-wrap items-center gap-2">
+                      {isCanvas ? (
+                        <PenTool
+                          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                          aria-label="Canvas"
+                        />
+                      ) : (
+                        <NotebookPen
+                          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                          aria-label="Nota"
+                        />
+                      )}
                       <h2 className="truncate font-semibold">{note.title}</h2>
                       {projectName && (
                         <Badge variant="secondary" className="shrink-0 text-[10px]">
@@ -152,7 +195,15 @@ export default function Notes() {
                         </Badge>
                       )}
                     </div>
-                    {excerpt ? (
+                    {isCanvas ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {elementCount === 0
+                          ? "Canvas vazio"
+                          : `Canvas · ${elementCount} ${
+                              elementCount === 1 ? "elemento" : "elementos"
+                            }`}
+                      </p>
+                    ) : excerpt ? (
                       <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                         {excerpt}
                       </p>
