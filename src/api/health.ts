@@ -2,7 +2,16 @@ import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { formatLocalIsoDate } from "@/lib/dates";
 import type { Habit } from "@/types/habits";
-import type { HealthHabitToday, HealthSummary } from "@/types/health";
+import type {
+  HealthHabitToday,
+  HealthMetric,
+  HealthMetricCreateRequest,
+  HealthSummary,
+  MetricType,
+  ReminderEntityType,
+  ReminderFrequency,
+  ReminderPreference,
+} from "@/types/health";
 import type { Task } from "@/types/tasks";
 
 /**
@@ -38,25 +47,155 @@ async function fetchNextPendingTask(
   return (data as Task | null) ?? null;
 }
 
-/** Resumo do sub-módulo Vida > Saúde: próxima dose (060) e próxima consulta (061). */
+/**
+ * Quantas medições a janela de `latestMetrics` traz. Seis tipos × ~20 medições cobre folgado o que
+ * a seção "Progresso" precisa (a última de cada tipo e a anterior, para a variação) sem paginar —
+ * o Postgres não faz "N por grupo" sem RPC, então a alternativa seria uma query por tipo.
+ */
+const METRICS_WINDOW = 120;
+
+/**
+ * Erro de coluna/tabela que ainda não existe no banco remoto. As migrations da 063
+ * (`20260816210000`, `20260816220000`) só são aplicadas pelo usuário com `supabase db push`; até
+ * lá, o dashboard tem de continuar mostrando dose, consulta e hábitos em vez de quebrar inteiro.
+ * Mesmo tratamento defensivo de `fetchHealthHabitsToday` e de `createHabit`.
+ */
+function isMissingRelation(message: string): boolean {
+  return /health_metric|reminder_preference|does not exist|schema cache/i.test(
+    message
+  );
+}
+
+/** Resumo do sub-módulo Vida > Saúde: dose (060), consulta (061), métricas e lembretes (063). */
 export async function loadHealthSummary(): Promise<HealthSummary> {
   const userId = await getCurrentUserId();
   const today = formatLocalIsoDate(new Date());
 
-  const [nextMedicationDose, nextConsultation] = await Promise.all([
-    fetchNextPendingTask(userId, "is_medication", today),
-    fetchNextPendingTask(userId, "is_consultation", today),
-  ]);
+  const [nextMedicationDose, nextConsultation, latestMetrics, reminderPreferences] =
+    await Promise.all([
+      fetchNextPendingTask(userId, "is_medication", today),
+      fetchNextPendingTask(userId, "is_consultation", today),
+      fetchHealthMetrics(),
+      fetchReminderPreferences(),
+    ]);
 
-  // Métricas e preferências entram na tarefa seguinte da 063 (`fetchHealthMetrics` /
-  // `fetchReminderPreferences`); por ora o resumo declara os campos vazios para o contrato de
-  // `HealthSummary` valer desde já.
   return {
     nextMedicationDose,
     nextConsultation,
-    latestMetrics: [],
-    reminderPreferences: [],
+    latestMetrics,
+    reminderPreferences,
   };
+}
+
+/**
+ * Janela recente de medições corporais, da mais nova para a mais antiga. Sem `type`, traz todos os
+ * tipos — é o que alimenta `latestByType` e `deltaSincePrevious` (`src/domain/health/metrics.ts`).
+ */
+export async function fetchHealthMetrics(
+  type?: MetricType | null,
+  limit = METRICS_WINDOW
+): Promise<HealthMetric[]> {
+  const userId = await getCurrentUserId();
+
+  let query = supabase
+    .from("health_metric")
+    .select("*")
+    .eq("user_id", userId)
+    .order("recorded_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (type) query = query.eq("metric_type", type);
+
+  const { data, error } = await query;
+  if (error) {
+    if (isMissingRelation(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as HealthMetric[];
+}
+
+/** Grava uma medição corporal. `user_id` vem sempre do usuário logado — a RLS confirma no banco. */
+export async function recordHealthMetric(
+  input: HealthMetricCreateRequest
+): Promise<HealthMetric> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("health_metric")
+    .insert([
+      {
+        user_id: userId,
+        metric_type: input.metric_type,
+        value: input.value,
+        recorded_date: input.recorded_date,
+        notes: input.notes?.trim() ? input.notes.trim() : null,
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as HealthMetric;
+}
+
+/** Preferências de lembrete do usuário — uma linha por `entity_type` já configurado. */
+export async function fetchReminderPreferences(): Promise<ReminderPreference[]> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("reminder_preference")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    if (isMissingRelation(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as ReminderPreference[];
+}
+
+/**
+ * Cria ou atualiza a preferência de um `entity_type`. O alvo do conflito é o
+ * `unique (user_id, entity_type)` da migration: mexer no lembrete de água atualiza a linha que já
+ * existe em vez de acumular configurações concorrentes do mesmo tipo.
+ */
+export async function upsertReminderPreference(
+  entityType: ReminderEntityType,
+  patch: {
+    frequency?: ReminderFrequency;
+    time_of_day?: string | null;
+    enabled?: boolean;
+    last_notified_at?: string | null;
+  }
+): Promise<ReminderPreference> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("reminder_preference")
+    .upsert(
+      [{ user_id: userId, entity_type: entityType, ...patch }],
+      { onConflict: "user_id,entity_type" }
+    )
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as ReminderPreference;
+}
+
+/**
+ * Marca o lembrete como já entregue no período corrente. É o que impede o toast de repetir a cada
+ * recarga da página — `isReminderDue` compara `last_notified_at` com o slot do período.
+ */
+export async function markReminderNotified(
+  entityType: ReminderEntityType,
+  when: Date = new Date()
+): Promise<ReminderPreference> {
+  return upsertReminderPreference(entityType, {
+    last_notified_at: when.toISOString(),
+  });
 }
 
 /**
