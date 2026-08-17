@@ -14,6 +14,7 @@ import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { HealthHabitQuickCreateDialog } from "@/pages/admin/habits/HealthHabitQuickCreateDialog";
 import { RecordMetricDialog } from "@/pages/admin/life/RecordMetricDialog";
+import { ReminderPreferencesDialog } from "@/pages/admin/life/ReminderPreferencesDialog";
 import { ConsultationQuickCreateDialog } from "@/pages/admin/tasks/ConsultationQuickCreateDialog";
 import { MedicationQuickCreateDialog } from "@/pages/admin/tasks/MedicationQuickCreateDialog";
 import { fetchHealthHabitsToday, loadHealthSummary } from "@/api/health";
@@ -50,6 +51,7 @@ export default function HealthDashboard() {
   const [consultationDialogOpen, setConsultationDialogOpen] = useState(false);
   const [habitDialogOpen, setHabitDialogOpen] = useState(false);
   const [metricDialogOpen, setMetricDialogOpen] = useState(false);
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const today = useLocalDay();
   const { toast } = useToast();
 
@@ -127,28 +129,31 @@ export default function HealthDashboard() {
       eyebrow="Vida"
       description="Hábitos do dia, medicações e consultas"
       actions={
-        nextDose || nextConsultation || healthHabits.length > 0 ? (
-          <div className={PAGE_HEADER_ACTIONS_CLASS}>
-            {healthHabits.length > 0 ? (
-              <Button variant="outline" onClick={() => setHabitDialogOpen(true)}>
-                Novo hábito de saúde
-              </Button>
-            ) : null}
-            {nextDose ? (
-              <Button onClick={() => setMedicationDialogOpen(true)}>
-                Cadastrar medicação
-              </Button>
-            ) : null}
-            {nextConsultation ? (
-              <Button
-                variant="outline"
-                onClick={() => setConsultationDialogOpen(true)}
-              >
-                Agendar consulta
-              </Button>
-            ) : null}
-          </div>
-        ) : null
+        <div className={PAGE_HEADER_ACTIONS_CLASS}>
+          {/* "Lembretes" está sempre visível: é a única porta para o controle de notificações
+              (feature 063), e ele existe mesmo com a tela ainda vazia. */}
+          <Button variant="outline" onClick={() => setReminderDialogOpen(true)}>
+            Lembretes
+          </Button>
+          {healthHabits.length > 0 ? (
+            <Button variant="outline" onClick={() => setHabitDialogOpen(true)}>
+              Novo hábito de saúde
+            </Button>
+          ) : null}
+          {nextDose ? (
+            <Button onClick={() => setMedicationDialogOpen(true)}>
+              Cadastrar medicação
+            </Button>
+          ) : null}
+          {nextConsultation ? (
+            <Button
+              variant="outline"
+              onClick={() => setConsultationDialogOpen(true)}
+            >
+              Agendar consulta
+            </Button>
+          ) : null}
+        </div>
       }
     >
       {/* Hoje (feature 062): água e alimentação são `habit` com `is_health` — o check-in daqui é o
@@ -397,6 +402,13 @@ export default function HealthDashboard() {
         open={metricDialogOpen}
         onOpenChange={setMetricDialogOpen}
         onRecorded={load}
+      />
+
+      <ReminderPreferencesDialog
+        open={reminderDialogOpen}
+        onOpenChange={setReminderDialogOpen}
+        preferences={summary?.reminderPreferences ?? []}
+        onSaved={load}
       />
 
       <HealthHabitQuickCreateDialog

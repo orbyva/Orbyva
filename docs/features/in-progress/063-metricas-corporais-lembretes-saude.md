@@ -32,7 +32,7 @@ prompt: |
 - [x] Estender `src/api/health.ts` com `recordHealthMetric`, `fetchHealthMetrics(type, limit)`, `fetchReminderPreferences` e `upsertReminderPreference`, e preencher os campos novos de `HealthSummary` em `loadHealthSummary`
 - [x] Adicionar a seção "Progresso" ao `HealthDashboard.tsx`: cards com a última medição de cada tipo, variação em relação à anterior e IMC calculado quando houver peso e altura; `EmptyState` quando não houver nenhuma medição
 - [x] Criar `src/pages/admin/life/RecordMetricDialog.tsx`: seleção de tipo, valor, data (padrão hoje) e observação; grava via `recordHealthMetric`; feedback com `useToast` + `getErrorMessage`
-- [ ] Criar `src/pages/admin/life/ReminderPreferencesDialog.tsx`: uma linha por `entity_type` com switch de ativo, seletor de frequência e horário; exibe "Próximo: <data e hora>" a partir de `nextReminderAt`; salva via `upsertReminderPreference`
+- [x] Criar `src/pages/admin/life/ReminderPreferencesDialog.tsx`: uma linha por `entity_type` com switch de ativo, seletor de frequência e horário; exibe "Próximo: <data e hora>" a partir de `nextReminderAt`; salva via `upsertReminderPreference`
 - [ ] Ligar o disparo local: na carga do Health Dashboard, para cada preferência com `isReminderDue`, exibir toast e chamar `browserNotify` (`src/lib/browserNotify.ts`), depois gravar `last_notified_at` para não repetir
 - [ ] `npm run build`
 - [ ] `npm run lint`
