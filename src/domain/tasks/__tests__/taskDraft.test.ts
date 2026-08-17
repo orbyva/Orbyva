@@ -48,6 +48,7 @@ describe("emptyTask", () => {
       icon_url: null,
       is_milestone: false,
       is_medication: false,
+      is_consultation: false,
     });
   });
 });

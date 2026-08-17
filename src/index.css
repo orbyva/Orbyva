@@ -58,6 +58,9 @@
     --life: 160 84% 39%;
     --life-foreground: 0 0% 100%;
 
+    /* Saúde (sub-módulo de Vida) = rose-500 — verde/emerald já é Metas em MODULE_DOT */
+    --health: 350 89% 60%;
+
     /* Hub ≠ primary — indigo, distinto do sky das Finanças */
     --hub: 239 84% 45%;
     --hub-foreground: 0 0% 100%;
@@ -126,6 +129,9 @@
 
     --life: 160 70% 45%;
     --life-foreground: 0 0% 100%;
+
+    /* Mesmo rose-500 do light: o valor é único em todos os pontos de uso (Decisões da 060) */
+    --health: 350 89% 60%;
 
     /* Hub ≠ primary — indigo no dark */
     --hub: 239 84% 67%;

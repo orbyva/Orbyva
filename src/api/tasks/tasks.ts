@@ -6,15 +6,31 @@ import {
   fetchRecurringTransactionsByIds,
   updateRecurringParcelPayment,
 } from "@/api/recurring";
+import { resolveItemStatusFromTask } from "@/domain/shopping/taskLink";
+import { materializeAllMedicationDoses } from "@/api/health/medications";
 import { formatLocalIsoDate } from "@/lib/dates";
-import type { Task, TaskCreateRequest, TaskUpdateRequest } from "@/types/tasks";
+import type {
+  Task,
+  TaskCreateRequest,
+  TaskStatus,
+  TaskUpdateRequest,
+} from "@/types/tasks";
 
 async function materializeRecurringInstances(
   userId: string,
   tasks: Task[]
 ): Promise<Task[]> {
   const origins = tasks.filter(
-    (task) => task.recurrence_rule && !task.recurrence_origin_id && task.due_date
+    (task) =>
+      task.recurrence_rule &&
+      !task.recurrence_origin_id &&
+      task.due_date &&
+      // Séries de medicação (feature 064) são materializadas por `materializeMedicationDoses`, a
+      // partir de `medication.times` — este caminho só sabe do `time` singular da regra e geraria
+      // uma dose a mais por dia, em duplicidade com aquele. O backfill preserva a
+      // `recurrence_rule` da origem de propósito (é o registro do que a série era), então é este
+      // filtro, e não o apagamento da regra, que impede a dupla materialização.
+      !task.medication_id
   );
   if (origins.length === 0) return tasks;
 
@@ -47,6 +63,7 @@ async function materializeRecurringInstances(
         recurrence_rule: null,
         recurrence_origin_id: origin.id,
         is_medication: origin.is_medication ?? false,
+        is_consultation: origin.is_consultation ?? false,
       });
     }
   }
@@ -140,7 +157,10 @@ export async function fetchTasks(): Promise<Task[]> {
     .order("due_date", { ascending: true, nullsFirst: false });
   if (error) throw new Error(error.message);
   const withRecurring = await materializeRecurringInstances(userId, data ?? []);
-  return materializeLinkedInstances(userId, withRecurring);
+  const withLinked = await materializeLinkedInstances(userId, withRecurring);
+  // Doses de medicação (feature 064): mesmo ponto do fluxo das outras duas materializações, para
+  // as doses aparecerem no calendário/agenda sem tela nova.
+  return materializeAllMedicationDoses(userId, withLinked);
 }
 
 export async function fetchTaskById(id: string): Promise<Task | null> {
@@ -187,7 +207,43 @@ export async function updateTask(data: TaskUpdateRequest): Promise<void> {
     } catch (syncError) {
       console.error("Falha ao sincronizar parcela vinculada:", syncError);
     }
+    try {
+      await syncLinkedShoppingItemFromTask(id, userId, fields.status);
+    } catch (syncError) {
+      console.error("Falha ao sincronizar item de compras vinculado:", syncError);
+    }
   }
+}
+
+/**
+ * Reflete a conclusão/reabertura da tarefa no item da Lista de Compras vinculado (feature 051):
+ * tarefa `done` marca o item como comprado, tarefa reaberta devolve o item para pendente.
+ * Grava direto em `shopping_item` — de propósito não chama `setShoppingItemStatus`, que
+ * sincronizaria de volta para a tarefa e criaria ping-pong entre os dois lados.
+ */
+async function syncLinkedShoppingItemFromTask(
+  taskId: string,
+  userId: string,
+  taskStatus: TaskStatus
+): Promise<void> {
+  const { data: task, error } = await supabase
+    .from("task")
+    .select("linked_shopping_item_id")
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!task?.linked_shopping_item_id) return;
+
+  const { error: itemError } = await supabase
+    .from("shopping_item")
+    .update({
+      status: resolveItemStatusFromTask(taskStatus),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", task.linked_shopping_item_id)
+    .eq("user_id", userId);
+  if (itemError) throw new Error(itemError.message);
 }
 
 /**

@@ -1,0 +1,249 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, CircleAlert, Loader2, Workflow } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FormLabel } from "@/components/FormLabel";
+import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
+import { wikiLinkAutocomplete } from "@/components/codemirror/wikiLinkCompletion";
+import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
+import { NoteLinksPanel } from "@/pages/admin/notes/NoteLinksPanel";
+import { BacklinksPanel } from "@/pages/admin/notes/BacklinksPanel";
+import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
+import { updateNote } from "@/api/notes/notes";
+import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
+import { appendMermaidSnippet } from "@/domain/notes/mermaidSnippet";
+import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
+import type { Note } from "@/types/notes";
+import type { Project } from "@/types/tasks";
+
+/** Janela do autosave. Curta o bastante para não perder nada, longa para não gravar por tecla. */
+export const NOTE_AUTOSAVE_DEBOUNCE_MS = 800;
+
+type SaveState = "idle" | "saving" | "saved" | "error";
+
+const SAVE_LABEL: Record<SaveState, string> = {
+  idle: "",
+  saving: "Salvando…",
+  saved: "Salvo",
+  error: "Não salvo",
+};
+
+function SaveIndicator({ state }: { state: SaveState }) {
+  if (state === "idle") return null;
+  const Icon =
+    state === "saving" ? Loader2 : state === "saved" ? Check : CircleAlert;
+  return (
+    <p
+      role="status"
+      aria-live="polite"
+      className={
+        state === "error"
+          ? "flex items-center gap-1.5 text-xs text-destructive"
+          : "flex items-center gap-1.5 text-xs text-muted-foreground"
+      }
+    >
+      <Icon
+        aria-hidden="true"
+        className={state === "saving" ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"}
+      />
+      {SAVE_LABEL[state]}
+    </p>
+  );
+}
+
+/**
+ * Editor de uma nota: título, corpo em Markdown cru (abas Escrever/Visualizar) e o vínculo com um
+ * projeto.
+ *
+ * **Autosave com debounce, sem botão Salvar.** Nota é texto longo — depender de um clique é como se
+ * perde conteúdo. Cada alteração reagenda a gravação em `debounceMs`; só o último estado vai para o
+ * banco. O `useToast` aparece só no erro: um toast por tecla seria ruído (ver Decisões da 055).
+ */
+export function NoteEditor({
+  note,
+  projects,
+  notes = [],
+  onSaved,
+  onCreateNote,
+  debounceMs = NOTE_AUTOSAVE_DEBOUNCE_MS,
+}: {
+  note: Note;
+  projects: Project[];
+  /** Todas as notas do usuário — é o dicionário que resolve `[[Título]]` para `/notes/<id>`. */
+  notes?: readonly Note[];
+  /** Avisa a página de cima do estado recém-gravado (para o título do header acompanhar). */
+  onSaved?: (note: Note) => void;
+  /** Cria a nota que um wiki-link quebrado aponta e navega para ela. */
+  onCreateNote?: (title: string) => void;
+  debounceMs?: number;
+}) {
+  /**
+   * O autocomplete de `[[` lê os títulos por função, e a extensão é criada uma vez só: recriar o
+   * array de extensões a cada render forçaria o CodeMirror a se reconfigurar por tecla digitada.
+   * O ref é o que mantém a lista fresca sem entrar nas dependências.
+   */
+  const notesRef = useRef<readonly Note[]>(notes);
+  notesRef.current = notes;
+  const editorExtensions = useMemo(
+    () => [
+      wikiLinkAutocomplete(() =>
+        notesRef.current
+          // Linkar a própria nota não leva a lugar nenhum.
+          .filter((candidate) => candidate.id !== note.id)
+          .map((candidate) => candidate.title)
+      ),
+    ],
+    [note.id]
+  );
+
+  const [title, setTitle] = useState(note.title);
+  const [content, setContent] = useState(note.content);
+  const [projectId, setProjectId] = useState<string | null>(note.project_id);
+  const [tab, setTab] = useState<"write" | "preview">("write");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const { toast } = useToast();
+
+  /**
+   * Trocar de nota recarrega os campos — e não pode disparar autosave, senão abrir uma nota já
+   * gravaria por cima dela. O `skipNextSave` cobre tanto a montagem quanto essa troca.
+   *
+   * A dependência é só `note.id`, de propósito: a página de cima reflete cada gravação no objeto
+   * `note`, então depender do conteúdo faria a nota salva sobrescrever o que o usuário digitou
+   * durante a gravação — e, junto do efeito de autosave abaixo, viraria um laço infinito.
+   */
+  const skipNextSave = useRef(true);
+  useEffect(() => {
+    skipNextSave.current = true;
+    setTitle(note.title);
+    setContent(note.content);
+    setProjectId(note.project_id);
+    setSaveState("idle");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.id]);
+
+  /**
+   * O que gravar fica num ref, não nas dependências do efeito de debounce: só alteração do usuário
+   * pode reagendar a gravação, nunca a identidade nova de `note`/`onSaved` vinda do re-render.
+   */
+  const saveRef = useRef<() => Promise<void>>(async () => {});
+  saveRef.current = async () => {
+    setSaveState("saving");
+    try {
+      await updateNote({ id: note.id, title, content, project_id: projectId });
+      setSaveState("saved");
+      onSaved?.({ ...note, title, content, project_id: projectId });
+    } catch (error) {
+      setSaveState("error");
+      toast({
+        variant: "destructive",
+        title: "Não foi possível salvar a nota",
+        description: getErrorMessage(error),
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (skipNextSave.current) {
+      skipNextSave.current = false;
+      return;
+    }
+    // "Salvando…" já na tecla: o usuário vê que a alteração foi registrada antes do debounce virar.
+    setSaveState("saving");
+    const timer = setTimeout(() => void saveRef.current(), debounceMs);
+    return () => clearTimeout(timer);
+  }, [title, content, projectId, debounceMs]);
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <FormLabel htmlFor="note-title">Título</FormLabel>
+          <SaveIndicator state={saveState} />
+        </div>
+        <Input
+          id="note-title"
+          value={title}
+          maxLength={NOTE_TITLE_MAX}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Título da nota"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <FormLabel>Conteúdo</FormLabel>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v === "preview" ? "preview" : "write")}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <TabsList className="h-8">
+              <TabsTrigger value="write" className="text-xs">
+                Escrever
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="text-xs">
+                Visualizar
+              </TabsTrigger>
+            </TabsList>
+            {/* Descoberta da funcionalidade: ninguém digita sintaxe de mermaid de cabeça. O botão
+                leva de volta para a aba de escrever, senão o esqueleto some atrás do preview. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => {
+                setTab("write");
+                setContent((current) => appendMermaidSnippet(current));
+              }}
+            >
+              <Workflow className="h-3.5 w-3.5" aria-hidden="true" />
+              Inserir diagrama
+            </Button>
+          </div>
+          <TabsContent value="write" className="mt-1.5">
+            <MarkdownCodeEditor
+              label="Conteúdo"
+              value={content}
+              onChange={setContent}
+              className="min-h-[45vh] [&_.cm-editor]:min-h-[45vh]"
+              placeholder="Markdown na veia — # títulos, listas, **negrito**, [[links]] entre notas…"
+              extensions={editorExtensions}
+            />
+          </TabsContent>
+          <TabsContent value="preview" className="mt-1.5 rounded-md border px-3 py-2">
+            {content.trim() ? (
+              <NoteMarkdownPreview
+                content={content}
+                notes={notes}
+                onCreateNote={onCreateNote}
+                className="min-h-[45vh]"
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Nada para visualizar ainda.
+              </p>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <div className="space-y-1.5">
+        <FormLabel>Projeto</FormLabel>
+        <ProjectPicker
+          projects={projects}
+          value={projectId}
+          onChange={setProjectId}
+        />
+      </div>
+
+      {/* Vínculo primário (acima) é o projeto; estes são os secundários, com qualquer entidade. */}
+      <NoteLinksPanel noteId={note.id} projects={projects} />
+
+      {/* O título usado aqui é o gravado, não o que está sendo digitado: backlink de nota
+          renomeada só muda depois que o autosave grava o nome novo. */}
+      <BacklinksPanel note={note} />
+    </div>
+  );
+}

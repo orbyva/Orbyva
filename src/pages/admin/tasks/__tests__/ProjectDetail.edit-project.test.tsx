@@ -73,7 +73,6 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     name: "Projeto Alpha",
     description: "Descrição original",
     color: "#94a3b8",
-    notes: "Notas originais",
     goal_id: null,
     status: "active",
     tag_ids: [],

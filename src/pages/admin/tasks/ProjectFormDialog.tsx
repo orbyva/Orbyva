@@ -155,18 +155,8 @@ export function ProjectFormDialog({
               onCreateTag={onCreateTag}
             />
           </div>
-          <div>
-            <FormLabel optional htmlFor="project-notes">
-              Notas
-            </FormLabel>
-            <textarea
-              id="project-notes"
-              className="flex min-h-[64px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              placeholder="Contexto, decisões, links úteis…"
-              value={form.notes ?? ""}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
-          </div>
+          {/* Sem campo de Notas: as notas de projeto viraram o módulo de Notas na
+              feature 055 e `ProjectCreateRequest` não carrega mais `notes`. */}
 
           {editing && (
             <div>

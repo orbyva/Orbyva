@@ -5,6 +5,13 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { viteSafariHmrNoReload } from "./vite.safari-hmr";
 
+/**
+ * Pacotes d3 que o `victory-vendor` (dependência do recharts) importa, mais os transitivos deles.
+ * Qualquer outro `d3-*` no `node_modules` chegou junto com o mermaid.
+ */
+const RECHARTS_D3_RE =
+  /node_modules\/(d3-array|d3-color|d3-ease|d3-format|d3-interpolate|d3-path|d3-scale|d3-shape|d3-time|d3-time-format|d3-timer|internmap)\//;
+
 export default defineConfig({
   plugins: [
     viteSafariHmrNoReload(),
@@ -59,6 +66,14 @@ export default defineConfig({
         mode: "development",
         cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,webp,svg,woff2,png}"],
+        /**
+         * O canvas (feature 058) fica **fora do precache**: são 4,7 MB em ~100 chunks que só quem
+         * abre um canvas usa. Precachear tudo faria a instalação do PWA baixar isso para todo
+         * mundo (medido: 11,4 MB → 15,9 MB de precache). Continuam disponíveis pela rede, sob
+         * demanda, como qualquer chunk lazy; a contrapartida aceita é que abrir um canvas pela
+         * primeira vez exige estar online.
+         */
+        globIgnores: ["**/excalidraw-*.js", "**/excalidraw-*.css"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
           /^\/tmdb-media/,
@@ -160,12 +175,49 @@ export default defineConfig({
           }
           if (
             id.includes("node_modules/recharts") ||
-            id.includes("node_modules/victory-vendor") ||
-            id.includes("node_modules/d3-")
+            id.includes("node_modules/victory-vendor")
           ) {
             return "recharts";
           }
+          /**
+           * d3 tem **dois** consumidores desde a 057: o recharts (via `victory-vendor`, nas rotas
+           * de gráfico) e o mermaid (nos diagramas, carregado sob demanda). Só os pacotes que o
+           * `victory-vendor` puxa ficam num chunk compartilhado; o resto do d3
+           * (`d3-sankey`, `d3-geo`, `d3-force`…) é exclusivo do mermaid e fica de fora de
+           * propósito — sem `return`, o Rollup o coloca dentro dos chunks lazy do mermaid.
+           * Com o `d3-` genérico aqui, o chunk `recharts` engordava 15 KB gzip com d3 que só o
+           * diagrama usa, e toda rota de gráfico pagava por isso.
+           */
+          if (RECHARTS_D3_RE.test(id)) return "d3";
           if (id.includes("framer-motion")) return "motion";
+          // CodeMirror (editor de notas, feature 056) é vendor pesado e só carrega na rota de
+          // notas — sem chunk próprio ele entraria no chunk da rota e estouraria o teto de 160 KB.
+          if (
+            id.includes("@codemirror") ||
+            id.includes("@uiw/react-codemirror") ||
+            id.includes("@lezer") ||
+            id.includes("node_modules/style-mod") ||
+            id.includes("node_modules/crelt") ||
+            id.includes("node_modules/w3c-keyname")
+          ) {
+            return "codemirror";
+          }
+          /**
+           * Excalidraw (canvas, feature 058) é a maior dependência do app — 4,7 MB de JS somando
+           * tudo. Um `manualChunks` **único** foi medido e reprovado: colapsa os ~90 locales e os
+           * chunks internos num arquivo de 1,5 MB gzip (e o Workbox nem consegue pré-cachear,
+           * limite de 2 MB por arquivo). É a mesma armadilha que a 057 documentou com o mermaid.
+           *
+           * A regra abaixo é o contrário disso: **um chunk por arquivo do pacote**, que é onde o
+           * próprio Excalidraw já traçou as fronteiras (core, subsetting de fonte, um arquivo por
+           * idioma). Preserva o split natural — quem abre um canvas em pt-BR não baixa os outros
+           * 89 idiomas — e ainda dá nome estável (`excalidraw-…`) para o orçamento de bundle
+           * classificar, em vez de depender do sufixo de build da lib.
+           */
+          if (id.includes("@excalidraw")) {
+            const file = id.split("?")[0].split("/").pop() ?? "core";
+            return `excalidraw-${file.replace(/\.js$/, "")}`;
+          }
           if (id.includes("@sentry")) return "sentry";
           if (id.includes("@supabase")) return "supabase";
           if (id.includes("@radix-ui")) return "radix";

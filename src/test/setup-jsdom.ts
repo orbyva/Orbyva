@@ -35,4 +35,31 @@ if (typeof document !== "undefined") {
   if (typeof Element.prototype.scrollIntoView === "undefined") {
     Element.prototype.scrollIntoView = () => {};
   }
+
+  // O CodeMirror (editor de notas, feature 056) mede o texto pelo layout: a cada `measure` ele
+  // chama `Range.getClientRects()` para descobrir a altura da linha e a posição do cursor. O jsdom
+  // implementa `Range` mas não essas duas, e o erro sobe de dentro de um `requestAnimationFrame`,
+  // virando "unhandled error" que derruba o arquivo de teste inteiro. Devolver uma lista vazia é
+  // suficiente: o editor cai no caminho de "não consegui medir" e segue — o que os testes checam é
+  // o documento e os eventos, não geometria.
+  if (typeof Range.prototype.getClientRects === "undefined") {
+    const emptyRect = {
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+      toJSON: () => ({}),
+    } as DOMRect;
+    Range.prototype.getClientRects = () =>
+      ({
+        length: 0,
+        item: () => null,
+        [Symbol.iterator]: function* () {},
+      }) as unknown as DOMRectList;
+    Range.prototype.getBoundingClientRect = () => emptyRect;
+  }
 }

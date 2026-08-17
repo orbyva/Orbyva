@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { fetchTransactionsQuery } from "@/api/finance";
+import { noteExcerpt } from "@/domain/notes/noteDraft";
 
 export type GlobalSearchKind =
   | "transaction"
@@ -11,7 +12,8 @@ export type GlobalSearchKind =
   | "trip"
   | "goal"
   | "habit"
-  | "vehicle";
+  | "vehicle"
+  | "note";
 
 export type GlobalSearchHit = {
   id: string;
@@ -55,6 +57,7 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     goalsRes,
     habitsRes,
     vehiclesRes,
+    notesRes,
   ] = await Promise.all([
     fetchTransactionsQuery({ page: 1, pageSize: PER_KIND, search: trimmed }).catch(
       () => null
@@ -106,6 +109,14 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       .select("id, brand, model, plate, notes, current_km")
       .eq("user_id", userId)
       .or(orIlike(["brand", "model", "plate", "notes"], pattern))
+      .limit(PER_KIND),
+    supabase
+      .from("note")
+      // `kind` vem junto para o canvas (058) não aparecer na busca sem subtítulo nenhum: ele não
+      // tem `content` de onde tirar excerpt.
+      .select("id, title, content, kind, updated_at")
+      .eq("user_id", userId)
+      .or(orIlike(["title", "content"], pattern))
       .limit(PER_KIND),
   ]);
 
@@ -213,6 +224,20 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
     });
   }
 
+  for (const n of notesRes.data ?? []) {
+    hits.push({
+      id: `note-${n.id}`,
+      kind: "note",
+      title: n.title,
+      // O trecho do corpo é o mesmo excerpt do card da lista de notas — sem marcação Markdown.
+      subtitle:
+        n.kind === "canvas"
+          ? "Canvas"
+          : noteExcerpt(n.content ?? "", 60) || undefined,
+      href: `/notes/${n.id}`,
+    });
+  }
+
   return hits.slice(0, 40);
 }
 
@@ -226,4 +251,5 @@ export const SEARCH_KIND_LABEL: Record<GlobalSearchKind, string> = {
   goal: "Meta",
   habit: "Hábito",
   vehicle: "Veículo",
+  note: "Nota",
 };

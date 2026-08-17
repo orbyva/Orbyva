@@ -97,6 +97,9 @@ export async function createHabit(habit: HabitCreateRequest): Promise<Habit> {
       habit.goal_id && habit.goal_increment != null && habit.goal_increment > 0
         ? habit.goal_increment
         : null,
+    // Feature 062: hábito de saúde (água/alimentação). Explícito e não `undefined` pra que o
+    // atalho do Health Dashboard não dependa do default da coluna.
+    is_health: habit.is_health ?? false,
     user_id: userId,
   };
   const { data, error } = await supabase
@@ -105,7 +108,7 @@ export async function createHabit(habit: HabitCreateRequest): Promise<Habit> {
     .select()
     .single();
   if (error) {
-    if (/goal_id|kind|goal_increment/i.test(error.message)) {
+    if (/goal_id|kind|goal_increment|is_health/i.test(error.message)) {
       // Migração ainda não aplicada, salva o mínimo.
       const { data: fallback, error: fallbackError } = await supabase
         .from("habit")

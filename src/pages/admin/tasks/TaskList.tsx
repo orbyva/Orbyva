@@ -17,7 +17,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -33,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatLocalIsoDate } from "@/lib/dates";
-import { formatDateBR, formatDateTimeBR } from "@/lib/currency";
+import { formatDateBR } from "@/lib/currency";
 import { ProjectsRail } from "./ProjectsRail";
 import { TaskQuadrant } from "./TaskQuadrant";
 import { type TaskIconValue } from "./TaskIconPicker";
@@ -55,7 +54,7 @@ import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { GanttChart } from "./GanttChart";
 import { AgendaGrid } from "./AgendaGrid";
 import { MedicationQuickCreateDialog } from "./MedicationQuickCreateDialog";
-import { formatTimeOfDay } from "./TimeEntryRow";
+import { SeriesOccurrencesDialog } from "./SeriesOccurrencesDialog";
 import {
   createTag,
   createTask,
@@ -78,7 +77,6 @@ import {
   findSeriesTasks,
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
-  isDoseLate,
   isSubtaskDueDateValid,
   PRIORITY_OPTIONS,
   rankProjectsByActivity,
@@ -941,43 +939,11 @@ export default function TaskList() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={!!seriesTask} onOpenChange={(v) => !v && setSeriesTask(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ocorrências de "{seriesTask?.title}"</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1.5">
-            {seriesTask?.is_medication && !seriesTasks.some((t) => t.status === "done") && (
-              <p className="text-xs text-muted-foreground">Nenhuma dose registrada ainda.</p>
-            )}
-            {seriesTasks.map((t) => {
-              const isDose = seriesTask?.is_medication && t.status === "done" && t.completed_at;
-              return (
-                <div
-                  key={t.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 text-sm"
-                >
-                  {isDose ? (
-                    <span className="flex items-center gap-2">
-                      Tomado às {formatTimeOfDay(t.completed_at as string)}
-                      {isDoseLate(t) && (
-                        <Badge variant="destructive" className="text-[10px]">
-                          Atrasada
-                        </Badge>
-                      )}
-                    </span>
-                  ) : (
-                    <span>{t.due_date ? formatDateTimeBR(t.due_date, t.due_time) : "Sem prazo"}</span>
-                  )}
-                  <Badge variant="outline" className="text-[10px]">
-                    {t.status === "todo" ? "A fazer" : t.status === "doing" ? "Fazendo" : "Feito"}
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SeriesOccurrencesDialog
+        seriesTask={seriesTask}
+        seriesTasks={seriesTasks}
+        onClose={() => setSeriesTask(null)}
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS_LG}>

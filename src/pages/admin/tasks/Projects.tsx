@@ -62,7 +62,6 @@ const emptyProject = (): ProjectCreateRequest => ({
   name: "",
   description: "",
   color: null,
-  notes: "",
   goal_id: null,
   status: "planned",
   tag_ids: [],
@@ -130,10 +129,6 @@ function ProjectCard({
             <TagBadge key={tag.id} tag={tag} />
           ))}
         </div>
-      )}
-
-      {project.notes && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">{project.notes}</p>
       )}
 
       {topTasks.length > 0 && (
@@ -348,7 +343,6 @@ export default function Projects() {
       name: project.name,
       description: project.description ?? "",
       color: project.color ?? null,
-      notes: project.notes ?? "",
       goal_id: project.goal_id ?? null,
       status: project.status,
       tag_ids: project.tag_ids,

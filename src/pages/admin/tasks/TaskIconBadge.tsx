@@ -1,4 +1,13 @@
-import { AlertCircle, Bell, Bookmark, CheckCircle2, Flag, Pin, Star } from "lucide-react";
+import {
+  AlertCircle,
+  Bell,
+  Bookmark,
+  CheckCircle2,
+  Flag,
+  Pin,
+  ShoppingCart,
+  Star,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +27,9 @@ export const TASK_ICON_PRESETS: TaskIconPreset[] = [
   { key: "bell", label: "Lembrete", icon: Bell },
   { key: "alert-circle", label: "Atenção", icon: AlertCircle },
   { key: "check-circle", label: "Concluído", icon: CheckCircle2 },
+  // Feature 051: ícone das tarefas criadas a partir de um item da Lista de Compras. A chave é
+  // `SHOPPING_TASK_ICON_KEY` (`src/domain/shopping/taskLink.ts`), que é quem a grava.
+  { key: "shopping-cart", label: "Compra", icon: ShoppingCart },
 ];
 
 const TASK_ICON_PRESET_MAP: Record<string, TaskIconPreset> = Object.fromEntries(

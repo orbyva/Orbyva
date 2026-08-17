@@ -1,5 +1,10 @@
 import { lazy, Suspense } from "react";
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+  type RouteObject,
+} from "react-router-dom";
 
 import ProtectedRoute from "./ProtectedRoute";
 import LoadingFallback from "./components/LoadingFallback";
@@ -16,6 +21,12 @@ const Car = lazy(() => import("./pages/admin/car/Car"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const LifeDashboard = lazy(() => import("./pages/admin/life/LifeDashboard"));
 const Timeline = lazy(() => import("./pages/admin/life/Timeline"));
+const HealthDashboard = lazy(
+  () => import("./pages/admin/life/HealthDashboard")
+);
+const MedicationList = lazy(
+  () => import("./pages/admin/health/MedicationList")
+);
 const FinanceDashboard = lazy(() => import("./pages/admin/home/FinanceDashboard"));
 const Goals = lazy(() => import("./pages/admin/goals/Goals"));
 const Habits = lazy(() => import("./pages/admin/habits/Habits"));
@@ -36,6 +47,9 @@ const TaskProjectDetail = lazy(() => import("./pages/admin/tasks/ProjectDetail")
 const TasksLive = lazy(() => import("./pages/admin/tasks/Live"));
 const TasksAgenda = lazy(() => import("./pages/admin/tasks/AgendaCalendar"));
 const TasksTags = lazy(() => import("./pages/admin/tasks/Tags"));
+const ShoppingList = lazy(() => import("./pages/admin/shopping/ShoppingList"));
+const Notes = lazy(() => import("./pages/admin/notes/Notes"));
+const NoteDetail = lazy(() => import("./pages/admin/notes/NoteDetail"));
 
 const withSuspense = (Component: React.ReactNode) => (
   <Suspense fallback={<LoadingFallback />}>{Component}</Suspense>
@@ -65,7 +79,8 @@ const PrivacyPage = lazy(() =>
 const AboutPage = lazy(() => import("./pages/About"));
 const InviteAccept = lazy(() => import("./pages/InviteAccept"));
 
-const router = createBrowserRouter([
+/** Exportado para os testes conseguirem resolver uma URL sem subir o browser router. */
+export const appRoutes: RouteObject[] = [
   {
     path: "/",
     element: <LandingEntry />,
@@ -102,6 +117,12 @@ const router = createBrowserRouter([
         children: [
           { path: "home", element: <LifeDashboard /> },
           { path: "timeline", element: <Timeline /> },
+          // Sub-módulo Vida > Saúde (feature 060) — hub de primeiro nível, não uma aba do
+          // dashboard de Vida, para as telas de 061-064 terem deep-link próprio.
+          { path: "life/health", element: <HealthDashboard /> },
+          // Gestão dos tratamentos (feature 064) — o dashboard mostra a próxima dose e a adesão;
+          // cadastrar, editar e encerrar vivem aqui.
+          { path: "life/health/medications", element: <MedicationList /> },
           { path: "account", element: <Account /> },
 
           { path: "goals", element: <Goals /> },
@@ -130,6 +151,16 @@ const router = createBrowserRouter([
               { path: "live", element: <TasksLive /> },
               { path: "agenda", element: <TasksAgenda /> },
               { path: "tags", element: <TasksTags /> },
+            ],
+          },
+
+          { path: "shopping-list", element: <ShoppingList /> },
+
+          {
+            path: "notes",
+            children: [
+              { index: true, element: <Notes /> },
+              { path: ":id", element: <NoteDetail /> },
             ],
           },
 
@@ -162,7 +193,9 @@ const router = createBrowserRouter([
     path: "*",
     element: withSuspense(<NotFound />),
   },
-]);
+];
+
+const router = createBrowserRouter(appRoutes);
 
 export default function AppRouter() {
   return <RouterProvider router={router} />;

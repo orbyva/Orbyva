@@ -18,7 +18,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -47,10 +46,12 @@ import {
 } from "./TaskViews";
 import { TaskFormFields, type TaskFormTab } from "./TaskFormFields";
 import { GanttChart } from "./GanttChart";
-import { formatTimeOfDay } from "./TimeEntryRow";
 import { ProjectFormDialog } from "./ProjectFormDialog";
+import { SeriesOccurrencesDialog } from "./SeriesOccurrencesDialog";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
+import { ProjectShoppingSection } from "@/pages/admin/shopping/ProjectShoppingSection";
+import { ProjectNotesSection } from "@/pages/admin/notes/ProjectNotesSection";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
   createProjectEvent,
@@ -76,7 +77,6 @@ import {
   findSeriesTasks,
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
-  isDoseLate,
   isSubtaskDueDateValid,
   sortTasksByCompletedAtDesc,
   sortTasksByDueDate,
@@ -105,13 +105,12 @@ import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { useDimensions } from "@/hooks/useDimensions";
 import { getErrorMessage } from "@/lib/errors";
 import { formatLocalIsoDate } from "@/lib/dates";
-import { formatDateBR, formatDateTimeBR } from "@/lib/currency";
+import { formatDateBR } from "@/lib/currency";
 
 const emptyProjectForm = (): ProjectCreateRequest => ({
   name: "",
   description: "",
   color: null,
-  notes: "",
   goal_id: null,
   status: "planned",
   tag_ids: [],
@@ -122,7 +121,6 @@ function projectToForm(project: Project): ProjectCreateRequest {
     name: project.name,
     description: project.description ?? "",
     color: project.color ?? null,
-    notes: project.notes ?? "",
     goal_id: project.goal_id ?? null,
     status: project.status,
     tag_ids: project.tag_ids,
@@ -896,43 +894,21 @@ export default function ProjectDetail() {
         </Tabs>
       )}
 
-      <Dialog open={!!seriesTask} onOpenChange={(v) => !v && setSeriesTask(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ocorrências de "{seriesTask?.title}"</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1.5">
-            {seriesTask?.is_medication && !seriesTasks.some((t) => t.status === "done") && (
-              <p className="text-xs text-muted-foreground">Nenhuma dose registrada ainda.</p>
-            )}
-            {seriesTasks.map((t) => {
-              const isDose = seriesTask?.is_medication && t.status === "done" && t.completed_at;
-              return (
-                <div
-                  key={t.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5 text-sm"
-                >
-                  {isDose ? (
-                    <span className="flex items-center gap-2">
-                      Tomado às {formatTimeOfDay(t.completed_at as string)}
-                      {isDoseLate(t) && (
-                        <Badge variant="destructive" className="text-[10px]">
-                          Atrasada
-                        </Badge>
-                      )}
-                    </span>
-                  ) : (
-                    <span>{t.due_date ? formatDateTimeBR(t.due_date, t.due_time) : "Sem prazo"}</span>
-                  )}
-                  <Badge variant="outline" className="text-[10px]">
-                    {t.status === "todo" ? "A fazer" : t.status === "doing" ? "Fazendo" : "Feito"}
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/*
+        Fora das abas de propósito: as abas alternam entre visões das *tarefas* do projeto, e
+        compras não é uma quarta visão de tarefa — é outra entidade ligada ao projeto, que deve
+        continuar visível independentemente da aba escolhida (feature 052).
+      */}
+      {!loading && id && <ProjectShoppingSection projectId={id} />}
+
+      {/* Mesma razão da seção acima: nota é outra entidade ligada ao projeto (feature 055). */}
+      {!loading && id && <ProjectNotesSection projectId={id} />}
+
+      <SeriesOccurrencesDialog
+        seriesTask={seriesTask}
+        seriesTasks={seriesTasks}
+        onClose={() => setSeriesTask(null)}
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>

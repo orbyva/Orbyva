@@ -3,7 +3,7 @@ prompt: |
   - Adicionar botão de editar em tasks/projects para editar o projeto (create agent)
 ---
 
-# 050 — Editar projeto na página de detalhe
+# 065 — Editar projeto na página de detalhe
 
 ## Contexto
 `src/pages/admin/tasks/Projects.tsx` (lista `/tasks/projects`) já tem edição completa de

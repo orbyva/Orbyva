@@ -1,0 +1,339 @@
+---
+prompt: |
+  - ADICIONAR MÓDULO DE NOTAS
+    - CRIAÇÃO DE NOTAS
+    - QUERO QUE SEJA UM OBSIDIAN/NOTION TUNADO
+    - MARKDOWN NA VEIA COM POSSIBILIDADE DE PLUGINS
+    - CRIAÇÃO DE CANVAS/DESENHOS
+    - FLOWCHARTS
+    - DIAGRAMAS BÁSICOS, IMAGINA O EXCALIDRAW SACA
+    - VINCULAM-SE A PROJETOS, CONVERSAM COM TUDO
+---
+
+# 056 — Notas: editor com realce, wiki-links e backlinks
+
+## Contexto
+
+A 055 entrega nota markdown com vínculo a um projeto. Falta o que faz um Obsidian ser Obsidian: o
+texto vira uma teia. O prompt-mãe pede "OBSIDIAN/NOTION TUNADO" e "CONVERSAM COM TUDO" — ou seja,
+`[[wiki-links]]` entre notas, painel de backlinks (quem aponta pra cá) e vínculo a entidades de
+qualquer módulo, não só projeto.
+
+Hoje o app não tem referência polimórfica em lugar nenhum: `src/api/search.ts` e
+`src/api/timeline.ts` agregam módulos por união discriminada em TypeScript, com uma query por
+tabela — não há `entity_type`/`entity_id` no banco. Esta feature **inaugura** esse padrão, e é por
+isso que ele mora aqui e não na 055: o núcleo fica utilizável mesmo que esta feature demore.
+
+Depende de: 055 (tabela `note`).
+
+## Decisões
+
+- **Editor passa a CodeMirror 6** (`@uiw/react-codemirror@4.25` + `@codemirror/lang-markdown@6.5`,
+  `@codemirror/state`, `@codemirror/view`, `@codemirror/autocomplete`). ~110–130 KB gzip no setup
+  completo (`@codemirror/view` é ~55 KB gzip, `lang-markdown` ~21 KB raw); peer `react >=17`, ESM
+  nativo, sem configuração extra no Vite 6.
+  Motivo decisivo: a API de `Decoration.mark/replace` + `ViewPlugin` dá exatamente o *live preview*
+  do Obsidian — `**negrito**` aparece em negrito e a sintaxe reaparece na linha onde está o cursor,
+  sendo que as decorações são **view-only**: o documento persistido continua markdown cru
+  byte-a-byte. É a leitura literal de "MARKDOWN NA VEIA". Além disso o autocomplete de `[[` exige
+  controle de cursor que um `<textarea>` não oferece.
+  **Descartados:** TipTap/ProseMirror — WYSIWYG que persiste JSON próprio, contraria "markdown na
+  veia" e criaria lock-in de formato logo na primeira migration; Lexical — mesma objeção de
+  WYSIWYG, com API de baixo nível que custaria mais código nosso; Monaco — ~5 MB + web workers,
+  IDE de código, não editor de prosa; textarea + overlay de highlight — sem decorações reais,
+  sincronizar caret/scroll à mão é dívida permanente.
+- **Wiki-link resolve por título, não por id.** `[[Nome da nota]]` é o que o usuário digita e o que
+  sobrevive a copiar/colar. O id fica fora do texto. Consequência aceita e explícita: renomear uma
+  nota quebra links que apontavam pro nome antigo — tratado mostrando o link como "não resolvido"
+  com ação de criar a nota faltante (mesmo comportamento do Obsidian), não com renomeação em
+  cascata (que exigiria reescrever o markdown de outras notas, e markdown do usuário não se
+  reescreve sozinho).
+- **Backlinks são derivados do texto, não persistidos em tabela.** Uma tabela de links entre notas
+  precisaria ser reconciliada a cada save e sairia do ar assim que alguém editasse o markdown por
+  fora. Em vez disso: parse do conteúdo no domínio + uma query `ilike` por `[[titulo]]` na busca
+  do backlink. Descartado índice materializado: complexidade de sincronização que o volume de
+  dados (notas de uma pessoa) não justifica.
+- **`note_link` para "conversam com tudo" — polimórfico com `entity_type` + `entity_id`, sem FK.**
+  Não dá para ter FK apontando para 9 tabelas diferentes. A integridade vem de: (a) RLS por
+  `user_id` na própria `note_link`; (b) `entity_type` restrito por `check` a uma lista fechada;
+  (c) a UI só oferece entidades que o usuário possui. Link órfão (entidade apagada) é tolerado e
+  renderizado como "referência removida" — descartado trigger de limpeza por tipo, que seria um
+  trigger por tabela do app para um ganho cosmético.
+- **`note.project_id` da 055 continua existindo.** É o vínculo primário e é o que a aba de projeto
+  usa; `note_link` cobre os vínculos secundários N:N. Descartado migrar `project_id` para dentro de
+  `note_link`: perderia a FK real e o `on delete set null`, trocando integridade garantida pelo
+  banco por convenção.
+
+## Tarefas
+
+- [x] Instalar `@uiw/react-codemirror`, `@codemirror/lang-markdown`, `@codemirror/state`,
+      `@codemirror/view` e `@codemirror/autocomplete`. Verificação: `npm run build` +
+      `npm run check:bundle` — o chunk da rota `/notes` precisa continuar sob 160 KB gzip; se
+      passar, adicionar entrada `codemirror` no `manualChunks` de `vite.config.ts:151` (junto de
+      `radix`/`supabase`) e ao `VENDOR_RE` de `scripts/check-bundle-budget.mjs`.
+      Feito: versões instaladas `@uiw/react-codemirror@4.25.11`, `@codemirror/lang-markdown@6.5.2`,
+      `@codemirror/state@6.7.1`, `@codemirror/view@6.43.9`, `@codemirror/autocomplete@6.20.3`; o
+      `manualChunks` ganhou o ramo `codemirror` (inclui `@lezer`, `style-mod`, `crelt` e
+      `w3c-keyname`, que são deps transitivas do `@codemirror/view` e sem elas o chunk da rota
+      inchava). `npm run build` + `npm run check:bundle` OK. A prova de que o split funciona vem
+      na tarefa seguinte, quando o `NoteEditor` passa a importar CodeMirror de fato e o chunk
+      `codemirror-*.js` aparece no `dist/`.
+- [x] Trocar o `<textarea>` de `src/pages/admin/notes/NoteEditor.tsx` por CodeMirror com
+      `markdown()` + tema alinhado ao Tailwind (fonte e cores de `src/index.css`, respeitando dark
+      mode). Manter autosave com debounce e o comportamento de `Tab` já existente.
+      Verificação manual: escrever `# titulo` e `**negrito**` e ver o realce sem perder o texto cru.
+      Feito em `src/components/MarkdownCodeEditor.tsx` + `src/components/codemirror/`
+      (`markdownTheme.ts`, `tabKeymap.ts`). O tema é só `hsl(var(--…))` de `src/index.css`, então
+      acompanha o dark mode (classe `.dark`) sem tema duplicado.
+      Verificação (sem navegador — a skill `next` proíbe): `MarkdownCodeEditor.test.tsx` (4 testes)
+      monta o editor de verdade em jsdom e afirma comportamento — digitar `**negrito**` deixa os
+      asteriscos no documento (nada de WYSIWYG), `Tab` insere tab literal **sem** tirar o foco do
+      campo, `Shift+Tab` remove o tab de trás do cursor e não faz nada quando não há tab.
+      `Notes.flow.test.tsx` (12 testes, ajustado o assert de `toHaveValue` para `toHaveTextContent`)
+      prova que o autosave com debounce continua gravando o que se digita no CodeMirror.
+      Desvio necessário: o `markdown()` do `@codemirror/lang-markdown` embute `lang-html` +
+      `lang-javascript` + `lang-css` e levou o chunk `codemirror` a 212 KB gzip, acima do teto de
+      200 KB de vendor. Trocado por `new LanguageSupport(markdownLanguage, [keymap.of(
+      markdownKeymap)])` → 139 KB gzip, `npm run check:bundle` OK (chunk `codemirror` separado,
+      rotas `Notes` 1,8 KB e `NoteDetail` 3,1 KB). O `src/test/setup-jsdom.ts` ganhou stub de
+      `Range.getClientRects`, que o jsdom não implementa e o CodeMirror chama a cada medição.
+- [x] Adicionar o *live preview* estilo Obsidian: um `ViewPlugin` com `Decoration.mark` que estiliza
+      `**negrito**`/`_itálico_`/`# título` e `Decoration.replace` que esconde os marcadores, exceto
+      na linha onde está o cursor. Verificação manual: mover o cursor para dentro de uma palavra em
+      negrito e ver os `**` reaparecerem; sair da linha e sumirem. Verificação de que é view-only:
+      salvar, recarregar a página e conferir que o conteúdo continua com os `**` no texto.
+      Feito em `src/components/codemirror/livePreview.ts`. As decorações são uma **função pura de
+      `EditorState`** (`buildLivePreviewDecorations`), e o `ViewPlugin` só a chama — foi assim que a
+      verificação manual do navegador virou teste de verdade.
+      Verificação: `src/components/codemirror/__tests__/livePreview.test.ts` (10 testes) afirma
+      quais trechos ganham classe (`cm-md-strong`/`em`/`strike`/`code`, `cm-md-h1..h3`) e quais
+      somem — com o cursor na linha 2, `hidden()` devolve `["**", "**"]`; com o cursor dentro do
+      negrito, devolve `[]`; o `#` some junto com o espaço seguinte; dentro de fence ``` nada é
+      decorado nem escondido. Mais o teste de ponta a ponta em `MarkdownCodeEditor.test.tsx`
+      ("o live preview está ligado"), que monta o editor real, move o cursor com `Ctrl+End` e afirma
+      que os `**` sumiram do DOM **e** continuam no documento — a prova de que é view-only.
+      Ajuste do plano: `CodeMark` só é escondido quando o pai é `InlineCode`; a cerca ``` de bloco
+      continua visível, senão o bloco perderia o limite na tela (descoberto por teste que falhou).
+- [x] Criar `src/domain/notes/wikiLinks.ts` (exports nomeados, puro): `parseWikiLinks(content)`
+      devolvendo `{ title, start, end }[]`, tolerando `[[a]] [[b]]` na mesma linha, ignorando
+      ocorrências dentro de bloco de código (``` ... ```) e de código inline.
+      Junto vieram `wikiLinkTitles` (títulos sem repetição, para resolver todos numa consulta só) e
+      `normalizeWikiTitle` (chave de comparação: ignora caixa e espaço, **mantém** acento — sem ela
+      cada consumidor inventaria a sua e "Reunião"/"reunião" resolveriam diferente).
+- [x] Criar `src/domain/notes/__tests__/wikiLinks.test.ts` cobrindo: múltiplos links na linha,
+      colchetes não fechados, link dentro de fence de código (não deve casar), título com acento e
+      com espaço. Verificação: `npm test`.
+      15 testes passando, além dos pedidos: índices `start`/`end` conferidos por `slice`, link
+      markdown comum `[texto](url)` não casa, fence com `~~~`, fence aberto e nunca fechado, código
+      inline, crase solta e título vazio.
+- [x] Renderizar wiki-link no preview: passar um componente customizado ao `MarkdownPreview`
+      (criado na 055) que troca `[[Titulo]]` por link para `/notes/<id>` quando a nota existe, e
+      por um chip "criar nota" quando não existe. Verificação manual nos dois estados.
+      Feito em `src/pages/admin/notes/NoteMarkdownPreview.tsx`. O `MarkdownPreview` ganhou os props
+      opcionais `components`/`urlTransform`; a conversão em si é `replaceWikiLinks` (domínio), que
+      reescreve `[[Título]]` como link markdown comum — nada de HTML cru, o `rehype-raw` continua
+      fora. O href de link quebrado usa um esquema sintético (`orbyva-wikilink-missing:`) e o
+      `urlTransform` só o libera; todo o resto segue no `defaultUrlTransform`.
+      `NoteDetail` passou a carregar `fetchNotes()` (dicionário de títulos) e a criar a nota que
+      falta, navegando para ela.
+      Verificação: `NoteMarkdownPreview.test.tsx` (9 testes) — link resolvido aponta para
+      `/notes/n7`, resolve ignorando caixa/espaço, o chip tem nome acessível "Criar nota <título>" e
+      o clique devolve o título, `[[…]]` dentro de código continua literal, o resto do Markdown
+      segue funcionando, `javascript:` continua barrado (href zerado) e HTML cru continua não
+      interpretado. Mais 9 testes de `replaceWikiLinks`/`indexNotesByTitle` em `wikiLinks.test.ts`.
+- [x] Autocomplete de `[[` no CodeMirror via `@codemirror/autocomplete`: ao digitar `[[`, sugerir
+      títulos das notas do usuário (buscar com debounce, reusando `fetchNotes` da 055).
+      Feito em `src/components/codemirror/wikiLinkCompletion.ts`. Desvio: **sem** consulta com
+      debounce por tecla. `NoteDetail` já carrega `fetchNotes()` uma vez (o mesmo dicionário que
+      resolve os wiki-links do preview) e o autocomplete lê essa lista por função — mesma decisão
+      do filtro da 055 ("a lista já está em memória e ir ao banco a cada tecla seria uma consulta
+      por caractere"). Ler por função, e não por lista fixa, é o que faz a nota recém-criada
+      aparecer no popup sem remontar o editor.
+      Verificação: `wikiLinkCompletion.test.ts` (8 testes) no nível do `CompletionContext` — sugere
+      tudo no `[[`, filtra pelo digitado, o `apply` fecha os colchetes, não dispara fora de um `[[`
+      aberto, não atravessa linha, respeita o teto de 20 e relê os títulos a cada chamada. Mais o
+      teste de ponta a ponta em `Notes.flow.test.tsx` ("digitar `[[` no editor sugere os títulos"),
+      que digita no editor de verdade, confere o popup, aceita com Enter e afirma que o documento
+      gravado virou `ver [[Lista de materiais]]`.
+- [x] Criar migration `supabase/migrations/<TIMESTAMP>_note_links.sql` (timestamp único — conferir
+      `ls supabase/migrations/`): tabela `public.note_link` com `id uuid pk`, `user_id uuid not
+      null references auth.users(id) on delete cascade`, `note_id uuid not null references
+      public.note(id) on delete cascade`, `entity_type text not null`, `entity_id text not null`,
+      `label text`, `created_at timestamptz not null default now()`;
+      `check (entity_type in ('project','task','book','movie','album','trip','place','goal','habit','vehicle'))`;
+      `unique (note_id, entity_type, entity_id)`; índices `(user_id, note_id)` e
+      `(user_id, entity_type, entity_id)` — o segundo serve a consulta reversa.
+      Feito em `supabase/migrations/20260816170000_note_links.sql` (timestamp conferido: o maior em
+      `supabase/migrations/` era `20260816160000`).
+- [x] Na mesma migration: RLS habilitada + 4 policies `note_link_*_own` (`user_id = auth.uid()`),
+      `note_link` na lista de `public.wipe_own_data()` e trigger `trg_enforce_app_access` — mesmo
+      formato de `20260806130000_project_notes_status_events.sql`.
+      **Confirmar com o usuário antes de `supabase db push`.**
+      `note_link` entra no `wipe_own_data` **antes** de `note`, por causa da FK. `db push` não foi
+      rodado (é decisão do usuário — ver a última tarefa).
+- [x] Verificação manual pós-`db push` (manual por necessidade: sem Supabase local, e o Vitest deste
+      repo não cobre I/O nem RLS): no SQL editor, tentar inserir em `note_link` um `entity_type`
+      fora da lista e confirmar que o `check` rejeita; inserir o mesmo `(note_id, entity_type,
+      entity_id)` duas vezes e confirmar que o `unique` rejeita; apagar uma nota e confirmar que os
+      `note_link` dela somem junto (`on delete cascade`).
+      Virou harness em Postgres 16 descartável no Docker — `bash supabase/tests/note_links/run.sh`,
+      mesmo formato do `notes_core/` da 055 —, porque a skill `next` proíbe navegador e o `db push`
+      vai para o banco remoto. Rodou inteiro e passou: `check` rejeita `entity_type` fora da lista e
+      aceita os da lista; `unique` barra a duplicata na mesma nota e permite a mesma entidade em
+      outra nota; apagar a nota apaga só os vínculos dela; apagar o usuário apaga só os dele;
+      vínculo órfão é aceito (é o que a referência polimórfica exige); `wipe_own_data` apaga os
+      vínculos do usuário e nenhum alheio; RLS com o papel `authenticated` barra leitura, insert,
+      update e delete alheios; schema, índices, FKs, trigger e reaplicação idempotente conferidos.
+- [x] Adicionar `NoteLink` e `NoteLinkEntityType` a `src/types/notes.ts`, com o union de tipos
+      espelhando exatamente o `check` do banco (é o contrato entre os dois).
+      O union sai de `NOTE_LINK_ENTITY_TYPES` (`as const`), para a UI poder iterar a lista sem
+      redigitá-la. Verificação: `npx tsc -b` limpo e `noteLinks-api.test.ts` exercitando os tipos
+      `goal`/`book`/`trip`/`habit`/`movie` nas chamadas reais.
+- [x] Criar `src/api/notes/noteLinks.ts`: `fetchLinksForNote(noteId)`,
+      `fetchNotesLinkedTo(entityType, entityId)`, `addNoteLink`, `removeNoteLink` — todas com
+      filtro por `user_id`.
+      Verificação: `src/api/notes/__tests__/noteLinks-api.test.ts` (10 testes) contra o duplo do
+      query builder de `notes-api.test.ts` — tabela, escopo `user_id` em toda consulta, ordenação,
+      `label` vazio virando `null`, e a consulta reversa em duas etapas (vínculos pela entidade →
+      notas por `in(id)`, sem repetir id e sem ir ao banco quando não há vínculo). Erro do PostgREST
+      vira `Error` nas quatro funções, inclusive na segunda etapa da consulta reversa.
+      Decisão registrada: a consulta reversa faz **duas** consultas porque não há FK para a entidade
+      e o join embutido do PostgREST só serviria para a FK existente (`note_id`); e a duplicata fica
+      por conta do `unique` do banco, sem checagem prévia que abriria corrida.
+- [x] Criar `src/pages/admin/notes/NoteLinksPanel.tsx`: no editor, uma seção "Vínculos" listando os
+      `note_link` com ícone por tipo, e um seletor (`cmdk`, já no `package.json`) para adicionar —
+      reusando `ProjectPicker` quando o tipo for projeto. Mutações com `useToast` +
+      `getErrorMessage`.
+      O diálogo de vincular tem duas vias: `ProjectPicker` (projeto, o caso mais comum) e a busca
+      global do Ctrl+K (`searchGlobal`) para meta/livro/viagem/hábito/filme/álbum/lugar/veículo —
+      sem tela de seleção por módulo e sem consulta nova. O rótulo é congelado no vínculo (`label`),
+      então a lista continua legível depois de a entidade sumir. Rota e nome de cada tipo saem de
+      `src/domain/notes/noteLinkTargets.ts` (puro).
+      Verificação: `NoteLinksPanel.test.tsx` (8 testes) — só os vínculos daquela nota aparecem, cada
+      um leva à rota certa (`/goals`, `/travel/t1`, `/tasks/projects/p1`), entidade apagada vira
+      "Referência removida" em vez de sumir, vincular por projeto e pela busca grava com o tipo
+      certo (inclusive o mapa `music` → `album`), lançamento não é oferecido, vincular repetido
+      avisa em vez de gravar duplicado, e remoção que o banco recusa devolve o vínculo à tela com
+      toast destrutivo.
+- [x] Criar `src/pages/admin/notes/BacklinksPanel.tsx`: lista "Mencionada em" — notas cujo
+      `content` contém `[[<título desta nota>]]` (query `ilike` em `src/api/notes/notes.ts`) e
+      notas ligadas via `note_link`. `EmptyState` quando não houver nenhuma.
+      Dois grupos: "Com [[título]] no texto" (`fetchNotesMentioning`, `ilike` como **prefiltro** +
+      `mentionsWikiTitle` como veredito — menção dentro de bloco de código não é backlink) e
+      "Ligadas às mesmas coisas que esta" (`fetchNotesSharingEntity`, a consulta reversa do índice
+      `(user_id, entity_type, entity_id)` virada para o próprio módulo de Notas — foi assim que
+      "notas ligadas via `note_link`" foi interpretado; ver Notas).
+      Verificação: `BacklinksPanel.test.tsx` (5 testes) com o falso imitando o `ilike` do banco —
+      a nota que escreveu `[[Materiais]]` aparece com link para `/notes/n2`, a que só documenta a
+      sintaxe dentro de fence **não** aparece, o grupo de "mesmas coisas" aparece separado, e erro
+      vira toast destrutivo em vez de tela quebrada. Mais 4 testes de `mentionsWikiTitle` e 6 de
+      API (`fetchNotesMentioning` escapando `%`/`_` do LIKE e não indo ao banco com título vazio;
+      `fetchNotesSharingEntity` descartando par `(tipo, id)` que não bate e não consultando à toa).
+- [x] Mostrar o vínculo no sentido inverso em pelo menos uma entidade não-projeto para provar o
+      padrão: seção "Notas" em `src/pages/admin/goals/Goals.tsx` (ou no detalhe de meta), usando
+      `fetchNotesLinkedTo("goal", id)`. Verificação manual: criar vínculo pelo editor e ver a nota
+      aparecer do outro lado.
+      Feito: `src/pages/admin/notes/EntityNotesSection.tsx` (apresentacional, reusável por qualquer
+      módulo) dentro do card da meta em `Goals.tsx`. Ajuste do plano: a página é uma **lista**, e
+      `fetchNotesLinkedTo` por card seria uma consulta por meta — entrou
+      `fetchNotesLinkedToMany("goal", ids)`, duas consultas para a página inteira, e
+      `fetchNotesLinkedTo` passou a delegar para ela (implementação única).
+      Verificação: `src/pages/admin/goals/__tests__/Goals.notes.test.tsx` (4 testes) — a nota
+      vinculada aparece no card **da sua** meta com link para `/notes/n1`, a carga é uma chamada só
+      com `type: "goal"` e todos os ids, meta sem nota não ganha bloco vazio, e falha na busca das
+      notas não derruba a página. Mais 2 testes de `fetchNotesLinkedToMany` na camada de API
+      (agrupamento por entidade, id repetido consultado uma vez, nota escondida pela RLS fora do
+      grupo).
+- [x] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle`. Resultado:
+      build OK; lint 0 erros (13 warnings pré-existentes de `react-refresh`, nenhum nos arquivos
+      novos); `npm test` **1022 passando / 2 falhando** — as 2 são as pré-existentes e alheias de
+      `src/lib/__tests__/currency.test.ts` (esperam `"—"`, `src/lib/currency.ts` devolve `"·"`),
+      as mesmas que a 055 registrou; a 056 acrescentou 97 testes (925 → 1022) e nenhuma falha nova.
+      `check:bundle` OK: `codemirror` 138,9 KB gzip contra o teto de 200 KB de vendor, e as rotas
+      `NoteDetail` 8,1 KB, `Goals` 6,0 KB, `Notes` 1,8 KB contra o teto de 160 KB.
+      Consertado no caminho: `Notes.flow.test.tsx` "um wiki-link resolvido no preview leva para a
+      outra nota" passava sozinho e falhava na suíte inteira — `findByLabelText("Título")` achava o
+      campo da nota **anterior** e lia o título velho. Virou `waitFor` sobre o valor.
+- [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260816170000_note_links.sql` no banco
+      remoto (`supabase db push`), junto com as das features 050, 051, 052 e 055 (a 055 cria a
+      tabela `note`, de que esta depende — a ordem do `push` já é a dos timestamps). Até lá a tabela
+      `note_link` não existe no banco real: wiki-links, backlinks por texto e o editor funcionam,
+      mas o painel "Vínculos", o grupo "Ligadas às mesmas coisas" e a seção "Notas" nos cards de
+      meta vão só mostrar vazio (o erro é tratado com toast, não quebra a tela). Depois de aplicada,
+      conferir no SQL editor: `insert` em `note_link` com `entity_type = 'receita'` é rejeitado pelo
+      `check`; o mesmo `(note_id, entity_type, entity_id)` duas vezes é rejeitado pelo `unique`;
+      apagar uma nota leva os `note_link` dela junto; e `select * from pg_policies where tablename =
+      'note_link'` traz as 4 policies `note_link_*_own`. Tudo isso já passou em Postgres 16
+      descartável (`bash supabase/tests/note_links/run.sh`) — a conferência no banco real é só para
+      confirmar que o push chegou inteiro.
+
+## Prompts
+
+- 2026-08-16 — prompt que originou o módulo de Notas, verbatim:
+
+```
+- ADICIONAR MÓDULO DE NOTAS
+  - CRIAÇÃO DE NOTAS
+  - QUERO QUE SEJA UM OBSIDIAN/NOTION TUNADO
+  - MARKDOWN NA VEIA COM POSSIBILIDADE DE PLUGINS
+  - CRIAÇÃO DE CANVAS/DESENHOS
+  - FLOWCHARTS
+  - DIAGRAMAS BÁSICOS, IMAGINA O EXCALIDRAW SACA
+  - VINCULAM-SE A PROJETOS, CONVERSAM COM TUDO
+```
+
+## Notas
+
+- **Checagem de satisfação (2026-08-17), item do `prompt:` → artefato que prova.** O prompt-mãe
+  cobre as quatro features; o que a 056 se propôs a cumprir está abaixo, com o teste que passou:
+  - *OBSIDIAN/NOTION TUNADO* (o que faz um Obsidian ser Obsidian) → live preview com a marcação
+    sumindo fora da linha do cursor: `livePreview.test.ts` (10 testes) e
+    `MarkdownCodeEditor.test.tsx` "o live preview está ligado", que move o cursor com `Ctrl+End` e
+    afirma que os `**` sumiram do DOM **e** continuam no documento; wiki-link `[[…]]` resolvendo
+    para a nota: `NoteMarkdownPreview.test.tsx` e `Notes.flow.test.tsx` "um wiki-link resolvido no
+    preview leva para a outra nota"; link quebrado virando "criar nota", com a nota nascendo e o
+    editor navegando para ela, no mesmo teste; autocomplete de `[[`: `Notes.flow.test.tsx`
+    "digitar `[[` no editor sugere os títulos das outras notas", que aceita a sugestão e afirma o
+    documento gravado; backlinks: `BacklinksPanel.test.tsx`.
+  - *MARKDOWN NA VEIA* → `MarkdownCodeEditor.test.tsx` "digitar markdown mantém o texto cru,
+    marcadores inclusive" e a assertiva de view-only acima. O editor trocou de tecnologia sem
+    trocar o formato: o documento continua markdown byte a byte, sem JSON próprio.
+  - *CONVERSAM COM TUDO* → tabela `note_link` polimórfica validada em Postgres 16
+    (`supabase/tests/note_links/run.sh`: `check`, `unique`, RLS, cascade, wipe); painel de vínculos
+    ligando a nota a projeto e a qualquer resultado da busca global (`NoteLinksPanel.test.tsx`, 8
+    testes); e o vínculo **do outro lado**, fora do módulo de Notas, em
+    `Goals.notes.test.tsx` (4 testes) — que é a prova de que o padrão polimórfico funciona para uma
+    entidade não-projeto.
+  - *POSSIBILIDADE DE PLUGINS*, *CANVAS/DESENHOS*, *FLOWCHARTS*, *DIAGRAMAS BÁSICOS* → **fora do
+    escopo da 056 por decisão do refino**, são 057 e 058. Não há artefato porque não foram
+    implementados; é a ordem combinada, não pendência esquecida.
+  - Suíte completa: `npm test` → 1022 passando, 2 falhando (as pré-existentes de `currency.test.ts`).
+    Antes desta feature eram 925/2; a 056 acrescentou 97 testes e nenhuma falha nova.
+  - **Por que não foi para `done/`:** sobrou a tarefa `- [ ]` de `supabase db push` — `db push`
+    aplica no banco remoto e é decisão do usuário. Mesmo critério de 050, 051, 052 e 055.
+- **Bug real, achado pelo teste de ponta a ponta do autocomplete: o `@uiw/react-codemirror`
+  apagava as últimas letras digitadas.** O `onChange` dele vem de fora do sistema de eventos do
+  React, então o `setState` ficava agendado; digitando rápido, o `value` que voltava ao componente
+  ficava atrás do documento e o sync interno da biblioteca (200 ms depois da última tecla)
+  reescrevia o documento com esse valor atrasado. No teste, o documento voltava para `ver [[`
+  enquanto o estado do React já era `ver [[mate` — e a transação de reescrita ainda abortava a
+  consulta do autocomplete. Corrigido em `MarkdownCodeEditor` com `flushSync` no `onChange` (e o
+  handler memoizado, porque `onChange` entra nas dependências do efeito que reconfigura o editor).
+  Não é bug de teste: com digitação rápida de verdade o mesmo caminho perde texto na tela.
+- **Segundo achado no mesmo lugar: `basicSetup` era um objeto literal inline**, e como ele entra nas
+  dependências do efeito de reconfiguração, cada render disparava `StateEffect.reconfigure` —
+  fechando o popup do autocomplete sempre que qualquer estado da página mudasse (o indicador
+  "Salvando…", por exemplo). Virou constante de módulo.
+- **Interpretação de "e notas ligadas via `note_link`" na tarefa do BacklinksPanel.** `note_link`
+  liga nota → *entidade*, e `note` não está no `check` de `entity_type`, então não existe vínculo
+  nota→nota por essa tabela. O que existe, e é o mais próximo do que a tarefa pede, é: *outras notas
+  ligadas a alguma das mesmas entidades que esta*. É o que `fetchNotesSharingEntity` faz, num grupo
+  separado ("Ligadas às mesmas coisas que esta"), para não se confundir com menção de verdade. Se a
+  intenção era outra, a correção é trocar essa consulta, não o painel.
+- Segunda das quatro features do módulo de Notas: `055` → **`056`** → `057` → `058`. Depende da
+  tabela `note` da 055. Não fecha o prompt-mãe sozinha.
+- `note_link` é o primeiro padrão polimórfico do banco. Se ele se provar, é candidato natural a ser
+  reusado por outros módulos — mas não generalizar antes de ter um segundo caso real de uso.
+- Wiki-link por título assume títulos únicos por usuário na prática. Não há `unique` no banco (dois
+  rascunhos "Sem título" são legítimos); se dois títulos colidirem, o painel de backlinks mostra as
+  duas notas — comportamento aceito, não bug.
