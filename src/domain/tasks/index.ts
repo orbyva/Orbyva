@@ -14,3 +14,4 @@ export * from "./duration";
 export * from "./taskDraft";
 export * from "./medication";
 export * from "./consultation";
+export * from "./events";

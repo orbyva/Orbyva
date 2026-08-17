@@ -93,32 +93,32 @@ dependem dela.
   por último porque termina chamando `wipe_own_data`)
 - [x] Rodar `bash supabase/tests/event_task_link/run.sh` e corrigir a migration até sair
   "OK: 20260817120000_event_task_link.sql validada em Postgres 16."
-- [ ] Em `src/types/tasks.ts`: `ProjectEvent.project_id` vira `string | null`, entra
+- [x] Em `src/types/tasks.ts`: `ProjectEvent.project_id` vira `string | null`, entra
   `task_id: string | null`, com comentário citando a check constraint (no máximo um vínculo) e o fato
   de o projeto de um evento de tarefa ser derivado, nunca copiado
-- [ ] Em `src/api/tasks/projectEvents.ts`: adicionar `updateProjectEvent(event:
+- [x] Em `src/api/tasks/projectEvents.ts`: adicionar `updateProjectEvent(event:
   ProjectEventUpdateRequest)` (`Partial<ProjectEventCreateRequest> & { id: string }`, exportado de
   `src/types/tasks.ts`) filtrando por `id` + `user_id` e devolvendo a linha atualizada, mesmo padrão
   de `updateTask`/`updateProject`; garantir que `createProjectEvent` aceita `project_id: null` e
   `task_id` (o spread atual já serve — só o tipo muda)
-- [ ] Criar `src/domain/tasks/events.ts` (regras puras, sem I/O) com: `EventLinkKind = "project" |
+- [x] Criar `src/domain/tasks/events.ts` (regras puras, sem I/O) com: `EventLinkKind = "project" |
   "task" | "none"`; `eventLinkKind(event)`; `resolveEventProjectId(event, taskById)` (projeto do
   evento, ou o projeto da tarefa vinculada, ou `null`); `isEventLinkValid(event)` (espelha a check
   constraint em TS, para a UI barrar antes do banco); e exportar o módulo em
   `src/domain/tasks/index.ts`
-- [ ] Criar `src/domain/tasks/__tests__/events.test.ts` cobrindo os três `eventLinkKind`;
+- [x] Criar `src/domain/tasks/__tests__/events.test.ts` cobrindo os três `eventLinkKind`;
   `resolveEventProjectId` com evento de projeto, evento de tarefa cujo projeto existe, evento de
   tarefa **sem** projeto (tarefa solta → `null`), evento de tarefa cuja tarefa não está no mapa
   (→ `null`, sem lançar) e evento avulso; e `isEventLinkValid` recusando o par preenchido
-- [ ] Propagar a nulabilidade de `project_id` nos consumidores até `npm run build` ficar limpo:
+- [x] Propagar a nulabilidade de `project_id` nos consumidores até `npm run build` ficar limpo:
   `AgendaGrid.tsx` (`EventChip` recebe `projectColor` já resolvido; filtro de projeto e o dialog de
   detalhe com o `Link` para `/tasks/projects/:id` precisam tratar `project_id` nulo — nesta feature
   basta não quebrar: evento sem projeto usa a cor neutra que já é o fallback e esconde o botão "Ir
   para o projeto"), `AgendaHourGrid.tsx` (`TimedEventBlock`), `Projects.tsx` (`eventsByProject` passa
   a ignorar evento sem `project_id`), `ProjectDetail.tsx` (filtro `e.project_id === id` continua
   correto com `null`) e `ProjectFormDialog.tsx` (só lista eventos já filtrados — conferir tipos)
-- [ ] `npm run build` e `npm run lint` — sem erros novos
-- [ ] `npm test` — `events.test.ts` novo passando e nenhuma regressão nos testes de
+- [x] `npm run build` e `npm run lint` — sem erros novos
+- [x] `npm test` — `events.test.ts` novo passando e nenhuma regressão nos testes de
   `AgendaGrid`/`AgendaHourGrid`/`ProjectFormDialog`/`ProjectDetail` (que mockam `@/api/tasks`: se o
   módulo ganhar `updateProjectEvent`, os mocks `vi.mock("@/api/tasks", ...)` desses arquivos precisam
   da função nova, mesmo problema registrado nas Notas da feature 065)
@@ -129,3 +129,26 @@ dependem dela.
 ## Prompts
 
 ## Notas
+- Dois testes que não estavam no plano entraram porque a verificação é só por código (sem navegador),
+  e "compila" não prova comportamento: `src/api/tasks/__tests__/projectEvents.test.ts` (duplo do query
+  builder, no molde de `updateTask-shopping-sync.test.ts`) prova que `createProjectEvent` grava evento
+  de tarefa e avulso e que `updateProjectEvent` filtra por `id` + `user_id`, não manda `updated_at`
+  (coluna que `project_event` não tem) e devolve a linha; e
+  `src/pages/admin/tasks/__tests__/AgendaGrid.event-link.test.tsx` prova a propagação da nulabilidade
+  na UI — evento de tarefa deriva cor/badge/link do projeto **da tarefa**, evento avulso e evento de
+  tarefa sem projeto ficam na cor neutra e sem o botão "Ir para o projeto", evento de projeto legado
+  inalterado.
+- O filtro de projeto da Agenda passou a filtrar evento por projeto **resolvido**
+  (`resolveEventProjectId`), não por `e.project_id` cru: sem isso, evento de tarefa some ao filtrar
+  pelo projeto da própria tarefa. Evento avulso fica de fora quando há projeto selecionado, o que é o
+  comportamento esperado.
+- `npm test` (suíte inteira em paralelo) fica instável nesta máquina: a primeira rodada teve 68 falhas,
+  todas `Test timed out in 5000ms` em arquivos sem relação com a feature (ex.: `Habits.health-badge`),
+  e cada um desses arquivos passa isolado. A suíte foi validada com
+  `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`: 156 arquivos / 1353 testes
+  passando. Sobra um "unhandled error" de teardown (`dispatchEvent` em
+  `life/__tests__/HealthDashboard.reminders.test.tsx`, feature 063) que não vem desta feature e não
+  reprova nenhum teste.
+- Nenhum mock `vi.mock("@/api/tasks", ...)` existente precisou ganhar `updateProjectEvent`: a função
+  entrou na API mas ainda não é chamada por tela nenhuma (isso é a 067). O mock do teste novo
+  (`AgendaGrid.event-link.test.tsx`) já a declara.

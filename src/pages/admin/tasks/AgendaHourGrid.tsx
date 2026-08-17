@@ -4,6 +4,7 @@ import { ptBR } from "date-fns/locale";
 import { DollarSign } from "lucide-react";
 import {
   layoutTimedItems,
+  resolveEventProjectId,
   splitTimedItems,
   type CalendarItem,
 } from "@/domain/tasks";
@@ -47,6 +48,18 @@ function itemKey(item: CalendarItem<Task, ProjectEvent>): string {
  * pra alimentar o tooltip do `SubtaskLinkIcon`, não afeta o layout/posicionamento (feature 048). */
 function parentTitleFor(task: Task, taskById: Map<string, Task>): string | undefined {
   return task.parent_task_id ? taskById.get(task.parent_task_id)?.title : undefined;
+}
+
+/** Cor do projeto a que o evento pertence: o evento de tarefa deriva o projeto da tarefa e o
+ * avulso não tem projeto nenhum (feature 066) — nos dois casos sem cor, e o bloco cai no cinza
+ * neutro que já era o fallback. */
+function eventProjectColor(
+  event: ProjectEvent,
+  projectById: Map<string, Project>,
+  taskById: Map<string, Task>
+): string | null {
+  const projectId = resolveEventProjectId(event, taskById);
+  return projectId ? (projectById.get(projectId)?.color ?? null) : null;
 }
 
 function TimedTaskBlock({
@@ -172,7 +185,7 @@ function UntimedStrip({
                 <EventChip
                   key={item.event.id}
                   event={item.event}
-                  projectColor={projectById.get(item.event.project_id)?.color ?? null}
+                  projectColor={eventProjectColor(item.event, projectById, taskById)}
                   onClick={() => onOpenEvent(item.event)}
                 />
               )
@@ -295,7 +308,7 @@ export function AgendaHourGrid({
                     ) : (
                       <TimedEventBlock
                         event={item.event}
-                        projectColor={projectById.get(item.event.project_id)?.color ?? null}
+                        projectColor={eventProjectColor(item.event, projectById, taskById)}
                         onClick={() => onOpenEvent(item.event)}
                       />
                     )}

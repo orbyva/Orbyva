@@ -49,6 +49,7 @@ import {
   groupCalendarItemsByDay,
   groupSubtasksByParent,
   isSubtaskDueDateValid,
+  resolveEventProjectId,
 } from "@/domain/tasks";
 import {
   addSubtaskToEditing as addSubtaskDraftToEditing,
@@ -324,10 +325,27 @@ export function AgendaGrid() {
     return task.parent_task_id ? taskById.get(task.parent_task_id)?.title : undefined;
   }
 
+  // Desde a 066 o evento pode não ter `project_id`: o de tarefa deriva o projeto da tarefa e o
+  // avulso não tem projeto nenhum (fica de fora quando o filtro aponta para um projeto).
+  const eventProjectId = useCallback(
+    (event: ProjectEvent) => resolveEventProjectId(event, taskById),
+    [taskById]
+  );
+
+  const eventProjectColor = useCallback(
+    (event: ProjectEvent) => {
+      const projectId = eventProjectId(event);
+      return projectId ? (projectById.get(projectId)?.color ?? null) : null;
+    },
+    [eventProjectId, projectById]
+  );
+
   const filteredEvents = useMemo(
     () =>
-      events.filter((e) => (projectFilter === "all" ? true : e.project_id === projectFilter)),
-    [events, projectFilter]
+      events.filter((e) =>
+        projectFilter === "all" ? true : eventProjectId(e) === projectFilter
+      ),
+    [events, projectFilter, eventProjectId]
   );
 
   const itemsByDay = useMemo(
@@ -337,6 +355,12 @@ export function AgendaGrid() {
 
   const today = new Date();
   const dayModalItems = dayModalKey ? (itemsByDay.get(dayModalKey) ?? []) : [];
+
+  // Projeto do evento aberto no dialog de detalhe — `null` para evento de tarefa sem projeto e para
+  // evento avulso, que é quando o badge e o botão "Ir para o projeto" somem (feature 066).
+  const viewingEventProject = viewingEvent
+    ? (projectById.get(eventProjectId(viewingEvent) ?? "") ?? null)
+    : null;
 
   function openTaskFromChip(task: Task) {
     setDayModalKey(null);
@@ -573,7 +597,7 @@ export function AgendaGrid() {
                         <EventChip
                           key={item.event.id}
                           event={item.event}
-                          projectColor={projectById.get(item.event.project_id)?.color ?? null}
+                          projectColor={eventProjectColor(item.event)}
                           onClick={() => openEventFromChip(item.event)}
                         />
                       )
@@ -615,7 +639,7 @@ export function AgendaGrid() {
                 <EventChip
                   key={item.event.id}
                   event={item.event}
-                  projectColor={projectById.get(item.event.project_id)?.color ?? null}
+                  projectColor={eventProjectColor(item.event)}
                   onClick={() => openEventFromChip(item.event)}
                 />
               )
@@ -685,18 +709,20 @@ export function AgendaGrid() {
               <p className="text-sm text-muted-foreground">
                 {format(new Date(viewingEvent.starts_at), "dd/MM/yyyy 'às' HH:mm")}
               </p>
-              {projectById.get(viewingEvent.project_id) && (
+              {viewingEventProject && (
                 <Badge variant="outline" className="gap-1">
-                  {projectById.get(viewingEvent.project_id)?.name}
+                  {viewingEventProject.name}
                 </Badge>
               )}
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="gap-1.5" asChild>
-                  <Link to={`/tasks/projects/${viewingEvent.project_id}`}>
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Ir para o projeto
-                  </Link>
-                </Button>
+                {viewingEventProject && (
+                  <Button variant="outline" size="sm" className="gap-1.5" asChild>
+                    <Link to={`/tasks/projects/${viewingEventProject.id}`}>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Ir para o projeto
+                    </Link>
+                  </Button>
+                )}
                 <ConfirmDeleteDialog title="Excluir este evento?" onConfirm={() => handleDeleteEvent(viewingEvent.id)}>
                   <Button variant="outline" size="sm" className="gap-1.5 text-destructive">
                     <Trash2 className="h-3.5 w-3.5" />

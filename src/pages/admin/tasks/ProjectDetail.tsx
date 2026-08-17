@@ -359,6 +359,7 @@ export default function ProjectDetail() {
     try {
       await createProjectEvent({
         project_id: project.id,
+        task_id: null,
         title,
         starts_at: new Date(startsAt).toISOString(),
         ends_at: null,

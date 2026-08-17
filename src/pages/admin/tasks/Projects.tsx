@@ -264,6 +264,9 @@ export default function Projects() {
   const eventsByProject = useMemo(() => {
     const map = new Map<string, ProjectEvent[]>();
     for (const e of events) {
+      // Desde a 066 o evento pode ser de tarefa ou avulso: sem `project_id` ele não pertence a
+      // nenhum card desta lista (o projeto de um evento de tarefa é derivado na Agenda).
+      if (!e.project_id) continue;
       const list = map.get(e.project_id);
       if (list) list.push(e);
       else map.set(e.project_id, [e]);
@@ -392,6 +395,7 @@ export default function Projects() {
     try {
       await createProjectEvent({
         project_id: editing.id,
+        task_id: null,
         title,
         starts_at: new Date(startsAt).toISOString(),
         ends_at: null,

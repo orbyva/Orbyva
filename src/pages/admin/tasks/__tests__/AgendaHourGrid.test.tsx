@@ -41,6 +41,7 @@ function makeEvent(overrides: Partial<ProjectEvent> = {}): ProjectEvent {
   return {
     id: "event-1",
     project_id: "project-1",
+    task_id: null,
     title: "Evento",
     starts_at: new Date(2026, 7, 17, 10, 0).toISOString(),
     ...overrides,

@@ -28,10 +28,26 @@ export type ProjectUpdateRequest = Partial<ProjectCreateRequest> & {
   id: string;
 };
 
+/**
+ * Evento da agenda. O nome `ProjectEvent` (e o da tabela `project_event`) é histórico: o evento
+ * nasceu preso a um projeto na feature 006 e desde a 066 também cobre evento de tarefa e evento
+ * avulso. Renomear custaria policies, índices, `wipe_own_data` e ~15 arquivos sem entregar nada ao
+ * usuário — ver Decisões da feature 066.
+ */
 export interface ProjectEvent {
   id: string;
   user_id?: string;
-  project_id: string;
+  /**
+   * Vínculo com projeto. Nulo quando o evento é de tarefa ou avulso — a check constraint
+   * `project_event_single_link` garante que no máximo um dos dois vínculos esteja preenchido.
+   */
+  project_id: string | null;
+  /**
+   * Vínculo com tarefa. O projeto de um evento de tarefa é **derivado** da tarefa em memória
+   * (`resolveEventProjectId`, em `src/domain/tasks/events.ts`), nunca copiado para `project_id` —
+   * senão mover a tarefa de projeto deixaria o evento apontando para o projeto antigo.
+   */
+  task_id: string | null;
   title: string;
   starts_at: string;
   ends_at?: string | null;
@@ -42,6 +58,10 @@ export type ProjectEventCreateRequest = Omit<
   ProjectEvent,
   "id" | "user_id" | "created_at"
 >;
+
+export type ProjectEventUpdateRequest = Partial<ProjectEventCreateRequest> & {
+  id: string;
+};
 
 export interface Tag {
   id: string;
