@@ -89,7 +89,7 @@ inteira, como em `computeVirtualOccurrences`).
 - [x] Em `AgendaGrid.tsx`: implementar `handleSaveEvent` (create ou update conforme `editing`, toast
   de erro com `getErrorMessage`, fecha o dialog e chama `load()`) e ligar `handleDeleteEvent`
   (já existe) ao `onDelete` do dialog novo
-- [ ] Em `AgendaGrid.tsx` (visão mês): clique na área vazia da célula do dia abre o dialog de criação
+- [x] Em `AgendaGrid.tsx` (visão mês): clique na área vazia da célula do dia abre o dialog de criação
   com início pré-preenchido em `dia 09:00` — sem capturar o clique dos chips nem do "+N mais" (parar
   a propagação neles), e com `aria-label` no alvo clicável para o teste conseguir mirar
 - [ ] Em `AgendaHourGrid.tsx`: nova prop opcional `onCreateAt(day: Date, hour: number)`; cada linha de
@@ -134,6 +134,11 @@ inteira, como em `computeVirtualOccurrences`).
   sugerido pelo clique num dia/slot, que a tarefa da `AgendaGrid` previa guardar no estado
   `eventDialog`) e `extraActions` (slot para o "Ir para o projeto" do modo edição, que é específico
   da Agenda e não pode nascer dentro de um componente que a 068 vai reusar).
+- Na visão Mês o alvo de criação virou um `<button>` absoluto **atrás** do conteúdo (`z-0` contra
+  `z-10` dos chips, wrapper `pointer-events-none` com `[&>*]:pointer-events-auto` nos chips) em vez
+  de `stopPropagation` nos chips: assim o chip nunca precisa saber que existe um alvo embaixo dele.
+  Ele fica fora da ordem de tabulação (`tabIndex={-1}`) — 42 alvos de dia antes do conteúdo
+  quebrariam a navegação por teclado, que continua tendo o botão "Novo evento" do header.
 - `handleSaveEvent` re-lança o erro depois do toast: o `EventFormDialog` só continua aberto se
   `onSave` rejeitar, então engolir a exceção na Agenda faria o dialog fechar como se tivesse
   salvado. Os mocks `vi.mock("@/api/tasks", ...)` de `AgendaGrid.test.tsx` e

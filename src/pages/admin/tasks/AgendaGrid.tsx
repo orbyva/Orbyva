@@ -88,6 +88,20 @@ import { cn } from "@/lib/utils";
 
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTH_MAX_CHIPS_PER_DAY = 3;
+/** Hora sugerida ao criar um evento clicando num dia da visão Mês — a célula do mês não tem
+ * horário, e começo de expediente é o palpite menos errado (feature 067). */
+const MONTH_CLICK_DEFAULT_HOUR = 9;
+
+/** ISO do início sugerido ao clicar num dia da visão Mês: o próprio dia às 09:00 **locais**. */
+export function monthCellStartsAt(day: Date): string {
+  return new Date(
+    day.getFullYear(),
+    day.getMonth(),
+    day.getDate(),
+    MONTH_CLICK_DEFAULT_HOUR,
+    0
+  ).toISOString();
+}
 
 type CalendarViewMode = "month" | "week" | "day";
 
@@ -644,18 +658,35 @@ export function AgendaGrid() {
               return (
                 <div
                   key={key}
-                  className={cn("min-h-24 border-b border-r p-1 sm:min-h-28", !inMonth && "bg-muted/20")}
+                  className={cn(
+                    "relative min-h-24 border-b border-r p-1 sm:min-h-28",
+                    !inMonth && "bg-muted/20"
+                  )}
                 >
-                  <span
-                    className={cn(
-                      "mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs",
-                      isToday && "bg-primary font-semibold text-primary-foreground",
-                      !inMonth && "text-muted-foreground"
-                    )}
-                  >
-                    {format(day, "d")}
-                  </span>
-                  <div className="space-y-0.5">
+                  {/* Alvo de criação: cobre a célula inteira por baixo do conteúdo (`z-0` contra o
+                      `z-10` dos chips), então clicar em qualquer área livre do dia marca um evento
+                      ali — o gesto de calendário — sem roubar o clique de chip nem do "+N mais". */}
+                  <button
+                    type="button"
+                    aria-label={`Novo evento em ${format(day, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`}
+                    // Fora da ordem de tabulação de propósito: 42 alvos de dia à frente do
+                    // conteúdo tornariam a navegação por teclado insuportável, e quem usa teclado
+                    // cria pelo botão "Novo evento" do header.
+                    tabIndex={-1}
+                    onClick={() => openEventCreate(monthCellStartsAt(day))}
+                    className="absolute inset-0 z-0 h-full w-full cursor-pointer"
+                  />
+                  <div className="pointer-events-none relative z-10">
+                    <span
+                      className={cn(
+                        "mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs",
+                        isToday && "bg-primary font-semibold text-primary-foreground",
+                        !inMonth && "text-muted-foreground"
+                      )}
+                    >
+                      {format(day, "d")}
+                    </span>
+                    <div className="space-y-0.5 [&>*]:pointer-events-auto">
                     {visible.map((item) =>
                       item.kind === "task" ? (
                         <TaskChip
@@ -682,6 +713,7 @@ export function AgendaGrid() {
                         +{overflow} mais
                       </button>
                     )}
+                    </div>
                   </div>
                 </div>
               );

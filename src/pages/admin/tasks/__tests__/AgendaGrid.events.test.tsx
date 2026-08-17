@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { AgendaGrid } from "@/pages/admin/tasks/AgendaGrid";
 import {
   createProjectEvent,
@@ -13,6 +15,7 @@ import {
   updateProjectEvent,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
+import { toLocalDateTimeInputValue } from "@/lib/dates";
 import type { Project, ProjectEvent, Task } from "@/types/tasks";
 
 /**
@@ -139,7 +142,7 @@ describe("AgendaGrid — criar evento (feature 067)", () => {
 
     expect(screen.queryByText("Novo evento", { selector: "h2, h3" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Novo evento/ }));
+    await user.click(screen.getByRole("button", { name: "Novo evento" }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByLabelText(/^Título/)).toHaveValue("");
@@ -151,7 +154,7 @@ describe("AgendaGrid — criar evento (feature 067)", () => {
     await renderLoaded();
     expect(mockedFetchProjectEvents).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole("button", { name: /Novo evento/ }));
+    await user.click(screen.getByRole("button", { name: "Novo evento" }));
     await user.type(screen.getByLabelText(/^Título/), "Dentista");
     await user.type(screen.getByLabelText(/^Início/), "2026-08-17T09:00");
     await user.click(saveButton());
@@ -178,7 +181,7 @@ describe("AgendaGrid — criar evento (feature 067)", () => {
     ]);
     await renderLoaded();
 
-    await user.click(screen.getByRole("button", { name: /Novo evento/ }));
+    await user.click(screen.getByRole("button", { name: "Novo evento" }));
     await user.type(screen.getByLabelText(/^Título/), "Reunião sobre o cimento");
     await user.type(screen.getByLabelText(/^Início/), "2026-08-17T09:00");
     await user.click(screen.getByRole("tab", { name: "Tarefa" }));
@@ -196,12 +199,40 @@ describe("AgendaGrid — criar evento (feature 067)", () => {
     );
   });
 
+  it("clicar num dia vazio do mês abre a criação com o dia às 09:00 já preenchido", async () => {
+    const user = userEvent.setup();
+    await renderLoaded();
+
+    const day = todayAtNoon();
+    const label = `Novo evento em ${format(day, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`;
+    await user.click(screen.getByRole("button", { name: label }));
+
+    const startsInput = await screen.findByLabelText(/^Início/);
+    expect(startsInput).toHaveValue(
+      toLocalDateTimeInputValue(
+        new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0).toISOString()
+      )
+    );
+    expect(startsInput).toHaveValue(`${format(day, "yyyy-MM-dd")}T09:00`);
+  });
+
+  it("clicar num chip de evento não dispara a criação (o alvo do dia não rouba o clique)", async () => {
+    const user = userEvent.setup();
+    mockedFetchProjectEvents.mockResolvedValue([makeEvent({ title: "Dentista" })]);
+    await renderLoaded();
+
+    await user.click(screen.getByRole("button", { name: "Dentista" }));
+
+    await screen.findByRole("dialog");
+    expect(screen.queryByRole("button", { name: "Criar evento" })).not.toBeInTheDocument();
+  });
+
   it("erro na criação mostra toast e mantém o dialog aberto com o que foi digitado", async () => {
     const user = userEvent.setup();
     mockedCreateProjectEvent.mockRejectedValue(new Error("insert falhou"));
     await renderLoaded();
 
-    await user.click(screen.getByRole("button", { name: /Novo evento/ }));
+    await user.click(screen.getByRole("button", { name: "Novo evento" }));
     await user.type(screen.getByLabelText(/^Título/), "Dentista");
     await user.type(screen.getByLabelText(/^Início/), "2026-08-17T09:00");
     await user.click(saveButton());
