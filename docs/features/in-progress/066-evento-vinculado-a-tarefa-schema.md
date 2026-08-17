@@ -59,7 +59,7 @@ dependem dela.
   editar evento, e pertence à mesma camada de contrato desta feature.
 
 ## Tarefas
-- [ ] Criar `supabase/migrations/20260817120000_event_task_link.sql`: `alter table
+- [x] Criar `supabase/migrations/20260817120000_event_task_link.sql`: `alter table
   public.project_event alter column project_id drop not null`; `add column if not exists task_id uuid
   references public.task(id) on delete cascade`; check constraints `project_event_single_link`
   (`project_id is null or task_id is null`) e `project_event_ends_after_starts` (`ends_at is null or
@@ -69,29 +69,29 @@ dependem dela.
   `project_event_user_starts_idx (user_id, starts_at)`; `comment on column` explicando os três
   estados de vínculo e que o nome da tabela é histórico. Sem alterar policies (RLS já é por
   `user_id`) nem `wipe_own_data`
-- [ ] Criar `supabase/tests/event_task_link/00_stubs.sql` espelhando
+- [x] Criar `supabase/tests/event_task_link/00_stubs.sql` espelhando
   `supabase/tests/task_consultation/00_stubs.sql`: schema/tabela `auth.users`, `auth.uid()`,
   `enforce_app_access`, `gen_random_uuid` e o `public.wipe_own_data` vigente (com `project_event` na
   lista), mais `public.project` e `public.task` no estado pré-migration
-- [ ] Criar `supabase/tests/event_task_link/01_seed.sql`: dois usuários, um projeto e uma tarefa por
+- [x] Criar `supabase/tests/event_task_link/01_seed.sql`: dois usuários, um projeto e uma tarefa por
   usuário, e eventos de projeto gravados **antes** da migration (para provar que linha legada
   sobrevive com `project_id` preenchido e `task_id` nulo)
-- [ ] Criar `supabase/tests/event_task_link/02_assert_schema.sql`: `project_id` passou a ser
+- [x] Criar `supabase/tests/event_task_link/02_assert_schema.sql`: `project_id` passou a ser
   nullable; `task_id` existe, é `uuid` e é nullable; linhas legadas seguem intactas
   (`project_id` preenchido, `task_id` nulo); insert com só `task_id` passa; insert com só
   `project_id` passa; insert sem nenhum dos dois passa (evento avulso); insert com **os dois**
   falha na `project_event_single_link`; insert com `ends_at <= starts_at` falha na
   `project_event_ends_after_starts`; `ends_at` nulo continua aceito
-- [ ] Criar `supabase/tests/event_task_link/03_assert_rls.sql`: usuário só enxerga/edita/apaga os
+- [x] Criar `supabase/tests/event_task_link/03_assert_rls.sql`: usuário só enxerga/edita/apaga os
   próprios eventos (select/update/delete com `auth.uid()` trocado); `delete from public.task` leva os
   eventos daquela tarefa junto (cascade) sem tocar nos eventos de projeto; `delete from
   public.project` continua levando os eventos de projeto; `wipe_own_data()` do usuário A zera
   eventos de projeto, de tarefa e avulsos de A e não toca em nada de B
-- [ ] Criar `supabase/tests/event_task_link/run.sh` copiando a estrutura de
+- [x] Criar `supabase/tests/event_task_link/run.sh` copiando a estrutura de
   `supabase/tests/task_consultation/run.sh` (container `orbyva-event-task-link-pg`, espera por query
   real em vez de `pg_isready`, migration aplicada duas vezes para provar idempotência, `03_assert_rls`
   por último porque termina chamando `wipe_own_data`)
-- [ ] Rodar `bash supabase/tests/event_task_link/run.sh` e corrigir a migration até sair
+- [x] Rodar `bash supabase/tests/event_task_link/run.sh` e corrigir a migration até sair
   "OK: 20260817120000_event_task_link.sql validada em Postgres 16."
 - [ ] Em `src/types/tasks.ts`: `ProjectEvent.project_id` vira `string | null`, entra
   `task_id: string | null`, com comentário citando a check constraint (no máximo um vínculo) e o fato
