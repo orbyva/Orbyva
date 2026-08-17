@@ -184,11 +184,22 @@ Depende de: 055 (tabela `note`).
       vínculo órfão é aceito (é o que a referência polimórfica exige); `wipe_own_data` apaga os
       vínculos do usuário e nenhum alheio; RLS com o papel `authenticated` barra leitura, insert,
       update e delete alheios; schema, índices, FKs, trigger e reaplicação idempotente conferidos.
-- [ ] Adicionar `NoteLink` e `NoteLinkEntityType` a `src/types/notes.ts`, com o union de tipos
+- [x] Adicionar `NoteLink` e `NoteLinkEntityType` a `src/types/notes.ts`, com o union de tipos
       espelhando exatamente o `check` do banco (é o contrato entre os dois).
-- [ ] Criar `src/api/notes/noteLinks.ts`: `fetchLinksForNote(noteId)`,
+      O union sai de `NOTE_LINK_ENTITY_TYPES` (`as const`), para a UI poder iterar a lista sem
+      redigitá-la. Verificação: `npx tsc -b` limpo e `noteLinks-api.test.ts` exercitando os tipos
+      `goal`/`book`/`trip`/`habit`/`movie` nas chamadas reais.
+- [x] Criar `src/api/notes/noteLinks.ts`: `fetchLinksForNote(noteId)`,
       `fetchNotesLinkedTo(entityType, entityId)`, `addNoteLink`, `removeNoteLink` — todas com
       filtro por `user_id`.
+      Verificação: `src/api/notes/__tests__/noteLinks-api.test.ts` (10 testes) contra o duplo do
+      query builder de `notes-api.test.ts` — tabela, escopo `user_id` em toda consulta, ordenação,
+      `label` vazio virando `null`, e a consulta reversa em duas etapas (vínculos pela entidade →
+      notas por `in(id)`, sem repetir id e sem ir ao banco quando não há vínculo). Erro do PostgREST
+      vira `Error` nas quatro funções, inclusive na segunda etapa da consulta reversa.
+      Decisão registrada: a consulta reversa faz **duas** consultas porque não há FK para a entidade
+      e o join embutido do PostgREST só serviria para a FK existente (`note_id`); e a duplicata fica
+      por conta do `unique` do banco, sem checagem prévia que abriria corrida.
 - [ ] Criar `src/pages/admin/notes/NoteLinksPanel.tsx`: no editor, uma seção "Vínculos" listando os
       `note_link` com ícone por tipo, e um seletor (`cmdk`, já no `package.json`) para adicionar —
       reusando `ProjectPicker` quando o tipo for projeto. Mutações com `useToast` +
