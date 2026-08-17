@@ -219,17 +219,26 @@ dentro de uma nota markdown). Independente da 056.
       101 chunks `excalidraw-*` na classe `canvas`, o maior com 719,6 KB contra o teto de 750 KB.
       Precache do PWA em 11.140 KiB, praticamente o mesmo dos 11.387 KiB de antes da feature.
       Migration validada à parte, em Postgres 16 (`bash supabase/tests/note_canvas/run.sh`).
-- [ ] **Última tarefa do módulo — remoção da coluna `project.notes`, herdada da 055.**
-      Pré-requisito bloqueante: o usuário precisa confirmar explicitamente que abriu o módulo de
-      Notas e viu que **todas** as notas de projeto migradas estão lá, íntegras. Sem essa
-      confirmação, esta tarefa não roda e continua `- [ ]` — a coluna ficar viva não é bug.
-      Ao liberar: migration nova (timestamp único) contendo **uma única instrução**,
-      `alter table public.project drop column if exists notes`.
+- [ ] **BLOQUEADA — remoção da coluna `project.notes`, herdada da 055. Última tarefa do módulo.**
+      Estado em 2026-08-17: **nenhuma das duas condições foi cumprida**, então a tarefa continua
+      aberta e **a migration ainda não existe** (ver Notas: criar o arquivo antes da liberação faria
+      o próximo `supabase db push` do usuário dropar a coluna sem que ninguém tivesse confirmado
+      nada — o arquivo *é* o gatilho).
+      Condição 1 — o usuário precisa ter rodado `supabase db push` das migrations do módulo
+      (`20260816160000_notes_core`, `20260816170000_note_links`, `20260816180000_note_canvas`).
+      Condição 2 — o usuário precisa abrir o módulo de Notas e **confirmar explicitamente** que
+      todas as notas de projeto migradas estão lá, íntegras. A cópia foi feita pela 055 com
+      `insert ... select`, e a coluna original continua viva de propósito, como rede de segurança;
+      ela ficar viva **não é bug**.
+      Ao liberar: migration nova (timestamp único, o próximo livre é `20260816190000`) contendo
+      **uma única instrução**, `alter table public.project drop column if exists notes`.
       Nada de tocar em `project_event`, nas policies ou no `status` — a migration da feature 006
       (`20260806130000_project_notes_status_events.sql`) criou a coluna `notes` **e** a tabela
       `project_event` no mesmo arquivo, então é fácil arrastar junto o que não deve sair.
-      Verificação: `npm run build` (nada referencia a coluna desde a 055) e, no SQL editor,
-      `select count(*) from project_event` continua retornando o mesmo de antes.
+      Verificação: `npm run build` (nada no app lê ou escreve a coluna desde a 055 — conferido:
+      `src/types/tasks.ts` só a cita num comentário explicando a ausência, e `src/api/tasks/
+      projects.ts` não a menciona) e, no SQL editor, `select count(*) from project_event` continuar
+      retornando o mesmo de antes.
 
 ## Prompts
 
@@ -248,6 +257,79 @@ dentro de uma nota markdown). Independente da 056.
 
 ## Notas
 
+- **Por que a feature está em `in-progress/` e não em `done/` (2026-08-17).** Sobra exatamente uma
+  `- [ ]`: o `drop column` de `project.notes`, bloqueado por duas condições que só o usuário pode
+  satisfazer (rodar o `db push` e confirmar que as notas migradas estão íntegras). Todas as outras
+  15 tarefas estão verificadas por código. A checagem de satisfação do `prompt:` está abaixo.
+- **Checagem de satisfação (2026-08-17), item do `prompt:` → artefato que prova.** O prompt-mãe
+  cobre as quatro features do módulo; o que a 058 se propôs a cumprir é a parte de desenho:
+  - *CRIAÇÃO DE CANVAS/DESENHOS* → `Notes.flow.test.tsx` "'Novo canvas' cria a nota com
+    kind = canvas e abre o editor de desenho" e "desenhar num canvas grava o canvas_data e
+    recarregar a página traz o desenho de volta": o botão existe na lista, cria a nota com o `kind`
+    certo, o editor monta, o traço vai para o banco e sobrevive à remontagem. Mais
+    `CanvasEditor.test.tsx` (10 testes) no comportamento do editor e `canvasScene.test.ts`
+    (14 testes) nas regras do que se grava.
+  - *DIAGRAMAS BÁSICOS, IMAGINA O EXCALIDRAW SACA* → é literalmente o Excalidraw:
+    `@excalidraw/excalidraw@0.18.1` em `ExcalidrawCanvas.tsx`, com as ferramentas, undo/redo,
+    seleção e zoom que vêm com ele. O que os testes afirmam é a **integração** (o que entra e o que
+    sai do editor), não o desenho em si, que é responsabilidade da lib.
+  - *VINCULAM-SE A PROJETOS, CONVERSAM COM TUDO* → de graça, por canvas **ser** uma nota: o
+    `CanvasEditor` monta o mesmo `ProjectPicker`, o mesmo `NoteLinksPanel` e o mesmo
+    `BacklinksPanel` da 055/056, sem adaptação. O harness de Postgres prova o lado do banco (RLS,
+    `wipe_own_data` e o `project_id` continuam valendo para `kind = 'canvas'`).
+  - *Canvas dentro da nota markdown* (não está no texto do prompt, é a ponte com o "Obsidian
+    tunado") → `CanvasBlock.test.tsx` (9 testes) e o fluxo de ponta a ponta em `Notes.flow.test.tsx`
+    "fluxo completo do embed", que vai de copiar a referência até clicar nela e chegar no canvas.
+  - *Segurança do SVG* (requisito herdado da 055/057) → `sanitizeSvg.test.tsx` (10 testes, 3 novos
+    para `sanitizeSvgElement`) e o teste do `CanvasBlock` "o SVG entra como nó, não como HTML cru".
+  - Suíte completa: `npm test` → **1105 passando, 2 falhando** (as pré-existentes de
+    `currency.test.ts`). Antes desta feature eram 1058/2.
+- **Por que a migration do `drop column` não foi escrita.** A tarefa manda criar o arquivo "ao
+  liberar". Criá-lo antes seria pior do que inútil: migration commitada em `supabase/migrations/`
+  é aplicada pelo **próximo `supabase db push` que o usuário rodar**, seja lá por qual motivo — o
+  arquivo *é* o gatilho, não a decisão de rodá-lo. Como a liberação depende de o usuário confirmar
+  que as notas migradas estão íntegras, escrever o arquivo agora tiraria dele a chance de dizer não.
+  O conteúdo exato da migration está na tarefa, pronto para ser criado quando a confirmação vier.
+- **Desvio com medição: `manualChunks` único para o excalidraw é pior, igual ao caso do mermaid na
+  057.** A tarefa mandava declarar `excalidraw` em `manualChunks`. Foi feito e medido: um chunk de
+  4,71 MB (**1.532,1 KB gzip**), que `check:bundle` reprova e que **quebra o `npm run build`** — o
+  Workbox não pré-cacheia arquivo acima de 2 MB e aborta. A causa é a mesma da 057: `manualChunks`
+  colapsa num arquivo só tudo que a lib importa dinamicamente, aqui os ~90 locales e os chunks
+  internos. A correção foi devolver **um nome por arquivo do pacote** (`excalidraw-<arquivo>`), o
+  que preserva o split natural (101 chunks) e ainda dá nome estável — sem isso o Rollup batizaria o
+  chunk principal a partir de um símbolo interno da lib (`percentages-BXMCSKIN-…`), que é
+  exatamente o tipo de nome frágil que a 057 teve de aceitar para o mermaid.
+- **Bug real encontrado no caminho: o canvas engordava o precache do PWA em 4,5 MB.** O
+  `globPatterns` do `VitePWA` pega `**/*.js`, então os 101 chunks do Excalidraw entravam no
+  precache: 11.387 KiB → 15.905 KiB, cobrados de **todo usuário do app na instalação**, inclusive
+  de quem nunca abre um canvas. Nenhum teto de bundle pega isso, porque por chunk está tudo dentro
+  do orçamento. `globIgnores: ["**/excalidraw-*.js", "**/excalidraw-*.css"]` devolveu o precache a
+  11.140 KiB. Contrapartida aceita e documentada no `vite.config.ts`: abrir um canvas pela primeira
+  vez exige estar online.
+- **Bug real: a busca global mostrava canvas sem subtítulo.** `src/api/search.ts` montava o
+  subtítulo do hit com `noteExcerpt(content)`, e canvas não tem `content` — todo desenho apareceria
+  na busca como uma linha só com o título. Passou a trazer a coluna `kind` e a mostrar "Canvas".
+  Coberto por `search-notes.test.ts`.
+- **Decisão própria: o `onChange` de montagem do Excalidraw não pode gravar.** O Excalidraw dispara
+  `onChange` assim que monta, com a cena que acabou de restaurar, e depois a cada movimento de
+  ponteiro — inclusive movimentos que não mudam nada. Sem tratamento, **abrir** um canvas gravaria
+  por cima dele e carimbaria `updated_at`, reordenando a lista de notas sem que ninguém tivesse
+  editado nada. A solução é `canvasSceneSignature`: a cena que chega é comparada com a que já está
+  gravada, e save só acontece quando o documento mudou de verdade. Tem teste dedicado.
+- **Ajuste do plano: `canvas_data` é `NoteCanvasData | null`, não `unknown | null`.** `unknown | null`
+  colapsa em `unknown` no TypeScript e obrigaria a cast em todo uso, inclusive no card da lista.
+  O tipo é uma descrição **estrutural mínima** do `.excalidraw` (`elements`/`appState`/`files`), sem
+  importar nada de dentro do pacote de 2,7 MB — os tipos reais da lib só aparecem na fronteira, em
+  `ExcalidrawCanvas.tsx`.
+- **`ExcalidrawCanvas.tsx` existe por causa do CSS.** O `React.lazy` sozinho não bastaria: o
+  `import "@excalidraw/excalidraw/index.css"` (144 KB) é estático por natureza, e num arquivo
+  importado pela rota ele entraria no CSS da rota mesmo com o componente sob `lazy`. Isolando o
+  módulo, o Vite emite o CSS junto do chunk lazy.
+- **Fontes do Excalidraw vêm do CDN dele (`EXCALIDRAW_ASSET_PATH` no default).** São 13 MB de
+  woff2 no pacote; servi-las do próprio app significaria copiá-las para `public/`. Não foi feito, de
+  propósito: sem elas o Excalidraw cai numa fonte de sistema e o desenho continua funcionando. Se um
+  dia isso incomodar, o conserto é copiar a pasta `dist/prod/fonts` e setar
+  `window.EXCALIDRAW_ASSET_PATH`.
 - Última das quatro features do módulo: `055` → `056` → `057` → **`058`**. Ao concluir esta,
   reler o `prompt:` do frontmatter das quatro e conferir item a item antes de mover qualquer uma
   para `done/`.
