@@ -66,6 +66,17 @@ export function bmiCategory(bmi: number | null): string | null {
 }
 
 /**
+ * Número da medição em pt-BR, sem casa decimal inútil: 78,4 kg e 176 cm (não "176,0"). Até duas
+ * casas, que é o que a variação arredondada pode ter.
+ */
+export function formatMetricValue(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+/**
  * Ordena as medições de um tipo da mais recente para a mais antiga. `recorded_date` é o critério
  * (é o dia da medição); `created_at` só desempata duas medições do mesmo dia — pesar-se duas vezes
  * no mesmo dia é possível e a última registrada vale como a atual.

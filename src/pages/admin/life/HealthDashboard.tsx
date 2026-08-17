@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, GlassWater, HeartPulse, Pill, Stethoscope } from "lucide-react";
+import {
+  Check,
+  GlassWater,
+  HeartPulse,
+  Pill,
+  Ruler,
+  Stethoscope,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
@@ -11,7 +18,17 @@ import { MedicationQuickCreateDialog } from "@/pages/admin/tasks/MedicationQuick
 import { fetchHealthHabitsToday, loadHealthSummary } from "@/api/health";
 import { toggleHabitLog } from "@/api/habits";
 import { frequencyLabel } from "@/domain/habits";
-import { formatDateTimeBR } from "@/lib/currency";
+import {
+  METRIC_LABEL,
+  METRIC_TYPES,
+  METRIC_UNIT,
+  bmiCategory,
+  computeBmi,
+  deltaSincePrevious,
+  formatMetricValue,
+  latestByType,
+} from "@/domain/health/metrics";
+import { formatDateBR, formatDateTimeBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { useLocalDay } from "@/hooks/useLocalDay";
@@ -92,6 +109,13 @@ export default function HealthDashboard() {
   const nextDose = summary?.nextMedicationDose ?? null;
   const nextConsultation = summary?.nextConsultation ?? null;
   const habitsDone = healthHabits.filter((item) => item.doneToday).length;
+
+  // Progresso (feature 063): tudo derivado da mesma janela de medições — nada disso vem pronto do
+  // banco, nem o IMC (que sai do último peso com a última altura, medidos em dias diferentes).
+  const metrics = summary?.latestMetrics ?? [];
+  const latest = latestByType(metrics);
+  const measuredTypes = METRIC_TYPES.filter((type) => latest[type]);
+  const bmi = computeBmi(latest.weight?.value, latest.height?.value);
 
   // O CTA do estado vazio de cada seção é o mesmo botão do header — só um dos dois aparece por vez,
   // por seção.
@@ -194,6 +218,79 @@ export default function HealthDashboard() {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      {/* Progresso (feature 063): a série de `health_metric`. O IMC não vem do banco — é derivado
+          aqui do último peso com a última altura, que podem ter sido medidos em dias diferentes. */}
+      <section
+        aria-labelledby="health-progress"
+        className="rounded-xl border bg-card shadow-sm"
+      >
+        <header className="flex items-center gap-2 border-b px-4 py-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--health))]/10 text-[hsl(var(--health))]">
+            <Ruler className="h-4 w-4" />
+          </span>
+          <h2 id="health-progress" className="text-sm font-semibold">
+            Progresso
+          </h2>
+        </header>
+
+        {loading ? (
+          <TableLoadingSkeleton rows={2} columns={3} />
+        ) : measuredTypes.length === 0 ? (
+          <EmptyState
+            icon={Ruler}
+            title="Nenhuma medição registrada"
+            description="Registre peso, altura e medidas para acompanhar a evolução ao longo do tempo."
+          />
+        ) : (
+          <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            {measuredTypes.map((type) => {
+              const measurement = latest[type]!;
+              const delta = deltaSincePrevious(metrics, type);
+              return (
+                <article
+                  key={type}
+                  aria-label={METRIC_LABEL[type]}
+                  className="rounded-lg border p-3"
+                >
+                  <p className="text-xs text-muted-foreground">
+                    {METRIC_LABEL[type]}
+                  </p>
+                  <p className="text-xl font-semibold">
+                    {formatMetricValue(measurement.value)} {METRIC_UNIT[type]}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDateBR(measurement.recorded_date)}
+                    {/* Sem cor de "bom/ruim": ganhar peso pode ser o objetivo. A variação é
+                        informação, não julgamento. */}
+                    {delta != null ? (
+                      <span className="ml-2 font-medium text-foreground">
+                        {delta === 0
+                          ? "sem variação"
+                          : `${delta > 0 ? "+" : "−"}${formatMetricValue(
+                              Math.abs(delta)
+                            )} ${METRIC_UNIT[type]}`}
+                      </span>
+                    ) : null}
+                  </p>
+                </article>
+              );
+            })}
+
+            {bmi != null ? (
+              <article aria-label="IMC" className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">IMC</p>
+                <p className="text-xl font-semibold">
+                  {formatMetricValue(bmi)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {bmiCategory(bmi)}
+                </p>
+              </article>
+            ) : null}
+          </div>
         )}
       </section>
 
