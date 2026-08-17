@@ -28,6 +28,22 @@ export function groupItemsByCategory(
   }));
 }
 
+/**
+ * Recorta as categorias de um projeto, preservando a ordem recebida — o agrupamento por categoria
+ * continua sendo o mesmo, filtrar só encurta a lista de categorias (feature 052).
+ *
+ * `projectId` nulo/indefinido = sem filtro: devolve tudo, inclusive as categorias sem projeto.
+ * Com filtro, categoria sem projeto (`project_id` nulo) não aparece em filtro de projeto nenhum —
+ * ela é uma categoria comum da casa, não pertence a projeto algum.
+ */
+export function filterCategoriesByProject(
+  categories: ShoppingCategory[],
+  projectId: string | null | undefined
+): ShoppingCategory[] {
+  if (!projectId) return categories;
+  return categories.filter((category) => category.project_id === projectId);
+}
+
 /** Quantidade de itens ainda não comprados por `shopping_category_id`. */
 export function countPendingByCategory(
   items: ShoppingItem[]

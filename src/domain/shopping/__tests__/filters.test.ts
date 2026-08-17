@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   countPendingByCategory,
+  filterCategoriesByProject,
   groupItemsByCategory,
 } from "@/domain/shopping/filters";
 import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
@@ -69,6 +70,49 @@ describe("groupItemsByCategory", () => {
 
   it("sem categorias, não devolve nenhum grupo", () => {
     expect(groupItemsByCategory([item("i1", "c1")], [])).toEqual([]);
+  });
+});
+
+describe("filterCategoriesByProject", () => {
+  const obra = { ...category("c1", "Materiais"), project_id: "p1" };
+  const estudio = { ...category("c2", "Cabos"), project_id: "p2" };
+  const mercado = category("c3", "Mercado"); // sem projeto
+  const todas = [obra, estudio, mercado];
+
+  it("sem filtro (null) devolve todas as categorias, na ordem recebida", () => {
+    expect(filterCategoriesByProject(todas, null)).toEqual(todas);
+  });
+
+  it("sem filtro (undefined) também devolve todas", () => {
+    expect(filterCategoriesByProject(todas, undefined)).toEqual(todas);
+  });
+
+  it("com filtro, devolve só as categorias daquele projeto", () => {
+    expect(filterCategoriesByProject(todas, "p1")).toEqual([obra]);
+    expect(filterCategoriesByProject(todas, "p2")).toEqual([estudio]);
+  });
+
+  it("categoria sem projeto não aparece em filtro de projeto nenhum", () => {
+    expect(filterCategoriesByProject(todas, "p1")).not.toContain(mercado);
+    expect(filterCategoriesByProject(todas, "p2")).not.toContain(mercado);
+    expect(filterCategoriesByProject([mercado], "p1")).toEqual([]);
+  });
+
+  it("projeto sem categoria nenhuma devolve lista vazia", () => {
+    expect(filterCategoriesByProject(todas, "p-inexistente")).toEqual([]);
+  });
+
+  it("preserva a ordem recebida quando o projeto tem várias categorias", () => {
+    const outra = { ...category("c4", "Tintas"), project_id: "p1" };
+    expect(
+      filterCategoriesByProject([obra, mercado, outra], "p1").map((c) => c.id)
+    ).toEqual(["c1", "c4"]);
+  });
+
+  it("não muta o array recebido", () => {
+    const entrada = [...todas];
+    filterCategoriesByProject(entrada, "p1");
+    expect(entrada).toEqual(todas);
   });
 });
 
