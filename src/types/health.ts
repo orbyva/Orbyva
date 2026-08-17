@@ -28,6 +28,45 @@ export interface HealthSummary {
   reminderPreferences: ReminderPreference[];
 }
 
+/**
+ * Um tratamento medicamentoso (feature 064) — a entidade que a 049 não tinha.
+ *
+ * A dose continua sendo uma `task` (`is_medication`, `medication_id`, `dose_time`): o tratamento
+ * guarda o *quê* (nome, posologia, horários, período) e a task guarda o *quando aconteceu*
+ * (`completed_at`). Foi essa separação que destravou N doses por dia — `recurrence_rule` tem um
+ * `time` singular e é compartilhada com as tarefas comuns do app.
+ */
+export interface Medication {
+  id: string;
+  user_id?: string;
+  name: string;
+  /** Quantidade por dose (ex.: 2). Separada da unidade para compor "Losartana 2 comprimidos". */
+  dose_amount?: number | null;
+  dose_unit?: string | null;
+  /** Texto livre: "em jejum", "não tomar com leite". */
+  instructions?: string | null;
+  /** Horários do dia (`HH:MM` ou `HH:MM:SS` — o Postgres devolve com segundos). Uma dose por
+   * (data × horário): é o que permite "1 de manhã e 1 à noite" num tratamento só. */
+  times: string[];
+  /** A cada quantos dias o tratamento se repete (1 = todo dia). */
+  interval_days: number;
+  started_on: string;
+  /** Fim programado (`YYYY-MM-DD`); `null` = tratamento contínuo. */
+  ended_on?: string | null;
+  /** Encerrar zera `active` em vez de apagar: o histórico de doses e a adesão continuam valendo. */
+  active: boolean;
+  created_at?: string;
+}
+
+export type MedicationCreateRequest = Omit<
+  Medication,
+  "id" | "user_id" | "created_at" | "active"
+> & { active?: boolean };
+
+export type MedicationUpdateRequest = Partial<MedicationCreateRequest> & {
+  id: string;
+};
+
 /** Tipos de medição corporal — espelha o check de `health_metric.metric_type`. */
 export type MetricType = "weight" | "height" | "waist" | "hip" | "chest" | "arm";
 

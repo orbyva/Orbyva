@@ -122,6 +122,16 @@ export interface Task {
    * Usado pra renderizar o item com ícone de estetoscópio no calendário geral e pra exibir
    * "Compareceu às" (a partir de `completed_at`) no dialog "Ocorrências de...". */
   is_consultation?: boolean;
+  /** Tratamento (`medication`) do qual esta tarefa é uma **dose** (feature 064) — mesmo padrão de
+   * `linked_recurring_id`: entidade de domínio de um lado, tarefas materializadas do outro.
+   * Séries com esta coluna preenchida são puladas por `materializeRecurringInstances`; quem gera
+   * as doses é `materializeMedicationDoses` (`src/api/health/medications.ts`), e os dois caminhos
+   * juntos duplicariam doses no calendário. */
+  medication_id?: string | null;
+  /** Qual dos `medication.times` esta dose representa (`HH:MM` ou `HH:MM:SS` — o Postgres devolve
+   * com segundos). Junto com `due_date` é a chave que impede materializar a mesma dose duas vezes;
+   * é por isso que uma medicação de 08:00 e 20:00 gera duas tarefas no mesmo dia. */
+  dose_time?: string | null;
   created_at?: string;
   updated_at?: string;
 }
