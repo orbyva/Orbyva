@@ -12,4 +12,9 @@ import type { Task } from "@/types/tasks";
 export interface HealthSummary {
   /** Próxima ocorrência pendente de uma medicação, ou `null` quando não há nenhuma agendada. */
   nextMedicationDose: Task | null;
+  /**
+   * Próxima consulta médica pendente (`task` com `is_consultation = true`, feature 061), ou `null`
+   * quando não há nenhuma agendada. Mesma origem da dose: consulta é tarefa, não tabela própria.
+   */
+  nextConsultation: Task | null;
 }

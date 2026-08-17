@@ -26,7 +26,10 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 
 beforeEach(() => {
-  vi.mocked(loadHealthSummary).mockResolvedValue({ nextMedicationDose: null });
+  vi.mocked(loadHealthSummary).mockResolvedValue({
+    nextMedicationDose: null,
+    nextConsultation: null,
+  });
 });
 
 describe("hub de Vida", () => {

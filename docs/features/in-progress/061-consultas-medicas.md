@@ -26,10 +26,10 @@ O usuário pediu que consultas "virem eventos no calendário geral". O app tem d
 - [x] Adicionar `is_consultation?: boolean` ao tipo `Task` em `src/types/tasks.ts`
 - [x] Em `src/api/tasks/tasks.ts`, dentro de `materializeRecurringInstances`, propagar `is_consultation` para cada ocorrência criada (mesma linha em que `is_medication` já é copiado) — coberto por `src/api/__tests__/tasks.recurring-materialization.test.ts`
 - [x] Criar `src/pages/admin/tasks/ConsultationQuickCreateDialog.tsx`, espelhando `MedicationQuickCreateDialog.tsx`: campos especialidade + profissional (compõem o `title`), data, horário, "repetir a cada N meses" (opcional, vira `recurrence_rule`) e local/preparo (vira `description`); submete via `createTask` com `is_consultation: true` — coberto por `__tests__/ConsultationQuickCreateDialog.test.tsx` (5 casos) e pelo helper puro `src/domain/tasks/consultation.ts` (`buildConsultationTitle`)
-- [ ] Adicionar a seção "Consultas" e o botão "Agendar consulta" no `HealthDashboard.tsx` (criado na 060), abrindo o dialog acima
+- [x] Adicionar a seção "Consultas" e o botão "Agendar consulta" no `HealthDashboard.tsx` (criado na 060), abrindo o dialog acima — coberto por 3 casos novos em `HealthDashboard.flow.test.tsx` (estado vazio com CTA, agendar pelo CTA e ver a consulta na seção, dose e consulta convivendo sem trocar de seção)
 - [ ] Em `src/pages/admin/tasks/AgendaCalendar.tsx` (e no componente de célula que ele usa), renderizar itens com `is_consultation === true` com ícone `Stethoscope` e a cor `--health`, em vez do checkbox padrão
 - [ ] No diálogo de ocorrências de série (`TaskList.tsx` e `ProjectDetail.tsx`), tratar `is_consultation` como a 049 trata `is_medication`: ocorrência `done` exibe "Compareceu às HH:mm" a partir de `completed_at`, e a lista vazia exibe "Nenhuma consulta registrada ainda."
-- [ ] Estender `HealthSummary` em `src/types/health.ts` com `nextConsultation: Task | null` e preencher em `loadHealthSummary` (`src/api/health.ts`), com a próxima task `is_consultation = true` e `status = 'todo'`
+- [x] Estender `HealthSummary` em `src/types/health.ts` com `nextConsultation: Task | null` e preencher em `loadHealthSummary` (`src/api/health.ts`), com a próxima task `is_consultation = true` e `status = 'todo'` — coberto por 4 casos novos em `src/api/__tests__/health.test.ts` (forma da consulta por flag, consulta mais próxima, descarte de passada/comparecida/de outro usuário, e as duas flags não se misturando)
 - [ ] `npm run build`
 - [ ] `npm run lint`
 - [x] `npm run test` — cobre apenas o domínio puro: adicionar caso em `src/domain/tasks/` verificando que uma série marcada como consulta gera ocorrências nas datas esperadas via `computeMissingOccurrences` — feito em `src/domain/tasks/__tests__/consultation.test.ts` (retorno a cada 3 meses: datas geradas, ocorrência já materializada, retorno que ainda não chegou, `until`, série sem repetição)
@@ -52,5 +52,11 @@ O usuário pediu que consultas "virem eventos no calendário geral". O app tem d
 - `supabase db push` aplica direto no banco remoto (não há Supabase local neste projeto): confirmar com o usuário antes de rodar.
 - Vitest neste repo cobre domínio puro, sem I/O — ele não valida RLS nem insert no Supabase. Por isso a verificação de banco desta feature é manual e está descrita passo a passo.
 - Uma consulta recorrente usa exatamente a mesma `recurrence_rule` das medicações; não há código de recorrência novo nesta feature, só a propagação da flag.
+- Desvio de ordem: a tarefa do `HealthSummary.nextConsultation` (penúltima da lista) foi feita
+  **antes** da seção "Consultas" no dashboard — a seção lê `summary.nextConsultation`, então na
+  ordem escrita o TS não compilaria. As duas foram verificadas separadamente.
+- `loadHealthSummary` foi refatorada num helper `fetchNextPendingTask(userId, flag, today)`, usado
+  duas vezes em `Promise.all` — a consulta de medicação e a de consulta médica só diferem na flag,
+  e duplicar a cadeia de `.eq/.gte/.order` seria duas fontes de verdade pro mesmo critério.
 - Desvio do plano (pequeno, espelha a 049): `emptyTask()` em `src/domain/tasks/taskDraft.ts` também ganhou `is_consultation: false`, e o `toMatchObject` de `taskDraft.test.ts` foi atualizado. Sem isso o draft do form completo mandaria `undefined` para a coluna `not null` numa edição de consulta.
 - A propagação em `materializeRecurringInstances` não tinha teste nenhum antes (a função é privada, só alcançável por `fetchTasks`). Criado `src/api/__tests__/tasks.recurring-materialization.test.ts`, com um Supabase falso que **guarda as linhas enviadas no insert** — assere as datas geradas, `is_consultation: true` em cada ocorrência, a não-regressão de `is_medication` (049) e que ocorrência já materializada não é recriada.
