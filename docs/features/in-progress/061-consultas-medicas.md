@@ -28,7 +28,7 @@ O usuário pediu que consultas "virem eventos no calendário geral". O app tem d
 - [x] Criar `src/pages/admin/tasks/ConsultationQuickCreateDialog.tsx`, espelhando `MedicationQuickCreateDialog.tsx`: campos especialidade + profissional (compõem o `title`), data, horário, "repetir a cada N meses" (opcional, vira `recurrence_rule`) e local/preparo (vira `description`); submete via `createTask` com `is_consultation: true` — coberto por `__tests__/ConsultationQuickCreateDialog.test.tsx` (5 casos) e pelo helper puro `src/domain/tasks/consultation.ts` (`buildConsultationTitle`)
 - [x] Adicionar a seção "Consultas" e o botão "Agendar consulta" no `HealthDashboard.tsx` (criado na 060), abrindo o dialog acima — coberto por 3 casos novos em `HealthDashboard.flow.test.tsx` (estado vazio com CTA, agendar pelo CTA e ver a consulta na seção, dose e consulta convivendo sem trocar de seção)
 - [x] Em `src/pages/admin/tasks/AgendaCalendar.tsx` (e no componente de célula que ele usa), renderizar itens com `is_consultation === true` com ícone `Stethoscope` e a cor `--health`, em vez do checkbox padrão — feito em `AgendaGrid.tsx` (`ConsultationMarker`, usado por `TaskChip`, inclusive na prévia virtual) e `AgendaHourGrid.tsx` (`TimedTaskBlock`, com a borda do bloco em `hsl(var(--health))`); coberto por `__tests__/AgendaGrid.consultation.test.tsx` (6 casos: consulta no dia certo, distinção de tarefa comum e medicação, bloco na grade de horas com a cor de Saúde, ocorrências materializadas de uma série, prévia virtual reconhecida, série comum sem regressão)
-- [ ] No diálogo de ocorrências de série (`TaskList.tsx` e `ProjectDetail.tsx`), tratar `is_consultation` como a 049 trata `is_medication`: ocorrência `done` exibe "Compareceu às HH:mm" a partir de `completed_at`, e a lista vazia exibe "Nenhuma consulta registrada ainda."
+- [x] No diálogo de ocorrências de série (`TaskList.tsx` e `ProjectDetail.tsx`), tratar `is_consultation` como a 049 trata `is_medication`: ocorrência `done` exibe "Compareceu às HH:mm" a partir de `completed_at`, e a lista vazia exibe "Nenhuma consulta registrada ainda." — o dialog, que era duplicado byte a byte entre as duas telas, virou `src/pages/admin/tasks/SeriesOccurrencesDialog.tsx`; coberto por `TaskList.consultation-occurrences.test.tsx` (4 casos) e `ProjectDetail.consultation-occurrences.test.tsx` (2), com a não-regressão da 049 provada pelos testes de medicação existentes, que seguem passando sem alteração
 - [x] Estender `HealthSummary` em `src/types/health.ts` com `nextConsultation: Task | null` e preencher em `loadHealthSummary` (`src/api/health.ts`), com a próxima task `is_consultation = true` e `status = 'todo'` — coberto por 4 casos novos em `src/api/__tests__/health.test.ts` (forma da consulta por flag, consulta mais próxima, descarte de passada/comparecida/de outro usuário, e as duas flags não se misturando)
 - [ ] `npm run build`
 - [ ] `npm run lint`
@@ -52,6 +52,16 @@ O usuário pediu que consultas "virem eventos no calendário geral". O app tem d
 - `supabase db push` aplica direto no banco remoto (não há Supabase local neste projeto): confirmar com o usuário antes de rodar.
 - Vitest neste repo cobre domínio puro, sem I/O — ele não valida RLS nem insert no Supabase. Por isso a verificação de banco desta feature é manual e está descrita passo a passo.
 - Uma consulta recorrente usa exatamente a mesma `recurrence_rule` das medicações; não há código de recorrência novo nesta feature, só a propagação da flag.
+- Desvio do plano: o dialog "Ocorrências de..." era copiado byte a byte entre `TaskList.tsx` e
+  `ProjectDetail.tsx` (herança da 049). Acrescentar o segundo tipo de série (consulta) dobraria a
+  duplicação em dois arquivos, então ele virou o componente `SeriesOccurrencesDialog.tsx`, usado
+  pelos dois. Os testes de medicação da 049 passaram sem alteração nenhuma — é a prova de que a
+  extração foi neutra.
+- Consulta **não** ganha o badge "Atrasada" da 049: `isDoseLate` compara `completed_at` com o
+  horário agendado, o que é critério de dose (o remédio tem hora a cumprir). Chegar depois do
+  horário marcado numa consulta em geral é a espera do consultório, não um atraso do usuário — o
+  app não tem como julgar isso, então não exibe julgamento. Fica registrado caso alguém queira
+  reabrir a discussão.
 - A tarefa citava `AgendaCalendar.tsx`, mas esse arquivo é só um `PageShell` em volta de `AgendaGrid` — a renderização de chip/bloco mora em `AgendaGrid.tsx` (`TaskChip`) e `AgendaHourGrid.tsx` (`TimedTaskBlock`), que são os "componentes de célula" citados. O marcador virou `ConsultationMarker`, exportado de `AgendaGrid.tsx` e reusado pelos dois, pra não haver duas versões do mesmo ícone/cor.
 - O teste do calendário fixa a data do sistema em 16/08/2026 (domingo) de propósito: a grade do mês fica entre 26/07 e 05/09, o que torna determinística a data da prévia virtual (05/09, um mês depois da origem em 05/08). Sem isso, se a ocorrência seguinte cai fora da grade o teste passaria ou falharia conforme o dia em que rodasse.
 - Desvio de ordem: a tarefa do `HealthSummary.nextConsultation` (penúltima da lista) foi feita
