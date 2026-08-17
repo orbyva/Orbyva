@@ -114,12 +114,18 @@ Depende de: 055 (tabela `note`).
       que os `**` sumiram do DOM **e** continuam no documento — a prova de que é view-only.
       Ajuste do plano: `CodeMark` só é escondido quando o pai é `InlineCode`; a cerca ``` de bloco
       continua visível, senão o bloco perderia o limite na tela (descoberto por teste que falhou).
-- [ ] Criar `src/domain/notes/wikiLinks.ts` (exports nomeados, puro): `parseWikiLinks(content)`
+- [x] Criar `src/domain/notes/wikiLinks.ts` (exports nomeados, puro): `parseWikiLinks(content)`
       devolvendo `{ title, start, end }[]`, tolerando `[[a]] [[b]]` na mesma linha, ignorando
       ocorrências dentro de bloco de código (``` ... ```) e de código inline.
-- [ ] Criar `src/domain/notes/__tests__/wikiLinks.test.ts` cobrindo: múltiplos links na linha,
+      Junto vieram `wikiLinkTitles` (títulos sem repetição, para resolver todos numa consulta só) e
+      `normalizeWikiTitle` (chave de comparação: ignora caixa e espaço, **mantém** acento — sem ela
+      cada consumidor inventaria a sua e "Reunião"/"reunião" resolveriam diferente).
+- [x] Criar `src/domain/notes/__tests__/wikiLinks.test.ts` cobrindo: múltiplos links na linha,
       colchetes não fechados, link dentro de fence de código (não deve casar), título com acento e
       com espaço. Verificação: `npm test`.
+      15 testes passando, além dos pedidos: índices `start`/`end` conferidos por `slice`, link
+      markdown comum `[texto](url)` não casa, fence com `~~~`, fence aberto e nunca fechado, código
+      inline, crase solta e título vazio.
 - [ ] Renderizar wiki-link no preview: passar um componente customizado ao `MarkdownPreview`
       (criado na 055) que troca `[[Titulo]]` por link para `/notes/<id>` quando a nota existe, e
       por um chip "criar nota" quando não existe. Verificação manual nos dois estados.
