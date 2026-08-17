@@ -6,13 +6,25 @@ import type {
   ShoppingCategoryUpdateRequest,
 } from "@/types/shopping";
 
-export async function fetchShoppingCategories(): Promise<ShoppingCategory[]> {
+export interface FetchShoppingCategoriesOptions {
+  /**
+   * Restringe às categorias de um projeto (feature 052). Nulo/omitido = sem filtro, devolve
+   * todas — inclusive as sem projeto. Com filtro, o `project_id is null` fica de fora: categoria
+   * sem projeto não pertence a projeto nenhum.
+   */
+  projectId?: string | null;
+}
+
+export async function fetchShoppingCategories(
+  options: FetchShoppingCategoriesOptions = {}
+): Promise<ShoppingCategory[]> {
   const userId = await getCurrentUserId();
-  const { data, error } = await supabase
+  let query = supabase
     .from("shopping_category")
     .select("*")
-    .eq("user_id", userId)
-    .order("name", { ascending: true });
+    .eq("user_id", userId);
+  if (options.projectId) query = query.eq("project_id", options.projectId);
+  const { data, error } = await query.order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return data ?? [];
 }

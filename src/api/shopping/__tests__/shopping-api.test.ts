@@ -106,6 +106,27 @@ describe("api/shopping/categories", () => {
     expect(lastCall().order).toEqual(["name", { ascending: true }]);
   });
 
+  it("fetchShoppingCategories com projectId acrescenta o filtro por projeto (feature 052)", async () => {
+    const row = { id: "c1", name: "Materiais", project_id: "p1" };
+    nextResult = { data: [row], error: null };
+
+    await expect(
+      fetchShoppingCategories({ projectId: "p1" })
+    ).resolves.toEqual([row]);
+    expect(lastCall().table).toBe("shopping_category");
+    expect(lastCall().eq).toEqual([
+      ["user_id", "user-1"],
+      ["project_id", "p1"],
+    ]);
+    expect(lastCall().order).toEqual(["name", { ascending: true }]);
+  });
+
+  it("fetchShoppingCategories sem projeto (null) não filtra por project_id", async () => {
+    nextResult = { data: [], error: null };
+    await fetchShoppingCategories({ projectId: null });
+    expect(lastCall().eq).toEqual([["user_id", "user-1"]]);
+  });
+
   it("fetchShoppingCategories devolve [] quando o data vem nulo", async () => {
     nextResult = { data: null, error: null };
     await expect(fetchShoppingCategories()).resolves.toEqual([]);
