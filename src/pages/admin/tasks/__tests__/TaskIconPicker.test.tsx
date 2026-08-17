@@ -2,10 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TaskIconPicker } from "@/pages/admin/tasks/TaskIconPicker";
-import {
-  SHOPPING_TASK_ICON_KEY,
-  TASK_ICON_PRESETS,
-} from "@/pages/admin/tasks/TaskIconBadge";
+import { TASK_ICON_PRESETS } from "@/pages/admin/tasks/TaskIconBadge";
+import { SHOPPING_TASK_ICON_KEY } from "@/domain/shopping/taskLink";
 import { uploadTaskIcon } from "@/api/tasks";
 
 vi.mock("@/api/tasks", () => ({

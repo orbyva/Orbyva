@@ -27,11 +27,10 @@ export const TASK_ICON_PRESETS: TaskIconPreset[] = [
   { key: "bell", label: "Lembrete", icon: Bell },
   { key: "alert-circle", label: "Atenção", icon: AlertCircle },
   { key: "check-circle", label: "Concluído", icon: CheckCircle2 },
+  // Feature 051: ícone das tarefas criadas a partir de um item da Lista de Compras. A chave é
+  // `SHOPPING_TASK_ICON_KEY` (`src/domain/shopping/taskLink.ts`), que é quem a grava.
   { key: "shopping-cart", label: "Compra", icon: ShoppingCart },
 ];
-
-/** Preset gravado nas tarefas criadas a partir de um item da Lista de Compras (feature 051). */
-export const SHOPPING_TASK_ICON_KEY = "shopping-cart";
 
 const TASK_ICON_PRESET_MAP: Record<string, TaskIconPreset> = Object.fromEntries(
   TASK_ICON_PRESETS.map((preset) => [preset.key, preset])
