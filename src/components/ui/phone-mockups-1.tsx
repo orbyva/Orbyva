@@ -23,8 +23,6 @@ const DEFAULT_SCREENS: PhoneScreen[] = [
   },
 ];
 
-const HUB_SRC = DEFAULT_SCREENS[0]!.src;
-
 function marketingWebp(src: string) {
   return src.replace(/\.png$/i, ".webp");
 }
@@ -37,6 +35,12 @@ const PhoneCarousel = lazy(() =>
 
 const FRAME_CLASS =
   "relative mx-auto aspect-[9/19] w-full overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 shadow-[0_25px_60px_-20px_rgba(14,165,233,0.45)] ring-1 ring-white/10 sm:rounded-[2rem]";
+
+function hideBootLcp() {
+  const img = document.getElementById("boot-lcp") as HTMLImageElement | null;
+  if (img) img.style.visibility = "hidden";
+  document.getElementById("boot-wordmark")?.setAttribute("hidden", "");
+}
 
 function useBootLcpPin(slotRef: RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
@@ -52,7 +56,10 @@ function useBootLcpPin(slotRef: RefObject<HTMLDivElement | null>) {
     const place = () => {
       const r = slot.getBoundingClientRect();
       if (r.width < 8 || r.height < 8) return;
-      img.style.transform = `translate3d(${r.left}px, ${r.top}px, 0)`;
+      const base = Math.min(220, window.innerWidth * 0.62) || r.width;
+      const scale = r.width / base;
+      img.style.transformOrigin = "top left";
+      img.style.transform = `translate3d(${r.left}px, ${r.top}px, 0) scale(${scale})`;
     };
 
     place();
@@ -66,6 +73,7 @@ function useBootLcpPin(slotRef: RefObject<HTMLDivElement | null>) {
       window.removeEventListener("resize", place);
       img.classList.remove("boot-lcp-pinned");
       img.style.transform = "";
+      img.style.transformOrigin = "";
       img.style.visibility = "hidden";
     };
   }, [slotRef]);
@@ -89,7 +97,7 @@ function PhoneFrame({
           alt={screen.alt}
           width={390}
           height={843}
-          sizes="(max-width: 639px) 260px, 240px"
+          sizes="(max-width: 639px) 220px, 200px"
           loading="lazy"
           decoding="async"
           fetchPriority="low"
@@ -101,40 +109,54 @@ function PhoneFrame({
   );
 }
 
-/** Primeiro slide: slot vazio + #boot-lcp por cima (sem segundo <img> no LCP). */
-function LcpPhoneFrame({ className }: { className?: string }) {
+function AdoptedLcpPhone({ className }: { className?: string }) {
   const slotRef = useRef<HTMLDivElement>(null);
   useBootLcpPin(slotRef);
 
   return (
-    <div
-      ref={slotRef}
-      data-lcp-slot
-      className={cn(FRAME_CLASS, className)}
-      style={{ aspectRatio: "390 / 843" }}
-    />
-  );
-}
-
-function AdoptedLcpPhone({ className }: { className?: string }) {
-  return (
     <div className={cn("relative w-full select-none", className)}>
-      <div className="relative mx-auto w-full max-w-[260px]">
+      <div className="relative mx-auto w-full max-w-[220px]">
         <div
           aria-hidden
           className="pointer-events-none absolute -inset-6 rounded-full bg-sky-500/20 blur-3xl"
         />
-        <div className="relative z-[1]">
-          <LcpPhoneFrame />
-        </div>
+        <div
+          ref={slotRef}
+          data-lcp-slot
+          className={cn("relative z-[1]", FRAME_CLASS)}
+          style={{ aspectRatio: "390 / 843" }}
+        />
       </div>
     </div>
   );
 }
 
+function HeroCarousel({
+  screens,
+  className,
+  intervalMs,
+}: {
+  screens: PhoneScreen[];
+  className?: string;
+  intervalMs: number;
+}) {
+  useLayoutEffect(() => {
+    hideBootLcp();
+  }, []);
+
+  return (
+    <PhoneCarousel
+      screens={screens}
+      intervalMs={intervalMs}
+      className={className}
+      renderPhone={({ screen }) => <PhoneFrame screen={screen} />}
+    />
+  );
+}
+
 /**
  * Phone Mockups 1 · réplica visual do componente 21st (solaceui).
- * Centro do 1º slide reusa #boot-lcp; o chunk do carrossel entra em lazy.
+ * #boot-lcp só no fallback (antes do chunk); o carrossel usa <img> no fluxo.
  */
 export default function PhoneMockupBasic({
   screens = DEFAULT_SCREENS,
@@ -150,17 +172,10 @@ export default function PhoneMockupBasic({
 
   return (
     <Suspense fallback={<AdoptedLcpPhone className={className} />}>
-      <PhoneCarousel
+      <HeroCarousel
         screens={screens}
-        intervalMs={intervalMs}
         className={className}
-        renderPhone={({ screen, offset }) =>
-          offset === 0 && screen.src === HUB_SRC ? (
-            <LcpPhoneFrame />
-          ) : (
-            <PhoneFrame screen={screen} />
-          )
-        }
+        intervalMs={intervalMs}
       />
     </Suspense>
   );

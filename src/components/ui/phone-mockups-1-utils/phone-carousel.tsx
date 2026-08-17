@@ -133,7 +133,7 @@ export function PhoneCarousel({
   return (
     <div className={cn("relative w-full select-none", className)}>
       {/* Mobile */}
-      <div className="relative mx-auto w-full max-w-[260px] sm:hidden">
+      <div className="relative mx-auto w-full max-w-[220px] sm:hidden">
         <div className="pointer-events-none absolute -inset-6 rounded-full bg-sky-500/20 blur-3xl" />
         <div className="relative z-[1] aspect-[9/19]">
           <AnimatePresence initial={false} custom={dir}>
@@ -149,10 +149,10 @@ export function PhoneCarousel({
       </div>
 
       {/* Desktop 3-up, peeks estáveis, só o centro faz crossfade */}
-      <div className="relative mx-auto hidden h-[560px] max-w-xl items-center justify-center sm:flex">
+      <div className="relative mx-auto hidden h-[480px] max-w-lg items-center justify-center sm:flex">
         <div className="pointer-events-none absolute inset-x-[8%] top-1/2 z-0 h-[55%] -translate-y-1/2 rounded-full bg-sky-500/20 blur-3xl" />
 
-        <div className="absolute left-[6%] z-[1] w-[38%] max-w-[200px] -translate-y-1 scale-[0.82] opacity-55 transition-[opacity] duration-200">
+        <div className="absolute left-[8%] z-[1] w-[36%] max-w-[168px] -translate-y-1 scale-[0.9] opacity-55 transition-[opacity] duration-200">
           {showPeeks
             ? renderPhone({
                 screen: left,
@@ -162,7 +162,7 @@ export function PhoneCarousel({
             : null}
         </div>
 
-        <div className="relative z-[2] aspect-[9/19] w-[46%] max-w-[240px]">
+        <div className="relative z-[2] aspect-[9/19] w-[42%] max-w-[200px]">
           <AnimatePresence initial={false}>
             <motion.div
               key={`c-${index}`}
@@ -174,7 +174,7 @@ export function PhoneCarousel({
           </AnimatePresence>
         </div>
 
-        <div className="absolute right-[6%] z-[1] w-[38%] max-w-[200px] -translate-y-1 scale-[0.82] opacity-55 transition-[opacity] duration-200">
+        <div className="absolute right-[8%] z-[1] w-[36%] max-w-[168px] -translate-y-1 scale-[0.9] opacity-55 transition-[opacity] duration-200">
           {showPeeks
             ? renderPhone({
                 screen: right,
