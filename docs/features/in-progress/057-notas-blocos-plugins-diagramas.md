@@ -98,8 +98,12 @@ ordem.
       `MARKDOWN_REMARK_PLUGINS: PluggableList`. Verificação: `MarkdownPreview.blocks.test.tsx`
       "o array central de plugins remark está ligado (GFM continua valendo)" — tabela, checklist
       marcado e `~~riscado~~` continuam saindo depois da troca (o array inline sumiu).
-- [ ] Instalar `mermaid@^11`. Verificação: `npm run build` + `npm run check:bundle` — confirmar que
+- [x] Instalar `mermaid@^11`. Verificação: `npm run build` + `npm run check:bundle` — confirmar que
       o chunk da rota `/notes` **não** cresceu (prova de que o import dinâmico funcionou).
+      Instalado `mermaid@11.16.1`. Baseline logo após o install (ainda sem nenhuma referência no
+      código): `NoteDetail` 8,1 KB, `Notes` 1,8 KB, `api/notes` 0,6 KB gzip, `check:bundle` OK —
+      os mesmos números da 056. A prova de que o `await import()` mantém isso vem na tarefa do
+      `MermaidBlock`, quando o import passa a existir de verdade.
 - [ ] Declarar `mermaid` em `manualChunks` (`vite.config.ts:151`) e adicioná-lo ao `VENDOR_RE` de
       `scripts/check-bundle-budget.mjs`, com comentário explicando que é lazy e por isso tem
       limite próprio.
