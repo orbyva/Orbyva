@@ -244,7 +244,28 @@ Depende de: 055 (tabela `note`).
       notas não derruba a página. Mais 2 testes de `fetchNotesLinkedToMany` na camada de API
       (agrupamento por entidade, id repetido consultado uma vez, nota escondida pela RLS fora do
       grupo).
-- [ ] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle`.
+- [x] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle`. Resultado:
+      build OK; lint 0 erros (13 warnings pré-existentes de `react-refresh`, nenhum nos arquivos
+      novos); `npm test` **1022 passando / 2 falhando** — as 2 são as pré-existentes e alheias de
+      `src/lib/__tests__/currency.test.ts` (esperam `"—"`, `src/lib/currency.ts` devolve `"·"`),
+      as mesmas que a 055 registrou; a 056 acrescentou 97 testes (925 → 1022) e nenhuma falha nova.
+      `check:bundle` OK: `codemirror` 138,9 KB gzip contra o teto de 200 KB de vendor, e as rotas
+      `NoteDetail` 8,1 KB, `Goals` 6,0 KB, `Notes` 1,8 KB contra o teto de 160 KB.
+      Consertado no caminho: `Notes.flow.test.tsx` "um wiki-link resolvido no preview leva para a
+      outra nota" passava sozinho e falhava na suíte inteira — `findByLabelText("Título")` achava o
+      campo da nota **anterior** e lia o título velho. Virou `waitFor` sobre o valor.
+- [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260816170000_note_links.sql` no banco
+      remoto (`supabase db push`), junto com as das features 050, 051, 052 e 055 (a 055 cria a
+      tabela `note`, de que esta depende — a ordem do `push` já é a dos timestamps). Até lá a tabela
+      `note_link` não existe no banco real: wiki-links, backlinks por texto e o editor funcionam,
+      mas o painel "Vínculos", o grupo "Ligadas às mesmas coisas" e a seção "Notas" nos cards de
+      meta vão só mostrar vazio (o erro é tratado com toast, não quebra a tela). Depois de aplicada,
+      conferir no SQL editor: `insert` em `note_link` com `entity_type = 'receita'` é rejeitado pelo
+      `check`; o mesmo `(note_id, entity_type, entity_id)` duas vezes é rejeitado pelo `unique`;
+      apagar uma nota leva os `note_link` dela junto; e `select * from pg_policies where tablename =
+      'note_link'` traz as 4 policies `note_link_*_own`. Tudo isso já passou em Postgres 16
+      descartável (`bash supabase/tests/note_links/run.sh`) — a conferência no banco real é só para
+      confirmar que o push chegou inteiro.
 
 ## Prompts
 
@@ -263,6 +284,33 @@ Depende de: 055 (tabela `note`).
 
 ## Notas
 
+- **Checagem de satisfação (2026-08-17), item do `prompt:` → artefato que prova.** O prompt-mãe
+  cobre as quatro features; o que a 056 se propôs a cumprir está abaixo, com o teste que passou:
+  - *OBSIDIAN/NOTION TUNADO* (o que faz um Obsidian ser Obsidian) → live preview com a marcação
+    sumindo fora da linha do cursor: `livePreview.test.ts` (10 testes) e
+    `MarkdownCodeEditor.test.tsx` "o live preview está ligado", que move o cursor com `Ctrl+End` e
+    afirma que os `**` sumiram do DOM **e** continuam no documento; wiki-link `[[…]]` resolvendo
+    para a nota: `NoteMarkdownPreview.test.tsx` e `Notes.flow.test.tsx` "um wiki-link resolvido no
+    preview leva para a outra nota"; link quebrado virando "criar nota", com a nota nascendo e o
+    editor navegando para ela, no mesmo teste; autocomplete de `[[`: `Notes.flow.test.tsx`
+    "digitar `[[` no editor sugere os títulos das outras notas", que aceita a sugestão e afirma o
+    documento gravado; backlinks: `BacklinksPanel.test.tsx`.
+  - *MARKDOWN NA VEIA* → `MarkdownCodeEditor.test.tsx` "digitar markdown mantém o texto cru,
+    marcadores inclusive" e a assertiva de view-only acima. O editor trocou de tecnologia sem
+    trocar o formato: o documento continua markdown byte a byte, sem JSON próprio.
+  - *CONVERSAM COM TUDO* → tabela `note_link` polimórfica validada em Postgres 16
+    (`supabase/tests/note_links/run.sh`: `check`, `unique`, RLS, cascade, wipe); painel de vínculos
+    ligando a nota a projeto e a qualquer resultado da busca global (`NoteLinksPanel.test.tsx`, 8
+    testes); e o vínculo **do outro lado**, fora do módulo de Notas, em
+    `Goals.notes.test.tsx` (4 testes) — que é a prova de que o padrão polimórfico funciona para uma
+    entidade não-projeto.
+  - *POSSIBILIDADE DE PLUGINS*, *CANVAS/DESENHOS*, *FLOWCHARTS*, *DIAGRAMAS BÁSICOS* → **fora do
+    escopo da 056 por decisão do refino**, são 057 e 058. Não há artefato porque não foram
+    implementados; é a ordem combinada, não pendência esquecida.
+  - Suíte completa: `npm test` → 1022 passando, 2 falhando (as pré-existentes de `currency.test.ts`).
+    Antes desta feature eram 925/2; a 056 acrescentou 97 testes e nenhuma falha nova.
+  - **Por que não foi para `done/`:** sobrou a tarefa `- [ ]` de `supabase db push` — `db push`
+    aplica no banco remoto e é decisão do usuário. Mesmo critério de 050, 051, 052 e 055.
 - **Bug real, achado pelo teste de ponta a ponta do autocomplete: o `@uiw/react-codemirror`
   apagava as últimas letras digitadas.** O `onChange` dele vem de fora do sistema de eventos do
   React, então o `setState` ficava agendado; digitando rápido, o `value` que voltava ao componente

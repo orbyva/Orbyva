@@ -356,8 +356,16 @@ describe("Notas — fluxo fim a fim", () => {
 
     await waitFor(() => expect(store.notes).toHaveLength(3));
     expect(store.notes[2].title).toBe("Nota que não existe");
-    // E navegou para a nota nova, já aberta no editor.
-    expect(await screen.findByLabelText("Título")).toHaveValue("Nota que não existe");
+    // E navegou para a nota nova, já aberta no editor. O `waitFor` é sobre o **valor**: o campo
+    // "Título" já existe (é o da nota anterior), então esperar só pelo elemento passaria cedo
+    // demais e leria o título velho.
+    await waitFor(
+      () =>
+        expect(screen.getByLabelText("Título")).toHaveValue(
+          "Nota que não existe"
+        ),
+      AUTOSAVE
+    );
   });
 
   it("excluir a nota pela lista tira ela do banco e da tela", async () => {
