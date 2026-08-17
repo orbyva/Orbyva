@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HabitWeekStrip } from "./components/HabitWeekStrip";
 import { HabitMonthHeatmap } from "./components/HabitMonthHeatmap";
+import { HealthHabitBadge } from "./components/HealthHabitBadge";
 
 type HabitsView = "today" | "month";
 
@@ -421,6 +422,7 @@ export default function Habits() {
                                 Anti-hábito
                               </span>
                             ) : null}
+                            <HealthHabitBadge habit={habit} />
                           </div>
                           {habit.description ? (
                             <p className="truncate text-xs text-muted-foreground">
@@ -514,6 +516,7 @@ export default function Habits() {
                                 Anti-hábito
                               </span>
                             ) : null}
+                            <HealthHabitBadge habit={habit} />
                           </div>
                           <HabitMonthHeatmap
                             map={habitHeat}
