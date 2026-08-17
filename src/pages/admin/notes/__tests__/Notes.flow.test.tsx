@@ -104,6 +104,10 @@ vi.mock("mermaid", () => ({ default: mermaidMock }));
 const { canvasSpy } = vi.hoisted(() => ({
   canvasSpy: { onSceneChange: null as ((data: unknown) => void) | null },
 }));
+/** `exportToSvg` é o que o bloco embutido usa para desenhar em modo leitura. */
+const { exportToSvgMock } = vi.hoisted(() => ({ exportToSvgMock: vi.fn() }));
+vi.mock("@excalidraw/excalidraw", () => ({ exportToSvg: exportToSvgMock }));
+
 vi.mock("@/pages/admin/notes/ExcalidrawCanvas", () => ({
   default: ({
     initialScene,
@@ -154,6 +158,12 @@ beforeEach(() => {
   store.projects = [{ id: "p1", name: "Obra da casa" }];
   store.seq = 0;
   store.clock = 0;
+  exportToSvgMock.mockImplementation(async () => {
+    const host = document.createElement("div");
+    host.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect data-testid="traco" /></svg>';
+    return host.firstElementChild as SVGSVGElement;
+  });
 });
 
 describe("Notas — fluxo fim a fim", () => {
@@ -593,6 +603,70 @@ describe("Notas — fluxo fim a fim", () => {
 
     expect(await screen.findByText("Canvas vazio")).toBeInTheDocument();
     expect(screen.getByText("Canvas · 1 elemento")).toBeInTheDocument();
+  });
+
+  it("fluxo completo do embed: criar canvas → desenhar → copiar a referência → colar numa nota → ver o desenho → chegar no canvas", async () => {
+    const user = userEvent.setup();
+    // O parâmetro tipado é o que deixa `writeText.mock.calls[0][0]` ser `string` no teste.
+    const writeText = vi.fn(async (text: string) => text);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    // 1. criar o canvas e desenhar nele
+    renderApp();
+    await user.click(await screen.findByRole("button", { name: /Novo canvas/ }));
+    await screen.findByTestId("excalidraw");
+    canvasSpy.onSceneChange?.({
+      elements: [{ id: "r1", type: "rectangle" }],
+      appState: {},
+      files: null,
+    });
+    await waitFor(
+      () =>
+        expect(
+          (store.notes[0].canvas_data as { elements: unknown[] } | null)?.elements
+        ).toHaveLength(1),
+      AUTOSAVE
+    );
+    const canvasId = store.notes[0].id;
+
+    // 2. copiar a referência
+    await user.click(screen.getByRole("button", { name: /Copiar referência/ }));
+    const copiado = writeText.mock.calls[0][0];
+    expect(copiado).toBe(`\`\`\`orbyva-canvas\n${canvasId}\n\`\`\`\n`);
+
+    // 3. colar numa nota markdown — o conteúdo é exatamente o que foi para a área de transferência
+    cleanup();
+    store.notes.push({
+      id: "n-md",
+      title: "Pauta",
+      content: `# Arquitetura\n\n${copiado}\ndecidir com o time`,
+      project_id: null,
+      updated_at: stamp(),
+    });
+    renderApp("/notes/n-md");
+
+    // 4. o preview desenha o canvas embutido
+    await user.click(await screen.findByRole("tab", { name: "Visualizar" }));
+    const preview = within(screen.getAllByRole("tabpanel")[0]);
+    const desenho = await preview.findByTestId("canvas-drawing");
+    expect(desenho.querySelector("svg")).not.toBeNull();
+    // Desenhou a cena da nota-canvas, não o markdown em volta.
+    expect(exportToSvgMock).toHaveBeenCalledWith(
+      expect.objectContaining({ elements: [{ id: "r1", type: "rectangle" }] })
+    );
+    // O resto da nota continua renderizando em volta do desenho.
+    expect(preview.getByRole("heading", { name: "Arquitetura" })).toBeInTheDocument();
+    expect(preview.getByText("decidir com o time")).toBeInTheDocument();
+
+    // 5. o link leva ao canvas certo
+    const link = preview.getByRole("link", { name: /Abrir canvas/ });
+    expect(link).toHaveAttribute("href", `/notes/${canvasId}`);
+    await user.click(link);
+    expect(await screen.findByTestId("excalidraw")).toBeInTheDocument();
+    expect(screen.getByText("elementos: 1")).toBeInTheDocument();
   });
 
   it("nota antiga, sem kind gravado, continua abrindo no editor de markdown", async () => {

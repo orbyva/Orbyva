@@ -96,6 +96,26 @@ describe("searchGlobal — notas", () => {
     expect(hit.subtitle).toBe("comprar cimento na terça");
   });
 
+  // Feature 058: canvas mora na mesma tabela, logo cai na mesma busca — de graça.
+  it("acha um canvas pelo título e leva para o editor dele", async () => {
+    rowsByTable.note = [
+      {
+        id: "c1",
+        title: "Arquitetura do sistema",
+        content: "",
+        kind: "canvas",
+        updated_at: "2026-08-16T12:00:00Z",
+      },
+    ];
+
+    const hit = (await searchGlobal("arquitetura")).find((h) => h.kind === "note")!;
+
+    expect(hit.title).toBe("Arquitetura do sistema");
+    expect(hit.href).toBe("/notes/c1");
+    // Canvas não tem corpo de onde tirar excerpt: o subtítulo diz o que ele é.
+    expect(hit.subtitle).toBe("Canvas");
+  });
+
   it("nota sem corpo vira hit sem subtítulo, não com string vazia", async () => {
     rowsByTable.note = [{ id: "n2", title: "Só o título", content: "" }];
 

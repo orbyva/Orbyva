@@ -189,13 +189,36 @@ dentro de uma nota markdown). Independente da 056.
       "```orbyva-canvas\nc1\n```\n" no `navigator.clipboard` e o rótulo vira "Copiado"; e
       `canvasScene.test.ts` afirma que esse fence é reconhecido por `parseBlockLanguage`, ou seja,
       o que o botão copia é o que o registry sabe desenhar.
-- [ ] Verificação manual do fluxo completo: criar canvas → desenhar → recarregar a página e ver o
-      desenho preservado → copiar a referência → colar numa nota markdown → ver o SVG renderizado
-      → clicar e chegar no canvas certo.
-- [ ] Verificação manual de que o `kind` não vazou: uma nota markdown antiga continua abrindo no
-      `NoteEditor` (default `'markdown'` da migration) e a busca global da 055 continua achando
-      notas por título.
-- [ ] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle`.
+- [x] Fluxo completo — verificado **por teste, não à mão no navegador** (a skill `next` proíbe
+      Chrome, e o que faltava era cobertura automatizada, não um F5). `Notes.flow.test.tsx`
+      "fluxo completo do embed" percorre os cinco passos contra o backend falso: criar canvas →
+      desenhar (o `canvas_data` chega ao store com o elemento) → clicar em "Copiar referência" e
+      capturar o que foi para o `navigator.clipboard` → **usar essa string exata** como conteúdo de
+      uma nota markdown → abrir a aba Visualizar e afirmar que saiu um `<svg>`, que o `exportToSvg`
+      recebeu a cena da nota-canvas (não o markdown em volta) e que o título e o parágrafo em volta
+      continuam na tela → clicar em "Abrir canvas" e chegar no canvas certo, com o desenho
+      ("elementos: 1"). O passo "recarregar a página" tem teste próprio (remontagem refazendo os
+      fetches).
+- [x] `kind` não vazou — também por teste. `Notes.flow.test.tsx` "nota antiga, sem kind gravado,
+      continua abrindo no editor de markdown": a nota semeada **sem** `kind` (o backend falso
+      preenche `'markdown'` na saída, como o default da coluna faz) abre com as abas
+      Escrever/Visualizar e sem canvas nenhum; e o filtro da lista continua achando por título numa
+      lista mista de nota e canvas.
+      Busca global (055): `search-notes.test.ts` "acha um canvas pelo título e leva para o editor
+      dele". Um buraco encontrado no caminho e consertado (ver Notas): a busca global montava o
+      subtítulo com `noteExcerpt(content)`, e canvas não tem `content` — todo canvas apareceria na
+      busca sem subtítulo nenhum. `src/api/search.ts` passou a trazer a coluna `kind` e a mostrar
+      "Canvas".
+- [x] Rodar `npm run build`, `npm run lint`, `npm test` e `npm run check:bundle`. Resultado:
+      build OK; lint 0 erros (13 warnings pré-existentes de `react-refresh`, nenhum nos arquivos
+      novos); `npm test` **1105 passando / 2 falhando** — as 2 são as pré-existentes e alheias de
+      `src/lib/__tests__/currency.test.ts` (esperam `"—"`, `src/lib/currency.ts` devolve `"·"`), as
+      mesmas registradas pela 055, 056 e 057; a 058 acrescentou 47 testes (1058 → 1105) e nenhuma
+      falha nova. `check:bundle` OK: `NoteDetail` 10,3 KB e `Notes` 3,0 KB gzip (eram 8,4 e 1,9
+      antes do canvas — 4,7 MB de lib com ~3 KB de crescimento de rota), `MarkdownPreview` 50,0 KB,
+      101 chunks `excalidraw-*` na classe `canvas`, o maior com 719,6 KB contra o teto de 750 KB.
+      Precache do PWA em 11.140 KiB, praticamente o mesmo dos 11.387 KiB de antes da feature.
+      Migration validada à parte, em Postgres 16 (`bash supabase/tests/note_canvas/run.sh`).
 - [ ] **Última tarefa do módulo — remoção da coluna `project.notes`, herdada da 055.**
       Pré-requisito bloqueante: o usuário precisa confirmar explicitamente que abriu o módulo de
       Notas e viu que **todas** as notas de projeto migradas estão lá, íntegras. Sem essa

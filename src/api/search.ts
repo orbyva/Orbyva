@@ -112,7 +112,9 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       .limit(PER_KIND),
     supabase
       .from("note")
-      .select("id, title, content, updated_at")
+      // `kind` vem junto para o canvas (058) não aparecer na busca sem subtítulo nenhum: ele não
+      // tem `content` de onde tirar excerpt.
+      .select("id, title, content, kind, updated_at")
       .eq("user_id", userId)
       .or(orIlike(["title", "content"], pattern))
       .limit(PER_KIND),
@@ -228,7 +230,10 @@ export async function searchGlobal(query: string): Promise<GlobalSearchHit[]> {
       kind: "note",
       title: n.title,
       // O trecho do corpo é o mesmo excerpt do card da lista de notas — sem marcação Markdown.
-      subtitle: noteExcerpt(n.content ?? "", 60) || undefined,
+      subtitle:
+        n.kind === "canvas"
+          ? "Canvas"
+          : noteExcerpt(n.content ?? "", 60) || undefined,
       href: `/notes/${n.id}`,
     });
   }
