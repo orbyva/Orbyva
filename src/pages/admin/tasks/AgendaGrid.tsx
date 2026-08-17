@@ -12,7 +12,7 @@ import {
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CornerDownRight, DollarSign, ExternalLink, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CornerDownRight, DollarSign, ExternalLink, Stethoscope, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -97,6 +97,24 @@ export function SubtaskLinkIcon({ className }: { className?: string }) {
   );
 }
 
+/** Cor de Vida > Saúde (`--health`, feature 060) — é o que faz a consulta médica se destacar no
+ * calendário geral sem depender do status. */
+const CONSULTATION_COLOR_CLASS = "text-[hsl(var(--health))]";
+
+/**
+ * Marcador de consulta médica (feature 061): a consulta é uma tarefa com `is_consultation`, mas no
+ * calendário ela não se lê como "mais um item a fazer" — troca o ponto de status pelo estetoscópio
+ * na cor de Saúde. Tarefa comum e medicação continuam com o ponto de status de sempre.
+ */
+export function ConsultationMarker({ className }: { className?: string }) {
+  return (
+    <Stethoscope
+      className={cn("h-2.5 w-2.5 shrink-0", CONSULTATION_COLOR_CLASS, className)}
+      aria-label="Consulta médica"
+    />
+  );
+}
+
 export function TaskChip({
   task,
   parentTitle,
@@ -108,13 +126,18 @@ export function TaskChip({
   parentTitle?: string;
   onClick: () => void;
 }) {
+  const isConsultation = !!task.is_consultation;
   if (isVirtualTask(task)) {
     return (
       <div
         className="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[10px] opacity-60"
         title="Próxima ocorrência — ainda não criada, aparece automaticamente nesse dia"
       >
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full border border-muted-foreground/60" />
+        {isConsultation ? (
+          <ConsultationMarker />
+        ) : (
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full border border-muted-foreground/60" />
+        )}
         <span className="truncate italic">{task.title}</span>
       </div>
     );
@@ -127,7 +150,11 @@ export function TaskChip({
       title={isSubtask ? `Subtarefa de "${parentTitle ?? "…"}"` : undefined}
       className="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[10px] hover:bg-muted"
     >
-      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_DOT_CLASS[task.status])} />
+      {isConsultation ? (
+        <ConsultationMarker />
+      ) : (
+        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_DOT_CLASS[task.status])} />
+      )}
       <TaskIconBadge iconKey={task.icon_key} iconUrl={task.icon_url} className="h-3 w-3" />
       {isSubtask && <SubtaskLinkIcon />}
       <span className={cn("truncate", task.status === "done" && "text-muted-foreground line-through")}>

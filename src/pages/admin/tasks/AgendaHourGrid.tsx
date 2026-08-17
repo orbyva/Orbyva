@@ -9,7 +9,15 @@ import {
 } from "@/domain/tasks";
 import type { Project, ProjectEvent, Task } from "@/types/tasks";
 import { cn } from "@/lib/utils";
-import { dayKey, EventChip, isVirtualTask, STATUS_DOT_CLASS, SubtaskLinkIcon, TaskChip } from "./AgendaGrid";
+import {
+  ConsultationMarker,
+  dayKey,
+  EventChip,
+  isVirtualTask,
+  STATUS_DOT_CLASS,
+  SubtaskLinkIcon,
+  TaskChip,
+} from "./AgendaGrid";
 import { TaskIconBadge } from "./TaskIconBadge";
 
 /** Altura de cada linha de hora, em px — 24 linhas = altura total do canvas rolável. */
@@ -53,6 +61,9 @@ function TimedTaskBlock({
   const virtual = isVirtualTask(task);
   const done = task.status === "done";
   const isSubtask = !!task.parent_task_id;
+  // Consulta médica (feature 061): estetoscópio na cor de Saúde no lugar do ponto de status, e a
+  // borda do bloco na mesma cor — no canvas de horas a borda é o que dá a "faixa" de cor do item.
+  const isConsultation = !!task.is_consultation;
   const titleAttr = virtual
     ? "Próxima ocorrência — ainda não criada, aparece automaticamente nesse dia"
     : isSubtask
@@ -68,15 +79,25 @@ function TimedTaskBlock({
         "flex h-full w-full flex-col items-start gap-0.5 overflow-hidden rounded-md border-l-2 bg-background/95 px-1.5 py-1 text-left text-[10px] leading-tight shadow-sm",
         virtual ? "cursor-default border-l-muted-foreground/40 opacity-60" : "hover:bg-muted"
       )}
-      style={{ borderLeftColor: virtual ? undefined : "hsl(var(--primary))" }}
+      style={{
+        borderLeftColor: virtual
+          ? undefined
+          : isConsultation
+            ? "hsl(var(--health))"
+            : "hsl(var(--primary))",
+      }}
     >
       <span className="flex w-full items-center gap-1">
-        <span
-          className={cn(
-            "h-1.5 w-1.5 shrink-0 rounded-full",
-            virtual ? "border border-muted-foreground/60" : STATUS_DOT_CLASS[task.status]
-          )}
-        />
+        {isConsultation ? (
+          <ConsultationMarker />
+        ) : (
+          <span
+            className={cn(
+              "h-1.5 w-1.5 shrink-0 rounded-full",
+              virtual ? "border border-muted-foreground/60" : STATUS_DOT_CLASS[task.status]
+            )}
+          />
+        )}
         <TaskIconBadge iconKey={task.icon_key} iconUrl={task.icon_url} className="h-3 w-3" />
         {isSubtask && <SubtaskLinkIcon />}
         <span className={cn("truncate font-medium", done && "text-muted-foreground line-through", virtual && "italic")}>
