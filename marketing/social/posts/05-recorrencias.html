@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>P05 · Recorrências</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+</head>
+<body>
+
+<div class="stage stage--feed s-ink" data-eyebrow="Recorrências" data-module="finance" data-idx="05/12" data-sig="tr">
+
+  <h1 class="head head--sm" style="margin-top:54px">
+    Nenhuma parcela<br>aparece de <span class="acc">surpresa</span>.
+  </h1>
+
+  <p class="sub sub--wide" style="margin-top:28px">
+    Recorrências, Projeção do mês e Alertas de vencimento.
+  </p>
+
+  <div class="spacer"></div>
+
+  <!-- aba Projeção (RecurringProjection.tsx) -->
+  <div class="card" style="padding:34px 36px 30px">
+    <div class="tabs"><span>Registros</span><span class="on">Projeção</span></div>
+
+    <div class="rowf g32" style="margin-top:32px">
+      <div><div class="ui-label">A pagar no mês</div><div class="ui-num ui-num--sm c-bad" style="margin-top:8px">R$ 3.412,90</div></div>
+      <div><div class="ui-label">Saldo previsto</div><div class="ui-num ui-num--sm c-acc" style="margin-top:8px">R$ 1.587,10</div></div>
+    </div>
+
+    <div style="height:230px; margin-top:34px">
+      <div class="chart">
+        <div class="col"><i style="--h:34%"></i><b>Ago</b></div>
+        <div class="col"><i style="--h:52%"></i><b>Set</b></div>
+        <div class="col">
+          <i style="--h:88%; background:var(--warn); position:relative">
+            <span style="position:absolute; inset:14px 0 auto; text-align:center; font-weight:800;
+                         font-size:23px; letter-spacing:.04em; color:#3d2a05">12x</span>
+          </i>
+          <b>Out</b>
+        </div>
+        <div class="col"><i style="--h:61%"></i><b>Nov</b></div>
+        <div class="col"><i style="--h:44%"></i><b>Dez</b></div>
+        <div class="col"><i style="--h:29%"></i><b>Jan</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rowf g16" style="margin-top:26px">
+    <span class="chip chip--bad"><span data-icon="alert"></span>Contas atrasadas</span>
+    <span class="chip chip--warn"><span data-icon="clock"></span>Vencimentos próximos</span>
+  </div>
+
+  <div class="spacer"></div>
+
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

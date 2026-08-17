@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="8">
+<title>V5 · Hábitos</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+</head>
+<body>
+
+<div class="stage stage--story s-paper" data-eyebrow="Hábitos" data-module="life" data-sig="br">
+  <div class="scenes">
+
+    <div class="swap">
+      <div class="head head--sm a" style="--d:.15s; --x:6.60s">Um dia não<br>muda nada.</div>
+      <div class="head head--sm a" style="--d:7.00s"><span class="acc">Trinta</span> mudam.</div>
+    </div>
+
+    <!-- o mês se preenchendo dia a dia (aba Mês) -->
+    <div class="card a" style="--d:1.60s; padding:38px 40px 42px">
+      <div class="rowf ac">
+        <div class="tabs"><span>Hoje</span><span class="on">Mês</span></div>
+        <span class="ui-cap tnum" style="margin-left:auto; font-size:28px">
+          Hoje: <span data-count="5" data-count-fmt="frac" data-count-total="5"
+                      style="--d:5.70s; --dur:1.0s"></span>
+        </span>
+      </div>
+
+      <!-- célula menor que a do feed seria ilegível no vertical; maior que isso
+           vira um bloco verde e engole a peça -->
+      <div class="heat" style="--hc:66px; justify-content:center; margin-top:36px"
+           data-heat="d3d2dm3 dd3d2d2 32dddmd d3d22d3 ddNffff"
+           data-heat-anim="2.0,0.055"></div>
+
+      <hr class="hair" style="margin:36px 0 30px">
+
+      <div class="rowf ac g20">
+        <span class="tick on" style="--m:var(--ok)"><span data-icon="check"></span></span>
+        <span class="ui-name" style="font-size:32px">Treinar</span>
+        <span class="ui-cap tnum" style="margin-left:auto; font-size:28px">
+          Sequência: <span data-count="12" data-count-fmt="int" style="--d:5.70s; --dur:1.0s"></span>
+        </span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

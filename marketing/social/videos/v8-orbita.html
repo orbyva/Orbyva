@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="7">
+<title>V8 · Órbita</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+<style>
+  /*
+   * O fundo vira sky no fecho e o acento sky some contra ele. Registrar --acc
+   * como cor permite animá-lo para branco no mesmo instante, levando lockup,
+   * eyebrow e rodapé junto.
+   */
+  @property --acc {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #0ea5e9;
+  }
+  @keyframes k-acc-white {
+    to { --acc: #fff; }
+  }
+  .wash-tokens {
+    animation: k-acc-white var(--dur, 0.9s) var(--ease) var(--d, 0s) both;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage stage--story s-ink wash-tokens" data-eyebrow="Órbita" data-sig="none"
+     style="--d:4.60s">
+
+  <div class="sky-wash" style="--d:4.60s; --dur:.9s"></div>
+
+  <div class="scenes">
+    <div class="swap">
+
+      <!-- a órbita se desenha, a marca entra e os módulos assumem posição -->
+      <div class="a" style="--in:k-fade; --d:0s; --dur:.25s; --x:4.40s">
+        <div class="constel constel--story" style="height:700px; --mx:444px; --my:350px; --ms:210px">
+
+          <svg viewBox="0 0 888 700" fill="none" stroke="currentColor">
+            <ellipse class="draw" cx="444" cy="350" rx="330" ry="175" stroke-width="2"
+                     stroke-dasharray="14 17" opacity="0.42" transform="rotate(-14 444 350)"
+                     style="--len:1630; --d:.25s; --dur:1.6s"/>
+          </svg>
+
+          <div class="mk a" style="--in:k-pop; --d:.60s; --dur:.95s; --s0:.84"></div>
+
+          <!-- a animação vai no chip, não no .node: o nó carrega o translate que o centraliza -->
+          <div class="node" style="left:402px; top:180px">
+            <span class="mchip a" style="--m:var(--m-life); --in:k-scale; --d:2.10s">Metas</span></div>
+          <div class="node" style="left:668px; top:182px">
+            <span class="mchip a" style="--m:var(--m-travel); --in:k-scale; --d:2.28s">Viagens</span></div>
+          <div class="node" style="left:766px; top:310px">
+            <span class="mchip a" style="--m:var(--m-travel); --in:k-scale; --d:2.46s">Lugares</span></div>
+          <div class="node" style="left:621px; top:468px">
+            <span class="mchip a" style="--m:var(--m-finance); --in:k-scale; --d:2.64s">Finanças</span></div>
+          <div class="node" style="left:343px; top:538px">
+            <span class="mchip a" style="--m:var(--m-car); --in:k-scale; --d:2.82s">Veículos</span></div>
+          <div class="node" style="left:141px; top:466px">
+            <span class="mchip a" style="--m:var(--m-cinema); --in:k-scale; --d:3.00s">Cinema</span></div>
+          <div class="node" style="left:167px; top:307px">
+            <span class="mchip a" style="--m:var(--m-life); --in:k-scale; --d:3.18s">Hábitos</span></div>
+
+        </div>
+      </div>
+
+      <!-- fecho: o fundo vira sky e sobra a frase -->
+      <div class="a" style="--in:k-up; --d:4.95s; align-self:center">
+        <div class="head head--sm">
+          <span style="opacity:.6">Uma vida.</span><br>Uma órbita.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>
