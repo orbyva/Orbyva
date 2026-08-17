@@ -34,7 +34,7 @@ Depende da 050 (tabela `shopping_category` e página agrupada). Independente da 
 - [x] `src/api/shopping/categories.ts`: `fetchShoppingCategories({ projectId })` aceitando o filtro opcional no `select`. Verificação: `npm run build`.
 - [x] `src/pages/admin/shopping/ShoppingList.tsx`: seletor "Projeto" no cabeçalho da página, sincronizado com o query param `?project=<id>` (ler no mount, escrever ao trocar); com filtro ativo, a lista continua agrupada por categoria e mostra o nome do projeto no cabeçalho da página. Verificação: `tsc -b` e `eslint` limpos; `ShoppingList.test.tsx` passa renderizando em `MemoryRouter` com `initialEntries={["/shopping-list?project=p1"]}`, provando que a URL já abre filtrada; o agrupamento é preservado porque o filtro só encurta a lista de categorias passada a `groupItemsByCategory`.
 - [x] `src/pages/admin/shopping/ShoppingList.tsx`: no cabeçalho de cada categoria vinculada, exibir o nome do projeto quando a lista **não** está filtrada. Verificação: 2 testes novos em `ShoppingList.test.tsx` — sem filtro, a seção "Mercado" (vinculada) mostra "Obra da casa" e a seção "Escritório" (sem projeto) não; com `?project=p1`, o nome sai da seção e fica só no cabeçalho da página. 17 testes do arquivo passando.
-- [ ] `src/pages/admin/tasks/ProjectDetail.tsx`: seção "Compras do projeto" com as categorias daquele projeto e seus itens (mesmo componente de lista agrupada da 050), `EmptyState` quando não há nenhuma, e link "Ver na Lista de Compras" apontando para `/shopping-list?project=<id>`. Verificação: `npm run build && npm run lint`.
+- [x] `src/pages/admin/tasks/ProjectDetail.tsx`: seção "Compras do projeto" com as categorias daquele projeto e seus itens (mesmo componente de lista agrupada da 050), `EmptyState` quando não há nenhuma, e link "Ver na Lista de Compras" apontando para `/shopping-list?project=<id>`. Verificação: `tsc -b` e `eslint` limpos; 4 testes em `src/pages/admin/shopping/__tests__/ProjectShoppingSection.test.tsx` — o recorte por projeto é pedido ao backend (`fetchShoppingCategories({ projectId })`, não filtragem no cliente), itens de categoria alheia não aparecem, contagem de pendentes por categoria confere, `EmptyState` sem categoria vinculada, `href` do link é `/shopping-list?project=p42`, e erro de carregamento vira toast destrutivo sem derrubar a página do projeto.
 - [ ] Verificação manual do pedido literal ("ver os itens, por categorias, de um projeto em específico"): criar duas categorias em projetos diferentes e uma sem projeto, com itens em cada; filtrar a Lista de Compras por um projeto e confirmar que aparecem **só** as categorias dele, ainda agrupadas, com seus itens; abrir `/shopping-list?project=<id>` direto na URL e confirmar que já carrega filtrado; abrir a página do projeto e confirmar a seção "Compras do projeto" com o mesmo conteúdo; excluir o projeto e confirmar que a categoria sobrevive, sem vínculo, entre as categorias sem projeto.
 
 - [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260816150000_shopping_category_project.sql` no banco remoto (`supabase db push`), junto com as da 050 e da 051. Até lá `shopping_category.project_id` não existe no banco real e o filtro por projeto falha. Depois de aplicada, um teste de fumaça na conta real fecha a feature.
@@ -59,3 +59,25 @@ Depende da 050 (tabela `shopping_category` e página agrupada). Independente da 
   categoria sem projeto continua válida. Reaplicar a migration é idempotente. **Continua pendente
   de `supabase db push` pelo usuário no banco remoto** (as da 050 e 051 também estão) — daí a
   tarefa final explícita.
+- **Desvio do plano — a seção "Compras do projeto" não reusa o componente de lista da 050.** A
+  tarefa dizia "mesmo componente de lista agrupada da 050", mas a 050 nunca extraiu esse
+  componente: a lista é renderizada inline dentro de `ShoppingList.tsx`, e a linha reusável
+  (`ShoppingItemRow`) exige `onEdit`/`onDelete`/`onStatusChange` — reusá-la arrastaria os dois
+  dialogs de edição e a máquina de status inteira para dentro de `ProjectDetail.tsx`. Optei por um
+  componente próprio, `ProjectShoppingSection.tsx`, **somente-leitura**, que reusa o que de fato
+  importa para não divergir: a função de domínio `groupItemsByCategory`, a mesma que a Lista de
+  Compras usa (mesmo critério de agrupamento e mesma ordem, pendentes antes de comprados). Editar,
+  excluir e criar tarefa continuam existindo num lugar só — a Lista de Compras —, para onde o link
+  da seção leva já filtrado. Extrair um componente de lista compartilhado só se justifica quando
+  houver um terceiro lugar que precise dele.
+- **A seção fica fora das abas** do `ProjectDetail`, de propósito: as abas (Kanban/Lista/Gantt)
+  alternam entre visões das *tarefas* do projeto, e compras não é uma quarta visão de tarefa — é
+  outra entidade ligada ao projeto, que deve seguir visível independentemente da aba escolhida.
+- **Recuperação de falhas de agente** (2026-08-17): a implementação desta feature sofreu 4 quedas
+  de infraestrutura (3 erros de API, 1 watchdog de inatividade). As tarefas de migration, tipos,
+  domínio, API e dialog foram entregues por agente; as três últimas (filtro na página, nome do
+  projeto no cabeçalho da categoria e seção no `ProjectDetail`) foram concluídas diretamente pelo
+  orquestrador. Uma queda deixou o build quebrado (`ShoppingCategoryDialog` passou a exigir a prop
+  `projects` antes de `ShoppingList.tsx` passá-la) e outra deixou `ShoppingList.flow.test.tsx`
+  quebrando, porque a página passou a usar `useSearchParams` e o teste renderizava sem Router —
+  ambos corrigidos.

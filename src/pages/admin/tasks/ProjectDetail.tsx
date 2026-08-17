@@ -50,6 +50,7 @@ import { GanttChart } from "./GanttChart";
 import { formatTimeOfDay } from "./TimeEntryRow";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
+import { ProjectShoppingSection } from "@/pages/admin/shopping/ProjectShoppingSection";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
   createTag,
@@ -800,6 +801,13 @@ export default function ProjectDetail() {
           </TabsContent>
         </Tabs>
       )}
+
+      {/*
+        Fora das abas de propósito: as abas alternam entre visões das *tarefas* do projeto, e
+        compras não é uma quarta visão de tarefa — é outra entidade ligada ao projeto, que deve
+        continuar visível independentemente da aba escolhida (feature 052).
+      */}
+      {!loading && id && <ProjectShoppingSection projectId={id} />}
 
       <Dialog open={!!seriesTask} onOpenChange={(v) => !v && setSeriesTask(null)}>
         <DialogContent>
