@@ -125,10 +125,14 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
       Verificação: `src/api/notes/__tests__/notes-api.test.ts` (12 testes) contra o duplo do query
       builder de `shopping-api.test.ts` — prova tabela, escopo `user_id`, ordenação, payload
       normalizado e propagação de erro do PostgREST.
-- [ ] Extrair o markdown de `src/pages/admin/tasks/TaskDescriptionField.tsx` para
+- [x] Extrair o markdown de `src/pages/admin/tasks/TaskDescriptionField.tsx` para
       `src/components/MarkdownPreview.tsx` (a constante `MARKDOWN_PREVIEW_CLASS` + o
       `<ReactMarkdown remarkPlugins={[remarkGfm]}>`), e trocar `TaskDescriptionField` para
-      consumi-lo. Verificação: `npm run build` e a descrição de tarefa continua renderizando igual.
+      consumi-lo. Verificação: `npm run build` + `TaskDescriptionField.test.tsx` (7 testes) — o
+      preview renderiza título/lista/negrito/link/tabela, o `Tab`/`Shift+Tab` indenta e desindenta
+      dentro do campo, e HTML cru continua NÃO sendo interpretado (a decisão de segurança da 055
+      virou assertiva, não só comentário). O handler de `Tab` saiu junto, para
+      `src/components/MarkdownTextarea.tsx`, senão o `NoteEditor` teria que duplicá-lo.
 - [ ] Criar `src/pages/admin/notes/NoteEditor.tsx`: input de título, textarea de conteúdo com o
       handler de `Tab` de `TaskDescriptionField`, abas Escrever/Visualizar usando
       `MarkdownPreview`, e `ProjectPicker` (`src/pages/admin/tasks/ProjectPicker.tsx`) para o
