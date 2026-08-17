@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
+import { HealthHabitQuickCreateDialog } from "@/pages/admin/habits/HealthHabitQuickCreateDialog";
 import { ConsultationQuickCreateDialog } from "@/pages/admin/tasks/ConsultationQuickCreateDialog";
 import { MedicationQuickCreateDialog } from "@/pages/admin/tasks/MedicationQuickCreateDialog";
 import { fetchHealthHabitsToday, loadHealthSummary } from "@/api/health";
@@ -29,6 +30,7 @@ export default function HealthDashboard() {
   const [loading, setLoading] = useState(true);
   const [medicationDialogOpen, setMedicationDialogOpen] = useState(false);
   const [consultationDialogOpen, setConsultationDialogOpen] = useState(false);
+  const [habitDialogOpen, setHabitDialogOpen] = useState(false);
   const today = useLocalDay();
   const { toast } = useToast();
 
@@ -99,8 +101,13 @@ export default function HealthDashboard() {
       eyebrow="Vida"
       description="Hábitos do dia, medicações e consultas"
       actions={
-        nextDose || nextConsultation ? (
+        nextDose || nextConsultation || healthHabits.length > 0 ? (
           <div className={PAGE_HEADER_ACTIONS_CLASS}>
+            {healthHabits.length > 0 ? (
+              <Button variant="outline" onClick={() => setHabitDialogOpen(true)}>
+                Novo hábito de saúde
+              </Button>
+            ) : null}
             {nextDose ? (
               <Button onClick={() => setMedicationDialogOpen(true)}>
                 Cadastrar medicação
@@ -145,6 +152,11 @@ export default function HealthDashboard() {
             icon={GlassWater}
             title="Nenhum hábito de saúde"
             description="Crie hábitos como beber água ou comer frutas para acompanhar o cuidado com o corpo por aqui."
+            action={
+              <Button onClick={() => setHabitDialogOpen(true)}>
+                Novo hábito de saúde
+              </Button>
+            }
           />
         ) : (
           <ul className="divide-y">
@@ -266,6 +278,12 @@ export default function HealthDashboard() {
           />
         )}
       </section>
+
+      <HealthHabitQuickCreateDialog
+        open={habitDialogOpen}
+        onOpenChange={setHabitDialogOpen}
+        onCreated={load}
+      />
 
       <MedicationQuickCreateDialog
         open={medicationDialogOpen}

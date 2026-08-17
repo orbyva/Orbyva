@@ -40,6 +40,13 @@ vi.mock("@/api/health", () => ({
 }));
 
 vi.mock("@/api/habits", () => ({
+  // O atalho "Novo hábito de saúde" grava por `createHabit` — o falso escreve na mesma lista que a
+  // seção lê, então o que aparece na tela depois vem mesmo do que foi salvo.
+  createHabit: vi.fn(async (draft: Habit) => {
+    const created = { ...draft, id: `h${store.habits.length + 1}` };
+    store.habits.push(created);
+    return created;
+  }),
   toggleHabitLog: vi.fn(async (habitId: string, date: string, completed: boolean) => {
     if (store.failNextToggle) {
       const error = store.failNextToggle;
@@ -191,6 +198,67 @@ describe("Health Dashboard — hábitos de água e alimentação", () => {
     expect(
       screen.getByRole("button", { name: "Marcar Beber água como feito hoje" })
     ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("o atalho cria o hábito com is_health e ele já aparece na seção Hoje", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    // Sem hábito nenhum, o CTA está no estado vazio da seção.
+    await user.click(
+      await screen.findByRole("button", { name: "Novo hábito de saúde" })
+    );
+
+    await user.type(await screen.findByLabelText(/Nome do hábito/), "Beber água");
+    await user.click(screen.getByRole("button", { name: "Criar hábito" }));
+
+    await waitFor(() => expect(store.habits).toHaveLength(1));
+    expect(store.habits[0]!.is_health).toBe(true);
+    expect(store.habits[0]!.name).toBe("Beber água");
+    expect(store.habits[0]!.frequency).toBe("daily");
+    expect(store.habits[0]!.target_per_week).toBe(7);
+
+    // E a tela recarregou sozinha mostrando o hábito recém-criado, pronto pro check-in.
+    expect(await screen.findByText("0 de 1 concluídos")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Marcar Beber água como feito hoje" })
+    ).toBeInTheDocument();
+  });
+
+  it("a sugestão pré-preenche nome e frequência, sem criar nada sozinha", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Novo hábito de saúde" })
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Comer frutas" }));
+
+    // Nada foi criado só por clicar na sugestão (decisão: sem seed automático).
+    expect(store.habits).toHaveLength(0);
+    expect(await screen.findByLabelText(/Nome do hábito/)).toHaveValue("Comer frutas");
+    expect(screen.getByLabelText(/Vezes por semana/)).toHaveValue(3);
+
+    await user.click(screen.getByRole("button", { name: "Criar hábito" }));
+
+    await waitFor(() => expect(store.habits).toHaveLength(1));
+    expect(store.habits[0]!.name).toBe("Comer frutas");
+    expect(store.habits[0]!.frequency).toBe("weekly");
+    expect(store.habits[0]!.target_per_week).toBe(3);
+    expect(store.habits[0]!.is_health).toBe(true);
+  });
+
+  it("com hábitos de saúde, o atalho fica no cabeçalho da página", async () => {
+    store.habits = [healthHabit({ id: "agua", name: "Beber água" })];
+    renderPage();
+
+    await screen.findByText("Beber água");
+    // Só um CTA por vez: o estado vazio sumiu, o botão do header ficou.
+    expect(screen.queryByText("Nenhum hábito de saúde")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Novo hábito de saúde" })
+    ).toBeInTheDocument();
   });
 
   it("hábito comum (sem is_health) não aparece na seção Hoje", async () => {
