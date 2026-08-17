@@ -23,6 +23,17 @@ const DEFAULT_SCREENS: PhoneScreen[] = [
   },
 ];
 
+const HUB_SRC = DEFAULT_SCREENS[0]!.src;
+
+/** Altura do chrome (label + setas + dots), inline para não depender do Tailwind. */
+const CHROME_H = 102;
+
+const SLOT_STYLE = {
+  width: "min(220px, 62vw)",
+  aspectRatio: "390 / 843",
+  margin: "0 auto",
+} as const;
+
 function marketingWebp(src: string) {
   return src.replace(/\.png$/i, ".webp");
 }
@@ -34,13 +45,7 @@ const PhoneCarousel = lazy(() =>
 );
 
 const FRAME_CLASS =
-  "relative mx-auto aspect-[9/19] w-full overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 shadow-[0_25px_60px_-20px_rgba(14,165,233,0.45)] ring-1 ring-white/10 sm:rounded-[2rem]";
-
-function hideBootLcp() {
-  const img = document.getElementById("boot-lcp") as HTMLImageElement | null;
-  if (img) img.style.visibility = "hidden";
-  document.getElementById("boot-wordmark")?.setAttribute("hidden", "");
-}
+  "relative mx-auto overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 shadow-[0_25px_60px_-20px_rgba(14,165,233,0.45)] ring-1 ring-white/10 sm:rounded-[2rem]";
 
 function useBootLcpPin(slotRef: RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
@@ -89,7 +94,10 @@ function PhoneFrame({
   const webp = marketingWebp(screen.src);
 
   return (
-    <div className={cn(FRAME_CLASS, className)}>
+    <div
+      className={cn(FRAME_CLASS, className)}
+      style={{ width: "100%", height: "100%", aspectRatio: "390 / 843" }}
+    >
       <picture>
         <source type="image/webp" srcSet={webp} />
         <img
@@ -97,70 +105,52 @@ function PhoneFrame({
           alt={screen.alt}
           width={390}
           height={843}
-          sizes="(max-width: 639px) 220px, 200px"
+          sizes="220px"
           loading="lazy"
           decoding="async"
           fetchPriority="low"
-          className="h-full w-full object-contain object-top"
           draggable={false}
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            objectPosition: "top",
+          }}
         />
       </picture>
     </div>
   );
 }
 
-function AdoptedLcpPhone({ className }: { className?: string }) {
+function LcpPhoneFrame({ className }: { className?: string }) {
   const slotRef = useRef<HTMLDivElement>(null);
   useBootLcpPin(slotRef);
 
   return (
-    <div className={cn("relative w-full select-none", className)}>
-      <div className="relative mx-auto w-full max-w-[220px]">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -inset-6 rounded-full bg-sky-500/20 blur-3xl"
-        />
-        <div
-          ref={slotRef}
-          data-lcp-slot
-          className={cn("relative z-[1]", FRAME_CLASS)}
-          style={{ aspectRatio: "390 / 843" }}
-        />
-      </div>
-      {/* Mesma altura do chrome do carrossel (label + setas + dots). */}
-      <div className="mt-3 h-5" aria-hidden />
-      <div className="mt-4 h-9" aria-hidden />
-      <div className="mt-3 h-1.5" aria-hidden />
-    </div>
+    <div
+      ref={slotRef}
+      data-lcp-slot
+      className={cn(FRAME_CLASS, className)}
+      style={{ width: "100%", height: "100%", aspectRatio: "390 / 843" }}
+    />
   );
 }
 
-function HeroCarousel({
-  screens,
-  className,
-  intervalMs,
-}: {
-  screens: PhoneScreen[];
-  className?: string;
-  intervalMs: number;
-}) {
-  useLayoutEffect(() => {
-    hideBootLcp();
-  }, []);
-
+function AdoptedLcpPhone() {
   return (
-    <PhoneCarousel
-      screens={screens}
-      intervalMs={intervalMs}
-      className={className}
-      renderPhone={({ screen }) => <PhoneFrame screen={screen} />}
-    />
+    <div className="relative w-full select-none">
+      <div className="relative" style={SLOT_STYLE}>
+        <LcpPhoneFrame />
+      </div>
+      <div style={{ height: CHROME_H }} aria-hidden />
+    </div>
   );
 }
 
 /**
  * Phone Mockups 1 · réplica visual do componente 21st (solaceui).
- * #boot-lcp só no fallback (antes do chunk); o carrossel usa <img> no fluxo.
+ * Slot com tamanho inline (CLS); 1º slide reusa #boot-lcp.
  */
 export default function PhoneMockupBasic({
   screens = DEFAULT_SCREENS,
@@ -175,11 +165,18 @@ export default function PhoneMockupBasic({
   if (!first) return null;
 
   return (
-    <div className={cn("relative min-h-[36rem] w-full", className)}>
+    <div className={cn("relative w-full", className)}>
       <Suspense fallback={<AdoptedLcpPhone />}>
-        <HeroCarousel
+        <PhoneCarousel
           screens={screens}
           intervalMs={intervalMs}
+          renderPhone={({ screen, offset }) =>
+            offset === 0 && screen.src === HUB_SRC ? (
+              <LcpPhoneFrame />
+            ) : (
+              <PhoneFrame screen={screen} />
+            )
+          }
         />
       </Suspense>
     </div>

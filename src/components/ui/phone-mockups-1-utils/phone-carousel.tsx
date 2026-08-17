@@ -47,6 +47,17 @@ export function PhoneCarousel({
   const reduceMotion = useReducedMotion();
   const [showPeeks, setShowPeeks] = useState(false);
   const [autoplayOn, setAutoplayOn] = useState(false);
+  const [desktop, setDesktop] = useState(() =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(min-width: 640px)").matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const on = () => setDesktop(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
 
   useEffect(() => {
     const enable = () => setShowPeeks(true);
@@ -133,9 +144,16 @@ export function PhoneCarousel({
   return (
     <div className={cn("relative w-full select-none", className)}>
       {/* Mobile */}
-      <div className="relative mx-auto w-full max-w-[220px] sm:hidden">
+      {!desktop ? (
+      <div
+        className="relative mx-auto"
+        style={{ width: "min(220px, 62vw)", marginLeft: "auto", marginRight: "auto" }}
+      >
         <div className="pointer-events-none absolute -inset-6 rounded-full bg-sky-500/20 blur-3xl" />
-        <div className="relative z-[1] aspect-[9/19]">
+        <div
+          className="relative z-[1]"
+          style={{ aspectRatio: "390 / 843", width: "100%" }}
+        >
           <AnimatePresence initial={false} custom={dir}>
             <motion.div
               key={`m-${index}`}
@@ -147,9 +165,8 @@ export function PhoneCarousel({
           </AnimatePresence>
         </div>
       </div>
-
-      {/* Desktop 3-up, peeks estáveis, só o centro faz crossfade */}
-      <div className="relative mx-auto hidden h-[480px] max-w-lg items-center justify-center sm:flex">
+      ) : (
+      <div className="relative mx-auto flex h-[480px] max-w-lg items-center justify-center">
         <div className="pointer-events-none absolute inset-x-[8%] top-1/2 z-0 h-[55%] -translate-y-1/2 rounded-full bg-sky-500/20 blur-3xl" />
 
         <div className="absolute left-[8%] z-[1] w-[36%] max-w-[168px] -translate-y-1 scale-[0.9] opacity-55 transition-[opacity] duration-200">
@@ -162,7 +179,10 @@ export function PhoneCarousel({
             : null}
         </div>
 
-        <div className="relative z-[2] aspect-[9/19] w-[42%] max-w-[200px]">
+        <div
+          className="relative z-[2]"
+          style={{ aspectRatio: "390 / 843", width: "42%", maxWidth: 200 }}
+        >
           <AnimatePresence initial={false}>
             <motion.div
               key={`c-${index}`}
@@ -184,7 +204,8 @@ export function PhoneCarousel({
             : null}
         </div>
       </div>
-
+      )}
+      <div style={{ minHeight: 102 }}>
       {center.label ? (
         <div className="relative mt-3 h-5 overflow-hidden text-center">
           <AnimatePresence initial={false}>
@@ -254,6 +275,7 @@ export function PhoneCarousel({
             )}
           />
         ))}
+      </div>
       </div>
     </div>
   );
