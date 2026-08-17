@@ -1,6 +1,10 @@
+import { useMemo } from "react";
+import type { ReactNode } from "react";
+import type { Element } from "hast";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { findBlockRenderer } from "@/components/markdown/blockRegistry";
 import { cn } from "@/lib/utils";
 
 /** Tipografia do Markdown renderizado — compartilhada por descrição de tarefa e nota. */
@@ -37,15 +41,75 @@ export function MarkdownPreview({
    */
   urlTransform?: (url: string) => string;
 }) {
+  /**
+   * Os renderers do registry entram **antes** dos do consumidor: quem passa `components` continua
+   * podendo sobrescrever qualquer elemento, `code`/`pre` inclusive.
+   */
+  const merged = useMemo<Components>(
+    () => ({ ...BLOCK_REGISTRY_COMPONENTS, ...components }),
+    [components]
+  );
+
   return (
     <div className={cn(MARKDOWN_PREVIEW_CLASS, className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        components={components}
+        components={merged}
         urlTransform={urlTransform}
       >
         {content}
       </ReactMarkdown>
     </div>
   );
+}
+
+/**
+ * Ponte entre o Markdown e o registry de blocos (feature 057): ` ```<lang> ` com renderer
+ * registrado é desenhado por ele; sem renderer, nada muda em relação ao comportamento anterior.
+ */
+const BLOCK_REGISTRY_COMPONENTS: Components = {
+  code(props) {
+    const Renderer = findBlockRenderer(props.className);
+    if (!Renderer) {
+      const { children, ...rest } = withoutNode(props);
+      return <code {...rest}>{children}</code>;
+    }
+    return <Renderer code={blockCode(props.children)} />;
+  },
+  /**
+   * O renderer traz o container dele — deixá-lo dentro do `<pre>` herdaria `white-space: pre` e
+   * fonte monoespaçada, que amassam um SVG. Bloco sem renderer continua no `<pre>` de sempre.
+   */
+  pre(props) {
+    if (hasRegisteredBlock(props.node)) return <>{props.children}</>;
+    const { children, ...rest } = withoutNode(props);
+    return <pre {...rest}>{children}</pre>;
+  },
+};
+
+/** `node` é o nó do hast, não um atributo de DOM — repassá-lo ao elemento vira warning do React. */
+function withoutNode<T extends { node?: Element }>(props: T): Omit<T, "node"> {
+  const rest = { ...props };
+  delete rest.node;
+  return rest;
+}
+
+/** Texto cru do fence, sem a quebra de linha final que o Markdown sempre acrescenta. */
+function blockCode(children: ReactNode): string {
+  if (typeof children === "string") return children.replace(/\n$/, "");
+  if (Array.isArray(children)) return children.map(blockCode).join("");
+  return "";
+}
+
+/** O `<pre>` embrulha um `<code>` de linguagem registrada? A pergunta é feita no hast, não no DOM. */
+function hasRegisteredBlock(node: Element | undefined): boolean {
+  const child = node?.children?.[0];
+  if (!child || child.type !== "element" || child.tagName !== "code") return false;
+  const className = child.properties?.className;
+  const asString = Array.isArray(className)
+    ? className.join(" ")
+    : typeof className === "string"
+      ? className
+      : null;
+  return findBlockRenderer(asString) !== null;
 }

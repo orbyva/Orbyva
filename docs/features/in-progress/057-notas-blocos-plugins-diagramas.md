@@ -78,13 +78,21 @@ ordem.
       `className` vazio ou ausente → `null`, `className` com classes extras não quebra.
       Verificação: `npx vitest run src/domain/notes/__tests__/blockLanguage.test.ts` — 6 testes
       passando, incluindo `language-` sem linguagem → `null` e `hljs language-mermaid extra`.
-- [ ] Criar `src/components/markdown/blockRegistry.ts`: tipo `BlockRenderer = ComponentType<{ code:
+- [x] Criar `src/components/markdown/blockRegistry.ts`: tipo `BlockRenderer = ComponentType<{ code:
       string }>` e um `Record<string, BlockRenderer>` exportado, com lookup via
       `parseBlockLanguage` e fallback para o bloco de código normal quando não houver renderer.
-- [ ] Refatorar `src/components/MarkdownPreview.tsx` (da 055) para consultar o registry no
+      O lookup é `findBlockRenderer(className)`; o mapa `blockRenderers` nasce vazio e ganha o
+      `mermaid` na tarefa do `MermaidBlock`.
+- [x] Refatorar `src/components/MarkdownPreview.tsx` (da 055) para consultar o registry no
       componente `code` do `react-markdown`, extraindo a linguagem de `className`
       (`language-<lang>`). Sem renderer registrado, o comportamento atual não muda.
-      Verificação: `npm run build` e um bloco ```ts continua renderizando como hoje.
+      Verificação: `npm run build` + `MarkdownPreview.blocks.test.tsx` (7 testes) — um renderer de
+      mentira registrado no mapa recebe o código cru do fence, um bloco ```ts sem renderer continua
+      saindo como `pre > code.language-ts`, código inline não vira plugin, a linguagem casa sem
+      diferenciar caixa e HTML cru continua não interpretado.
+      Ajuste do plano: o componente `pre` também foi sobrescrito, para **desembrulhar** o bloco com
+      renderer — dentro do `<pre>` o SVG herdaria `white-space: pre` e fonte monoespaçada. Bloco sem
+      renderer continua dentro do `<pre>` de sempre.
 - [ ] Criar `src/components/markdown/remarkPlugins.ts` exportando o array central de plugins remark
       (começando com `remarkGfm`) e passar a usá-lo no `MarkdownPreview`, em vez do array inline.
 - [ ] Instalar `mermaid@^11`. Verificação: `npm run build` + `npm run check:bundle` — confirmar que
