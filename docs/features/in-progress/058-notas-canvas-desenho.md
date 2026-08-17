@@ -96,10 +96,12 @@ dentro de uma nota markdown). Independente da 056.
       nota markdown é descartado (seria dado órfão); `notes-api.test.ts` (1 teste novo) — o payload
       real do `insert` de um canvas leva `kind: "canvas"` e o `canvas_data`, e o de nota comum leva
       `kind: "markdown"`. Suíte de `src/domain/notes` + `src/api/notes`: 92 testes passando.
-- [ ] Instalar `@excalidraw/excalidraw@^0.18`. Verificação: `npm run build` — se o build acusar
-      conflito de peer dependency com React 19 vindo de dependências transitivas (Radix), resolver
-      via `overrides` no `package.json` (o projeto já usa esse mecanismo), **não** com
-      `--legacy-peer-deps`.
+- [x] Instalar `@excalidraw/excalidraw@^0.18`. Instalado `0.18.1` com `npm install` puro — **sem**
+      `--legacy-peer-deps` e sem precisar de `overrides` novo: os `peerDependencies` do pacote já
+      declaram `react@^19`, então não houve conflito a resolver. Verificação: `npm run build` OK e
+      `npm run check:bundle` OK, com os chunks de rota inalterados (`NoteDetail` 8.4 KB, `Notes`
+      1.9 KB gzip) — instalar sozinho não muda nada, é a linha de base contra a qual a tarefa do
+      `CanvasEditor` vai ser medida.
 - [ ] Declarar `excalidraw` em `manualChunks` (`vite.config.ts:151`) e no `VENDOR_RE` de
       `scripts/check-bundle-budget.mjs`, com limite próprio comentado.
 - [ ] Criar `src/pages/admin/notes/CanvasEditor.tsx`: `React.lazy` do `<Excalidraw />` dentro de
