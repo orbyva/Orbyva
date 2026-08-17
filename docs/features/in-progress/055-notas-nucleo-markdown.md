@@ -159,12 +159,16 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
       que a tarefa descrevia (ver Notas para o porquê). Verificação:
       `ProjectNotesSection.test.tsx` (4 testes) — só as notas daquele projeto aparecem, cada uma
       leva ao editor, e "Nova nota" nasce com `project_id` preenchido já no create.
-- [ ] Fazer a UI parar de ler e escrever `project.notes` (a coluna continua no banco): remover o
-      textarea de `src/pages/admin/tasks/ProjectFormDialog.tsx:147-154`, o `line-clamp-2` de
-      `src/pages/admin/tasks/Projects.tsx:135-137`, o campo de `src/types/tasks.ts:9` e a coluna
-      dos `select` em `src/api/tasks/projects.ts`. A partir daqui o lugar das notas de projeto é a
-      aba de Notas. Verificação: `npm run build` sem erro de tipo — é o que prova que não sobrou
-      nenhuma referência viva à coluna.
+- [x] Fazer a UI parar de ler e escrever `project.notes` (a coluna continua no banco): removidos o
+      textarea, o `line-clamp-2` do card, o `notes` do `emptyProject`/`openEdit` (tudo em
+      `src/pages/admin/tasks/Projects.tsx` — o `ProjectFormDialog.tsx` que a tarefa citava não
+      existe mais, o formulário foi consolidado ali) e o campo de `src/types/tasks.ts`.
+      `src/api/tasks/projects.ts` usa `select("*")`, então não há coluna listada para tirar — a
+      coluna continua vindo do banco e é ignorada, que é o esperado.
+      Verificação: `npm run build` + `Projects.notes-migration.test.tsx` (3 testes) — a página é
+      alimentada com uma linha que **ainda tem** `notes` preenchido (como o `select("*")` vai
+      devolver de verdade) e nem o card nem o formulário mostram o valor. Só o build não provaria
+      isso: tipo removido não impede o valor de chegar em runtime.
 - [ ] Adicionar `kind: "note"` em `src/api/search.ts` (`GlobalSearchKind`, o `Promise.all` com
       `ilike` em `title`/`content`, e o push do hit com `href: /notes/<id>`).
       Verificação manual: buscar por um trecho que só exista dentro de uma nota e ver o hit levar

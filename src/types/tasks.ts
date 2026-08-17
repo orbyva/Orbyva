@@ -6,7 +6,12 @@ export interface Project {
   name: string;
   description?: string | null;
   color?: string | null;
-  notes?: string | null;
+  /**
+   * `project.notes` NÃO está mais aqui de propósito (feature 055): as notas de projeto viraram o
+   * módulo de Notas (`src/types/notes.ts`), e nenhum código lê ou escreve a coluna. Ela continua
+   * existindo no banco, com o conteúdo original, como rede de segurança até o usuário confirmar a
+   * migração — o `drop column` é a última tarefa da 058.
+   */
   goal_id?: string | null;
   status: ProjectStatus;
   tag_ids: string[];

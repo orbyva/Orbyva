@@ -90,7 +90,6 @@ const emptyProject = (): ProjectCreateRequest => ({
   name: "",
   description: "",
   color: null,
-  notes: "",
   goal_id: null,
   status: "planned",
   tag_ids: [],
@@ -163,10 +162,6 @@ function ProjectCard({
             <TagBadge key={tag.id} tag={tag} />
           ))}
         </div>
-      )}
-
-      {project.notes && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">{project.notes}</p>
       )}
 
       {topTasks.length > 0 && (
@@ -383,7 +378,6 @@ export default function Projects() {
       name: project.name,
       description: project.description ?? "",
       color: project.color ?? null,
-      notes: project.notes ?? "",
       goal_id: project.goal_id ?? null,
       status: project.status,
       tag_ids: project.tag_ids,
@@ -622,16 +616,6 @@ export default function Projects() {
                 onCreateTag={handleCreateTag}
               />
             </div>
-            <div>
-              <FormLabel optional>Notas</FormLabel>
-              <textarea
-                className="flex min-h-[64px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                placeholder="Contexto, decisões, links úteis…"
-                value={form.notes ?? ""}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </div>
-
             {editing && (
               <div>
                 <FormLabel optional>Eventos (reuniões, horários de trabalho)</FormLabel>
