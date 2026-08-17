@@ -13,3 +13,4 @@ export * from "./externalLink";
 export * from "./duration";
 export * from "./taskDraft";
 export * from "./medication";
+export * from "./consultation";
