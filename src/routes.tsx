@@ -21,6 +21,9 @@ const Car = lazy(() => import("./pages/admin/car/Car"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const LifeDashboard = lazy(() => import("./pages/admin/life/LifeDashboard"));
 const Timeline = lazy(() => import("./pages/admin/life/Timeline"));
+const HealthDashboard = lazy(
+  () => import("./pages/admin/life/HealthDashboard")
+);
 const FinanceDashboard = lazy(() => import("./pages/admin/home/FinanceDashboard"));
 const Goals = lazy(() => import("./pages/admin/goals/Goals"));
 const Habits = lazy(() => import("./pages/admin/habits/Habits"));
@@ -111,6 +114,9 @@ export const appRoutes: RouteObject[] = [
         children: [
           { path: "home", element: <LifeDashboard /> },
           { path: "timeline", element: <Timeline /> },
+          // Sub-módulo Vida > Saúde (feature 060) — hub de primeiro nível, não uma aba do
+          // dashboard de Vida, para as telas de 061-064 terem deep-link próprio.
+          { path: "life/health", element: <HealthDashboard /> },
           { path: "account", element: <Account /> },
 
           { path: "goals", element: <Goals /> },
