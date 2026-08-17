@@ -6,8 +6,14 @@ import {
   fetchRecurringTransactionsByIds,
   updateRecurringParcelPayment,
 } from "@/api/recurring";
+import { resolveItemStatusFromTask } from "@/domain/shopping/taskLink";
 import { formatLocalIsoDate } from "@/lib/dates";
-import type { Task, TaskCreateRequest, TaskUpdateRequest } from "@/types/tasks";
+import type {
+  Task,
+  TaskCreateRequest,
+  TaskStatus,
+  TaskUpdateRequest,
+} from "@/types/tasks";
 
 async function materializeRecurringInstances(
   userId: string,
@@ -187,7 +193,43 @@ export async function updateTask(data: TaskUpdateRequest): Promise<void> {
     } catch (syncError) {
       console.error("Falha ao sincronizar parcela vinculada:", syncError);
     }
+    try {
+      await syncLinkedShoppingItemFromTask(id, userId, fields.status);
+    } catch (syncError) {
+      console.error("Falha ao sincronizar item de compras vinculado:", syncError);
+    }
   }
+}
+
+/**
+ * Reflete a conclusão/reabertura da tarefa no item da Lista de Compras vinculado (feature 051):
+ * tarefa `done` marca o item como comprado, tarefa reaberta devolve o item para pendente.
+ * Grava direto em `shopping_item` — de propósito não chama `setShoppingItemStatus`, que
+ * sincronizaria de volta para a tarefa e criaria ping-pong entre os dois lados.
+ */
+async function syncLinkedShoppingItemFromTask(
+  taskId: string,
+  userId: string,
+  taskStatus: TaskStatus
+): Promise<void> {
+  const { data: task, error } = await supabase
+    .from("task")
+    .select("linked_shopping_item_id")
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!task?.linked_shopping_item_id) return;
+
+  const { error: itemError } = await supabase
+    .from("shopping_item")
+    .update({
+      status: resolveItemStatusFromTask(taskStatus),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", task.linked_shopping_item_id)
+    .eq("user_id", userId);
+  if (itemError) throw new Error(itemError.message);
 }
 
 /**
