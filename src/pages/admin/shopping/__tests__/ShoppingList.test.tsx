@@ -86,10 +86,22 @@ function sectionFor(name: string): HTMLElement {
   return screen.getByRole("heading", { name }).closest("section") as HTMLElement;
 }
 
+/**
+ * A página lê o filtro de projeto do query param (`?project=<id>`), então precisa de Router —
+ * `initialEntries` é a própria URL que o usuário abriria.
+ */
+function renderPage(url = "/shopping-list") {
+  return render(
+    <MemoryRouter initialEntries={[url]}>
+      <ShoppingList />
+    </MemoryRouter>
+  );
+}
+
 describe("ShoppingList", () => {
   it("sem categoria nenhuma, mostra o estado vazio e desabilita 'Novo item'", async () => {
     mockedFetchCategories.mockResolvedValue([]);
-    render(<ShoppingList />);
+    renderPage();
 
     expect(await screen.findByText("Nenhuma categoria ainda")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Novo item" })).toBeDisabled();
@@ -101,7 +113,7 @@ describe("ShoppingList", () => {
       item("i2", "c1", "Arroz"),
       item("i3", "c2", "Cabo HDMI"),
     ]);
-    render(<ShoppingList />);
+    renderPage();
 
     await screen.findByRole("heading", { name: "Mercado" });
 
@@ -130,7 +142,7 @@ describe("ShoppingList", () => {
       item("i2", "c1", "Feijão"),
       item("i3", "c2", "Cabo HDMI"),
     ]);
-    render(<ShoppingList />);
+    renderPage();
 
     await screen.findByRole("heading", { name: "Mercado" });
     expect(within(sectionFor("Mercado")).getByText("2 pendentes")).toBeInTheDocument();
@@ -150,7 +162,7 @@ describe("ShoppingList", () => {
 
   it("categoria sem itens mostra o próprio estado vazio", async () => {
     mockedFetchItems.mockResolvedValue([item("i1", "c1", "Arroz")]);
-    render(<ShoppingList />);
+    renderPage();
 
     await screen.findByRole("heading", { name: "Escritório" });
     expect(
@@ -165,7 +177,7 @@ describe("ShoppingList", () => {
       item("i1", "c1", "Arroz"),
       item("i2", "c1", "Feijão"),
     ]);
-    render(<ShoppingList />);
+    renderPage();
 
     await screen.findByRole("heading", { name: "Mercado" });
     await user.click(
@@ -182,7 +194,7 @@ describe("ShoppingList", () => {
 
   it("excluir categoria vazia avisa que não há itens", async () => {
     const user = userEvent.setup();
-    render(<ShoppingList />);
+    renderPage();
 
     await screen.findByRole("heading", { name: "Mercado" });
     await user.click(
@@ -194,7 +206,7 @@ describe("ShoppingList", () => {
   it("excluir item chama a API e recarrega", async () => {
     const user = userEvent.setup();
     mockedFetchItems.mockResolvedValue([item("i1", "c1", "Arroz")]);
-    render(<ShoppingList />);
+    renderPage();
 
     await screen.findByText("Arroz");
     await user.click(screen.getByRole("button", { name: "Excluir Arroz" }));
@@ -206,7 +218,7 @@ describe("ShoppingList", () => {
 
   it("'Adicionar item' da categoria abre o dialog já naquela categoria", async () => {
     const user = userEvent.setup();
-    render(<ShoppingList />);
+    renderPage();
 
     await screen.findByRole("heading", { name: "Escritório" });
     await user.click(
@@ -223,7 +235,7 @@ describe("ShoppingList", () => {
 
   it("editar categoria abre o dialog preenchido", async () => {
     const user = userEvent.setup();
-    render(<ShoppingList />);
+    renderPage();
 
     await screen.findByRole("heading", { name: "Mercado" });
     await user.click(
@@ -237,7 +249,7 @@ describe("ShoppingList", () => {
   it("editar item abre o dialog preenchido com o item clicado", async () => {
     const user = userEvent.setup();
     mockedFetchItems.mockResolvedValue([item("i1", "c1", "Arroz")]);
-    render(<ShoppingList />);
+    renderPage();
 
     await screen.findByText("Arroz");
     await user.click(screen.getByRole("button", { name: "Editar Arroz" }));
@@ -248,7 +260,7 @@ describe("ShoppingList", () => {
 
   it("erro no load mostra toast destrutivo", async () => {
     mockedFetchCategories.mockRejectedValue(new Error("offline"));
-    render(<ShoppingList />);
+    renderPage();
 
     await waitFor(() =>
       expect(toastMock).toHaveBeenCalledWith(
@@ -344,5 +356,38 @@ describe("ShoppingList — carregamento dos vínculos com tarefas", () => {
     ).toBeInTheDocument();
     expect(mockedFetchTaskLinks).toHaveBeenCalledTimes(1);
     expect(mockedFetchItems).toHaveBeenCalledTimes(1);
+  });
+
+  it("sem filtro, o cabeçalho da categoria vinculada mostra o nome do projeto", async () => {
+    mockedFetchCategories.mockResolvedValue([
+      { id: "c1", name: "Mercado", project_id: "p1" },
+      { id: "c2", name: "Escritório" },
+    ]);
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Mercado" });
+    expect(
+      within(sectionFor("Mercado")).getByText("Obra da casa")
+    ).toBeInTheDocument();
+    // A categoria sem projeto não ganha badge nenhum.
+    expect(
+      within(sectionFor("Escritório")).queryByText("Obra da casa")
+    ).toBeNull();
+  });
+
+  it("com filtro ativo, o nome do projeto não se repete em cada categoria", async () => {
+    mockedFetchCategories.mockResolvedValue([
+      { id: "c1", name: "Mercado", project_id: "p1" },
+    ]);
+    renderPage("/shopping-list?project=p1");
+
+    // O projeto é dito no cabeçalho da página, e não repetido dentro da seção da categoria.
+    await screen.findByRole("heading", { name: "Mercado" });
+    expect(
+      within(sectionFor("Mercado")).queryByText("Obra da casa")
+    ).toBeNull();
+    expect(
+      screen.getByText(/Mostrando as compras de/)
+    ).toHaveTextContent("Obra da casa");
   });
 });

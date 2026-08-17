@@ -33,6 +33,11 @@ interface ShoppingCategoryDialogProps {
   category: ShoppingCategory | null;
   /** Projetos disponíveis para vincular — a página já os carrega para o filtro. */
   projects: Project[];
+  /**
+   * Projeto sugerido ao criar (a lista está filtrada por ele) — assim a categoria recém-criada
+   * não some do filtro ativo. Ignorado em modo edição, que usa o projeto da própria categoria.
+   */
+  defaultProjectId?: string | null;
   onSaved: () => void;
 }
 
@@ -50,6 +55,7 @@ export function ShoppingCategoryDialog({
   onOpenChange,
   category,
   projects,
+  defaultProjectId = null,
   onSaved,
 }: ShoppingCategoryDialogProps) {
   const [form, setForm] = useState<ShoppingCategoryCreateRequest>(
@@ -68,9 +74,9 @@ export function ShoppingCategoryDialog({
             color: category.color ?? null,
             project_id: category.project_id ?? null,
           }
-        : emptyCategory()
+        : { ...emptyCategory(), project_id: defaultProjectId }
     );
-  }, [open, category]);
+  }, [open, category, defaultProjectId]);
 
   async function handleSave() {
     if (!form.name.trim()) return;

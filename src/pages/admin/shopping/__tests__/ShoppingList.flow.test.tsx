@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import ShoppingList from "@/pages/admin/shopping/ShoppingList";
 import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
 
@@ -117,7 +118,11 @@ function sectionFor(name: string): HTMLElement {
 
 describe("Lista de Compras — fluxo completo", () => {
   it("cria categorias e itens, marca/desmarca comprado, edita, exclui em cascata e persiste após recarregar", async () => {
-    const { unmount } = render(<ShoppingList />);
+    const { unmount } = render(
+      <MemoryRouter>
+        <ShoppingList />
+      </MemoryRouter>,
+    );
 
     // Estado inicial: nenhuma categoria.
     expect(await screen.findByText("Nenhuma categoria ainda")).toBeInTheDocument();
@@ -185,7 +190,11 @@ describe("Lista de Compras — fluxo completo", () => {
 
     // 6) "Recarrega a página": remonta e refaz os fetches.
     unmount();
-    render(<ShoppingList />);
+    render(
+      <MemoryRouter>
+        <ShoppingList />
+      </MemoryRouter>,
+    );
 
     expect(
       await screen.findByRole("heading", { name: "Escritório", level: 2 })

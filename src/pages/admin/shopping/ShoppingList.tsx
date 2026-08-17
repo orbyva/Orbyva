@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Pen, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
@@ -20,6 +28,7 @@ import type { ShoppingItemTaskLink } from "@/api/shopping/items";
 import { fetchProjects } from "@/api/tasks/projects";
 import {
   countPendingByCategory,
+  filterCategoriesByProject,
   groupItemsByCategory,
 } from "@/domain/shopping/filters";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +42,9 @@ import type { Project } from "@/types/tasks";
 import { ShoppingCategoryDialog } from "./ShoppingCategoryDialog";
 import { ShoppingItemDialog } from "./ShoppingItemDialog";
 import { ShoppingItemRow } from "./ShoppingItemRow";
+
+/** Valor do `<Select>` que representa "sem filtro" — Radix não aceita `value=""`. */
+const ALL_PROJECTS = "__all__";
 
 function categoryDeleteDescription(itemCount: number): string {
   if (itemCount === 0) return "A categoria não tem itens.";
@@ -59,6 +71,20 @@ export default function ShoppingList() {
     string | null
   >(null);
   const { toast } = useToast();
+  /**
+   * O filtro por projeto mora na URL (`/shopping-list?project=<id>`), não em `useState`: é assim
+   * que o link vindo da página do projeto abre a lista já filtrada e que o estado sobrevive ao
+   * refresh (ver Decisões da feature 052).
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const projectFilter = searchParams.get("project");
+
+  function handleProjectFilterChange(value: string) {
+    const next = new URLSearchParams(searchParams);
+    if (value === ALL_PROJECTS) next.delete("project");
+    else next.set("project", value);
+    setSearchParams(next, { replace: true });
+  }
 
   const load = useCallback(async () => {
     try {
@@ -91,9 +117,29 @@ export default function ShoppingList() {
     load();
   }, [load]);
 
+  /**
+   * Filtrar por projeto encurta a lista de categorias — e só isso. O agrupamento continua sendo o
+   * mesmo `groupItemsByCategory`, então a lista filtrada segue agrupada por categoria, que é o
+   * pedido literal ("ver os itens, por categorias, de um projeto em específico").
+   */
+  const visibleCategories = useMemo(
+    () => filterCategoriesByProject(categories, projectFilter),
+    [categories, projectFilter]
+  );
   const groups = useMemo(
-    () => groupItemsByCategory(items, categories),
-    [items, categories]
+    () => groupItemsByCategory(items, visibleCategories),
+    [items, visibleCategories]
+  );
+  const filteredProject = useMemo(
+    () => projects.find((project) => project.id === projectFilter) ?? null,
+    [projects, projectFilter]
+  );
+  const projectNameById = useMemo(
+    () =>
+      Object.fromEntries(
+        projects.map((project) => [project.id, project.name])
+      ) as Record<string, string | undefined>,
+    [projects]
   );
   const pendingByCategory = useMemo(
     () => countPendingByCategory(items),
@@ -192,6 +238,36 @@ export default function ShoppingList() {
         </>
       }
     >
+      {projects.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={projectFilter ?? ALL_PROJECTS}
+            onValueChange={handleProjectFilterChange}
+          >
+            <SelectTrigger className="w-56" aria-label="Filtrar por projeto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_PROJECTS}>Todos os projetos</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {filteredProject && (
+            <p className="text-xs text-muted-foreground">
+              Mostrando as compras de{" "}
+              <span className="font-medium text-foreground">
+                {filteredProject.name}
+              </span>
+              , agrupadas por categoria.
+            </p>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <TableLoadingSkeleton rows={4} />
       ) : categories.length === 0 ? (
@@ -199,6 +275,17 @@ export default function ShoppingList() {
           icon={ShoppingCart}
           title="Nenhuma categoria ainda"
           description="Crie uma categoria (Mercado, Casa nova…) para começar a listar o que precisa comprar."
+          action={<Button onClick={openCreateCategory}>Nova categoria</Button>}
+        />
+      ) : visibleCategories.length === 0 ? (
+        <EmptyState
+          icon={ShoppingCart}
+          title="Nenhuma categoria neste projeto"
+          description={
+            filteredProject
+              ? `Nenhuma categoria da lista está vinculada a "${filteredProject.name}". Crie uma, ou edite uma existente para vinculá-la.`
+              : "Nenhuma categoria da lista está vinculada a este projeto."
+          }
           action={<Button onClick={openCreateCategory}>Nova categoria</Button>}
         />
       ) : (
@@ -228,6 +315,16 @@ export default function ShoppingList() {
                       {pendingByCategory[category.id] ?? 0} pendente
                       {(pendingByCategory[category.id] ?? 0) === 1 ? "" : "s"}
                     </Badge>
+                    {/*
+                      Só faz sentido quando a lista mostra tudo: com o filtro ativo, todas as
+                      categorias visíveis são do mesmo projeto e o nome já está no cabeçalho da
+                      página — repeti-lo em cada seção seria ruído.
+                    */}
+                    {!projectFilter && projectNameById[category.project_id ?? ""] && (
+                      <Badge variant="secondary" className="shrink-0 text-[10px]">
+                        {projectNameById[category.project_id ?? ""]}
+                      </Badge>
+                    )}
                   </div>
                   {category.description && (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -302,6 +399,7 @@ export default function ShoppingList() {
         onOpenChange={setCategoryDialogOpen}
         category={editingCategory}
         projects={projects}
+        defaultProjectId={projectFilter}
         onSaved={load}
       />
       <ShoppingItemDialog
