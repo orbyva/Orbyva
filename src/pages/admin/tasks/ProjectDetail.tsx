@@ -51,6 +51,7 @@ import { formatTimeOfDay } from "./TimeEntryRow";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { ProjectShoppingSection } from "@/pages/admin/shopping/ProjectShoppingSection";
+import { ProjectNotesSection } from "@/pages/admin/notes/ProjectNotesSection";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
   createTag,
@@ -808,6 +809,9 @@ export default function ProjectDetail() {
         continuar visível independentemente da aba escolhida (feature 052).
       */}
       {!loading && id && <ProjectShoppingSection projectId={id} />}
+
+      {/* Mesma razão da seção acima: nota é outra entidade ligada ao projeto (feature 055). */}
+      {!loading && id && <ProjectNotesSection projectId={id} />}
 
       <Dialog open={!!seriesTask} onOpenChange={(v) => !v && setSeriesTask(null)}>
         <DialogContent>

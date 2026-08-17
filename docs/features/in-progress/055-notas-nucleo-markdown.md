@@ -153,9 +153,12 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
 - [x] Adicionar `{ title: "Notas", url: "/notes" }` ao grupo **Produtividade** em
       `src/components/app-sidebar.tsx` (depois de "Projetos"). Verificação:
       `notes-navigation.test.tsx` renderiza a sidebar e confere o `href` e o estado ativo.
-- [ ] Adicionar aba **Notas** em `src/pages/admin/tasks/ProjectDetail.tsx` (junto de
-      Kanban/Lista/Gantt, `TabsList` na linha ~628): lista as notas com `project_id` daquele
-      projeto, com ação de criar nota já vinculada. É o vínculo no sentido projeto → nota.
+- [x] Mostrar as notas do projeto em `src/pages/admin/tasks/ProjectDetail.tsx`: lista as notas com
+      `project_id` daquele projeto, com ação de criar nota já vinculada. É o vínculo no sentido
+      projeto → nota. Virou `ProjectNotesSection`, uma seção **fora** das abas — não a quarta aba
+      que a tarefa descrevia (ver Notas para o porquê). Verificação:
+      `ProjectNotesSection.test.tsx` (4 testes) — só as notas daquele projeto aparecem, cada uma
+      leva ao editor, e "Nova nota" nasce com `project_id` preenchido já no create.
 - [ ] Fazer a UI parar de ler e escrever `project.notes` (a coluna continua no banco): remover o
       textarea de `src/pages/admin/tasks/ProjectFormDialog.tsx:147-154`, o `line-clamp-2` de
       `src/pages/admin/tasks/Projects.tsx:135-137`, o campo de `src/types/tasks.ts:9` e a coluna
@@ -200,6 +203,13 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
   `select count(*) from project where notes is not null and btrim(notes, E' \t\r\n') <> ''`, e que
   `project.notes` continua com o conteúdo original. A migration não foi aplicada por esta sessão —
   `db push` vai para o banco remoto e é decisão do usuário.
+- **Desvio do plano: as notas do projeto viraram seção, não aba.** A tarefa pedia uma quarta aba ao
+  lado de Kanban/Lista/Gantt. Não foi feito assim porque a feature 052, no mesmo arquivo, já deixou
+  a decisão escrita em comentário: aquelas abas alternam entre *visões das tarefas* do projeto, e
+  outra entidade ligada ao projeto (lá compras, aqui notas) não é uma quarta visão de tarefa — deve
+  continuar visível qualquer que seja a aba escolhida. `ProjectNotesSection` fica logo abaixo de
+  `ProjectShoppingSection`, com o mesmo formato. O requisito da tarefa (listar as notas daquele
+  projeto e criar uma já vinculada) está cumprido igual; só o lugar mudou.
 - **Ordem de implementação do módulo (dependências):**
   `055` (núcleo: tabela `note` + markdown + projeto + busca) →
   `056` (wiki-links `[[nota]]`, backlinks, vínculo genérico a qualquer entidade, editor com syntax
