@@ -211,14 +211,16 @@ describe("api/shopping/items", () => {
     expect((lastCall().payload as Record<string, string>).title).toBe("Café moído");
   });
 
-  it("setShoppingItemStatus grava só o status do item alvo", async () => {
+  it("setShoppingItemStatus grava o status do item alvo", async () => {
     nextResult = { data: null, error: null };
     await setShoppingItemStatus("i1", "purchased");
 
-    expect(lastCall().table).toBe("shopping_item");
-    expect(lastCall().op).toBe("update");
-    expect((lastCall().payload as Record<string, string>).status).toBe("purchased");
-    expect(lastCall().eq).toEqual([
+    // A partir da feature 051 há uma segunda escrita (sincronizar a tarefa vinculada); o que
+    // interessa aqui é a primeira, no próprio item. Ver `shopping-task-link.test.ts`.
+    const itemCall = calls.find((call) => call.table === "shopping_item") as Call;
+    expect(itemCall.op).toBe("update");
+    expect((itemCall.payload as Record<string, string>).status).toBe("purchased");
+    expect(itemCall.eq).toEqual([
       ["id", "i1"],
       ["user_id", "user-1"],
     ]);
