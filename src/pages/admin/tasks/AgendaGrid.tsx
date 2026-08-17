@@ -94,13 +94,13 @@ const MONTH_CLICK_DEFAULT_HOUR = 9;
 
 /** ISO do início sugerido ao clicar num dia da visão Mês: o próprio dia às 09:00 **locais**. */
 export function monthCellStartsAt(day: Date): string {
-  return new Date(
-    day.getFullYear(),
-    day.getMonth(),
-    day.getDate(),
-    MONTH_CLICK_DEFAULT_HOUR,
-    0
-  ).toISOString();
+  return hourSlotStartsAt(day, MONTH_CLICK_DEFAULT_HOUR);
+}
+
+/** ISO do início sugerido ao clicar numa linha de hora (visões Semana/Dia): o dia na hora cheia
+ * clicada, em horário **local** — quem converte para UTC é o `toISOString`, nunca um slice. */
+export function hourSlotStartsAt(day: Date, hour: number): string {
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour, 0).toISOString();
 }
 
 type CalendarViewMode = "month" | "week" | "day";
@@ -637,6 +637,7 @@ export function AgendaGrid() {
           taskById={taskById}
           onOpenTask={openTaskFromChip}
           onOpenEvent={openEventFromChip}
+          onCreateAt={(day, hour) => openEventCreate(hourSlotStartsAt(day, hour))}
         />
       ) : (
         <div className="overflow-hidden rounded-lg border">

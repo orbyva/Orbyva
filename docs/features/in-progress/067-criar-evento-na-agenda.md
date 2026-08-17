@@ -92,7 +92,7 @@ inteira, como em `computeVirtualOccurrences`).
 - [x] Em `AgendaGrid.tsx` (visão mês): clique na área vazia da célula do dia abre o dialog de criação
   com início pré-preenchido em `dia 09:00` — sem capturar o clique dos chips nem do "+N mais" (parar
   a propagação neles), e com `aria-label` no alvo clicável para o teste conseguir mirar
-- [ ] Em `AgendaHourGrid.tsx`: nova prop opcional `onCreateAt(day: Date, hour: number)`; cada linha de
+- [x] Em `AgendaHourGrid.tsx`: nova prop opcional `onCreateAt(day: Date, hour: number)`; cada linha de
   hora de cada coluna de dia vira alvo clicável (atrás dos blocos posicionados, sem roubar o clique
   deles) que dispara a criação com início `dia HH:00`
 - [ ] Substituir o dialog read-only de evento em `AgendaGrid.tsx` pelo `EventFormDialog` em modo
@@ -114,7 +114,7 @@ inteira, como em `computeVirtualOccurrences`).
   chama `updateProjectEvent` com o `id` certo; excluir chama `deleteProjectEvent`; erro na criação
   mostra toast e mantém o dialog; filtro por projeto mantém visível o evento vinculado a uma tarefa
   daquele projeto e o esconde ao filtrar outro projeto; opção "Sem projeto" deixa só os avulsos
-- [ ] Adicionar em `src/pages/admin/tasks/__tests__/AgendaHourGrid.test.tsx` os casos da grade de
+- [x] Adicionar em `src/pages/admin/tasks/__tests__/AgendaHourGrid.test.tsx` os casos da grade de
   horas: clicar num slot vazio dispara `onCreateAt` com o dia e a hora corretos; clicar num bloco de
   evento/tarefa **não** dispara `onCreateAt` (chama o handler de abrir)
 - [ ] `npm run build`, `npm run lint` e `npm test` — sem erros novos e sem regressão nos testes de

@@ -38,6 +38,9 @@ interface AgendaHourGridProps {
   taskById: Map<string, Task>;
   onOpenTask: (task: Task) => void;
   onOpenEvent: (event: ProjectEvent) => void;
+  /** Clique numa linha de hora vazia (feature 067) — `hour` é a hora cheia clicada naquele dia.
+   * Opcional: sem ela a grade continua sendo só leitura, como era até a 066. */
+  onCreateAt?: (day: Date, hour: number) => void;
 }
 
 function itemKey(item: CalendarItem<Task, ProjectEvent>): string {
@@ -208,6 +211,7 @@ export function AgendaHourGrid({
   taskById,
   onOpenTask,
   onOpenEvent,
+  onCreateAt,
 }: AgendaHourGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const today = new Date();
@@ -286,6 +290,25 @@ export function AgendaHourGrid({
                   style={{ top: h * HOUR_ROW_PX }}
                 />
               ))}
+              {/* Alvos de criação (feature 067): uma linha por hora, renderizados **antes** dos
+                  blocos posicionados — como todos são absolutos, o que vem depois no DOM fica por
+                  cima, então clicar num evento/tarefa nunca vira "criar evento". Fora da ordem de
+                  tabulação: 24 alvos × N dias antes do conteúdo quebrariam o teclado, que cria
+                  pelo botão "Novo evento" do header. */}
+              {onCreateAt &&
+                HOURS.map((h) => (
+                  <button
+                    key={`slot-${h}`}
+                    type="button"
+                    tabIndex={-1}
+                    aria-label={`Novo evento em ${format(day, "d 'de' MMMM 'de' yyyy", {
+                      locale: ptBR,
+                    })} às ${String(h).padStart(2, "0")}:00`}
+                    onClick={() => onCreateAt(day, h)}
+                    className="absolute inset-x-0 cursor-pointer"
+                    style={{ top: h * HOUR_ROW_PX, height: HOUR_ROW_PX }}
+                  />
+                ))}
               {timed.map((entry) => {
                 const { item } = entry;
                 return (

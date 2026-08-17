@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { isSameDay } from "date-fns";
 import { AgendaHourGrid } from "@/pages/admin/tasks/AgendaHourGrid";
 import { dayKey } from "@/pages/admin/tasks/AgendaGrid";
 import { groupCalendarItemsByDay, layoutTimedItems } from "@/domain/tasks";
@@ -69,6 +70,7 @@ function renderGrid({
   allTasks,
   onOpenTask = vi.fn(),
   onOpenEvent = vi.fn(),
+  onCreateAt,
 }: {
   days?: Date[];
   tasks?: Task[];
@@ -80,6 +82,8 @@ function renderGrid({
   allTasks?: Task[];
   onOpenTask?: (task: Task) => void;
   onOpenEvent?: (event: ProjectEvent) => void;
+  /** Feature 067 — quando omitido, a grade continua só leitura (sem alvos de criação). */
+  onCreateAt?: (day: Date, hour: number) => void;
 } = {}) {
   const itemsByDay = groupCalendarItemsByDay(tasks, events);
   const projectById = new Map(projects.map((p) => [p.id, p]));
@@ -92,9 +96,10 @@ function renderGrid({
       taskById={taskById}
       onOpenTask={onOpenTask}
       onOpenEvent={onOpenEvent}
+      onCreateAt={onCreateAt}
     />
   );
-  return { ...utils, onOpenTask, onOpenEvent };
+  return { ...utils, onOpenTask, onOpenEvent, onCreateAt };
 }
 
 /** Encontra o `div` posicionado de forma absoluta (top/height/left/width) que embrulha o bloco
@@ -271,6 +276,63 @@ describe("AgendaHourGrid — clique abre o dialog certo", () => {
     await user.click(screen.getByRole("button", { name: /Sem horário clicável/ }));
 
     expect(onOpenTask).toHaveBeenCalledWith(task);
+  });
+});
+
+describe("AgendaHourGrid — criar evento clicando num slot (feature 067)", () => {
+  it("clicar num slot vazio dispara onCreateAt com o dia e a hora daquela linha", async () => {
+    const user = userEvent.setup();
+    const onCreateAt = vi.fn();
+    renderGrid({ onCreateAt });
+
+    await user.click(screen.getByRole("button", { name: "Novo evento em 17 de agosto de 2026 às 09:00" }));
+
+    expect(onCreateAt).toHaveBeenCalledTimes(1);
+    const [day, hour] = onCreateAt.mock.calls[0];
+    expect(isSameDay(day as Date, DAY)).toBe(true);
+    expect(hour).toBe(9);
+  });
+
+  it("cada coluna de dia tem os próprios slots (visão semana)", async () => {
+    const user = userEvent.setup();
+    const onCreateAt = vi.fn();
+    renderGrid({ days: [new Date(2026, 7, 17), new Date(2026, 7, 18)], onCreateAt });
+
+    await user.click(screen.getByRole("button", { name: "Novo evento em 18 de agosto de 2026 às 14:00" }));
+
+    const [day, hour] = onCreateAt.mock.calls[0];
+    expect(isSameDay(day as Date, new Date(2026, 7, 18))).toBe(true);
+    expect(hour).toBe(14);
+  });
+
+  it("clicar num bloco de evento não dispara onCreateAt — abre o evento", async () => {
+    const user = userEvent.setup();
+    const onCreateAt = vi.fn();
+    const event = makeEvent({ title: "Evento clicável", starts_at: new Date(2026, 7, 17, 10, 0).toISOString() });
+    const { onOpenEvent } = renderGrid({ events: [event], projects: [makeProject()], onCreateAt });
+
+    await user.click(screen.getByRole("button", { name: /Evento clicável/ }));
+
+    expect(onOpenEvent).toHaveBeenCalledWith(event);
+    expect(onCreateAt).not.toHaveBeenCalled();
+  });
+
+  it("clicar num bloco de tarefa não dispara onCreateAt — abre a tarefa", async () => {
+    const user = userEvent.setup();
+    const onCreateAt = vi.fn();
+    const task = makeTask({ due_time: "10:00", title: "Tarefa clicável" });
+    const { onOpenTask } = renderGrid({ tasks: [task], onCreateAt });
+
+    await user.click(screen.getByRole("button", { name: /Tarefa clicável/ }));
+
+    expect(onOpenTask).toHaveBeenCalledWith(task);
+    expect(onCreateAt).not.toHaveBeenCalled();
+  });
+
+  it("sem onCreateAt a grade continua só leitura (nenhum alvo de criação)", () => {
+    renderGrid({});
+
+    expect(screen.queryByRole("button", { name: /^Novo evento em/ })).not.toBeInTheDocument();
   });
 });
 
