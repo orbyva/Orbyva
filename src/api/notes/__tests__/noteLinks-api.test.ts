@@ -3,6 +3,7 @@ import {
   addNoteLink,
   fetchLinksForNote,
   fetchNotesLinkedTo,
+  fetchNotesSharingEntity,
   removeNoteLink,
 } from "@/api/notes/noteLinks";
 
@@ -217,6 +218,58 @@ describe("api/noteLinks", () => {
       ["id", "l1"],
       ["user_id", "user-1"],
     ]);
+  });
+
+  it("fetchNotesSharingEntity acha outras notas ligadas às mesmas entidades", async () => {
+    const other = { id: "n2", title: "Orçamento", content: "", project_id: null };
+    results = [
+      // 1) os vínculos desta nota
+      {
+        data: [
+          { id: "l1", note_id: "n1", entity_type: "goal", entity_id: "g1", label: null },
+        ],
+        error: null,
+      },
+      // 2) quem mais aponta para esses entity_id
+      {
+        data: [
+          { note_id: "n1", entity_type: "goal", entity_id: "g1" },
+          { note_id: "n2", entity_type: "goal", entity_id: "g1" },
+          // Mesmo id, outro tipo: não é a mesma entidade, tem que ser descartado.
+          { note_id: "n3", entity_type: "book", entity_id: "g1" },
+        ],
+        error: null,
+      },
+      // 3) as notas encontradas
+      { data: [other], error: null },
+    ];
+
+    await expect(fetchNotesSharingEntity("n1")).resolves.toEqual([other]);
+    // A própria nota fica de fora, e o par (tipo, id) é conferido em memória.
+    expect(calls[2].in).toEqual(["id", ["n2"]]);
+    expect(calls[1].eq).toEqual([["user_id", "user-1"]]);
+    expect(calls[1].in).toEqual(["entity_id", ["g1"]]);
+  });
+
+  it("fetchNotesSharingEntity não consulta nada quando a nota não tem vínculo", async () => {
+    results = [{ data: [], error: null }];
+    await expect(fetchNotesSharingEntity("n1")).resolves.toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("fetchNotesSharingEntity devolve [] quando só a própria nota aponta para a entidade", async () => {
+    results = [
+      {
+        data: [
+          { id: "l1", note_id: "n1", entity_type: "goal", entity_id: "g1", label: null },
+        ],
+        error: null,
+      },
+      { data: [{ note_id: "n1", entity_type: "goal", entity_id: "g1" }], error: null },
+    ];
+    await expect(fetchNotesSharingEntity("n1")).resolves.toEqual([]);
+    // Não foi buscar notas: não havia nenhuma para buscar.
+    expect(calls).toHaveLength(2);
   });
 
   it("erro do PostgREST vira Error com a mensagem original, nas quatro funções", async () => {

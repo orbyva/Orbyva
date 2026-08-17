@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   indexNotesByTitle,
+  mentionsWikiTitle,
   missingWikiLinkHref,
   normalizeWikiTitle,
   parseMissingWikiLinkHref,
@@ -92,6 +93,29 @@ describe("wikiLinkTitles", () => {
       "Obra",
       "Reunião",
     ]);
+  });
+});
+
+describe("mentionsWikiTitle", () => {
+  it("acha a menção ignorando caixa e espaço redundante", () => {
+    expect(mentionsWikiTitle("ver [[Materiais]] hoje", "materiais")).toBe(true);
+    expect(mentionsWikiTitle("ver [[  Materiais ]]", "Materiais")).toBe(true);
+  });
+
+  it("menção dentro de bloco de código não conta", () => {
+    expect(
+      mentionsWikiTitle("```\nescreva [[Materiais]]\n```", "Materiais")
+    ).toBe(false);
+    expect(mentionsWikiTitle("use `[[Materiais]]`", "Materiais")).toBe(false);
+  });
+
+  it("título parecido não casa", () => {
+    expect(mentionsWikiTitle("[[Materiais de obra]]", "Materiais")).toBe(false);
+    expect(mentionsWikiTitle("[[Reuniao]]", "Reunião")).toBe(false);
+  });
+
+  it("título vazio nunca casa", () => {
+    expect(mentionsWikiTitle("[[Materiais]]", "   ")).toBe(false);
   });
 });
 

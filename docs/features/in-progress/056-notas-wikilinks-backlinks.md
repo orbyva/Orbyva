@@ -215,9 +215,20 @@ Depende de: 055 (tabela `note`).
       certo (inclusive o mapa `music` → `album`), lançamento não é oferecido, vincular repetido
       avisa em vez de gravar duplicado, e remoção que o banco recusa devolve o vínculo à tela com
       toast destrutivo.
-- [ ] Criar `src/pages/admin/notes/BacklinksPanel.tsx`: lista "Mencionada em" — notas cujo
+- [x] Criar `src/pages/admin/notes/BacklinksPanel.tsx`: lista "Mencionada em" — notas cujo
       `content` contém `[[<título desta nota>]]` (query `ilike` em `src/api/notes/notes.ts`) e
       notas ligadas via `note_link`. `EmptyState` quando não houver nenhuma.
+      Dois grupos: "Com [[título]] no texto" (`fetchNotesMentioning`, `ilike` como **prefiltro** +
+      `mentionsWikiTitle` como veredito — menção dentro de bloco de código não é backlink) e
+      "Ligadas às mesmas coisas que esta" (`fetchNotesSharingEntity`, a consulta reversa do índice
+      `(user_id, entity_type, entity_id)` virada para o próprio módulo de Notas — foi assim que
+      "notas ligadas via `note_link`" foi interpretado; ver Notas).
+      Verificação: `BacklinksPanel.test.tsx` (5 testes) com o falso imitando o `ilike` do banco —
+      a nota que escreveu `[[Materiais]]` aparece com link para `/notes/n2`, a que só documenta a
+      sintaxe dentro de fence **não** aparece, o grupo de "mesmas coisas" aparece separado, e erro
+      vira toast destrutivo em vez de tela quebrada. Mais 4 testes de `mentionsWikiTitle` e 6 de
+      API (`fetchNotesMentioning` escapando `%`/`_` do LIKE e não indo ao banco com título vazio;
+      `fetchNotesSharingEntity` descartando par `(tipo, id)` que não bate e não consultando à toa).
 - [ ] Mostrar o vínculo no sentido inverso em pelo menos uma entidade não-projeto para provar o
       padrão: seção "Notas" em `src/pages/admin/goals/Goals.tsx` (ou no detalhe de meta), usando
       `fetchNotesLinkedTo("goal", id)`. Verificação manual: criar vínculo pelo editor e ver a nota
@@ -254,6 +265,12 @@ Depende de: 055 (tabela `note`).
   dependências do efeito de reconfiguração, cada render disparava `StateEffect.reconfigure` —
   fechando o popup do autocomplete sempre que qualquer estado da página mudasse (o indicador
   "Salvando…", por exemplo). Virou constante de módulo.
+- **Interpretação de "e notas ligadas via `note_link`" na tarefa do BacklinksPanel.** `note_link`
+  liga nota → *entidade*, e `note` não está no `check` de `entity_type`, então não existe vínculo
+  nota→nota por essa tabela. O que existe, e é o mais próximo do que a tarefa pede, é: *outras notas
+  ligadas a alguma das mesmas entidades que esta*. É o que `fetchNotesSharingEntity` faz, num grupo
+  separado ("Ligadas às mesmas coisas que esta"), para não se confundir com menção de verdade. Se a
+  intenção era outra, a correção é trocar essa consulta, não o painel.
 - Segunda das quatro features do módulo de Notas: `055` → **`056`** → `057` → `058`. Depende da
   tabela `note` da 055. Não fecha o prompt-mãe sozinha.
 - `note_link` é o primeiro padrão polimórfico do banco. Se ele se provar, é candidato natural a ser

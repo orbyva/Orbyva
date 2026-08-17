@@ -88,6 +88,51 @@ export async function addNoteLink(draft: NoteLinkDraft): Promise<NoteLink> {
   return data;
 }
 
+/**
+ * Outras notas que apontam para **alguma das mesmas entidades** que esta — "notas ligadas às mesmas
+ * coisas" (feature 056).
+ *
+ * É a consulta reversa do índice `(user_id, entity_type, entity_id)` aplicada ao próprio módulo de
+ * Notas: se duas notas falam da mesma meta, uma acha a outra sem ninguém ter escrito wiki-link.
+ * O par `(entity_type, entity_id)` é conferido em memória porque o `in` do PostgREST filtra uma
+ * coluna por vez, e dois tipos diferentes poderiam, em tese, compartilhar um id.
+ */
+export async function fetchNotesSharingEntity(noteId: string): Promise<Note[]> {
+  const userId = await getCurrentUserId();
+  const own = await fetchLinksForNote(noteId);
+  if (own.length === 0) return [];
+
+  const wanted = new Set(own.map((link) => `${link.entity_type}:${link.entity_id}`));
+  const { data, error } = await supabase
+    .from("note_link")
+    .select("note_id, entity_type, entity_id")
+    .eq("user_id", userId)
+    .in("entity_id", [...new Set(own.map((link) => link.entity_id))]);
+  if (error) throw new Error(error.message);
+
+  const noteIds = [
+    ...new Set(
+      (data ?? [])
+        .filter(
+          (row) =>
+            row.note_id !== noteId &&
+            wanted.has(`${row.entity_type}:${row.entity_id}`)
+        )
+        .map((row) => row.note_id)
+    ),
+  ];
+  if (noteIds.length === 0) return [];
+
+  const { data: notes, error: notesError } = await supabase
+    .from("note")
+    .select("*")
+    .eq("user_id", userId)
+    .in("id", noteIds)
+    .order("updated_at", { ascending: false });
+  if (notesError) throw new Error(notesError.message);
+  return notes ?? [];
+}
+
 export async function removeNoteLink(id: string): Promise<void> {
   const userId = await getCurrentUserId();
   const { error } = await supabase

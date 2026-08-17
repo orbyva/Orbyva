@@ -4,6 +4,7 @@ import {
   deleteNote,
   fetchNote,
   fetchNotes,
+  fetchNotesMentioning,
   updateNote,
 } from "@/api/notes/notes";
 
@@ -19,6 +20,8 @@ interface Call {
   op: "select" | "insert" | "update" | "delete";
   payload?: unknown;
   eq: [string, unknown][];
+  neq?: [string, unknown];
+  ilike?: [string, string];
   order?: [string, { ascending: boolean }];
   single: boolean;
   maybeSingle: boolean;
@@ -57,6 +60,14 @@ function makeBuilder(table: string) {
     },
     eq(column: string, value: unknown) {
       call.eq.push([column, value]);
+      return builder;
+    },
+    neq(column: string, value: unknown) {
+      call.neq = [column, value];
+      return builder;
+    },
+    ilike(column: string, pattern: string) {
+      call.ilike = [column, pattern];
       return builder;
     },
     order(column: string, options: { ascending: boolean }) {
@@ -205,6 +216,32 @@ describe("api/notes", () => {
       ["id", "n1"],
       ["user_id", "user-1"],
     ]);
+  });
+
+  it("fetchNotesMentioning busca o padrão [[titulo]] no conteúdo, fora a própria nota", async () => {
+    const row = { id: "n2", title: "Reforma", content: "ver [[Materiais]]" };
+    nextResult = { data: [row], error: null };
+
+    await expect(fetchNotesMentioning("Materiais", "n1")).resolves.toEqual([row]);
+    expect(lastCall().table).toBe("note");
+    expect(lastCall().eq).toEqual([["user_id", "user-1"]]);
+    expect(lastCall().ilike).toEqual(["content", "%[[Materiais]]%"]);
+    expect(lastCall().neq).toEqual(["id", "n1"]);
+    expect(lastCall().order).toEqual(["updated_at", { ascending: false }]);
+  });
+
+  it("fetchNotesMentioning escapa os curingas do LIKE que houver no título", async () => {
+    nextResult = { data: [], error: null };
+    // Sem escape, um título com `%` casaria com o conteúdo de todas as notas.
+    await fetchNotesMentioning("100% do_orçamento");
+    expect(lastCall().ilike).toEqual(["content", "%[[100\\% do\\_orçamento]]%"]);
+    expect(lastCall().neq).toBeUndefined();
+  });
+
+  it("fetchNotesMentioning nem vai ao banco com título vazio", async () => {
+    calls.length = 0;
+    await expect(fetchNotesMentioning("   ")).resolves.toEqual([]);
+    expect(calls).toHaveLength(0);
   });
 
   it("erro do PostgREST vira Error com a mensagem original", async () => {

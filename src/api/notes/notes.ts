@@ -78,6 +78,37 @@ export async function updateNote(request: NoteUpdateRequest): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Candidatas a backlink: notas cujo `content` contém `[[<title>]]` (feature 056).
+ *
+ * O `ilike` é **prefiltro**, não veredito — ele acha a string, mas não sabe que `[[x]]` dentro de
+ * bloco de código não é menção. Quem confirma é `mentionsWikiTitle` (domínio), sobre o conteúdo que
+ * voltou. Backlink derivado do texto, sem tabela de índice para reconciliar a cada save, é decisão
+ * explícita da 056.
+ */
+export async function fetchNotesMentioning(
+  title: string,
+  excludeNoteId?: string
+): Promise<Note[]> {
+  const target = title.trim();
+  if (!target) return [];
+  const userId = await getCurrentUserId();
+  let query = supabase
+    .from("note")
+    .select("*")
+    .eq("user_id", userId)
+    // `%`, `_` e `\` são curingas do LIKE: um título com `%` traria o banco inteiro.
+    .ilike("content", `%[[${escapeLikeValue(target)}]]%`);
+  if (excludeNoteId) query = query.neq("id", excludeNoteId);
+  const { data, error } = await query.order("updated_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+function escapeLikeValue(raw: string): string {
+  return raw.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 export async function deleteNote(id: string): Promise<void> {
   const userId = await getCurrentUserId();
   const { error } = await supabase

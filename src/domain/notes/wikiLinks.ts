@@ -164,6 +164,22 @@ export function parseMissingWikiLinkHref(href: string): string | null {
 }
 
 /**
+ * O conteúdo menciona `[[title]]`? É o teste do backlink ("quem aponta para cá").
+ *
+ * Passa pelo parser em vez de um `includes` porque menção dentro de bloco de código não é menção —
+ * quem escreveu ```` `[[Reunião]]` ```` está mostrando a sintaxe, não linkando. A comparação é a
+ * mesma `normalizeWikiTitle` que resolve o link no preview, senão o painel de backlinks e o link
+ * discordariam sobre o que aponta para onde.
+ */
+export function mentionsWikiTitle(content: string, title: string): boolean {
+  const target = normalizeWikiTitle(title);
+  if (!target) return false;
+  return parseWikiLinks(content).some(
+    (match) => normalizeWikiTitle(match.title) === target
+  );
+}
+
+/**
  * Índice `título normalizado → id` para resolver wiki-link sem uma consulta por ocorrência.
  *
  * Título repetido fica com a **primeira** nota da lista, que vem ordenada por `updated_at desc` —
