@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CircleAlert, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormLabel } from "@/components/FormLabel";
 import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
+import { wikiLinkAutocomplete } from "@/components/codemirror/wikiLinkCompletion";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
 import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
 import { updateNote } from "@/api/notes/notes";
@@ -74,6 +75,25 @@ export function NoteEditor({
   onCreateNote?: (title: string) => void;
   debounceMs?: number;
 }) {
+  /**
+   * O autocomplete de `[[` lê os títulos por função, e a extensão é criada uma vez só: recriar o
+   * array de extensões a cada render forçaria o CodeMirror a se reconfigurar por tecla digitada.
+   * O ref é o que mantém a lista fresca sem entrar nas dependências.
+   */
+  const notesRef = useRef<readonly Note[]>(notes);
+  notesRef.current = notes;
+  const editorExtensions = useMemo(
+    () => [
+      wikiLinkAutocomplete(() =>
+        notesRef.current
+          // Linkar a própria nota não leva a lugar nenhum.
+          .filter((candidate) => candidate.id !== note.id)
+          .map((candidate) => candidate.title)
+      ),
+    ],
+    [note.id]
+  );
+
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [projectId, setProjectId] = useState<string | null>(note.project_id);
@@ -167,7 +187,8 @@ export function NoteEditor({
               value={content}
               onChange={setContent}
               className="min-h-[45vh] [&_.cm-editor]:min-h-[45vh]"
-              placeholder="Markdown na veia — # títulos, listas, **negrito**, tabelas, checklist…"
+              placeholder="Markdown na veia — # títulos, listas, **negrito**, [[links]] entre notas…"
+              extensions={editorExtensions}
             />
           </TabsContent>
           <TabsContent value="preview" className="mt-1.5 rounded-md border px-3 py-2">

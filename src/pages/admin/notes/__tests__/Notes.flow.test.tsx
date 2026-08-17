@@ -291,6 +291,75 @@ describe("Notas — fluxo fim a fim", () => {
     );
   });
 
+  it("digitar `[[` no editor sugere os títulos das outras notas", async () => {
+    const user = userEvent.setup();
+    store.notes = [
+      { id: "n1", title: "Rascunho", content: "", project_id: null, updated_at: stamp() },
+      { id: "n2", title: "Lista de materiais", content: "", project_id: null, updated_at: stamp() },
+    ];
+    renderApp("/notes/n1");
+
+    await user.click(await screen.findByLabelText("Conteúdo"));
+    // `[[` duplicado: no `userEvent.keyboard`, `[` é caractere de escape.
+    await user.keyboard("ver [[[[mate");
+
+    // O popup do CodeMirror é assíncrono (debounce de digitação), daí o `waitFor`. A busca é pelo
+    // elemento do popup, não por texto: o CodeMirror quebra o rótulo em spans para destacar o
+    // trecho digitado, então `getByText` não casaria a string inteira.
+    const tooltip = await waitFor(
+      () => {
+        const found = document.querySelector(".cm-tooltip-autocomplete");
+        expect(found).not.toBeNull();
+        return found as HTMLElement;
+      },
+      { timeout: 3000 }
+    );
+    expect(tooltip.textContent).toContain("Lista de materiais");
+    // A própria nota aberta não é sugerida: linkar para si mesma não leva a lugar nenhum.
+    expect(tooltip.textContent).not.toContain("Rascunho");
+
+    // Escolher a sugestão fecha o wiki-link sozinho, e o que fica gravado é markdown cru.
+    // O CodeMirror ignora o Enter nos primeiros 75 ms de popup aberto (`interactionDelay`, para
+    // não aceitar sugestão que o usuário nem viu) — esperar é parte de reproduzir o uso real.
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    await user.keyboard("{Enter}");
+    await waitFor(
+      () => expect(store.notes[0].content).toBe("ver [[Lista de materiais]]"),
+      AUTOSAVE
+    );
+  });
+
+  it("um wiki-link resolvido no preview leva para a outra nota", async () => {
+    const user = userEvent.setup();
+    store.notes = [
+      {
+        id: "n1",
+        title: "Rascunho",
+        content: "ver [[Obra da casa]] e [[Nota que não existe]]",
+        project_id: null,
+        updated_at: stamp(),
+      },
+      { id: "n2", title: "Obra da casa", content: "", project_id: null, updated_at: stamp() },
+    ];
+    // As duas notas acima já ocupam n1/n2 — sem isso a nota criada nasceria com id repetido.
+    store.seq = 2;
+    renderApp("/notes/n1");
+
+    await user.click(await screen.findByRole("tab", { name: "Visualizar" }));
+
+    const link = await screen.findByRole("link", { name: "Obra da casa" });
+    expect(link).toHaveAttribute("href", "/notes/n2");
+    // O link quebrado vira a ação de criar a nota que falta.
+    await user.click(
+      screen.getByRole("button", { name: "Criar nota Nota que não existe" })
+    );
+
+    await waitFor(() => expect(store.notes).toHaveLength(3));
+    expect(store.notes[2].title).toBe("Nota que não existe");
+    // E navegou para a nota nova, já aberta no editor.
+    expect(await screen.findByLabelText("Título")).toHaveValue("Nota que não existe");
+  });
+
   it("excluir a nota pela lista tira ela do banco e da tela", async () => {
     const user = userEvent.setup();
     store.notes = [

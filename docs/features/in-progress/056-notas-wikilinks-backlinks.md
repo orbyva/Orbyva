@@ -141,8 +141,20 @@ Depende de: 055 (tabela `note`).
       o clique devolve o título, `[[…]]` dentro de código continua literal, o resto do Markdown
       segue funcionando, `javascript:` continua barrado (href zerado) e HTML cru continua não
       interpretado. Mais 9 testes de `replaceWikiLinks`/`indexNotesByTitle` em `wikiLinks.test.ts`.
-- [ ] Autocomplete de `[[` no CodeMirror via `@codemirror/autocomplete`: ao digitar `[[`, sugerir
+- [x] Autocomplete de `[[` no CodeMirror via `@codemirror/autocomplete`: ao digitar `[[`, sugerir
       títulos das notas do usuário (buscar com debounce, reusando `fetchNotes` da 055).
+      Feito em `src/components/codemirror/wikiLinkCompletion.ts`. Desvio: **sem** consulta com
+      debounce por tecla. `NoteDetail` já carrega `fetchNotes()` uma vez (o mesmo dicionário que
+      resolve os wiki-links do preview) e o autocomplete lê essa lista por função — mesma decisão
+      do filtro da 055 ("a lista já está em memória e ir ao banco a cada tecla seria uma consulta
+      por caractere"). Ler por função, e não por lista fixa, é o que faz a nota recém-criada
+      aparecer no popup sem remontar o editor.
+      Verificação: `wikiLinkCompletion.test.ts` (8 testes) no nível do `CompletionContext` — sugere
+      tudo no `[[`, filtra pelo digitado, o `apply` fecha os colchetes, não dispara fora de um `[[`
+      aberto, não atravessa linha, respeita o teto de 20 e relê os títulos a cada chamada. Mais o
+      teste de ponta a ponta em `Notes.flow.test.tsx` ("digitar `[[` no editor sugere os títulos"),
+      que digita no editor de verdade, confere o popup, aceita com Enter e afirma que o documento
+      gravado virou `ver [[Lista de materiais]]`.
 - [ ] Criar migration `supabase/migrations/<TIMESTAMP>_note_links.sql` (timestamp único — conferir
       `ls supabase/migrations/`): tabela `public.note_link` com `id uuid pk`, `user_id uuid not
       null references auth.users(id) on delete cascade`, `note_id uuid not null references
@@ -195,6 +207,19 @@ Depende de: 055 (tabela `note`).
 
 ## Notas
 
+- **Bug real, achado pelo teste de ponta a ponta do autocomplete: o `@uiw/react-codemirror`
+  apagava as últimas letras digitadas.** O `onChange` dele vem de fora do sistema de eventos do
+  React, então o `setState` ficava agendado; digitando rápido, o `value` que voltava ao componente
+  ficava atrás do documento e o sync interno da biblioteca (200 ms depois da última tecla)
+  reescrevia o documento com esse valor atrasado. No teste, o documento voltava para `ver [[`
+  enquanto o estado do React já era `ver [[mate` — e a transação de reescrita ainda abortava a
+  consulta do autocomplete. Corrigido em `MarkdownCodeEditor` com `flushSync` no `onChange` (e o
+  handler memoizado, porque `onChange` entra nas dependências do efeito que reconfigura o editor).
+  Não é bug de teste: com digitação rápida de verdade o mesmo caminho perde texto na tela.
+- **Segundo achado no mesmo lugar: `basicSetup` era um objeto literal inline**, e como ele entra nas
+  dependências do efeito de reconfiguração, cada render disparava `StateEffect.reconfigure` —
+  fechando o popup do autocomplete sempre que qualquer estado da página mudasse (o indicador
+  "Salvando…", por exemplo). Virou constante de módulo.
 - Segunda das quatro features do módulo de Notas: `055` → **`056`** → `057` → `058`. Depende da
   tabela `note` da 055. Não fecha o prompt-mãe sozinha.
 - `note_link` é o primeiro padrão polimórfico do banco. Se ele se provar, é candidato natural a ser
