@@ -127,6 +127,10 @@ function AdoptedLcpPhone({ className }: { className?: string }) {
           style={{ aspectRatio: "390 / 843" }}
         />
       </div>
+      {/* Mesma altura do chrome do carrossel (label + setas + dots). */}
+      <div className="mt-3 h-5" aria-hidden />
+      <div className="mt-4 h-9" aria-hidden />
+      <div className="mt-3 h-1.5" aria-hidden />
     </div>
   );
 }
@@ -171,13 +175,14 @@ export default function PhoneMockupBasic({
   if (!first) return null;
 
   return (
-    <Suspense fallback={<AdoptedLcpPhone className={className} />}>
-      <HeroCarousel
-        screens={screens}
-        className={className}
-        intervalMs={intervalMs}
-      />
-    </Suspense>
+    <div className={cn("relative min-h-[36rem] w-full", className)}>
+      <Suspense fallback={<AdoptedLcpPhone />}>
+        <HeroCarousel
+          screens={screens}
+          intervalMs={intervalMs}
+        />
+      </Suspense>
+    </div>
   );
 }
 
