@@ -230,9 +230,55 @@
     font-weight: 600;
   }
 
+  /*
+   * h3–h6 continuam a escala de h1/h2 para baixo. Como o corpo já é 0.875rem, sobra pouca
+   * diferença de tamanho: a hierarquia dos níveis mais fundos é feita com peso e cor, não só
+   * com corpo de fonte — é o que o Obsidian faz.
+   */
+  .markdown-body h3 {
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+  }
+
+  .markdown-body h4 {
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+    font-weight: 600;
+  }
+
+  .markdown-body h5 {
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body h6 {
+    font-size: 0.6875rem;
+    line-height: 1.125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Título abre seção: respira mais do que dois parágrafos seguidos. */
+  .markdown-body > * + :is(h1, h2, h3, h4, h5, h6) {
+    margin-top: 1.25rem;
+  }
+
   .markdown-body a {
     color: hsl(var(--primary));
     text-decoration-line: underline;
+    /* Sublinhado discreto na leitura, cheio no hover — o link não compete com o texto. */
+    text-decoration-color: hsl(var(--primary) / 0.4);
+    text-underline-offset: 0.15em;
+    transition: text-decoration-color 150ms ease;
+  }
+
+  .markdown-body a:hover {
+    text-decoration-color: hsl(var(--primary));
   }
 
   .markdown-body del {
@@ -243,8 +289,56 @@
     border-radius: 0.25rem;
     background-color: hsl(var(--muted));
     padding: 0.125rem 0.25rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.75rem;
     line-height: 1rem;
+  }
+
+  .markdown-body pre {
+    overflow-x: auto;
+    border-radius: calc(var(--radius) - 2px);
+    background-color: hsl(var(--muted));
+    padding: 0.75rem;
+  }
+
+  /* Dentro do bloco, o fundo/padding é do `<pre>`: o `<code>` só carrega a fonte. */
+  .markdown-body pre code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    line-height: 1.45;
+  }
+
+  .markdown-body kbd {
+    display: inline-block;
+    border: 1px solid hsl(var(--border));
+    border-bottom-width: 2px;
+    border-radius: 0.25rem;
+    background-color: hsl(var(--muted));
+    padding: 0 0.25rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.6875rem;
+    line-height: 1.15rem;
+    white-space: nowrap;
+  }
+
+  .markdown-body blockquote {
+    border-left: 3px solid hsl(var(--border));
+    padding-left: 0.75rem;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body hr {
+    border: 0;
+    border-top: 1px solid hsl(var(--border));
+    margin-block: 1.25rem;
+  }
+
+  .markdown-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid hsl(var(--border));
   }
 
   .markdown-body ul {
@@ -257,6 +351,45 @@
 
   .markdown-body li {
     margin-left: 1rem;
+  }
+
+  /* Aninhamento: marcador muda de nível a nível, como em qualquer editor de markdown. */
+  .markdown-body ul ul {
+    list-style-type: circle;
+  }
+
+  .markdown-body ul ul ul {
+    list-style-type: square;
+  }
+
+  .markdown-body ol ol {
+    list-style-type: lower-alpha;
+  }
+
+  .markdown-body ol ol ol {
+    list-style-type: lower-roman;
+  }
+
+  /* `space-y-2` só alcança os filhos diretos do container; lista aninhada precisa do seu. */
+  .markdown-body li + li {
+    margin-top: 0.125rem;
+  }
+
+  .markdown-body li > ul,
+  .markdown-body li > ol {
+    margin-top: 0.25rem;
+  }
+
+  /* Checklist do GFM: sem marcador de lista, a caixa já é o marcador. */
+  .markdown-body li:has(> input[type="checkbox"]) {
+    list-style-type: none;
+    margin-left: 0.25rem;
+  }
+
+  .markdown-body input[type="checkbox"] {
+    margin-right: 0.375rem;
+    vertical-align: middle;
+    accent-color: hsl(var(--primary));
   }
 
   .markdown-body table {

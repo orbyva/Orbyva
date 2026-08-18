@@ -84,7 +84,7 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
       `hsl(var(--…))`. A constante passa a valer `"markdown-body"`. Verificação: `npm run build`;
       `MarkdownPreview.blocks.test.tsx` e `NoteMarkdownPreview.test.tsx` continuam passando sem
       alteração (nenhum deles assere o conteúdo da string).
-- [ ] Completar a tipografia em `.markdown-body`: h3–h6 (escala coerente com h1/h2), `blockquote`
+- [x] Completar a tipografia em `.markdown-body`: h3–h6 (escala coerente com h1/h2), `blockquote`
       (barra à esquerda + `text-muted-foreground`), `hr`, `img` (`max-width:100%`, cantos, borda),
       `kbd`, `a` (sublinhado sutil + `hover`), `ul/ol` aninhados e `pre` (fundo `bg-muted`, padding,
       `overflow-x:auto`). Verificação: `npm run build && npm run lint` + teste novo em
@@ -162,3 +162,12 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
 - 2026-08-18 — "- aumente a sofisticação do markdown das notas, procure referências, sdkjs, bases abertas, a ideia é alcançar um nível sofisticado de escrita"
 
 ## Notas
+
+- 2026-08-18 — `kbd` foi estilizado como a tarefa pedia, mas hoje é **inalcançável pelo markdown**:
+  sem `rehype-raw`, `<kbd>` escrito na nota sai como texto (há teste provando isso em
+  `MarkdownPreview.typography.test.tsx`). A regra fica no lugar para quando algum plugin remark
+  emitir o nó — não é dívida, é a folha já preparada.
+- 2026-08-18 — Aproveitei a passada de tipografia para estilizar também o checkbox de task-list e o
+  `<pre>` de fence sem linguagem, que estavam na mesma lacuna descrita no Contexto (saíam com o
+  reset do navegador). Não é edição de checkbox — isso continua sendo da 070; o `react-markdown`
+  já entrega a caixa desabilitada.
