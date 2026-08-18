@@ -78,7 +78,7 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
 
 ## Tarefas
 
-- [ ] Extrair o valor de `MARKDOWN_PREVIEW_CLASS` (`src/components/MarkdownPreview.tsx:12`) para
+- [x] Extrair o valor de `MARKDOWN_PREVIEW_CLASS` (`src/components/MarkdownPreview.tsx:12`) para
       uma classe `.markdown-body` em `src/index.css` (`@layer components`), mantendo exatamente os
       estilos atuais (h1, h2, tabela, th, td, código inline, listas) e trocando cores cruas por
       `hsl(var(--…))`. A constante passa a valer `"markdown-body"`. Verificação: `npm run build`;

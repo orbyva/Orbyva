@@ -7,9 +7,14 @@ import { findBlockRenderer } from "@/components/markdown/blockRegistry";
 import { MARKDOWN_REMARK_PLUGINS } from "@/components/markdown/remarkPlugins";
 import { cn } from "@/lib/utils";
 
-/** Tipografia do Markdown renderizado — compartilhada por descrição de tarefa e nota. */
-export const MARKDOWN_PREVIEW_CLASS =
-  "min-h-[80px] space-y-2 text-sm [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_del]:text-muted-foreground [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_li]:ml-4 [&_ol]:list-decimal [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:font-medium [&_ul]:list-disc";
+/**
+ * Tipografia do Markdown renderizado — compartilhada por descrição de tarefa e nota.
+ *
+ * A folha em si mora em `src/index.css` (`@layer components`, procure por `.markdown-body`): a 069
+ * tirou daqui a string de variantes arbitrárias porque o número de seletores estilizados mais que
+ * dobrou. O nome da constante não mudou — quem importa continua importando isto.
+ */
+export const MARKDOWN_PREVIEW_CLASS = "markdown-body";
 
 /**
  * Markdown + GFM (listas, tabela, riscado, checklist) renderizado.

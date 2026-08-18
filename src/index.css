@@ -191,6 +191,90 @@
   color: hsl(var(--primary-foreground));
 }
 
+/*
+ * # `.markdown-body` — a folha de estilo do Markdown renderizado (feature 069)
+ *
+ * É o valor de `MARKDOWN_PREVIEW_CLASS` (`src/components/MarkdownPreview.tsx`), que até a 069 era
+ * uma string de variantes arbitrárias (`[&_h1]:text-base [&_td]:border …`) crescendo dentro de um
+ * `className`. A 069 mais que dobra o número de seletores (h3–h6, citação, regra, imagem, callout,
+ * math, realce de código), e uma string de uma linha com isso é ilegível.
+ *
+ * Fica em `@layer components` de propósito: as utilities do Tailwind vêm depois na cascata, então
+ * quem passar `className` para o `MarkdownPreview` (`text-base`, `space-y-4`…) continua vencendo
+ * estas regras, exatamente como vencia as variantes arbitrárias de antes.
+ *
+ * Cor sempre por token (`hsl(var(--…))`), nunca literal — é o que faz o dark mode funcionar sem
+ * uma segunda folha.
+ */
+@layer components {
+  .markdown-body {
+    min-height: 80px;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  /* `space-y-2`: espaçamento entre blocos do documento, não dentro deles. */
+  .markdown-body > * + * {
+    margin-top: 0.5rem;
+  }
+
+  .markdown-body h1 {
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 600;
+  }
+
+  .markdown-body h2 {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+  }
+
+  .markdown-body a {
+    color: hsl(var(--primary));
+    text-decoration-line: underline;
+  }
+
+  .markdown-body del {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body code {
+    border-radius: 0.25rem;
+    background-color: hsl(var(--muted));
+    padding: 0.125rem 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
+  .markdown-body ul {
+    list-style-type: disc;
+  }
+
+  .markdown-body ol {
+    list-style-type: decimal;
+  }
+
+  .markdown-body li {
+    margin-left: 1rem;
+  }
+
+  .markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .markdown-body th,
+  .markdown-body td {
+    border: 1px solid hsl(var(--border));
+    padding: 0.25rem 0.5rem;
+  }
+
+  .markdown-body th {
+    font-weight: 500;
+  }
+}
+
 @layer utilities {
   .container {
     width: min(100% - 2rem, 1200px);
