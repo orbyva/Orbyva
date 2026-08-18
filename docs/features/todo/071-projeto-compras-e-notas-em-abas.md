@@ -85,12 +85,13 @@ código.
       mockam `@/api/shopping/*` nem `@/api/notes/notes` e hoje montam as seções de verdade; com a
       mudança elas param de montar. Verificação: rodar os 4 arquivos e registrar em Notas se algum
       mock ficou obsoleto.
-- [ ] Atualizar a documentação que a mudança contradiz: em
-      `docs/features/in-progress/052-categoria-compras-por-projeto.md`, marcar a Decisão "a seção
-      fica fora das abas" como revista pela 071 (sem apagar o histórico — acrescentar a linha em
-      Notas); em `docs/features/in-progress/055-notas-nucleo-markdown.md`, atualizar a Nota do
-      "desvio do plano: as notas viraram seção, não aba" registrando que a 071 restaurou o plano
-      original. Verificação: leitura — os dois arquivos deixam de contradizer o código.
+- [ ] Atualizar a documentação que a mudança contradiz — **só em `## Notas`, sem acrescentar tarefa
+      nenhuma, para que as duas features continuem em `done/`**: em
+      `docs/features/done/052-categoria-compras-por-projeto.md`, registrar que a Decisão "a seção
+      fica fora das abas" foi revista pela 071 (sem apagar o histórico); em
+      `docs/features/done/055-notas-nucleo-markdown.md`, registrar na Nota do "desvio do plano: as
+      notas viraram seção, não aba" que a 071 restaurou o plano original. Verificação: leitura — os
+      dois arquivos deixam de contradizer o código.
 - [ ] Checagem de satisfação do `prompt:` sem navegador: "abas separadas" → `ProjectDetail.tabs.test.tsx`
       mostra as 5 abas e o roteamento por `?tab=`; "preciso do espaço para visualizar as tarefas" →
       o mesmo teste prova que, no Kanban, nem compras nem notas estão no DOM (logo não ocupam

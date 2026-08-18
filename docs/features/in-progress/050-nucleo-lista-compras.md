@@ -25,6 +25,37 @@ Fora do escopo desta feature (cada uma tem a sua): vínculo item↔tarefa (051) 
 - **Rota `/shopping-list`**, irmã de `/tasks`, registrada em `src/routes.tsx` e adicionada a `NAV_PRODUTIVIDADE.items` em `src/components/app-sidebar.tsx` (linhas 85-94). Descartado aninhar em `/tasks/shopping-list`: a lista não é uma visão de tarefas, é um módulo próprio que apenas convive no mesmo grupo de navegação.
 - **Categoria vazia é permitida** e aparece na lista com estado vazio próprio. Deletar categoria apaga seus itens em cascata (`on delete cascade`), com `ConfirmDeleteDialog` avisando quantos itens serão perdidos. Descartado bloquear a exclusão de categoria com itens: obriga o usuário a esvaziar item a item para se livrar de uma categoria que ele criou errado.
 
+### Reabertura 2026-08-18 — item sem categoria
+
+- **`shopping_item.shopping_category_id` passa a ser nullable; item sem categoria é um estado
+  legítimo, não um erro.** Revisa a decisão original desta feature ("categoria obrigatória via
+  select") pelo pedido direto do usuário. Motivo real: a categoria é uma classificação que só faz
+  sentido depois que a lista existe — obrigar a criá-la antes de anotar "pilha AA" transforma um
+  gesto de 3 segundos num cadastro de duas telas, e hoje a página **bloqueia** de fato o botão
+  "Novo item" enquanto não houver nenhuma categoria (`disabled={categories.length === 0}`).
+- **O FK continua `on delete cascade`.** Apagar uma categoria segue apagando os itens dela, com o
+  mesmo `ConfirmDeleteDialog` avisando quantos serão perdidos — é decisão desta feature e o pedido
+  não a toca. Descartado trocar para `on delete set null` (que jogaria os itens no grupo "Sem
+  categoria" em vez de apagá-los): é uma mudança de comportamento que o usuário não pediu, muda o
+  significado do aviso de exclusão que ele já conhece, e é um `alter` de uma linha se ele quiser
+  depois.
+- **"Sem categoria" é um grupo sintético na renderização, não uma linha na tabela.** `groupItemsByCategory`
+  passa a devolver um grupo extra, **por último**, só quando existe pelo menos um item sem
+  categoria. Descartado criar uma categoria real "Sem categoria" por usuário: viraria uma linha
+  editável/apagável que o app teria que proteger, e recriá-la a cada conta é migration com dado.
+- **O grupo sintético nunca aparece vazio** e **nunca aparece com filtro de projeto ativo**: item
+  sem categoria não tem projeto (o vínculo com projeto é da categoria, decisão da 052), então ele
+  não pertence a projeto nenhum. Consequência aceita e explícita: `ProjectShoppingSection` não muda.
+- **No dialog, "Categoria" vira opcional com a opção "Sem categoria"**, usando um valor sentinela
+  (o Radix `Select` proíbe `value=""` — mesmo truque do `ALL_PROJECTS = "__all__"` que a página já
+  usa). O "Novo item" do cabeçalho passa a nascer **sem categoria**, em vez de pré-selecionar
+  silenciosamente a primeira da lista como hoje; o "Adicionar item em X" de cada seção continua
+  chegando com `defaultCategoryId`. Motivo: o chute silencioso arquiva o item no lugar errado sem o
+  usuário perceber.
+- **Categorizar depois é o caminho normal de edição**, pelo mesmo `Select` do dialog. Descartado
+  arrastar item entre seções nesta rodada: a página não tem DnD e trazê-lo por isso é
+  desproporcional.
+
 ## Tarefas
 
 - [x] Migration `supabase/migrations/20260816130000_shopping_list.sql`: cria `shopping_category` (`id`, `user_id`, `name`, `description`, `color`, `created_at`, `updated_at`) e `shopping_item` (`id`, `user_id`, `shopping_category_id uuid not null references public.shopping_category(id) on delete cascade`, `title`, `description`, `quantity numeric`, `unit text`, `provider_link text`, `status text not null default 'pending' check (status in ('pending','purchased'))`, `created_at`, `updated_at`); índices `shopping_category_user_idx (user_id)`, `shopping_item_user_status_idx (user_id, status)` e `shopping_item_category_idx (shopping_category_id)`; `comment on table` nas duas; RLS + 4 policies por tabela; as duas tabelas incluídas no array de `wipe_own_data()` e no laço do trigger `trg_enforce_app_access` (copiar a forma exata de `20260803121500_tasks_projects.sql`, linhas 170-241). Verificação: `supabase db push` só depois de o usuário confirmar (ver `docs/stack.md`).
@@ -41,12 +72,87 @@ Fora do escopo desta feature (cada uma tem a sua): vínculo item↔tarefa (051) 
 - [x] Verificação fim a fim automatizada (substitui a manual, ver Notas): `src/pages/admin/shopping/__tests__/ShoppingList.flow.test.tsx` dirige a página contra um backend falso em memória que imita o schema (inclusive o cascade) — cria duas categorias, cria itens em cada uma, marca um como comprado e desmarca, edita um item, exclui uma categoria com itens (conferindo o aviso de cascata) e remonta a página refazendo os fetches, conferindo que tudo persistiu. Verificação: `npm test`.
 - [x] **Migration aplicada no banco remoto** (2026-08-18): o usuário rodou `supabase db push` e `npx supabase migration list` mostra `20260816130000_shopping_list` com `local` == `remote`. `/shopping-list` já tem tabela pra ler. Verificação: a saída do `migration list` (leitura, não escrita — esta sessão nunca roda `db push`); o comportamento do módulo continua provado pelos 55 testes citados acima, incluindo o fluxo fim a fim. Sobra só o teste de fumaça do usuário na conta real, que é passo dele e não trabalho de código (ver Notas).
 
+### Reabertura 2026-08-18 — item sem categoria
+
+- [ ] Migration `supabase/migrations/20260818140000_shopping_item_optional_category.sql`:
+      `alter table public.shopping_item alter column shopping_category_id drop not null` +
+      `comment on column` explicando que nulo significa "sem categoria". Nada mais — o FK e o
+      `on delete cascade` ficam como estão. Verificação: harness de Postgres descartável nos moldes
+      de `supabase/tests/medication/run.sh`, provando que um `insert` sem
+      `shopping_category_id` passa, que o `on delete cascade` continua apagando os itens da
+      categoria excluída, e que as 4 policies RLS seguem valendo para o item sem categoria.
+      `supabase db push` é passo do usuário, nunca desta sessão.
+- [ ] `src/types/shopping.ts`: `ShoppingItem.shopping_category_id` vira `string | null` (flui
+      sozinho para `ShoppingItemCreateRequest`/`UpdateRequest`, que são `Omit<...>`). Verificação:
+      `npm run build` — o `tsc` aponta cada ponto do código que assumia categoria obrigatória; usar
+      essa lista como roteiro das tarefas seguintes.
+- [ ] `src/domain/shopping/filters.ts`: `groupItemsByCategory` passa a devolver, **por último**, um
+      grupo sintético "Sem categoria" com os itens de `shopping_category_id` nulo, e só quando há
+      algum. `countPendingByCategory` ganha a contagem desse grupo. O comportamento de "item de
+      categoria inexistente é ignorado" (item apontando para id que não veio na lista) **não** muda
+      — é caso diferente de nulo. Verificação: `npm run build`.
+- [ ] Testes em `src/domain/shopping/__tests__/filters.test.ts`: grupo sintético só aparece com
+      item nulo; vem por último; itens categorizados não vazam para ele; o teste existente "item de
+      categoria inexistente é ignorado" continua valendo; `countPendingByCategory` conta os sem
+      categoria; `filterCategoriesByProject` não introduz o grupo (item sem categoria não tem
+      projeto). Verificação: `npm test`.
+- [ ] `src/pages/admin/shopping/ShoppingItemDialog.tsx`: campo "Categoria" deixa de ser obrigatório
+      — `FormLabel` sem `required`, opção "Sem categoria" com valor sentinela (`"__none__"`,
+      traduzido para `null` no payload), `canSave` passa a exigir só o título, e o "Novo item" do
+      cabeçalho abre sem categoria pré-selecionada. Verificação: `npm run build && npm run lint`.
+- [ ] Atualizar `src/pages/admin/shopping/__tests__/ShoppingItemDialog.test.tsx`: o teste "sem
+      categoria pré-selecionada, usa a primeira da lista" vira "sem categoria pré-selecionada,
+      nasce sem categoria" (payload com `shopping_category_id: null`); casos novos — escolher uma
+      categoria e salvar; editar um item sem categoria atribuindo uma; editar um item categorizado
+      voltando para "Sem categoria". Verificação: `npm test`.
+- [ ] `src/pages/admin/shopping/ShoppingList.tsx`: remover o `disabled={categories.length === 0}` do
+      botão "Novo item" e reescrever o caminho de zero categorias — `EmptyState` só quando não há
+      **nem categoria nem item**, agora com as duas ações ("Nova categoria" e "Novo item"); havendo
+      itens sem categoria, a lista renderiza normalmente com o grupo "Sem categoria". A seção
+      sintética não tem ações de editar/excluir categoria nem "Adicionar item em…". Verificação:
+      `npm run build && npm run lint`.
+- [ ] Atualizar `src/pages/admin/shopping/__tests__/ShoppingList.test.tsx`: o teste "sem categoria
+      nenhuma, mostra o estado vazio e desabilita 'Novo item'" passa a exigir o botão **habilitado**
+      e as duas ações no `EmptyState`; casos novos — item sem categoria aparece na seção "Sem
+      categoria", a seção não tem botão de editar/excluir, e com `?project=p1` a seção some.
+      Verificação: `npm test`.
+- [ ] `ShoppingItemRow`/`createTaskFromShoppingItem`: conferir o caminho "criar tarefa" a partir de
+      um item sem categoria — `buildTaskDraftFromItem` já trata categoria ausente (a descrição cai
+      para "Lista de Compras") e `createTaskFromShoppingItem` já guarda com `if (item.shopping_category_id)`.
+      Verificação: caso novo em `src/api/shopping/__tests__/shopping-task-link.test.ts` provando que
+      item sem categoria vira tarefa sem quebrar, e `src/domain/shopping/__tests__/taskLink.test.ts`
+      continua verde.
+- [ ] Fluxo fim a fim em `src/pages/admin/shopping/__tests__/ShoppingList.flow.test.tsx` (backend
+      falso em memória, mesmo arquivo de sempre): numa lista **vazia**, criar um item direto pelo
+      cabeçalho sem criar categoria nenhuma; ele aparece em "Sem categoria"; marcá-lo como comprado;
+      criar depois uma categoria e mover o item para ela pela edição; a seção "Sem categoria" some;
+      remontar a página conferindo a persistência. É a prova literal do pedido. Verificação:
+      `npm test`.
+- [ ] Passada final: `npm run build`, `npm run lint` e a suíte completa
+      (`npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`). Registrar em Notas
+      qualquer teste alheio ajustado.
+- [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260818140000_shopping_item_optional_category.sql`
+      no banco remoto (`supabase db push`). Até lá o banco real segue com `not null` e criar item
+      sem categoria falha na inserção, mesmo com a UI já liberada. Depois de aplicada: conferir no
+      SQL editor que `select is_nullable from information_schema.columns where table_name =
+      'shopping_item' and column_name = 'shopping_category_id'` devolve `YES`, e criar um item sem
+      categoria pela tela.
+
 ## Prompts
 
 - 2026-08-16 — "- ADICIONAR MÓDULO DE LISTA DE COMPRAS. EU CONTROLO EM UMA OUTRA ETAPA DENTRO DE PRODUTIVIDADE. POORÉM CONSIGO CRIAR UMA TAREFA A PARTIR DE UM ITEM NA LISTA DE COMPRAS, PARA ME COMPROMETER A COMPRÁ-LO EM UMA TAREFA DESIGNADA / - ESSA TAREFA JÁ DEVE TER O ÍCONE VINCULADO / - DENTRO DA LISTA DE COMPRAS EU POSSO CRIAR CATEGORIAS, QUE AGRUPAM OS ITENS A SEREM COMPRADOS / - POSSO CRIAR UMA CATEGORIA RELACIONADA A UM PROJETO, DE MODO QUE POSSO VER OS ITENS, POR CATEGORIAS, DE UM PROJETO EM ESPECÍFICO"
 
+- 2026-08-18 — "- deve ser possível criar item de compras sem criar categoria"
+
 ## Notas
 
+- **Reaberta em 2026-08-18** (de `done/` para `in-progress/`, conforme o item 2 do `CLAUDE.md`): o
+  usuário pediu "deve ser possível criar item de compras sem criar categoria", que é uma revisão
+  direta de duas decisões **desta** feature — "categoria obrigatória via select" no dialog e o
+  `not null` do FK na migration original. Encaixou aqui em vez de virar `NNN` novo porque todos os
+  arquivos envolvidos (`shopping_item`, `filters.ts`, `ShoppingItemDialog`, `ShoppingList`) são os
+  que esta feature criou. As tarefas novas estão no bloco "Reabertura 2026-08-18"; as decisões
+  antigas ficam onde estão, e a revisão está registrada logo acima delas — não apagar histórico.
 - **Recorte do prompt-mãe que esta feature cumpre**: "ADICIONAR MÓDULO DE LISTA DE COMPRAS ... DENTRO DE PRODUTIVIDADE" + "DENTRO DA LISTA DE COMPRAS EU POSSO CRIAR CATEGORIAS, QUE AGRUPAM OS ITENS A SEREM COMPRADOS". O critério de fechamento (item 8 do `CLAUDE.md`) é esse recorte, não o prompt inteiro — "criar tarefa a partir do item" fecha na 051 e "categoria relacionada a um projeto" fecha na 052.
 - Ordem de implementação: **050 → 051 → 052**. A 051 depende das tabelas e da página desta feature; a 052 depende da tabela `shopping_category` e da página agrupada. As 051 e 052 são independentes entre si e poderiam ser feitas em qualquer ordem depois desta.
 - **Migration verificada sem `supabase db push`** (2026-08-16): `db push` aplica no banco remoto e
