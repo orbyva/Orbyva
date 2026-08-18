@@ -84,9 +84,9 @@ registrado aqui como candidato futuro.
 - [x] Acrescentar em `src/pages/admin/tasks/__tests__/AgendaGrid.events.test.tsx` (criado na 067) o
   caso "Ir para a tarefa": abrir um evento com `task_id`, clicar no botão, e o form da tarefa abrir
   com o título dela
-- [ ] `npm run build`, `npm run lint` e `npm test` — sem erros novos e sem regressão nas suítes de
+- [x] `npm run build`, `npm run lint` e `npm test` — sem erros novos e sem regressão nas suítes de
   `Projects`, `ProjectDetail`, `ProjectFormDialog` e Agenda
-- [ ] Reler o `prompt:` do frontmatter e confirmar o pedido completo: agenda única em
+- [x] Reler o `prompt:` do frontmatter e confirmar o pedido completo: agenda única em
   Produtividade → Agenda mostrando tarefas e recorrências (já entregue pelas 023/034/043/048) e
   criação de eventos ligados a projeto **e** a tarefa (066+067+068); registrar em Notas o que ficou
   fora e por quê
@@ -115,3 +115,40 @@ registrado aqui como candidato futuro.
 - Os dois handlers de `onSaveEvent` re-lançam o erro depois do toast, como o `handleSaveEvent` da
   Agenda (feature 067): é a rejeição de `onSave` que mantém o `EventFormDialog` aberto com o que foi
   digitado; engolir a exceção fecharia o dialog como se tivesse salvado.
+- Verificação final desta feature: `npm run build` (exit 0), `npm run lint` (exit 0 — 18 warnings
+  `react-refresh/only-export-components`, o mesmo número de antes da 068) e a suíte inteira com
+  `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4` — **161 arquivos / 1427
+  testes passando, exit 0** (`npm test` puro segue instável nesta máquina, com timeouts aleatórios
+  em arquivos sem relação, como já registrado na 066 e na 067).
+
+### Checagem de satisfação do `prompt:` (trinca 066+067+068)
+Item por item do prompt, com o artefato que prova cada um — nenhum "pelo código parece certo":
+1. *"visualização única de agenda ... fica dentro de Produtividade→Agenda"* — já existia (023/034/
+   043/048): `src/routes.tsx:152` (`/tasks/agenda`) e a aba Agenda dentro de Tarefas
+   (`TaskList.tsx` importando `AgendaGrid`). Prova: `AgendaGrid.test.tsx` (visões Mês/Semana/Dia)
+   verde na suíte final.
+2. *"eu veja todas as tarefas"* — `AgendaGrid.test.tsx` (chip de tarefa abre o form completo;
+   subtarefa com prazo próprio aparece no dia certo) e `AgendaHourGrid.test.tsx`.
+3. *"e recorrências"* — `src/domain/tasks/__tests__/recurrence.test.ts`
+   (`computeVirtualOccurrences`, usada pela `AgendaGrid`) e `AgendaGrid.consultation.test.tsx`
+   (ocorrências na grade).
+4. *"possa criar eventos ... relacionados a projetos"* — `EventFormDialog.test.tsx` ("escolher
+   Projeto manda project_id e deixa task_id nulo"), `AgendaGrid.events.test.tsx` ("salvar chama
+   createProjectEvent ... e recarrega a agenda") e `ProjectDetail.edit-project.test.tsx`
+   ("adicionar um evento passa pelo EventFormDialog e chama createProjectEvent com o project_id
+   correto").
+5. *"...seja a tarefas"* — `AgendaGrid.events.test.tsx` ("vincular a uma tarefa manda task_id
+   preenchido e project_id null" e "'Ir para a tarefa' ... fecha o evento e abre o form da tarefa"),
+   `Projects.task-events.test.tsx` (o card do projeto enxerga o evento da tarefa) e
+   `ProjectDetail.edit-project.test.tsx` ("evento vinculado a uma tarefa do projeto aparece na lista
+   de eventos da tela").
+
+Ficou de fora, de propósito: o botão "Agendar evento" dentro do form de tarefa
+(`TaskFormFields.tsx`) — registrado no Contexto como candidato futuro, porque exigiria plumbing de
+eventos nas três telas que usam o form e o pedido já está atendido pela Agenda; e evento recorrente
+(fora de escopo desde a 067).
+
+Dependências que **não** são desta feature e continuam com o usuário: aplicar
+`supabase/migrations/20260817120000_event_task_link.sql` no banco remoto (`supabase db push`,
+tarefa aberta na 066) e o teste manual ponta a ponta no navegador (tarefa aberta na 067). Até o
+`db push`, o código está correto e testado mas o banco ainda recusa `task_id`.
