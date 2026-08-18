@@ -1,0 +1,5 @@
+- deve ser possível criar item de compras sem criar categoria
+- aumente a sofisticação do markdown das notas, procure referências, sdkjs, bases abertas, a ideia é alcançar um nível sofisticado de escrita
+- na visualização de um projeto, não coloque as compras ou as notas do projeto dessa maneira, pode ser abas separadas. preciso do espaço para poder visualizar as tarefas
+- ficou meio ruim essa posição da medicação, por isso adicione na seção vida->saúde, de modo que já permite a integração da criação de um remédio apra tomar, com as tarefas, que vão identificar
+- Na visão da agenda, coloque essas tarefas que não tem duração , por exemplo tomar uma tarefa, com uma lista de bolinhas, uma na frente da outra, no prazo marcado, de modo que na visualização de semana/dia ou até mês eu consiga marcar a bolinha, ela fica verde e sabemosq ue a tarefa foi concluída. tipo tarefas pontuais, como trocar lençol, trocar escova, remédios etc

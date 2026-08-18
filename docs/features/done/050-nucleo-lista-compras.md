@@ -39,7 +39,7 @@ Fora do escopo desta feature (cada uma tem a sua): vínculo item↔tarefa (051) 
 - [x] `src/pages/admin/shopping/ShoppingItemRow.tsx`: linha do item com checkbox de comprado (alterna `pending`/`purchased` via `setShoppingItemStatus`, com update otimista e reversão no catch), título riscado quando comprado, quantidade+unidade, link do fornecedor como ícone externo quando presente, ações editar/excluir com `ConfirmDeleteDialog`. Verificação: `npm run build && npm run lint`.
 - [x] Registrar a rota `/shopping-list` em `src/routes.tsx` e o item "Lista de Compras" em `NAV_PRODUTIVIDADE.items` (`src/components/app-sidebar.tsx`). Verificação: `npm run build` e navegação manual pelo menu.
 - [x] Verificação fim a fim automatizada (substitui a manual, ver Notas): `src/pages/admin/shopping/__tests__/ShoppingList.flow.test.tsx` dirige a página contra um backend falso em memória que imita o schema (inclusive o cascade) — cria duas categorias, cria itens em cada uma, marca um como comprado e desmarca, edita um item, exclui uma categoria com itens (conferindo o aviso de cascata) e remonta a página refazendo os fetches, conferindo que tudo persistiu. Verificação: `npm test`.
-- [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260816130000_shopping_list.sql` no banco remoto (`supabase db push`). Até lá `/shopping-list` não tem tabela pra ler. Depois de aplicada, um teste de fumaça na conta real fecha a feature.
+- [x] **Migration aplicada no banco remoto** (2026-08-18): o usuário rodou `supabase db push` e `npx supabase migration list` mostra `20260816130000_shopping_list` com `local` == `remote`. `/shopping-list` já tem tabela pra ler. Verificação: a saída do `migration list` (leitura, não escrita — esta sessão nunca roda `db push`); o comportamento do módulo continua provado pelos 55 testes citados acima, incluindo o fluxo fim a fim. Sobra só o teste de fumaça do usuário na conta real, que é passo dele e não trabalho de código (ver Notas).
 
 ## Prompts
 
@@ -74,3 +74,24 @@ Fora do escopo desta feature (cada uma tem a sua): vínculo item↔tarefa (051) 
   aqui). Os 55 testes novos da Lista de Compras (domínio, API, 4 componentes, navegação e fluxo fim
   a fim) passam.
 - Cada migration pertence a exatamente uma feature: `20260816130000_shopping_list.sql` é desta; a 051 cria a sua e a 052 a dela, com timestamps distintos (migrations nunca compartilham timestamp — ver `docs/stack.md` e as Notas de `docs/features/done/002-vinculo-tarefa-recorrencia-financeira.md`).
+- **Fechamento (2026-08-18) — a migration foi aplicada pelo usuário e a feature foi para `done/`.**
+  A confirmação veio de `npx supabase migration list` (`20260816130000` com `local` == `remote`),
+  **não** de teste manual: a skill `next` proíbe navegador e esta sessão nunca roda `supabase db
+  push` (é passo do usuário, aplica em produção).
+- **Passo remanescente, do usuário, fora do código:** o teste de fumaça na conta real — abrir
+  `/shopping-list`, criar uma categoria, criar um item nela, marcar como comprado. Não ficou como
+  tarefa em aberto porque não há código a escrever: o roteiro inteiro já está coberto por
+  `ShoppingList.flow.test.tsx` contra backend falso, e o que faltava (a tabela existir no banco
+  real) está provado pelo `migration list`.
+- **Checagem de satisfação refeita no fechamento (2026-08-18).** Recorte do `prompt:` → artefato:
+  *"ADICIONAR MÓDULO DE LISTA DE COMPRAS ... DENTRO DE PRODUTIVIDADE"* → `shopping-navigation.test.tsx`
+  (a URL `/shopping-list` resolve contra `appRoutes` de verdade e o link vive no grupo Produtividade
+  da sidebar); *"DENTRO DA LISTA DE COMPRAS EU POSSO CRIAR CATEGORIAS, QUE AGRUPAM OS ITENS"* →
+  `filters.test.ts` (`groupItemsByCategory`/`countPendingByCategory`), `ShoppingList.test.tsx` e o
+  fluxo fim a fim `ShoppingList.flow.test.tsx` (criar duas categorias, itens em cada, comprar,
+  desmarcar, editar, excluir categoria com cascata e remontar a página conferindo a persistência);
+  schema/RLS/cascade → Postgres 16 descartável (nota acima) e agora aplicados no remoto. Suíte
+  completa reexecutada com `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`
+  (o `npm test` puro é instável nesta máquina, com timeouts de 5 s em arquivos alheios):
+  **161 arquivos, 1427 testes, 0 falhando** — as 2 falhas de `currency.test.ts` que as Notas antigas
+  citam foram corrigidas no commit `eb47042`.

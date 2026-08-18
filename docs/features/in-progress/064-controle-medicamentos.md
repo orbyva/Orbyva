@@ -47,14 +47,7 @@ A feature 049 entregou o atalho de medicação: nome, um horário, frequência d
   - *dose no horário vs. atrasada > 60 min → adesão reflete as duas*: `adherence.test.ts` (4 cenários isolados) + `MedicationList.test.tsx` → "adesão dos últimos 30 dias sai das doses" (a tela mostra "Adesão 30 dias: 67% (2 de 3) · 33% no horário")
   - *encerrar para de gerar doses sem apagar histórico*: `health.medications.test.ts` → "encerra sem apagar" (`active` false, `ended_on` hoje, zero deletes, `completed_at` da dose antiga intacto) + `tasks.medication-materialization.test.ts` → "tratamento encerrado não gera dose nova"
 - [x] Verificação de RLS — substituída pelo harness `supabase/tests/medication/` (Postgres 16 descartável em Docker, `bash supabase/tests/medication/run.sh`), que roda as assertivas **como `authenticated`** com `auth.uid()` setado: o dono vê só os próprios tratamentos, `update`/`delete` alheios alcançam 0 linhas, `insert` com `user_id` de outro é barrado pelo `with check`, e um controle negativo confirma que os zeros vieram da policy (como superusuário as linhas aparecem). Mais forte que o SQL editor: os 11 controles negativos provam que as assertivas acusam sabotagem, inclusive uma policy `using (true)`
-- [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260816230000_medication.sql` e `supabase/migrations/20260816233000_medication_backfill.sql` no banco remoto (`supabase db push`) — é a **única** migration desta esteira que escreve em dado existente, então: **antes do push**, anotar `select count(*) from task where is_medication` e `select count(*) from task where is_medication and recurrence_rule is not null and recurrence_origin_id is null` (as medicações-origem). **Depois do push**, conferir, nesta ordem:
-  1. `select count(*) from medication` = o número de origens anotado antes (nem uma a mais)
-  2. `select user_id, name, count(*) from medication group by 1,2 having count(*) > 1` = **zero linhas** (o sinal de backfill duplicado)
-  3. `select count(*) from task where medication_id is not null` ≥ o total de tarefas de medicação com recorrência anotado antes, e `select count(*) from task where is_medication` **não aumentou** com o push (o backfill só atualiza, nunca insere)
-  4. cada medicação antiga virou uma linha com o horário certo: `select name, times, interval_days, started_on, ended_on from medication`
-  5. abrir o dialog "Ocorrências de..." de uma medicação antiga e conferir que as doses já tomadas continuam exibindo "Tomado às HH:mm" (o `completed_at` não pode ter sido tocado)
-  6. recarregar `/tasks` e conferir no calendário que **nenhuma dose aparece duplicada** no mesmo dia/horário — é o que confirma no dado real o que `tasks.medication-materialization.test.ts` já prova em teste
-  7. `/life/health/medications` lista os tratamentos migrados com posologia e horários
+- [x] **Migrations aplicadas no banco remoto** (2026-08-18): o usuário rodou `supabase db push` e `npx supabase migration list` mostra `20260816230000_medication` e `20260816233000_medication_backfill` com `local` == `remote` — as duas últimas da fila, aplicadas na ordem dos timestamps. A tabela `medication`, as colunas `task.medication_id`/`task.dose_time` e o backfill existem no banco real. Verificação: a saída do `migration list` (leitura — esta sessão nunca roda `db push`); o comportamento do backfill, que é o ponto de risco desta feature, já estava provado em Postgres 16 por `bash supabase/tests/medication/run.sh`, que **aplica o backfill duas vezes** e exige as mesmas contagens absolutas, com dois controles negativos dedicados à idempotência (o 10 cria uma duplicata à mão e exige que as assertivas acusem; o 11 remove o guard `medication_id is null` e exige que a insert duplique). A ausência de dupla materialização no app está em `tasks.medication-materialization.test.ts`, com controle negativo manual registrado nas Notas. A conferência do resultado do backfill **no dado real** continua sendo passo do usuário, e mudou de forma agora que o push já aconteceu — o roteiro pós-fato está nas Notas.
 
 ## Prompts
 - 2026-08-16 — "- SUB-MÓDULO DE VIDA.SAÚDE
@@ -87,4 +80,37 @@ A feature 049 entregou o atalho de medicação: nome, um horário, frequência d
   - *adesão histórica*: `computeAdherence` cobre no horário/atrasada/perdida/não vencida (`adherence.test.ts`); a tela mostra "Adesão 30 dias: 67% (2 de 3) · 33% no horário" (`MedicationList.test.tsx` e `HealthDashboard.medications.test.tsx`); o resumo a calcula das doses da janela (`health.test.ts`).
   - *sem regressão na 049*: `tasks.recurring-materialization.test.ts` segue verde, e uma medicação da 049 ainda não migrada continua materializando pela recorrência (`tasks.medication-materialization.test.ts`).
   - *suíte completa*: 1309 passando, 2 falhando — as duas pré-existentes de `src/lib/__tests__/currency.test.ts`.
-- **A feature fica em `in-progress/`**, não em `done/`: sobra a tarefa "Aguarda o usuário", porque as duas migrations só valem depois do `supabase db push` no banco remoto — e aqui o push tem um passo a mais que as outras features da esteira, a conferência do resultado do backfill.
+- ~~**A feature fica em `in-progress/`**, não em `done/`~~: sobrava a tarefa "Aguarda o usuário", porque as duas migrations só valem depois do `supabase db push` no banco remoto — e aqui o push tem um passo a mais que as outras features da esteira, a conferência do resultado do backfill. **Resolvido em 2026-08-18** — ver os itens abaixo.
+- **Fechamento (2026-08-18) — as duas migrations foram aplicadas pelo usuário e a feature foi para
+  `done/`.** A confirmação veio de `npx supabase migration list` (`20260816230000` e
+  `20260816233000` com `local` == `remote`), **não** de teste manual: a skill `next` proíbe
+  navegador e esta sessão nunca roda `supabase db push` (é passo do usuário, aplica em produção).
+- **Passo remanescente, do usuário, fora do código — e ele mudou de forma, porque o push já
+  aconteceu.** O roteiro original começava com duas contagens **antes** do push, que não existem
+  mais. O equivalente pós-fato, todo no SQL editor e sem depender do "antes":
+  1. `select user_id, name, count(*) from medication group by 1,2 having count(*) > 1` → **zero
+     linhas**. É o sinal de backfill duplicado, e vale sozinho: se a migration tivesse rodado duas
+     vezes sem o guard, apareceria aqui.
+  2. `select count(*) from medication` = `select count(distinct medication_id) from task where
+     medication_id is not null and recurrence_origin_id is null` — cada origem virou exatamente uma
+     linha de tratamento.
+  3. `select count(*) from task where is_medication and medication_id is null and recurrence_rule
+     is not null and recurrence_origin_id is null` → **zero**: nenhuma medicação-origem da 049
+     ficou de fora do backfill.
+  4. `select name, times, interval_days, started_on, ended_on from medication` — horário, cadência
+     e período de cada tratamento migrado, inclusive o `until` da regra virando `ended_on`.
+  5. No app: o dialog "Ocorrências de..." de uma medicação antiga ainda mostra "Tomado às HH:mm"
+     (`completed_at` intocado); `/tasks` não mostra dose duplicada no mesmo dia/horário; e
+     `/life/health/medications` lista os tratamentos migrados com posologia.
+  Não virou tarefa em aberto porque não há código a escrever: o item 1 (idempotência), o 3
+  (cobertura do backfill), o 4 (horário/cadência/período) e o `completed_at` intocado já são
+  assertivas de `bash supabase/tests/medication/run.sh` com o backfill aplicado duas vezes, e a
+  ausência de dose duplicada no calendário é o que
+  `tasks.medication-materialization.test.ts` prova, com controle negativo.
+- **Checagem de satisfação reconfirmada no fechamento (2026-08-18):** a rastreabilidade acima do
+  recorte "CONTROLAR MEDICAMENTOS" (múltiplas doses/dia, posologia, adesão histórica, sem regressão
+  na 049) continua válida, com todos os artefatos citados verdes. Suíte completa reexecutada com
+  `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4` (o `npm test` puro é
+  instável nesta máquina, com dezenas de timeouts de 5 s em arquivos alheios): **161 arquivos,
+  1427 testes, 0 falhando** — as 2 falhas de `currency.test.ts` citadas acima foram corrigidas no
+  commit `eb47042`.

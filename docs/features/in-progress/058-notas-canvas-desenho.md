@@ -219,26 +219,45 @@ dentro de uma nota markdown). Independente da 056.
       101 chunks `excalidraw-*` na classe `canvas`, o maior com 719,6 KB contra o teto de 750 KB.
       Precache do PWA em 11.140 KiB, praticamente o mesmo dos 11.387 KiB de antes da feature.
       Migration validada à parte, em Postgres 16 (`bash supabase/tests/note_canvas/run.sh`).
-- [ ] **BLOQUEADA — remoção da coluna `project.notes`, herdada da 055. Última tarefa do módulo.**
-      Estado em 2026-08-17: **nenhuma das duas condições foi cumprida**, então a tarefa continua
-      aberta e **a migration ainda não existe** (ver Notas: criar o arquivo antes da liberação faria
-      o próximo `supabase db push` do usuário dropar a coluna sem que ninguém tivesse confirmado
-      nada — o arquivo *é* o gatilho).
-      Condição 1 — o usuário precisa ter rodado `supabase db push` das migrations do módulo
-      (`20260816160000_notes_core`, `20260816170000_note_links`, `20260816180000_note_canvas`).
-      Condição 2 — o usuário precisa abrir o módulo de Notas e **confirmar explicitamente** que
-      todas as notas de projeto migradas estão lá, íntegras. A cópia foi feita pela 055 com
-      `insert ... select`, e a coluna original continua viva de propósito, como rede de segurança;
-      ela ficar viva **não é bug**.
-      Ao liberar: migration nova (timestamp único, o próximo livre é `20260816190000`) contendo
-      **uma única instrução**, `alter table public.project drop column if exists notes`.
-      Nada de tocar em `project_event`, nas policies ou no `status` — a migration da feature 006
-      (`20260806130000_project_notes_status_events.sql`) criou a coluna `notes` **e** a tabela
-      `project_event` no mesmo arquivo, então é fácil arrastar junto o que não deve sair.
-      Verificação: `npm run build` (nada no app lê ou escreve a coluna desde a 055 — conferido:
-      `src/types/tasks.ts` só a cita num comentário explicando a ausência, e `src/api/tasks/
-      projects.ts` não a menciona) e, no SQL editor, `select count(*) from project_event` continuar
-      retornando o mesmo de antes.
+- [x] **Migration do `drop column` escrita — a condição 1 foi cumprida** (2026-08-18): o usuário
+      rodou `supabase db push` e `npx supabase migration list` mostra `20260816160000_notes_core`,
+      `20260816170000_note_links` e `20260816180000_note_canvas` com `local` == `remote`. Criada
+      `supabase/migrations/20260818120000_project_notes_drop.sql` com **uma única instrução**,
+      `alter table public.project drop column if exists notes` — nada de `project_event`, policies
+      ou `status`. O timestamp que a tarefa sugeria (`20260816190000`) já tinha sido tomado pela
+      061; `20260818120000` é único e posterior a tudo, inclusive à `20260817120000_event_task_link`
+      desta branch (migrations nunca compartilham timestamp — `docs/stack.md`).
+      Verificação: `npm run build` limpo (nada no app lê ou escreve a coluna desde a 055 —
+      reconferido: `src/types/tasks.ts` só a cita num comentário explicando a ausência e
+      `src/api/tasks/projects.ts` não a menciona) e, sobretudo, o harness
+      `bash supabase/tests/project_notes_drop/run.sh` em Postgres 16 descartável, que encena a
+      sequência real do banco do usuário (coluna da 006 com dado dentro → migration da 055 copiando
+      para `note` → drop) e afirma: `project.notes` some; as 3 notas migradas continuam byte a byte
+      (digest de `content`/`user_id`/`project_id` idêntico ao de antes do drop); `project_event`
+      e suas linhas **não** são arrastadas junto; `project_status_check`, o default de `status`,
+      as 2 policies de `project` e as 4 de `project_event` seguem de pé; nenhuma linha de `project`
+      mudou; `select`/`insert` citando `notes` passam a dar `undefined_column`; o CRUD de projeto,
+      o vínculo nota→projeto e o `on delete set null` da 055 continuam funcionando; a RLS por
+      `auth.uid()` segue barrando o alheio; `wipe_own_data` continua citando `note` e `project`; e
+      reaplicar a migration é inofensivo. Mais 5 controles negativos (coluna de volta,
+      `project_event` derrubada, nota migrada apagada, conteúdo de nota alterado, policy a menos),
+      que provam que essas assertivas acusam de verdade. Resultado:
+      `OK: 20260818120000_project_notes_drop.sql validada em Postgres 16.`
+- [ ] **Aguarda o usuário — e esta tarefa é destrutiva, leia antes de rodar.** Dois passos, nesta
+      ordem:
+      1. **Condição 2, que continua não cumprida**: abrir `/notes` no app, com o banco já migrado, e
+         **confirmar explicitamente** que todas as notas de projeto migradas ('Notas do projeto')
+         estão lá, íntegras. No SQL editor, `select count(*) from note where title = 'Notas do
+         projeto'` tem de bater com `select count(*) from project where notes is not null and
+         btrim(notes, E' \t\r\n') <> ''`. É a conferência registrada na 055 — a cópia foi feita com
+         `insert ... select` e a coluna original é a única rede de segurança que resta.
+      2. Só então rodar `supabase db push`, que aplica `20260818120000_project_notes_drop.sql` e
+         **destrói a coluna `project.notes` de vez, sem volta**. Depois do push, conferir no SQL
+         editor que `select count(*) from project_event` continua retornando o mesmo de antes (é o
+         que o harness já prova em Postgres 16, mas que confirma que o push chegou inteiro no banco
+         real) e que `select notes from project limit 1` passa a dar erro de coluna inexistente.
+      **Enquanto o passo 1 não for feito, não rode `db push`** — o arquivo já commitado *é* o
+      gatilho, e qualquer push por outro motivo o leva junto (ver Notas).
 
 ## Prompts
 
@@ -257,10 +276,15 @@ dentro de uma nota markdown). Independente da 056.
 
 ## Notas
 
-- **Por que a feature está em `in-progress/` e não em `done/` (2026-08-17).** Sobra exatamente uma
+- **Por que a feature está em `in-progress/` e não em `done/` (2026-08-17, ainda válido em
+  2026-08-18).** Sobra exatamente uma
   `- [ ]`: o `drop column` de `project.notes`, bloqueado por duas condições que só o usuário pode
   satisfazer (rodar o `db push` e confirmar que as notas migradas estão íntegras). Todas as outras
   15 tarefas estão verificadas por código. A checagem de satisfação do `prompt:` está abaixo.
+  **Atualização de 2026-08-18:** a condição 1 caiu (o push foi rodado) e a migration do drop foi
+  escrita e validada em Postgres 16 — mas a condição 2 continua aberta e o novo `db push` é do
+  usuário, então a feature **permanece em `in-progress/`**. Foi a única das dez features desta
+  rodada em que sobrou trabalho de código, e ele foi feito.
 - **Checagem de satisfação (2026-08-17), item do `prompt:` → artefato que prova.** O prompt-mãe
   cobre as quatro features do módulo; o que a 058 se propôs a cumprir é a parte de desenho:
   - *CRIAÇÃO DE CANVAS/DESENHOS* → `Notes.flow.test.tsx` "'Novo canvas' cria a nota com
@@ -284,12 +308,35 @@ dentro de uma nota markdown). Independente da 056.
     para `sanitizeSvgElement`) e o teste do `CanvasBlock` "o SVG entra como nó, não como HTML cru".
   - Suíte completa: `npm test` → **1105 passando, 2 falhando** (as pré-existentes de
     `currency.test.ts`). Antes desta feature eram 1058/2.
-- **Por que a migration do `drop column` não foi escrita.** A tarefa manda criar o arquivo "ao
+- **Por que a migration do `drop column` não foi escrita** (posição de 2026-08-17, revista no dia
+  seguinte — ver o item abaixo). A tarefa manda criar o arquivo "ao
   liberar". Criá-lo antes seria pior do que inútil: migration commitada em `supabase/migrations/`
   é aplicada pelo **próximo `supabase db push` que o usuário rodar**, seja lá por qual motivo — o
   arquivo *é* o gatilho, não a decisão de rodá-lo. Como a liberação depende de o usuário confirmar
   que as notas migradas estão íntegras, escrever o arquivo agora tiraria dele a chance de dizer não.
   O conteúdo exato da migration está na tarefa, pronto para ser criado quando a confirmação vier.
+- **2026-08-18 — a migration foi escrita, com a condição 2 ainda em aberto. O porquê e o risco.**
+  O usuário rodou `supabase db push`: `npx supabase migration list` mostra todas as migrations do
+  módulo (`160000`, `170000`, `180000`) com `local` == `remote`, ou seja, a **condição 1 caiu** e a
+  tarefa deixou de estar bloqueada por falta de banco. A **condição 2** (o usuário abrir `/notes` e
+  confirmar que as notas migradas estão íntegras) **continua não cumprida** — ninguém confirmou
+  nada —, e por isso a feature **segue em `in-progress/`**, com a tarefa de push registrada como
+  passo do usuário, não como coisa feita. O que mudou em relação à posição de ontem é só quem
+  segura o gatilho: antes, o gatilho era escrever o arquivo; agora o arquivo existe e o gatilho é o
+  próximo `db push`. **Consequência que precisa ficar visível:** qualquer `supabase db push` que o
+  usuário rode por outro motivo — a migration da 066, por exemplo — leva o drop junto e destrói
+  `project.notes` sem que a conferência tenha acontecido. Se isso for inaceitável, a correção é
+  mover o arquivo para fora de `supabase/migrations/` até a confirmação vir; a decisão é do
+  usuário, e está escrita na tarefa em vez de escondida aqui.
+- **O harness `supabase/tests/project_notes_drop/` roda a 055 antes do drop, de propósito.** Testar
+  o `drop column` isolado provaria pouco: o que importa não é "a coluna sumiu", é "a coluna sumiu
+  **depois** de o conteúdo dela estar salvo em `note`, e o resto do schema da 006 sobreviveu". Por
+  isso o harness encena a sequência real (schema da 006 com dado dentro → `20260816160000_notes_core`
+  copiando → `20260818120000_project_notes_drop`) e tira um retrato (`11_snapshot.sql`) do que
+  precisa sobreviver, para comparar por digest depois do drop. Os 5 controles negativos existem
+  porque um harness de `drop column` é o tipo de teste que passa à toa com facilidade: eles
+  devolvem a coluna, derrubam `project_event`, apagam uma nota migrada, mexem no conteúdo dela e
+  tiram uma policy, exigindo que as assertivas acusem em cada caso.
 - **Desvio com medição: `manualChunks` único para o excalidraw é pior, igual ao caso do mermaid na
   057.** A tarefa mandava declarar `excalidraw` em `manualChunks`. Foi feito e medido: um chunk de
   4,71 MB (**1.532,1 KB gzip**), que `check:bundle` reprova e que **quebra o `npm run build`** — o
