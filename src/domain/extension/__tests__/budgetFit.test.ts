@@ -84,7 +84,7 @@ describe("evaluateInstallmentAgainstRemaining", () => {
     expect(cash?.verdict).toBe("fora");
     expect(installment).not.toBeNull();
     expect(cashVsInstallmentHint(cash!, installment!)).toMatch(
-      /À vista não cabe/
+      /À vista está fora/
     );
   });
 });
