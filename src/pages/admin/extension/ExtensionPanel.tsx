@@ -47,6 +47,7 @@ import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import type { Habit, HabitLog } from "@/types/habits";
 import type { MonthlyBudgetSummary } from "@/types/finance";
 import type { Recurring } from "@/types/recurring";
+import type { AppAlert } from "@/api/alerts";
 
 function budgetRemaining(rows: MonthlyBudgetSummary[], balance: number | null): number | null {
   const expense = rows.filter((b) => /despesa/i.test(b.nature_name || ""));
