@@ -127,6 +127,21 @@ describe("MarkdownPreview — tipografia", () => {
     expect(boxes[0].disabled).toBe(true);
   });
 
+  it("tabela rola dentro do próprio embrulho, não na página", () => {
+    const root = renderDocumento("| a | b |\n| - | - |\n| 1 | 2 |");
+
+    const table = root.querySelector("table");
+    expect(table).not.toBeNull();
+
+    const wrapper = table?.parentElement;
+    expect(wrapper).toHaveClass("markdown-table-scroll");
+    // O embrulho fica dentro do contêiner, não em volta dele.
+    expect(wrapper?.closest(`.${MARKDOWN_PREVIEW_CLASS}`)).toBe(root);
+    // Conteúdo intacto: o embrulho é estrutura, não filtro.
+    expect(table).toHaveTextContent("1");
+    expect(table).toHaveTextContent("2");
+  });
+
   it("kbd escrito como texto não vira elemento (HTML cru continua desligado)", () => {
     const root = renderDocumento("aperte <kbd>Ctrl</kbd>");
 

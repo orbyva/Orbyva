@@ -51,7 +51,11 @@ export function MarkdownPreview({
    * podendo sobrescrever qualquer elemento, `code`/`pre` inclusive.
    */
   const merged = useMemo<Components>(
-    () => ({ ...BLOCK_REGISTRY_COMPONENTS, ...components }),
+    () => ({
+      ...BLOCK_REGISTRY_COMPONENTS,
+      ...TYPOGRAPHY_COMPONENTS,
+      ...components,
+    }),
     [components]
   );
 
@@ -89,6 +93,27 @@ const BLOCK_REGISTRY_COMPONENTS: Components = {
     if (hasRegisteredBlock(props.node)) return <>{props.children}</>;
     const { children, ...rest } = withoutNode(props);
     return <pre {...rest}>{children}</pre>;
+  },
+};
+
+/**
+ * Overrides de tipografia que **não** cabem em CSS (feature 069): mudam a árvore, não a aparência.
+ * O resto da folha mora em `.markdown-body`, em `src/index.css`.
+ */
+const TYPOGRAPHY_COMPONENTS: Components = {
+  /**
+   * Tabela larga rola dentro de si, nunca na página. Sem este embrulho, uma tabela de nota com
+   * muitas colunas empurra o layout inteiro e cria scroll horizontal no `body` — que, além de feio,
+   * quebra a leitura no celular. É CSS demais para o `<table>` sozinho: `overflow-x` não funciona
+   * em elemento de tabela, precisa de um bloco em volta.
+   */
+  table(props) {
+    const { children, ...rest } = withoutNode(props);
+    return (
+      <div className="markdown-table-scroll">
+        <table {...rest}>{children}</table>
+      </div>
+    );
   },
 };
 

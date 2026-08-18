@@ -392,6 +392,12 @@
     accent-color: hsl(var(--primary));
   }
 
+  /* Embrulho que o override `table` do `MarkdownPreview` cria — ver o comentário lá. */
+  .markdown-body .markdown-table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
   .markdown-body table {
     width: 100%;
     border-collapse: collapse;

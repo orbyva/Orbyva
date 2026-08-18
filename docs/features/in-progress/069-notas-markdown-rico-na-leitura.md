@@ -91,7 +91,7 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
       `src/components/__tests__/MarkdownPreview.typography.test.tsx` renderindo um documento com
       h1–h6, citação, regra, imagem e link, e conferindo que cada tag chega ao DOM com a classe do
       contêiner aplicada.
-- [ ] Tabela larga passa a rolar dentro de si: override do componente `table` em `MarkdownPreview`
+- [x] Tabela larga passa a rolar dentro de si: override do componente `table` em `MarkdownPreview`
       envolvendo-a num `div` com `overflow-x:auto`, para a nota nunca provocar scroll horizontal na
       página. Verificação: teste no mesmo arquivo acima conferindo o wrapper; `npm run build`.
 - [ ] Estilizar footnotes (já parseadas pelo `remark-gfm`, hoje sem estilo): `sup` do marcador,
