@@ -95,7 +95,7 @@ inteira, como em `computeVirtualOccurrences`).
 - [x] Em `AgendaHourGrid.tsx`: nova prop opcional `onCreateAt(day: Date, hour: number)`; cada linha de
   hora de cada coluna de dia vira alvo clicável (atrás dos blocos posicionados, sem roubar o clique
   deles) que dispara a criação com início `dia HH:00`
-- [ ] Substituir o dialog read-only de evento em `AgendaGrid.tsx` pelo `EventFormDialog` em modo
+- [x] Substituir o dialog read-only de evento em `AgendaGrid.tsx` pelo `EventFormDialog` em modo
   edição (`openEventFromChip` passa a abrir o form), mantendo excluir via `ConfirmDeleteDialog` e o
   "Ir para o projeto" só quando houver projeto resolvido
 - [ ] Em `AgendaGrid.tsx`: trocar o filtro `e.project_id === projectFilter` por

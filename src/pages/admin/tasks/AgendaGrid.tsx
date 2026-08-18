@@ -20,10 +20,8 @@ import {
   ExternalLink,
   Plus,
   Stethoscope,
-  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -33,8 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { FORM_DIALOG_CONTENT_CLASS, FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
+import { FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { AgendaHourGrid } from "./AgendaHourGrid";
 import { EventFormDialog } from "./EventFormDialog";
@@ -244,7 +241,6 @@ export function AgendaGrid() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [formTab, setFormTab] = useState<TaskFormTab>("geral");
   const [form, setForm] = useState<TaskCreateRequest>(emptyTask());
-  const [viewingEvent, setViewingEvent] = useState<ProjectEvent | null>(null);
   /** Dialog de criar/editar evento (feature 067). `editing: null` = criação; `prefillStartsAt` é o
    * início sugerido pelo clique num dia (mês) ou num slot de hora (semana/dia). */
   const [eventDialog, setEventDialog] = useState<{
@@ -397,10 +393,10 @@ export function AgendaGrid() {
   const today = new Date();
   const dayModalItems = dayModalKey ? (itemsByDay.get(dayModalKey) ?? []) : [];
 
-  // Projeto do evento aberto no dialog de detalhe — `null` para evento de tarefa sem projeto e para
-  // evento avulso, que é quando o badge e o botão "Ir para o projeto" somem (feature 066).
-  const viewingEventProject = viewingEvent
-    ? (projectById.get(eventProjectId(viewingEvent) ?? "") ?? null)
+  // Projeto do evento aberto no dialog de edição — `null` para evento de tarefa sem projeto e para
+  // evento avulso, que é quando o botão "Ir para o projeto" some (feature 066).
+  const editingEventProject = eventDialog.editing
+    ? (projectById.get(eventProjectId(eventDialog.editing) ?? "") ?? null)
     : null;
 
   function openTaskFromChip(task: Task) {
@@ -434,9 +430,12 @@ export function AgendaGrid() {
     return tag;
   }
 
+  /** Clicar num evento abre o mesmo dialog da criação, em modo edição (feature 067) — o antigo
+   * detalhe read-only (título + data + "Ir para o projeto" + excluir) não deixava corrigir nem o
+   * horário. */
   function openEventFromChip(event: ProjectEvent) {
     setDayModalKey(null);
-    setViewingEvent(event);
+    setEventDialog({ open: true, editing: event, prefillStartsAt: null });
   }
 
   async function toggleTaskDone(task: Task) {
@@ -558,7 +557,6 @@ export function AgendaGrid() {
   async function handleDeleteEvent(id: string) {
     try {
       await deleteProjectEvent(id);
-      setViewingEvent(null);
       closeEventDialog();
       load();
     } catch (error) {
@@ -803,42 +801,6 @@ export function AgendaGrid() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!viewingEvent} onOpenChange={(v) => !v && setViewingEvent(null)}>
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>{viewingEvent?.title}</DialogTitle>
-          </DialogHeader>
-          {viewingEvent && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                {format(new Date(viewingEvent.starts_at), "dd/MM/yyyy 'às' HH:mm")}
-              </p>
-              {viewingEventProject && (
-                <Badge variant="outline" className="gap-1">
-                  {viewingEventProject.name}
-                </Badge>
-              )}
-              <div className="flex gap-2">
-                {viewingEventProject && (
-                  <Button variant="outline" size="sm" className="gap-1.5" asChild>
-                    <Link to={`/tasks/projects/${viewingEventProject.id}`}>
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Ir para o projeto
-                    </Link>
-                  </Button>
-                )}
-                <ConfirmDeleteDialog title="Excluir este evento?" onConfirm={() => handleDeleteEvent(viewingEvent.id)}>
-                  <Button variant="outline" size="sm" className="gap-1.5 text-destructive">
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Excluir
-                  </Button>
-                </ConfirmDeleteDialog>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
       <EventFormDialog
         open={eventDialog.open}
         onOpenChange={(v) => (v ? undefined : closeEventDialog())}
@@ -849,6 +811,16 @@ export function AgendaGrid() {
         onSave={handleSaveEvent}
         onDelete={
           eventDialog.editing ? () => handleDeleteEvent(eventDialog.editing!.id) : undefined
+        }
+        extraActions={
+          editingEventProject ? (
+            <Button variant="outline" size="sm" className="gap-1.5" asChild>
+              <Link to={`/tasks/projects/${editingEventProject.id}`}>
+                <ExternalLink className="h-3.5 w-3.5" />
+                Ir para o projeto
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
     </div>

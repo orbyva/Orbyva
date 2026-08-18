@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { format } from "date-fns";
@@ -245,5 +245,98 @@ describe("AgendaGrid — criar evento (feature 067)", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByLabelText(/^Título/)).toHaveValue("Dentista");
     expect(saveButton()).toBeEnabled();
+  });
+});
+
+describe("AgendaGrid — editar e excluir evento pelo mesmo dialog (feature 067)", () => {
+  it("clicar num evento abre o form preenchido (não o antigo detalhe read-only)", async () => {
+    const user = userEvent.setup();
+    // Hoje (a visão mês abre no mês corrente, é lá que o chip aparece) com hora fixa: o que se
+    // verifica é a ida ISO -> `datetime-local` na hora local, não a data em si.
+    const day = todayAtNoon();
+    const starts = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 14, 30);
+    const ends = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 15, 30);
+    mockedFetchProjectEvents.mockResolvedValue([
+      makeEvent({
+        id: "event-9",
+        title: "Reunião de obra",
+        starts_at: starts.toISOString(),
+        ends_at: ends.toISOString(),
+      }),
+    ]);
+    await renderLoaded();
+
+    await user.click(screen.getByRole("button", { name: "Reunião de obra" }));
+    const dialog = await screen.findByRole("dialog");
+
+    // O dialog antigo era read-only (só título + data em texto); agora há campos editáveis.
+    expect(within(dialog).getByLabelText(/^Título/)).toHaveValue("Reunião de obra");
+    expect(within(dialog).getByLabelText(/^Início/)).toHaveValue(`${format(day, "yyyy-MM-dd")}T14:30`);
+    expect(within(dialog).getByLabelText(/^Fim/)).toHaveValue(`${format(day, "yyyy-MM-dd")}T15:30`);
+    expect(within(dialog).getByRole("button", { name: "Salvar alterações" })).toBeInTheDocument();
+  });
+
+  it("salvar a edição chama updateProjectEvent com o id do evento clicado", async () => {
+    const user = userEvent.setup();
+    mockedFetchProjectEvents.mockResolvedValue([
+      makeEvent({ id: "event-9", title: "Reunião de obra" }),
+    ]);
+    await renderLoaded();
+
+    await user.click(screen.getByRole("button", { name: "Reunião de obra" }));
+    const title = await screen.findByLabelText(/^Título/);
+    await user.clear(title);
+    await user.type(title, "Reunião de obra remarcada");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(mockedUpdateProjectEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "event-9", title: "Reunião de obra remarcada" })
+      )
+    );
+    expect(mockedCreateProjectEvent).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("excluir dentro do form chama deleteProjectEvent e fecha o dialog", async () => {
+    const user = userEvent.setup();
+    mockedFetchProjectEvents.mockResolvedValue([
+      makeEvent({ id: "event-9", title: "Reunião de obra" }),
+    ]);
+    await renderLoaded();
+
+    await user.click(screen.getByRole("button", { name: "Reunião de obra" }));
+    await user.click(await screen.findByRole("button", { name: /Excluir/ }));
+    // `ConfirmDeleteDialog` — o botão de confirmação do alerta.
+    const alert = await screen.findByRole("alertdialog");
+    await user.click(within(alert).getByRole("button", { name: /Excluir/ }));
+
+    await waitFor(() => expect(mockedDeleteProjectEvent).toHaveBeenCalledWith("event-9"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("'Ir para o projeto' só aparece quando o evento resolve um projeto", async () => {
+    const user = userEvent.setup();
+    const project = makeProject();
+    mockedFetchProjects.mockResolvedValue([project]);
+    mockedFetchProjectEvents.mockResolvedValue([
+      makeEvent({ id: "event-a", project_id: project.id, title: "Com projeto" }),
+      makeEvent({ id: "event-b", title: "Avulso" }),
+    ]);
+    await renderLoaded();
+
+    await user.click(screen.getByRole("button", { name: "Com projeto" }));
+    const withProject = await screen.findByRole("dialog");
+    expect(within(withProject).getByRole("link", { name: /Ir para o projeto/ })).toHaveAttribute(
+      "href",
+      "/tasks/projects/project-1"
+    );
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Avulso" }));
+    const standalone = await screen.findByRole("dialog");
+    expect(within(standalone).queryByText("Ir para o projeto")).not.toBeInTheDocument();
   });
 });
