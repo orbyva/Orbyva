@@ -98,16 +98,16 @@ inteira, como em `computeVirtualOccurrences`).
 - [x] Substituir o dialog read-only de evento em `AgendaGrid.tsx` pelo `EventFormDialog` em modo
   edição (`openEventFromChip` passa a abrir o form), mantendo excluir via `ConfirmDeleteDialog` e o
   "Ir para o projeto" só quando houver projeto resolvido
-- [ ] Em `AgendaGrid.tsx`: trocar o filtro `e.project_id === projectFilter` por
+- [x] Em `AgendaGrid.tsx`: trocar o filtro `e.project_id === projectFilter` por
   `resolveEventProjectId(event, taskById)`, adicionar a opção "Sem projeto" no `Select` de filtro e
   usar o mesmo projeto resolvido para a cor passada a `EventChip`/`TimedEventBlock`
-- [ ] Criar `src/pages/admin/tasks/__tests__/EventFormDialog.test.tsx`: salvar desabilitado sem
+- [x] Criar `src/pages/admin/tasks/__tests__/EventFormDialog.test.tsx`: salvar desabilitado sem
   título e sem início; fim anterior ao início bloqueia e mostra a mensagem; criar chama `onSave` com
   título, ISO de início/fim e o vínculo escolhido; trocar o segmento de vínculo zera o id anterior
   (`project_id` e `task_id` nunca vão preenchidos juntos); modo edição pré-preenche os campos a
   partir de `editing` (inclusive a hora local correta); `lockedLink` esconde o seletor e fixa o
   projeto; erro em `onSave` mantém o dialog aberto e reabilita o botão
-- [ ] Criar `src/pages/admin/tasks/__tests__/AgendaGrid.events.test.tsx` (mocks de `@/api/tasks` no
+- [x] Criar `src/pages/admin/tasks/__tests__/AgendaGrid.events.test.tsx` (mocks de `@/api/tasks` no
   mesmo formato de `AgendaGrid.test.tsx`): "Novo evento" abre o dialog; clique num dia vazio do mês
   pré-preenche a data; salvar chama `createProjectEvent` com `project_id: null` + `task_id`
   preenchido ao vincular a uma tarefa; clicar num evento existente abre o form preenchido e salvar
@@ -117,7 +117,7 @@ inteira, como em `computeVirtualOccurrences`).
 - [x] Adicionar em `src/pages/admin/tasks/__tests__/AgendaHourGrid.test.tsx` os casos da grade de
   horas: clicar num slot vazio dispara `onCreateAt` com o dia e a hora corretos; clicar num bloco de
   evento/tarefa **não** dispara `onCreateAt` (chama o handler de abrir)
-- [ ] `npm run build`, `npm run lint` e `npm test` — sem erros novos e sem regressão nos testes de
+- [x] `npm run build`, `npm run lint` e `npm test` — sem erros novos e sem regressão nos testes de
   Agenda existentes (`AgendaGrid.test.tsx`, `AgendaGrid.consultation.test.tsx`,
   `AgendaHourGrid.test.tsx`)
 - [ ] **Aguarda o usuário**: conferir no navegador o fluxo ponta a ponta na Agenda (criar evento
@@ -144,6 +144,27 @@ inteira, como em `computeVirtualOccurrences`).
   salvado. Os mocks `vi.mock("@/api/tasks", ...)` de `AgendaGrid.test.tsx` e
   `AgendaGrid.consultation.test.tsx` ganharam `createProjectEvent`/`updateProjectEvent` (mesmo
   problema já registrado nas Notas da 065/066).
+- Verificação final: `npm run build` (exit 0), `npm run lint` (0 erros, 18 warnings
+  `react-refresh/only-export-components` pré-existentes) e a suíte inteira com
+  `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4` — 1411/1412 testes
+  passando. O único vermelho foi `src/pages/admin/notes/__tests__/notes-navigation.test.tsx` (timeout
+  do `findByLabelText`), sem relação com a Agenda e verde ao rodar isolado: `npm test` puro nesta
+  máquina estoura timeout em arquivos aleatórios, daí os timeouts explícitos no comando.
+- A opção "Sem projeto" do filtro virou o sentinela `NO_PROJECT_FILTER` + o helper
+  `matchesProjectFilter(projectId, filter)` exportados de `AgendaGrid.tsx`, e o helper passou a valer
+  **também para as tarefas**, não só para os eventos: com o filtro em "Sem projeto", a comparação
+  antiga (`t.project_id === projectFilter`) esconderia toda tarefa, inclusive as soltas — o filtro do
+  header é da tela inteira, não só da faixa de eventos. `Select` do Radix não aceita `value=""`, daí
+  o sentinela em vez de `null`.
+- Os quatro casos de edição/exclusão e os dois de filtro entraram em `AgendaGrid.events.test.tsx`
+  depois que o arquivo já existia (as tarefas de teste tinham sido escritas antes das de código):
+  clicar num evento abre o form preenchido com a hora local certa, salvar chama `updateProjectEvent`
+  com o id clicado (e nunca `createProjectEvent`), excluir chama `deleteProjectEvent`, "Ir para o
+  projeto" só aparece com projeto resolvido, e o filtro resolve o vínculo indireto nos dois sentidos.
+- Os testes da 066 em `AgendaGrid.event-link.test.tsx` continuam passando sem alteração mesmo com o
+  dialog read-only removido: o nome do projeto que eles procuram agora vem do `ProjectPicker`
+  (evento de projeto) ou do texto secundário do `TaskPicker` (evento de tarefa), e "Excluir"/"Ir para
+  o projeto" seguem no mesmo lugar do dialog.
 - `src/pages/admin/tasks/__tests__/TaskPicker.test.tsx` não estava no plano, mas entrou junto com o
   componente: a verificação é só por código (sem navegador) e o `EventFormDialog.test.tsx` previsto
   cobre a escolha do vínculo, não o que é específico do picker — busca case-insensitive, teto de 50

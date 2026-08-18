@@ -116,6 +116,21 @@ export function isVirtualTask(task: Task): boolean {
   return task.id.startsWith("virtual:");
 }
 
+/** Valor sentinela do filtro de projeto para "só o que não tem projeto nenhum" (feature 067) — o
+ * `Select` do Radix não aceita `value=""`, e `null` não vira valor de `SelectItem`. */
+export const NO_PROJECT_FILTER = "none";
+
+/**
+ * Filtro de projeto da Agenda, compartilhado por tarefa e evento: "all" passa tudo,
+ * `NO_PROJECT_FILTER` deixa só o que não resolve projeto (tarefa solta, evento avulso e evento de
+ * tarefa sem projeto) e qualquer outro valor é o id do projeto.
+ */
+export function matchesProjectFilter(projectId: string | null, filter: string): boolean {
+  if (filter === "all") return true;
+  if (filter === NO_PROJECT_FILTER) return projectId === null;
+  return projectId === filter;
+}
+
 /** Indicador discreto de que um chip/bloco pertence a uma subtarefa (tem `parent_task_id`) — a
  * Agenda não tem aninhamento visual como Lista/Kanban (grade de tempo, cada item no seu próprio
  * horário), então o vínculo com a tarefa-mãe é só sinalizado, nunca forçado espacialmente
@@ -349,7 +364,7 @@ export function AgendaGrid() {
       [...tasks, ...virtualTasks].filter(
         (t) =>
           !(t.linked_recurring_id && t.linked_installment_number == null) &&
-          (projectFilter === "all" ? true : t.project_id === projectFilter)
+          matchesProjectFilter(t.project_id ?? null, projectFilter)
       ),
     [tasks, virtualTasks, projectFilter]
   );
@@ -378,10 +393,7 @@ export function AgendaGrid() {
   );
 
   const filteredEvents = useMemo(
-    () =>
-      events.filter((e) =>
-        projectFilter === "all" ? true : eventProjectId(e) === projectFilter
-      ),
+    () => events.filter((e) => matchesProjectFilter(eventProjectId(e), projectFilter)),
     [events, projectFilter, eventProjectId]
   );
 
@@ -611,6 +623,7 @@ export function AgendaGrid() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os projetos</SelectItem>
+              <SelectItem value={NO_PROJECT_FILTER}>Sem projeto</SelectItem>
               {projects.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}

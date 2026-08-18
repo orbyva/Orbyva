@@ -340,3 +340,57 @@ describe("AgendaGrid — editar e excluir evento pelo mesmo dialog (feature 067)
     expect(within(standalone).queryByText("Ir para o projeto")).not.toBeInTheDocument();
   });
 });
+
+describe("AgendaGrid — filtro de projeto resolve o vínculo indireto (feature 067)", () => {
+  /** O `Select` do filtro é o único combobox da tela com a agenda carregada e nenhum dialog aberto. */
+  async function pickProjectFilter(user: ReturnType<typeof userEvent.setup>, option: string) {
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: option }));
+  }
+
+  it("filtrar pelo projeto mantém o evento vinculado a uma TAREFA daquele projeto", async () => {
+    const user = userEvent.setup();
+    mockedFetchProjects.mockResolvedValue([
+      makeProject(),
+      makeProject({ id: "project-2", name: "Projeto Beta", color: "#0000ff" }),
+    ]);
+    mockedFetchTasks.mockResolvedValue([
+      makeTask({ id: "task-1", project_id: "project-1", title: "Comprar cimento" }),
+    ]);
+    mockedFetchProjectEvents.mockResolvedValue([
+      makeEvent({ id: "event-a", task_id: "task-1", title: "Reunião da tarefa" }),
+      makeEvent({ id: "event-b", title: "Avulso" }),
+    ]);
+    await renderLoaded();
+
+    expect(screen.getByText("Reunião da tarefa")).toBeInTheDocument();
+
+    await pickProjectFilter(user, "Projeto Alpha");
+    // Sem `resolveEventProjectId` o evento sumiria: o `project_id` da linha é null.
+    expect(screen.getByText("Reunião da tarefa")).toBeInTheDocument();
+    expect(screen.queryByText("Avulso")).not.toBeInTheDocument();
+
+    await pickProjectFilter(user, "Projeto Beta");
+    expect(screen.queryByText("Reunião da tarefa")).not.toBeInTheDocument();
+  });
+
+  it("'Sem projeto' deixa só os avulsos (esconde evento de projeto e evento de tarefa com projeto)", async () => {
+    const user = userEvent.setup();
+    mockedFetchProjects.mockResolvedValue([makeProject()]);
+    mockedFetchTasks.mockResolvedValue([
+      makeTask({ id: "task-1", project_id: "project-1", title: "Comprar cimento" }),
+    ]);
+    mockedFetchProjectEvents.mockResolvedValue([
+      makeEvent({ id: "event-a", project_id: "project-1", title: "Do projeto" }),
+      makeEvent({ id: "event-b", task_id: "task-1", title: "Da tarefa com projeto" }),
+      makeEvent({ id: "event-c", title: "Avulso" }),
+    ]);
+    await renderLoaded();
+
+    await pickProjectFilter(user, "Sem projeto");
+
+    expect(screen.getByText("Avulso")).toBeInTheDocument();
+    expect(screen.queryByText("Do projeto")).not.toBeInTheDocument();
+    expect(screen.queryByText("Da tarefa com projeto")).not.toBeInTheDocument();
+  });
+});
