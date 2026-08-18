@@ -161,7 +161,7 @@ export function cashVsInstallmentHint(
   const cashIn = cash.verdict !== "fora";
   const instIn = installment.fit.verdict !== "fora";
   if (!cashIn && instIn) {
-    return `À vista não cabe. Em ${n}x, a 1ª parcela entra neste mês.`;
+    return `À vista está fora do orçamento. Em ${n}x, a 1ª parcela será paga neste mês.`;
   }
   if (!cashIn && !instIn) {
     return "Nem o total à vista nem a 1ª parcela cabem no restante deste mês.";
