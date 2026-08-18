@@ -15,7 +15,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NOTES_CORE_MIGRATION="$HERE/../../migrations/20260816160000_notes_core.sql"
-DROP_MIGRATION="$HERE/../../migrations/20260818120000_project_notes_drop.sql"
+DROP_MIGRATION="$HERE/../../pending/20260818120000_project_notes_drop.sql"
 CONTAINER=orbyva-project-notes-drop-pg
 
 cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }

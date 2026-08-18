@@ -251,13 +251,18 @@ dentro de uma nota markdown). Independente da 056.
          projeto'` tem de bater com `select count(*) from project where notes is not null and
          btrim(notes, E' \t\r\n') <> ''`. É a conferência registrada na 055 — a cópia foi feita com
          `insert ... select` e a coluna original é a única rede de segurança que resta.
-      2. Só então rodar `supabase db push`, que aplica `20260818120000_project_notes_drop.sql` e
+      2. Mover o arquivo de volta para o caminho de push:
+         `git mv supabase/pending/20260818120000_project_notes_drop.sql supabase/migrations/`
+         (o orquestrador da esteira estacionou o arquivo em `supabase/pending/` justamente para
+         que o push da 066 não levasse o drop junto — ver Notas).
+      3. Só então rodar `supabase db push`, que aplica `20260818120000_project_notes_drop.sql` e
          **destrói a coluna `project.notes` de vez, sem volta**. Depois do push, conferir no SQL
          editor que `select count(*) from project_event` continua retornando o mesmo de antes (é o
          que o harness já prova em Postgres 16, mas que confirma que o push chegou inteiro no banco
          real) e que `select notes from project limit 1` passa a dar erro de coluna inexistente.
-      **Enquanto o passo 1 não for feito, não rode `db push`** — o arquivo já commitado *é* o
-      gatilho, e qualquer push por outro motivo o leva junto (ver Notas).
+      **O gatilho está desarmado**: o arquivo saiu de `supabase/migrations/` e vive em
+      `supabase/pending/`, então nenhum `db push` o aplica por acidente — inclusive o push que a
+      feature 066 vai exigir. Rearmar é o passo 2 acima, e só depois da conferência do passo 1.
 
 ## Prompts
 
