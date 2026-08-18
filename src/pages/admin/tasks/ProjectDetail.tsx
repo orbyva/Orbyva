@@ -46,7 +46,7 @@ import {
 } from "./TaskViews";
 import { TaskFormFields, type TaskFormTab } from "./TaskFormFields";
 import { GanttChart } from "./GanttChart";
-import { ProjectFormDialog } from "./ProjectFormDialog";
+import { ProjectFormDialog, type ProjectEventSaveDraft } from "./ProjectFormDialog";
 import { SeriesOccurrencesDialog } from "./SeriesOccurrencesDialog";
 import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
@@ -66,6 +66,7 @@ import {
   fetchTags,
   fetchTasks,
   updateProject,
+  updateProjectEvent,
   updateTask,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
@@ -354,23 +355,40 @@ export default function ProjectDetail() {
     }
   }
 
-  async function handleAddProjectEvent({ title, startsAt }: { title: string; startsAt: string }) {
+  /**
+   * Cria ou edita conforme o `id` do rascunho (feature 068). Re-lança depois do toast: é a rejeição
+   * de `onSave` que mantém o `EventFormDialog` aberto com o que o usuário digitou.
+   */
+  async function handleSaveProjectEvent(draft: ProjectEventSaveDraft) {
     if (!project) return;
     try {
-      await createProjectEvent({
-        project_id: project.id,
-        task_id: null,
-        title,
-        starts_at: new Date(startsAt).toISOString(),
-        ends_at: null,
-      });
+      if (draft.id) {
+        await updateProjectEvent({
+          id: draft.id,
+          title: draft.title,
+          starts_at: draft.starts_at,
+          ends_at: draft.ends_at,
+        });
+      } else {
+        await createProjectEvent({
+          project_id: project.id,
+          task_id: null,
+          title: draft.title,
+          starts_at: draft.starts_at,
+          ends_at: draft.ends_at,
+        });
+      }
       load();
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error, "Não foi possível adicionar o evento."),
+        description: getErrorMessage(
+          error,
+          draft.id ? "Não foi possível salvar o evento." : "Não foi possível adicionar o evento."
+        ),
         variant: "destructive",
       });
+      throw error;
     }
   }
 
@@ -958,8 +976,9 @@ export default function ProjectDetail() {
           tags={tags}
           onCreateTag={handleCreateTag}
           events={projectEvents}
+          tasks={tasks}
           onSave={handleSaveProject}
-          onAddEvent={handleAddProjectEvent}
+          onSaveEvent={handleSaveProjectEvent}
           onDeleteEvent={handleDeleteProjectEvent}
         />
       )}

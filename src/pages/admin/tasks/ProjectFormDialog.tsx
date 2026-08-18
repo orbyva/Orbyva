@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,11 +10,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS } from "@/components/FormLabel";
+import {
+  FormLabel,
+  FORM_DIALOG_CONTENT_CLASS,
+  FORM_FIELDS_CLASS,
+  ICON_EDIT_BUTTON_CLASS,
+} from "@/components/FormLabel";
 import { LabelColorPicker } from "./LabelColorPicker";
 import { TagCombobox } from "./TagCombobox";
+import { EventFormDialog } from "./EventFormDialog";
 import { formatDateTimeBR } from "@/lib/currency";
-import type { Project, ProjectCreateRequest, ProjectEvent, ProjectStatus, Tag } from "@/types/tasks";
+import { cn } from "@/lib/utils";
+import type {
+  Project,
+  ProjectCreateRequest,
+  ProjectEvent,
+  ProjectEventCreateRequest,
+  ProjectStatus,
+  Tag,
+  Task,
+} from "@/types/tasks";
 
 export const STATUS_LABELS: Record<ProjectStatus, string> = {
   planned: "Planejado",
@@ -29,9 +44,25 @@ export function formatEventDate(iso: string): string {
 }
 
 /**
+ * Rascunho devolvido pela seção de Eventos (feature 068). `id` presente = edição de um evento que
+ * já existe; ausente = criação. Um handler só (`onSaveEvent`) para os dois casos, em vez de
+ * multiplicar props no call site.
+ */
+export interface ProjectEventSaveDraft {
+  id?: string;
+  title: string;
+  starts_at: string;
+  ends_at: string | null;
+}
+
+/**
  * Dialog de criar/editar projeto, compartilhado por `Projects.tsx` (lista) e `ProjectDetail.tsx`
  * (feature 050) — antes vivia inline só em `Projects.tsx`. `editing: null` = modo criação (sem
  * seção de Eventos, que só faz sentido para um projeto que já existe).
+ *
+ * A seção de Eventos usa o mesmo `EventFormDialog` da Agenda (feature 068): antes havia um
+ * mini-form inline aqui (título + início, sem fim e sem edição) e um dialog completo lá, duas UIs
+ * para a mesma entidade.
  */
 export function ProjectFormDialog({
   open,
@@ -42,8 +73,9 @@ export function ProjectFormDialog({
   tags,
   onCreateTag,
   events,
+  tasks,
   onSave,
-  onAddEvent,
+  onSaveEvent,
   onDeleteEvent,
 }: {
   open: boolean;
@@ -54,12 +86,16 @@ export function ProjectFormDialog({
   tags: Tag[];
   onCreateTag: (name: string, color: string) => Promise<Tag>;
   events: ProjectEvent[];
+  /** Tarefas do projeto — só para dar nome ao evento herdado de tarefa (feature 068). */
+  tasks: Task[];
   onSave: () => Promise<void> | void;
-  onAddEvent: (payload: { title: string; startsAt: string }) => Promise<void> | void;
+  onSaveEvent: (draft: ProjectEventSaveDraft) => Promise<void> | void;
   onDeleteEvent: (id: string) => Promise<void> | void;
 }) {
-  const [eventTitle, setEventTitle] = useState("");
-  const [eventStartsAt, setEventStartsAt] = useState("");
+  const [eventDialog, setEventDialog] = useState<{ open: boolean; editing: ProjectEvent | null }>({
+    open: false,
+    editing: null,
+  });
   const [saving, setSaving] = useState(false);
 
   async function handleSaveClick() {
@@ -74,21 +110,26 @@ export function ProjectFormDialog({
     }
   }
 
-  async function handleAddEventClick() {
-    if (!eventTitle.trim() || !eventStartsAt) return;
-    await onAddEvent({ title: eventTitle.trim(), startsAt: eventStartsAt });
-    setEventTitle("");
-    setEventStartsAt("");
+  /**
+   * Repassa o rascunho do `EventFormDialog` para quem chama, com o `id` do evento em edição quando
+   * houver. Só fecha o dialog de evento se `onSaveEvent` resolver — o erro sobe para o
+   * `EventFormDialog`, que é quem decide continuar aberto com o que foi digitado.
+   */
+  async function handleSaveEventDraft(draft: ProjectEventCreateRequest) {
+    await onSaveEvent({
+      id: eventDialog.editing?.id,
+      title: draft.title,
+      starts_at: draft.starts_at,
+      ends_at: draft.ends_at ?? null,
+    });
+    setEventDialog({ open: false, editing: null });
   }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) {
-          setEventTitle("");
-          setEventStartsAt("");
-        }
+        if (!next) setEventDialog({ open: false, editing: null });
         onOpenChange(next);
       }}
     >
@@ -170,40 +211,38 @@ export function ProjectFormDialog({
                     <span className="min-w-0 truncate">
                       {e.title} — {formatEventDate(e.starts_at)}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 shrink-0 text-destructive"
-                      onClick={() => onDeleteEvent(e.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn("h-6 w-6", ICON_EDIT_BUTTON_CLASS)}
+                        onClick={() => setEventDialog({ open: true, editing: e })}
+                        aria-label={`Editar evento ${e.title}`}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive"
+                        onClick={() => onDeleteEvent(e.id)}
+                        aria-label={`Excluir evento ${e.title}`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
-                <div className="flex gap-1.5">
-                  <Input
-                    placeholder="Título"
-                    value={eventTitle}
-                    onChange={(e) => setEventTitle(e.target.value)}
-                    className="h-8 text-xs"
-                  />
-                  <Input
-                    type="datetime-local"
-                    value={eventStartsAt}
-                    onChange={(e) => setEventStartsAt(e.target.value)}
-                    className="h-8 w-48 text-xs"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    onClick={handleAddEventClick}
-                    aria-label="Adicionar evento"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setEventDialog({ open: true, editing: null })}
+                  aria-label="Adicionar evento"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
           )}
@@ -213,6 +252,19 @@ export function ProjectFormDialog({
           </Button>
         </div>
       </DialogContent>
+      {editing && (
+        <EventFormDialog
+          open={eventDialog.open}
+          onOpenChange={(next) => (next ? undefined : setEventDialog({ open: false, editing: null }))}
+          editing={eventDialog.editing}
+          // Vínculo travado no projeto em edição: aqui o seletor de vínculo (e com ele
+          // `projects`/`ProjectPicker`) some, então não há lista de projetos para passar.
+          lockedLink={{ kind: "project", id: editing.id }}
+          projects={[]}
+          tasks={tasks}
+          onSave={handleSaveEventDraft}
+        />
+      )}
     </Dialog>
   );
 }

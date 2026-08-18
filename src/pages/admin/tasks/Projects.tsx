@@ -28,7 +28,12 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import { ProjectFormDialog, STATUS_LABELS, formatEventDate } from "./ProjectFormDialog";
+import {
+  ProjectFormDialog,
+  STATUS_LABELS,
+  formatEventDate,
+  type ProjectEventSaveDraft,
+} from "./ProjectFormDialog";
 import {
   createProject,
   createProjectEvent,
@@ -40,6 +45,7 @@ import {
   fetchTags,
   fetchTasks,
   updateProject,
+  updateProjectEvent,
 } from "@/api/tasks";
 import { topOngoingTasksForProject } from "@/domain/tasks";
 import type {
@@ -390,23 +396,41 @@ export default function Projects() {
     }
   }
 
-  async function handleAddEvent({ title, startsAt }: { title: string; startsAt: string }) {
+  /**
+   * Cria ou edita conforme o `id` do rascunho (feature 068). O erro vira toast **e** é re-lançado:
+   * quem decide manter o `EventFormDialog` aberto é ele mesmo, pela rejeição de `onSave` — engolir a
+   * exceção aqui fecharia o dialog como se tivesse salvado.
+   */
+  async function handleSaveEvent(draft: ProjectEventSaveDraft) {
     if (!editing) return;
     try {
-      await createProjectEvent({
-        project_id: editing.id,
-        task_id: null,
-        title,
-        starts_at: new Date(startsAt).toISOString(),
-        ends_at: null,
-      });
+      if (draft.id) {
+        await updateProjectEvent({
+          id: draft.id,
+          title: draft.title,
+          starts_at: draft.starts_at,
+          ends_at: draft.ends_at,
+        });
+      } else {
+        await createProjectEvent({
+          project_id: editing.id,
+          task_id: null,
+          title: draft.title,
+          starts_at: draft.starts_at,
+          ends_at: draft.ends_at,
+        });
+      }
       load();
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error, "Não foi possível adicionar o evento."),
+        description: getErrorMessage(
+          error,
+          draft.id ? "Não foi possível salvar o evento." : "Não foi possível adicionar o evento."
+        ),
         variant: "destructive",
       });
+      throw error;
     }
   }
 
@@ -534,8 +558,9 @@ export default function Projects() {
         tags={tags}
         onCreateTag={handleCreateTag}
         events={editing ? (eventsByProject.get(editing.id) ?? []) : []}
+        tasks={tasks}
         onSave={handleSave}
-        onAddEvent={handleAddEvent}
+        onSaveEvent={handleSaveEvent}
         onDeleteEvent={handleDeleteEvent}
       />
     </PageShell>

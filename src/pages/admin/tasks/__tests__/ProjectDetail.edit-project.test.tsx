@@ -12,6 +12,7 @@ import {
   fetchTags,
   fetchTasks,
   updateProject,
+  updateProjectEvent,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
 import type { Project, ProjectEvent, Task } from "@/types/tasks";
@@ -38,6 +39,7 @@ vi.mock("@/api/tasks", () => ({
   uploadTaskIcon: vi.fn(),
   updateProject: vi.fn(),
   createProjectEvent: vi.fn(),
+  updateProjectEvent: vi.fn(),
   deleteProjectEvent: vi.fn(),
 }));
 
@@ -65,6 +67,7 @@ const mockedFetchRecurringTransactions = vi.mocked(fetchRecurringTransactions);
 const mockedFetchProjectEvents = vi.mocked(fetchProjectEvents);
 const mockedUpdateProject = vi.mocked(updateProject);
 const mockedCreateProjectEvent = vi.mocked(createProjectEvent);
+const mockedUpdateProjectEvent = vi.mocked(updateProjectEvent);
 const mockedDeleteProjectEvent = vi.mocked(deleteProjectEvent);
 
 function makeProject(overrides: Partial<Project> = {}): Project {
@@ -114,6 +117,7 @@ describe("ProjectDetail — editar projeto", () => {
     toastMock.mockReset();
     mockedUpdateProject.mockReset();
     mockedCreateProjectEvent.mockReset();
+    mockedUpdateProjectEvent.mockReset();
     mockedDeleteProjectEvent.mockReset();
     mockedFetchProjectById.mockReset();
     mockedFetchTasks.mockReset();
@@ -153,22 +157,56 @@ describe("ProjectDetail — editar projeto", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("adicionar um evento chama createProjectEvent com o project_id correto", async () => {
+  it("adicionar um evento passa pelo EventFormDialog e chama createProjectEvent com o project_id correto", async () => {
     const user = userEvent.setup();
     const project = makeProject();
     mockedCreateProjectEvent.mockResolvedValue(makeEvent());
     await renderDetail(project);
 
     await user.click(screen.getByRole("button", { name: "Editar projeto" }));
-    const dialog = within(screen.getByRole("dialog"));
-    await user.type(dialog.getByPlaceholderText("Título"), "Reunião mensal");
-    const dateInput = document.querySelector('input[type="datetime-local"]') as HTMLInputElement;
-    await user.type(dateInput, "2026-09-01T10:00");
-    await user.click(dialog.getByRole("button", { name: "Adicionar evento" }));
+    await user.click(screen.getByRole("button", { name: "Adicionar evento" }));
+    // Feature 068: o mini-form inline virou o mesmo dialog de evento da Agenda.
+    await screen.findByText("Novo evento");
+    await user.type(screen.getByLabelText(/^Título/), "Reunião mensal");
+    await user.type(screen.getByLabelText(/^Início/), "2026-09-01T10:00");
+    await user.type(screen.getByLabelText(/^Fim/), "2026-09-01T11:00");
+    await user.click(screen.getByRole("button", { name: "Criar evento" }));
 
-    expect(mockedCreateProjectEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ project_id: PROJECT_ID, title: "Reunião mensal" })
+    await waitFor(() =>
+      expect(mockedCreateProjectEvent).toHaveBeenCalledWith({
+        project_id: PROJECT_ID,
+        task_id: null,
+        title: "Reunião mensal",
+        starts_at: new Date(2026, 8, 1, 10, 0).toISOString(),
+        // O `ends_at: null` fixo do mini-form antigo virou o fim de verdade do rascunho.
+        ends_at: new Date(2026, 8, 1, 11, 0).toISOString(),
+      })
     );
+  });
+
+  it("editar um evento existente chama updateProjectEvent com o id do evento", async () => {
+    const user = userEvent.setup();
+    const project = makeProject();
+    const starts = new Date(2026, 7, 20, 14, 0);
+    mockedUpdateProjectEvent.mockResolvedValue(makeEvent());
+    await renderDetail(project, [], [makeEvent({ starts_at: starts.toISOString() })]);
+
+    await user.click(screen.getByRole("button", { name: "Editar projeto" }));
+    await user.click(screen.getByRole("button", { name: "Editar evento Reunião semanal" }));
+    const title = await screen.findByLabelText(/^Título/);
+    await user.clear(title);
+    await user.type(title, "Reunião quinzenal");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(mockedUpdateProjectEvent).toHaveBeenCalledWith({
+        id: "event-1",
+        title: "Reunião quinzenal",
+        starts_at: starts.toISOString(),
+        ends_at: null,
+      })
+    );
+    expect(mockedCreateProjectEvent).not.toHaveBeenCalled();
   });
 
   it("excluir um evento existente chama deleteProjectEvent com o id do evento", async () => {
@@ -181,8 +219,7 @@ describe("ProjectDetail — editar projeto", () => {
     await user.click(screen.getByRole("button", { name: "Editar projeto" }));
     const dialog = within(screen.getByRole("dialog"));
     expect(dialog.getByText(/Reunião semanal/)).toBeInTheDocument();
-    const eventRow = dialog.getByText(/Reunião semanal/).closest("div")!;
-    await user.click(eventRow.querySelector("button")!);
+    await user.click(dialog.getByRole("button", { name: "Excluir evento Reunião semanal" }));
 
     expect(mockedDeleteProjectEvent).toHaveBeenCalledWith("event-1");
   });

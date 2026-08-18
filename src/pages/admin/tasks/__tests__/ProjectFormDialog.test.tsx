@@ -2,8 +2,11 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ProjectFormDialog } from "@/pages/admin/tasks/ProjectFormDialog";
-import type { Project, ProjectCreateRequest, ProjectEvent, Tag } from "@/types/tasks";
+import {
+  ProjectFormDialog,
+  type ProjectEventSaveDraft,
+} from "@/pages/admin/tasks/ProjectFormDialog";
+import type { Project, ProjectCreateRequest, ProjectEvent, Tag, Task } from "@/types/tasks";
 
 /**
  * Feature 050 — `ProjectFormDialog.tsx` extrai o dialog de criar/editar projeto que vivia inline
@@ -12,6 +15,9 @@ import type { Project, ProjectCreateRequest, ProjectEvent, Tag } from "@/types/t
  * ao salvar não fecha o dialog (o componente não sabe *por que* falhou — isso é responsabilidade
  * de quem chama via `onSave` — só garante que `open` continua controlado por fora e o botão volta
  * a ficar habilitado).
+ *
+ * Feature 068 — a seção de Eventos deixou de ter mini-form próprio e passou a abrir o
+ * `EventFormDialog` (o mesmo da Agenda), com um handler só (`onSaveEvent`) para criar e editar.
  */
 
 const emptyForm = (): ProjectCreateRequest => ({
@@ -43,6 +49,7 @@ function makeEvent(overrides: Partial<ProjectEvent> = {}): ProjectEvent {
     task_id: null,
     title: "Reunião semanal",
     starts_at: "2026-08-20T14:00:00.000Z",
+    ends_at: null,
     ...overrides,
   };
 }
@@ -53,17 +60,19 @@ function Harness({
   editing = null,
   initialForm,
   events = [],
+  tasks = [],
   tags = [],
   onSave = vi.fn(),
-  onAddEvent = vi.fn(),
+  onSaveEvent = vi.fn(),
   onDeleteEvent = vi.fn(),
 }: {
   editing?: Project | null;
   initialForm?: ProjectCreateRequest;
   events?: ProjectEvent[];
+  tasks?: Task[];
   tags?: Tag[];
   onSave?: () => Promise<void> | void;
-  onAddEvent?: (payload: { title: string; startsAt: string }) => Promise<void> | void;
+  onSaveEvent?: (draft: ProjectEventSaveDraft) => Promise<void> | void;
   onDeleteEvent?: (id: string) => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(true);
@@ -79,8 +88,9 @@ function Harness({
       tags={tags}
       onCreateTag={vi.fn()}
       events={events}
+      tasks={tasks}
       onSave={onSave}
-      onAddEvent={onAddEvent}
+      onSaveEvent={onSaveEvent}
       onDeleteEvent={onDeleteEvent}
     />
   );
@@ -137,17 +147,69 @@ describe("ProjectFormDialog", () => {
     expect(screen.getByText(/Eventos/)).toBeInTheDocument();
   });
 
-  it("adicionar evento chama onAddEvent com título e data preenchidos", async () => {
+  it("o '+' abre o EventFormDialog e salvar chama onSaveEvent sem id, com o fim preenchido", async () => {
     const user = userEvent.setup();
-    const onAddEvent = vi.fn().mockResolvedValue(undefined);
-    render(<Harness editing={makeProject()} onAddEvent={onAddEvent} />);
+    const onSaveEvent = vi.fn().mockResolvedValue(undefined);
+    render(<Harness editing={makeProject()} onSaveEvent={onSaveEvent} />);
 
-    await user.type(screen.getByPlaceholderText("Título"), "Reunião mensal");
-    const dateInput = document.querySelector('input[type="datetime-local"]') as HTMLInputElement;
-    await user.type(dateInput, "2026-09-01T10:00");
+    // O mini-form inline (título + datetime-local soltos) deixou de existir na 068.
+    expect(screen.queryByPlaceholderText("Título")).not.toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: "Adicionar evento" }));
+    expect(await screen.findByText("Novo evento")).toBeInTheDocument();
 
-    expect(onAddEvent).toHaveBeenCalledWith({ title: "Reunião mensal", startsAt: "2026-09-01T10:00" });
+    await user.type(screen.getByLabelText(/^Título/), "Reunião mensal");
+    await user.type(screen.getByLabelText(/^Início/), "2026-09-01T10:00");
+    await user.type(screen.getByLabelText(/^Fim/), "2026-09-01T11:00");
+    await user.click(screen.getByRole("button", { name: "Criar evento" }));
+
+    expect(onSaveEvent).toHaveBeenCalledWith({
+      id: undefined,
+      title: "Reunião mensal",
+      starts_at: new Date(2026, 8, 1, 10, 0).toISOString(),
+      ends_at: new Date(2026, 8, 1, 11, 0).toISOString(),
+    });
+  });
+
+  it("o lápis de um evento existente abre o form preenchido e salvar manda o id", async () => {
+    const user = userEvent.setup();
+    const onSaveEvent = vi.fn().mockResolvedValue(undefined);
+    const starts = new Date(2026, 7, 20, 14, 0);
+    render(
+      <Harness
+        editing={makeProject()}
+        events={[makeEvent({ starts_at: starts.toISOString() })]}
+        onSaveEvent={onSaveEvent}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Editar evento Reunião semanal" }));
+    expect(await screen.findByText("Editar evento")).toBeInTheDocument();
+
+    const title = screen.getByLabelText(/^Título/);
+    expect(title).toHaveValue("Reunião semanal");
+    expect(screen.getByLabelText(/^Início/)).toHaveValue("2026-08-20T14:00");
+    await user.clear(title);
+    await user.type(title, "Reunião quinzenal");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    expect(onSaveEvent).toHaveBeenCalledWith({
+      id: "event-1",
+      title: "Reunião quinzenal",
+      starts_at: starts.toISOString(),
+      ends_at: null,
+    });
+  });
+
+  it("o seletor de vínculo não aparece no dialog de evento do projeto (lockedLink)", async () => {
+    const user = userEvent.setup();
+    render(<Harness editing={makeProject()} />);
+
+    await user.click(screen.getByRole("button", { name: "Adicionar evento" }));
+    await screen.findByText("Novo evento");
+
+    expect(screen.queryByRole("tab", { name: "Projeto" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Tarefa" })).not.toBeInTheDocument();
   });
 
   it("excluir um evento existente chama onDeleteEvent com o id", async () => {
@@ -157,9 +219,7 @@ describe("ProjectFormDialog", () => {
     render(<Harness editing={makeProject()} events={[event]} onDeleteEvent={onDeleteEvent} />);
 
     expect(screen.getByText(/Reunião semanal/)).toBeInTheDocument();
-    // Único botão de ícone dentro da linha do evento — o de excluir.
-    const eventRow = screen.getByText(/Reunião semanal/).closest("div")!;
-    await user.click(eventRow.querySelector("button")!);
+    await user.click(screen.getByRole("button", { name: "Excluir evento Reunião semanal" }));
 
     expect(onDeleteEvent).toHaveBeenCalledWith("event-1");
   });

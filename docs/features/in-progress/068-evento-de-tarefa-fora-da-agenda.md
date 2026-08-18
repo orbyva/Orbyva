@@ -52,11 +52,11 @@ registrado aqui como candidato futuro.
   desatualizada.
 
 ## Tarefas
-- [ ] Trocar as props de evento de `ProjectFormDialog.tsx`: `onAddEvent` sai, entram
+- [x] Trocar as props de evento de `ProjectFormDialog.tsx`: `onAddEvent` sai, entram
   `onSaveEvent(draft: { id?: string; title: string; starts_at: string; ends_at: string | null })` e
   `tasks: Task[]` (para o `EventFormDialog` resolver o título da tarefa vinculada); `onDeleteEvent`
   continua
-- [ ] Substituir o mini-form inline de `ProjectFormDialog.tsx` (linhas ~183-206) pelo
+- [x] Substituir o mini-form inline de `ProjectFormDialog.tsx` (linhas ~183-206) pelo
   `EventFormDialog` com `lockedLink` no projeto em edição: botão "+" abre em modo criação, lápis em
   cada evento abre em modo edição, remover o estado `eventTitle`/`eventStartsAt`
 - [ ] Em `ProjectFormDialog.tsx`, marcar na lista os eventos herdados (vínculo por tarefa): legenda
@@ -94,3 +94,11 @@ registrado aqui como candidato futuro.
 ## Prompts
 
 ## Notas
+- As duas primeiras tarefas saíram no mesmo commit e já levaram junto a parte de `Projects.tsx`/
+  `ProjectDetail.tsx` que só renomeia o handler (`handleSaveEvent`/`handleSaveProjectEvent`, com
+  create/update e o `ends_at` do rascunho): trocar a prop `onAddEvent` por `onSaveEvent` quebra o
+  `tsc` nos dois call sites, então não havia como verificar a primeira tarefa isolada. O que ficou
+  para as tarefas 4 e 5 é o que elas têm de próprio — `resolveEventProjectId` no agrupamento/filtro.
+- Os dois handlers de `onSaveEvent` re-lançam o erro depois do toast, como o `handleSaveEvent` da
+  Agenda (feature 067): é a rejeição de `onSave` que mantém o `EventFormDialog` aberto com o que foi
+  digitado; engolir a exceção fecharia o dialog como se tivesse salvado.
