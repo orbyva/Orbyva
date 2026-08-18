@@ -94,6 +94,25 @@ function makeEvent(overrides: Partial<ProjectEvent> = {}): ProjectEvent {
   };
 }
 
+function makeTask(overrides: Partial<Task> = {}): Task {
+  return {
+    id: "task-1",
+    project_id: PROJECT_ID,
+    parent_task_id: null,
+    recurrence_origin_id: null,
+    title: "Comprar cimento",
+    status: "todo",
+    tag_ids: [],
+    due_date: null,
+    due_time: null,
+    recurrence_rule: null,
+    linked_recurring_id: null,
+    linked_installment_number: null,
+    priority: null,
+    ...overrides,
+  };
+}
+
 async function renderDetail(project: Project, tasks: Task[] = [], events: ProjectEvent[] = []) {
   mockedFetchProjectById.mockResolvedValue(project);
   mockedFetchTasks.mockResolvedValue(tasks);
@@ -222,6 +241,53 @@ describe("ProjectDetail — editar projeto", () => {
     await user.click(dialog.getByRole("button", { name: "Excluir evento Reunião semanal" }));
 
     expect(mockedDeleteProjectEvent).toHaveBeenCalledWith("event-1");
+  });
+
+  it("evento vinculado a uma tarefa do projeto aparece na lista de eventos da tela", async () => {
+    const user = userEvent.setup();
+    const project = makeProject();
+    const task = makeTask();
+    await renderDetail(
+      project,
+      [task],
+      [
+        // `project_id` nulo de propósito (066: projeto derivado da tarefa) — sem
+        // `resolveEventProjectId` este evento sumiria da tela do projeto.
+        makeEvent({ id: "event-2", project_id: null, task_id: task.id, title: "Reunião do cimento" }),
+      ]
+    );
+
+    await user.click(screen.getByRole("button", { name: "Editar projeto" }));
+    const dialog = within(screen.getByRole("dialog"));
+
+    expect(dialog.getByText(/Reunião do cimento/)).toBeInTheDocument();
+    // Herdado: aparece com a origem e sem os botões de editar/excluir.
+    expect(dialog.getByText(/via Comprar cimento/)).toBeInTheDocument();
+    expect(
+      dialog.queryByRole("button", { name: "Editar evento Reunião do cimento" })
+    ).not.toBeInTheDocument();
+    expect(
+      dialog.queryByRole("button", { name: "Excluir evento Reunião do cimento" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("evento avulso e evento de tarefa de outro projeto ficam de fora da tela", async () => {
+    const user = userEvent.setup();
+    const project = makeProject();
+    await renderDetail(
+      project,
+      [makeTask(), makeTask({ id: "task-2", project_id: "outro-projeto", title: "Tarefa alheia" })],
+      [
+        makeEvent({ id: "event-3", project_id: null, title: "Dentista" }),
+        makeEvent({ id: "event-4", project_id: null, task_id: "task-2", title: "Reunião alheia" }),
+      ]
+    );
+
+    await user.click(screen.getByRole("button", { name: "Editar projeto" }));
+    const dialog = within(screen.getByRole("dialog"));
+
+    expect(dialog.queryByText(/Dentista/)).not.toBeInTheDocument();
+    expect(dialog.queryByText(/Reunião alheia/)).not.toBeInTheDocument();
   });
 
   it("erro ao salvar mostra toast e mantém o dialog aberto", async () => {

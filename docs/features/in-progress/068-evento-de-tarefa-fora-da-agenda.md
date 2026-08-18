@@ -65,7 +65,7 @@ registrado aqui como candidato futuro.
   (com o mapa `taskById` montado a partir das tarefas já carregadas); `handleAddEvent` vira
   `handleSaveEvent` chamando `createProjectEvent` ou `updateProjectEvent` conforme houver `id`,
   preservando o `ends_at` do rascunho em vez do `null` fixo
-- [ ] Em `ProjectDetail.tsx`: o filtro `eventList.filter((e) => e.project_id === id)` passa a usar
+- [x] Em `ProjectDetail.tsx`: o filtro `eventList.filter((e) => e.project_id === id)` passa a usar
   `resolveEventProjectId`; `handleAddProjectEvent` vira `handleSaveProjectEvent` (create/update,
   `ends_at` do rascunho), mantendo os toasts existentes
 - [ ] Em `EventFormDialog.tsx`: quando `editing?.task_id` existir, mostrar o título da tarefa e o

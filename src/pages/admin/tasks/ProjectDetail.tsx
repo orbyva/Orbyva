@@ -79,6 +79,7 @@ import {
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
   isSubtaskDueDateValid,
+  resolveEventProjectId,
   sortTasksByCompletedAtDesc,
   sortTasksByDueDate,
 } from "@/domain/tasks";
@@ -197,7 +198,11 @@ export default function ProjectDetail() {
       setDependencies(dependencyList);
       setTags(tagList);
       setRecurrings(recurringList);
-      setProjectEvents(eventList.filter((e) => e.project_id === id));
+      // Evento de tarefa conta como evento do projeto da tarefa (feature 068): o `project_id` da
+      // linha é nulo por decisão da 066 (projeto derivado), então o filtro precisa resolver o
+      // vínculo indireto — pelo mapa de **todas** as tarefas, não só as deste projeto.
+      const taskById = new Map(taskList.map((t) => [t.id, t]));
+      setProjectEvents(eventList.filter((e) => resolveEventProjectId(e, taskById) === id));
     } catch (error) {
       toast({
         title: "Erro",
