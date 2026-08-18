@@ -16,7 +16,7 @@ const SCATTERED = [
 
 const ROWS = [
   {
-    label: "Teto do mês e o que ainda cabe gastar",
+    label: "Teto do mês e o que ainda dá para gastar",
     many: "partial",
     orbyva: true,
   },

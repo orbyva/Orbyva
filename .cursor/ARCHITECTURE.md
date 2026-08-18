@@ -78,7 +78,7 @@ A sidebar agrupa quatro blocos. Cada módulo tende a ter: página(s) em `pages/a
 | Entretenimento | Cinema, livros, música | `/movies`, `/books`, `/music` |
 | Vida | Hábitos, metas, lugares, viagens, veículos | `/habits`, `/goals`, `/places`, `/travel`, `/car` |
 
-Rotas públicas/marketing: `/`, `/quanto-ainda-cabe` (alias `/cabe-no-mes`), `/login`, `/about`, `/terms`, `/privacy`, `/invite/:code`. Ops interno: `/ops` (fora do menu). Páginas `/about`, `/terms` e `/privacy` usam o shell público (`components/PublicPageShell`) alinhado à landing.
+Rotas públicas/marketing: `/`, `/dentro-do-orcamento` (aliases `/quanto-ainda-cabe` e `/cabe-no-mes`), `/login`, `/about`, `/terms`, `/privacy`, `/invite/:code`. Ops interno: `/ops` (fora do menu). Painel da extensão: `/ext` (autenticado, sem AdminLayout). Páginas `/about`, `/terms` e `/privacy` usam o shell público (`components/PublicPageShell`) alinhado à landing.
 
 Abaixo: o que cada módulo faz, onde vive no código e **APIs externas / Edge** quando aplicável. Persistência do usuário é sempre **Supabase Postgres + RLS** (salvo indicação contrária).
 
@@ -86,17 +86,25 @@ Abaixo: o que cada módulo faz, onde vive no código e **APIs externas / Edge** 
 
 #### Landing (`/`)
 
-Marketing do life OS, planos (trial 7 dias → Pro) e isca **Quanto ainda cabe no mês**.
+Marketing do life OS, planos (trial 7 dias → Pro) e isca **Está dentro do orçamento?**.
 
 * **Código:** `pages/Landing` / `pages/landing/`; UI de marketing em `components/landing/` + registries Cult UI / Skiper UI / OriginKit (`components/cult-ui`, `components/ui/skiper-ui`, `components/originkit`)
 * **APIs:** CTA de cadastro (`/login?mode=signup`) e checkout Pro (ver Conta / billing). Sem captura de waitlist no client.
 
-#### Quanto ainda cabe no mês (`/quanto-ainda-cabe`)
+#### Está dentro do orçamento? (`/dentro-do-orcamento`)
 
-Ferramenta pública (sem login): renda + contas fixas + compra opcional → cabe / aperta / não cabe. Depois do resultado, CTA para o teste (signup). Números da calculadora não são persistidos.
+Ferramenta pública (sem login): renda + contas fixas + compra opcional → dentro / aperta / fora. Depois do resultado, CTA para o teste (signup). Números da calculadora não são persistidos.
 
 * **Código:** `pages/QuantoAindaCabe`; regra em `domain/marketing/cabeNoMes.ts`
-* **APIs:** nenhuma (cálculo local). Alias `/cabe-no-mes` redireciona.
+* **APIs:** nenhuma (cálculo local). Aliases `/quanto-ainda-cabe` e `/cabe-no-mes` redirecionam.
+
+#### Painel da extensão (`/ext`)
+
+UI estreita para o side panel do Chrome: hábitos do dia, restante do orçamento, captura da aba (cinema, livros, música, lugares) e “está dentro do orçamento?” em páginas de produto (à vista + simulação de parcelamento). Sem AdminLayout.
+
+* **Código:** `pages/admin/extension/ExtensionPanel`; classificação em `domain/extension/`; captura em `lib/extensionCapture.ts`; bridge em `hooks/useExtensionPageContext.ts`
+* **Extensão:** pasta `extension/` (Manifest V3). O painel é um iframe de `/ext` (mesma sessão Supabase). CSP de `/ext` permite `frame-ancestors chrome-extension:`.
+* **Fora do v1:** Read Later, lista de compras, tarefas/projetos, coleções de sites (módulos ainda não prontos no app).
 
 #### Dashboard / hub (`/home`)
 
@@ -247,7 +255,7 @@ Detalhe de produto/UX por tela: [`README.md`](../README.md) (seção Módulos).
 
 * Entrada: `main.tsx` → `routes.tsx` (React Router v7 + `createBrowserRouter`).
 * App autenticado atrás de `AuthRoot` (lazy) + `ProtectedRoute` + `useAuth`.
-* Landing (`/`) sem Supabase no grafo; LCP é o `<img id="boot-lcp">` do HTML (o nó permanece no `#boot`; o React só posiciona com CSS).
+* Landing (`/`) sem Supabase no grafo; `/marketing/hub.webp` em preload, o print do hero é o `<img>` do carrossel (sem overlay HTML).
 * Listas de cinema/livros/música: cache em memória (`lib/memoryCache` + `useCachedCatalog`) com revalidação.
 * PWA: `vite-plugin-pwa`; budget de bundle: `npm run check:bundle`.
 * `/llms.txt` estático em `public/llms.txt` (Markdown: H1 + listas com links). O SW não faz fallback da SPA nesse path.
@@ -332,6 +340,7 @@ Cinema e Livros seguem o mesmo padrão: catálogo + cache + share card (`lib/*Sh
 
 ```
 /public                 Assets estáticos (logo, marketing)
+/extension              Extensão Chrome (side panel → `/ext`)
 /e2e                    Playwright + helpers (auth, cleanup E2E*)
 /scripts                ci-local, bundle budget, minify SW
 /docs                   Planejamento (improve, planning-features, …)

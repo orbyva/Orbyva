@@ -17,7 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const DESCRIPTION =
-  "Renda, contas fixas e o valor da compra. Em segundos você vê se ainda cabe no mês, sem criar conta.";
+  "Renda, contas fixas e o valor da compra. Em segundos você vê se está dentro do orçamento, sem criar conta.";
 
 const moneyFieldClass =
   "h-12 border-white/15 bg-white/5 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-sky-400/40";

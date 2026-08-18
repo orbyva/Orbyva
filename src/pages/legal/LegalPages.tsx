@@ -149,7 +149,7 @@ export function PrivacyPage() {
         <LegalList
           items={[
             "Dados de autenticação (nome, e-mail e foto via Google OAuth)",
-            "E-mail informado na ferramenta pública “Quanto ainda cabe no mês”, para a sequência curta de aquecimento (não guardamos os valores digitados)",
+            "E-mail informado na ferramenta pública “Está dentro do orçamento?”, para a sequência curta de aquecimento (não guardamos os valores digitados)",
             "Conteúdo que você cria (lançamentos, orçamento, recorrências, hábitos, metas, viagens, lugares, cinema, livros, música, veículos etc.)",
             "Preferências de conta e de e-mail (quando disponíveis na Conta)",
             "Código de indicação, se você chegou por convite",

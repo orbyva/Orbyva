@@ -10,6 +10,7 @@ import { BRAND } from "@/lib/brand";
 import { supabase } from "@/lib/supabase";
 import { track } from "@/lib/analytics";
 import { getErrorMessage } from "@/lib/errors";
+import { safePostAuthPath } from "@/lib/authRedirect";
 
 type AuthMode = "login" | "signup" | "forgot" | "recovery";
 
@@ -37,6 +38,7 @@ export function LoginForm({
 }: React.ComponentProps<"div">) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const afterAuth = safePostAuthPath(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<AuthMode>(() =>
@@ -149,7 +151,7 @@ export function LoginForm({
       });
       if (updateError) throw updateError;
       track("password_reset_complete");
-      navigate("/home", { replace: true });
+      navigate(afterAuth, { replace: true });
     } catch (err) {
       setError(getErrorMessage(err, "Não foi possível salvar a nova senha."));
     } finally {
@@ -170,7 +172,7 @@ export function LoginForm({
           password,
         });
         if (signError) throw signError;
-        navigate("/home", { replace: true });
+        navigate(afterAuth, { replace: true });
         return;
       }
 
@@ -184,7 +186,7 @@ export function LoginForm({
       });
       if (signUpError) throw signUpError;
       if (data.session) {
-        navigate("/home", { replace: true });
+        navigate(afterAuth, { replace: true });
         return;
       }
       setMessage(

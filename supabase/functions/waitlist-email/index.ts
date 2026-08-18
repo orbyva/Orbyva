@@ -65,9 +65,9 @@ const WAITLIST_KINDS: Record<Kind, MailCopy> = {
 const CABE_KINDS: Record<Kind, MailCopy> = {
   welcome: {
     sentCol: "welcome_sent_at",
-    subject: "Quanto ainda cabe no mês · o recorte que você viu",
+    subject: "Está dentro do orçamento? · o recorte que você viu",
     title: (g) => `${g}, no app isso atualiza sozinho`,
-    body: "Você acabou de ver quanto ainda cabe no mês. No Orbyva, lançamentos, contas e orçamento ficam na mesma órbita, e o restante muda com o mês real. 7 dias grátis, sem cartão.",
+    body: "Você acabou de ver se a compra está dentro do orçamento. No Orbyva, lançamentos, contas e orçamento ficam na mesma órbita, e o restante muda com o mês real. 7 dias grátis, sem cartão.",
     cta: "Começar grátis",
     path: "/login?mode=signup",
   },
@@ -83,7 +83,7 @@ const CABE_KINDS: Record<Kind, MailCopy> = {
     sentCol: "nurture_d7_sent_at",
     subject: "Orbyva · 7 dias para o mês atualizar sozinho",
     title: (g) => `${g}, o teste é curto de propósito`,
-    body: "No Orbyva o restante do mês não é uma conta avulsa: entra lançamento, conta e orçamento, e você vê o que ainda cabe. 7 dias grátis; depois Pro, se fizer sentido.",
+    body: "No Orbyva o restante do mês não é uma conta avulsa: entra lançamento, conta e orçamento, e você vê se está dentro do orçamento. 7 dias grátis; depois Pro, se fizer sentido.",
     cta: "Começar o teste",
     path: "/login?mode=signup",
   },
@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
       const html = emailShell({
         eyebrow:
           row.source === CABE_SOURCE
-            ? "Orbyva · Quanto ainda cabe no mês"
+            ? "Orbyva · Está dentro do orçamento?"
             : "Orbyva · Waitlist",
         title: meta.title(greet),
         bodyHtml: `<p style="margin:0;">${meta.body}</p>`,
@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
         ctaUrl: `${siteUrl}${meta.path}`,
         footer:
           row.source === CABE_SOURCE
-            ? "Você recebeu isto porque usou a ferramenta Quanto ainda cabe no mês. Se não pediu, ignore."
+            ? "Você recebeu isto porque usou a ferramenta Está dentro do orçamento?. Se não pediu, ignore."
             : "Você recebeu isto por estar na waitlist do Orbyva. Se não pediu, ignore.",
       });
 

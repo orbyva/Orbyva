@@ -36,7 +36,7 @@ export function AboutPage() {
   useDocumentMeta({
     title: "Sobre o Orbyva",
     description:
-      "Life OS brasileiro: saiba o que cabe no mês e organize hábitos, metas, viagens, lugares, cinema, livros, música e veículos numa só órbita.",
+      "Life OS brasileiro: veja se está dentro do orçamento e organize hábitos, metas, viagens, lugares, cinema, livros, música e veículos numa só órbita.",
     path: "/about",
     image: "https://orbyva.app/marketing/hub.png",
   });
@@ -60,7 +60,7 @@ export function AboutPage() {
         <p>
           Abrir um app para o cartão, outro para o hábito, outro para a viagem e
           outro para a watchlist cansa. O {BRAND.name} nasceu para juntar o
-          controle do mês, o que ainda cabe gastar, contas e o saldo, com o resto
+          controle do mês, o que ainda dá para gastar, contas e o saldo, com o resto
           da vida real, sem pedir senha de banco.
         </p>
       </PublicSection>

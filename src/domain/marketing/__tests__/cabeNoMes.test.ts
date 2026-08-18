@@ -16,7 +16,7 @@ describe("evaluateCabeNoMes", () => {
     ).toBeNull();
   });
 
-  it("mostra o restante quando a compra cabe com folga", () => {
+  it("mostra o restante quando a compra entra com folga", () => {
     const result = evaluateCabeNoMes(
       { income: 5000, bills: 2000, purchase: 800 },
       AUG
@@ -46,17 +46,17 @@ describe("evaluateCabeNoMes", () => {
     expect(result?.remaining).toBe(300);
   });
 
-  it("não cabe quando a compra passa do restante", () => {
+  it("não entra quando a compra passa do restante", () => {
     const result = evaluateCabeNoMes(
       { income: 3000, bills: 2000, purchase: 1500 },
       AUG
     );
     expect(result?.verdict).toBe("nao_cabe");
     expect(result?.remaining).toBe(-500);
-    expect(result?.headline).toMatch(/não cabe/i);
+    expect(result?.headline).toMatch(/fora do orçamento/i);
   });
 
-  it("não cabe quando as contas passam da renda", () => {
+  it("não entra quando as contas passam da renda", () => {
     const result = evaluateCabeNoMes(
       { income: 2000, bills: 2500, purchase: 0 },
       AUG
@@ -72,7 +72,7 @@ describe("evaluateCabeNoMes", () => {
     );
     expect(result).not.toBeNull();
     const text = cabeNoMesShareText(result!);
-    expect(text).toContain("Quanto ainda cabe no mês");
-    expect(text).toContain("orbyva.app/quanto-ainda-cabe");
+    expect(text).toContain("Está dentro do orçamento?");
+    expect(text).toContain("orbyva.app/dentro-do-orcamento");
   });
 });

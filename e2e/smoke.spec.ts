@@ -5,7 +5,7 @@ test.describe("smoke público", () => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: "Orbyva" }).first()).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: /cabe no mês|órbita|organize/i }).first()
+      page.getByRole("heading", { name: /orçamento|órbita|organize/i }).first()
     ).toBeVisible();
     // Sem Stripe no CI → "Entrar na lista"; com billing → Começar/Abrir app
     await expect(
@@ -15,6 +15,12 @@ test.describe("smoke público", () => {
         })
         .first()
     ).toBeVisible();
+  });
+
+  test("landing esconde o shell HTML depois do carrossel", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Próximo" })).toBeVisible();
+    await expect(page.locator("#boot")).toBeHidden();
   });
 
   test("landing mostra planos com preço Pro", async ({ page }) => {
@@ -51,5 +57,12 @@ test.describe("smoke público", () => {
   test("landing FAQ está acessível", async ({ page }) => {
     await page.goto("/#faq");
     await expect(page.locator("#faq")).toBeVisible();
+  });
+
+  test("ferramenta pública de orçamento abre", async ({ page }) => {
+    await page.goto("/dentro-do-orcamento");
+    await expect(
+      page.getByRole("heading", { name: /dentro do orçamento/i }).first()
+    ).toBeVisible();
   });
 });
