@@ -71,17 +71,17 @@ registrado aqui como candidato futuro.
 - [x] Em `EventFormDialog.tsx`: quando `editing?.task_id` existir, mostrar o título da tarefa e o
   botão "Ir para a tarefa" disparando a prop nova `onOpenTask?(taskId)`; sem a prop ou sem a tarefa
   carregada, renderizar um `Link` para `/tasks`
-- [ ] Em `AgendaGrid.tsx`: passar `onOpenTask` para o `EventFormDialog`, fechando o dialog de evento
+- [x] Em `AgendaGrid.tsx`: passar `onOpenTask` para o `EventFormDialog`, fechando o dialog de evento
   e chamando `openTaskFromChip` com a tarefa correspondente
-- [ ] Atualizar `src/pages/admin/tasks/__tests__/ProjectFormDialog.test.tsx`: adicionar evento agora
+- [x] Atualizar `src/pages/admin/tasks/__tests__/ProjectFormDialog.test.tsx`: adicionar evento agora
   chama `onSaveEvent` sem `id` (com `ends_at` quando preenchido); editar um evento existente chama
   `onSaveEvent` com o `id`; evento herdado de tarefa aparece com a legenda e sem os botões de
   editar/excluir; excluir continua chamando `onDeleteEvent`
-- [ ] Atualizar `src/pages/admin/tasks/__tests__/ProjectDetail.edit-project.test.tsx` para o novo
+- [x] Atualizar `src/pages/admin/tasks/__tests__/ProjectDetail.edit-project.test.tsx` para o novo
   fluxo (o caso "adicionar um evento chama createProjectEvent com o project_id correto" passa pelo
   `EventFormDialog`) e acrescentar um caso: evento vinculado a uma tarefa do projeto aparece na lista
   de eventos da tela de projeto
-- [ ] Acrescentar em `src/pages/admin/tasks/__tests__/AgendaGrid.events.test.tsx` (criado na 067) o
+- [x] Acrescentar em `src/pages/admin/tasks/__tests__/AgendaGrid.events.test.tsx` (criado na 067) o
   caso "Ir para a tarefa": abrir um evento com `task_id`, clicar no botão, e o form da tarefa abrir
   com o título dela
 - [ ] `npm run build`, `npm run lint` e `npm test` — sem erros novos e sem regressão nas suítes de
@@ -105,6 +105,13 @@ registrado aqui como candidato futuro.
   — o card mostra o evento da tarefa do projeto, e não mostra avulso nem evento de tarefa de outro
   projeto — e falha de verdade com o `e.project_id` cru no lugar de `resolveEventProjectId`
   (conferido trocando a linha e rodando: 2 dos 3 casos ficam vermelhos).
+- As tarefas de teste (8 a 10) foram escritas junto de cada tarefa de código, não no fim: sem
+  navegador, o teste é a única prova de que a mudança funciona, então cada commit já saiu com a
+  assertiva que o cobre. Elas só foram marcadas quando **todos** os casos listados nelas existiam.
+- `EventFormDialog.test.tsx` passou a renderizar o dialog dentro de um `MemoryRouter`: o fallback
+  "Ir para a tarefa" é um `Link`, e `react-router` exige contexto. Os quatro casos novos cobrem o
+  botão com `onOpenTask`, o link sem a prop, o link com a tarefa fora da lista carregada e o evento
+  sem tarefa (nada disso aparece).
 - Os dois handlers de `onSaveEvent` re-lançam o erro depois do toast, como o `handleSaveEvent` da
   Agenda (feature 067): é a rejeição de `onSave` que mantém o `EventFormDialog` aberto com o que foi
   digitado; engolir a exceção fecharia o dialog como se tivesse salvado.

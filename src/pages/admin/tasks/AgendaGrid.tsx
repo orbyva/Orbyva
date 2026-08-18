@@ -531,6 +531,17 @@ export function AgendaGrid() {
     setEventDialog({ open: false, editing: null, prefillStartsAt: null });
   }
 
+  /**
+   * "Ir para a tarefa" do dialog de evento (feature 068): fecha o evento e abre o form da própria
+   * tarefa aqui mesmo — navegar para `/tasks` jogaria o usuário para fora do calendário, que é o
+   * contexto em que ele estava olhando o compromisso.
+   */
+  function openTaskFromEventDialog(taskId: string) {
+    const task = taskById.get(taskId);
+    closeEventDialog();
+    if (task) openTaskFromChip(task);
+  }
+
   /** Abre o dialog em modo criação. `startsAt` (ISO) vem do dia/slot clicado; sem ele o usuário
    * escolhe a data no próprio form (botão "Novo evento" do header). */
   function openEventCreate(startsAt: string | null) {
@@ -821,6 +832,7 @@ export function AgendaGrid() {
         projects={projects}
         tasks={tasks}
         prefillStartsAt={eventDialog.prefillStartsAt}
+        onOpenTask={openTaskFromEventDialog}
         onSave={handleSaveEvent}
         onDelete={
           eventDialog.editing ? () => handleDeleteEvent(eventDialog.editing!.id) : undefined

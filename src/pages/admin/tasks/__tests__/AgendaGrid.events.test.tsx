@@ -341,6 +341,33 @@ describe("AgendaGrid — editar e excluir evento pelo mesmo dialog (feature 067)
   });
 });
 
+describe("AgendaGrid — 'Ir para a tarefa' no evento de tarefa (feature 068)", () => {
+  it("fecha o evento e abre o form da tarefa vinculada, sem sair da Agenda", async () => {
+    const user = userEvent.setup();
+    mockedFetchTasks.mockResolvedValue([
+      makeTask({ id: "task-1", project_id: null, title: "Comprar cimento" }),
+    ]);
+    mockedFetchProjectEvents.mockResolvedValue([
+      makeEvent({ id: "event-9", task_id: "task-1", title: "Reunião do cimento" }),
+    ]);
+    await renderLoaded();
+
+    await user.click(screen.getByRole("button", { name: "Reunião do cimento" }));
+    const eventDialog = await screen.findByRole("dialog");
+    expect(within(eventDialog).getByText(/Tarefa vinculada:/)).toHaveTextContent("Comprar cimento");
+
+    await user.click(within(eventDialog).getByRole("button", { name: /Ir para a tarefa/ }));
+
+    // O dialog que fica aberto é o da tarefa, com o título dela no form.
+    const taskDialog = await screen.findByRole("dialog");
+    expect(within(taskDialog).getByText("Editar tarefa")).toBeInTheDocument();
+    // O campo de título do form de tarefa (o `FormLabel` dele não tem `htmlFor`) já vem preenchido.
+    expect(within(taskDialog).getByDisplayValue("Comprar cimento")).toBeInTheDocument();
+    // E não é mais o dialog de evento: o campo de início do evento saiu da tela.
+    expect(screen.queryByLabelText(/^Início/)).not.toBeInTheDocument();
+  });
+});
+
 describe("AgendaGrid — filtro de projeto resolve o vínculo indireto (feature 067)", () => {
   /** O `Select` do filtro é o único combobox da tela com a agenda carregada e nenhum dialog aberto. */
   async function pickProjectFilter(user: ReturnType<typeof userEvent.setup>, option: string) {
