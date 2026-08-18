@@ -47,7 +47,7 @@ const STAGES: Record<
     sentCol: "retention_email_sent_at",
     subject: "Seu mês ainda está no Orbyva",
     title: (g) => `${g}, seu mês ainda tá aí`,
-    body: "Faz uma semana que você entrou. Orçamento, parcelas e o life OS continuam te esperando, leva 2 minutos para ver o que ainda cabe no mês.",
+    body: "Faz uma semana que você entrou. Orçamento, parcelas e o life OS continuam te esperando, leva 2 minutos para ver se o mês está dentro do orçamento.",
   },
   d14: {
     rpc: "retention_d14_email_candidates",

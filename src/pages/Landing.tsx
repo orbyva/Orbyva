@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Smartphone, Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -59,7 +59,7 @@ const NAV = [
 
 const TRUST = [
   "Parece 5 apps. Custa 1.",
-  "Quanto ainda cabe no mês",
+  "Está dentro do orçamento?",
   "7 dias grátis",
   "Life OS incluso",
   "Cancele em 1 clique",
@@ -149,7 +149,8 @@ export default function Landing() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    document.getElementById("boot")?.setAttribute("hidden", "");
     return () => {
       document.getElementById("boot")?.setAttribute("hidden", "");
     };
@@ -265,11 +266,11 @@ export default function Landing() {
             <p className="mt-3 text-xs text-zinc-500">{heroSub}</p>
             <p className="mt-2 text-xs text-zinc-500">
               <Link
-                to="/quanto-ainda-cabe"
+                to="/dentro-do-orcamento"
                 onClick={() => track("landing_cta_cabe_no_mes")}
                 className="text-sky-300/90 underline-offset-2 hover:text-sky-200 hover:underline"
               >
-                Ou veja quanto ainda no orçamento mensal, sem cadastro
+                Ou veja se está dentro do orçamento, sem cadastro
               </Link>
             </p>
           </div>
@@ -386,8 +387,8 @@ export default function Landing() {
             © {new Date().getFullYear()} {BRAND.name} · {BRAND.domain}
           </span>
           <div className="flex flex-wrap items-center gap-4">
-            <Link to="/quanto-ainda-cabe" className="hover:text-zinc-300">
-              Quanto ainda cabe no mês
+            <Link to="/dentro-do-orcamento" className="hover:text-zinc-300">
+              Está dentro do orçamento?
             </Link>
             <Link to="/about" className="hover:text-zinc-300">
               Sobre

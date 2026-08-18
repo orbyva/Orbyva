@@ -15,7 +15,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 A sidebar agrupa o app em quatro blocos:
 
 ### Início
-- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro); isca **Quanto ainda cabe no mês** (`/quanto-ainda-cabe`, sem login); marketing com motion OriginKit + Cult UI + Skiper UI (free); módulos por ícones (sem prints repetidos); card do cronômetro flutuante
+- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro); isca **Está dentro do orçamento?** (`/dentro-do-orcamento`, sem login; aliases `/quanto-ainda-cabe` e `/cabe-no-mes`); marketing com motion OriginKit + Cult UI + Skiper UI (free); módulos por ícones (sem prints repetidos); card do cronômetro flutuante
 - **Dashboard** (`/home`) — resumo do dia: hábitos, saldo, alertas, atalhos; botão **+** abre um popover compacto e formulários de criação no overlay (sem sair da tela, quando suportado)
 - **Timeline** (`/timeline`) — eventos agregados de todos os módulos
 
@@ -84,7 +84,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 ### Front: rotas e performance
 
 - `routes.tsx` — React Router v7; app atrás de `ProtectedRoute`
-- Landing (`/`) no grafo estático, sem Supabase; LCP é o `<img id="boot-lcp">` do HTML (o nó não é movido — `appendChild` zera o timestamp no Chrome)
+- Landing (`/`) no grafo estático, sem Supabase; `/marketing/hub.webp` em preload, o print do hero é o `<img>` do carrossel (sem overlay HTML por cima)
 - First paint da home: shell HTML + CSS crítico; `/marketing/hub.webp` em preload
 - Fontes latin-only; PWA registra o SW em idle
 - Listas de Cinema/Livros/Música: cache em memória (`memoryCache` + `useCachedCatalog`) com revalidação
@@ -123,6 +123,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 
 ```
 /public                 Assets estáticos (logo, marketing)
+/extension              Extensão Chrome (Manifest V3, side panel → `/ext`)
 /e2e                    Playwright + helpers (auth, cleanup E2E*)
 /scripts                ci-local, bundle budget, minify SW
 /supabase
@@ -152,8 +153,10 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 |------|------|
 | `/` | Landing |
 | `/about` | Sobre |
+| `/dentro-do-orcamento` | Ferramenta pública: está dentro do orçamento? |
 | `/login` | Login |
 | `/home` | Hub / dashboard geral |
+| `/ext` | Painel da extensão Chrome (autenticado, sem sidebar) |
 | `/timeline` | Timeline |
 | `/account` | Conta (plano, export, preferências de e-mail) |
 | `/finance/*` | Dashboard, transações, recorrências, orçamento, categorias |
@@ -168,6 +171,12 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 | `/terms` · `/privacy` | Legal |
 
 Atalhos: **⌘K** busca global · sino de alertas · PWA após `npm run build`.
+
+### Extensão Chrome
+
+Pasta `extension/` (Manifest V3). Painel lateral fixo: hábitos, restante do orçamento, “está dentro do orçamento?” (à vista e simulação de parcelamento) em páginas de produto e captura para cinema, livros, música e lugares. A UI é `/ext` no app (mesma sessão). Como carregar: [`extension/README.md`](./extension/README.md).
+
+Fora do v1 (ainda não existem no app): Read Later, lista de compras, tarefas/projetos, coleções de sites.
 
 ---
 

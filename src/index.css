@@ -215,6 +215,9 @@ body,
 #root {
   min-height: 100%;
   max-width: 100%;
+  /* Fora de @layer: vence o fundo/cor do boot no index.html depois do CSS carregar. */
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
   /* NÃO usar overflow-x: hidden aqui: isso força overflow-y ≠ visible
      e corta descendentes de fonte (g, y, ç) — bug clássico de CSS. */
 }

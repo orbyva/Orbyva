@@ -1,4 +1,4 @@
-import { lazy, Suspense, useLayoutEffect, useRef, type RefObject } from "react";
+import { lazy, Suspense, useLayoutEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { PhoneScreen } from "@/components/ui/phone-mockups-1-utils/phone-carousel";
 
@@ -47,88 +47,20 @@ const PhoneCarousel = lazy(() =>
 const FRAME_CLASS =
   "relative mx-auto overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 shadow-[0_25px_60px_-20px_rgba(14,165,233,0.45)] ring-1 ring-white/10 sm:rounded-[2rem]";
 
-function hideBootLcp() {
-  const boot = document.getElementById("boot");
-  const img = document.getElementById("boot-lcp") as HTMLImageElement | null;
-  boot?.setAttribute("hidden", "");
-  if (!img) return;
-  img.classList.remove("boot-lcp-pinned");
-  img.style.visibility = "hidden";
-  img.style.transform = "";
-  img.style.transformOrigin = "";
-  img.style.width = "";
-  img.style.height = "";
-  img.style.borderRadius = "";
-}
-
-/**
- * Encaixa #boot-lcp no slot só no fallback do Suspense (antes do carrossel).
- * Não esconde o overlay no cleanup — o PhoneFrame do hub faz o handoff.
- */
-function useBootLcpPin(slotRef: RefObject<HTMLDivElement | null>) {
-  useLayoutEffect(() => {
-    const img = document.getElementById("boot-lcp") as HTMLImageElement | null;
-    const slot = slotRef.current;
-    if (!img || !slot) return;
-
-    document.getElementById("boot")?.removeAttribute("hidden");
-    document.getElementById("boot-wordmark")?.setAttribute("hidden", "");
-    img.style.visibility = "visible";
-    img.classList.add("boot-lcp-pinned");
-
-    const place = () => {
-      const r = slot.getBoundingClientRect();
-      if (r.width < 8 || r.height < 8) return;
-      const cs = getComputedStyle(slot);
-      const bl = parseFloat(cs.borderLeftWidth) || 0;
-      const bt = parseFloat(cs.borderTopWidth) || 0;
-      const br = parseFloat(cs.borderRightWidth) || 0;
-      const bb = parseFloat(cs.borderBottomWidth) || 0;
-      const radius = parseFloat(cs.borderTopLeftRadius) || 0;
-      img.style.width = `${r.width - bl - br}px`;
-      img.style.height = `${r.height - bt - bb}px`;
-      img.style.borderRadius = `${Math.max(0, radius - Math.max(bl, bt))}px`;
-      img.style.transformOrigin = "top left";
-      img.style.transform = `translate3d(${r.left + bl}px, ${r.top + bt}px, 0)`;
-    };
-
-    place();
-    const ro = new ResizeObserver(place);
-    ro.observe(slot);
-    window.addEventListener("scroll", place, { passive: true });
-    window.addEventListener("resize", place);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("scroll", place);
-      window.removeEventListener("resize", place);
-    };
-  }, [slotRef]);
+function hideBoot() {
+  document.getElementById("boot")?.setAttribute("hidden", "");
 }
 
 function PhoneFrame({
   screen,
   className,
-  lcp = false,
+  priority = false,
 }: {
   screen: PhoneScreen;
   className?: string;
-  lcp?: boolean;
+  priority?: boolean;
 }) {
   const webp = marketingWebp(screen.src);
-  const imgRef = useRef<HTMLImageElement>(null);
-
-  useLayoutEffect(() => {
-    if (!lcp) return;
-    const el = imgRef.current;
-    if (!el) return;
-    if (el.complete) {
-      hideBootLcp();
-      return;
-    }
-    const onLoad = () => hideBootLcp();
-    el.addEventListener("load", onLoad);
-    return () => el.removeEventListener("load", onLoad);
-  }, [lcp]);
 
   return (
     <div
@@ -138,15 +70,14 @@ function PhoneFrame({
       <picture>
         <source type="image/webp" srcSet={webp} />
         <img
-          ref={imgRef}
           src={screen.src}
           alt={screen.alt}
           width={474}
           height={1024}
           sizes="220px"
-          loading={lcp ? "eager" : "lazy"}
-          decoding={lcp ? "sync" : "async"}
-          fetchPriority={lcp ? "high" : "low"}
+          loading={priority ? "eager" : "lazy"}
+          decoding="async"
+          fetchPriority={priority ? "high" : "low"}
           draggable={false}
           style={{
             display: "block",
@@ -161,25 +92,14 @@ function PhoneFrame({
   );
 }
 
-function LcpPhoneFrame({ className }: { className?: string }) {
-  const slotRef = useRef<HTMLDivElement>(null);
-  useBootLcpPin(slotRef);
-
-  return (
-    <div
-      ref={slotRef}
-      data-lcp-slot
-      className={cn(FRAME_CLASS, className)}
-      style={{ width: "100%", height: "100%", aspectRatio: "390 / 843" }}
-    />
-  );
-}
-
-function AdoptedLcpPhone() {
+function PhoneSlotFallback() {
   return (
     <div className="relative w-full select-none">
       <div className="relative" style={SLOT_STYLE}>
-        <LcpPhoneFrame />
+        <div
+          className={FRAME_CLASS}
+          style={{ width: "100%", height: "100%", aspectRatio: "390 / 843" }}
+        />
       </div>
       <div style={{ height: CHROME_H }} aria-hidden />
     </div>
@@ -188,7 +108,7 @@ function AdoptedLcpPhone() {
 
 /**
  * Phone Mockups 1 · réplica visual do componente 21st (solaceui).
- * #boot-lcp só no first paint; o carrossel usa <img> normal (sem overlay).
+ * O print do hub vem do <img> do carrossel (hub.webp em preload no HTML).
  */
 export default function PhoneMockupBasic({
   screens = DEFAULT_SCREENS,
@@ -199,17 +119,28 @@ export default function PhoneMockupBasic({
   className?: string;
   intervalMs?: number;
 }) {
+  const hiddenBoot = useRef(false);
+
+  useLayoutEffect(() => {
+    if (hiddenBoot.current) return;
+    hiddenBoot.current = true;
+    hideBoot();
+  }, []);
+
   const first = screens[0];
   if (!first) return null;
 
   return (
     <div className={cn("relative w-full", className)}>
-      <Suspense fallback={<AdoptedLcpPhone />}>
+      <Suspense fallback={<PhoneSlotFallback />}>
         <PhoneCarousel
           screens={screens}
           intervalMs={intervalMs}
-          renderPhone={({ screen }) => (
-            <PhoneFrame screen={screen} lcp={screen.src === HUB_SRC} />
+          renderPhone={({ screen, offset }) => (
+            <PhoneFrame
+              screen={screen}
+              priority={offset === 0 && screen.src === HUB_SRC}
+            />
           )}
         />
       </Suspense>

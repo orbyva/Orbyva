@@ -7,6 +7,7 @@ import Landing from "./pages/Landing";
 const AuthRoot = lazy(() => import("./AuthRoot"));
 const QuantoAindaCabePage = lazy(() => import("./pages/QuantoAindaCabe"));
 const ProtectedRoute = lazy(() => import("./ProtectedRoute"));
+const ExtensionPanel = lazy(() => import("./pages/admin/extension/ExtensionPanel"));
 const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 const LoginEntry = lazy(() => import("./pages/admin/LoginEntry"));
 const Movies = lazy(() => import("./pages/admin/movies/Movies"));
@@ -60,12 +61,16 @@ const router = createBrowserRouter([
     element: withSuspense(<InviteAccept />),
   },
   {
-    path: "/quanto-ainda-cabe",
+    path: "/dentro-do-orcamento",
     element: withSuspense(<QuantoAindaCabePage />),
   },
   {
+    path: "/quanto-ainda-cabe",
+    element: <Navigate to="/dentro-do-orcamento" replace />,
+  },
+  {
     path: "/cabe-no-mes",
-    element: <Navigate to="/quanto-ainda-cabe" replace />,
+    element: <Navigate to="/dentro-do-orcamento" replace />,
   },
   {
     path: "/about",
@@ -92,6 +97,10 @@ const router = createBrowserRouter([
           {
             path: "ops",
             element: withSuspense(<OpsConsole />),
+          },
+          {
+            path: "ext",
+            element: withSuspense(<ExtensionPanel />),
           },
           {
             element: withSuspense(<AdminLayout />),

@@ -104,6 +104,19 @@
           "value": "default-src 'self'; script-src 'self' https://js.stripe.com https://*.posthog.com https://*.sentry.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: https://*.tmdb.org https://image.tmdb.org https://books.google.com https://*.googleusercontent.com https://coverartarchive.org https://*.archive.org https://i.scdn.co https://*.scdn.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.stripe.com https://*.posthog.com https://*.sentry.io https://api.themoviedb.org https://www.omdbapi.com https://www.googleapis.com https://books.google.com https://musicbrainz.org https://coverartarchive.org https://api.resend.com https://api.spotify.com https://accounts.spotify.com; frame-src https://js.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self' https://checkout.stripe.com; object-src 'none'"
         }
       ]
+    },
+    {
+      "source": "/ext",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "ALLOWALL"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://js.stripe.com https://*.posthog.com https://*.sentry.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: https://*.tmdb.org https://image.tmdb.org https://books.google.com https://*.googleusercontent.com https://coverartarchive.org https://*.archive.org https://i.scdn.co https://*.scdn.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.stripe.com https://*.posthog.com https://*.sentry.io https://api.themoviedb.org https://www.omdbapi.com https://www.googleapis.com https://books.google.com https://musicbrainz.org https://coverartarchive.org https://api.resend.com https://api.spotify.com https://accounts.spotify.com; frame-src https://js.stripe.com https://hooks.stripe.com; frame-ancestors 'self' chrome-extension:; worker-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self' https://checkout.stripe.com; object-src 'none'"
+        }
+      ]
     }
   ],
   "rewrites": [

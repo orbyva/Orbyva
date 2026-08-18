@@ -15,7 +15,7 @@
       href="/pwa-maskable-512.png"
       media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
     />
-    <title>Orbyva — Saiba o que cabe no mês e organize o resto da vida</title>
+    <title>Orbyva — Veja se está dentro do orçamento e organize o resto da vida</title>
     <meta name="description" content="Orçamento com teto, parcelas sob controle e lançamentos — com hábitos, metas, viagens, cinema e veículos na mesma órbita. 7 dias grátis." />
     <link rel="canonical" href="https://orbyva.app/" />
     <link rel="describedby" href="https://orbyva.app/llms.txt" />
@@ -24,65 +24,43 @@
     <meta property="og:site_name" content="Orbyva" />
     <meta property="og:locale" content="pt_BR" />
     <meta property="og:url" content="https://orbyva.app/" />
-    <meta property="og:title" content="Orbyva — Saiba o que cabe no mês" />
+    <meta property="og:title" content="Orbyva — Está dentro do orçamento?" />
     <meta property="og:description" content="Orçamento, parcelas e lançamentos — com hábitos, metas, viagens e cinema no mesmo app." />
     <meta property="og:image" content="https://orbyva.app/marketing/hub.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Orbyva — Saiba o que cabe no mês" />
+    <meta name="twitter:title" content="Orbyva — Está dentro do orçamento?" />
     <meta name="twitter:description" content="Orçamento, parcelas e lançamentos — com hábitos, metas, viagens e cinema no mesmo app." />
     <meta name="twitter:image" content="https://orbyva.app/marketing/hub.png" />
 
-    <!-- FCP/LCP sem JS. Sem scripts inline (CSP script-src 'self'). -->
+    <!-- FCP sem JS. Sem scripts inline (CSP script-src 'self'). -->
     <style>
       html, body, #root {
         margin: 0;
         min-height: 100%;
         background: #070b14;
-        color: #fafafa;
       }
-      /* Fora do fluxo: não empurra o React e não zera o LCP (display:none no img). */
+      /* Wordmark só no first paint; o React esconde #boot ao hidratar. */
       #boot {
         position: absolute;
         left: 0;
         right: 0;
         top: 0;
-        /* Acima do main (z-10); abaixo do header (z-20). z-5 ficava atrás do slot preto. */
         z-index: 15;
-        padding: 1.25rem 1.25rem 0;
         pointer-events: none;
       }
       #boot[hidden] { display: none; }
-      #boot-wordmark[hidden] { display: none; }
       .boot-wordmark {
         margin: 0;
+        padding: 1.25rem;
+        color: #fafafa;
         font: 700 1.35rem/1.2 system-ui, -apple-system, sans-serif;
         letter-spacing: 0.14em;
         text-transform: uppercase;
       }
       .boot-wordmark span { color: #38bdf8; }
-      .boot-lcp {
-        position: fixed;
-        box-sizing: border-box;
-        top: 0;
-        left: 0;
-        display: block;
-        width: min(220px, 62vw);
-        height: auto;
-        margin: 0;
-        border-radius: 1.75rem;
-        border: 3px solid #27272a;
-        background: #09090b;
-        object-fit: contain;
-        object-position: top;
-        transform: translate3d(calc(50vw - min(110px, 31vw)), 4.5rem, 0);
-      }
-      .boot-lcp.boot-lcp-pinned {
-        border: 0;
-        will-change: auto;
-      }
     </style>
     <link
       rel="preload"
@@ -94,17 +72,7 @@
   </head>
   <body>
     <div id="boot">
-      <p id="boot-wordmark" class="boot-wordmark"><span>O</span>RBYV<span>Ʌ</span></p>
-      <img
-        id="boot-lcp"
-        class="boot-lcp"
-        src="/marketing/hub.webp"
-        alt="Início: saldo do mês, alertas e resumo do dia"
-        width="474"
-        height="1024"
-        fetchpriority="high"
-        decoding="sync"
-      />
+      <p class="boot-wordmark"><span>O</span>RBYV<span>Ʌ</span></p>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

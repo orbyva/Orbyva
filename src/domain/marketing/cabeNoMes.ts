@@ -1,5 +1,5 @@
-export const CABE_NO_MES_PATH = "/quanto-ainda-cabe";
-export const CABE_NO_MES_TITLE = "Quanto ainda cabe no mês";
+export const CABE_NO_MES_PATH = "/dentro-do-orcamento";
+export const CABE_NO_MES_TITLE = "Está dentro do orçamento?";
 
 export type CabeVerdict = "cabe" | "aperto" | "nao_cabe";
 
@@ -66,7 +66,7 @@ export function evaluateCabeNoMes(
       remaining,
       verdict: "nao_cabe",
       headline: purchase
-        ? "Essa compra não cabe neste mês"
+        ? "Essa compra fica fora do orçamento"
         : "As contas já passam da renda",
       detail: purchase
         ? `Depois das contas fixas, faltam ${formatPlain(shortfall)} para essa compra em ${month}.`
@@ -88,11 +88,11 @@ export function evaluateCabeNoMes(
       afterBills,
       remaining,
       verdict: "aperto",
-      headline: remaining === 0 ? "Fecha zerado neste mês" : "Cabe, mas aperta",
+      headline: remaining === 0 ? "Fecha zerado neste mês" : "Entra, mas aperta o orçamento",
       detail:
         remaining === 0
           ? purchase
-            ? `A compra cabe, e o mês fecha em ${formatPlain(0)} depois das contas.`
+            ? `A compra entra, e o mês fecha em ${formatPlain(0)} depois das contas.`
             : `Depois das contas, não sobra folga em ${month}.`
           : `Ainda restam ${formatPlain(remaining)} em ${month}, pouca folga se aparecer um imprevisto.`,
     };
@@ -105,7 +105,7 @@ export function evaluateCabeNoMes(
     afterBills,
     remaining,
     verdict: "cabe",
-    headline: `Ainda cabe ${formatPlain(remaining)} em ${month}`,
+    headline: `Ainda restam ${formatPlain(remaining)} no orçamento em ${month}`,
     detail: purchase
       ? "A compra entra e ainda sobra para o resto do mês."
       : "Depois das contas fixas, isso ainda dá para gastar neste mês.",
