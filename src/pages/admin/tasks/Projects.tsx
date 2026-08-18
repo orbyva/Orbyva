@@ -47,7 +47,7 @@ import {
   updateProject,
   updateProjectEvent,
 } from "@/api/tasks";
-import { topOngoingTasksForProject } from "@/domain/tasks";
+import { resolveEventProjectId, topOngoingTasksForProject } from "@/domain/tasks";
 import type {
   Project,
   ProjectCreateRequest,
@@ -267,19 +267,24 @@ export default function Projects() {
     load();
   }, [load]);
 
+  const taskById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
+
   const eventsByProject = useMemo(() => {
     const map = new Map<string, ProjectEvent[]>();
     for (const e of events) {
-      // Desde a 066 o evento pode ser de tarefa ou avulso: sem `project_id` ele não pertence a
-      // nenhum card desta lista (o projeto de um evento de tarefa é derivado na Agenda).
-      if (!e.project_id) continue;
-      const list = map.get(e.project_id);
+      // Evento de tarefa conta como evento do projeto **da tarefa** (feature 068): o `project_id`
+      // da linha é nulo por decisão da 066 (projeto derivado, nunca copiado), então comparar o
+      // campo cru esconderia do card o compromisso que o usuário marcou sobre uma tarefa dele —
+      // e o "próximo evento" passaria a mentir por omissão. Evento avulso segue fora de todo card.
+      const projectId = resolveEventProjectId(e, taskById);
+      if (!projectId) continue;
+      const list = map.get(projectId);
       if (list) list.push(e);
-      else map.set(e.project_id, [e]);
+      else map.set(projectId, [e]);
     }
     for (const list of map.values()) list.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
     return map;
-  }, [events]);
+  }, [events, taskById]);
 
   function nextEventFor(projectId: string): ProjectEvent | undefined {
     const nowIso = new Date().toISOString();

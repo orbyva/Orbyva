@@ -61,7 +61,7 @@ registrado aqui como candidato futuro.
   cada evento abre em modo edição, remover o estado `eventTitle`/`eventStartsAt`
 - [x] Em `ProjectFormDialog.tsx`, marcar na lista os eventos herdados (vínculo por tarefa): legenda
   "via <título da tarefa>" e sem os botões de editar/excluir
-- [ ] Em `Projects.tsx`: `eventsByProject` e `nextEventFor` passam a usar `resolveEventProjectId`
+- [x] Em `Projects.tsx`: `eventsByProject` e `nextEventFor` passam a usar `resolveEventProjectId`
   (com o mapa `taskById` montado a partir das tarefas já carregadas); `handleAddEvent` vira
   `handleSaveEvent` chamando `createProjectEvent` ou `updateProjectEvent` conforme houver `id`,
   preservando o `ends_at` do rascunho em vez do `null` fixo
@@ -99,6 +99,12 @@ registrado aqui como candidato futuro.
   create/update e o `ends_at` do rascunho): trocar a prop `onAddEvent` por `onSaveEvent` quebra o
   `tsc` nos dois call sites, então não havia como verificar a primeira tarefa isolada. O que ficou
   para as tarefas 4 e 5 é o que elas têm de próprio — `resolveEventProjectId` no agrupamento/filtro.
+- `src/pages/admin/tasks/__tests__/Projects.task-events.test.tsx` não estava no plano (que só previa
+  testes de `ProjectFormDialog`, `ProjectDetail` e Agenda), mas a verificação é só por código: sem
+  ele, a mudança de `eventsByProject` ficaria provada apenas por "compila". Ele prova os dois lados
+  — o card mostra o evento da tarefa do projeto, e não mostra avulso nem evento de tarefa de outro
+  projeto — e falha de verdade com o `e.project_id` cru no lugar de `resolveEventProjectId`
+  (conferido trocando a linha e rodando: 2 dos 3 casos ficam vermelhos).
 - Os dois handlers de `onSaveEvent` re-lançam o erro depois do toast, como o `handleSaveEvent` da
   Agenda (feature 067): é a rejeição de `onSave` que mantém o `EventFormDialog` aberto com o que foi
   digitado; engolir a exceção fecharia o dialog como se tivesse salvado.
