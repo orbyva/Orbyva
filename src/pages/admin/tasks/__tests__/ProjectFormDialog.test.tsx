@@ -54,6 +54,25 @@ function makeEvent(overrides: Partial<ProjectEvent> = {}): ProjectEvent {
   };
 }
 
+function makeTask(overrides: Partial<Task> = {}): Task {
+  return {
+    id: "task-1",
+    project_id: "project-1",
+    parent_task_id: null,
+    recurrence_origin_id: null,
+    title: "Comprar cimento",
+    status: "todo",
+    tag_ids: [],
+    due_date: null,
+    due_time: null,
+    recurrence_rule: null,
+    linked_recurring_id: null,
+    linked_installment_number: null,
+    priority: null,
+    ...overrides,
+  };
+}
+
 /** Espelha como `Projects.tsx`/`ProjectDetail.tsx` usam o componente: `open`/`form` são estado
  * do call site, `ProjectFormDialog` só recebe e devolve por callback. */
 function Harness({
@@ -222,6 +241,46 @@ describe("ProjectFormDialog", () => {
     await user.click(screen.getByRole("button", { name: "Excluir evento Reunião semanal" }));
 
     expect(onDeleteEvent).toHaveBeenCalledWith("event-1");
+  });
+
+  it("evento herdado de tarefa aparece com a legenda 'via <tarefa>' e sem editar/excluir", () => {
+    const inherited = makeEvent({
+      id: "event-2",
+      project_id: null,
+      task_id: "task-1",
+      title: "Reunião sobre o cimento",
+    });
+    render(
+      <Harness
+        editing={makeProject()}
+        events={[makeEvent(), inherited]}
+        tasks={[makeTask({ id: "task-1", title: "Comprar cimento" })]}
+      />
+    );
+
+    expect(screen.getByText(/via Comprar cimento/)).toBeInTheDocument();
+    // O evento do próprio projeto continua editável...
+    expect(screen.getByRole("button", { name: "Editar evento Reunião semanal" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Excluir evento Reunião semanal" })).toBeInTheDocument();
+    // ...o herdado, não: quem edita evento de tarefa é a Agenda (o projeto dele é derivado).
+    expect(
+      screen.queryByRole("button", { name: "Editar evento Reunião sobre o cimento" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Excluir evento Reunião sobre o cimento" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("evento herdado cuja tarefa não está carregada cai numa legenda genérica, sem quebrar", () => {
+    render(
+      <Harness
+        editing={makeProject()}
+        events={[makeEvent({ id: "event-2", project_id: null, task_id: "task-fora-da-lista" })]}
+        tasks={[]}
+      />
+    );
+
+    expect(screen.getByText(/via tarefa do projeto/)).toBeInTheDocument();
   });
 
   it("erro ao salvar mantém o dialog aberto e reabilita o botão", async () => {

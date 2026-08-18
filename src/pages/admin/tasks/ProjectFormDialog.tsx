@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import {
 import { LabelColorPicker } from "./LabelColorPicker";
 import { TagCombobox } from "./TagCombobox";
 import { EventFormDialog } from "./EventFormDialog";
+import { eventLinkKind } from "@/domain/tasks";
 import { formatDateTimeBR } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import type {
@@ -97,6 +98,8 @@ export function ProjectFormDialog({
     editing: null,
   });
   const [saving, setSaving] = useState(false);
+
+  const taskTitleById = useMemo(() => new Map(tasks.map((t) => [t.id, t.title])), [tasks]);
 
   async function handleSaveClick() {
     if (!form.name.trim()) return;
@@ -203,36 +206,51 @@ export function ProjectFormDialog({
             <div>
               <FormLabel optional>Eventos (reuniões, horários de trabalho)</FormLabel>
               <div className="mt-1.5 space-y-1.5">
-                {events.map((e) => (
-                  <div
-                    key={e.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2 text-xs"
-                  >
-                    <span className="min-w-0 truncate">
-                      {e.title} — {formatEventDate(e.starts_at)}
-                    </span>
-                    <div className="flex shrink-0 items-center gap-0.5">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn("h-6 w-6", ICON_EDIT_BUTTON_CLASS)}
-                        onClick={() => setEventDialog({ open: true, editing: e })}
-                        aria-label={`Editar evento ${e.title}`}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive"
-                        onClick={() => onDeleteEvent(e.id)}
-                        aria-label={`Excluir evento ${e.title}`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                {events.map((e) => {
+                  // Evento herdado: o vínculo real é uma tarefa do projeto, não o projeto (feature
+                  // 068). Aparece aqui para o projeto não mentir por omissão, mas em leitura: mudar
+                  // o projeto de um evento de tarefa é justamente o que a 066 decidiu não permitir,
+                  // e editar por aqui daria a impressão contrária. Quem edita é a Agenda.
+                  const inherited = eventLinkKind(e) === "task";
+                  const taskTitle = e.task_id ? taskTitleById.get(e.task_id) : undefined;
+                  return (
+                    <div
+                      key={e.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2 text-xs"
+                    >
+                      <span className="min-w-0 truncate">
+                        {e.title} — {formatEventDate(e.starts_at)}
+                        {inherited && (
+                          <span className="ml-1 text-muted-foreground">
+                            (via {taskTitle ?? "tarefa do projeto"})
+                          </span>
+                        )}
+                      </span>
+                      {!inherited && (
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-6 w-6", ICON_EDIT_BUTTON_CLASS)}
+                            onClick={() => setEventDialog({ open: true, editing: e })}
+                            aria-label={`Editar evento ${e.title}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => onDeleteEvent(e.id)}
+                            aria-label={`Excluir evento ${e.title}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 <Button
                   type="button"
                   variant="outline"

@@ -59,7 +59,7 @@ registrado aqui como candidato futuro.
 - [x] Substituir o mini-form inline de `ProjectFormDialog.tsx` (linhas ~183-206) pelo
   `EventFormDialog` com `lockedLink` no projeto em edição: botão "+" abre em modo criação, lápis em
   cada evento abre em modo edição, remover o estado `eventTitle`/`eventStartsAt`
-- [ ] Em `ProjectFormDialog.tsx`, marcar na lista os eventos herdados (vínculo por tarefa): legenda
+- [x] Em `ProjectFormDialog.tsx`, marcar na lista os eventos herdados (vínculo por tarefa): legenda
   "via <título da tarefa>" e sem os botões de editar/excluir
 - [ ] Em `Projects.tsx`: `eventsByProject` e `nextEventFor` passam a usar `resolveEventProjectId`
   (com o mapa `taskById` montado a partir das tarefas já carregadas); `handleAddEvent` vira
