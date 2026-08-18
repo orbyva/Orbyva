@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,6 +41,7 @@ export function EventFormDialog({
   lockedLink,
   prefillStartsAt,
   extraActions,
+  onOpenTask,
   onSave,
   onDelete,
 }: {
@@ -55,6 +57,12 @@ export function EventFormDialog({
   prefillStartsAt?: string | null;
   /** Ações extras na barra de baixo em modo edição (ex.: "Ir para o projeto"). */
   extraActions?: ReactNode;
+  /**
+   * Abre a tarefa vinculada sem sair da tela (feature 068) — na Agenda é o form da própria tarefa
+   * que abre, porque navegar para outra tela quebraria o contexto do calendário. Sem a prop (ou com
+   * a tarefa fora da lista carregada), o botão vira um link para `/tasks`.
+   */
+  onOpenTask?: (taskId: string) => void;
   onSave: (draft: ProjectEventCreateRequest) => Promise<void> | void;
   onDelete?: () => Promise<void> | void;
 }) {
@@ -97,6 +105,10 @@ export function EventFormDialog({
     endsAt: endsIso || null,
   });
   const endsInvalid = !validation.ok && validation.reason === "ends";
+
+  // Tarefa do evento em edição. A cascade da 066 garante que evento de tarefa apagada não existe;
+  // `null` aqui é só o caso transitório de a tarefa não estar na lista carregada (ex.: filtro).
+  const linkedTask = editing?.task_id ? (tasks.find((t) => t.id === editing.task_id) ?? null) : null;
 
   /**
    * Trocar de segmento zera o id do outro lado — é isso que mantém a check
@@ -202,13 +214,43 @@ export function EventFormDialog({
             </div>
           )}
 
+          {editing?.task_id && (
+            <p className="text-xs text-muted-foreground">
+              Tarefa vinculada:{" "}
+              <span className="font-medium text-foreground">
+                {linkedTask?.title ?? "tarefa fora da lista carregada"}
+              </span>
+            </p>
+          )}
+
           <Button onClick={handleSaveClick} disabled={!validation.ok || saving} className="w-full">
             {saving ? "Salvando..." : editing ? "Salvar alterações" : "Criar evento"}
           </Button>
 
-          {(onDelete || extraActions) && (
+          {(onDelete || extraActions || editing?.task_id) && (
             <div className="flex flex-wrap gap-2">
               {extraActions}
+              {editing?.task_id &&
+                (linkedTask && onOpenTask ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => onOpenTask(linkedTask.id)}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ir para a tarefa
+                  </Button>
+                ) : (
+                  // Sem `onOpenTask` (ou sem a tarefa carregada) o botão viraria um alvo morto:
+                  // cai para a lista de tarefas, que é onde ela pode ser encontrada.
+                  <Button variant="outline" size="sm" className="gap-1.5" asChild>
+                    <Link to="/tasks">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Ir para a tarefa
+                    </Link>
+                  </Button>
+                ))}
               {onDelete && (
                 <ConfirmDeleteDialog title="Excluir este evento?" onConfirm={() => onDelete()}>
                   <Button variant="outline" size="sm" className="gap-1.5 text-destructive">

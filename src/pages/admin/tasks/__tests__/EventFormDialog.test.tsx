@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import {
   EventFormDialog,
   EVENT_ENDS_BEFORE_STARTS_MESSAGE,
@@ -58,6 +59,7 @@ function renderDialog({
   prefillStartsAt,
   onSave = vi.fn(),
   onDelete,
+  onOpenTask,
 }: {
   editing?: ProjectEvent | null;
   projects?: Project[];
@@ -66,20 +68,24 @@ function renderDialog({
   prefillStartsAt?: string | null;
   onSave?: (draft: unknown) => Promise<void> | void;
   onDelete?: () => void;
+  onOpenTask?: (taskId: string) => void;
 } = {}) {
   const onOpenChange = vi.fn();
   const utils = render(
-    <EventFormDialog
-      open
-      onOpenChange={onOpenChange}
-      editing={editing}
-      projects={projects}
-      tasks={tasks}
-      lockedLink={lockedLink}
-      prefillStartsAt={prefillStartsAt}
-      onSave={onSave}
-      onDelete={onDelete}
-    />
+    <MemoryRouter>
+      <EventFormDialog
+        open
+        onOpenChange={onOpenChange}
+        editing={editing}
+        projects={projects}
+        tasks={tasks}
+        lockedLink={lockedLink}
+        prefillStartsAt={prefillStartsAt}
+        onSave={onSave}
+        onDelete={onDelete}
+        onOpenTask={onOpenTask}
+      />
+    </MemoryRouter>
   );
   return { ...utils, onSave, onOpenChange };
 }
@@ -297,6 +303,46 @@ describe("EventFormDialog — vínculo (projeto | tarefa | nenhum)", () => {
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ project_id: "project-1", task_id: null })
     );
+  });
+});
+
+describe("EventFormDialog — evento de tarefa: título e 'Ir para a tarefa' (feature 068)", () => {
+  it("mostra o título da tarefa vinculada e chama onOpenTask com o id dela", async () => {
+    const user = userEvent.setup();
+    const onOpenTask = vi.fn();
+    renderDialog({
+      editing: makeEvent({ task_id: "task-1", title: "Reunião sobre o cimento" }),
+      onOpenTask,
+    });
+
+    // "Comprar cimento" também aparece como opção do `TaskPicker`: o que importa aqui é a legenda.
+    expect(screen.getByText(/Tarefa vinculada:/)).toHaveTextContent(
+      "Tarefa vinculada: Comprar cimento"
+    );
+    await user.click(screen.getByRole("button", { name: /Ir para a tarefa/ }));
+
+    expect(onOpenTask).toHaveBeenCalledWith("task-1");
+  });
+
+  it("sem onOpenTask, 'Ir para a tarefa' vira um link para /tasks (nunca um botão morto)", () => {
+    renderDialog({ editing: makeEvent({ task_id: "task-1" }) });
+
+    expect(screen.getByRole("link", { name: /Ir para a tarefa/ })).toHaveAttribute("href", "/tasks");
+  });
+
+  it("tarefa fora da lista carregada também cai no link, sem quebrar o dialog", () => {
+    const onOpenTask = vi.fn();
+    renderDialog({ editing: makeEvent({ task_id: "task-fora-do-filtro" }), onOpenTask });
+
+    expect(screen.getByText(/tarefa fora da lista carregada/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ir para a tarefa/ })).toHaveAttribute("href", "/tasks");
+  });
+
+  it("evento sem tarefa não mostra nada disso", () => {
+    renderDialog({ editing: makeEvent({ project_id: "project-1" }) });
+
+    expect(screen.queryByText(/Ir para a tarefa/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Tarefa vinculada/)).not.toBeInTheDocument();
   });
 });
 

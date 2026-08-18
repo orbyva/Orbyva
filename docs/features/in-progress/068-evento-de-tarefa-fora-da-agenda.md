@@ -68,7 +68,7 @@ registrado aqui como candidato futuro.
 - [x] Em `ProjectDetail.tsx`: o filtro `eventList.filter((e) => e.project_id === id)` passa a usar
   `resolveEventProjectId`; `handleAddProjectEvent` vira `handleSaveProjectEvent` (create/update,
   `ends_at` do rascunho), mantendo os toasts existentes
-- [ ] Em `EventFormDialog.tsx`: quando `editing?.task_id` existir, mostrar o título da tarefa e o
+- [x] Em `EventFormDialog.tsx`: quando `editing?.task_id` existir, mostrar o título da tarefa e o
   botão "Ir para a tarefa" disparando a prop nova `onOpenTask?(taskId)`; sem a prop ou sem a tarefa
   carregada, renderizar um `Link` para `/tasks`
 - [ ] Em `AgendaGrid.tsx`: passar `onOpenTask` para o `EventFormDialog`, fechando o dialog de evento
