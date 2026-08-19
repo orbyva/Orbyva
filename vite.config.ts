@@ -83,6 +83,7 @@ export default defineConfig({
           /^\/llms\.txt$/,
           /^\/robots\.txt$/,
           /^\/sitemap\.xml$/,
+          /^\/gtm\.js$/,
           /^\/tmdb-media/,
           /^\/books-media/,
           /^\/mb-api/,

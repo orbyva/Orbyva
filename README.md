@@ -91,6 +91,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 - Bundle budget em `npm run check:bundle`
 - `/llms.txt` (Markdown com H1 + links) para agentes; arquivo estático em `public/`, não a SPA
 - `/sitemap.xml` (páginas públicas) + `/robots.txt`; o SW não faz fallback da SPA nesses paths
+- Google Tag Manager (`GTM-5H8MT38X`) via `public/gtm.js` (sem script inline, por causa do CSP); noscript no `index.html`; hosts Google liberados no CSP
 
 ### Backend: Supabase
 

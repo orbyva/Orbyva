@@ -153,7 +153,7 @@ export function PrivacyPage() {
             "Conteúdo que você cria (lançamentos, orçamento, recorrências, hábitos, metas, viagens, lugares, cinema, livros, música, veículos etc.)",
             "Preferências de conta e de e-mail (quando disponíveis na Conta)",
             "Código de indicação, se você chegou por convite",
-            "Dados técnicos mínimos: erros (Sentry, se configurado) e eventos de produto (PostHog, se configurado)",
+            "Dados técnicos mínimos: erros (Sentry, se configurado), eventos de produto (PostHog, se configurado) e medição de visitas via Google Tag Manager / GA4",
           ]}
         />
       </PublicSection>
@@ -190,6 +190,7 @@ export function PrivacyPage() {
             "TMDB / OMDb, catálogo de cinema (quando configurado)",
             "Sentry, monitoramento de erros (quando configurado)",
             "PostHog, analytics de produto (quando configurado)",
+            "Google Tag Manager / Google Analytics (GA4), medição de visitas",
             "Vercel, hospedagem do front",
           ]}
         />
