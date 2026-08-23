@@ -51,7 +51,13 @@ export async function deleteTag(id: string): Promise<void> {
     ...(tasksWithTag ?? []).map((t) =>
       supabase
         .from("task")
-        .update({ tag_ids: (t.tag_ids as string[]).filter((tagId) => tagId !== id) })
+        .update({
+          tag_ids: (t.tag_ids as string[]).filter((tagId) => tagId !== id),
+          // Carimba como qualquer outra escrita em `task` (feature 079): não há trigger
+          // `moddatetime` no banco, então uma escrita sem `updated_at` deixaria a tarefa com um
+          // carimbo velho e ela afundaria na lista ordenada por "Última atualização".
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", t.id)
     ),
     ...(projectsWithTag ?? []).map((p) =>

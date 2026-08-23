@@ -1,10 +1,11 @@
 import { Calendar } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Project, Task, TaskPriority } from "@/types/tasks";
+import { isRecurringTask } from "@/domain/tasks";
 import { formatDateTimeBR } from "@/lib/currency";
 import { TaskPriorityFlag } from "./TaskPriorityField";
 import { TaskPriorityQuickPick } from "./TaskPriorityQuickPick";
-import { TaskDueQuickEdit } from "./TaskDueQuickEdit";
+import { TaskDueQuickEdit, type TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 import { ProjectBadgeButton } from "./ProjectBadgeButton";
 import { TaskIconBadge } from "./TaskIconBadge";
 import { TaskIconPicker, type TaskIconValue } from "./TaskIconPicker";
@@ -42,6 +43,7 @@ export function TaskQuickFields({
   onIconChange,
   onPriorityChange,
   onDueChange,
+  onDueOpenChange,
   onProjectChange,
   projects,
   projectBadge,
@@ -51,11 +53,11 @@ export function TaskQuickFields({
    * `TaskIconBadge` estático (feature 035). */
   onIconChange?: (next: TaskIconValue) => void;
   onPriorityChange?: (priority: TaskPriority | null) => void;
-  onDueChange?: (next: {
-    due_date: string | null;
-    due_time: string | null;
-    estimated_duration: number | null;
-  }) => void;
+  onDueChange?: (next: TaskDueQuickEditValue) => void;
+  /** Abertura/fechamento do popover de prazo (feature 081) — a Lista usa o fechamento pra
+   * descongelar a posição da linha e reagrupar. Opcional, mesmo padrão "presença de prop" dos
+   * outros handlers daqui: ausente, o popover só não avisa ninguém. */
+  onDueOpenChange?: (open: boolean) => void;
   onProjectChange?: (projectId: string | null) => void;
   /** Catálogo de projetos (já ordenado por atividade) — obrigatório junto com `onProjectChange`. */
   projects?: Project[];
@@ -67,9 +69,12 @@ export function TaskQuickFields({
   return {
     icon: onIconChange ? (
       <TaskIconPicker
-        taskId={task.id}
+        // Feature 073: numa série, o ícone (e o arquivo enviado) pertencem à origem, não à
+        // ocorrência clicada — Lista, Kanban e popover do Gantt herdam isso daqui de uma vez.
+        taskId={task.recurrence_origin_id ?? task.id}
         value={{ icon_key: task.icon_key ?? null, icon_url: task.icon_url ?? null }}
         onChange={onIconChange}
+        sharedWithSeries={isRecurringTask(task)}
       />
     ) : (
       <TaskIconBadge iconKey={task.icon_key} iconUrl={task.icon_url} />
@@ -87,7 +92,9 @@ export function TaskQuickFields({
           dueDate={task.due_date}
           dueTime={task.due_time}
           estimatedDuration={task.estimated_duration}
+          isQuick={!!task.is_quick}
           onChange={onDueChange}
+          onOpenChange={onDueOpenChange}
         />
       ) : (
         task.due_date && (

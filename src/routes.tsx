@@ -9,6 +9,7 @@ import {
 import ProtectedRoute from "./ProtectedRoute";
 import LoadingFallback from "./components/LoadingFallback";
 import { useAuth } from "@/hooks/useAuth";
+import { safeNextPath } from "@/lib/nextPath";
 
 const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 const Login = lazy(() => import("./pages/admin/Login"));
@@ -65,7 +66,15 @@ function LandingEntry() {
 function LoginEntry() {
   const { user, loading } = useAuth();
   if (loading) return <LoadingFallback />;
-  if (user) return <Navigate to="/home" replace />;
+  // Quem já está logado e cai em `/login?next=...` (link de convite aberto numa aba com sessão)
+  // vai direto para o destino, em vez de perder o link no dashboard. `safeNextPath` barra open
+  // redirect.
+  if (user) {
+    const next = safeNextPath(
+      new URLSearchParams(window.location.search).get("next")
+    );
+    return <Navigate to={next} replace />;
+  }
   return withSuspense(<Login />);
 }
 
@@ -78,6 +87,12 @@ const PrivacyPage = lazy(() =>
 );
 const AboutPage = lazy(() => import("./pages/About"));
 const InviteAccept = lazy(() => import("./pages/InviteAccept"));
+// Convite de evento (feature 076): rota **pública** de propósito — o link chega por e-mail para
+// alguém que pode não ter sessão, e um redirect do ProtectedRoute perderia o token. A própria tela
+// trata o estado deslogado e leva para `/login?next=<link do convite>`.
+const EventInviteAccept = lazy(
+  () => import("./pages/admin/tasks/EventInviteAccept")
+);
 
 /** Exportado para os testes conseguirem resolver uma URL sem subir o browser router. */
 export const appRoutes: RouteObject[] = [
@@ -92,6 +107,10 @@ export const appRoutes: RouteObject[] = [
   {
     path: "/invite/:code",
     element: withSuspense(<InviteAccept />),
+  },
+  {
+    path: "/events/invite/:token",
+    element: withSuspense(<EventInviteAccept />),
   },
   {
     path: "/about",

@@ -65,7 +65,7 @@ const categories: ShoppingCategory[] = [
 
 function item(
   id: string,
-  categoryId: string,
+  categoryId: string | null,
   title: string,
   status: ShoppingItem["status"] = "pending"
 ): ShoppingItem {
@@ -99,12 +99,35 @@ function renderPage(url = "/shopping-list") {
 }
 
 describe("ShoppingList", () => {
-  it("sem categoria nenhuma, mostra o estado vazio e desabilita 'Novo item'", async () => {
+  it("lista totalmente vazia mostra 'Sua lista está vazia' com as duas ações", async () => {
     mockedFetchCategories.mockResolvedValue([]);
     renderPage();
 
-    expect(await screen.findByText("Nenhuma categoria ainda")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Novo item" })).toBeDisabled();
+    expect(await screen.findByText("Sua lista está vazia")).toBeInTheDocument();
+    // "Novo item" e "Nova categoria" no estado vazio, além dos dois do cabeçalho da página.
+    expect(screen.getAllByRole("button", { name: "Novo item" })).toHaveLength(2);
+    expect(
+      screen.getAllByRole("button", { name: "Nova categoria" })
+    ).toHaveLength(2);
+    expect(screen.getByText(/são opcionais/)).toBeInTheDocument();
+  });
+
+  it("'Novo item' fica habilitado mesmo com zero categorias e abre o dialog", async () => {
+    const user = userEvent.setup();
+    mockedFetchCategories.mockResolvedValue([]);
+    renderPage();
+
+    await screen.findByText("Sua lista está vazia");
+    const [newItem] = screen.getAllByRole("button", { name: "Novo item" });
+    expect(newItem).toBeEnabled();
+
+    await user.click(newItem);
+    expect(
+      await screen.findByRole("heading", { name: "Novo item" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Categoria" })).toHaveTextContent(
+      "Sem categoria"
+    );
   });
 
   it("agrupa os itens por categoria, na ordem recebida, com pendentes antes dos comprados", async () => {
@@ -389,5 +412,129 @@ describe("ShoppingList — carregamento dos vínculos com tarefas", () => {
     expect(
       screen.getByText(/Mostrando as compras de/)
     ).toHaveTextContent("Obra da casa");
+  });
+});
+
+/**
+ * Feature 066: categoria virou organização opcional. Item sem categoria aparece num pseudo-grupo
+ * "Sem categoria", sempre por último, que não é editável nem excluível — e que não entra em
+ * recorte de projeto nenhum (o vínculo com projeto é da categoria, feature 052).
+ */
+describe("ShoppingList — grupo 'Sem categoria'", () => {
+  it("mostra o grupo dos itens soltos por último, depois das categorias reais", async () => {
+    mockedFetchItems.mockResolvedValue([
+      item("solto", null, "Pilha AA"),
+      item("i1", "c1", "Arroz"),
+    ]);
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Mercado" });
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)
+    ).toEqual(["Mercado", "Escritório", "Sem categoria"]);
+    expect(
+      within(sectionFor("Sem categoria")).getByText("Pilha AA")
+    ).toBeInTheDocument();
+    expect(
+      within(sectionFor("Sem categoria")).getByText("1 pendente")
+    ).toBeInTheDocument();
+  });
+
+  it("o grupo não existe quando nenhum item está solto", async () => {
+    mockedFetchItems.mockResolvedValue([item("i1", "c1", "Arroz")]);
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Mercado" });
+    expect(
+      screen.queryByRole("heading", { name: "Sem categoria" })
+    ).toBeNull();
+  });
+
+  it("o cabeçalho do grupo não oferece editar nem excluir, só adicionar item", async () => {
+    mockedFetchItems.mockResolvedValue([item("solto", null, "Pilha AA")]);
+    renderPage();
+
+    const grupo = await screen
+      .findByRole("heading", { name: "Sem categoria" })
+      .then((h) => h.closest("section") as HTMLElement);
+
+    expect(
+      within(grupo).getByRole("button", { name: "Adicionar item sem categoria" })
+    ).toBeInTheDocument();
+    expect(
+      within(grupo).queryByRole("button", { name: /Editar categoria/ })
+    ).toBeNull();
+    expect(
+      within(grupo).queryByRole("button", { name: /Excluir categoria/ })
+    ).toBeNull();
+    // A linha do item continua completa: editar, excluir e marcar comprado.
+    expect(
+      within(grupo).getByRole("button", { name: "Editar Pilha AA" })
+    ).toBeInTheDocument();
+    expect(
+      within(grupo).getByRole("button", { name: "Excluir Pilha AA" })
+    ).toBeInTheDocument();
+    expect(
+      within(grupo).getByRole("checkbox", {
+        name: "Marcar Pilha AA como comprado",
+      })
+    ).toBeInTheDocument();
+  });
+
+  it("some quando há filtro de projeto ativo — item solto não pertence a projeto nenhum", async () => {
+    mockedFetchCategories.mockResolvedValue([
+      { id: "c1", name: "Mercado", project_id: "p1" },
+      { id: "c2", name: "Escritório" },
+    ]);
+    mockedFetchItems.mockResolvedValue([
+      item("solto", null, "Pilha AA"),
+      item("i1", "c1", "Cimento"),
+    ]);
+    renderPage("/shopping-list?project=p1");
+
+    await screen.findByRole("heading", { name: "Mercado" });
+    expect(screen.queryByRole("heading", { name: "Sem categoria" })).toBeNull();
+    expect(screen.queryByText("Pilha AA")).toBeNull();
+    expect(screen.getByText("Cimento")).toBeInTheDocument();
+  });
+
+  it("com zero categorias mas com item solto, mostra o grupo e nenhum estado vazio", async () => {
+    mockedFetchCategories.mockResolvedValue([]);
+    mockedFetchItems.mockResolvedValue([item("solto", null, "Pilha AA")]);
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Sem categoria" });
+    expect(screen.getByText("Pilha AA")).toBeInTheDocument();
+    expect(screen.queryByText("Sua lista está vazia")).toBeNull();
+    expect(screen.queryByText("Nenhuma categoria ainda")).toBeNull();
+  });
+
+  it("'Adicionar item sem categoria' abre o dialog já em 'Sem categoria'", async () => {
+    const user = userEvent.setup();
+    mockedFetchItems.mockResolvedValue([item("solto", null, "Pilha AA")]);
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Sem categoria" });
+    await user.click(
+      screen.getByRole("button", { name: "Adicionar item sem categoria" })
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Novo item" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Categoria" })).toHaveTextContent(
+      "Sem categoria"
+    );
+  });
+
+  it("com filtro de projeto sem categoria nenhuma, segue o estado vazio do projeto", async () => {
+    mockedFetchCategories.mockResolvedValue([{ id: "c2", name: "Escritório" }]);
+    mockedFetchItems.mockResolvedValue([item("solto", null, "Pilha AA")]);
+    renderPage("/shopping-list?project=p1");
+
+    expect(
+      await screen.findByText("Nenhuma categoria neste projeto")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sem categoria" })).toBeNull();
   });
 });

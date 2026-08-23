@@ -10,6 +10,7 @@ import { BRAND } from "@/lib/brand";
 import { supabase } from "@/lib/supabase";
 import { track } from "@/lib/analytics";
 import { getErrorMessage } from "@/lib/errors";
+import { safeNextPath } from "@/lib/nextPath";
 
 type AuthMode = "login" | "signup" | "forgot" | "recovery";
 
@@ -42,6 +43,9 @@ export function LoginForm({
   const [mode, setMode] = useState<AuthMode>(() =>
     modeFromSearch(searchParams.get("mode"))
   );
+  // Destino pós-login. Vem de `?next=` (o link de convite manda o usuário deslogado para
+  // `/login?next=/events/invite/<token>`) e é saneado contra open redirect.
+  const nextPath = safeNextPath(searchParams.get("next"));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +88,7 @@ export function LoginForm({
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/home`,
+        redirectTo: `${window.location.origin}${nextPath}`,
       },
     });
     if (oauthError) {
@@ -103,7 +107,7 @@ export function LoginForm({
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}/home`,
+          emailRedirectTo: `${window.location.origin}${nextPath}`,
           shouldCreateUser: false,
         },
       });
@@ -149,7 +153,7 @@ export function LoginForm({
       });
       if (updateError) throw updateError;
       track("password_reset_complete");
-      navigate("/home", { replace: true });
+      navigate(nextPath, { replace: true });
     } catch (err) {
       setError(getErrorMessage(err, "Não foi possível salvar a nova senha."));
     } finally {
@@ -170,7 +174,7 @@ export function LoginForm({
           password,
         });
         if (signError) throw signError;
-        navigate("/home", { replace: true });
+        navigate(nextPath, { replace: true });
         return;
       }
 
@@ -179,12 +183,12 @@ export function LoginForm({
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/home`,
+          emailRedirectTo: `${window.location.origin}${nextPath}`,
         },
       });
       if (signUpError) throw signUpError;
       if (data.session) {
-        navigate("/home", { replace: true });
+        navigate(nextPath, { replace: true });
         return;
       }
       setMessage(

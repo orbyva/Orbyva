@@ -264,6 +264,8 @@ export default function Projects() {
   const eventsByProject = useMemo(() => {
     const map = new Map<string, ProjectEvent[]>();
     for (const e of events) {
+      // Evento sem projeto (feature 076: recebido por convite) não entra em nenhum card de projeto.
+      if (!e.project_id) continue;
       const list = map.get(e.project_id);
       if (list) list.push(e);
       else map.set(e.project_id, [e]);

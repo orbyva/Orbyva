@@ -50,7 +50,6 @@ function renderKanbanCard(overrides: Partial<Parameters<typeof KanbanCard>[0]> =
     <MemoryRouter>
       <KanbanCard
         task={task}
-        allTasks={[task]}
         colIndex={0}
         subtasks={[]}
         allTags={[]}
@@ -73,7 +72,6 @@ function renderTaskListRow(overrides: Partial<Parameters<typeof TaskListRow>[0]>
   return render(
     <TaskListRow
       task={task}
-      allTasks={[task]}
       subtasks={[]}
       allTags={[]}
       expanded={false}
@@ -142,6 +140,8 @@ describe("KanbanCard — quick edit compartilhado com a Lista (feature 033)", ()
       due_date: "2026-08-20",
       due_time: "14:30",
       estimated_duration: null,
+      // Feature 070: o payload da edição rápida passou a carregar a flag de tarefa pontual.
+      is_quick: false,
     });
   });
 
@@ -469,5 +469,128 @@ describe("TaskListRow — subtarefas agrupadas como linhas reais (feature 046)",
     renderTaskListRow({ subtasks: [subtask], expanded: false });
 
     expect(screen.queryByText("Subtarefa A")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Botão "Imediatamente" (feature 078) — a superfície da ação nas duas visões que já tinham Play.
+ * O rótulo por extenso vive no `aria-label`/tooltip, então é por ele que o botão é encontrado.
+ */
+describe("TaskViews — botão Imediatamente (feature 078)", () => {
+  const startNowName = /Imediatamente/;
+
+  it("aparece na linha da Lista quando `onStartNow` é passado e dispara o handler no clique", async () => {
+    const user = userEvent.setup();
+    const onStartNow = vi.fn();
+    renderTaskListRow({ onStartNow });
+
+    const button = screen.getByRole("button", { name: startNowName });
+    expect(button).toBeInTheDocument();
+    await user.click(button);
+    expect(onStartNow).toHaveBeenCalledTimes(1);
+  });
+
+  it("aparece no card do Kanban quando `onStartNow` é passado e dispara o handler no clique", async () => {
+    const user = userEvent.setup();
+    const onStartNow = vi.fn();
+    renderKanbanCard({ onStartNow });
+
+    const button = screen.getByRole("button", { name: startNowName });
+    expect(button).toBeInTheDocument();
+    await user.click(button);
+    expect(onStartNow).toHaveBeenCalledTimes(1);
+  });
+
+  it("some quando a prop não é passada (mesmo padrão opcional do Play)", () => {
+    renderTaskListRow();
+    expect(screen.queryByRole("button", { name: startNowName })).not.toBeInTheDocument();
+  });
+
+  it("some no card do Kanban quando a prop não é passada", () => {
+    renderKanbanCard();
+    expect(screen.queryByRole("button", { name: startNowName })).not.toBeInTheDocument();
+  });
+
+  it("some em tarefa concluída, na linha e no card", () => {
+    const done = makeTask({ status: "done" });
+    const { unmount } = renderTaskListRow({ task: done, onStartNow: vi.fn() });
+    expect(screen.queryByRole("button", { name: startNowName })).not.toBeInTheDocument();
+    unmount();
+
+    renderKanbanCard({ task: done, onStartNow: vi.fn() });
+    expect(screen.queryByRole("button", { name: startNowName })).not.toBeInTheDocument();
+  });
+
+  it("fica desabilitado enquanto a ação está em voo (`isStartingNow`)", () => {
+    renderTaskListRow({ onStartNow: vi.fn(), isStartingNow: true });
+    expect(screen.getByRole("button", { name: startNowName })).toBeDisabled();
+  });
+
+  it("a linha aninhada de subtarefa ganha o mesmo botão, bindado na subtarefa", async () => {
+    const user = userEvent.setup();
+    const subtask = makeTask({ id: "sub-1", title: "Subtarefa A", parent_task_id: "task-1" });
+    const onStartNow = vi.fn();
+    renderTaskListRow({
+      subtasks: [subtask],
+      expanded: true,
+      subtaskActions: { onDelete: vi.fn(), onStatusChange: vi.fn(), onStartNow },
+    });
+
+    const subtaskRow = screen.getByText("Subtarefa A").closest(".cursor-pointer") as HTMLElement;
+    await user.click(within(subtaskRow).getByRole("button", { name: startNowName }));
+
+    expect(onStartNow).toHaveBeenCalledWith(subtask);
+  });
+
+  /**
+   * Largura no mobile: o botão a mais não pode empurrar o conteúdo pra fora da linha/card — a `072`
+   * já teve de apertar o `gap` do player pelo mesmo motivo. O que segura isso é estrutural (bloco
+   * de ações `shrink-0`, conteúdo `min-w-0` + título `truncate`) e o botão ter a mesma caixa
+   * compacta dos vizinhos; é isso que as asserções travam.
+   */
+  it("na linha, o botão tem a mesma caixa do Play e o título continua podendo truncar", () => {
+    renderTaskListRow({ onStartNow: vi.fn(), onToggleTimer: vi.fn() });
+
+    const startNow = screen.getByRole("button", { name: startNowName });
+    const play = screen.getByRole("button", { name: "Iniciar timer" });
+    expect(startNow.className).toContain("h-8");
+    expect(startNow.className).toContain("w-8");
+    expect(play.className).toContain("h-8");
+
+    const actions = startNow.parentElement as HTMLElement;
+    expect(actions.className).toContain("shrink-0");
+    expect(actions.className).toContain("gap-1");
+
+    const title = screen.getByText("Minha tarefa");
+    expect(title.className).toContain("truncate");
+    expect((title.closest("div.min-w-0") as HTMLElement).className).toContain("flex-1");
+  });
+
+  it("no card do Kanban, o botão usa a caixa apertada (7x7) dos vizinhos", () => {
+    renderKanbanCard({ onStartNow: vi.fn(), onToggleTimer: vi.fn() });
+
+    const startNow = screen.getByRole("button", { name: startNowName });
+    expect(startNow.className).toContain("h-7");
+    expect(startNow.className).toContain("w-7");
+
+    const actions = startNow.parentElement as HTMLElement;
+    expect(actions.className).toContain("shrink-0");
+
+    const title = screen.getByText("Minha tarefa");
+    expect(title.className).toContain("truncate");
+  });
+
+  it("sem `onStartNow` em `subtaskActions`, a linha aninhada não mostra o botão", () => {
+    const subtask = makeTask({ id: "sub-1", title: "Subtarefa A", parent_task_id: "task-1" });
+    renderTaskListRow({
+      subtasks: [subtask],
+      expanded: true,
+      subtaskActions: { onDelete: vi.fn(), onStatusChange: vi.fn() },
+    });
+
+    const subtaskRow = screen.getByText("Subtarefa A").closest(".cursor-pointer") as HTMLElement;
+    expect(
+      within(subtaskRow).queryByRole("button", { name: startNowName })
+    ).not.toBeInTheDocument();
   });
 });

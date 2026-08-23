@@ -4,11 +4,14 @@ Stack e convenções fixas: `docs/stack.md`.
 
 ## Skills
 
-`pipeline`, `next` e `plan` são mantidas em `~/.claude/skills` (raiz do usuário) — não neste
-repositório. Busque a skill primeiro na raiz do usuário; só carregue uma versão local em
+`pipeline`, `next`, `plan` e `quick-code` são mantidas em `~/.claude/skills` (raiz do usuário) — não
+neste repositório. Busque a skill primeiro na raiz do usuário; só carregue uma versão local em
 `.claude/skills/` deste repo se ela existir e for mais específica. Se este repo for clonado numa
-máquina sem `~/.claude/skills/{pipeline,next,plan}` populado, sincronize essa pasta antes de usar
-`/pipeline`, `/next` ou `/plan`.
+máquina sem `~/.claude/skills/{pipeline,next,plan,quick-code}` populado, sincronize essa pasta antes
+de usar `/pipeline`, `/next`, `/plan` ou `/quick-code`.
+
+`quick-code` é o atalho fora da esteira: alteração pequena e de baixo risco vai direto no código, sem
+arquivo em `docs/features/`. O fluxo abaixo vale para feature de verdade.
 
 ## Fluxo de trabalho
 

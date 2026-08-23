@@ -1,15 +1,30 @@
 import { useMemo } from "react";
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import type { Element } from "hast";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import { findBlockRenderer } from "@/components/markdown/blockRegistry";
+import { CalloutBlock } from "@/components/markdown/CalloutBlock";
+import {
+  CALLOUT_TITLE_ATTR,
+  CALLOUT_TYPE_ATTR,
+  parseCalloutType,
+} from "@/components/markdown/remarkCallout";
 import { MARKDOWN_REMARK_PLUGINS } from "@/components/markdown/remarkPlugins";
+import { MARKDOWN_REHYPE_PLUGINS } from "@/components/markdown/rehypePlugins";
+import {
+  MARKDOWN_PREVIEW_CLASS as PREVIEW_CLASS,
+  MARKDOWN_TABLE_WRAPPER_CLASS,
+} from "@/components/markdown/previewTypography";
+import { TASK_INDEX_ATTR } from "@/components/markdown/rehypeTaskListIndex";
 import { cn } from "@/lib/utils";
 
-/** Tipografia do Markdown renderizado — compartilhada por descrição de tarefa e nota. */
-export const MARKDOWN_PREVIEW_CLASS =
-  "min-h-[80px] space-y-2 text-sm [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_del]:text-muted-foreground [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_li]:ml-4 [&_ol]:list-decimal [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:font-medium [&_ul]:list-disc";
+/**
+ * Reexport: a tipografia mudou de arquivo na 067 (`markdown/previewTypography.ts`), o nome não.
+ * Vários consumidores importam `MARKDOWN_PREVIEW_CLASS` daqui — e continuam podendo.
+ */
+/* eslint-disable-next-line react-refresh/only-export-components -- reexport de contrato: consumidores importam esta constante daqui desde a 055, e mudá-la de arquivo (067) não pode obrigá-los a trocar de import. */
+export { MARKDOWN_PREVIEW_CLASS } from "@/components/markdown/previewTypography";
 
 /**
  * Markdown + GFM (listas, tabela, riscado, checklist) renderizado.
@@ -25,9 +40,19 @@ export function MarkdownPreview({
   className,
   components,
   urlTransform,
+  onToggleTaskItem,
 }: {
   content: string;
   className?: string;
+  /**
+   * Torna a checklist do GFM clicável (feature 067). Recebe o índice do checkbox — o mesmo que
+   * `toggleTaskListItem(content, index)` espera — e é responsabilidade de quem passa reescrever o
+   * Markdown e gravar.
+   *
+   * **Sem o handler, o checkbox continua `disabled`**, que é como a descrição de tarefa se
+   * comporta: lá o Markdown é do campo de descrição, não um documento que o preview possa editar.
+   */
+  onToggleTaskItem?: (index: number) => void;
   /**
    * Renderizadores por elemento, repassados ao `react-markdown` — é por aqui que o módulo de Notas
    * troca o `<a>` por wiki-link/chip de criar nota (feature 056), sem que este componente precise
@@ -46,14 +71,22 @@ export function MarkdownPreview({
    * podendo sobrescrever qualquer elemento, `code`/`pre` inclusive.
    */
   const merged = useMemo<Components>(
-    () => ({ ...BLOCK_REGISTRY_COMPONENTS, ...components }),
-    [components]
+    () => ({
+      ...BLOCK_REGISTRY_COMPONENTS,
+      ...HEADING_COMPONENTS,
+      ...CALLOUT_COMPONENTS,
+      ...TABLE_COMPONENTS,
+      ...taskListComponents(onToggleTaskItem),
+      ...components,
+    }),
+    [components, onToggleTaskItem]
   );
 
   return (
-    <div className={cn(MARKDOWN_PREVIEW_CLASS, className)}>
+    <div className={cn(PREVIEW_CLASS, className)}>
       <ReactMarkdown
         remarkPlugins={MARKDOWN_REMARK_PLUGINS}
+        rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
         components={merged}
         urlTransform={urlTransform}
       >
@@ -62,6 +95,119 @@ export function MarkdownPreview({
     </div>
   );
 }
+
+/**
+ * Tabela larga rola dentro do próprio container, em vez de esticar a página (feature 067).
+ */
+const TABLE_COMPONENTS: Components = {
+  table(props) {
+    const { children, ...rest } = withoutNode(props);
+    return (
+      <div className={MARKDOWN_TABLE_WRAPPER_CLASS}>
+        <table {...rest}>{children}</table>
+      </div>
+    );
+  },
+};
+
+/**
+ * Checklist clicável (feature 067). Sem `onToggleTaskItem`, devolve exatamente o `<input>` que o
+ * `remark-gfm` já produzia — desabilitado —, então nenhum consumidor antigo muda de comportamento.
+ *
+ * O índice vem do `rehypeTaskListIndex` (atributo no HTML), não de um contador de render.
+ */
+function taskListComponents(
+  onToggleTaskItem?: (index: number) => void
+): Components {
+  return {
+    input(props) {
+      const rest = withoutNode(props);
+      const index = Number((rest as Record<string, unknown>)[TASK_INDEX_ATTR]);
+
+      if (
+        !onToggleTaskItem ||
+        rest.type !== "checkbox" ||
+        !Number.isInteger(index)
+      ) {
+        return <input {...rest} />;
+      }
+
+      return (
+        <input
+          {...rest}
+          disabled={false}
+          // Controlado: o estado real é o Markdown, e ele só muda quando a gravação acontece.
+          onChange={() => onToggleTaskItem(index)}
+          className={cn("cursor-pointer", rest.className)}
+        />
+      );
+    },
+  };
+}
+
+/**
+ * `> [!NOTE]` marcado pelo `remarkCallout` vira caixa; blockquote comum continua blockquote
+ * (feature 067). A decisão de "é callout?" já foi tomada no parser — aqui só se lê o atributo.
+ */
+const CALLOUT_COMPONENTS: Components = {
+  blockquote(props) {
+    const record = props as unknown as Record<string, unknown>;
+    const type = parseCalloutType(record[CALLOUT_TYPE_ATTR]);
+    if (!type) {
+      const { children, ...rest } = withoutNode(props);
+      return <blockquote {...rest}>{children}</blockquote>;
+    }
+    const title = record[CALLOUT_TITLE_ATTR];
+    return (
+      <CalloutBlock type={type} title={typeof title === "string" ? title : undefined}>
+        {props.children}
+      </CalloutBlock>
+    );
+  },
+};
+
+/** Rótulo da âncora de título — o mesmo texto usado pelo teste, por isso vive numa constante. */
+export const HEADING_ANCHOR_LABEL = "Link para esta seção";
+
+/**
+ * Título com âncora de link (feature 067). O `id` vem do `rehype-slug`
+ * (`MARKDOWN_REHYPE_PLUGINS`); aqui só se acrescenta o `#` que aponta para ele.
+ *
+ * A âncora fica invisível até o hover/foco (`opacity-0` + `group-hover`), e não `hidden`: elemento
+ * escondido de verdade sairia da árvore de acessibilidade e do alcance do teclado. `!no-underline`
+ * é necessário porque a tipografia do preview sublinha todo `<a>` — este é o único link que não é
+ * do usuário.
+ */
+function headingRenderer(Tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
+  return function Heading(
+    props: ComponentPropsWithoutRef<typeof Tag> & { node?: Element }
+  ) {
+    const { children, className, ...rest } = withoutNode(props);
+    return (
+      <Tag {...rest} className={cn("group scroll-mt-20", className)}>
+        {children}
+        {rest.id ? (
+          <a
+            href={`#${rest.id}`}
+            aria-label={HEADING_ANCHOR_LABEL}
+            className="ml-1.5 align-middle text-muted-foreground opacity-0 transition-opacity !no-underline group-hover:opacity-100 focus-visible:opacity-100"
+          >
+            #
+          </a>
+        ) : null}
+      </Tag>
+    );
+  };
+}
+
+const HEADING_COMPONENTS: Components = {
+  h1: headingRenderer("h1"),
+  h2: headingRenderer("h2"),
+  h3: headingRenderer("h3"),
+  h4: headingRenderer("h4"),
+  h5: headingRenderer("h5"),
+  h6: headingRenderer("h6"),
+};
 
 /**
  * Ponte entre o Markdown e o registry de blocos (feature 057): ` ```<lang> ` com renderer
@@ -74,7 +220,13 @@ const BLOCK_REGISTRY_COMPONENTS: Components = {
       const { children, ...rest } = withoutNode(props);
       return <code {...rest}>{children}</code>;
     }
-    return <Renderer code={blockCode(props.children)} />;
+    // `className` vai junto: é por ela que o `MathBlock` sabe se a fórmula é inline ou de bloco.
+    return (
+      <Renderer
+        code={blockCode(props.children)}
+        className={props.className ?? undefined}
+      />
+    );
   },
   /**
    * O renderer traz o container dele — deixá-lo dentro do `<pre>` herdaria `white-space: pre` e

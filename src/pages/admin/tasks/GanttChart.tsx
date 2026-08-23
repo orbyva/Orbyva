@@ -28,6 +28,7 @@ import { AgendaHourGrid } from "./AgendaHourGrid";
 import { TaskIconBadge } from "./TaskIconBadge";
 import type { TaskIconValue } from "./TaskIconPicker";
 import { TaskQuickFields } from "./TaskQuickFields";
+import type { TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 
 const monthYearFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 const dayFormatter = new Intl.DateTimeFormat("pt-BR", { day: "numeric" });
@@ -131,10 +132,7 @@ interface GanttTaskQuickActionsData {
   projects?: Project[];
   onIconChange?: (taskId: string, next: TaskIconValue) => void;
   onPriorityChange?: (taskId: string, priority: TaskPriority | null) => void;
-  onDueChange?: (
-    taskId: string,
-    next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }
-  ) => void;
+  onDueChange?: (taskId: string, next: TaskDueQuickEditValue) => void;
   onProjectChange?: (taskId: string, projectId: string | null) => void;
   /** Feature 045: qual tarefa (id) tem o popover de quick actions aberto — elevado pro componente
    * `GanttChart` (fora da célula virtualizada) em vez de cada `GanttTaskNameCell` gerenciar seu
@@ -334,10 +332,7 @@ export function GanttChart({
    * (`handleIconChange` etc.) já têm essa assinatura `(taskId, ...)`, então passam direto. */
   onIconChange?: (taskId: string, next: TaskIconValue) => void;
   onPriorityChange?: (taskId: string, priority: TaskPriority | null) => void;
-  onDueChange?: (
-    taskId: string,
-    next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }
-  ) => void;
+  onDueChange?: (taskId: string, next: TaskDueQuickEditValue) => void;
   onProjectChange?: (taskId: string, projectId: string | null) => void;
   /** Catálogo de projetos (já ordenado por atividade) pro `ProjectBadgeButton` do popover de quick
    * actions — obrigatório junto com `onProjectChange` (mesma regra de `TaskQuickFields`). Nomeada
@@ -673,6 +668,11 @@ export function GanttChart({
             taskById={taskById}
             onOpenTask={(task) => onOpenTask?.(task)}
             onOpenEvent={noopOpenEvent}
+            // O drill-down "Focar dia" do Gantt não tem caminho de mutação de status próprio (o
+            // Gantt edita datas, não conclusão), então a bolinha de tarefa pontual (feature 070)
+            // aqui abre o dialog de edição — onde o botão redondo de concluir existe — em vez de
+            // alternar direto como na Agenda.
+            onToggleQuick={(task) => onOpenTask?.(task)}
           />
         </div>
       ) : (

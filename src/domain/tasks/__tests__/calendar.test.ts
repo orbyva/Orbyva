@@ -6,7 +6,10 @@ import {
   DEFAULT_ITEM_DURATION_MINUTES,
   getItemTimeRange,
   groupCalendarItemsByDay,
+  groupQuickItemsBySlot,
+  isQuickTask,
   layoutTimedItems,
+  splitAgendaItems,
   splitTimedItems,
   type CalendarItem,
 } from "@/domain/tasks/calendar";
@@ -16,6 +19,7 @@ interface TestTask {
   due_date: string | null;
   due_time?: string | null;
   estimated_duration?: number | null;
+  is_quick?: boolean | null;
 }
 
 interface TestEvent {
@@ -244,5 +248,125 @@ describe("layoutTimedItems", () => {
     ]);
     expect(timed).toHaveLength(1);
     expect(untimed).toHaveLength(1);
+  });
+});
+
+/**
+ * Feature 070 — tarefa pontual ("bolinha"). A regra que importa aqui é que pontual **não** é um
+ * bloco: ela sai de `timed` (e portanto do `layoutTimedItems`, que dividiria a coluna do dia) e
+ * também não cai em `untimed` quando não tem horário — ela tem um balde só dela.
+ */
+describe("isQuickTask", () => {
+  it("é a flag e nada mais — duração ausente não faz tarefa comum virar pontual", () => {
+    expect(isQuickTask({ id: "a", due_date: "2026-08-10" })).toBe(false);
+    expect(isQuickTask({ id: "b", due_date: "2026-08-10", estimated_duration: null })).toBe(false);
+    expect(isQuickTask({ id: "c", due_date: "2026-08-10", is_quick: true })).toBe(true);
+  });
+
+  it("pontual com estimated_duration preenchido (dado inconsistente do banco) continua pontual", () => {
+    expect(
+      isQuickTask({ id: "d", due_date: "2026-08-10", is_quick: true, estimated_duration: 60 })
+    ).toBe(true);
+  });
+});
+
+describe("splitAgendaItems", () => {
+  it("pontual com horário sai de timed e entra em quick", () => {
+    const { timed, quick, untimed } = splitAgendaItems([
+      taskItem({ id: "remedio", due_date: "2026-08-10", due_time: "08:00", is_quick: true }),
+      taskItem({ id: "reuniao", due_date: "2026-08-10", due_time: "09:00", estimated_duration: 60 }),
+    ]);
+    expect(quick.map((t) => t.id)).toEqual(["remedio"]);
+    expect(timed.map((t) => (t.item.kind === "task" ? t.item.task.id : t.item.event.id))).toEqual([
+      "reuniao",
+    ]);
+    expect(untimed).toHaveLength(0);
+  });
+
+  it("pontual sem horário vai para quick, não para untimed", () => {
+    const { timed, quick, untimed } = splitAgendaItems([
+      taskItem({ id: "lencol", due_date: "2026-08-10", is_quick: true }),
+      taskItem({ id: "comum", due_date: "2026-08-10" }),
+    ]);
+    expect(quick.map((t) => t.id)).toEqual(["lencol"]);
+    expect(timed).toHaveLength(0);
+    expect(untimed).toHaveLength(1);
+    expect(untimed[0].kind === "task" && untimed[0].task.id).toBe("comum");
+  });
+
+  it("pontual com estimated_duration preenchido continua bolinha (não vira bloco)", () => {
+    const { timed, quick } = splitAgendaItems([
+      taskItem({
+        id: "inconsistente",
+        due_date: "2026-08-10",
+        due_time: "08:00",
+        is_quick: true,
+        estimated_duration: 90,
+      }),
+    ]);
+    expect(quick.map((t) => t.id)).toEqual(["inconsistente"]);
+    expect(timed).toHaveLength(0);
+  });
+
+  it("evento nunca é pontual — continua no canvas de horas", () => {
+    const { timed, quick } = splitAgendaItems([
+      eventItem({ id: "evt", starts_at: "2026-08-10T09:00:00-03:00" }),
+    ]);
+    expect(quick).toHaveLength(0);
+    expect(timed).toHaveLength(1);
+  });
+
+  it("splitTimedItems segue com o comportamento antigo (pontual continua sendo bloco/chip lá)", () => {
+    const items = [taskItem({ id: "remedio", due_date: "2026-08-10", due_time: "08:00", is_quick: true })];
+    const { timed, untimed } = splitTimedItems(items);
+    expect(timed).toHaveLength(1);
+    expect(untimed).toHaveLength(0);
+  });
+});
+
+describe("groupQuickItemsBySlot", () => {
+  it("agrupa as pontuais do mesmo horário numa fileira só, tolerando o HH:mm:ss do Postgres", () => {
+    const slots = groupQuickItemsBySlot([
+      { id: "a", due_date: "2026-08-10", due_time: "08:00", is_quick: true },
+      { id: "b", due_date: "2026-08-10", due_time: "08:00:00", is_quick: true },
+    ]);
+    expect(slots).toHaveLength(1);
+    expect(slots[0].items.map((t) => t.id)).toEqual(["a", "b"]);
+    expect(slots[0].startMinutes).toBe(8 * 60);
+  });
+
+  it("topPercent do slot bate com o de computeItemPosition daquele horário", () => {
+    const slots = groupQuickItemsBySlot([
+      { id: "a", due_date: "2026-08-10", due_time: "12:00", is_quick: true },
+    ]);
+    expect(slots[0].topPercent).toBe(
+      computeItemPosition({ startMinutes: 12 * 60, durationMinutes: 0 }).topPercent
+    );
+    expect(slots[0].topPercent).toBeCloseTo(50, 5);
+  });
+
+  it("ordena os slots por horário e joga o grupo sem horário para o fim", () => {
+    const slots = groupQuickItemsBySlot([
+      { id: "sem-horario", due_date: "2026-08-10", is_quick: true },
+      { id: "tarde", due_date: "2026-08-10", due_time: "20:00", is_quick: true },
+      { id: "manha", due_date: "2026-08-10", due_time: "08:00", is_quick: true },
+    ]);
+    expect(slots.map((s) => s.items[0].id)).toEqual(["manha", "tarde", "sem-horario"]);
+    expect(slots[2].startMinutes).toBeNull();
+    expect(slots[2].topPercent).toBeNull();
+  });
+
+  it("as pontuais sem horário caem todas no mesmo grupo", () => {
+    const slots = groupQuickItemsBySlot([
+      { id: "a", due_date: "2026-08-10", is_quick: true },
+      { id: "b", due_date: "2026-08-10", is_quick: true },
+    ]);
+    expect(slots).toHaveLength(1);
+    expect(slots[0].items).toHaveLength(2);
+    expect(slots[0].startMinutes).toBeNull();
+  });
+
+  it("lista vazia não gera slot nenhum", () => {
+    expect(groupQuickItemsBySlot([])).toEqual([]);
   });
 });

@@ -13,16 +13,36 @@ const DURATION_PRESETS_MIN = [15, 30, 60, 90, 120, 240];
  * Trigger clicável (ícone de relógio + `formatEstimatedDuration`; sem duração, mostra "+ Duração") que abre
  * um popover com presets comuns em botões + um campo "Personalizado" para valores fora da lista —
  * substitui o `<Input type="number">` de duração que havia em `TaskDueQuickEdit` (feature 031).
+ *
+ * Tarefa pontual (feature 070) e duração são mutuamente exclusivas — uma tarefa não pode ser bloco e
+ * bolinha ao mesmo tempo. Daí os dois modos:
+ * - com `onQuickChange` (edição rápida): "Pontual" vira uma opção ao lado dos presets; escolhê-la
+ *   liga a flag e limpa a duração, e escolher um preset/personalizado faz o inverso;
+ * - só com `isQuick` (formulário completo, onde o interruptor "Tarefa pontual" é quem manda): o
+ *   controle de duração fica desabilitado enquanto a tarefa for pontual.
  */
 export function TaskDurationQuickPick({
   value,
   onChange,
+  isQuick = false,
+  onQuickChange,
 }: {
   value: number | null | undefined;
   onChange: (minutes: number | null) => void;
+  isQuick?: boolean;
+  onQuickChange?: (next: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState("");
+
+  /** Contrato de callback único: cada ação dispara **um** `onChange` **ou** **um** `onQuickChange`,
+   * nunca os dois. Quem consome resolve o par (escolher duração desliga "pontual"; escolher
+   * "Pontual" zera a duração) — dois disparos seguidos fariam a segunda chamada sobrescrever a
+   * primeira com props já defasadas, e na lista virariam duas escritas no banco. */
+  function selectDuration(minutes: number | null) {
+    onChange(minutes);
+    setOpen(false);
+  }
 
   return (
     <Popover
@@ -35,14 +55,16 @@ export function TaskDurationQuickPick({
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={isQuick && !onQuickChange}
           onClick={(e) => e.stopPropagation()}
           className={cn(
             "flex shrink-0 items-center gap-1 rounded-sm px-0.5 hover:bg-muted hover:text-foreground",
-            !value && "text-muted-foreground/70"
+            !value && "text-muted-foreground/70",
+            isQuick && !onQuickChange && "cursor-not-allowed opacity-60 hover:bg-transparent"
           )}
         >
           <Timer className="h-3 w-3" />
-          {value ? formatEstimatedDuration(value) : "+ Duração"}
+          {isQuick ? "Pontual (sem duração)" : value ? formatEstimatedDuration(value) : "+ Duração"}
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -58,19 +80,31 @@ export function TaskDurationQuickPick({
                 key={preset}
                 type="button"
                 size="sm"
-                variant={value === preset ? "secondary" : "outline"}
+                variant={!isQuick && value === preset ? "secondary" : "outline"}
                 className={cn(
                   "h-7 px-2.5 text-xs",
-                  value === preset && "border border-primary/40"
+                  !isQuick && value === preset && "border border-primary/40"
                 )}
-                onClick={() => {
-                  onChange(preset);
-                  setOpen(false);
-                }}
+                onClick={() => selectDuration(preset)}
               >
                 {formatEstimatedDuration(preset)}
               </Button>
             ))}
+            {onQuickChange && (
+              <Button
+                type="button"
+                size="sm"
+                variant={isQuick ? "secondary" : "outline"}
+                className={cn("h-7 px-2.5 text-xs", isQuick && "border border-primary/40")}
+                onClick={() => {
+                  // Pontual não tem duração: quem recebe `true` zera `estimated_duration` junto.
+                  onQuickChange(true);
+                  setOpen(false);
+                }}
+              >
+                Pontual
+              </Button>
+            )}
           </div>
         </div>
         <div>
@@ -90,10 +124,7 @@ export function TaskDurationQuickPick({
               variant="outline"
               className="h-8 shrink-0 px-2.5 text-xs"
               disabled={!custom}
-              onClick={() => {
-                onChange(custom ? parseInt(custom, 10) : null);
-                setOpen(false);
-              }}
+              onClick={() => selectDuration(custom ? parseInt(custom, 10) : null)}
             >
               Aplicar
             </Button>

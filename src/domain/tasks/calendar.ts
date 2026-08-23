@@ -12,6 +12,9 @@ interface CalendarTask {
   due_date: string | null;
   due_time?: string | null;
   estimated_duration?: number | null;
+  /** Tarefa pontual (feature 070) — instante sem duração, desenhada como bolinha na agenda em vez
+   * de bloco no canvas de horas. */
+  is_quick?: boolean | null;
 }
 
 interface CalendarEvent {
@@ -147,6 +150,98 @@ export function splitTimedItems<T extends CalendarTask, E extends CalendarEvent>
   return { timed, untimed };
 }
 
+/**
+ * Predicado único de "tarefa pontual" (feature 070) — é `is_quick` e nada mais: nunca derivado de
+ * `estimated_duration` ausente (a maioria das tarefas não tem duração por omissão, e derivar
+ * transformaria a agenda inteira em bolinhas). Uma tarefa pontual com `estimated_duration`
+ * preenchido (dado inconsistente vindo do banco, já que a UI zera um ao ligar o outro) continua
+ * pontual: a flag manda.
+ *
+ * Ponto de reuso da feature 071 (dose de medicação como bolinha) — quem quiser saber "isso é
+ * bolinha?" pergunta aqui, não olha a coluna direto.
+ */
+export function isQuickTask(task: CalendarTask): boolean {
+  return task.is_quick === true;
+}
+
+/**
+ * Separa os itens de um dia em três baldes, em vez dos dois de `splitTimedItems`:
+ * - `timed`: itens com horário que ocupam o canvas de horas (blocos com altura),
+ * - `quick`: tarefas pontuais (`is_quick`), **com ou sem** `due_time` — elas não entram no
+ *   `layoutTimedItems` (não têm duração pra ocupar coluna; três remédios das 8h viravam três
+ *   colunas estreitas) e viram fileira de bolinhas,
+ * - `untimed`: o resto sem horário, que continua na faixa "Sem horário" como chip.
+ *
+ * `splitTimedItems` continua existindo, com o comportamento de antes, para quem só quer a divisão
+ * horário/sem-horário sem saber de bolinha.
+ */
+export function splitAgendaItems<T extends CalendarTask, E extends CalendarEvent>(
+  items: CalendarItem<T, E>[]
+): {
+  timed: Array<{ item: CalendarItem<T, E>; range: ItemTimeRange }>;
+  quick: T[];
+  untimed: CalendarItem<T, E>[];
+} {
+  const timed: Array<{ item: CalendarItem<T, E>; range: ItemTimeRange }> = [];
+  const quick: T[] = [];
+  const untimed: CalendarItem<T, E>[] = [];
+  for (const item of items) {
+    if (item.kind === "task" && isQuickTask(item.task)) {
+      quick.push(item.task);
+      continue;
+    }
+    const range = getItemTimeRange(item);
+    if (range) timed.push({ item, range });
+    else untimed.push(item);
+  }
+  return { timed, quick, untimed };
+}
+
+/** Uma fileira de bolinhas: todas as pontuais de um mesmo horário do dia. `startMinutes`/
+ * `topPercent` são `null` no grupo das pontuais sem horário — esse não tem onde pousar no canvas e
+ * é desenhado na faixa "Sem horário". */
+export interface QuickItemSlot<T extends CalendarTask> {
+  /** Minutos desde meia-noite do horário do slot; `null` = pontual sem `due_time`. */
+  startMinutes: number | null;
+  /** Posição vertical no canvas de 24h, em % — mesma conta de `computeItemPosition`. `null` junto
+   * com `startMinutes`. */
+  topPercent: number | null;
+  items: T[];
+}
+
+/**
+ * Agrupa as pontuais de um dia por horário normalizado (`HH:mm` — o Postgres devolve `HH:mm:ss`, e
+ * `08:00` e `08:00:00` precisam cair no mesmo slot), ordenado por horário, com as sem horário num
+ * grupo próprio no fim. É o que faz "três remédios das 8h" virar **uma** fileira de três bolinhas,
+ * uma na frente da outra, em vez de três colunas.
+ */
+export function groupQuickItemsBySlot<T extends CalendarTask>(quickItems: T[]): QuickItemSlot<T>[] {
+  const byKey = new Map<string, QuickItemSlot<T>>();
+  for (const task of quickItems) {
+    const time = task.due_time ? task.due_time.slice(0, 5) : null;
+    const key = time ?? "";
+    const slot = byKey.get(key);
+    if (slot) {
+      slot.items.push(task);
+      continue;
+    }
+    const startMinutes = time ? parseTimeToMinutes(time) : null;
+    byKey.set(key, {
+      startMinutes,
+      topPercent:
+        startMinutes == null
+          ? null
+          : computeItemPosition({ startMinutes, durationMinutes: 0 }).topPercent,
+      items: [task],
+    });
+  }
+  return [...byKey.values()].sort((a, b) => {
+    if (a.startMinutes == null) return 1;
+    if (b.startMinutes == null) return -1;
+    return a.startMinutes - b.startMinutes;
+  });
+}
+
 /** Posição (`top`) e altura (`height`) de um item no canvas de 24h, em % da altura total —
  * clampado pra nunca vazar além da meia-noite seguinte (item que começa às 23:50 com duração de
  * 1h, por ex.). */
@@ -232,3 +327,19 @@ export function layoutTimedItems<T extends CalendarTask, E extends CalendarEvent
 
   return { timed: laidOut, untimed };
 }
+
+/**
+ * Cor do chip/bloco de um evento na agenda. Evento **sem projeto** (feature 076: cópia recebida por
+ * convite, `project_id` nulo) não tem cor de projeto — devolve `null` e a UI cai no estilo neutro,
+ * em vez de estourar tentando indexar o mapa com `null`.
+ */
+export function eventProjectColor(
+  projectId: string | null | undefined,
+  projectById: Map<string, { color?: string | null }>
+): string | null {
+  if (!projectId) return null;
+  return projectById.get(projectId)?.color ?? null;
+}
+
+/** Rótulo neutro do evento sem projeto — usado no lugar do badge do projeto. */
+export const EVENT_WITHOUT_PROJECT_LABEL = "Recebido por convite";

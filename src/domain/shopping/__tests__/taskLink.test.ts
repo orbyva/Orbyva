@@ -68,6 +68,34 @@ describe("buildTaskDraftFromItem", () => {
     expect(buildTaskDraftFromItem(makeItem(), null).description).toBe("Lista de Compras");
   });
 
+  /** Feature 066: item solto (`shopping_category_id` nulo) é caminho normal, não acidente. */
+  it("item sem categoria vira tarefa completa, só sem o sufixo da categoria", () => {
+    const draft = buildTaskDraftFromItem(
+      makeItem({
+        shopping_category_id: null,
+        quantity: 4,
+        unit: "un",
+        provider_link: "https://loja.example/pilha",
+      }),
+      null
+    );
+
+    expect(draft.title).toBe("Comprar Café");
+    expect(draft.description).toBe(
+      "Lista de Compras\n4 un\nhttps://loja.example/pilha"
+    );
+    expect(draft.description).not.toContain("·");
+    expect(draft.icon_key).toBe(SHOPPING_TASK_ICON_KEY);
+    expect(draft.linked_shopping_item_id).toBe("item-1");
+    expect(draft.status).toBe("todo");
+  });
+
+  it("item sem categoria e sem mais nada: a descrição é só a origem", () => {
+    expect(
+      buildTaskDraftFromItem(makeItem({ shopping_category_id: null })).description
+    ).toBe("Lista de Compras");
+  });
+
   it("campos vazios ou só espaços não entram na descrição", () => {
     const draft = buildTaskDraftFromItem(
       makeItem({ description: "   ", unit: "  ", provider_link: "" }),

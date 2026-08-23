@@ -47,9 +47,20 @@ describe("emptyTask", () => {
       icon_key: null,
       icon_url: null,
       is_milestone: false,
+      // Feature 070: o draft nasce não-pontual — "pontual" é escolha explícita do usuário, nunca
+      // derivada de duração ausente.
+      is_quick: false,
       is_medication: false,
       is_consultation: false,
+      // Feature 082: nasce em 0, empatada com o resto da faixa — quem desempata é o comparador da
+      // tela (079) até alguém arrastar. Espelha o `default 0` da coluna.
+      sort_order: 0,
     });
+  });
+
+  it("semeia sort_order 0 também quando o projeto vem preenchido (feature 082)", () => {
+    expect(emptyTask("project-1").sort_order).toBe(0);
+    expect(emptyTask().sort_order).toBe(0);
   });
 });
 

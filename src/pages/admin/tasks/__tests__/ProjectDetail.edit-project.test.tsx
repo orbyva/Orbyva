@@ -180,8 +180,10 @@ describe("ProjectDetail — editar projeto", () => {
     await user.click(screen.getByRole("button", { name: "Editar projeto" }));
     const dialog = within(screen.getByRole("dialog"));
     expect(dialog.getByText(/Reunião semanal/)).toBeInTheDocument();
-    const eventRow = dialog.getByText(/Reunião semanal/).closest("div")!;
-    await user.click(eventRow.querySelector("button")!);
+    // Dois botões de ícone na linha desde a feature 076 (convidar e excluir) — alvo pelo rótulo.
+    await user.click(
+      dialog.getByRole("button", { name: "Excluir Reunião semanal" })
+    );
 
     expect(mockedDeleteProjectEvent).toHaveBeenCalledWith("event-1");
   });

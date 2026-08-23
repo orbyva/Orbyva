@@ -31,7 +31,11 @@ export type ProjectUpdateRequest = Partial<ProjectCreateRequest> & {
 export interface ProjectEvent {
   id: string;
   user_id?: string;
-  project_id: string;
+  /**
+   * Nulo = evento recebido por convite (feature 076): o convidado tem a cópia do evento na agenda
+   * dele, mas não tem o projeto do anfitrião. A agenda usa cor/rótulo neutros nesse caso.
+   */
+  project_id: string | null;
   title: string;
   starts_at: string;
   ends_at?: string | null;
@@ -42,6 +46,48 @@ export type ProjectEventCreateRequest = Omit<
   ProjectEvent,
   "id" | "user_id" | "created_at"
 >;
+
+/** Convite de evento (feature 076) — espelha `public.event_invite`. */
+export type EventInviteStatus = "pending" | "accepted" | "revoked" | "expired";
+
+export interface EventInvite {
+  id: string;
+  event_id: string;
+  /** Nulo = convite "só link": quem tiver o token aceita. */
+  email: string | null;
+  token: string;
+  created_by: string;
+  status: EventInviteStatus;
+  expires_at: string;
+  accepted_by?: string | null;
+  /** `project_event` criado na conta do convidado ao aceitar. */
+  accepted_event_id?: string | null;
+  email_sent_at?: string | null;
+  created_at?: string;
+}
+
+export type EventInviteCreateRequest = {
+  event_id: string;
+  email?: string | null;
+};
+
+/**
+ * O que `get_event_invite_by_token` devolve para o convidado: o estado do convite mais o mínimo do
+ * evento para ele decidir. Nada do anfitrião (e-mail, nome, projeto) atravessa — ver a migration
+ * `20260820130000_event_invite_rpcs.sql`.
+ */
+export type EventInvitePreview = Pick<
+  EventInvite,
+  "id" | "event_id" | "token" | "email" | "status" | "expires_at" | "created_at"
+> & {
+  accepted_by?: string | null;
+  accepted_event_id?: string | null;
+  event_title: string | null;
+  event_starts_at: string | null;
+  event_ends_at: string | null;
+  /** `true` quando quem está lendo é o próprio convidado que já aceitou. */
+  accepted_by_me: boolean;
+};
 
 export interface Tag {
   id: string;
@@ -114,6 +160,12 @@ export interface Task {
   /** Marca a tarefa como um marco no Gantt (feature 037) — sem duração, um ponto na linha do
    * tempo (`due_date`) em vez de uma barra. */
   is_milestone?: boolean;
+  /** Tarefa pontual (feature 070): um instante sem duração — trocar lençol, trocar escova, tomar
+   * remédio. A agenda a desenha como bolinha marcável (`QuickTaskDot`) no horário, em vez de um
+   * bloco com altura sintética. Mutuamente exclusiva com `estimated_duration` na UI (ligar a flag
+   * zera a duração), e ortogonal às demais: uma dose de medicação é `is_medication` **e**
+   * `is_quick` (feature 071). */
+  is_quick?: boolean;
   /** Marca a tarefa (e a série materializada a partir dela) como uma medicação (feature 049) —
    * usado pra exibir o histórico de doses tomadas no dialog "Ocorrências de...". */
   is_medication?: boolean;
@@ -132,6 +184,12 @@ export interface Task {
    * com segundos). Junto com `due_date` é a chave que impede materializar a mesma dose duas vezes;
    * é por isso que uma medicação de 08:00 e 20:00 gera duas tarefas no mesmo dia. */
   dose_time?: string | null;
+  /** Ordem manual dentro da faixa de prioridade do painel "Por prioridade" do quadrante de projeto
+   * (feature 082). Asc, com o comparador da tela (feature 079) como desempate — toda tarefa nasce
+   * em `0`, então sem o desempate a faixa inteira ficaria em ordem indefinida. Só o arraste
+   * escreve aqui: a Lista em caixas, o Kanban e o painel "Por prazo" ignoram esta coluna de
+   * propósito (ordem manual global seria pedido novo). */
+  sort_order?: number;
   created_at?: string;
   updated_at?: string;
 }

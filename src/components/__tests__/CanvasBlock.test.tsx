@@ -150,7 +150,7 @@ describe("CanvasBlock", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("cena corrompida");
-    expect(screen.getByRole("heading", { name: "Pauta" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Pauta/ })).toBeInTheDocument();
     expect(screen.getByText("texto depois")).toBeInTheDocument();
   });
 

@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AgendaHourGrid } from "@/pages/admin/tasks/AgendaHourGrid";
 import { dayKey } from "@/pages/admin/tasks/AgendaGrid";
-import { groupCalendarItemsByDay, layoutTimedItems } from "@/domain/tasks";
+import { computeItemPosition, groupCalendarItemsByDay, layoutTimedItems } from "@/domain/tasks";
 import type { Project, ProjectEvent, Task } from "@/types/tasks";
 
 /**
@@ -68,6 +68,7 @@ function renderGrid({
   allTasks,
   onOpenTask = vi.fn(),
   onOpenEvent = vi.fn(),
+  onToggleQuick = vi.fn(),
 }: {
   days?: Date[];
   tasks?: Task[];
@@ -79,6 +80,7 @@ function renderGrid({
   allTasks?: Task[];
   onOpenTask?: (task: Task) => void;
   onOpenEvent?: (event: ProjectEvent) => void;
+  onToggleQuick?: (task: Task) => void;
 } = {}) {
   const itemsByDay = groupCalendarItemsByDay(tasks, events);
   const projectById = new Map(projects.map((p) => [p.id, p]));
@@ -91,9 +93,10 @@ function renderGrid({
       taskById={taskById}
       onOpenTask={onOpenTask}
       onOpenEvent={onOpenEvent}
+      onToggleQuick={onToggleQuick}
     />
   );
-  return { ...utils, onOpenTask, onOpenEvent };
+  return { ...utils, onOpenTask, onOpenEvent, onToggleQuick };
 }
 
 /** Encontra o `div` posicionado de forma absoluta (top/height/left/width) que embrulha o bloco
@@ -308,5 +311,154 @@ describe("AgendaHourGrid — subtarefa com prazo próprio (feature 048)", () => 
 
     const button = screen.getByRole("button", { name: /Tarefa de topo/ });
     expect(button.getAttribute("title")).toBe("Tarefa de topo");
+  });
+});
+
+/**
+ * Feature 070 — tarefa pontual como bolinha. Sem Chrome, é aqui que se prova que a pontual **não**
+ * vira bloco no canvas de horas, que as do mesmo horário ficam na mesma fileira ("uma na frente da
+ * outra"), que a fileira pousa no `top` do horário e que o clique conclui em vez de abrir diálogo.
+ */
+describe("AgendaHourGrid — tarefas pontuais (bolinhas)", () => {
+  it("pontual com horário vira bolinha e não vira bloco", () => {
+    const quick = makeTask({ id: "q1", due_time: "08:00", title: "Losartana", is_quick: true });
+    renderGrid({ tasks: [quick] });
+
+    // Bolinha: botão com o rótulo de concluir.
+    expect(screen.getByRole("button", { name: "Concluir «Losartana» às 08:00" })).toBeInTheDocument();
+    // E nenhum bloco do canvas de horas (o bloco tem o título como nome acessível/texto).
+    expect(screen.queryByText("Losartana")).not.toBeInTheDocument();
+  });
+
+  it("tarefa comum continua bloco quando divide o dia com uma pontual", () => {
+    const quick = makeTask({ id: "q1", due_time: "08:00", title: "Losartana", is_quick: true });
+    const normal = makeTask({ id: "n1", due_time: "09:00", estimated_duration: 60, title: "Reunião" });
+    renderGrid({ tasks: [quick, normal] });
+
+    const block = screen.getByRole("button", { name: /Reunião/ });
+    const wrapper = absoluteWrapperOf(block);
+    // A pontual saiu do layout: o bloco ocupa a coluna inteira, sem dividir largura com ela.
+    expect(wrapper.style.width).toBe("100%");
+    expect(wrapper.style.left).toBe("0%");
+  });
+
+  it("duas pontuais no mesmo horário ficam na mesma fileira, no top daquele horário", () => {
+    const a = makeTask({ id: "q1", due_time: "08:00", title: "Losartana", is_quick: true });
+    // `HH:mm:ss` é o que o Postgres devolve — tem que cair no mesmo slot.
+    const b = makeTask({ id: "q2", due_time: "08:00:00", title: "Vitamina D", is_quick: true });
+    renderGrid({ tasks: [a, b] });
+
+    const row = screen.getByRole("group", { name: "Tarefas pontuais às 08:00" });
+    expect(within(row).getAllByRole("button")).toHaveLength(2);
+
+    const positioned = row.closest('div[style*="top"]') as HTMLElement;
+    const expectedTop = computeItemPosition({ startMinutes: 8 * 60, durationMinutes: 0 }).topPercent;
+    expect(positioned.style.top).toBe(`${expectedTop}%`);
+    expect(positioned.className).toContain("z-10");
+  });
+
+  it("horários diferentes viram fileiras diferentes", () => {
+    const manha = makeTask({ id: "q1", due_time: "08:00", title: "Losartana", is_quick: true });
+    const noite = makeTask({ id: "q2", due_time: "20:00", title: "Melatonina", is_quick: true });
+    renderGrid({ tasks: [manha, noite] });
+
+    expect(screen.getByRole("group", { name: "Tarefas pontuais às 08:00" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Tarefas pontuais às 20:00" })).toBeInTheDocument();
+  });
+
+  it("pontual sem horário vira bolinha na faixa 'Sem horário', não chip", () => {
+    const quick = makeTask({ id: "q1", due_time: null, title: "Trocar lençol", is_quick: true });
+    renderGrid({ tasks: [quick] });
+
+    expect(screen.getByText("Sem horário")).toBeInTheDocument();
+    const row = screen.getByRole("group", { name: "Tarefas pontuais sem horário" });
+    expect(within(row).getByRole("button", { name: "Concluir «Trocar lençol»" })).toBeInTheDocument();
+    // O chip de largura inteira (que mostra o título como texto) não é mais o formato dela.
+    expect(screen.queryByText("Trocar lençol")).not.toBeInTheDocument();
+  });
+
+  it("clicar na bolinha chama onToggleQuick, nunca onOpenTask", async () => {
+    const user = userEvent.setup();
+    const quick = makeTask({ id: "q1", due_time: "08:00", title: "Losartana", is_quick: true });
+    const { onToggleQuick, onOpenTask } = renderGrid({ tasks: [quick] });
+
+    await user.click(screen.getByRole("button", { name: "Concluir «Losartana» às 08:00" }));
+
+    expect(onToggleQuick).toHaveBeenCalledWith(quick);
+    expect(onOpenTask).not.toHaveBeenCalled();
+  });
+
+  it("acima do limite de bolinhas visíveis aparece o +N, que abre o dia", async () => {
+    const user = userEvent.setup();
+    const onOpenDay = vi.fn();
+    const many = Array.from({ length: 8 }, (_, i) =>
+      makeTask({ id: `q${i}`, due_time: "08:00", title: `Pontual ${i}`, is_quick: true })
+    );
+    render(
+      <AgendaHourGrid
+        days={[DAY]}
+        itemsByDay={groupCalendarItemsByDay(many, [])}
+        projectById={new Map()}
+        taskById={new Map(many.map((t) => [t.id, t]))}
+        onOpenTask={vi.fn()}
+        onOpenEvent={vi.fn()}
+        onToggleQuick={vi.fn()}
+        onOpenDay={onOpenDay}
+      />
+    );
+
+    const row = screen.getByRole("group", { name: "Tarefas pontuais às 08:00" });
+    // 6 bolinhas + o botão "+2".
+    expect(within(row).getAllByRole("button")).toHaveLength(7);
+    await user.click(within(row).getByRole("button", { name: "Ver mais 2 tarefas pontuais" }));
+    expect(onOpenDay).toHaveBeenCalledWith(dayKey(DAY));
+  });
+
+  it("ocorrência virtual vira bolinha tracejada e não clicável", async () => {
+    const user = userEvent.setup();
+    const virtual = makeTask({
+      id: "virtual:origem-1:2026-08-17",
+      due_time: "08:00",
+      title: "Trocar escova",
+      is_quick: true,
+    });
+    const { onToggleQuick } = renderGrid({ tasks: [virtual] });
+
+    const button = screen.getByRole("button", {
+      name: "Trocar escova às 08:00 — próxima ocorrência, ainda não criada",
+    });
+    expect(button).toBeDisabled();
+    await user.click(button);
+    expect(onToggleQuick).not.toHaveBeenCalled();
+  });
+});
+
+describe("AgendaHourGrid — número do dia abre o dia inteiro", () => {
+  it("clicar no número do dia chama onOpenDay com a chave do dia", async () => {
+    const user = userEvent.setup();
+    const onOpenDay = vi.fn();
+    render(
+      <AgendaHourGrid
+        days={[DAY]}
+        itemsByDay={new Map()}
+        projectById={new Map()}
+        taskById={new Map()}
+        onOpenTask={vi.fn()}
+        onOpenEvent={vi.fn()}
+        onToggleQuick={vi.fn()}
+        onOpenDay={onOpenDay}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ver tudo do dia 17" }));
+
+    expect(onOpenDay).toHaveBeenCalledWith(dayKey(DAY));
+  });
+
+  it("sem onOpenDay (drill-down do Gantt), o número do dia não é botão", () => {
+    renderGrid({ days: [DAY] });
+
+    expect(screen.queryByRole("button", { name: "Ver tudo do dia 17" })).not.toBeInTheDocument();
+    expect(screen.getByText("17")).toBeInTheDocument();
   });
 });

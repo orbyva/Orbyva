@@ -27,8 +27,13 @@ export function emptyTask(projectId?: string | null): TaskCreateRequest {
     icon_key: null,
     icon_url: null,
     is_milestone: false,
+    is_quick: false,
     is_medication: false,
     is_consultation: false,
+    // Feature 082: toda tarefa nasce no topo empatado da faixa (`0`) — o desempate fica com o
+    // comparador da tela (079) até alguém arrastar. O banco também tem `default 0`; semear aqui é
+    // o que mantém o rascunho e a linha gravada com o mesmo formato.
+    sort_order: 0,
   };
 }
 

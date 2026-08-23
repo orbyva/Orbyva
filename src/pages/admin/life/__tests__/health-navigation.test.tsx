@@ -5,6 +5,8 @@ import { Suspense } from "react";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, matchRoutes } from "react-router-dom";
 import { appRoutes } from "@/routes";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { HubModulesGrid } from "@/pages/admin/life/HubModulesGrid";
 import { HOME_MODULES, MODULE_DOT } from "@/pages/admin/life/hubMeta";
 import { moduleColors } from "@/lib/design-tokens";
@@ -17,7 +19,12 @@ import { loadHealthSummary } from "@/api/health";
  * em todos os pontos de uso, inclusive nas duas declarações do `src/index.css`.
  */
 
-vi.mock("@/api/health", () => ({ loadHealthSummary: vi.fn() }));
+vi.mock("@/api/health", () => ({
+  loadHealthSummary: vi.fn(),
+  // A lista de tratamentos carrega as preferências de lembrete junto (atalho "Lembretes" da 071).
+  fetchReminderPreferences: vi.fn(async () => []),
+  upsertReminderPreference: vi.fn(),
+}));
 
 // A lista de tratamentos (064) é montada de verdade pela rota — a API é mockada para o teste ser
 // sobre a navegação, não sobre o Supabase.
@@ -35,7 +42,27 @@ vi.mock("@/hooks/use-toast", () => ({
   toast: toastMock,
 }));
 
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({
+    user: { email: "eu@example.com", user_metadata: { full_name: "Eu" } },
+    loading: false,
+  }),
+}));
+
 beforeEach(() => {
+  if (!window.matchMedia) {
+    window.matchMedia = ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+  }
+
   vi.mocked(loadHealthSummary).mockResolvedValue({
     nextMedicationDose: null,
     nextConsultation: null,
@@ -82,6 +109,62 @@ describe("hub de Vida", () => {
       .querySelector("span") as HTMLElement;
     expect(icon.className).toContain("bg-[hsl(var(--health))]/10");
     expect(icon.className).toContain("text-[hsl(var(--health))]");
+  });
+});
+
+/**
+ * Feature 071: até então `/life/health` não aparecia em menu nenhum — só pelo card do hub ou pela
+ * URL. Trocar a criação de medicação de Tarefas para a Saúde sem isto seria trocar um lugar ruim
+ * por um lugar escondido.
+ */
+describe("sidebar — Saúde no grupo Vida (071)", () => {
+  it("lista 'Saúde' apontando para /life/health, logo depois de Hábitos", () => {
+    render(
+      <MemoryRouter initialEntries={["/life/health"]}>
+        <SidebarProvider>
+          <AppSidebar />
+        </SidebarProvider>
+      </MemoryRouter>
+    );
+
+    const link = screen.getByRole("link", { name: "Saúde" });
+    expect(link).toHaveAttribute("href", "/life/health");
+
+    const vida = Array.from(document.querySelectorAll("a[href]"))
+      .map((a) => a.getAttribute("href"))
+      .filter((href): href is string => href != null);
+    expect(vida[vida.indexOf("/life/health") - 1]).toBe("/habits");
+  });
+
+  it("o item fica ativo em /life/health e também na rota-filha /life/health/medications", () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={["/life/health"]}>
+        <SidebarProvider>
+          <AppSidebar />
+        </SidebarProvider>
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("link", { name: "Saúde" })).toHaveAttribute(
+      "data-active",
+      "true"
+    );
+    expect(screen.getByRole("link", { name: "Hábitos" })).toHaveAttribute(
+      "data-active",
+      "false"
+    );
+    unmount();
+
+    render(
+      <MemoryRouter initialEntries={["/life/health/medications"]}>
+        <SidebarProvider>
+          <AppSidebar />
+        </SidebarProvider>
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("link", { name: "Saúde" })).toHaveAttribute(
+      "data-active",
+      "true"
+    );
   });
 });
 

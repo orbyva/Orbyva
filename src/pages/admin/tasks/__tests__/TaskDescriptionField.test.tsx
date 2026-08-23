@@ -48,7 +48,7 @@ describe("TaskDescriptionField (depois da extração do Markdown)", () => {
 
     await user.click(screen.getByRole("tab", { name: "Visualizar" }));
 
-    expect(screen.getByRole("heading", { name: "Reforma" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Reforma/ })).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByText("importante").tagName).toBe("STRONG");
     expect(screen.getByRole("link", { name: "site" })).toHaveAttribute(

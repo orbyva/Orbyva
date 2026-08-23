@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ProjectPicker } from "./ProjectPicker";
 import type { Project } from "@/types/tasks";
+
+/** Acima disso a lista clicável deixa de ser "escolha de 1 clique" e vira caça ao item — a regra
+ * de 15+ da skill `form-design` manda combobox com busca. Abaixo, buscar seria atrito à toa. */
+export const PROJECT_SEARCH_THRESHOLD = 15;
 
 /**
  * Badge do projeto, agora clicável — mostra a cor do projeto (bolinha) e o nome, ou "Sem projeto"
@@ -22,9 +27,21 @@ export function ProjectBadgeButton({
   onChange: (projectId: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const project = value ? projects.find((p) => p.id === value) ?? null : null;
+  const [search, setSearch] = useState("");
+  const project = value ? (projects.find((p) => p.id === value) ?? null) : null;
+  const searchable = projects.length > PROJECT_SEARCH_THRESHOLD;
+  const visibleProjects =
+    searchable && search.trim()
+      ? projects.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase()))
+      : projects;
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch("");
+      }}
+    >
       <PopoverTrigger asChild>
         <button type="button" onClick={(e) => e.stopPropagation()} className="shrink-0">
           <Badge
@@ -47,8 +64,17 @@ export function ProjectBadgeButton({
         align="start"
         onClick={(e) => e.stopPropagation()}
       >
+        {searchable && (
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar projeto"
+            aria-label="Buscar projeto"
+            className="mb-1.5 h-8 w-56 text-xs"
+          />
+        )}
         <ProjectPicker
-          projects={projects}
+          projects={visibleProjects}
           value={value}
           onChange={(projectId) => {
             onChange(projectId);

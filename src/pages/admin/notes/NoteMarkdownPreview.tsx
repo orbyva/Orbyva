@@ -29,6 +29,7 @@ export function NoteMarkdownPreview({
   content,
   notes,
   onCreateNote,
+  onToggleTaskItem,
   className,
 }: {
   content: string;
@@ -36,6 +37,11 @@ export function NoteMarkdownPreview({
   notes: readonly Note[];
   /** Chamado pelo chip de link quebrado, com o título que falta. */
   onCreateNote?: (title: string) => void;
+  /**
+   * Torna a checklist clicável (feature 067). É repassado direto ao `MarkdownPreview`: só a nota
+   * passa esse handler, porque só ela tem um Markdown que o preview pode reescrever.
+   */
+  onToggleTaskItem?: (index: number) => void;
   className?: string;
 }) {
   const resolved = useMemo(() => {
@@ -86,6 +92,7 @@ export function NoteMarkdownPreview({
       content={resolved}
       className={className}
       components={components}
+      onToggleTaskItem={onToggleTaskItem}
       urlTransform={(url) =>
         url.startsWith(WIKI_LINK_MISSING_SCHEME) ? url : defaultUrlTransform(url)
       }

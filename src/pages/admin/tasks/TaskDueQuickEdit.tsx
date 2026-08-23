@@ -8,11 +8,22 @@ import { formatDateTimeBR } from "@/lib/currency";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
+/** Payload da edição rápida de prazo — `due_date`/`due_time`/`estimated_duration` desde a feature
+ * 029, mais `is_quick` (feature 070), que a opção "Pontual" do popover de duração liga. Vive aqui
+ * porque era a mesma forma literal repetida em `TaskQuickFields`, `TaskViews`, `TaskList` e
+ * `ProjectDetail`. */
+export interface TaskDueQuickEditValue {
+  due_date: string | null;
+  due_time: string | null;
+  estimated_duration: number | null;
+  is_quick: boolean;
+}
+
 /**
  * Trigger clicável (texto/ícone de calendário; sem prazo, mostra "+ Prazo") que abre um popover
  * já com o calendário aberto (`InlineCalendarPicker`, sem o trigger próprio que `DatePicker` tem)
  * + um horário compacto (ícone + input estreito) e `TaskDurationQuickPick` (ícone de relógio +
- * presets) abaixo — mesmo par usado no form completo (`TaskRecurrenceField`), mas aqui edita
+ * presets) abaixo — mesmo par usado no painel do form completo (`TaskFormFields`, bloco 3), mas aqui edita
  * direto na `TaskListRow` (feature 029, layout compacto na 031). Chama `onChange` sempre com os
  * campos atualizados.
  */
@@ -20,15 +31,24 @@ export function TaskDueQuickEdit({
   dueDate,
   dueTime,
   estimatedDuration,
+  isQuick = false,
   onChange,
+  onOpenChange,
 }: {
   dueDate: string | null;
   dueTime?: string | null;
   estimatedDuration?: number | null;
-  onChange: (next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }) => void;
+  /** Tarefa pontual (feature 070) — a opção "Pontual" do popover de duração liga/desliga isso. */
+  isQuick?: boolean;
+  onChange: (next: TaskDueQuickEditValue) => void;
+  /** Abertura/fechamento do popover (feature 081). A Lista usa o `false` como o momento de
+   * descongelar a posição da linha e reagrupar: enquanto o popover está aberto o card fica parado
+   * (a queixa que a feature 029 consertou), ao fechar ele cai na caixa de prazo certa. Escolher uma
+   * data **não** fecha o popover — horário e duração continuam acessíveis na mesma abertura. */
+  onOpenChange?: (open: boolean) => void;
 }) {
   return (
-    <Popover>
+    <Popover onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -59,6 +79,7 @@ export function TaskDueQuickEdit({
               due_date: d ? formatLocalIsoDate(d) : null,
               due_time: d ? (dueTime ?? null) : null,
               estimated_duration: estimatedDuration ?? null,
+              is_quick: isQuick,
             })
           }
         />
@@ -71,15 +92,35 @@ export function TaskDueQuickEdit({
                 aria-label="Horário"
                 value={dueTime ?? ""}
                 onChange={(e) =>
-                  onChange({ due_date: dueDate, due_time: e.target.value || null, estimated_duration: estimatedDuration ?? null })
+                  onChange({
+                    due_date: dueDate,
+                    due_time: e.target.value || null,
+                    estimated_duration: estimatedDuration ?? null,
+                    is_quick: isQuick,
+                  })
                 }
                 className="h-8 w-[6.5rem] px-2 text-sm"
               />
             </div>
             <TaskDurationQuickPick
               value={estimatedDuration}
+              isQuick={isQuick}
               onChange={(minutes) =>
-                onChange({ due_date: dueDate, due_time: dueTime ?? null, estimated_duration: minutes })
+                onChange({
+                  due_date: dueDate,
+                  due_time: dueTime ?? null,
+                  estimated_duration: minutes,
+                  // Escolher uma duração desliga "pontual": os dois são mutuamente exclusivos.
+                  is_quick: minutes == null ? isQuick : false,
+                })
+              }
+              onQuickChange={(next) =>
+                onChange({
+                  due_date: dueDate,
+                  due_time: dueTime ?? null,
+                  estimated_duration: next ? null : (estimatedDuration ?? null),
+                  is_quick: next,
+                })
               }
             />
           </div>

@@ -199,6 +199,29 @@ describe("createTaskFromShoppingItem", () => {
     expect(callsTo("task")).toHaveLength(0);
   });
 
+  /** Feature 066: item solto vira tarefa igual — e sem consultar categoria nenhuma. */
+  it("item sem categoria: insere a tarefa sem tocar em shopping_category", async () => {
+    resultsByTable.shopping_item = {
+      data: { ...ITEM, shopping_category_id: null },
+      error: null,
+    };
+
+    await createTaskFromShoppingItem("item-1");
+
+    expect(callsTo("shopping_category")).toHaveLength(0);
+    const [row] = callsTo("task")[0].payload as Record<string, unknown>[];
+    expect(row).toMatchObject({
+      title: "Comprar Café",
+      icon_key: "shopping-cart",
+      linked_shopping_item_id: "item-1",
+      status: "todo",
+    });
+    expect(row.description).toBe(
+      "Lista de Compras\n2 pacotes\nmoído\nhttps://loja.example/cafe"
+    );
+    expect(row.description).not.toContain("Mercado");
+  });
+
   it("erro do banco ao inserir vira Error com a mensagem original", async () => {
     resultsByTable.task = { data: null, error: { message: "row level security" } };
     await expect(createTaskFromShoppingItem("item-1")).rejects.toThrow(

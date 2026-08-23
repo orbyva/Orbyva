@@ -405,3 +405,91 @@ textarea,
     animation: none;
   }
 }
+
+/**
+ * Tema do realce de sintaxe dos blocos de código do Markdown (feature 067).
+ *
+ * **Não é um tema pronto do highlight.js de propósito.** Os temas do pacote trazem paleta própria
+ * e exigem um arquivo para claro e outro para escuro, com troca no runtime. Aqui as classes usam os
+ * mesmos tokens do resto do app (`hsl(var(--…))`), então o realce acompanha o dark mode sozinho —
+ * é a mesma razão pela qual o `markdownEditorTheme` do CodeMirror usa tokens em vez de cor fixa.
+ *
+ * Os nomes de classe são os do highlight.js (prefixo `hljs-`); o que muda é só a cor de cada um.
+ * Fica fora de `@layer` porque `@apply` não alcança as classes que o `rehype-highlight` injeta em
+ * tempo de renderização — o Tailwind nunca as vê no código-fonte.
+ */
+.hljs {
+  color: hsl(var(--foreground));
+  background: transparent;
+}
+
+/* Ruído: comentário e meta ficam apagados para o código em si aparecer. */
+.hljs-comment,
+.hljs-quote,
+.hljs-meta {
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+
+/* Estrutura da linguagem: palavra-chave, operador, tag. */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-doctag,
+.hljs-name,
+.hljs-tag,
+.hljs-subst {
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+/* Dado literal: string, número, regexp, e o `+` do diff. */
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-attr,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: hsl(var(--success));
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+  color: hsl(var(--chart-6));
+}
+
+/* Nome do que o usuário definiu: função, classe, tipo, variável. */
+.hljs-title,
+.hljs-title_,
+.hljs-class .hljs-title,
+.hljs-function .hljs-title,
+.hljs-type,
+.hljs-built_in,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: hsl(var(--chart-2));
+}
+
+.hljs-variable,
+.hljs-template-variable,
+.hljs-params,
+.hljs-property {
+  color: hsl(var(--warning));
+}
+
+/* O `-` do diff: mesma cor de "algo saiu" do resto do app. */
+.hljs-deletion {
+  color: hsl(var(--destructive));
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 700;
+}

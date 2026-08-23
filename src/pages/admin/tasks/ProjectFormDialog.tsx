@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +12,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS } from "@/components/FormLabel";
 import { LabelColorPicker } from "./LabelColorPicker";
+import { EventInviteDialog } from "./EventInviteDialog";
 import { TagCombobox } from "./TagCombobox";
 import { formatDateTimeBR } from "@/lib/currency";
 import type { Project, ProjectCreateRequest, ProjectEvent, ProjectStatus, Tag } from "@/types/tasks";
@@ -58,6 +59,8 @@ export function ProjectFormDialog({
   onAddEvent: (payload: { title: string; startsAt: string }) => Promise<void> | void;
   onDeleteEvent: (id: string) => Promise<void> | void;
 }) {
+  /** Evento cujo dialog de convite (feature 076) está aberto. */
+  const [invitingEvent, setInvitingEvent] = useState<ProjectEvent | null>(null);
   const [eventTitle, setEventTitle] = useState("");
   const [eventStartsAt, setEventStartsAt] = useState("");
   const [saving, setSaving] = useState(false);
@@ -170,14 +173,30 @@ export function ProjectFormDialog({
                     <span className="min-w-0 truncate">
                       {e.title} — {formatEventDate(e.starts_at)}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 shrink-0 text-destructive"
-                      onClick={() => onDeleteEvent(e.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      {/* Feature 076: convidar alguém para este evento. Fica aqui porque é onde os
+                          eventos já são criados e apagados (feature 065). */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        type="button"
+                        aria-label={`Convidar para ${e.title}`}
+                        onClick={() => setInvitingEvent(e)}
+                      >
+                        <UserPlus className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive"
+                        type="button"
+                        aria-label={`Excluir ${e.title}`}
+                        onClick={() => onDeleteEvent(e.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 <div className="flex gap-1.5">
@@ -213,6 +232,17 @@ export function ProjectFormDialog({
           </Button>
         </div>
       </DialogContent>
+
+      {invitingEvent && (
+        <EventInviteDialog
+          eventId={invitingEvent.id}
+          eventTitle={invitingEvent.title}
+          open
+          onOpenChange={(aberto) => {
+            if (!aberto) setInvitingEvent(null);
+          }}
+        />
+      )}
     </Dialog>
   );
 }

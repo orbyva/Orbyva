@@ -4,6 +4,7 @@ import {
   Bookmark,
   CheckCircle2,
   Flag,
+  Pill,
   Pin,
   ShoppingCart,
   Star,
@@ -30,6 +31,10 @@ export const TASK_ICON_PRESETS: TaskIconPreset[] = [
   // Feature 051: ícone das tarefas criadas a partir de um item da Lista de Compras. A chave é
   // `SHOPPING_TASK_ICON_KEY` (`src/domain/shopping/taskLink.ts`), que é quem a grava.
   { key: "shopping-cart", label: "Compra", icon: ShoppingCart },
+  // Feature 071: a dose de medicação materializada por `materializeMedicationDoses` grava esta
+  // chave (`MEDICATION_TASK_ICON_KEY`, `src/domain/health/medication.ts`). Numa fileira de bolinhas
+  // pontuais do dia, o comprimido é o que diferencia o remédio da troca de escova sem texto nenhum.
+  { key: "pill", label: "Medicação", icon: Pill },
 ];
 
 const TASK_ICON_PRESET_MAP: Record<string, TaskIconPreset> = Object.fromEntries(

@@ -270,7 +270,7 @@ export default defineConfig({
         rewrite: (p) => p.replace(/^\/spotify-media/, ""),
       },
     },
-    allowedHosts: ["localhost", "5757-146-70-163-204.ngrok-free.app"]
+    allowedHosts: ["localhost", "6cd8-45-238-124-170.ngrok-free.app"]
   },
   test: {
     globals: true,

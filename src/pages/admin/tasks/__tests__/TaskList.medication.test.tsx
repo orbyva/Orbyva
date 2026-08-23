@@ -1,6 +1,7 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join, relative, resolve, sep } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import TaskList from "@/pages/admin/tasks/TaskList";
 import {
@@ -9,18 +10,17 @@ import {
   fetchTags,
   fetchTasks,
 } from "@/api/tasks";
-import { createMedicationWithDoses } from "@/api/health/medications";
 import { fetchRecurringTransactions } from "@/api/recurring";
 import type { Task } from "@/types/tasks";
 
 /**
- * Atalho "Nova medicação" (features 049 e 064) — cobre a abertura do dialog a partir do header e
- * do botão que aparece no `EmptyState` (lista vazia), e que criar com sucesso recarrega a lista
- * (novo `fetchTasks`) e fecha o dialog. O conteúdo do form em si (validação, payload) já é coberto
- * isoladamente em `MedicationQuickCreateDialog.test.tsx`.
+ * Feature 071: a criação de medicação **saiu** de Produtividade → Tarefas e passou a existir só na
+ * Saúde (`/life/health/medications`). Este arquivo, que na 049/064 cobria o atalho "Nova medicação"
+ * no cabeçalho e no `EmptyState`, agora é a trava contrária: garante que nenhuma porta de criação de
+ * medicação sobreviveu aqui — nem botão, nem diálogo montado.
  *
- * Desde a 064 o dialog grava numa `medication` (`createMedicationWithDoses`), não mais numa tarefa
- * recorrente — daí o mock de `@/api/health/medications` no lugar do de `createTask`.
+ * A criação em si é coberta em `src/pages/admin/health/__tests__/MedicationQuickCreateDialog.test.tsx`
+ * e nos testes do `HealthDashboard`/`MedicationList`.
  */
 
 vi.mock("@/api/health/medications", () => ({
@@ -61,7 +61,6 @@ const mockedFetchProjects = vi.mocked(fetchProjects);
 const mockedFetchTags = vi.mocked(fetchTags);
 const mockedFetchDependencies = vi.mocked(fetchDependencies);
 const mockedFetchRecurringTransactions = vi.mocked(fetchRecurringTransactions);
-const mockedCreateMedication = vi.mocked(createMedicationWithDoses);
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -90,15 +89,13 @@ function mockLoad(tasks: Task[]) {
   mockedFetchRecurringTransactions.mockResolvedValue([]);
 }
 
-describe("TaskList — atalho Nova medicação", () => {
+describe("TaskList — a criação de medicação mora só na Saúde (071)", () => {
   beforeEach(() => {
     toastMock.mockReset();
     mockedFetchTasks.mockReset();
-    mockedCreateMedication.mockClear();
   });
 
-  it("clicar em 'Nova medicação' no header abre o MedicationQuickCreateDialog", async () => {
-    const user = userEvent.setup();
+  it("o cabeçalho de Tarefas não oferece mais 'Nova medicação'", async () => {
     mockLoad([makeTask()]);
     render(
       <MemoryRouter>
@@ -107,12 +104,13 @@ describe("TaskList — atalho Nova medicação", () => {
     );
     await screen.findByText("Minha tarefa");
 
-    await user.click(screen.getAllByRole("button", { name: "Nova medicação" })[0]);
-
-    expect(screen.getByText("Nova medicação", { selector: "h2" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Nova medicação" })).toBeNull();
+    expect(screen.queryByText(/medica/i)).toBeNull();
+    // O cabeçalho continua com as ações que são de tarefa.
+    expect(screen.getByRole("button", { name: "Nova tarefa" })).toBeInTheDocument();
   });
 
-  it("lista vazia mostra o botão 'Nova medicação' no EmptyState também", async () => {
+  it("a lista vazia oferece só 'Nova tarefa'", async () => {
     mockLoad([]);
     render(
       <MemoryRouter>
@@ -121,27 +119,44 @@ describe("TaskList — atalho Nova medicação", () => {
     );
     await screen.findByText("Nenhuma tarefa");
 
-    expect(screen.getAllByRole("button", { name: "Nova medicação" }).length).toBeGreaterThan(1);
+    expect(screen.queryByRole("button", { name: "Nova medicação" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Nova tarefa" }).length).toBeGreaterThan(0);
   });
+});
 
-  it("criar medicação com sucesso recarrega a lista e fecha o dialog", async () => {
-    const user = userEvent.setup();
-    mockLoad([makeTask()]);
-    render(
-      <MemoryRouter>
-        <TaskList />
-      </MemoryRouter>
-    );
-    await screen.findByText("Minha tarefa");
+/**
+ * Item (a) do pedido literal da 071 — "não existe mais nenhuma porta de criação de medicação fora
+ * da Saúde". Os testes acima cobrem o `TaskList`; esta varredura cobre o resto do app: só a Saúde
+ * (a lista de tratamentos e o hub `life/HealthDashboard.tsx`, que é a própria tela de Saúde) monta
+ * o diálogo de criação.
+ */
+describe("o diálogo de criação de medicação só é montado na Saúde (071)", () => {
+  it("nenhum módulo fora da Saúde importa MedicationQuickCreateDialog", () => {
+    const src = resolve(__dirname, "../../../..");
 
-    await user.click(screen.getAllByRole("button", { name: "Nova medicação" })[0]);
-    const dialog = within(screen.getByRole("dialog"));
-    await user.type(dialog.getByLabelText(/Nome do remédio/), "Losartana");
-    await user.type(dialog.getByLabelText("Horário 1"), "08:00");
-    await user.click(dialog.getByRole("button", { name: "Criar" }));
+    function walk(dir: string): string[] {
+      return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) return walk(full);
+        return /\.tsx?$/.test(entry.name) ? [full] : [];
+      });
+    }
 
-    await waitFor(() => expect(mockedCreateMedication).toHaveBeenCalled());
-    await waitFor(() => expect(mockedFetchTasks).toHaveBeenCalledTimes(2));
-    expect(screen.queryByText("Nova medicação", { selector: "h2" })).not.toBeInTheDocument();
+    // Menção em comentário não é porta: só conta quem importa o componente de verdade. Os próprios
+    // testes (este inclusive) ficam de fora — porta é o que o app monta, não o que o teste cita.
+    const importers = walk(src)
+      .filter((file) => !file.includes("__tests__"))
+      .filter((file) =>
+        readFileSync(file, "utf8").includes(
+          'from "@/pages/admin/health/MedicationQuickCreateDialog"'
+        )
+      )
+      .map((file) => relative(src, file).split(sep).join("/"))
+      .sort();
+
+    expect(importers).toEqual([
+      "pages/admin/health/MedicationList.tsx",
+      "pages/admin/life/HealthDashboard.tsx",
+    ]);
   });
 });

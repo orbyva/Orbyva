@@ -133,14 +133,16 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
     await openSubtaskFromChecklist(user, "Subtarefa filha");
 
     expect(screen.getByText("Editar tarefa")).toBeInTheDocument();
-    // Abas do form completo — Geral/Data e repetição/Organização/Registros de tempo — não o
-    // "Título/Descrição/Prazo" reduzido que o SubtaskEditDialog oferecia.
-    expect(screen.getByRole("tab", { name: "Geral" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Data e repetição" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Organização" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Registros de tempo" })).toBeInTheDocument();
+    // Feature 080: o form completo virou painel único — os campos aparecem todos de uma vez, sem
+    // aba nenhuma, em vez do "Título/Descrição/Prazo" reduzido do SubtaskEditDialog.
+    const panel = within(screen.getByRole("dialog"));
+    expect(screen.queryByRole("tab", { name: "Geral" })).not.toBeInTheDocument();
+    expect(panel.getByLabelText(/^Título/)).toBeInTheDocument();
+    expect(panel.getByRole("button", { name: /Descrição/ })).toBeInTheDocument();
+    expect(panel.getByText("Data limite")).toBeInTheDocument();
+    expect(panel.getByRole("button", { name: /Registros de tempo/ })).toBeInTheDocument();
     // Campos que o SubtaskEditDialog nunca ofereceu, disponíveis de graça no form completo.
-    expect(screen.getByText("Prioridade")).toBeInTheDocument();
+    expect(panel.getByText("Prioridade")).toBeInTheDocument();
   });
 
   it("campo Projeto vira somente-leitura 'Herdado da tarefa principal' ao editar subtarefa", async () => {
@@ -178,11 +180,16 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
 
     await user.click(screen.getByText("Tarefa principal"));
 
-    expect(screen.getByRole("listbox", { name: "Projeto" })).toBeInTheDocument();
+    // Feature 080: o seletor virou um badge clicável de uma linha; a lista abre no popover.
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByRole("button", { name: "Projeto Alpha" })).toBeInTheDocument();
     expect(screen.queryByText("Herdado da tarefa principal")).not.toBeInTheDocument();
+
+    await user.click(dialog.getByRole("button", { name: "Projeto Alpha" }));
+    expect(await screen.findByRole("listbox", { name: "Projeto" })).toBeInTheDocument();
   });
 
-  it("Organização esconde o campo Subtarefas ao editar uma subtarefa, mantendo Tags/Link externo", async () => {
+  it("o painel esconde o campo Subtarefas ao editar uma subtarefa, mantendo Tags/Link externo", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", due_date: "2026-08-20" });
     const subtask = makeTask({
@@ -194,27 +201,27 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
     await renderWithTasks([parent, subtask]);
 
     await openSubtaskFromChecklist(user, "Subtarefa filha");
-    await user.click(screen.getByRole("tab", { name: "Organização" }));
     const dialog = within(screen.getByRole("dialog"));
 
-    expect(dialog.queryByText("Subtarefas")).not.toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: /Subtarefas/ })).not.toBeInTheDocument();
     expect(dialog.queryByPlaceholderText("Adicionar subtarefa")).not.toBeInTheDocument();
     expect(dialog.getByText("Tags")).toBeInTheDocument();
     expect(dialog.getByText("Link externo")).toBeInTheDocument();
   });
 
-  it("Organização mostra o campo Subtarefas normalmente ao editar uma tarefa de topo", async () => {
+  it("o painel mostra o campo Subtarefas normalmente ao editar uma tarefa de topo", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal" });
     await renderWithTasks([parent]);
 
     await user.click(screen.getByText("Tarefa principal"));
-    await user.click(screen.getByRole("tab", { name: "Organização" }));
+    // Seção colapsável (feature 080): um clique abre.
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Subtarefas/ }));
 
     expect(screen.getByPlaceholderText("Adicionar subtarefa")).toBeInTheDocument();
   });
 
-  it("TaskRecurrenceField em modo subtarefa mostra só Prazo/Horário, sem seletor de recorrência nem Início/Duração", async () => {
+  it("subtarefa mostra só Data limite/Horário, sem recorrência nem Início/Duração", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", due_date: "2026-08-20" });
     const subtask = makeTask({
@@ -226,31 +233,38 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
     await renderWithTasks([parent, subtask]);
 
     await openSubtaskFromChecklist(user, "Subtarefa filha");
-    await user.click(screen.getByRole("tab", { name: "Data e repetição" }));
 
-    // Só Prazo (+ Horário, condicionado a ter prazo) — sem "se repete?", Início nem Duração
-    // estimada, que só existem no modo tarefa de topo.
-    expect(screen.getByText("Prazo")).toBeInTheDocument();
-    expect(screen.getByText("Horário")).toBeInTheDocument();
-    expect(screen.queryByText("Esta tarefa se repete?")).not.toBeInTheDocument();
-    expect(screen.queryByText("Início")).not.toBeInTheDocument();
-    expect(screen.queryByText("Duração estimada")).not.toBeInTheDocument();
+    // Escopado ao diálogo: rótulos como "Prazo" também aparecem no seletor "Ordenar por" da Lista
+    // atrás dele (feature 079), e `screen.getByText` acharia os dois.
+    const dialog = within(screen.getByRole("dialog"));
+
+    // Só Data limite (+ Horário, condicionado a ter prazo) — sem recorrência, Início nem Duração,
+    // que só existem no modo tarefa de topo.
+    expect(dialog.getByText("Data limite")).toBeInTheDocument();
+    expect(dialog.getByText("Horário")).toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: /Repetição da tarefa/ })).not.toBeInTheDocument();
+    expect(dialog.queryByText("Início")).not.toBeInTheDocument();
+    expect(dialog.queryByText("Duração")).not.toBeInTheDocument();
   });
 
-  it("TaskRecurrenceField em modo tarefa de topo continua mostrando o seletor de recorrência completo", async () => {
+  it("tarefa de topo continua com Início/Duração e com a configuração de repetição a um clique", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", due_date: "2026-08-20" });
     await renderWithTasks([parent]);
 
     await user.click(screen.getByText("Tarefa principal"));
-    await user.click(screen.getByRole("tab", { name: "Data e repetição" }));
+    const dialog = within(screen.getByRole("dialog"));
 
-    expect(screen.getByText("Esta tarefa se repete?")).toBeInTheDocument();
-    expect(screen.getByText("Início")).toBeInTheDocument();
-    expect(screen.getByText("Duração estimada")).toBeInTheDocument();
+    expect(dialog.getByText("Início")).toBeInTheDocument();
+    expect(dialog.getByText("Duração")).toBeInTheDocument();
+
+    // Feature 080: a configuração de repetição foi para um modal próprio, com o estado resumido
+    // no botão que o abre.
+    await user.click(dialog.getByRole("button", { name: /Repetição da tarefa — Não se repete/ }));
+    expect(await screen.findByText("Esta tarefa se repete?")).toBeInTheDocument();
   });
 
-  it("isSubtaskDueDateValid bloqueia salvar com prazo além do prazo da mãe: toast de erro + troca para a aba Data", async () => {
+  it("isSubtaskDueDateValid bloqueia salvar com prazo além do prazo da mãe: aviso no campo + toast de erro", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", due_date: "2026-08-20" });
     // Prazo da subtarefa já além do prazo da mãe (ex.: prazo da mãe foi antecipado depois que a
@@ -265,6 +279,14 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
     await renderWithTasks([parent, subtask]);
 
     await openSubtaskFromChecklist(user, "Subtarefa filha");
+
+    // Feature 080: o aviso agora aparece no próprio campo, assim que o dialog abre — antes só
+    // existia como toast, depois de tentar salvar.
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByRole("alert")).toHaveTextContent(
+      "O prazo não pode passar de 20/08/2026, prazo da tarefa principal."
+    );
+
     await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     expect(toastMock).toHaveBeenCalledWith(
@@ -273,10 +295,6 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
         description: expect.stringContaining("O prazo não pode passar de 20/08/2026"),
         variant: "destructive",
       })
-    );
-    expect(screen.getByRole("tab", { name: "Data e repetição" })).toHaveAttribute(
-      "aria-selected",
-      "true"
     );
     expect(mockedUpdateTask).not.toHaveBeenCalled();
   });

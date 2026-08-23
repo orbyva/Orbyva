@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ProjectNotesSection } from "@/pages/admin/notes/ProjectNotesSection";
@@ -105,6 +105,31 @@ describe("Notas do projeto (dentro da página do projeto)", () => {
   it("projeto sem nota mostra o estado vazio com a ação de criar", async () => {
     renderSection();
     expect(await screen.findByText("Nenhuma nota neste projeto")).toBeInTheDocument();
+  });
+
+  /**
+   * Feature 069: dentro da aba "Notas" o gatilho da aba já é o título — o `<h2>` sai e a região
+   * passa a ser nomeada por `aria-label`, sem perder o botão de criar.
+   */
+  it("showHeading={false} tira o <h2> e nomeia a section por aria-label", async () => {
+    render(
+      <MemoryRouter>
+        <ProjectNotesSection projectId="p1" showHeading={false} />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Nenhuma nota neste projeto");
+    expect(screen.queryByRole("heading", { name: "Notas do projeto" })).toBeNull();
+    const region = screen.getByRole("region", { name: "Notas do projeto" });
+    expect(region).not.toHaveAttribute("aria-labelledby");
+    expect(within(region).getAllByRole("button", { name: "Nova nota" })).not.toHaveLength(0);
+  });
+
+  it("por padrão (sem a prop) o <h2> continua lá — nenhum outro consumidor muda", async () => {
+    renderSection();
+    expect(
+      await screen.findByRole("heading", { name: "Notas do projeto", level: 2 })
+    ).toBeInTheDocument();
   });
 
   it("criar pela página do projeto já nasce vinculada e abre o editor", async () => {

@@ -239,7 +239,7 @@ describe("Notas — fluxo fim a fim", () => {
     await user.click(await screen.findByRole("tab", { name: "Visualizar" }));
 
     const preview = within(screen.getAllByRole("tabpanel")[0]);
-    expect(preview.getByRole("heading", { name: "Etapas" })).toBeInTheDocument();
+    expect(preview.getByRole("heading", { name: /Etapas/ })).toBeInTheDocument();
     expect(preview.getAllByRole("listitem")).toHaveLength(2);
     // GFM: checklist vira checkbox de verdade, não texto "[x]".
     expect(preview.getAllByRole("checkbox")).toHaveLength(2);
@@ -462,22 +462,32 @@ describe("Notas — fluxo fim a fim", () => {
     expect(await screen.findByText("Nota não encontrada")).toBeInTheDocument();
   });
 
-  it('"Inserir diagrama" escreve um bloco mermaid válido, salva e o preview desenha', async () => {
+  it("o item Diagrama do menu `/` escreve um bloco mermaid válido, salva e o preview desenha", async () => {
     const user = userEvent.setup();
     store.notes = [
       {
         id: "n1",
         title: "Fluxo do projeto",
-        content: "# Fluxo",
+        content: "# Fluxo\n\n",
         project_id: null,
         updated_at: stamp(),
       },
     ];
     renderApp("/notes/n1");
 
-    await user.click(
-      await screen.findByRole("button", { name: /inserir diagrama/i })
+    // O botão "Inserir diagrama" do cabeçalho saiu na 068: o diagrama virou item do menu `/`,
+    // inserido na posição do cursor em vez de anexado no fim do arquivo.
+    expect(screen.queryByRole("button", { name: /inserir diagrama/i })).toBeNull();
+
+    const field = await screen.findByLabelText("Conteúdo");
+    await user.click(field);
+    // Fim do documento: em jsdom o clique não tem geometria e cai na posição 0.
+    await user.keyboard("{Control>}{End}{/Control}");
+    await user.keyboard("/diagrama");
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /Diagrama/ })).toBeInTheDocument()
     );
+    await user.click(screen.getByRole("option", { name: /Diagrama/ }));
 
     // O esqueleto entra no documento cru (markdown na veia) e o autosave grava sozinho.
     await waitFor(
@@ -486,6 +496,8 @@ describe("Notas — fluxo fim a fim", () => {
     );
     expect(store.notes[0].content).toContain("graph TD");
     expect(store.notes[0].content.startsWith("# Fluxo\n\n")).toBe(true);
+    // A consulta digitada some junto com a barra — nada de `/diagrama` sobrando no texto.
+    expect(store.notes[0].content).not.toContain("/diagrama");
 
     await user.click(screen.getByRole("tab", { name: "Visualizar" }));
 
@@ -658,7 +670,7 @@ describe("Notas — fluxo fim a fim", () => {
       expect.objectContaining({ elements: [{ id: "r1", type: "rectangle" }] })
     );
     // O resto da nota continua renderizando em volta do desenho.
-    expect(preview.getByRole("heading", { name: "Arquitetura" })).toBeInTheDocument();
+    expect(preview.getByRole("heading", { name: /Arquitetura/ })).toBeInTheDocument();
     expect(preview.getByText("decidir com o time")).toBeInTheDocument();
 
     // 5. o link leva ao canvas certo

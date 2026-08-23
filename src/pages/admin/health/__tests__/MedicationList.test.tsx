@@ -26,6 +26,13 @@ vi.mock("@/api/health/medications", () => ({
   updateMedication: vi.fn(),
 }));
 
+// O atalho "Lembretes" (063) trouxe `@/api/health` para esta tela — mockado para o teste não
+// falar com o Supabase.
+vi.mock("@/api/health", () => ({
+  fetchReminderPreferences: vi.fn(async () => []),
+  upsertReminderPreference: vi.fn(),
+}));
+
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: toastMock }),
@@ -195,6 +202,48 @@ describe("MedicationList", () => {
     expect(dialog.getByLabelText("Horário 2")).toHaveValue("20:00");
     // Modo edição não cria tratamento novo.
     expect(mockedCreate).not.toHaveBeenCalled();
+  });
+
+  // Feature 071: o controle do tratamento (incluindo o alerta) mora na Saúde.
+  it("mostra a próxima dose prevista de cada tratamento", async () => {
+    mockedFetchMedications.mockResolvedValue([medication()]);
+    renderPage();
+
+    // 17/08 às 12:00 — 08:00 já passou, 20:00 ainda não.
+    expect(await screen.findByTestId("next-dose-med-1")).toHaveTextContent(
+      "Próxima dose: hoje às 20:00"
+    );
+  });
+
+  it("tratamento encerrado não anuncia próxima dose", async () => {
+    mockedFetchMedications.mockResolvedValue([
+      medication({ active: false, ended_on: "2026-08-12" }),
+    ]);
+    renderPage();
+
+    await screen.findByRole("listitem", { name: "Losartana" });
+    expect(screen.queryByTestId("next-dose-med-1")).toBeNull();
+  });
+
+  it("Lembretes abre o dialog de preferências da 063 direto desta tela", async () => {
+    const user = userEvent.setup();
+    mockedFetchMedications.mockResolvedValue([medication()]);
+    renderPage();
+
+    await screen.findByRole("listitem", { name: "Losartana" });
+    await user.click(screen.getByRole("button", { name: "Lembretes" }));
+
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Lembretes")).toBeInTheDocument();
+    expect(dialog.getByText("Medicação")).toBeInTheDocument();
+  });
+
+  it("Lembretes existe mesmo sem tratamento cadastrado", async () => {
+    renderPage();
+
+    expect(
+      await screen.findByRole("button", { name: "Lembretes" })
+    ).toBeInTheDocument();
   });
 
   it("falha ao carregar vira toast de erro, sem quebrar a tela", async () => {

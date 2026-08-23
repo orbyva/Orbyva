@@ -63,7 +63,7 @@ describe("MarkdownPreview + registry de blocos", () => {
       <MarkdownPreview content={"# Titulo\n\n- item\n\n**forte**\n\n```demo\nz\n```"} />
     );
 
-    expect(screen.getByRole("heading", { name: "Titulo" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Titulo/ })).toBeInTheDocument();
     expect(screen.getByRole("listitem")).toHaveTextContent("item");
     expect(screen.getByText("forte").tagName).toBe("STRONG");
   });

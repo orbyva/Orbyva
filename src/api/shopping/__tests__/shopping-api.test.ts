@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  countShoppingCategoriesByProject,
   createShoppingCategory,
   deleteShoppingCategory,
   fetchShoppingCategories,
@@ -24,13 +25,19 @@ interface Call {
   table: string;
   op: "select" | "insert" | "update" | "delete";
   payload?: unknown;
+  /** Colunas e opções passadas ao `.select()` — é onde mora o `{ count, head }` da contagem. */
+  select?: [string | undefined, { count?: string; head?: boolean } | undefined];
   eq: [string, unknown][];
   order?: [string, { ascending: boolean }];
   single: boolean;
 }
 
 const calls: Call[] = [];
-let nextResult: { data: unknown; error: { message: string } | null } = {
+let nextResult: {
+  data: unknown;
+  error: { message: string } | null;
+  count?: number | null;
+} = {
   data: [],
   error: null,
 };
@@ -39,7 +46,11 @@ function makeBuilder(table: string) {
   const call: Call = { table, op: "select", eq: [], single: false };
   calls.push(call);
   const builder = {
-    select() {
+    select(
+      columns?: string,
+      options?: { count?: string; head?: boolean }
+    ) {
+      call.select = [columns, options];
       return builder;
     },
     insert(payload: unknown) {
@@ -125,6 +136,35 @@ describe("api/shopping/categories", () => {
     nextResult = { data: [], error: null };
     await fetchShoppingCategories({ projectId: null });
     expect(lastCall().eq).toEqual([["user_id", "user-1"]]);
+  });
+
+  /**
+   * Feature 069: a aba "Compras" da página do projeto mostra a contagem. Precisa ser contagem de
+   * verdade — `head: true`, sem trazer linha — e não um `fetchShoppingCategories().length`.
+   */
+  it("countShoppingCategoriesByProject conta com head: true, sem trazer linhas", async () => {
+    nextResult = { data: null, error: null, count: 2 };
+
+    await expect(countShoppingCategoriesByProject("p1")).resolves.toBe(2);
+    expect(lastCall().table).toBe("shopping_category");
+    expect(lastCall().select).toEqual(["id", { count: "exact", head: true }]);
+    expect(lastCall().eq).toEqual([
+      ["user_id", "user-1"],
+      ["project_id", "p1"],
+    ]);
+    expect(lastCall().order).toBeUndefined();
+  });
+
+  it("countShoppingCategoriesByProject devolve 0 quando o count vem nulo", async () => {
+    nextResult = { data: null, error: null, count: null };
+    await expect(countShoppingCategoriesByProject("p1")).resolves.toBe(0);
+  });
+
+  it("countShoppingCategoriesByProject transforma erro do PostgREST em Error", async () => {
+    nextResult = { data: null, error: { message: "sem permissão" }, count: null };
+    await expect(countShoppingCategoriesByProject("p1")).rejects.toThrow(
+      "sem permissão"
+    );
   });
 
   it("fetchShoppingCategories devolve [] quando o data vem nulo", async () => {

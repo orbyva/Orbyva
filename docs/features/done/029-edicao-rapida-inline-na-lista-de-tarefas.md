@@ -180,3 +180,11 @@ componentes que ambas deixaram prontos (`TaskPriorityField`, `ProjectPicker`).
   null) : task.due_date` — só cai pro valor live quando a tarefa realmente não está no snapshot
   (recém-criada), não quando o snapshot tem `null` de propósito. Reconfirmado ao vivo depois do fix:
   tarefa fica no bucket original tanto ao definir quanto ao limpar o prazo, até o próximo reload.
+- 2026-08-20 — **Esta decisão foi revista pela feature `081`.** O congelamento total descrito acima
+  (o card só muda de bucket na próxima recarga real) virou congelamento **enquanto o popover de
+  prazo daquela linha está aberto**: `TaskDueQuickEdit` ganhou `onOpenChange`, e
+  `TaskList`/`ProjectDetail` ganharam `handleDueOpenChange`, que ao fechar remove a tarefa do
+  `frozenDueDatesRef` e chama `load()` — a lista reagrupa na hora, e a tarefa cai na caixa de prazo
+  certa. O motivo original do freeze continua valendo e continua testado (ajustar data, horário e
+  duração na mesma abertura sem o popover saltar/fechar), então o `frozenDueDatesRef` **não** é
+  código morto: quem for lê-lo depois deve procurar `docs/features/done/081-*.md` antes de "limpar".

@@ -131,3 +131,82 @@ describe("live preview — decorações", () => {
     expect(state.doc.toString()).toBe(doc);
   });
 });
+
+/**
+ * O que a 068 acrescentou: citação, marcador de lista e link. A regra de sempre continua valendo —
+ * a marcação volta a aparecer na linha do cursor, e o documento nunca muda.
+ */
+describe("live preview — citação, lista e link (068)", () => {
+  it("marca a citação inteira e esconde o `>` junto do espaço", () => {
+    const doc = "> prazo do cartório\n\noutra linha";
+    // Cursor na última linha: a citação não é a linha ativa.
+    expect(hidden(doc, doc.length)).toEqual(["> "]);
+    expect(marked(doc, doc.length)).toEqual([
+      ["cm-md-quote", "> prazo do cartório"],
+    ]);
+  });
+
+  it("com o cursor na citação, o `>` reaparece", () => {
+    const doc = "> prazo do cartório\n\noutra linha";
+    expect(hidden(doc, 5)).toEqual([]);
+  });
+
+  it("o `-` da lista vira um marcador (widget), não some", () => {
+    const doc = "- comprar cimento\noutra linha";
+    const decorations = decorationsOf(doc, doc.length).filter(
+      (d) => d.kind === "replace"
+    );
+    expect(decorations).toHaveLength(1);
+    // Só o hífen é trocado; o espaço depois dele continua separando o texto.
+    expect(doc.slice(decorations[0].from, decorations[0].to)).toBe("-");
+  });
+
+  it("lista numerada mantém o número: `1.` é conteúdo, não marcação", () => {
+    const doc = "1. primeiro\noutra linha";
+    expect(hidden(doc, doc.length)).toEqual([]);
+  });
+
+  it("com o cursor na linha da lista, o `-` volta a aparecer", () => {
+    const doc = "- comprar cimento\noutra linha";
+    expect(decorationsOf(doc, 3).filter((d) => d.kind === "replace")).toEqual([]);
+  });
+
+  it("link esconde colchetes, parênteses e URL, deixando só o texto", () => {
+    const doc = "veja o [site da obra](https://exemplo.com) hoje\noutra linha";
+    expect(hidden(doc, doc.length)).toEqual([
+      "[",
+      "]",
+      "(",
+      "https://exemplo.com",
+      ")",
+    ]);
+    expect(marked(doc, doc.length)).toEqual([
+      ["cm-md-link", "[site da obra](https://exemplo.com)"],
+    ]);
+  });
+
+  it("com o cursor na linha do link, a marcação e a URL voltam", () => {
+    const doc = "veja o [site da obra](https://exemplo.com) hoje\noutra linha";
+    expect(hidden(doc, 3)).toEqual([]);
+  });
+
+  it("wiki-link (`[[Nota]]`) fica intocado — a 056 depende de ver os colchetes", () => {
+    const doc = "ver [[Obra da casa]] amanhã\noutra linha";
+    expect(hidden(doc, doc.length)).toEqual([]);
+    expect(marked(doc, doc.length)).toEqual([]);
+  });
+
+  it("nada disso dentro de bloco de código", () => {
+    const doc = "```\n> não é citação\n- nem lista\n[x](y)\n```";
+    expect(hidden(doc, doc.length)).toEqual([]);
+    expect(marked(doc, doc.length)).toEqual([]);
+  });
+
+  it("o documento continua idêntico com as decorações novas", () => {
+    const doc = "> citação\n\n- item\n\n[texto](http://x)";
+    const state = stateFor(doc, 0);
+    buildLivePreviewDecorations(state);
+    // Nenhuma decoração toca o texto — é o contrato de "markdown na veia".
+    expect(state.doc.toString()).toBe(doc);
+  });
+});

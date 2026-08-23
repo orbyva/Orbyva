@@ -56,15 +56,20 @@ vi.mock("@/lib/supabase", () => {
       select: () => builder,
       eq: () => builder,
       order: () => Promise.resolve({ data: store.tasks, error: null }),
-      insert(rows: Record<string, unknown>[]) {
-        store.inserted.push(...rows);
-        const created = rows.map((row) => ({
-          ...row,
-          id: `gen-${++store.seq}`,
-        })) as unknown as Task[];
-        return { select: () => Promise.resolve({ data: created, error: null }) };
-      },
+      insert: write,
+      // Feature 074: as três materializações escrevem por `upsert(..., ignoreDuplicates)` —
+      // `on conflict do nothing`. Sem duplicata no cenário, é a mesma coisa que `insert`.
+      upsert: write,
     };
+
+    function write(rows: Record<string, unknown>[]) {
+      store.inserted.push(...rows);
+      const created = rows.map((row) => ({
+        ...row,
+        id: `gen-${++store.seq}`,
+      })) as unknown as Task[];
+      return { select: () => Promise.resolve({ data: created, error: null }) };
+    }
     return builder;
   }
   return { supabase: { from } };
@@ -140,8 +145,25 @@ describe("materializeMedicationDoses dentro de fetchTasks", () => {
       // `due_time` continua preenchido: é o que a Agenda e `isDoseLate` (049) leem.
       expect(row.due_time).toBe(row.dose_time);
       expect(row.recurrence_rule).toBeNull();
+      // Feature 071: a dose nasce pontual e com o ícone de comprimido — é o que faz a agenda
+      // desenhá-la como bolinha marcável em vez de bloco de 30 min sintéticos.
+      expect(row.is_quick).toBe(true);
+      expect(row.icon_key).toBe("pill");
     }
     expect(tasks).toHaveLength(4);
+  });
+
+  // Feature 071: garante que os dois campos novos valem para **toda** dose materializada, não só
+  // para o caminho de dois horários acima — inclusive quando o tratamento tem cadência espaçada.
+  it("toda dose materializada nasce pontual (is_quick) e com icon_key 'pill'", async () => {
+    store.medications = [medication({ interval_days: 2, started_on: "2026-08-12" })];
+
+    await fetchTasks();
+
+    expect(store.inserted.length).toBeGreaterThan(0);
+    expect(
+      store.inserted.every((row) => row.is_quick === true && row.icon_key === "pill")
+    ).toBe(true);
   });
 
   it("respeita interval_days: a cada 2 dias, não todo dia", async () => {

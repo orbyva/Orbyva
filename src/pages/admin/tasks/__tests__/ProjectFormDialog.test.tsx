@@ -156,9 +156,11 @@ describe("ProjectFormDialog", () => {
     render(<Harness editing={makeProject()} events={[event]} onDeleteEvent={onDeleteEvent} />);
 
     expect(screen.getByText(/Reunião semanal/)).toBeInTheDocument();
-    // Único botão de ícone dentro da linha do evento — o de excluir.
-    const eventRow = screen.getByText(/Reunião semanal/).closest("div")!;
-    await user.click(eventRow.querySelector("button")!);
+    // A linha do evento tem dois botões de ícone desde a feature 076 (convidar e excluir), então
+    // o alvo é pelo rótulo acessível, não pela posição.
+    await user.click(
+      screen.getByRole("button", { name: "Excluir Reunião semanal" })
+    );
 
     expect(onDeleteEvent).toHaveBeenCalledWith("event-1");
   });

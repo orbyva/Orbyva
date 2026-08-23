@@ -44,7 +44,14 @@ interface ItemForm extends Omit<ShoppingItemCreateRequest, "quantity"> {
   quantity: string;
 }
 
-const emptyItem = (categoryId: string): ItemForm => ({
+/**
+ * Valor do `<Select>` que representa "sem categoria" — o Radix não aceita `value=""`, mesmo
+ * recurso do `ALL_PROJECTS` da `ShoppingList` e do "Sem projeto" do `ProjectPicker`. Vira `null`
+ * na request (feature 066).
+ */
+const NO_CATEGORY = "__none__";
+
+const emptyItem = (categoryId: string | null): ItemForm => ({
   shopping_category_id: categoryId,
   title: "",
   description: "",
@@ -69,7 +76,7 @@ export function ShoppingItemDialog({
   defaultCategoryId,
   onSaved,
 }: ShoppingItemDialogProps) {
-  const [form, setForm] = useState<ItemForm>(emptyItem(""));
+  const [form, setForm] = useState<ItemForm>(emptyItem(null));
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -87,10 +94,12 @@ export function ShoppingItemDialog({
       });
       return;
     }
-    setForm(emptyItem(defaultCategoryId ?? categories[0]?.id ?? ""));
-  }, [open, item, defaultCategoryId, categories]);
+    // Sem categoria pedida (botão geral "Novo item"), o padrão é "Sem categoria" — nunca a
+    // primeira da lista, que arquivava o item em silêncio numa categoria que ninguém escolheu.
+    setForm(emptyItem(defaultCategoryId ?? null));
+  }, [open, item, defaultCategoryId]);
 
-  const canSave = Boolean(form.title.trim() && form.shopping_category_id);
+  const canSave = Boolean(form.title.trim());
 
   async function handleSave() {
     if (!canSave) return;
@@ -140,17 +149,21 @@ export function ShoppingItemDialog({
             />
           </div>
           <div>
-            <FormLabel required>Categoria</FormLabel>
+            <FormLabel optional>Categoria</FormLabel>
             <Select
-              value={form.shopping_category_id || undefined}
+              value={form.shopping_category_id ?? NO_CATEGORY}
               onValueChange={(v) =>
-                setForm({ ...form, shopping_category_id: v })
+                setForm({
+                  ...form,
+                  shopping_category_id: v === NO_CATEGORY ? null : v,
+                })
               }
             >
               <SelectTrigger aria-label="Categoria">
-                <SelectValue placeholder="Escolha uma categoria" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={NO_CATEGORY}>Sem categoria</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}

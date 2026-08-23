@@ -27,7 +27,13 @@ export type ShoppingCategoryUpdateRequest =
 export interface ShoppingItem {
   id: string;
   user_id?: string;
-  shopping_category_id: string;
+  /**
+   * Categoria do item (feature 066). Nulo = item solto, ainda sem categoria — categoria é
+   * organização opcional, não pedágio de entrada. Item solto aparece no pseudo-grupo
+   * "Sem categoria" e, por não ter categoria, não pertence a projeto nenhum (o vínculo com
+   * projeto é da categoria — feature 052).
+   */
+  shopping_category_id: string | null;
   title: string;
   description?: string | null;
   /** Quantidade livre (numeric no banco) — casa com `unit`, que também é texto livre. */

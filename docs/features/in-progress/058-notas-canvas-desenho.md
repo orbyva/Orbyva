@@ -220,18 +220,25 @@ dentro de uma nota markdown). Independente da 056.
       Precache do PWA em 11.140 KiB, praticamente o mesmo dos 11.387 KiB de antes da feature.
       Migration validada à parte, em Postgres 16 (`bash supabase/tests/note_canvas/run.sh`).
 - [ ] **BLOQUEADA — remoção da coluna `project.notes`, herdada da 055. Última tarefa do módulo.**
-      Estado em 2026-08-17: **nenhuma das duas condições foi cumprida**, então a tarefa continua
+      Estado em **2026-08-23**: **Condição 1 cumprida, Condição 2 ainda não** — a tarefa continua
       aberta e **a migration ainda não existe** (ver Notas: criar o arquivo antes da liberação faria
       o próximo `supabase db push` do usuário dropar a coluna sem que ninguém tivesse confirmado
       nada — o arquivo *é* o gatilho).
-      Condição 1 — o usuário precisa ter rodado `supabase db push` das migrations do módulo
-      (`20260816160000_notes_core`, `20260816170000_note_links`, `20260816180000_note_canvas`).
-      Condição 2 — o usuário precisa abrir o módulo de Notas e **confirmar explicitamente** que
-      todas as notas de projeto migradas estão lá, íntegras. A cópia foi feita pela 055 com
-      `insert ... select`, e a coluna original continua viva de propósito, como rede de segurança;
-      ela ficar viva **não é bug**.
-      Ao liberar: migration nova (timestamp único, o próximo livre é `20260816190000`) contendo
-      **uma única instrução**, `alter table public.project drop column if exists notes`.
+      Condição 1 — ✅ **cumprida em 2026-08-23**: o usuário rodou `supabase db push` e confirmou que
+      as migrations do módulo (`20260816160000_notes_core`, `20260816170000_note_links`,
+      `20260816180000_note_canvas`) estão no banco remoto.
+      Condição 2 — ❌ **em aberto**: o usuário precisa abrir o módulo de Notas e **confirmar
+      explicitamente** que todas as notas de projeto migradas estão lá, íntegras. Esta sessão **não
+      tem como verificar isso** — não tem acesso ao banco remoto nem ao navegador —, e por isso a
+      tarefa **não** foi marcada. O roteiro exato está em `## Notas` da 055 ("PENDÊNCIA DO USUÁRIO —
+      conferência da cópia"): dois `count(*)` que têm de bater e uma consulta de diferença que tem
+      de vir vazia, mais a conferência visual das notas "Notas do projeto" no módulo novo. A cópia
+      foi feita pela 055 com `insert ... select`, e a coluna original continua viva de propósito,
+      como rede de segurança; ela ficar viva **não é bug**.
+      Ao liberar: migration nova (timestamp único — `20260816190000` **já foi usado** pela 061; o
+      maior aplicado hoje é `20260820140000`, então use algo como `20260823100000`, e confira com
+      `ls supabase/migrations/` antes) contendo **uma única instrução**,
+      `alter table public.project drop column if exists notes`.
       Nada de tocar em `project_event`, nas policies ou no `status` — a migration da feature 006
       (`20260806130000_project_notes_status_events.sql`) criou a coluna `notes` **e** a tabela
       `project_event` no mesmo arquivo, então é fácil arrastar junto o que não deve sair.
@@ -257,10 +264,18 @@ dentro de uma nota markdown). Independente da 056.
 
 ## Notas
 
-- **Por que a feature está em `in-progress/` e não em `done/` (2026-08-17).** Sobra exatamente uma
-  `- [ ]`: o `drop column` de `project.notes`, bloqueado por duas condições que só o usuário pode
-  satisfazer (rodar o `db push` e confirmar que as notas migradas estão íntegras). Todas as outras
-  15 tarefas estão verificadas por código. A checagem de satisfação do `prompt:` está abaixo.
+- **Por que a feature está em `in-progress/` e não em `done/` (revisado em 2026-08-23).** Sobra
+  exatamente uma `- [ ]`: o `drop column` de `project.notes`, bloqueado por duas condições que só o
+  usuário pode satisfazer. **A primeira caiu em 2026-08-23** — o usuário rodou `supabase db push` e
+  confirmou que as três migrations do módulo estão no remoto. **A segunda continua de pé**: ninguém
+  confirmou ainda que as notas de projeto migradas estão íntegras no módulo novo, e esta esteira
+  não tem como confirmar (sem acesso ao banco remoto, e navegador proibido pela skill `next`).
+  Marcar a tarefa aqui seria escrever que uma verificação passou sem ninguém a ter visto passar —
+  exatamente o que a rede de segurança da coluna existe para evitar. Todas as outras 15 tarefas
+  estão verificadas por código; a checagem de satisfação do `prompt:` está abaixo e passa.
+  **Para o usuário desbloquear**: rode as três consultas de `## Notas` da 055 e abra `/notes`
+  conferindo as notas com título "Notas do projeto". Confirmando, esta tarefa vira a criação da
+  migration de uma linha só, e a feature fecha.
 - **Checagem de satisfação (2026-08-17), item do `prompt:` → artefato que prova.** O prompt-mãe
   cobre as quatro features do módulo; o que a 058 se propôs a cumprir é a parte de desenho:
   - *CRIAÇÃO DE CANVAS/DESENHOS* → `Notes.flow.test.tsx` "'Novo canvas' cria a nota com

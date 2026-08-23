@@ -2,9 +2,16 @@ import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import {
   computeMissingDoses,
+  computeStaleDoses,
   formatDoseTitle,
   medicationTimes,
+  MEDICATION_TASK_ICON_KEY,
 } from "@/domain/health/medication";
+import {
+  deleteTaskRows,
+  deleteTaskSeries,
+  insertMaterializedTasks,
+} from "@/api/tasks/taskRows";
 import { formatLocalIsoDate } from "@/lib/dates";
 import type {
   Medication,
@@ -97,6 +104,12 @@ export async function createMedicationWithDoses(
   const medication = await createMedication(input);
   try {
     const userId = await getCurrentUserId();
+    // `existingDoses: []` é correto **por construção**, não por descuido (revisto na feature 074):
+    // `medication.id` acabou de ser gerado pelo insert acima, então não existe uma única linha de
+    // `task` apontando para ele — buscar as doses seria uma query garantidamente vazia. O caso que
+    // sobrava, dois envios do formulário em paralelo, é coberto pelo `on conflict do nothing` de
+    // `insertMaterializedTasks`, e a carga seguinte de tarefas passa a enxergar estas doses e não
+    // as recria (coberto em `health.medications.test.ts`).
     await materializeMedicationDoses(medication, [], userId);
   } catch (error) {
     console.error("Falha ao materializar as doses da medicação:", error);
@@ -104,6 +117,22 @@ export async function createMedicationWithDoses(
   return medication;
 }
 
+/**
+ * Edita o tratamento **e reconcilia as doses já materializadas** (feature 074).
+ *
+ * Sem a segunda parte, mudar o horário de 08:00 para 09:00 deixava todas as doses futuras das 08:00
+ * de pé e a próxima `fetchTasks` criava as das 09:00 ao lado: duas doses por dia no calendário, para
+ * sempre. O mesmo valia para `interval_days`, `started_on` e `ended_on`.
+ *
+ * O que é apagado sai de `computeStaleDoses` — só doses **futuras e não concluídas**. Dose passada e
+ * dose já tomada são o histórico de adesão da `064` e nunca são tocadas. As doses certas não são
+ * criadas aqui: a materialização (`materializeMedicationDoses`) faz isso sozinha na carga seguinte,
+ * que é o mesmo caminho de sempre.
+ *
+ * O erro da limpeza **sobe** — de propósito, e ao contrário das sincronizações de `updateTask`, que
+ * são engolidas num `console.error`. Deixar dose fantasma no calendário é exatamente o bug que esta
+ * feature conserta; falhar em silêncio devolveria o usuário para ele sem avisar.
+ */
 export async function updateMedication(
   input: MedicationUpdateRequest
 ): Promise<void> {
@@ -123,6 +152,40 @@ export async function updateMedication(
     .eq("id", id)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
+
+  await reconcileMedicationDoses(id, userId);
+}
+
+/**
+ * Apaga as doses futuras que a configuração atual do tratamento não prevê mais. Relê o tratamento
+ * do banco em vez de mesclar o payload em memória: `updateMedication` recebe um patch parcial, e a
+ * decisão de o que é obsoleto depende do estado **inteiro** (`times`, `interval_days`,
+ * `started_on`, `ended_on`, `active`) já normalizado pelo banco.
+ */
+async function reconcileMedicationDoses(id: string, userId: string): Promise<void> {
+  const { data: medication, error } = await supabase
+    .from("medication")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!medication) return;
+
+  const doses = await fetchMedicationDoses(id);
+  const stale = computeStaleDoses(
+    medication as Medication,
+    doses.map((dose) => ({
+      id: dose.id,
+      due_date: dose.due_date,
+      dose_time: dose.dose_time,
+      status: dose.status,
+      completed_at: dose.completed_at,
+    })),
+    formatLocalIsoDate(new Date())
+  );
+
+  await deleteTaskRows(stale, userId);
 }
 
 /**
@@ -151,6 +214,74 @@ export async function deactivateMedication(id: string): Promise<void> {
     .eq("id", id)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Em que etapa a operação de duas partes parou (feature 075). O dialog precisa disso para dizer o
+ * que **de fato** aconteceu: "nada foi apagado" e "o tratamento acabou, mas as doses ficaram" são
+ * situações diferentes, e um toast genérico faria o usuário repetir a ação sem saber por quê.
+ */
+export type EndMedicationStage = "deactivate" | "delete";
+
+export class EndMedicationError extends Error {
+  constructor(
+    readonly stage: EndMedicationStage,
+    message: string,
+    override readonly cause?: unknown
+  ) {
+    super(message);
+    this.name = "EndMedicationError";
+  }
+}
+
+/** O mínimo que `endMedicationAndDeleteFutureDoses` precisa saber da linha clicada. */
+interface DoseTarget {
+  id: string;
+  medication_id?: string | null;
+  recurrence_rule?: Task["recurrence_rule"];
+  recurrence_origin_id?: string | null;
+}
+
+/**
+ * A ação recomendada do `TaskDeleteDialog` (feature 075): **encerra o tratamento** e só então apaga
+ * as doses futuras ainda não tomadas.
+ *
+ * A ordem não é arbitrária. Apagar antes de encerrar é exatamente o bug que o usuário reportou — a
+ * `medication` continua `active`, e a próxima `fetchTasks` chama `materializeAllMedicationDoses`,
+ * que recalcula desde `started_on` e **recria** tudo o que acabou de sair. Encerrando primeiro, a
+ * pior falha possível (o `delete` quebrar no meio) deixa doses velhas na tela, mas elas não voltam
+ * a ser geradas e uma segunda tentativa resolve. Na ordem inversa, a mesma falha devolveria o
+ * usuário ao "apago e volta" sem nenhum aviso.
+ *
+ * Por isso o erro carrega a etapa: quem chama consegue distinguir "não encerrou, nada foi apagado"
+ * de "encerrou, mas as doses ficaram" e dizer isso na tela, em vez de um "erro ao excluir" genérico.
+ */
+export async function endMedicationAndDeleteFutureDoses(task: DoseTarget): Promise<number> {
+  const medicationId = task.medication_id;
+  if (!medicationId) {
+    throw new EndMedicationError("deactivate", "Esta tarefa não pertence a um tratamento.");
+  }
+
+  try {
+    await deactivateMedication(medicationId);
+  } catch (error) {
+    throw new EndMedicationError(
+      "deactivate",
+      "Não foi possível encerrar o tratamento. Nenhuma dose foi apagada.",
+      error
+    );
+  }
+
+  try {
+    return await deleteTaskSeries(task, { mode: "end-treatment" });
+  } catch (error) {
+    throw new EndMedicationError(
+      "delete",
+      "O tratamento foi encerrado, mas não foi possível apagar as doses futuras. " +
+        "Elas não voltam a ser criadas — tente apagá-las de novo.",
+      error
+    );
+  }
 }
 
 /** As doses (tasks) já materializadas de um tratamento. */
@@ -226,10 +357,18 @@ export async function materializeMedicationDoses(
     recurrence_rule: null,
     recurrence_origin_id: null,
     is_medication: true,
+    // Feature 071: a dose é uma tarefa **pontual** — um instante, não um bloco de 30 min sintéticos.
+    // `is_quick` é o que faz a agenda (070) desenhá-la como bolinha marcável em um clique, e o
+    // preset `pill` é o que a distingue das outras pontuais do dia sem precisar de texto.
+    is_quick: true,
+    icon_key: MEDICATION_TASK_ICON_KEY,
     medication_id: medication.id,
   }));
 
-  const { data, error } = await supabase.from("task").insert(rows).select();
+  // `upsert` com `on conflict do nothing` (feature 074): duas cargas de tarefas concorrentes
+  // calculam o mesmo conjunto faltante, e a dose que a outra já criou vira no-op em vez de linha
+  // duplicada no calendário. Ver `src/api/tasks/materialize.ts`.
+  const { data, error } = await insertMaterializedTasks(rows);
   if (error) throw new Error(error.message);
   return (data ?? []) as Task[];
 }

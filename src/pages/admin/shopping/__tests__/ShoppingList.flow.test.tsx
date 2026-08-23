@@ -124,8 +124,8 @@ describe("Lista de Compras — fluxo completo", () => {
       </MemoryRouter>,
     );
 
-    // Estado inicial: nenhuma categoria.
-    expect(await screen.findByText("Nenhuma categoria ainda")).toBeInTheDocument();
+    // Estado inicial: lista vazia (o texto mudou na 066 — categoria virou opcional).
+    expect(await screen.findByText("Sua lista está vazia")).toBeInTheDocument();
 
     // 1) Duas categorias.
     await createCategory("Mercado");
@@ -204,5 +204,75 @@ describe("Lista de Compras — fluxo completo", () => {
     expect(
       within(sectionFor("Escritório")).getByText("1 pendente")
     ).toBeInTheDocument();
+  }, 30000);
+});
+
+/**
+ * Feature 066: o fluxo que a obrigatoriedade de categoria impedia — anotar uma coisa que acabou,
+ * numa conta zerada, sem inventar categoria antes. Substitui a conferência manual no navegador:
+ * cria o item solto, marca comprado, cria uma categoria depois e move o item para ela pela edição.
+ */
+describe("Lista de Compras — item sem categoria (feature 066)", () => {
+  it("cria item em conta zerada sem categoria nenhuma, marca comprado e depois move para uma categoria criada", async () => {
+    render(
+      <MemoryRouter>
+        <ShoppingList />
+      </MemoryRouter>,
+    );
+
+    // Conta zerada: nada de "crie uma categoria primeiro" — as duas ações convivem.
+    expect(await screen.findByText("Sua lista está vazia")).toBeInTheDocument();
+
+    const u = user();
+    await u.click(screen.getAllByRole("button", { name: "Novo item" })[0]);
+    await u.type(await screen.findByLabelText(/Título/), "Pilha AA");
+    expect(
+      screen.getByRole("combobox", { name: "Categoria" })
+    ).toHaveTextContent("Sem categoria");
+    await u.click(screen.getByRole("button", { name: "Criar item" }));
+
+    // 1) O item existe, solto, e aparece no grupo "Sem categoria".
+    await screen.findByRole("heading", { name: "Sem categoria", level: 2 });
+    expect(store.items).toHaveLength(1);
+    expect(store.items[0].shopping_category_id).toBeNull();
+    expect(
+      within(sectionFor("Sem categoria")).getByText("Pilha AA")
+    ).toBeInTheDocument();
+    expect(
+      within(sectionFor("Sem categoria")).getByText("1 pendente")
+    ).toBeInTheDocument();
+
+    // 2) Marca como comprado — o item solto tem as mesmas ações dos demais.
+    await u.click(
+      screen.getByRole("checkbox", { name: "Marcar Pilha AA como comprado" })
+    );
+    await waitFor(() => expect(store.items[0].status).toBe("purchased"));
+    await waitFor(() =>
+      expect(
+        within(sectionFor("Sem categoria")).getByText("0 pendentes")
+      ).toBeInTheDocument()
+    );
+
+    // 3) Só agora nasce uma categoria.
+    await createCategory("Casa");
+    const casaId = store.categories[0].id;
+
+    // 4) Editar o item e escolher a categoria tira ele do grupo solto.
+    await u.click(screen.getByRole("button", { name: "Editar Pilha AA" }));
+    const trigger = await screen.findByRole("combobox", { name: "Categoria" });
+    expect(trigger).toHaveTextContent("Sem categoria");
+    await u.click(trigger);
+    await u.click(screen.getByRole("option", { name: "Casa" }));
+    await u.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(store.items[0].shopping_category_id).toBe(casaId)
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", { name: "Sem categoria", level: 2 })
+      ).toBeNull()
+    );
+    expect(within(sectionFor("Casa")).getByText("Pilha AA")).toBeInTheDocument();
   }, 30000);
 });

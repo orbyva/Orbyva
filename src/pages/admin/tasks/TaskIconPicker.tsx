@@ -22,16 +22,22 @@ export interface TaskIconValue {
  *
  * `taskId` é obrigatório pro upload (o caminho no bucket `task-icons` é `{userId}/{taskId}.{ext}`);
  * quando `null` (formulário de tarefa nova, ainda não salva), o botão de upload fica desabilitado
- * — só presets ficam disponíveis até a tarefa existir.
+ * — só presets ficam disponíveis até a tarefa existir. Numa série recorrente (feature 073) quem
+ * chama passa o id da **origem**, não o da ocorrência: o arquivo pertence à série, e prendê-lo a
+ * uma ocorrência qualquer faria as irmãs apontarem pro arquivo de uma tarefa que pode ser excluída.
  */
 export function TaskIconPicker({
   taskId,
   value,
   onChange,
+  sharedWithSeries = false,
 }: {
   taskId: string | null;
   value: TaskIconValue;
   onChange: (next: TaskIconValue) => void;
+  /** Tarefa faz parte de uma série recorrente: o ícone vale para todas as ocorrências (feature
+   * 073). Só muda o aviso no popover — o fan-out em si é feito por `updateTask`. */
+  sharedWithSeries?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -139,6 +145,11 @@ export function TaskIconPicker({
         {!taskId && (
           <p className="text-[10px] text-muted-foreground">
             Salve a tarefa antes de enviar uma imagem.
+          </p>
+        )}
+        {sharedWithSeries && (
+          <p className="text-[10px] text-muted-foreground">
+            Vale para todas as ocorrências desta recorrência.
           </p>
         )}
         <input

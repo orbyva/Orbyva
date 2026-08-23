@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { TaskIconPicker } from "@/pages/admin/tasks/TaskIconPicker";
 import { TASK_ICON_PRESETS } from "@/pages/admin/tasks/TaskIconBadge";
 import { SHOPPING_TASK_ICON_KEY } from "@/domain/shopping/taskLink";
+import { MEDICATION_TASK_ICON_KEY } from "@/domain/health/medication";
 import { uploadTaskIcon } from "@/api/tasks";
 
 vi.mock("@/api/tasks", () => ({
@@ -43,7 +44,7 @@ describe("TaskIconPicker", () => {
     expect(container.querySelector('svg[aria-label="Estrela"]')).toBeInTheDocument();
   });
 
-  it("abrir o popover mostra os 8 presets como botões clicáveis", async () => {
+  it("abrir o popover mostra os 9 presets como botões clicáveis", async () => {
     const user = userEvent.setup();
     render(
       <TaskIconPicker taskId="task-1" value={{ icon_key: null, icon_url: null }} onChange={vi.fn()} />
@@ -54,7 +55,26 @@ describe("TaskIconPicker", () => {
     for (const preset of TASK_ICON_PRESETS) {
       expect(await screen.findByRole("button", { name: preset.label })).toBeInTheDocument();
     }
-    expect(TASK_ICON_PRESETS).toHaveLength(8);
+    expect(TASK_ICON_PRESETS).toHaveLength(9);
+  });
+
+  // Feature 071: a dose de medicação nasce com este preset (`MEDICATION_TASK_ICON_KEY`), e é ele
+  // que a bolinha pontual da agenda desenha. Precisa existir no grid como qualquer outro — inclusive
+  // para o usuário poder trocá-lo à mão, que é o que o `coalesce` do backfill preserva.
+  it("o preset 'Medicação' (pill) aparece no grid e pode ser selecionado", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    expect(TASK_ICON_PRESETS.map((preset) => preset.key)).toContain(
+      MEDICATION_TASK_ICON_KEY
+    );
+    render(
+      <TaskIconPicker taskId="task-1" value={{ icon_key: null, icon_url: null }} onChange={onChange} />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Definir ícone" }));
+    await user.click(await screen.findByRole("button", { name: "Medicação" }));
+
+    expect(onChange).toHaveBeenCalledWith({ icon_key: "pill", icon_url: null });
   });
 
   // Feature 051: o preset de compras precisa existir no grid pra tarefa criada a partir de um
@@ -190,6 +210,70 @@ describe("TaskIconPicker", () => {
       );
     });
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  // Feature 073: o ícone é propriedade da série. O aviso existe pra o usuário não achar que mexeu
+  // só naquele dia e levar um susto ao ver o passado mudar.
+  it("com sharedWithSeries, o popover avisa que a edição vale para toda a recorrência", async () => {
+    const user = userEvent.setup();
+    render(
+      <TaskIconPicker
+        taskId="origem"
+        value={{ icon_key: null, icon_url: null }}
+        onChange={vi.fn()}
+        sharedWithSeries
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Definir ícone" }));
+
+    expect(
+      await screen.findByText("Vale para todas as ocorrências desta recorrência.")
+    ).toBeInTheDocument();
+  });
+
+  it("sem sharedWithSeries, o aviso de recorrência não aparece", async () => {
+    const user = userEvent.setup();
+    render(
+      <TaskIconPicker taskId="task-1" value={{ icon_key: null, icon_url: null }} onChange={vi.fn()} />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Definir ícone" }));
+
+    expect(await screen.findByRole("button", { name: "Enviar imagem" })).toBeInTheDocument();
+    expect(
+      screen.queryByText("Vale para todas as ocorrências desta recorrência.")
+    ).not.toBeInTheDocument();
+  });
+
+  // O arquivo vai pro caminho `{userId}/{taskId}.{ext}`: quem chama passa o id da **origem**, então
+  // excluir a ocorrência editada não deixa as irmãs apontando pro arquivo de uma tarefa que sumiu.
+  it("o upload usa o taskId recebido (o da origem da série), não o da ocorrência", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    vi.mocked(uploadTaskIcon).mockResolvedValue("https://cdn.example.com/origem.png");
+    render(
+      <TaskIconPicker
+        taskId="origem"
+        value={{ icon_key: null, icon_url: null }}
+        onChange={onChange}
+        sharedWithSeries
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Definir ícone" }));
+    const file = new File(["conteudo"], "icone.png", { type: "image/png" });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    expect(uploadTaskIcon).toHaveBeenCalledWith("origem", file);
+    expect(uploadTaskIcon).not.toHaveBeenCalledWith("ocorrencia-3", file);
+    await vi.waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith({
+        icon_key: null,
+        icon_url: "https://cdn.example.com/origem.png",
+      });
+    });
   });
 
   it("com ícone definido, o botão 'Remover ícone' chama onChange limpando icon_key e icon_url", async () => {

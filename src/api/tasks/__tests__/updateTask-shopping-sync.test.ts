@@ -181,3 +181,48 @@ describe("updateTask — sincronização com o item da Lista de Compras vinculad
     expect(callsTo("shopping_item")).toHaveLength(0);
   });
 });
+
+/**
+ * Feature 071, item (d) do pedido literal: marcar a bolinha da dose "deixa verde e grava
+ * `completed_at`". A bolinha verde é coberta em `AgendaGrid.medication.test.tsx`; o carimbo da
+ * hora é aqui, no único lugar que o escreve — sem ele, "ver a hora em que foi tomado" não teria
+ * de onde sair.
+ */
+describe("updateTask — carimbo de completed_at", () => {
+  it("concluir carimba completed_at com o instante real", async () => {
+    resultsByTable.task = {
+      data: { linked_shopping_item_id: null, linked_installment_number: null },
+      error: null,
+    };
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2026, 7, 16, 12, 42, 0)));
+
+    await updateTask({ id: "dose-1", status: "done" });
+
+    const payload = callsTo("task")[0].payload as Record<string, unknown>;
+    expect(payload.completed_at).toBe("2026-08-16T12:42:00.000Z");
+    vi.useRealTimers();
+  });
+
+  it("update sem status não carimba nada", async () => {
+    resultsByTable.task = {
+      data: { linked_shopping_item_id: null, linked_installment_number: null },
+      error: null,
+    };
+
+    await updateTask({ id: "dose-1", title: "Losartana 2 comprimidos" });
+
+    expect(callsTo("task")[0].payload).not.toHaveProperty("completed_at");
+  });
+
+  it("reabrir não carimba completed_at novo", async () => {
+    resultsByTable.task = {
+      data: { linked_shopping_item_id: null, linked_installment_number: null },
+      error: null,
+    };
+
+    await updateTask({ id: "dose-1", status: "todo" });
+
+    expect(callsTo("task")[0].payload).not.toHaveProperty("completed_at");
+  });
+});

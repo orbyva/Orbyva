@@ -167,7 +167,7 @@ describe("AgendaGrid — visão Mês inalterada, Semana/Dia usam a grade de hora
 });
 
 describe("AgendaGrid — dialog de editar tarefa usa o form unificado TaskFormFields (feature 043)", () => {
-  it("abrir uma tarefa pela Agenda mostra as 4 abas completas do form unificado, não o dialog reduzido antigo", async () => {
+  it("abrir uma tarefa pela Agenda mostra o painel completo do form unificado, não o dialog reduzido antigo", async () => {
     const user = userEvent.setup();
     const task = makeTask({ title: "Tarefa da agenda" });
     mockedFetchTasks.mockResolvedValue([task]);
@@ -178,18 +178,22 @@ describe("AgendaGrid — dialog de editar tarefa usa o form unificado TaskFormFi
     await user.click(screen.getByText("Tarefa da agenda"));
 
     expect(screen.getByText("Editar tarefa")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Geral" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Data e repetição" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Organização" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Registros de tempo" })).toBeInTheDocument();
+    // Feature 080: painel único, sem abas — tudo no mesmo lugar.
+    const dialog = within(screen.getByRole("dialog"));
+    expect(screen.queryByRole("tab", { name: "Geral" })).not.toBeInTheDocument();
+    expect(dialog.getByLabelText(/^Título/)).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: /Descrição/ })).toBeInTheDocument();
+    expect(dialog.getByText("Data limite")).toBeInTheDocument();
+    expect(dialog.getByText("Tags")).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: /Registros de tempo/ })).toBeInTheDocument();
     // Campos que o dialog reduzido antigo (CalendarTaskDialog) nunca ofereceu.
-    expect(screen.getByText("Marco")).toBeInTheDocument();
-    expect(screen.getByText("Ícone")).toBeInTheDocument();
+    expect(dialog.getByText("Marco")).toBeInTheDocument();
+    expect(dialog.getByText("Ícone")).toBeInTheDocument();
     // O aviso fixo "Recorrência, tags, subtarefas e projeto: edite em Tarefas" não existe mais.
     expect(screen.queryByText(/edite em/i)).not.toBeInTheDocument();
   });
 
-  it("campo Projeto (ProjectPicker) aparece ao editar tarefa pela Agenda", async () => {
+  it("campo Projeto aparece ao editar tarefa pela Agenda", async () => {
     const user = userEvent.setup();
     const project = makeProject({ name: "Projeto Alpha" });
     const task = makeTask({ title: "Tarefa da agenda", project_id: project.id });
@@ -200,10 +204,13 @@ describe("AgendaGrid — dialog de editar tarefa usa o form unificado TaskFormFi
     await renderLoaded();
     await user.click(screen.getByText("Tarefa da agenda"));
 
-    expect(screen.getByRole("listbox", { name: "Projeto" })).toBeInTheDocument();
+    // Feature 080: badge clicável de uma linha; a lista de projetos abre no popover.
+    const dialog = within(screen.getByRole("dialog"));
+    await user.click(dialog.getByRole("button", { name: "Projeto Alpha" }));
+    expect(await screen.findByRole("listbox", { name: "Projeto" })).toBeInTheDocument();
   });
 
-  it("salvar persiste campos das abas novas (Marco e Tags) via updateTask, algo o dialog antigo não fazia", async () => {
+  it("salvar persiste Marco e Tags via updateTask, algo o dialog antigo não fazia", async () => {
     const user = userEvent.setup();
     const tag = makeTag();
     const task = makeTask({ id: "task-1", title: "Tarefa da agenda" });
@@ -215,11 +222,9 @@ describe("AgendaGrid — dialog de editar tarefa usa o form unificado TaskFormFi
     await renderLoaded();
     await user.click(screen.getByText("Tarefa da agenda"));
 
-    // Marco — único checkbox do form nas condições padrão (sem recorrência ativada).
-    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox", { name: /Marco no Gantt/ }));
 
-    // Tags — abre o combobox e seleciona a tag existente.
-    await user.click(screen.getByRole("tab", { name: "Organização" }));
+    // Tags — abre o combobox e seleciona a tag existente (mesmo painel, sem trocar de aba).
     await user.click(screen.getByPlaceholderText("Buscar ou criar tag…"));
     await user.click(await screen.findByText(tag.name));
 
@@ -241,7 +246,7 @@ describe("AgendaGrid — dialog de editar tarefa usa o form unificado TaskFormFi
 
     await renderLoaded();
     await user.click(screen.getByText("Tarefa principal"));
-    await user.click(screen.getByRole("tab", { name: "Organização" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Subtarefas/ }));
     await user.type(screen.getByPlaceholderText("Adicionar subtarefa"), "Nova subtarefa");
     await user.click(screen.getByRole("button", { name: "Adicionar" }));
 
@@ -264,7 +269,7 @@ describe("AgendaGrid — dialog de editar tarefa usa o form unificado TaskFormFi
 
     await renderLoaded();
     await user.click(screen.getByText("Tarefa principal"));
-    await user.click(screen.getByRole("tab", { name: "Organização" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Subtarefas/ }));
 
     // A subtarefa agora também vira um chip próprio no grid de fundo (feature 048), então a busca
     // pelo item da lista de subtarefas do form precisa ser escopada ao dialog.
@@ -350,7 +355,9 @@ describe("AgendaGrid — subtarefas com prazo próprio aparecem na Agenda (featu
     // Restrições de subtarefa já garantidas pelo form compartilhado (projeto herdado do pai, sem
     // campo de subtarefas dentro de uma subtarefa).
     expect(screen.getByText("Herdado da tarefa principal")).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Organização" }));
+    expect(
+      within(screen.getByRole("dialog")).queryByRole("button", { name: /Subtarefas/ })
+    ).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Adicionar subtarefa")).not.toBeInTheDocument();
   });
 });

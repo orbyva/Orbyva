@@ -1,4 +1,4 @@
-import { ListTodo, Pill, Tag as TagIcon, Timer } from "lucide-react";
+import { ListTodo, Tag as TagIcon, Timer } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   DndContext,
@@ -35,6 +35,7 @@ import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR } from "@/lib/currency";
 import { ProjectsRail } from "./ProjectsRail";
 import { TaskQuadrant } from "./TaskQuadrant";
+import { TaskSortToggle } from "./TaskSortToggle";
 import { type TaskIconValue } from "./TaskIconPicker";
 import { type SubtaskDraft } from "./TaskSubtasksField";
 import {
@@ -46,25 +47,25 @@ import {
   TaskListRow,
   type SubtaskRowActions,
 } from "./TaskViews";
-import { TaskFormFields, type TaskFormTab } from "./TaskFormFields";
+import { TaskFormFields } from "./TaskFormFields";
+import type { TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 import { EmptyState } from "@/components/EmptyState";
 import { FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { GanttChart } from "./GanttChart";
 import { AgendaGrid } from "./AgendaGrid";
-import { MedicationQuickCreateDialog } from "./MedicationQuickCreateDialog";
 import { SeriesOccurrencesDialog } from "./SeriesOccurrencesDialog";
 import {
   createTag,
   createTask,
   deleteTask,
-  deleteTasks,
   fetchDependencies,
   fetchProjects,
   fetchTags,
   fetchTasks,
   updateTask,
+  updateTasksSortOrder,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
 import {
@@ -75,15 +76,22 @@ import {
   filterTasks,
   filterTasksByStatusView,
   findSeriesTasks,
+  type TaskDeleteOption,
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
   isSubtaskDueDateValid,
   PRIORITY_OPTIONS,
   rankProjectsByActivity,
+  sortTasksBy,
   sortTasksByCompletedAtDesc,
-  sortTasksByDueDate,
 } from "@/domain/tasks";
-import type { AgendaBucket, TaskStatusView } from "@/domain/tasks";
+import type {
+  AgendaBucket,
+  TaskSortKey,
+  TaskSortOrderPair,
+  TaskStatusView,
+} from "@/domain/tasks";
+import { readTaskSortKey, writeTaskSortKey } from "@/lib/taskSortPreference";
 import {
   addSubtaskToEditing as addSubtaskDraftToEditing,
   emptyTask,
@@ -102,8 +110,10 @@ import type {
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
+import { useStartTaskNow } from "@/hooks/useStartTaskNow";
 import { useDimensions } from "@/hooks/useDimensions";
 import { getErrorMessage } from "@/lib/errors";
+import { runScopedTaskDelete } from "./scopedDelete";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -119,9 +129,7 @@ export default function TaskList() {
   const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [medicationDialogOpen, setMedicationDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
-  const [formTab, setFormTab] = useState<TaskFormTab>("geral");
   const [form, setForm] = useState(emptyTask());
   // `?view=` só é lido na primeira renderização (redirecionamento de `/tasks/gantt`, removido na
   // feature 044 por ser redundante com esta aba — ver Notas): não sincroniza de volta pra URL a
@@ -139,6 +147,9 @@ export default function TaskList() {
    * `visibleTasks`/`ganttTasks` sem esse recorte). */
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | null>(null);
   const [todayOnly, setTodayOnly] = useState(false);
+  /** Ordenação da Lista e das colunas do Kanban (feature 079). Nasce da preferência salva no
+   * navegador; sem nada salvo, o padrão é "última atualização". */
+  const [sortKey, setSortKey] = useState<TaskSortKey>(() => readTaskSortKey());
   const [subtaskDrafts, setSubtaskDrafts] = useState<string[]>([]);
   const [kanbanSubtaskDrafts, setKanbanSubtaskDrafts] = useState<Record<string, string>>({});
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
@@ -167,9 +178,11 @@ export default function TaskList() {
 
   /** Snapshot de `due_date` por tarefa, como veio do último `load()` — usado só para decidir
    * bucket/ordem por prazo na Lista (`pendingTasks`/`agendaGroups`), pra editar o prazo inline
-   * (`handleDueChange`) não mover o card na hora, fazendo o usuário perder o foco dele. O valor
-   * exibido no `TaskDueQuickEdit` continua vindo de `tasks` (live), só a posição fica "congelada"
-   * até a próxima recarga real. */
+   * (`handleDueChange`) não mover o card **enquanto o popover está aberto**, fazendo o usuário
+   * perder o foco dele. O valor exibido no `TaskDueQuickEdit` continua vindo de `tasks` (live), só
+   * a posição fica "congelada". Fechar o popover derruba o congelamento daquela tarefa e recarrega
+   * (`handleDueOpenChange`), então o card cai na caixa certa na hora — feature 081, que reverteu
+   * pela metade a decisão da 029 (congelar até o próximo `load()` real). */
   const frozenDueDatesRef = useRef<Map<string, string | null>>(new Map());
 
   const load = useCallback(async () => {
@@ -202,6 +215,15 @@ export default function TaskList() {
     load();
   }, [load]);
 
+  /** Botão "Imediatamente" (feature 078) — inicia o timer e grava o prazo como agora + duração
+   * estimada. `load()` depois é de propósito: a tarefa acabou de virar "hoje" e tem de pular para
+   * o bucket "Hoje" na hora (o `frozenDueDatesRef` é re-tirado no `load`, então nada a congelar
+   * aqui — ao contrário do `handleDueChange`, que é edição de prazo sem começar a trabalhar). */
+  const { startNow, pendingTaskId: startingNowTaskId } = useStartTaskNow({
+    resolveTaskTitle: (taskId) => tasks.find((t) => t.id === taskId)?.title,
+    onApplied: load,
+  });
+
   const visibleTasks = useMemo(() => {
     const projectId =
       projectFilter === "all" ? undefined : projectFilter === "null" ? null : projectFilter;
@@ -221,15 +243,33 @@ export default function TaskList() {
 
   const todayIso = useMemo(() => formatLocalIsoDate(new Date()), []);
 
-  /** Chips de Prioridade/"Hoje" — só entram na aba Lista (Kanban/Gantt usam `visibleTasks` puro). */
+  /** Troca a ordenação e grava a escolha, para que ela sobreviva ao remontar/recarregar. */
+  const handleSortKeyChange = useCallback((key: TaskSortKey) => {
+    setSortKey(key);
+    writeTaskSortKey(key);
+  }, []);
+
+  /** Prazo "congelado" desta tarefa (o do último `load()`, enquanto o popover de prazo dela está
+   * aberto) ou o prazo vivo, quando não há nada congelado. */
+  const frozenDueDateOf = useCallback(
+    (task: Task) =>
+      frozenDueDatesRef.current.has(task.id)
+        ? (frozenDueDatesRef.current.get(task.id) ?? null)
+        : task.due_date,
+    []
+  );
+
+  /** Chips de Prioridade/"Hoje" — só entram na aba Lista (Kanban/Gantt usam `visibleTasks` puro).
+   * O chip "Hoje" usa o prazo congelado pelo mesmo motivo do bucket: com ele ligado, o prazo vivo
+   * faria a linha sumir da lista **no meio da edição**, levando junto o popover ancorado nela. */
   const applyListQuickFilters = useCallback(
     (list: Task[]) => {
       const withPriority = priorityFilter ? filterTasks(list, { priority: priorityFilter }) : list;
       return todayOnly
-        ? withPriority.filter((t) => bucketForDueDate(t.due_date, todayIso) === "today")
+        ? withPriority.filter((t) => bucketForDueDate(frozenDueDateOf(t), todayIso) === "today")
         : withPriority;
     },
-    [priorityFilter, todayOnly, todayIso]
+    [priorityFilter, todayOnly, todayIso, frozenDueDateOf]
   );
 
   /** Envolve tarefas com o `due_date` congelado (`frozenDueDatesRef`) pra usar como chave de
@@ -238,19 +278,23 @@ export default function TaskList() {
     (list: Task[]) =>
       list.map((task) => ({
         task,
-        due_date: frozenDueDatesRef.current.has(task.id)
-          ? (frozenDueDatesRef.current.get(task.id) ?? null)
-          : task.due_date,
+        // `id`/`updated_at`/`created_at` viajam junto porque o comparador de "última atualização"
+        // (feature 079) lê do próprio item do array, não do `task` embrulhado.
+        id: task.id,
+        updated_at: task.updated_at,
+        created_at: task.created_at,
+        due_date: frozenDueDateOf(task),
       })),
-    []
+    [frozenDueDateOf]
   );
 
   const pendingTasks = useMemo(() => {
-    const sorted = sortTasksByDueDate(
+    const sorted = sortTasksBy(
+      sortKey,
       withFrozenDueDate(filterTasksByStatusView(visibleTasks, "pending"))
     ).map((entry) => entry.task);
     return applyListQuickFilters(sorted);
-  }, [visibleTasks, applyListQuickFilters, withFrozenDueDate]);
+  }, [visibleTasks, applyListQuickFilters, withFrozenDueDate, sortKey]);
 
   const doneTasks = useMemo(
     () => applyListQuickFilters(sortTasksByCompletedAtDesc(filterTasksByStatusView(visibleTasks, "done"))),
@@ -299,13 +343,19 @@ export default function TaskList() {
     );
   }, [tasks, tagFilter, projectFilter]);
 
+  /** Colunas do Kanban. Cada uma respeita o mesmo `sortKey` da Lista (feature 079) — antes elas
+   * herdavam a ordem crua do `fetchTasks` (`due_date` asc), que as materializações já bagunçavam
+   * anexando linhas no fim do array. */
   const topLevelByStatus = useMemo(() => {
     const map: Record<TaskStatus, Task[]> = { todo: [], doing: [], done: [] };
     for (const task of visibleTasks) {
       map[task.status].push(task);
     }
+    for (const status of Object.keys(map) as TaskStatus[]) {
+      map[status] = sortTasksBy(sortKey, map[status]);
+    }
     return map;
-  }, [visibleTasks]);
+  }, [visibleTasks, sortKey]);
 
   function toggleExpanded(taskId: string) {
     setExpandedTasks((prev) => {
@@ -390,7 +440,6 @@ export default function TaskList() {
     setEditing(null);
     setForm(emptyTask());
     setSubtaskDrafts([]);
-    setFormTab("geral");
     setOpen(true);
   }
 
@@ -414,9 +463,15 @@ export default function TaskList() {
       icon_key: task.icon_key ?? null,
       icon_url: task.icon_url ?? null,
       is_milestone: task.is_milestone ?? false,
+      // Feature 080: sem isto o painel abria "+ Duração" numa tarefa que já tem duração — o
+      // campo nunca era carregado para edição (bug pré-existente, invisível enquanto a duração
+      // morava numa aba secundária).
+      estimated_duration: task.estimated_duration ?? null,
+      // Feature 070: sem isto o interruptor "Tarefa pontual" abriria sempre desligado numa
+      // tarefa que já é pontual, e salvar a desmarcaria sem o usuário pedir.
+      is_quick: task.is_quick ?? false,
     });
     setSubtaskDrafts([]);
-    setFormTab("geral");
     setOpen(true);
   }
 
@@ -428,13 +483,11 @@ export default function TaskList() {
 
   async function handleSave() {
     if (!form.title.trim()) {
-      setFormTab("geral");
-      return;
+        return;
     }
     if (form.parent_task_id) {
       const parentTask = tasks.find((t) => t.id === form.parent_task_id);
       if (parentTask && !isSubtaskDueDateValid(form.due_date, parentTask.due_date)) {
-        setFormTab("data");
         toast({
           title: "Erro",
           description: `O prazo não pode passar de ${formatDateBR(parentTask.due_date)}, prazo da tarefa principal.`,
@@ -508,18 +561,17 @@ export default function TaskList() {
     }
   }
 
-  async function handleDeleteSeries(ids: string[]) {
-    try {
-      await deleteTasks(ids);
-      toast({ title: "Ocorrências excluídas", duration: 2000 });
-      load();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Não foi possível excluir as ocorrências."),
-        variant: "destructive",
-      });
-    }
+  /**
+   * Exclusão com escopo (feature 075): série de recorrência, doses de um tratamento, ou o
+   * encerramento do tratamento junto. O conjunto é resolvido **no servidor** a partir da opção —
+   * antes disto a tela montava os ids com `findSeriesTasks` sobre `visibleTasks`, já filtrada por
+   * projeto/tag/status, e um filtro ativo fazia o botão apagar só a parte visível da série.
+   */
+  async function handleDeleteScoped(task: Task, option: TaskDeleteOption) {
+    await runScopedTaskDelete(task, option, {
+      reload: load,
+      notify: toast,
+    });
   }
 
   /** Edição rápida inline da aba Lista (feature 029) — prioridade, prazo/horário e projeto direto
@@ -537,23 +589,110 @@ export default function TaskList() {
     }
   }
 
-  /** Diferente de `handlePriorityChange`/`handleProjectChange` (que chamam `load()`), atualiza só
-   * localmente — `load()` também atualizaria `frozenDueDatesRef` (o snapshot que trava a
-   * posição/bucket da tarefa), fazendo o card pular pro bucket novo na hora. */
+  /**
+   * Feature 082 — arraste no painel "Por prioridade". A faixa afetada chega já renumerada de
+   * 0..n-1 (`reorderWithinBand`/`reorderIntoBand`) e é gravada em lote.
+   *
+   * O otimismo aqui não é enfeite: sem ele a linha só se moveria depois da resposta do servidor, e
+   * arrastar teria aquele "volta e vai" que faz o gesto parecer quebrado. A reversão é cirúrgica
+   * (só o `sort_order` das tarefas do lote, não um `setTasks(before)` inteiro) porque um arraste
+   * entre faixas dispara `handleQuadrantPriorityChange` em paralelo — restaurar o array velho
+   * desfaria a mudança de prioridade junto.
+   */
+  async function handleQuadrantReorder(pairs: TaskSortOrderPair[]) {
+    if (pairs.length === 0) return;
+    const nextOrder = new Map(pairs.map((pair) => [pair.id, pair.sort_order]));
+    const previousOrder = new Map(
+      tasks.filter((t) => nextOrder.has(t.id)).map((t) => [t.id, t.sort_order ?? 0])
+    );
+    setTasks((prev) =>
+      prev.map((t) => (nextOrder.has(t.id) ? { ...t, sort_order: nextOrder.get(t.id) } : t))
+    );
+    try {
+      await updateTasksSortOrder(pairs);
+    } catch (error) {
+      setTasks((prev) =>
+        prev.map((t) => (previousOrder.has(t.id) ? { ...t, sort_order: previousOrder.get(t.id) } : t))
+      );
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível salvar a nova ordem."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  /** Feature 082 — soltar numa faixa vizinha muda a prioridade além de posicionar. Diferente de
+   * `handlePriorityChange` (que chama `load()`), este caminho é otimista e **não** recarrega: o
+   * `load()` chegaria correndo com o `updateTasksSortOrder` do mesmo gesto e poderia repor a ordem
+   * antiga na tela. A reversão também é cirúrgica, pelo mesmo motivo do `handleQuadrantReorder`. */
+  async function handleQuadrantPriorityChange(taskId: string, priority: TaskPriority | null) {
+    const before = tasks.find((t) => t.id === taskId);
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, priority } : t)));
+    try {
+      await updateTask({ id: taskId, priority });
+    } catch (error) {
+      if (before) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, priority: before.priority ?? null } : t))
+        );
+      }
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível atualizar a prioridade."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  /** Diferente de `handlePriorityChange`/`handleProjectChange` (que chamam `load()`), grava só
+   * localmente: `load()` também refaz `frozenDueDatesRef` (o snapshot que trava a posição/bucket
+   * da tarefa) e o card pularia de caixa com o popover ainda aberto — a queixa da feature 029.
+   * Quem descongela e reagrupa é `handleDueOpenChange`, quando o popover fecha (feature 081).
+   *
+   * Se o `updateTask` falhar, o otimismo é desfeito (a tarefa volta exatamente como estava): antes
+   * da 081 o toast de erro aparecia mas a data errada ficava na tela. */
   async function handleDueChange(
     taskId: string,
-    next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }
+    next: TaskDueQuickEditValue
   ) {
+    const before = tasks.find((t) => t.id === taskId);
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...next } : t)));
     try {
       await updateTask({ id: taskId, ...next });
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...next } : t)));
     } catch (error) {
+      if (before) setTasks((prev) => prev.map((t) => (t.id === taskId ? before : t)));
       toast({
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível atualizar o prazo."),
         variant: "destructive",
       });
     }
+  }
+
+  /**
+   * Fechou o popover de prazo desta linha: solta o congelamento (feature 029) daquela tarefa e
+   * recarrega — é o `load()` que refaz `frozenDueDatesRef` a partir do servidor e faz a lista se
+   * reorganizar, colocando cada prazo na sua caixa (feature 081).
+   *
+   * O aviso "Movida para «caixa»" sai aqui, e não em `handleDueChange`, porque é aqui que o card
+   * efetivamente muda de lugar (ou some da vista, com o filtro "Hoje" ligado): avisar a cada
+   * clique no calendário renderia um toast por data experimentada, ainda com a linha parada.
+   */
+  function handleDueOpenChange(taskId: string, open: boolean) {
+    if (open) return;
+    const frozen = frozenDueDatesRef.current;
+    const previousDueDate = frozen.has(taskId) ? (frozen.get(taskId) ?? null) : undefined;
+    frozen.delete(taskId);
+    const current = tasks.find((t) => t.id === taskId);
+    if (current && previousDueDate !== undefined) {
+      const from = bucketForDueDate(previousDueDate, todayIso);
+      const to = bucketForDueDate(current.due_date, todayIso);
+      if (from !== to) {
+        toast({ title: `Movida para «${AGENDA_BUCKET_LABELS[to]}»`, duration: 2000 });
+      }
+    }
+    load();
   }
 
   async function handleProjectChange(taskId: string, projectId: string | null) {
@@ -591,9 +730,12 @@ export default function TaskList() {
     onOpenSeries: (subtask) => setSeriesTask(subtask),
     isTimerRunning: (subtask) => runningEntry?.task_id === subtask.id,
     onToggleTimer: (subtask) => toggleTimer(subtask),
+    onStartNow: (subtask) => startNow(subtask),
+    isStartingNow: (subtask) => startingNowTaskId === subtask.id,
     onIconChange: (subtask, next) => handleIconChange(subtask.id, next),
     onPriorityChange: (subtask, priority) => handlePriorityChange(subtask.id, priority),
     onDueChange: (subtask, next) => handleDueChange(subtask.id, next),
+    onDueOpenChange: (subtask, open) => handleDueOpenChange(subtask.id, open),
   };
 
   return (
@@ -613,10 +755,6 @@ export default function TaskList() {
               <TagIcon className="h-4 w-4" />
               Tags
             </Link>
-          </Button>
-          <Button variant="outline" onClick={() => setMedicationDialogOpen(true)}>
-            <Pill className="h-4 w-4" />
-            Nova medicação
           </Button>
           <Button onClick={openCreate}>Nova tarefa</Button>
         </>
@@ -711,6 +849,7 @@ export default function TaskList() {
                 Hoje
               </Button>
             </div>
+            <TaskSortToggle value={sortKey} onChange={handleSortKeyChange} />
           </div>
 
           {!loading && quadrantProjectTasks && (
@@ -718,6 +857,8 @@ export default function TaskList() {
               tasks={quadrantProjectTasks}
               todayIso={todayIso}
               onSelectTask={openEdit}
+              onReorder={handleQuadrantReorder}
+              onPriorityChange={handleQuadrantPriorityChange}
             />
           )}
 
@@ -728,15 +869,7 @@ export default function TaskList() {
               icon={ListTodo}
               title="Nenhuma tarefa"
               description="Crie sua primeira tarefa."
-              action={
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button variant="outline" onClick={() => setMedicationDialogOpen(true)}>
-                    <Pill className="h-4 w-4" />
-                    Nova medicação
-                  </Button>
-                  <Button onClick={openCreate}>Nova tarefa</Button>
-                </div>
-              }
+              action={<Button onClick={openCreate}>Nova tarefa</Button>}
             />
           ) : (
             <div className="space-y-5">
@@ -754,7 +887,6 @@ export default function TaskList() {
                         <TaskListRow
                           key={task.id}
                           task={task}
-                          allTasks={tasks}
                           subtasks={subtasksByParent.get(task.id) ?? []}
                           allTags={tags}
                           expanded={expandedTasks.has(task.id)}
@@ -766,12 +898,15 @@ export default function TaskList() {
                           onOpenSeries={() => setSeriesTask(task)}
                           onEdit={() => openEdit(task)}
                           onDelete={() => handleDelete(task.id)}
-                          onDeleteAll={handleDeleteSeries}
+                          onDeleteScoped={handleDeleteScoped}
                           isTimerRunning={runningEntry?.task_id === task.id}
                           onToggleTimer={() => toggleTimer(task)}
+                          onStartNow={() => startNow(task)}
+                          isStartingNow={startingNowTaskId === task.id}
                           onIconChange={(next) => handleIconChange(task.id, next)}
                           onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
                           onDueChange={(next) => handleDueChange(task.id, next)}
+                          onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
                           onProjectChange={(projectId) => handleProjectChange(task.id, projectId)}
                           projects={projectsByActivity}
                           subtaskActions={subtaskActions}
@@ -796,7 +931,6 @@ export default function TaskList() {
                 <CompletedTasksSection
                   key={statusView}
                   tasks={doneTasks}
-                  allTasks={tasks}
                   allTags={tags}
                   subtasksByParent={subtasksByParent}
                   expandedTasks={expandedTasks}
@@ -808,12 +942,13 @@ export default function TaskList() {
                   onOpenSeries={(task) => setSeriesTask(task)}
                   onEdit={openEdit}
                   onDelete={handleDelete}
-                  onDeleteAll={handleDeleteSeries}
+                  onDeleteScoped={handleDeleteScoped}
                   isTimerRunning={(task) => runningEntry?.task_id === task.id}
                   defaultOpen={statusView === "done"}
                   onIconChange={(task, next) => handleIconChange(task.id, next)}
                   onPriorityChange={(task, priority) => handlePriorityChange(task.id, priority)}
                   onDueChange={(task, next) => handleDueChange(task.id, next)}
+                  onDueOpenChange={(task, open) => handleDueOpenChange(task.id, open)}
                   onProjectChange={(task, projectId) => handleProjectChange(task.id, projectId)}
                   projects={projectsByActivity}
                   subtaskActions={subtaskActions}
@@ -870,7 +1005,6 @@ export default function TaskList() {
                               <KanbanCard
                                 key={task.id}
                                 task={task}
-                                allTasks={tasks}
                                 colIndex={colIndex}
                                 subtasks={subtasks}
                                 allTags={tags}
@@ -883,13 +1017,16 @@ export default function TaskList() {
                                 onOpenSubtask={openEdit}
                                 onEdit={() => openEdit(task)}
                                 onDelete={() => handleDelete(task.id)}
-                                onDeleteAll={handleDeleteSeries}
+                                onDeleteScoped={handleDeleteScoped}
                                 onMoveStatus={(direction) => moveStatus(task, direction)}
                                 isTimerRunning={runningEntry?.task_id === task.id}
                                 onToggleTimer={() => toggleTimer(task)}
+                                onStartNow={() => startNow(task)}
+                                isStartingNow={startingNowTaskId === task.id}
                                 onIconChange={(next) => handleIconChange(task.id, next)}
                                 onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
                                 onDueChange={(next) => handleDueChange(task.id, next)}
+                                onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
                                 onProjectChange={(projectId) => handleProjectChange(task.id, projectId)}
                                 projects={projectsByActivity}
                                 subtaskActions={subtaskActions}
@@ -951,8 +1088,6 @@ export default function TaskList() {
             <DialogTitle>{editing ? "Editar tarefa" : "Nova tarefa"}</DialogTitle>
           </DialogHeader>
           <TaskFormFields
-            formTab={formTab}
-            onFormTabChange={setFormTab}
             form={form}
             setForm={setForm}
             editing={editing}
@@ -982,12 +1117,6 @@ export default function TaskList() {
           </Button>
         </DialogContent>
       </Dialog>
-
-      <MedicationQuickCreateDialog
-        open={medicationDialogOpen}
-        onOpenChange={setMedicationDialogOpen}
-        onCreated={load}
-      />
     </PageShell>
   );
 }

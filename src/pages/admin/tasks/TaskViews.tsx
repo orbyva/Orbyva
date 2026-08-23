@@ -33,7 +33,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TaskDeleteDialog } from "./TaskDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
-import { detectGitHubLink, isRecurringTask } from "@/domain/tasks";
+import { detectGitHubLink, isRecurringTask, type TaskDeleteOption } from "@/domain/tasks";
 import type { Project, Tag, Task, TaskPriority, TaskStatus } from "@/types/tasks";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -41,6 +41,8 @@ import { cn } from "@/lib/utils";
 import { contrastTextColor } from "@/lib/color";
 import { stripMarkdown } from "@/lib/markdown";
 import { TaskQuickFields } from "./TaskQuickFields";
+import { TaskStartNowButton } from "./TaskStartNowButton";
+import type { TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 import type { TaskIconValue } from "./TaskIconPicker";
 
 export const STATUSES: TaskStatus[] = ["todo", "doing", "done"];
@@ -109,12 +111,16 @@ export interface SubtaskRowActions {
   onOpenSeries?: (subtask: Task) => void;
   isTimerRunning?: (subtask: Task) => boolean;
   onToggleTimer?: (subtask: Task) => void;
+  /** "Imediatamente" na linha aninhada da subtarefa (feature 078) — subtarefa é tarefa completa
+   * desde a `036`, então ela tem timer e prazo próprios como qualquer outra. */
+  onStartNow?: (subtask: Task) => void;
+  isStartingNow?: (subtask: Task) => boolean;
   onIconChange?: (subtask: Task, next: TaskIconValue) => void;
   onPriorityChange?: (subtask: Task, priority: TaskPriority | null) => void;
-  onDueChange?: (
-    subtask: Task,
-    next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }
-  ) => void;
+  onDueChange?: (subtask: Task, next: TaskDueQuickEditValue) => void;
+  /** Abertura/fechamento do popover de prazo da subtarefa (feature 081) — mesma semântica da
+   * linha de topo: fechar descongela e recarrega. */
+  onDueOpenChange?: (subtask: Task, open: boolean) => void;
 }
 
 export function ExpandSubtasksButton({
@@ -142,7 +148,6 @@ export function ExpandSubtasksButton({
 
 export function TaskListRow({
   task,
-  allTasks,
   subtasks,
   allTags,
   expanded,
@@ -154,23 +159,23 @@ export function TaskListRow({
   onOpenSeries,
   onEdit,
   onDelete,
-  onDeleteAll,
+  onDeleteScoped,
   isTimerRunning,
   onToggleTimer,
+  onStartNow,
+  isStartingNow,
   extraActions,
   projectBadge,
   onIconChange,
   onPriorityChange,
   onDueChange,
+  onDueOpenChange,
   onProjectChange,
   projects,
   isNested = false,
   subtaskActions,
 }: {
   task: Task;
-  /** Lista completa de tarefas do usuário — usada pelo `TaskDeleteDialog` pra calcular a série
-   * (via `findSeriesTasks`) quando `task` é uma recorrência simples. */
-  allTasks: Task[];
   subtasks: Task[];
   /** Catálogo completo de tags do usuário — usado pra resolver `task.tag_ids` nos badges coloridos. */
   allTags: Tag[];
@@ -185,13 +190,20 @@ export function TaskListRow({
   onOpenSeries: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  /** Exclui todas as ocorrências de uma recorrência simples de uma vez — opção só exibida no
-   * `TaskDeleteDialog` quando `task` é elegível (`isSimpleRecurringTask`) e essa prop é passada;
-   * ausente, o dialog se comporta como antes (só "Excluir"). */
-  onDeleteAll?: (ids: string[]) => void;
+  /** Exclui um conjunto a partir desta tarefa: a série inteira de uma recorrência simples, ou as
+   * doses do tratamento (feature 075). O escopo é resolvido no servidor a partir da opção — a lista
+   * carregada na tela não participa. Ausente, o `TaskDeleteDialog` só oferece "Excluir".  */
+  onDeleteScoped?: (task: Task, option: TaskDeleteOption) => void;
   /** Timer "Live" rodando pra esta tarefa agora. */
   isTimerRunning?: boolean;
   onToggleTimer?: () => void;
+  /** Presente = botão "Imediatamente" ao lado do Play (feature 078): um clique inicia o timer e
+   * grava o prazo como agora + duração estimada. Ausente = botão some (mesmo padrão opcional dos
+   * outros handlers desta linha). */
+  onStartNow?: () => void;
+  /** "Imediatamente" desta tarefa em voo — desabilita o botão pra não abrir dois registros de
+   * tempo com clique duplo. */
+  isStartingNow?: boolean;
   /** Ações extras (ex.: "Lançar transação") renderizadas antes de editar/excluir. */
   extraActions?: ReactNode;
   /** Badge do projeto somente-leitura — usado quando `onProjectChange` não é passado (mantém
@@ -207,7 +219,10 @@ export function TaskListRow({
   /** Presente = edição rápida de prazo+horário+duração inline (popover com `DatePicker` +
    * horário + duração estimada), no lugar do texto estático de prazo — só se aplica a tarefas não
    * concluídas ("Concluída em..." continua somente-leitura) (feature 029). */
-  onDueChange?: (next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }) => void;
+  onDueChange?: (next: TaskDueQuickEditValue) => void;
+  /** Abertura/fechamento do popover de prazo (feature 081) — a Lista congela a posição da linha
+   * enquanto ele está aberto e reagrupa quando fecha. */
+  onDueOpenChange?: (open: boolean) => void;
   /** Presente (junto com `projects`) = badge de projeto clicável (`ProjectBadgeButton`) no lugar
    * de `projectBadge` estático (feature 029). */
   onProjectChange?: (projectId: string | null) => void;
@@ -231,6 +246,7 @@ export function TaskListRow({
     onIconChange,
     onPriorityChange,
     onDueChange,
+    onDueOpenChange,
     onProjectChange,
     projects,
     projectBadge,
@@ -347,11 +363,18 @@ export function TaskListRow({
               {isTimerRunning ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
             </Button>
           )}
+          {onStartNow && !done && (
+            <TaskStartNowButton onClick={onStartNow} pending={isStartingNow} size="row" />
+          )}
           {extraActions}
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={onEdit}>
             <Pen className="h-3.5 w-3.5" />
           </Button>
-          <TaskDeleteDialog task={task} allTasks={allTasks} onConfirm={onDelete} onConfirmAll={onDeleteAll}>
+          <TaskDeleteDialog
+            task={task}
+            onConfirm={onDelete}
+            onConfirmScoped={onDeleteScoped ? (option) => onDeleteScoped(task, option) : undefined}
+          >
             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -367,7 +390,6 @@ export function TaskListRow({
             <TaskListRow
               key={subtask.id}
               task={subtask}
-              allTasks={allTasks}
               subtasks={[]}
               allTags={allTags}
               expanded={false}
@@ -385,6 +407,12 @@ export function TaskListRow({
                   ? () => subtaskActions.onToggleTimer!(subtask)
                   : undefined
               }
+              onStartNow={
+                subtaskActions?.onStartNow
+                  ? () => subtaskActions.onStartNow!(subtask)
+                  : undefined
+              }
+              isStartingNow={subtaskActions?.isStartingNow?.(subtask)}
               onIconChange={
                 subtaskActions?.onIconChange
                   ? (next) => subtaskActions.onIconChange!(subtask, next)
@@ -398,6 +426,11 @@ export function TaskListRow({
               onDueChange={
                 subtaskActions?.onDueChange
                   ? (next) => subtaskActions.onDueChange!(subtask, next)
+                  : undefined
+              }
+              onDueOpenChange={
+                subtaskActions?.onDueOpenChange
+                  ? (open) => subtaskActions.onDueOpenChange!(subtask, open)
                   : undefined
               }
               isNested
@@ -415,7 +448,6 @@ export function TaskListRow({
  * e fechada dentro de "Todas". */
 export function CompletedTasksSection({
   tasks,
-  allTasks,
   allTags,
   subtasksByParent,
   expandedTasks,
@@ -427,7 +459,7 @@ export function CompletedTasksSection({
   onOpenSeries,
   onEdit,
   onDelete,
-  onDeleteAll,
+  onDeleteScoped,
   isTimerRunning,
   extraActions,
   projectBadge,
@@ -435,13 +467,12 @@ export function CompletedTasksSection({
   onIconChange,
   onPriorityChange,
   onDueChange,
+  onDueOpenChange,
   onProjectChange,
   projects,
   subtaskActions,
 }: {
   tasks: Task[];
-  /** Lista completa de tarefas do usuário — repassada ao `TaskDeleteDialog` de cada `TaskListRow`. */
-  allTasks: Task[];
   allTags: Tag[];
   subtasksByParent: Map<string, Task[]>;
   expandedTasks: Set<string>;
@@ -453,7 +484,7 @@ export function CompletedTasksSection({
   onOpenSeries: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
-  onDeleteAll?: (ids: string[]) => void;
+  onDeleteScoped?: (task: Task, option: TaskDeleteOption) => void;
   isTimerRunning: (task: Task) => boolean;
   extraActions?: (task: Task) => ReactNode;
   projectBadge?: (task: Task) => ReactNode;
@@ -461,7 +492,9 @@ export function CompletedTasksSection({
   /** Repassadas por tarefa a cada `TaskListRow` — mesma edição rápida inline da feature 029. */
   onIconChange?: (task: Task, next: TaskIconValue) => void;
   onPriorityChange?: (task: Task, priority: TaskPriority | null) => void;
-  onDueChange?: (task: Task, next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }) => void;
+  onDueChange?: (task: Task, next: TaskDueQuickEditValue) => void;
+  /** Abertura/fechamento do popover de prazo por tarefa (feature 081). */
+  onDueOpenChange?: (task: Task, open: boolean) => void;
   onProjectChange?: (task: Task, projectId: string | null) => void;
   projects?: Project[];
   /** Repassado direto a cada `TaskListRow` — já vem parametrizado por tarefa (feature 046), mesmo
@@ -486,7 +519,6 @@ export function CompletedTasksSection({
           <TaskListRow
             key={task.id}
             task={task}
-            allTasks={allTasks}
             subtasks={subtasksByParent.get(task.id) ?? []}
             allTags={allTags}
             expanded={expandedTasks.has(task.id)}
@@ -498,7 +530,7 @@ export function CompletedTasksSection({
             onOpenSeries={() => onOpenSeries(task)}
             onEdit={() => onEdit(task)}
             onDelete={() => onDelete(task.id)}
-            onDeleteAll={onDeleteAll}
+            onDeleteScoped={onDeleteScoped}
             isTimerRunning={isTimerRunning(task)}
             extraActions={extraActions?.(task)}
             projectBadge={projectBadge?.(task)}
@@ -507,6 +539,9 @@ export function CompletedTasksSection({
               onPriorityChange ? (priority) => onPriorityChange(task, priority) : undefined
             }
             onDueChange={onDueChange ? (next) => onDueChange(task, next) : undefined}
+            onDueOpenChange={
+              onDueOpenChange ? (open) => onDueOpenChange(task, open) : undefined
+            }
             onProjectChange={
               onProjectChange ? (projectId) => onProjectChange(task, projectId) : undefined
             }
@@ -561,6 +596,9 @@ function KanbanSubtaskCard({
       : undefined,
     onDueChange: subtaskActions?.onDueChange
       ? (next) => subtaskActions.onDueChange!(subtask, next)
+      : undefined,
+    onDueOpenChange: subtaskActions?.onDueOpenChange
+      ? (open) => subtaskActions.onDueOpenChange!(subtask, open)
       : undefined,
   });
   const StatusIcon = STATUS_ICONS[subtask.status];
@@ -648,7 +686,6 @@ function KanbanSubtaskCard({
 
 export function KanbanCard({
   task,
-  allTasks,
   colIndex,
   subtasks,
   allTags,
@@ -658,10 +695,12 @@ export function KanbanCard({
   onToggleSubtask,
   onEdit,
   onDelete,
-  onDeleteAll,
+  onDeleteScoped,
   onMoveStatus,
   isTimerRunning,
   onToggleTimer,
+  onStartNow,
+  isStartingNow,
   onOpenSubtask,
   /** Badge do projeto — só faz sentido num Kanban que cruza projetos (ex.: aba Kanban de
    * `TaskList.tsx`); o Kanban de dentro de um projeto (`ProjectDetail.tsx`) não passa isso.
@@ -671,13 +710,12 @@ export function KanbanCard({
   onIconChange,
   onPriorityChange,
   onDueChange,
+  onDueOpenChange,
   onProjectChange,
   projects,
   subtaskActions,
 }: {
   task: Task;
-  /** Lista completa de tarefas do usuário — repassada ao `TaskDeleteDialog`. */
-  allTasks: Task[];
   colIndex: number;
   subtasks: Task[];
   allTags: Tag[];
@@ -689,10 +727,13 @@ export function KanbanCard({
   onToggleSubtask: (subtask: Task) => void;
   onEdit: () => void;
   onDelete: () => void;
-  onDeleteAll?: (ids: string[]) => void;
+  onDeleteScoped?: (task: Task, option: TaskDeleteOption) => void;
   onMoveStatus: (direction: -1 | 1) => void;
   isTimerRunning?: boolean;
   onToggleTimer?: () => void;
+  /** Presente = botão "Imediatamente" ao lado do Play (feature 078), igual ao da linha da Lista. */
+  onStartNow?: () => void;
+  isStartingNow?: boolean;
   onOpenSubtask: (subtask: Task) => void;
   projectBadge?: ReactNode;
   /** Presente = edição rápida de ícone inline (mesmo popover de `TaskListRow`), no lugar do
@@ -703,11 +744,10 @@ export function KanbanCard({
   onPriorityChange?: (priority: TaskPriority | null) => void;
   /** Presente = edição rápida de prazo+horário+duração inline, no lugar do texto estático de
    * prazo (feature 033). */
-  onDueChange?: (next: {
-    due_date: string | null;
-    due_time: string | null;
-    estimated_duration: number | null;
-  }) => void;
+  onDueChange?: (next: TaskDueQuickEditValue) => void;
+  /** Abertura/fechamento do popover de prazo (feature 081) — o Kanban agrupa por status, então
+   * aqui isso só serve pra quem chama recarregar; a coluna não muda por prazo. */
+  onDueOpenChange?: (open: boolean) => void;
   /** Presente (junto com `projects`) = badge de projeto clicável no lugar de `projectBadge`
    * estático (feature 033). */
   onProjectChange?: (projectId: string | null) => void;
@@ -735,6 +775,7 @@ export function KanbanCard({
     onIconChange,
     onPriorityChange,
     onDueChange,
+    onDueOpenChange,
     onProjectChange,
     projects,
     projectBadge,
@@ -778,6 +819,9 @@ export function KanbanCard({
               {isTimerRunning ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
             </Button>
           )}
+          {onStartNow && task.status !== "done" && (
+            <TaskStartNowButton onClick={onStartNow} pending={isStartingNow} size="card" />
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -788,12 +832,11 @@ export function KanbanCard({
           </Button>
           <TaskDeleteDialog
             task={task}
-            allTasks={allTasks}
             description={
               subtasks.length > 0 ? "As subtarefas também serão excluídas." : undefined
             }
             onConfirm={onDelete}
-            onConfirmAll={onDeleteAll}
+            onConfirmScoped={onDeleteScoped ? (option) => onDeleteScoped(task, option) : undefined}
           >
             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
               <Trash2 className="h-3 w-3" />
