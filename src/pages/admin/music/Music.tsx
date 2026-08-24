@@ -47,6 +47,8 @@ import { cn } from "@/lib/utils";
 
 const albumsCatalogCache = createMemoryCache<Album[]>();
 
+const ALBUM_LIST_FILTERS: AlbumStatus[] = ["to_listen", "listened"];
+
 export default function Music() {
   const [searchParams, setSearchParams] = useSearchParams();
   const fetchAll = useCallback(() => fetchAllAlbums(), []);
@@ -56,7 +58,14 @@ export default function Music() {
   );
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState<AlbumStatus>("to_listen");
+  // `?status=` abre direto numa aba (o Orb linka pra cá). Valor inválido cai no
+  // padrão em vez de quebrar a tela.
+  const [filter, setFilter] = useState<AlbumStatus>(() => {
+    const raw = searchParams.get("status");
+    return ALBUM_LIST_FILTERS.includes(raw as AlbumStatus)
+      ? (raw as AlbumStatus)
+      : "to_listen";
+  });
   const [artistFilter, setArtistFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [ratingFloor, setRatingFloor] = useState<AlbumRatingFloor>("all");

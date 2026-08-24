@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useOrb } from "@/hooks/useOrb";
 import { useOrbChat } from "@/hooks/useOrbChat";
 import { OrbActionCard } from "@/components/orb/OrbActionCard";
 import { OrbClarifyPrompt } from "@/components/orb/OrbClarify";
@@ -44,6 +45,7 @@ export function OrbChat() {
     dismissProposal,
     sendSuggestedAction,
   } = useOrbChat();
+  const { closeOrb } = useOrb();
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -121,7 +123,11 @@ export function OrbChat() {
           <OrbClarifyPrompt clarify={clarify} onPick={(s) => void sendMessage(s)} />
         ) : null}
         {suggestedActions.length > 0 ? (
-          <OrbSuggestedActions actions={suggestedActions} onPick={sendSuggestedAction} />
+          <OrbSuggestedActions
+            actions={suggestedActions}
+            onPick={sendSuggestedAction}
+            onNavigate={closeOrb}
+          />
         ) : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <div ref={bottomRef} />

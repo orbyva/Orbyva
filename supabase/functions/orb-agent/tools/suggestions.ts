@@ -10,7 +10,7 @@ function nextId(): string {
 export const suggestNextActionsTool: ToolDefinition = {
   name: "suggest_next_actions",
   description:
-    "Sugere 1 a 3 ações de continuação pro usuário depois de uma proposta ou resposta (ex.: filmes parecidos, recomendar pra um amigo). `action` só pode ser um dos valores aceitos — não invente outros.",
+    "Sugere 1 a 3 ações de continuação pro usuário depois de uma proposta ou resposta (ex.: filmes parecidos, recomendar pra um amigo, abrir a lista na biblioteca). `action` só pode ser um dos valores aceitos — não invente outros.",
   input_schema: {
     type: "object",
     properties: {
@@ -24,7 +24,8 @@ export const suggestNextActionsTool: ToolDefinition = {
             action: { type: "string", enum: SUGGESTED_ACTION_KINDS },
             args: {
               type: "object",
-              description: "Contexto opcional (ex.: title) pra montar a próxima mensagem",
+              description:
+                "Contexto opcional. Pra `open_library` é obrigatório: { module: movies|books|albums, status: da lista }. Pras demais, contexto livre (ex.: title).",
             },
           },
           required: ["label", "action"],

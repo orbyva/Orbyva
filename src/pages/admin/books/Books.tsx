@@ -46,6 +46,13 @@ import { cn } from "@/lib/utils";
 
 const booksCatalogCache = createMemoryCache<Book[]>();
 
+const BOOK_LIST_FILTERS: BookStatus[] = [
+  "to_read",
+  "reading",
+  "read",
+  "abandoned",
+];
+
 export default function Books() {
   const [searchParams, setSearchParams] = useSearchParams();
   const fetchAll = useCallback(() => fetchAllBooks(), []);
@@ -55,7 +62,14 @@ export default function Books() {
   );
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState<BookStatus>("to_read");
+  // `?status=` abre direto numa aba (o Orb linka pra cá). Valor inválido cai no
+  // padrão em vez de quebrar a tela.
+  const [filter, setFilter] = useState<BookStatus>(() => {
+    const raw = searchParams.get("status");
+    return BOOK_LIST_FILTERS.includes(raw as BookStatus)
+      ? (raw as BookStatus)
+      : "to_read";
+  });
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [authorFilter, setAuthorFilter] = useState<string>("all");
   const [ratingFloor, setRatingFloor] = useState<BookRatingFloor>("all");

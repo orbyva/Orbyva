@@ -18,13 +18,15 @@ export type OrbSuggestedActionKind =
   | "similar_movies"
   | "recommend_friend"
   | "rate_more"
-  | "search_more";
+  | "search_more"
+  | "open_library";
 
 export const SUGGESTED_ACTION_KINDS: OrbSuggestedActionKind[] = [
   "similar_movies",
   "recommend_friend",
   "rate_more",
   "search_more",
+  "open_library",
 ];
 
 export interface OrbSuggestedAction {

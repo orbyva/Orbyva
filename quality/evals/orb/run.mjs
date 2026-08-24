@@ -170,6 +170,22 @@ function checkCase(last, expect) {
     }
   }
 
+  if (expect.suggested_action) {
+    const want = expect.suggested_action;
+    const hit = (last.suggested_actions ?? []).find((a) => a.action === want.action);
+    if (!hit) {
+      fails.push(
+        `ação sugerida: esperada ${want.action}, veio [${(last.suggested_actions ?? []).map((a) => a.action).join(", ") || "nenhuma"}]`
+      );
+    } else if (want.args) {
+      for (const [k, v] of Object.entries(want.args)) {
+        if (hit.args?.[k] !== v) {
+          fails.push(`ação.args.${k}: esperado ${JSON.stringify(v)}, veio ${JSON.stringify(hit.args?.[k])}`);
+        }
+      }
+    }
+  }
+
   if (expect.tools_any) {
     const names = proposals.map((p) => p.tool_name);
     if (!expect.tools_any.some((t) => names.includes(t))) {

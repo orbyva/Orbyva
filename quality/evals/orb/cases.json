@@ -274,5 +274,26 @@
     "expect": {
       "no_proposal": true
     }
+  },
+  {
+    "id": "link-para-a-biblioteca",
+    "why": "listar itens sem oferecer o caminho pra tela deixa o usuario sem saida. O agente escolhe module+status de um enum — nunca escreve URL, entao nao consegue apontar pra tela inexistente",
+    "turns": [
+      {
+        "send": "assisti Cidade de Deus"
+      },
+      {
+        "send": "quais filmes eu ja assisti?"
+      }
+    ],
+    "expect": {
+      "suggested_action": {
+        "action": "open_library",
+        "args": {
+          "module": "movies",
+          "status": "watched"
+        }
+      }
+    }
   }
 ]

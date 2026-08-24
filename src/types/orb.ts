@@ -74,7 +74,9 @@ export type OrbSuggestedActionKind =
   | "similar_movies"
   | "recommend_friend"
   | "rate_more"
-  | "search_more";
+  | "search_more"
+  /** Navega pra uma lista da biblioteca em vez de mandar outra mensagem. */
+  | "open_library";
 
 export interface OrbSuggestedAction {
   id: string;

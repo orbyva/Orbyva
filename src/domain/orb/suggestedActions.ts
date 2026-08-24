@@ -31,7 +31,16 @@ const ACTION_MESSAGE_BUILDERS: Record<OrbSuggestedActionKind, ActionMessageBuild
         ? `Busque mais sobre ${query}`
         : "Quero buscar mais opções parecidas";
     },
+    // Navega em vez de conversar: quem trata é `libraryLink`, não uma mensagem.
+    open_library: () => "",
   };
+
+/** `true` quando o chip leva pra uma tela, em vez de mandar outra mensagem. */
+export function isNavigationAction(
+  action: Pick<OrbSuggestedAction, "action">
+): boolean {
+  return action.action === "open_library";
+}
 
 /**
  * Mensagem a reenviar pro `orb-agent` quando o usuário clica num CTA sugerido.
@@ -41,7 +50,8 @@ const ACTION_MESSAGE_BUILDERS: Record<OrbSuggestedActionKind, ActionMessageBuild
 export function buildSuggestedActionMessage(
   action: Pick<OrbSuggestedAction, "action" | "args">
 ): string | null {
+  if (isNavigationAction(action)) return null;
   const builder = ACTION_MESSAGE_BUILDERS[action.action];
   if (!builder) return null;
-  return builder(action.args);
+  return builder(action.args) || null;
 }

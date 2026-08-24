@@ -56,6 +56,13 @@ import { MovieStatus } from "@/types/movies";
 
 const moviesCatalogCache = createMemoryCache<Movie[]>();
 
+const MOVIE_LIST_FILTERS: MovieListFilter[] = [
+  "to_watch",
+  "watching",
+  "watched",
+  "abandoned",
+];
+
 export default function Movies() {
   const [searchParams, setSearchParams] = useSearchParams();
   const fetchAll = useCallback(() => fetchAllMovies(), []);
@@ -68,7 +75,14 @@ export default function Movies() {
     Record<string, number>
   >({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState<MovieListFilter>("to_watch");
+  // `?status=` permite abrir direto numa aba (o Orb linka pra cá, e a URL fica
+  // compartilhável). Valor inválido cai no padrão em vez de quebrar a tela.
+  const [filter, setFilter] = useState<MovieListFilter>(() => {
+    const raw = searchParams.get("status");
+    return MOVIE_LIST_FILTERS.includes(raw as MovieListFilter)
+      ? (raw as MovieListFilter)
+      : "to_watch";
+  });
   const [typeFilter, setTypeFilter] = useState<MovieTypeFilter>("all");
   const [genreFilter, setGenreFilter] = useState<string>("all");
   const [ratingFloor, setRatingFloor] = useState<MovieRatingFloor>("all");
