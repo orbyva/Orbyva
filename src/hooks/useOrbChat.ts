@@ -79,9 +79,17 @@ export function useOrbChat() {
   );
 
   const applyProposal = useCallback(
-    async (messageId: string, proposal: OrbProposal) => {
+    async (messageId: string, proposal: OrbProposal, rating?: number | null) => {
       try {
-        const entityId = await applyOrbProposal(proposal);
+        // A nota dada no card sobrescreve a que o Orb inferiu (se houver).
+        const toApply =
+          rating == null
+            ? proposal
+            : {
+                ...proposal,
+                payload: { ...proposal.payload, rating },
+              };
+        const entityId = await applyOrbProposal(toApply);
         setTurns((prev) =>
           prev.map((turn) =>
             turn.id === messageId
