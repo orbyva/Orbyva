@@ -6,20 +6,20 @@ Sem `orb_usage`/cota nesta fase. Edge Function nunca escreve nas tabelas de dom�
 
 ## Tarefas
 
-- [x] `src/types/orb.ts` — contrato `OrbAgentRequest`/`OrbAgentResponse`/proposal/suggested_actions — commit: _(pendente)_
-- [x] `src/api/books.ts` — `upsertBook` — commit: _(pendente)_
-- [x] `src/api/albums.ts` — `fetchAlbumById` + `upsertAlbum` — commit: _(pendente)_
-- [x] `src/domain/orb/mergeEntertainment.ts` + Vitest (9 testes) — commit: _(pendente)_
-- [x] `src/domain/orb/proposalSummary.ts` + Vitest (4 testes) — commit: _(pendente)_
-- [x] `src/domain/orb/suggestedActions.ts` + Vitest (4 testes) — commit: _(pendente)_
-- [x] `supabase/migrations/20260819120000_orb_agent.sql` — `orb_thread`/`orb_message`/`orb_proposal` + RLS (escrita local, não aplicada no banco) — commit: _(pendente)_
-- [x] `supabase/functions/orb-agent/*` (index, prompt, catalog/{tmdb,omdb,googleBooks,music}, tools/registry, tools/entertainment/{movies,books,albums}, tools/query, tools/clarify, tools/suggestions, context/bootstrap, proposals, summary, types) — commit: _(pendente)_
-- [x] `src/api/orb.ts` — commit: _(pendente)_
-- [x] `src/hooks/useOrbChat.ts` + `src/hooks/useOrb.tsx` — commit: _(pendente)_
-- [x] `src/components/orb/*` (OrbFab, OrbSheet, OrbChat, OrbActionCard, OrbClarify, OrbSuggestedActions) — commit: _(pendente)_
-- [x] `src/layouts/AdminLayout.tsx` — inserir Orb no shell — commit: _(pendente)_
-- [x] `tsc -b`, `npm run lint`, `npm run test` (394 testes) e `npm run build` verdes — `npm run ci:local` completo não rodado (Lighthouse/e2e fora de escopo desta iteração; `scripts/minify-sw.mjs` tem um bug de path pré-existente no Windows, não relacionado ao Orb) — commit: _(pendente)_
-- [x] `README.md` / `.cursor/ARCHITECTURE.md` atualizados — commit: _(pendente)_
+- [x] `src/types/orb.ts` — contrato `OrbAgentRequest`/`OrbAgentResponse`/proposal/suggested_actions — commit: `4eaf8a6`
+- [x] `src/api/books.ts` — `upsertBook` — commit: `4eaf8a6`
+- [x] `src/api/albums.ts` — `fetchAlbumById` + `upsertAlbum` — commit: `4eaf8a6`
+- [x] `src/domain/orb/mergeEntertainment.ts` + Vitest (9 testes) — commit: `4eaf8a6`
+- [x] `src/domain/orb/proposalSummary.ts` + Vitest (4 testes) — commit: `4eaf8a6`
+- [x] `src/domain/orb/suggestedActions.ts` + Vitest (4 testes) — commit: `4eaf8a6`
+- [x] `supabase/migrations/20260819120000_orb_agent.sql` — `orb_thread`/`orb_message`/`orb_proposal` + RLS (escrita local, não aplicada no banco) — commit: `4eaf8a6`
+- [x] `supabase/functions/orb-agent/*` (index, prompt, catalog/{tmdb,omdb,googleBooks,music}, tools/registry, tools/entertainment/{movies,books,albums}, tools/query, tools/clarify, tools/suggestions, context/bootstrap, proposals, summary, types) — commit: `4eaf8a6`
+- [x] `src/api/orb.ts` — commit: `4eaf8a6`
+- [x] `src/hooks/useOrbChat.ts` + `src/hooks/useOrb.tsx` — commit: `4eaf8a6`
+- [x] `src/components/orb/*` (OrbFab, OrbSheet, OrbChat, OrbActionCard, OrbClarify, OrbSuggestedActions) — commit: `4eaf8a6`
+- [x] `src/layouts/AdminLayout.tsx` — inserir Orb no shell — commit: `4eaf8a6`
+- [x] `tsc -b`, `npm run lint`, `npm run test` (394 testes) e `npm run build` verdes — `npm run ci:local` completo não rodado (Lighthouse/e2e fora de escopo desta iteração; `scripts/minify-sw.mjs` tem um bug de path pré-existente no Windows, não relacionado ao Orb) — commit: `4eaf8a6`
+- [x] `README.md` / `.cursor/ARCHITECTURE.md` atualizados — commit: `4eaf8a6`
 
 ## Exige aprovação separada (não fazer sem perguntar)
 
