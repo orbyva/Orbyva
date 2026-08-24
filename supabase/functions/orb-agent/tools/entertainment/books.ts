@@ -1,5 +1,8 @@
 import type { ToolDefinition } from "../registry.ts";
-import { searchBooksGoogle } from "../../catalog/googleBooks.ts";
+import {
+  BookCatalogUnavailableError,
+  searchBooksGoogle,
+} from "../../catalog/googleBooks.ts";
 import { summarizeBookProposal } from "../../summary.ts";
 
 export const searchBookCatalogTool: ToolDefinition = {
@@ -19,8 +22,17 @@ export const searchBookCatalogTool: ToolDefinition = {
     const author = input.author ? String(input.author).trim() : "";
     if (!title) return { candidates: [] };
     const query = author ? `${title} ${author}` : title;
-    const candidates = await searchBooksGoogle(query);
-    return { candidates };
+    try {
+      const candidates = await searchBooksGoogle(query);
+      return { candidates };
+    } catch (err) {
+      if (err instanceof BookCatalogUnavailableError) {
+        // Não devolver `candidates: []`: o agente concluiria que o livro não
+        // existe e ofereceria cadastro manual pra uma obra que está no catálogo.
+        return { catalog_unavailable: true, error: err.message };
+      }
+      throw err;
+    }
   },
 };
 

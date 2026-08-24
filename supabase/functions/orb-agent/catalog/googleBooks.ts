@@ -82,6 +82,30 @@ function scoreHit(hit: RankedHit, queryNorm: string): number {
   return score;
 }
 
+/**
+ * Catálogo fora do ar ≠ livro inexistente.
+ *
+ * Uma chave do Google Books restrita por referer (as `VITE_*`, feitas pro
+ * browser) responde 403 quando chamada da Edge, que não manda referer. Se isso
+ * for tratado como "nada encontrado", todo livro — inclusive Dom Casmurro —
+ * cai no cadastro manual, sem capa nem ISBN. A distinção precisa chegar ao
+ * agente pra ele dizer "não consegui consultar" em vez de "não existe".
+ */
+export class BookCatalogUnavailableError extends Error {
+  constructor(readonly status: number) {
+    super(
+      status === 403 || status === 401
+        ? `Google Books recusou a chave (${status}). Chave restrita por referer não funciona na Edge — use uma chave de servidor.`
+        : `Google Books indisponível (${status}).`
+    );
+    this.name = "BookCatalogUnavailableError";
+  }
+}
+
+function isUnavailable(err: unknown): err is BookCatalogUnavailableError {
+  return err instanceof BookCatalogUnavailableError;
+}
+
 async function fetchVolumeHits(q: string, key: string): Promise<RankedHit[]> {
   const url = new URL(API);
   url.searchParams.set("q", q);
@@ -91,7 +115,7 @@ async function fetchVolumeHits(q: string, key: string): Promise<RankedHit[]> {
   url.searchParams.set("key", key);
 
   const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`Google Books: ${res.status}`);
+  if (!res.ok) throw new BookCatalogUnavailableError(res.status);
   const data = (await res.json()) as { items?: GoogleVolume[] };
   return (data.items ?? [])
     .map(hitFromVolume)
@@ -107,9 +131,20 @@ export async function searchBooksGoogle(
   if (!key || !q) return [];
 
   const queries = [`"${q}"`, `intitle:${q}`, `inauthor:${q}`];
-  const batches = await Promise.all(
-    queries.map((part) => fetchVolumeHits(part, key).catch(() => [] as RankedHit[]))
+  const settled = await Promise.all(
+    queries.map((part) =>
+      fetchVolumeHits(part, key).then(
+        (hits) => ({ hits, err: null as unknown }),
+        (err) => ({ hits: [] as RankedHit[], err })
+      )
+    )
   );
+  // Se TODAS falharam por indisponibilidade, é a API que está fora — não dá pra
+  // concluir que o livro não existe.
+  if (settled.every((r) => isUnavailable(r.err))) {
+    throw settled[0].err;
+  }
+  const batches = settled.map((r) => r.hits);
 
   const queryNorm = normalizeText(q);
   const byId = new Map<string, RankedHit>();
@@ -130,6 +165,8 @@ export async function searchBooksGoogle(
 
   if (ranked.length > 0) return ranked;
 
+  // Aqui pode engolir: se chegamos até este ponto, alguma query já respondeu,
+  // então a API está no ar e uma falha isolada é só ausência de resultado.
   const loose = await fetchVolumeHits(q, key).catch(() => [] as RankedHit[]);
   return loose.slice(0, 8).map(({ language: _l, ...rest }) => {
     void _l;

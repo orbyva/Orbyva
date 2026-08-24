@@ -109,7 +109,30 @@ function checkPayload(payload, expected) {
   const fails = [];
   for (const [key, want] of Object.entries(expected)) {
     const got = payload?.[key];
-    if (got !== want) fails.push(`payload.${key}: esperado ${JSON.stringify(want)}, veio ${JSON.stringify(got)}`);
+    if (got !== want) {
+      fails.push(
+        `payload.${key}: esperado ${JSON.stringify(want)}, veio ${JSON.stringify(got)}`
+      );
+    }
+  }
+  return fails;
+}
+
+/** Chaves que precisam vir vazias — o agente não pode inventar valor. */
+function checkPayloadNull(payload, keys) {
+  return keys
+    .filter((k) => payload?.[k] != null)
+    .map((k) => `payload.${k}: esperado vazio, veio ${JSON.stringify(payload[k])}`);
+}
+
+/** Faixa fechada [min, max] — para nota, página, ano. */
+function checkPayloadRange(payload, ranges) {
+  const fails = [];
+  for (const [key, [min, max]] of Object.entries(ranges)) {
+    const got = payload?.[key];
+    if (typeof got !== "number" || got < min || got > max) {
+      fails.push(`payload.${key}: esperado entre ${min} e ${max}, veio ${JSON.stringify(got)}`);
+    }
   }
   return fails;
 }
@@ -118,14 +141,41 @@ function checkCase(last, expect) {
   const fails = [];
   const proposals = last.proposals ?? [];
 
+  if (expect.proposals_count != null && proposals.length !== expect.proposals_count) {
+    fails.push(
+      `propostas: esperado ${expect.proposals_count}, veio ${proposals.length} [${proposals.map((p) => p.tool_name).join(", ")}]`
+    );
+  }
+
+  if (expect.no_proposal && proposals.length) {
+    fails.push(
+      `esperado nenhuma proposta, veio [${proposals.map((p) => p.tool_name).join(", ")}]`
+    );
+  }
+
   if (expect.tool) {
     const hit = proposals.find((p) => p.tool_name === expect.tool);
     if (!hit) {
       fails.push(
         `tool: esperado ${expect.tool}, veio [${proposals.map((p) => p.tool_name).join(", ") || "nenhuma proposta"}]`
       );
-    } else if (expect.payload) {
-      fails.push(...checkPayload(hit.payload, expect.payload));
+    } else {
+      if (expect.payload) fails.push(...checkPayload(hit.payload, expect.payload));
+      if (expect.payload_null) {
+        fails.push(...checkPayloadNull(hit.payload, expect.payload_null));
+      }
+      if (expect.payload_range) {
+        fails.push(...checkPayloadRange(hit.payload, expect.payload_range));
+      }
+    }
+  }
+
+  if (expect.tools_any) {
+    const names = proposals.map((p) => p.tool_name);
+    if (!expect.tools_any.some((t) => names.includes(t))) {
+      fails.push(
+        `tool: esperado uma de [${expect.tools_any.join(", ")}], veio [${names.join(", ") || "nenhuma"}]`
+      );
     }
   }
 
@@ -187,7 +237,9 @@ async function main() {
     const secs = ((Date.now() - started) / 1000).toFixed(1);
     if (fails.length) {
       failed++;
-      console.log(`✗ ${c.id}  (${secs}s, ${attempts - 1} tentativas)`);
+      const tag = c.known_broken ? "✗ (conhecido)" : "✗";
+      console.log(`${tag} ${c.id}  (${secs}s, ${attempts - 1} tentativas)`);
+      if (c.known_broken) console.log(`    bloqueado por: ${c.known_broken}`);
       console.log(`    ${c.why}`);
       for (const f of fails) console.log(`    → ${f}`);
     } else if (attempts > 1) {
