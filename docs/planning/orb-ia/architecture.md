@@ -256,9 +256,9 @@ Não inventar título/ID de catálogo.
 
 ## 10. Decisões em aberto (para fechar antes do P0)
 
-1. Provider LLM definitivo (Anthropic vs OpenAI) e modelo default.
-2. Orb só no sheet global ou também rota `/orb`.
-3. Cota: turns/dia vs tokens/mês no Pro.
+1. ✅ Provider LLM definitivo (Anthropic vs OpenAI) e modelo default. — Anthropic Claude (Sonnet).
+2. ✅ Orb só no sheet global ou também rota `/orb`. — Sheet flutuante global (sem rota dedicada no P0).
+3. Cota: turns/dia vs tokens/mês no Pro. — adiado; sem `orb_usage` no P0 (ver `docs/planning/orb-ia/p0-entretenimento.md`).
 4. Roteiro de viagem (P3): proposal única grande vs N activities propostas.
 
 ---

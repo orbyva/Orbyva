@@ -1,7 +1,10 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { normalizeMovie } from "@/domain/movies";
-import { normalizeEntertainmentDates } from "@/domain/entertainment/insights";
+import {
+  mergeEntertainmentDates,
+  mergeEntertainmentScalars,
+} from "@/domain/orb/mergeEntertainment";
 import {
   Movie,
   MovieCreateRequest,
@@ -138,21 +141,14 @@ export async function upsertMovie(
     return "created";
   }
 
-  const mergedDates = Array.from(
-    new Set([
-      ...normalizeDates(existing.watched_dates),
-      ...normalizeDates(movie.watched_dates),
-    ])
-  );
-
+  const scalars = mergeEntertainmentScalars(existing, movie);
   await updateMovie({
     imdb_id: movie.imdb_id,
-    status: movie.status,
-    rating: movie.rating ?? existing.rating,
-    notes: movie.notes?.trim() ? movie.notes : existing.notes,
-    would_recommend: movie.would_recommend ?? existing.would_recommend,
-    is_favorite: movie.is_favorite ?? existing.is_favorite,
-    watched_dates: mergedDates,
+    ...scalars,
+    watched_dates: mergeEntertainmentDates(
+      existing.watched_dates,
+      movie.watched_dates
+    ),
   });
   return "updated";
 }
@@ -180,8 +176,4 @@ export async function fetchSeriesWithEpisodeNotify(): Promise<Movie[]> {
 
   if (error) throw new Error(error.message);
   return (data || []).map((row) => normalizeMovie(row as Movie));
-}
-
-function normalizeDates(dates: Movie["watched_dates"] | undefined): string[] {
-  return normalizeEntertainmentDates(dates);
 }

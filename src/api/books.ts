@@ -1,6 +1,10 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { normalizeBook } from "@/domain/books";
+import {
+  mergeEntertainmentDates,
+  mergeEntertainmentScalars,
+} from "@/domain/orb/mergeEntertainment";
 import type {
   Book,
   BookCreateRequest,
@@ -132,6 +136,26 @@ export async function updateBook(
     .eq("google_id", google_id);
 
   if (error) throw new Error(error.message);
+}
+
+/** Cria se `google_id` for inédito, senão faz merge não-destrutivo (mesmo padrão de `upsertMovie`). */
+export async function upsertBook(
+  book: BookCreateRequest
+): Promise<"created" | "updated"> {
+  const existing = await fetchBookById(book.google_id);
+  if (!existing) {
+    await createBook(book);
+    return "created";
+  }
+
+  const scalars = mergeEntertainmentScalars(existing, book);
+  await updateBook({
+    google_id: book.google_id,
+    ...scalars,
+    current_page: book.current_page ?? existing.current_page,
+    read_dates: mergeEntertainmentDates(existing.read_dates, book.read_dates),
+  });
+  return "updated";
 }
 
 export async function deleteBook(googleId: string): Promise<void> {

@@ -32,7 +32,7 @@
     - Transações
         - Meu salário pingou, recebi R$ 1000000
 
-    - Cinema/Livros/Música
+    - Cinema/Livros/Música ✅
         - Assisti "Odisseia" hoje avalie com nota 9
         - Comecei a ler o livro "Psicologia Financeira"
         - Quero ouvir o álbum Slime Cry do NBA Youngboy

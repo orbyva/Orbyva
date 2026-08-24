@@ -21,6 +21,9 @@ import { OnboardingDialog } from "@/components/OnboardingDialog"
 import { QuickAddExpenseFab } from "@/components/QuickAddExpenseFab"
 import { QuickAddHost } from "@/components/QuickAddHost"
 import { QuickAddProvider } from "@/hooks/useQuickAdd"
+import { OrbFab } from "@/components/orb/OrbFab"
+import { OrbSheet } from "@/components/orb/OrbSheet"
+import { OrbProvider } from "@/hooks/useOrb"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { AlertsBell } from "@/components/AlertsBell"
 import { MobileBottomNav } from "@/components/MobileBottomNav"
@@ -169,6 +172,7 @@ export default function AdminLayout() {
 
   return (
     <QuickAddProvider>
+    <OrbProvider>
     <SidebarProvider>
       <AppSidebar />
       <SidebarMobileCloser />
@@ -226,6 +230,8 @@ export default function AdminLayout() {
             {hasAccess ? <OnboardingDialog /> : null}
             {hasAccess ? <QuickAddExpenseFab /> : null}
             {hasAccess ? <QuickAddHost /> : null}
+            {hasAccess ? <OrbFab /> : null}
+            {hasAccess ? <OrbSheet /> : null}
             <Suspense fallback={<PageSkeleton />}>
               <Outlet />
             </Suspense>
@@ -234,6 +240,7 @@ export default function AdminLayout() {
         </SidebarInset>
       </BreadcrumbTitleProvider>
     </SidebarProvider>
+    </OrbProvider>
     </QuickAddProvider>
   )
 }

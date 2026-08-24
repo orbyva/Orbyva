@@ -99,7 +99,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 | Postgres + migrations | Schema versionado em `supabase/migrations/` |
 | Auth | Google OAuth (+ e-mail via hook `auth-send-email`) |
 | Storage | Capas manuais (`album-covers`), avatares, etc. |
-| Edge Functions | Stripe, e-mails lifecycle/retenção/digest, `spotify-catalog`, `places-catalog`, convites de viagem |
+| Edge Functions | Stripe, e-mails lifecycle/retenção/digest, `spotify-catalog`, `places-catalog`, convites de viagem, `orb-agent` (chat IA) |
 
 ---
 
@@ -129,7 +129,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 /supabase
   ├─ migrations/        Schema / RLS / seeds (fonte da verdade)
   ├─ config.toml
-  └─ functions/         stripe-*, spotify-catalog, places-catalog, e-mails…
+  └─ functions/         stripe-*, spotify-catalog, places-catalog, orb-agent, e-mails…
 /src
   ├─ api/               Cliente Supabase por domínio
   ├─ domain/            Regras puras + testes
@@ -263,6 +263,20 @@ supabase db push
 ```
 
 Edge `places-catalog`: Google Places Autocomplete (New) + Routes + Weather. WALK/BICYCLE/TRANSIT usam cota Essentials; DRIVE com tráfego usa Pro. Cotas mensais fail-closed abaixo do free cap oficial. Ver `.env.example`.
+
+**Orb (assistente de chat com IA, POC P0 — Entretenimento) — secrets no Supabase (não no Vite):**
+
+```bash
+supabase secrets set \
+  ANTHROPIC_API_KEY=… \
+  TMDB_API_KEY=… \
+  OMDB_API_KEY=… \
+  GOOGLE_BOOKS_API_KEY=…
+supabase functions deploy orb-agent
+supabase db push
+```
+
+Fluxo: sheet flutuante global (FAB ou `Ctrl/Cmd+.`) → Edge `orb-agent` (Claude Sonnet, tool-calling) → resolve o item no catálogo certo (TMDB/OMDb, Google Books, Spotify via `spotify-catalog` com fallback MusicBrainz) e grava uma **proposta** em `orb_proposal` (`pending`) — nunca escreve direto nas tabelas de domínio. O usuário confirma no card do chat; a escrita real acontece no client via `src/api/movies|books|albums.ts` (`upsertMovie`/`upsertBook`/`upsertAlbum`), reaproveitando os gates de plano existentes. Histórico de conversa e propostas em `orb_thread`/`orb_message`/`orb_proposal` (RLS por usuário). Escopo desta fase: só Cinema/Livros/Música — ver `docs/planning/orb-ia/`.
 
 ### Instalar e rodar
 

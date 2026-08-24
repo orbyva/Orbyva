@@ -14,7 +14,7 @@ Orbyva é um **SPA multi-módulo** (life OS) com backend **BaaS Supabase**.
 | Supabase Auth | Google OAuth (+ e-mail via hook) |
 | Postgres + RLS | Fonte da verdade; tenancy por `user_id` |
 | Storage | Capas, avatares, assets do usuário |
-| Edge Functions | Segredos e integrações (Stripe, Spotify, Maps, Resend, ops) |
+| Edge Functions | Segredos e integrações (Stripe, Spotify, Maps, Resend, ops, chat IA `orb-agent`) |
 
 O browser **não** executa SQL nem guarda service role. Toda persistência passa por cliente Supabase (Anon Key + JWT) ou por Edge Functions.
 
@@ -27,8 +27,9 @@ O browser **não** executa SQL nem guarda service role. Toda persistência passa
        ▼                                              ▼
 ┌─────────────────┐                         ┌─────────────────────┐
 │ Edge Functions  │ ──── secrets ─────────► │ Stripe / Google /    │
-│ places-catalog  │                         │ Spotify / Resend     │
-│ spotify-catalog │                         └─────────────────────┘
+│ places-catalog  │                         │ Spotify / Resend /   │
+│ spotify-catalog │                         │ Anthropic            │
+│ orb-agent       │                         └─────────────────────┘
 │ stripe-* / mail │
 └─────────────────┘
 ```
@@ -286,6 +287,7 @@ Código em `supabase/functions/`. Shared: `_shared/cors.ts`, e-mail, cotas Maps,
 |--------|--------|
 | `places-catalog` | Google Places / Routes / Weather + cotas mensais fail-closed |
 | `spotify-catalog` | Client Credentials Spotify (busca/capa/tracklist) |
+| `orb-agent` | Chat IA (Claude, tool-calling) — POC P0 restrita a Entretenimento; só propõe, nunca escreve nas tabelas de domínio |
 | `stripe-checkout` / `stripe-portal` / `stripe-webhook` | Billing Pro |
 | `auth-send-email` | Templates Auth (confirm, magic link, reset) |
 | `welcome-email` / `lifecycle-email` / `retention-d7-email` / `weekly-digest-email` | Lifecycle e retenção |
@@ -323,6 +325,15 @@ Cinema e Livros seguem o mesmo padrão: catálogo + cache + share card (`lib/*Sh
 1. Front: `VITE_STRIPE_PUBLISHABLE_KEY` + `api/billing` / helpers em `lib/`.
 2. Checkout/portal via Edge; webhook aplica estado da assinatura no Postgres.
 3. `usePlan` + gate `app_access_enforce` controlam escrita no app.
+
+### 6.4 Orb (chat com IA) — POC P0, escopo Entretenimento
+
+1. Entrada global: `OrbFab`/`OrbSheet` (`components/orb/`, `hooks/useOrb.tsx`) no `AdminLayout`, condicionado a `hasAccess` — mesmo padrão de `QuickAddExpenseFab`.
+2. `hooks/useOrbChat.ts` → `api/orb.ts` invoca a Edge `orb-agent` (JWT do usuário, sem streaming nesta fase).
+3. Na Edge: loop de tool-calling (Claude) resolve o item no catálogo certo (`search_movie_catalog` → TMDB/OMDb; `search_book_catalog` → Google Books; `search_album_catalog` → Spotify via `spotify-catalog` com fallback MusicBrainz) e grava uma **proposta** (`orb_proposal`, `pending`) — nunca escreve em `movie`/`book`/`album`.
+4. Usuário confirma no `OrbActionCard` → `applyOrbProposal` (`api/orb.ts`) chama `upsertMovie`/`upsertBook`/`upsertAlbum` (mesmo caminho do CRUD manual, gates de plano já valem) e marca a proposal `applied`.
+5. Histórico (`orb_thread`/`orb_message`) + status da proposal servem de log/auditoria — sem tabela extra.
+6. Detalhes de arquitetura, decisões e fases seguintes: `docs/planning/orb-ia/`.
 
 ---
 

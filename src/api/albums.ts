@@ -1,6 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { normalizeAlbum } from "@/domain/music";
+import {
+  mergeEntertainmentDates,
+  mergeEntertainmentScalars,
+  mergeTrackRatings,
+} from "@/domain/orb/mergeEntertainment";
 import type {
   Album,
   AlbumCreateRequest,
@@ -77,6 +82,21 @@ export async function fetchAllAlbums(): Promise<Album[]> {
   return (data || []).map((row) => normalizeAlbum(row as Album));
 }
 
+export async function fetchAlbumById(
+  musicbrainzId: string
+): Promise<Album | null> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("album")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("musicbrainz_id", musicbrainzId)
+    .maybeSingle();
+
+  if (error) return null;
+  return data ? normalizeAlbum(data as Album) : null;
+}
+
 export async function createAlbum(album: AlbumCreateRequest): Promise<void> {
   const userId = await getCurrentUserId();
   const { error } = await supabase.from("album").insert([
@@ -103,6 +123,32 @@ export async function updateAlbum(
     .eq("user_id", userId)
     .eq("musicbrainz_id", musicbrainz_id);
   if (error) throw new Error(error.message);
+}
+
+/** Cria se `musicbrainz_id` for inédito, senão faz merge não-destrutivo (mesmo padrão de `upsertMovie`). */
+export async function upsertAlbum(
+  album: AlbumCreateRequest
+): Promise<"created" | "updated"> {
+  const existing = await fetchAlbumById(album.musicbrainz_id);
+  if (!existing) {
+    await createAlbum(album);
+    return "created";
+  }
+
+  const scalars = mergeEntertainmentScalars(existing, album);
+  await updateAlbum({
+    musicbrainz_id: album.musicbrainz_id,
+    ...scalars,
+    listened_dates: mergeEntertainmentDates(
+      existing.listened_dates,
+      album.listened_dates
+    ),
+    track_ratings: mergeTrackRatings(
+      existing.track_ratings,
+      album.track_ratings
+    ),
+  });
+  return "updated";
 }
 
 export async function deleteAlbum(musicbrainzId: string): Promise<void> {
