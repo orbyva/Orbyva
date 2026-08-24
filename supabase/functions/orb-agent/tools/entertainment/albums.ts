@@ -5,21 +5,41 @@ import { summarizeAlbumProposal } from "../../summary.ts";
 export const searchAlbumCatalogTool: ToolDefinition = {
   name: "search_album_catalog",
   description:
-    "Busca álbuns no catálogo (Spotify, com fallback MusicBrainz) por título e artista opcional. Devolve candidatos com id+source — use exatamente esses valores em propose_mark_album, nunca invente.",
+    "Busca álbuns no catálogo (Spotify, com fallback MusicBrainz). Informe título, ou só o artista quando o usuário não souber o nome do álbum (ex.: 'o novo álbum do Drake') — nesse caso os candidatos vêm do mais recente pro mais antigo. Devolve id+source — use exatamente esses valores em propose_mark_album, nunca invente.",
   input_schema: {
     type: "object",
     properties: {
-      title: { type: "string", description: "Título do álbum" },
-      artist: { type: "string", description: "Artista, se souber" },
+      title: { type: "string", description: "Título do álbum, se souber" },
+      artist: { type: "string", description: "Artista" },
     },
-    required: ["title"],
+    // Um dos dois basta: sem título, busca a discografia do artista.
+    required: [],
   },
   handler: async (input, ctx) => {
     const title = String(input.title ?? "").trim();
     const artist = input.artist ? String(input.artist).trim() : "";
-    if (!title) return { candidates: [] };
-    const query = artist ? `${title} ${artist}` : title;
+    if (!title && !artist) {
+      return { error: "Informe ao menos title ou artist." };
+    }
+
+    // `artist:` é filtro nativo do Spotify — sem título, restringe a busca à
+    // discografia em vez de casar o nome do artista com títulos de álbum.
+    const query = title
+      ? artist
+        ? `${title} ${artist}`
+        : title
+      : `artist:${artist}`;
+
     const candidates = await searchAlbums(query, ctx.supabaseUrl, ctx.authHeader);
+
+    if (!title) {
+      // Busca por artista: "o mais novo" é a pergunta usual, então ordena por
+      // ano desc. Sem ano vai pro fim, não pro topo.
+      candidates.sort(
+        (a, b) => (b.release_year ?? -Infinity) - (a.release_year ?? -Infinity)
+      );
+      return { candidates, sorted_by: "release_year_desc" };
+    }
     return { candidates };
   },
 };

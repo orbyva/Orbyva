@@ -4,12 +4,14 @@ import { upsertMovie } from "@/api/movies";
 import { upsertBook } from "@/api/books";
 import { upsertAlbum } from "@/api/albums";
 import { fetchGoogleBookById } from "@/lib/googleBooks";
+import { newManualBookId } from "@/domain/books";
 import type { MovieCreateRequest } from "@/types/movies";
 import type { BookCreateRequest } from "@/types/books";
 import type { AlbumCreateRequest } from "@/types/music";
 import type {
   OrbAgentResponse,
   OrbBookPayload,
+  OrbManualBookPayload,
   OrbMoviePayload,
   OrbAlbumPayload,
   OrbMessage,
@@ -82,6 +84,27 @@ export async function applyOrbProposal(proposal: OrbProposal): Promise<string> {
       const payload = proposal.payload as OrbMoviePayload;
       await upsertMovie(payload as MovieCreateRequest);
       entityId = payload.imdb_id;
+    } else if (proposal.tool_name === "propose_manual_book") {
+      // Livro fora do Google Books: nada a buscar, o usuário ditou os dados.
+      const payload = proposal.payload as OrbManualBookPayload;
+      const googleId = newManualBookId();
+      const request: BookCreateRequest = {
+        google_id: googleId,
+        title: payload.title,
+        authors: payload.authors ?? [],
+        published_year: payload.published_year ?? null,
+        cover_url: null,
+        categories: [],
+        status: payload.status,
+        rating: payload.rating ?? null,
+        current_page: payload.current_page ?? null,
+        notes: payload.notes ?? null,
+        would_recommend: payload.would_recommend ?? true,
+        is_favorite: payload.is_favorite ?? false,
+        read_dates: payload.read_date ? [payload.read_date] : [],
+      };
+      await upsertBook(request);
+      entityId = googleId;
     } else if (proposal.module === "books") {
       const payload = proposal.payload as OrbBookPayload;
       const full = await fetchGoogleBookById(payload.google_id);

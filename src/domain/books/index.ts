@@ -409,3 +409,21 @@ export function parsePageInput(value: string): number | null {
   if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
   return n;
 }
+
+/** Prefixo de livro cadastrado à mão — espelha `manual_` da Música. */
+export const MANUAL_BOOK_PREFIX = "manual_";
+
+/**
+ * Id sintético pra livro fora do Google Books.
+ *
+ * `book` tem PK (user_id, google_id) e `google_id` NOT NULL, então um livro
+ * manual precisa de um id próprio. Mesma convenção de `newManualAlbumId`.
+ */
+export function newManualBookId(): string {
+  return `${MANUAL_BOOK_PREFIX}${crypto.randomUUID()}`;
+}
+
+/** `true` quando o livro não veio do Google Books (não tentar buscar detalhe). */
+export function isManualBook(googleId: string): boolean {
+  return googleId.startsWith(MANUAL_BOOK_PREFIX);
+}

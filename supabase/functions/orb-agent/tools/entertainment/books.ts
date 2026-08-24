@@ -94,3 +94,92 @@ export const proposeMarkBookTool: ToolDefinition = {
     return { ok: true, summary };
   },
 };
+
+/**
+ * Saída de emergência pra livro fora do Google Books (lançamento novo,
+ * autoedição, edição brasileira ausente). Sem isso a conversa vira beco sem
+ * saída: o usuário insiste no título, a busca não acha, e não há o que propor.
+ *
+ * O `google_id` sintético (`manual_…`) é gerado no client ao aplicar — a Edge
+ * não inventa id, mantendo a regra de nunca forjar identificador de catálogo.
+ */
+export const proposeManualBookTool: ToolDefinition = {
+  name: "propose_manual_book",
+  description:
+    "Use SÓ quando search_book_catalog não encontrar o livro depois de tentar variações de título/autor. Propõe registrar o livro com os dados que o usuário ditou, sem catálogo. Não grava direto — vira proposta que o usuário confirma.",
+  input_schema: {
+    type: "object",
+    properties: {
+      title: {
+        type: "string",
+        description: "Título como o usuário informou",
+      },
+      authors: {
+        type: "array",
+        items: { type: "string" },
+        description: "Autores informados pelo usuário",
+      },
+      published_year: {
+        type: "integer",
+        description: "Ano, só se o usuário souber",
+      },
+      status: {
+        type: "string",
+        enum: ["to_read", "reading", "read", "abandoned"],
+      },
+      rating: {
+        type: "number",
+        description: "Nota de 0 a 10, só se o usuário informou explicitamente",
+      },
+      read_date: {
+        type: "string",
+        description: "Data ISO (YYYY-MM-DD); se omitido e status=read, usa hoje",
+      },
+      current_page: { type: "integer" },
+      notes: { type: "string" },
+      would_recommend: { type: "boolean" },
+      is_favorite: { type: "boolean" },
+    },
+    required: ["title", "status"],
+  },
+  handler: async (input, ctx) => {
+    const title = String(input.title ?? "").trim();
+    if (!title) return { error: "title é obrigatório." };
+
+    const status = String(input.status ?? "to_read");
+    const readDate = input.read_date
+      ? String(input.read_date)
+      : status === "read"
+        ? ctx.todayIso
+        : null;
+
+    const authors = Array.isArray(input.authors)
+      ? (input.authors as unknown[])
+          .map((a) => String(a).trim())
+          .filter(Boolean)
+      : [];
+
+    const payload = {
+      title,
+      authors,
+      published_year:
+        input.published_year != null ? Number(input.published_year) : null,
+      status,
+      rating: input.rating != null ? Number(input.rating) : null,
+      read_date: readDate,
+      current_page: input.current_page != null ? Number(input.current_page) : null,
+      notes: (input.notes as string | undefined) ?? null,
+      would_recommend: (input.would_recommend as boolean | undefined) ?? true,
+      is_favorite: (input.is_favorite as boolean | undefined) ?? false,
+    };
+
+    const summary = summarizeBookProposal({ ...payload, google_id: "" });
+    ctx.proposals.push({
+      tool_name: "propose_manual_book",
+      module: "books",
+      payload,
+      summary,
+    });
+    return { ok: true, summary, manual: true };
+  },
+};

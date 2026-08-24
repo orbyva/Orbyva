@@ -4,6 +4,7 @@
  */
 import type { Book } from "@/types/books";
 import {
+  isManualBook,
   stripBookHtml,
   translateBookCategories,
 } from "@/domain/books";
@@ -269,7 +270,9 @@ export async function fetchGoogleBookById(
   googleId: string
 ): Promise<Book | null> {
   const id = googleId.trim();
-  if (!id) return null;
+  // Livro cadastrado à mão não existe no Google Books — mesma guarda que
+  // spotify.ts/musicbrainz.ts fazem pro `manual_` de álbuns.
+  if (!id || isManualBook(id)) return null;
 
   const url = new URL(`${API}/${encodeURIComponent(id)}`);
   url.searchParams.set("key", apiKey());

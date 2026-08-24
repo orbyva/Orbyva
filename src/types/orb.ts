@@ -7,6 +7,7 @@ export type OrbModule = "movies" | "books" | "albums";
 export type OrbProposalToolName =
   | "propose_mark_movie"
   | "propose_mark_book"
+  | "propose_manual_book"
   | "propose_mark_album";
 
 /** Filme: a Edge já resolve o catálogo (TMDB/OMDb) e devolve o registro completo. */
@@ -33,7 +34,28 @@ export interface OrbBookPayload {
 /** Álbum: `search_album_catalog` (Spotify/MusicBrainz) já devolve o hit quase pronto. */
 export type OrbAlbumPayload = AlbumCreateRequest;
 
-export type OrbProposalPayload = OrbMoviePayload | OrbBookPayload | OrbAlbumPayload;
+/**
+ * Livro fora do Google Books: o usuário ditou os dados, não há catálogo pra
+ * consultar. O `google_id` sintético (`manual_…`) é gerado no client ao aplicar.
+ */
+export interface OrbManualBookPayload {
+  title: string;
+  authors?: string[];
+  published_year?: number | null;
+  status: BookStatus;
+  rating?: number | null;
+  read_date?: string | null;
+  current_page?: number | null;
+  notes?: string | null;
+  would_recommend?: boolean;
+  is_favorite?: boolean;
+}
+
+export type OrbProposalPayload =
+  | OrbMoviePayload
+  | OrbBookPayload
+  | OrbManualBookPayload
+  | OrbAlbumPayload;
 
 export type OrbProposalStatus = "pending" | "applied" | "dismissed" | "expired";
 

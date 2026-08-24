@@ -17,6 +17,7 @@ import {
 } from "./tools/entertainment/movies.ts";
 import {
   proposeMarkBookTool,
+  proposeManualBookTool,
   searchBookCatalogTool,
 } from "./tools/entertainment/books.ts";
 import {
@@ -37,6 +38,7 @@ const { tools: TOOLS, byName: TOOL_BY_NAME } = buildToolRegistry([
   proposeMarkMovieTool,
   searchBookCatalogTool,
   proposeMarkBookTool,
+  proposeManualBookTool,
   searchAlbumCatalogTool,
   proposeMarkAlbumTool,
   queryRecentEntertainmentTool,

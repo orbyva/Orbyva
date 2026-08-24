@@ -21,6 +21,11 @@ export type MovieDraft = {
 export type MovieCandidate = {
   imdb_id: string;
   tmdb_id: number;
+  /**
+   * Título original. Sem ele o modelo trata "A Odisseia" e "The Odyssey" como
+   * obras distintas e fica repetindo a pergunta de desambiguação.
+   */
+  original_title?: string;
   media_type: "movie" | "tv";
   title: string;
   year: number;
@@ -66,6 +71,8 @@ async function tmdbGet<T>(
 
 type TmdbSearchItem = {
   id: number;
+  original_title?: string;
+  original_name?: string;
   media_type?: "movie" | "tv" | "person";
   title?: string;
   name?: string;
@@ -87,6 +94,8 @@ async function searchMulti(query: string): Promise<MovieCandidate[]> {
       tmdb_id: item.id,
       media_type: media,
       title: (item.title || item.name || "Sem título").trim(),
+      original_title: (item.original_title || item.original_name || "").trim() ||
+        undefined,
       year: yearFromDate(item.release_date || item.first_air_date),
     });
   }
