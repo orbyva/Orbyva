@@ -1,0 +1,57 @@
+[
+  {
+    "id": "filme-direto",
+    "why": "caminho feliz: resolve no TMDB, extrai nota e status de uma frase só",
+    "turns": [{ "send": "assisti Cidade de Deus ontem, nota 9" }],
+    "expect": {
+      "tool": "propose_mark_movie",
+      "payload": { "year": 2002, "rating": 9, "status": "watched" },
+      "no_clarify": true
+    }
+  },
+  {
+    "id": "desambiguacao-converge",
+    "why": "regressão do loop: com ano+diretor na resposta, tem de fechar e não repetir a pergunta",
+    "turns": [
+      { "send": "acabei de assistir odisseia" },
+      { "send": "A Odisseia de 2026, do Christopher Nolan" }
+    ],
+    "expect": {
+      "tool": "propose_mark_movie",
+      "payload": { "year": 2026 },
+      "no_clarify": true
+    }
+  },
+  {
+    "id": "livro-fora-do-catalogo",
+    "why": "não pode virar beco sem saída quando o Google Books não tem o livro",
+    "turns": [
+      { "send": "estou lendo inteligencia pragmatica, do max Peters, nota 10" }
+    ],
+    "expect": {
+      "tool": "propose_manual_book",
+      "payload": { "status": "reading", "rating": 10 }
+    }
+  },
+  {
+    "id": "album-so-por-artista",
+    "why": "'o novo álbum do X' não pode exigir o título",
+    "turns": [{ "send": "gostei muito do novo album do drake" }],
+    "expect": { "text_matches": "20\\d\\d" }
+  },
+  {
+    "id": "album-com-titulo",
+    "why": "regressão: tornar o título opcional não pode quebrar a busca normal",
+    "turns": [{ "send": "ouvi Clube da Esquina do Milton Nascimento, nota 10" }],
+    "expect": {
+      "tool": "propose_mark_album",
+      "payload": { "rating": 10, "status": "listened" }
+    }
+  },
+  {
+    "id": "parecidos-responde-no-chat",
+    "why": "não pode prometer que aparece 'na interface' — não existe outra tela",
+    "turns": [{ "send": "Sugira filmes parecidos com Euphoria" }],
+    "expect": { "text_not_matches": "na interface|est(á|a) ativad|ver(á|a) (as )?recomenda" }
+  }
+]
