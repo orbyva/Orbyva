@@ -3,11 +3,11 @@ import {
   dismissOnboardingIfPresent,
   e2eEnv,
   signInViaSupabaseApi,
-} from "./helpers/auth";
+} from "../helpers/auth";
 
 const env = e2eEnv();
 
-test.describe("offline outbox na UI", () => {
+test.describe("offline outbox na UI", { tag: ["@regression"] }, () => {
   test.skip(!env.hasAuth, "Credenciais E2E ausentes");
 
   test("mostra banner com lançamentos pendentes na fila", async ({ page }) => {

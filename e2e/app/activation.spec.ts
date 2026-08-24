@@ -4,8 +4,8 @@ import {
   e2eEnv,
   rest,
   signInViaSupabaseApi,
-} from "./helpers/auth";
-import { E2eCleanup, e2eStamp, firstId } from "./helpers/cleanup";
+} from "../helpers/auth";
+import { E2eCleanup, e2eStamp, firstId } from "../helpers/cleanup";
 
 /**
  * Ativação completa: login → 1ª tx → orçamento.
@@ -34,7 +34,7 @@ async function pickTypeId(token: string): Promise<number | null> {
   return rows[0]?.id ?? null;
 }
 
-test.describe("ativação completa", () => {
+test.describe("ativação completa", { tag: ["@critical", "@data"] }, () => {
   test.skip(
     !env.hasAuth,
     "Defina E2E_EMAIL, E2E_PASSWORD, VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY"

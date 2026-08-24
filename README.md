@@ -119,7 +119,8 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 
 ```
 /public                 Assets estáticos (logo, marketing)
-/e2e                    Playwright + helpers (auth, cleanup E2E*)
+/e2e                    Playwright — fixtures, helpers, public/ app/ security/
+/quality                Estratégia de teste e mapa priorizado de cenários
 /scripts                ci-local, bundle budget, minify SW
 /supabase
   ├─ migrations/        Schema / RLS / seeds (fonte da verdade)
@@ -258,11 +259,13 @@ npm run dev          # http://localhost:5173
 npm run lint
 npm run test         # Vitest
 npm run test:e2e     # Playwright (precisa E2E_* + Supabase)
+npm run test:e2e:smoke   # só @smoke
+npm run test:e2e:public  # só o que não exige credencial
 npm run build
 npm run ci:local     # espelha o CI
 ```
 
-**E2E:** os specs marcam dados com `E2E…` e fazem teardown por id (e restauram orçamento patchado). O sweep `description like E2E*` roda só no **global teardown** — não no cleanup por teste, para não apagar txs de specs paralelos na mesma conta. Ideal: conta dedicada (`E2E_EMAIL`).
+**E2E:** estratégia e backlog priorizado em [`quality/`](quality/README.md); convenções em [`e2e/README.md`](e2e/README.md). Os specs marcam dados com `E2E…` e fazem teardown por id (e restauram orçamento patchado). O sweep `description like E2E*` roda só no **global teardown** — não no cleanup por teste, para não apagar txs de specs paralelos na mesma conta. Ideal: conta dedicada (`E2E_EMAIL`).
 
 ---
 

@@ -4,8 +4,8 @@ import {
   e2eEnv,
   rest,
   signInViaSupabaseApi,
-} from "./helpers/auth";
-import { E2eCleanup, e2eStamp, firstId } from "./helpers/cleanup";
+} from "../helpers/auth";
+import { E2eCleanup, e2eStamp, firstId } from "../helpers/cleanup";
 
 const env = e2eEnv();
 
@@ -52,7 +52,7 @@ async function pickExpenseClass(
     : null;
 }
 
-test.describe("orçamento e parcelas", () => {
+test.describe("orçamento e parcelas", { tag: ["@critical", "@data"] }, () => {
   test.skip(!env.hasAuth, "Credenciais E2E ausentes");
 
   test("vê orçamento do mês na UI", async ({ page }) => {
@@ -166,7 +166,7 @@ test.describe("orçamento e parcelas", () => {
   });
 });
 
-test.describe("exclusão e export", () => {
+test.describe("exclusão e export", { tag: ["@critical", "@data"] }, () => {
   test.skip(!env.hasAuth, "Credenciais E2E ausentes");
 
   test("exclui transação e some da lista", async ({ page }) => {

@@ -31,4 +31,12 @@ export default tseslint.config(
       'react-refresh/only-export-components': 'off',
     },
   },
+  {
+    // Fixture do Playwright recebe um callback `use` — o plugin de hooks o
+    // confunde com o `use` do React.
+    files: ['e2e/**/*.ts'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+    },
+  },
 )

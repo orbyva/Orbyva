@@ -16,7 +16,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:smoke": "playwright test --grep @smoke",
+    "test:e2e:public": "playwright test e2e/public"
   },
   "dependencies": {
     "@fontsource/plus-jakarta-sans": "^5.3.0",

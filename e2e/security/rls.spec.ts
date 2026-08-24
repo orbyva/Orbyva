@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { e2eEnv, passwordGrant, rest } from "./helpers/auth";
-import { E2eCleanup, e2eStamp, firstId } from "./helpers/cleanup";
+import { e2eEnv, passwordGrant, rest } from "../helpers/auth";
+import { E2eCleanup, e2eStamp, firstId } from "../helpers/cleanup";
 
 /**
  * Isolamento RLS: user B não lê/escreve dados do user A.
@@ -8,7 +8,7 @@ import { E2eCleanup, e2eStamp, firstId } from "./helpers/cleanup";
  */
 const env = e2eEnv();
 
-test.describe("RLS 2 usuários", () => {
+test.describe("RLS 2 usuários", { tag: ["@critical", "@security"] }, () => {
   test.skip(
     !env.hasTwoUsers,
     "Defina E2E_EMAIL_B e E2E_PASSWORD_B (além de E2E_EMAIL/PASSWORD e Supabase)"

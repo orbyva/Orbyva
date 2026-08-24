@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("smoke público", () => {
+test.describe("smoke público", { tag: ["@smoke"] }, () => {
   test("landing carrega com marca e CTA", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: "Orbyva" }).first()).toBeVisible();

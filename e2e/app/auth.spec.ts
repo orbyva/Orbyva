@@ -3,11 +3,11 @@ import {
   dismissOnboardingIfPresent,
   e2eEnv,
   signInViaSupabaseApi,
-} from "./helpers/auth";
+} from "../helpers/auth";
 
 const env = e2eEnv();
 
-test.describe("ativação autenticada", () => {
+test.describe("ativação autenticada", { tag: ["@smoke", "@critical"] }, () => {
   test.skip(
     !env.hasAuth,
     "Defina E2E_EMAIL, E2E_PASSWORD, VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY"
