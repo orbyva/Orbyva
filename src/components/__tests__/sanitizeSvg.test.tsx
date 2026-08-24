@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   sanitizeSvgElement,
   sanitizeSvgMarkup,
-} from "@/components/markdown/sanitizeSvg";
+} from "@/lib/sanitizeSvg";
 
 /** Arquivo `.tsx` só para cair no ambiente jsdom (o sanitizador usa `DOMParser`). */
 describe("sanitizeSvgMarkup", () => {

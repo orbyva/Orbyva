@@ -14,5 +14,8 @@ export * from "./externalLink";
 export * from "./duration";
 export * from "./taskDraft";
 export * from "./taskDelete";
+export * from "./taskNoteDraft";
 export * from "./medication";
 export * from "./consultation";
+export * from "./svgIcon";
+export * from "./linkIconRules";

@@ -189,12 +189,56 @@ async function reconcileMedicationDoses(id: string, userId: string): Promise<voi
 }
 
 /**
- * Encerra um tratamento: `active = false` + `ended_on` = hoje, se ainda não houver fim.
+ * Encerra um tratamento: **só** `active = false`.
+ *
+ * Não escreve `ended_on` (feature 096). Até então, encerrar gravava a data de hoje quando a coluna
+ * estava nula — e o usuário passava a ver um "Término" que nunca pôs. É literalmente a frase que
+ * abriu a 096: "está marcado como encerrado, sendo que não coloquei limite". `ended_on` significa
+ * **fim programado pelo usuário**, e nada mais (`src/types/health.ts`); escrever ali por conta
+ * própria violava o contrato da coluna e tornava um encerramento acidental indistinguível de um
+ * curso com fim marcado na hora de desfazer.
+ *
+ * `active = false` já para tudo sozinho, sem ajuda de `ended_on`: `computeMissingDoses` devolve
+ * `[]`, `nextDoseSlot` devolve `null` e `computeStaleDoses` marca toda dose futura pendente como
+ * obsoleta (`src/domain/health/medication.ts`). Por isso o `select` prévio da coluna também saiu:
+ * ele só existia para alimentar o `??`.
  *
  * Não apaga a linha — o histórico de doses já tomadas e a adesão do período continuam válidos, e
  * apagar zeraria `task.medication_id` (`on delete set null`) em todas as doses passadas.
  */
 export async function deactivateMedication(id: string): Promise<void> {
+  const userId = await getCurrentUserId();
+
+  const { error } = await supabase
+    .from("medication")
+    .update({ active: false })
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Desfaz o encerramento (feature 096): `active = true` de volta, e `ended_on` limpo **só quando a
+ * data já passou**.
+ *
+ * A limpeza condicional é o que faz o botão significar alguma coisa. `computeMissingDoses` colapsa
+ * a janela em `ended_on` quando ele é anterior a hoje (`medication.ts:105-107`), então reativar sem
+ * limpar um término passado devolveria um tratamento "ativo" que não gera dose nenhuma — o botão
+ * pareceria funcionar e não faria nada, que é pior do que não existir. Já um `ended_on` no
+ * **futuro** é um fim programado que ainda não chegou: apagá-lo mudaria o tratamento do usuário
+ * sem ele pedir, então ele fica.
+ *
+ * `ended_on` **igual a hoje** conta como passado e é limpo. O plano dizia "no passado", mas hoje
+ * não é nem um nem outro, e manter a data deixaria o tratamento gerar só as doses de hoje e morrer
+ * de novo amanhã — o mesmo botão-que-não-faz-nada, com um dia de atraso. Não é caso hipotético: é
+ * exatamente o valor que o `deactivateMedication` antigo gravava, então é o estado da linha que
+ * esta feature existe para consertar.
+ *
+ * As doses do período voltam sozinhas: `materializeAllMedicationDoses` recalcula desde `started_on`
+ * na próxima `fetchTasks`. O que não volta é dose concluída que tenha sido apagada — a adesão
+ * daquele trecho está perdida, e é isso que a confirmação na tela avisa.
+ */
+export async function reactivateMedication(id: string): Promise<void> {
   const userId = await getCurrentUserId();
 
   const { data: current, error: readError } = await supabase
@@ -205,12 +249,14 @@ export async function deactivateMedication(id: string): Promise<void> {
     .maybeSingle();
   if (readError) throw new Error(readError.message);
 
+  const endedOn = (current?.ended_on ?? null) as string | null;
+  const today = formatLocalIsoDate(new Date());
+  const payload: Record<string, unknown> = { active: true };
+  if (endedOn != null && endedOn <= today) payload.ended_on = null;
+
   const { error } = await supabase
     .from("medication")
-    .update({
-      active: false,
-      ended_on: current?.ended_on ?? formatLocalIsoDate(new Date()),
-    })
+    .update(payload)
     .eq("id", id)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);

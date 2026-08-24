@@ -3,11 +3,20 @@ import {
   Bell,
   Bookmark,
   CheckCircle2,
+  ExternalLink,
+  Figma,
+  FileText,
   Flag,
+  Github,
+  Gitlab,
+  Globe,
+  Kanban,
+  Notebook,
   Pill,
   Pin,
   ShoppingCart,
   Star,
+  Youtube,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,8 +46,34 @@ export const TASK_ICON_PRESETS: TaskIconPreset[] = [
   { key: "pill", label: "Medicação", icon: Pill },
 ];
 
+/**
+ * Presets que só fazem sentido numa **regra de link** (feature 087): as marcas que a regra de
+ * regex reconhece, mais o link genérico do fallback.
+ *
+ * Ficam fora de `TASK_ICON_PRESETS` de propósito. Aquele catálogo é o do ícone de uma **tarefa**, e
+ * enfiar nove marcas nele engordaria o popover de toda linha da Lista, do Kanban e do Gantt para
+ * servir a uma tela de configuração. `TaskIconBadge` resolve os dois catálogos (é o mesmo desenho,
+ * venha de onde vier), e o seletor recebe a lista que quiser pela prop `presets`.
+ *
+ * `github` e `external` não são arbitrários: são exatamente as `iconKey` que
+ * `describeExternalLink` devolve quando nenhuma regra casa — é o que faz o chip sem configuração
+ * nenhuma continuar desenhando o que desenhava antes desta feature.
+ */
+export const LINK_ICON_PRESETS: TaskIconPreset[] = [
+  { key: "github", label: "GitHub", icon: Github },
+  { key: "gitlab", label: "GitLab", icon: Gitlab },
+  { key: "figma", label: "Figma", icon: Figma },
+  { key: "youtube", label: "YouTube", icon: Youtube },
+  // Jira não tem ícone no lucide; o quadro é o que a marca significa na prática.
+  { key: "kanban", label: "Quadro / Jira", icon: Kanban },
+  { key: "notebook", label: "Notion / notas", icon: Notebook },
+  { key: "file-text", label: "Documento", icon: FileText },
+  { key: "globe", label: "Site", icon: Globe },
+  { key: "external", label: "Link externo", icon: ExternalLink },
+];
+
 const TASK_ICON_PRESET_MAP: Record<string, TaskIconPreset> = Object.fromEntries(
-  TASK_ICON_PRESETS.map((preset) => [preset.key, preset])
+  [...TASK_ICON_PRESETS, ...LINK_ICON_PRESETS].map((preset) => [preset.key, preset])
 );
 
 /**

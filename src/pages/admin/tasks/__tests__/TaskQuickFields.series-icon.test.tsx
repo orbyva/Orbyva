@@ -2,17 +2,29 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TaskQuickFields } from "@/pages/admin/tasks/TaskQuickFields";
-import { uploadTaskIcon } from "@/api/tasks";
-import type { Task } from "@/types/tasks";
+import { uploadIconAsset } from "@/api/tasks";
+import type { IconAsset, Task } from "@/types/tasks";
 
 /**
  * Feature 073 — a edição rápida de ícone da Lista, do Kanban e do popover do Gantt sai toda daqui
- * (`TaskQuickFields`), então é aqui que se prova, de uma vez, que numa série o picker recebe o id
- * da **origem** (o upload vai pro caminho dela) e o aviso de "vale para toda a recorrência".
+ * (`TaskQuickFields`), então é aqui que se prova, de uma vez, o aviso de "vale para toda a
+ * recorrência" numa série.
+ *
+ * O que a feature 086 mudou por aqui: o upload deixou de ir para `{userId}/{taskId}.{ext}` e passa
+ * a ir para a biblioteca (`{userId}/library/{uuid}.{ext}`), então **nenhum** id de tarefa entra no
+ * caminho do arquivo. Some com isso o motivo pelo qual a 073 tinha de passar o id da origem da
+ * série — o aviso continua, o acoplamento não.
  */
 
 vi.mock("@/api/tasks", () => ({
-  uploadTaskIcon: vi.fn(),
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -38,6 +50,11 @@ function makeTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
+/** A linha que `uploadIconAsset` devolve depois de subir o arquivo para a biblioteca. */
+function asset(url: string): IconAsset {
+  return { id: `icon-${url}`, name: "Ícone", url };
+}
+
 /** `TaskQuickFields` devolve nós prontos (não é um componente) — o harness só posiciona o ícone. */
 function IconOnly({ task }: { task: Task }) {
   const { icon } = TaskQuickFields({ task, onIconChange: vi.fn() });
@@ -45,9 +62,9 @@ function IconOnly({ task }: { task: Task }) {
 }
 
 describe("TaskQuickFields — ícone da série (feature 073)", () => {
-  it("ocorrência recorrente: avisa da série e o upload vai pro id da origem", async () => {
+  it("ocorrência recorrente: avisa da série, e o upload não carrega id de tarefa nenhum", async () => {
     const user = userEvent.setup();
-    vi.mocked(uploadTaskIcon).mockResolvedValue("https://cdn.example.com/origem.png");
+    vi.mocked(uploadIconAsset).mockResolvedValue(asset("https://cdn.example.com/origem.png"));
     render(<IconOnly task={makeTask({ id: "ocorrencia-3", recurrence_origin_id: "origem" })} />);
 
     await user.click(screen.getByRole("button", { name: "Definir ícone" }));
@@ -58,8 +75,11 @@ describe("TaskQuickFields — ícone da série (feature 073)", () => {
     const file = new File(["conteudo"], "icone.png", { type: "image/png" });
     await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file);
 
-    expect(uploadTaskIcon).toHaveBeenCalledWith("origem", file);
-    expect(uploadTaskIcon).not.toHaveBeenCalledWith("ocorrencia-3", file);
+    // O arquivo vai para a biblioteca do usuário, não para a pasta de uma tarefa: o id da origem
+    // (e o da ocorrência) deixaram de participar do caminho.
+    expect(uploadIconAsset).toHaveBeenCalledWith({ file });
+    expect(vi.mocked(uploadIconAsset).mock.calls[0]).not.toContain("origem");
+    expect(vi.mocked(uploadIconAsset).mock.calls[0]).not.toContain("ocorrencia-3");
   });
 
   it("origem da série: o aviso também aparece (editar ali muda todas as ocorrências)", async () => {
@@ -97,9 +117,9 @@ describe("TaskQuickFields — ícone da série (feature 073)", () => {
     ).toBeInTheDocument();
   });
 
-  it("tarefa avulsa: sem aviso, e o upload usa o id dela mesma", async () => {
+  it("tarefa avulsa: sem aviso, e o upload continua funcionando", async () => {
     const user = userEvent.setup();
-    vi.mocked(uploadTaskIcon).mockResolvedValue("https://cdn.example.com/task-1.png");
+    vi.mocked(uploadIconAsset).mockResolvedValue(asset("https://cdn.example.com/task-1.png"));
     render(<IconOnly task={makeTask({ id: "task-1" })} />);
 
     await user.click(screen.getByRole("button", { name: "Definir ícone" }));
@@ -111,6 +131,6 @@ describe("TaskQuickFields — ícone da série (feature 073)", () => {
     const file = new File(["conteudo"], "icone.png", { type: "image/png" });
     await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file);
 
-    expect(uploadTaskIcon).toHaveBeenCalledWith("task-1", file);
+    expect(uploadIconAsset).toHaveBeenCalledWith({ file });
   });
 });

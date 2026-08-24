@@ -10,6 +10,7 @@ import {
   fetchProjects,
   fetchTags,
   fetchTasks,
+  saveExternalLinksForTask,
   updateTask,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
@@ -25,6 +26,10 @@ import type { Project, Tag, Task } from "@/types/tasks";
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchTasks: vi.fn(),
   fetchProjects: vi.fn(),
   fetchTags: vi.fn(),
@@ -34,7 +39,10 @@ vi.mock("@/api/tasks", () => ({
   deleteTask: vi.fn(),
   deleteTasks: vi.fn(),
   createTag: vi.fn(),
-  uploadTaskIcon: vi.fn(),
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   fetchEntriesForTask: vi.fn().mockResolvedValue([]),
   updateTimeEntry: vi.fn(),
   deleteTimeEntry: vi.fn(),
@@ -155,13 +163,17 @@ describe("TaskList — painel de tarefa salva todos os blocos (feature 080)", ()
     await user.click(panel.getByRole("button", { name: "Alta" }));
     await user.click(panel.getByRole("checkbox", { name: /Marco no Gantt/ }));
 
-    // Bloco 5 — tag e link externo.
+    // Bloco 5 — tag e a seção de links externos (feature 085: o campo único virou lista, e o link
+    // deixou de viajar no payload da tarefa).
     await user.click(panel.getByLabelText("Tags"));
     await user.click(await screen.findByText("casa"));
+    await user.click(panel.getByRole("button", { name: /Links externos/ }));
+    await user.click(panel.getByRole("button", { name: "Adicionar link" }));
     await user.type(
-      panel.getByLabelText(/Link externo/),
+      panel.getByLabelText("URL do link 1 de 1"),
       "https://github.com/owner/repo/issues/7"
     );
+    await user.type(panel.getByLabelText("Comentário do link 1 de 1"), "issue de origem");
 
     // Bloco 6 — subtarefa (rascunho, criada depois da tarefa-mãe).
     await user.click(panel.getByRole("button", { name: /Subtarefas/ }));
@@ -186,10 +198,18 @@ describe("TaskList — painel de tarefa salva todos os blocos (feature 080)", ()
         priority: "high",
         is_milestone: true,
         tag_ids: ["tag-1"],
-        external_url: "https://github.com/owner/repo/issues/7",
-        external_provider: "github",
       })
     );
+    // Feature 085: o link não vai mais no payload da tarefa — vai para `task_external_link`,
+    // **depois** do `createTask`, já com o id novo e com o comentário do usuário.
+    expect(mockedCreateTask.mock.calls[0][0]).not.toHaveProperty("external_url");
+    expect(saveExternalLinksForTask).toHaveBeenCalledWith("novo-1", [
+      {
+        url: "https://github.com/owner/repo/issues/7",
+        comment: "issue de origem",
+        position: 0,
+      },
+    ]);
     // A subtarefa rascunho vira uma segunda chamada, com o pai já criado.
     expect(mockedCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ parent_task_id: "novo-1", title: "Passo 1" })
@@ -226,7 +246,6 @@ describe("TaskList — painel de tarefa salva todos os blocos (feature 080)", ()
       priority: "low",
       is_milestone: true,
       tag_ids: ["tag-1"],
-      external_url: "https://github.com/owner/repo/issues/1",
     });
     await renderLoaded([task]);
 
@@ -256,10 +275,13 @@ describe("TaskList — painel de tarefa salva todos os blocos (feature 080)", ()
         estimated_duration: 30,
         is_milestone: true,
         tag_ids: ["tag-1"],
-        external_url: "https://github.com/owner/repo/issues/1",
         priority: "high",
       })
     );
+    // Feature 085: `external_url`/`external_provider` saíram do payload da tarefa — a coluna segue
+    // no banco como rede de segurança, mas nada mais escreve nela.
+    expect(mockedUpdateTask.mock.calls[0][0]).not.toHaveProperty("external_url");
+    expect(mockedUpdateTask.mock.calls[0][0]).not.toHaveProperty("external_provider");
   });
   it("criar (feature 083): título + atalho 'Hoje' chega no `createTask` como prazo de hoje", async () => {
     const user = userEvent.setup();

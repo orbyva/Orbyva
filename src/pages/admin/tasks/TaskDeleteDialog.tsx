@@ -160,13 +160,22 @@ export function TaskDeleteDialog({
               As doses já tomadas são o histórico de adesão do tratamento — por padrão elas ficam.
             </p>
           </div>
+          {/*
+            Ordem invertida na feature 096. Até então, "Encerrar o tratamento e apagar as doses
+            futuras" era o **primeiro** botão, de largura total e vermelho, enquanto "Apagar só esta
+            dose" era o terceiro, em contorno: a ação de maior alcance e irreversível (não havia
+            "Reativar" no app inteiro) estava vestida de opção recomendada, logo acima da de menor
+            alcance. É a explicação mais provável do tratamento que o usuário encontrou encerrado
+            sem ter posto limite. O escopo cresce de cima para baixo, e o vermelho fica só na
+            última — os rótulos não mudaram.
+          */}
           <AlertDialogFooter className="sm:flex-col sm:items-stretch sm:space-x-0 sm:space-y-2">
             <AlertDialogAction
-              onClick={() => run(() => onConfirmScoped?.({ mode: "end-treatment" }))}
+              onClick={() => run(onConfirm)}
               disabled={loading}
-              className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full"
             >
-              {endLabel} ({amount((c) => c.future)})
+              Apagar só esta dose
             </AlertDialogAction>
             <AlertDialogAction
               onClick={() => run(() => onConfirmScoped?.({ mode: "all-doses", includeCompleted }))}
@@ -176,11 +185,11 @@ export function TaskDeleteDialog({
               Apagar todas as doses deste tratamento ({amount((c) => c.all)})
             </AlertDialogAction>
             <AlertDialogAction
-              onClick={() => run(onConfirm)}
+              onClick={() => run(() => onConfirmScoped?.({ mode: "end-treatment" }))}
               disabled={loading}
-              className={cn(buttonVariants({ variant: "outline" }), "w-full text-foreground")}
+              className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Apagar só esta dose
+              {endLabel} ({amount((c) => c.future)})
             </AlertDialogAction>
             <AlertDialogCancel className="w-full">Cancelar</AlertDialogCancel>
           </AlertDialogFooter>

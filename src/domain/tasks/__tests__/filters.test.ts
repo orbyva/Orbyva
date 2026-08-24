@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_TASK_SORT_KEY,
+  PROJECT_FILTER_ALL,
+  PROJECT_FILTER_NONE,
   TASK_SORT_KEYS,
   TASK_SORT_LABELS,
   filterTasks,
+  isProjectFilterValue,
   isTaskSortKey,
+  normalizeProjectFilter,
   sortTasksBy,
   sortTasksByDueDate,
   sortTasksByUpdatedAtDesc,
@@ -185,5 +189,55 @@ describe("sortTasksBy", () => {
     expect(isTaskSortKey(null)).toBe(false);
     expect(isTaskSortKey(undefined)).toBe(false);
     expect(isTaskSortKey(1)).toBe(false);
+  });
+});
+
+/**
+ * Feature 097 — o filtro de projeto agora é uma preferência salva no navegador e compartilhada
+ * pelas quatro visões, então o valor lido pode estar velho: o projeto pode ter sido apagado desde
+ * a última sessão. Esta é a função que decide se ele ainda serve.
+ */
+describe("normalizeProjectFilter", () => {
+  const projectIds = ["p1", "p2"];
+
+  it('"all" e "null" passam mesmo sem projeto nenhum carregado', () => {
+    expect(normalizeProjectFilter(PROJECT_FILTER_ALL, [])).toBe("all");
+    expect(normalizeProjectFilter(PROJECT_FILTER_NONE, [])).toBe("null");
+    expect(normalizeProjectFilter("all", projectIds)).toBe("all");
+    expect(normalizeProjectFilter("null", projectIds)).toBe("null");
+  });
+
+  it("id presente na lista carregada passa", () => {
+    expect(normalizeProjectFilter("p1", projectIds)).toBe("p1");
+    expect(normalizeProjectFilter("p2", projectIds)).toBe("p2");
+  });
+
+  it("id ausente (projeto apagado) cai para «all»", () => {
+    expect(normalizeProjectFilter("p3", projectIds)).toBe("all");
+    // O caso que dói: a preferência foi salva quando o projeto existia.
+    expect(normalizeProjectFilter("p1", [])).toBe("all");
+  });
+
+  it("valor que não é string, ou string vazia, cai para «all»", () => {
+    expect(normalizeProjectFilter(null, projectIds)).toBe("all");
+    expect(normalizeProjectFilter(undefined, projectIds)).toBe("all");
+    expect(normalizeProjectFilter(1, projectIds)).toBe("all");
+    expect(normalizeProjectFilter("", projectIds)).toBe("all");
+    expect(normalizeProjectFilter({ id: "p1" }, projectIds)).toBe("all");
+  });
+
+  it("aceita qualquer iterável de ids (Set, não só array)", () => {
+    expect(normalizeProjectFilter("p1", new Set(projectIds))).toBe("p1");
+    expect(normalizeProjectFilter("p9", new Set(projectIds))).toBe("all");
+  });
+
+  it("isProjectFilterValue aceita só string não vazia", () => {
+    expect(isProjectFilterValue("all")).toBe(true);
+    expect(isProjectFilterValue("null")).toBe(true);
+    expect(isProjectFilterValue("p1")).toBe(true);
+    expect(isProjectFilterValue("")).toBe(false);
+    expect(isProjectFilterValue(null)).toBe(false);
+    expect(isProjectFilterValue(undefined)).toBe(false);
+    expect(isProjectFilterValue(7)).toBe(false);
   });
 });

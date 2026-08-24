@@ -134,6 +134,126 @@ describe("computeMissingDoses", () => {
   it("tratamento sem horário nenhum não gera dose", () => {
     expect(computeMissingDoses(medication({ times: [] }), [], "2026-08-17")).toEqual([]);
   });
+
+  // ---- feature 096: o horizonte do gerador -----------------------------------------------------
+  // O laço contava iterações a partir de `started_on`, e não datas até hoje. O alcance travava em
+  // `started_on + 399 x interval_days` **para sempre**: um tratamento diário começado há mais de
+  // 400 dias parava de materializar dose e nunca mais voltava, enquanto a agenda continuava
+  // desenhando a dose virtual pontilhada que nunca virava real.
+
+  /** `YYYY-MM-DD` de `dias` antes de `iso`, pela mesma conta de meio-dia local do módulo. */
+  function isoMinus(iso: string, dias: number): string {
+    const [year, month, day] = iso.split("-").map(Number);
+    const date = new Date(year!, month! - 1, day!, 12);
+    date.setDate(date.getDate() - dias);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+      date.getDate()
+    ).padStart(2, "0")}`;
+  }
+
+  it("tratamento diário começado há 500 dias ainda gera a dose de HOJE", () => {
+    const hoje = "2026-08-17";
+    const missing = computeMissingDoses(
+      medication({ started_on: isoMinus(hoje, 500) }),
+      [],
+      hoje
+    );
+
+    // A regressão: antes, a última data alcançável era `started_on + 399`, ou seja 101 dias atrás.
+    expect(missing.at(-1)).toEqual({ date: hoje, time: "08:00" });
+    expect(missing.some((slot) => slot.date === hoje)).toBe(true);
+  });
+
+  it("a janela é ancorada no fim: cobre os últimos 400 dias e não o começo esquecido", () => {
+    const hoje = "2026-08-17";
+    const missing = computeMissingDoses(
+      medication({ started_on: isoMinus(hoje, 500) }),
+      [],
+      hoje
+    );
+
+    // 400 datas de cadência x 1 horário. A trava não é atingida: se fosse, a lista pararia antes
+    // de hoje — e a primeira data é a do início da janela, não a do início do tratamento.
+    expect(missing).toHaveLength(400);
+    expect(missing[0]).toEqual({ date: isoMinus(hoje, 399), time: "08:00" });
+  });
+
+  it("com interval_days = 3 e 2 anos de tratamento, a dose cai no dia certo da cadência", () => {
+    const hoje = "2026-08-17";
+    // 732 dias = 244 x 3: o início é dia de dose, então hoje também é.
+    const missing = computeMissingDoses(
+      medication({ started_on: isoMinus(hoje, 732), interval_days: 3 }),
+      [],
+      hoje
+    );
+
+    expect(missing.at(-1)).toEqual({ date: hoje, time: "08:00" });
+    // A cadência continua ancorada no início: nada de dose de véspera.
+    for (const slot of missing) {
+      const dias = Math.round(
+        (new Date(`${slot.date}T12:00:00`).getTime() -
+          new Date(`${isoMinus(hoje, 732)}T12:00:00`).getTime()) /
+          86_400_000
+      );
+      expect(dias % 3).toBe(0);
+    }
+  });
+
+  it("um dia fora da cadência não vira dose num tratamento antigo", () => {
+    const hoje = "2026-08-17";
+    // 731 não é múltiplo de 3 (729 é): hoje **não** é dia de dose, e a última caiu anteontem.
+    const missing = computeMissingDoses(
+      medication({ started_on: isoMinus(hoje, 731), interval_days: 3 }),
+      [],
+      hoje
+    );
+
+    expect(missing.at(-1)).toEqual({ date: isoMinus(hoje, 2), time: "08:00" });
+    expect(missing.some((slot) => slot.date === hoje)).toBe(false);
+    expect(missing.some((slot) => slot.date === isoMinus(hoje, 1))).toBe(false);
+  });
+
+  it("tratamento antigo com todas as doses da janela já materializadas devolve lista vazia", () => {
+    const hoje = "2026-08-17";
+    const med = medication({ started_on: isoMinus(hoje, 500) });
+    const materialized = computeMissingDoses(med, [], hoje).map((slot) => ({
+      due_date: slot.date,
+      dose_time: `${slot.time}:00`,
+    }));
+
+    // Idempotência num tratamento além do alcance antigo: nada de estourar nem de recriar.
+    expect(computeMissingDoses(med, materialized, hoje)).toEqual([]);
+  });
+
+  it("tratamento antigo já encerrado: a janela é ancorada no fim programado, não em hoje", () => {
+    const hoje = "2026-08-17";
+    const missing = computeMissingDoses(
+      medication({ started_on: isoMinus(hoje, 900), ended_on: isoMinus(hoje, 300) }),
+      [],
+      hoje
+    );
+
+    // 600 dias de tratamento, janela de 400: termina no `ended_on` e começa 399 dias antes dele.
+    expect(missing).toHaveLength(400);
+    expect(missing.at(-1)).toEqual({ date: isoMinus(hoje, 300), time: "08:00" });
+    expect(missing[0]).toEqual({ date: isoMinus(hoje, 699), time: "08:00" });
+  });
+
+  it("tratamento curto continua começando no primeiro dia, sem janela nenhuma", () => {
+    const hoje = "2026-08-17";
+    const missing = computeMissingDoses(
+      medication({ started_on: isoMinus(hoje, 2) }),
+      [],
+      hoje
+    );
+
+    // O caminho comum não muda: três dias, três doses, a partir do início.
+    expect(missing).toEqual([
+      { date: isoMinus(hoje, 2), time: "08:00" },
+      { date: isoMinus(hoje, 1), time: "08:00" },
+      { date: hoje, time: "08:00" },
+    ]);
+  });
 });
 
 describe("computeVirtualDoses", () => {

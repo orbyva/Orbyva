@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { AgendaGrid } from "@/pages/admin/tasks/AgendaGrid";
@@ -11,10 +11,13 @@ import {
   fetchProjects,
   fetchTags,
   fetchTasks,
+  fetchExternalLinksForTask,
+  saveExternalLinksForTask,
   updateTask,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
-import type { Project, Tag, Task } from "@/types/tasks";
+import { TASK_PROJECT_FILTER_STORAGE_KEY } from "@/lib/taskProjectFilterPreference";
+import type { Project, ProjectEvent, Tag, Task } from "@/types/tasks";
 
 /**
  * Cobre a feature 034 no nível de wiring: prova que só as visões Semana/Dia passaram a usar
@@ -34,6 +37,10 @@ import type { Project, Tag, Task } from "@/types/tasks";
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchTasks: vi.fn(),
   fetchProjects: vi.fn(),
   fetchProjectEvents: vi.fn(),
@@ -47,6 +54,12 @@ vi.mock("@/api/tasks", () => ({
 
 vi.mock("@/api/recurring", () => ({
   fetchRecurringTransactions: vi.fn(),
+}));
+
+vi.mock("@/api/health/medications", () => ({
+  fetchMedications: vi.fn(async () => []),
+  endMedicationAndDeleteFutureDoses: vi.fn(),
+  EndMedicationError: class extends Error {},
 }));
 
 vi.mock("@/hooks/useDimensions", () => ({
@@ -114,6 +127,7 @@ async function renderLoaded() {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   mockedFetchTasks.mockReset();
   mockedFetchProjects.mockReset();
   mockedFetchProjectEvents.mockReset();
@@ -359,5 +373,225 @@ describe("AgendaGrid — subtarefas com prazo próprio aparecem na Agenda (featu
       within(screen.getByRole("dialog")).queryByRole("button", { name: /Subtarefas/ })
     ).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Adicionar subtarefa")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Feature 085 — a Agenda é o **terceiro** dono do formulário completo, e edita tarefas que já
+ * existem. A decisão registrada na feature foi fiar a seção de links igual às outras duas telas, em
+ * vez de passá-la desabilitada: uma seção que abrisse vazia numa tarefa com links (e perdesse a
+ * edição no salvar) seria pior do que não existir. O que continua fora de escopo é o **chip** nos
+ * itens da agenda — nem ela nem o Gantt mostram chip de link.
+ */
+describe("AgendaGrid — seção de links externos fiada como nas outras telas (feature 085)", () => {
+  it("abrir a tarefa carrega os links dela e mostra na seção", async () => {
+    const user = userEvent.setup();
+    const task = makeTask({ id: "task-1", title: "Tarefa da agenda" });
+    mockedFetchTasks.mockResolvedValue([task]);
+    mockedFetchProjects.mockResolvedValue([]);
+    mockedFetchProjectEvents.mockResolvedValue([]);
+    vi.mocked(fetchExternalLinksForTask).mockResolvedValue([
+      {
+        id: "l1",
+        task_id: "task-1",
+        url: "https://github.com/owner/repo/issues/5",
+        comment: "issue de origem",
+        position: 0,
+      },
+    ]);
+
+    await renderLoaded();
+    await user.click(screen.getByText("Tarefa da agenda"));
+
+    expect(fetchExternalLinksForTask).toHaveBeenCalledWith("task-1");
+    const dialog = within(screen.getByRole("dialog"));
+    await user.click(await dialog.findByRole("button", { name: /Links externos/ }));
+    expect(dialog.getByLabelText("URL do link 1 de 1")).toHaveValue(
+      "https://github.com/owner/repo/issues/5"
+    );
+    expect(dialog.getByLabelText("Comentário do link 1 de 1")).toHaveValue("issue de origem");
+  });
+
+  it("salvar pela Agenda grava a lista de links junto com a tarefa", async () => {
+    const user = userEvent.setup();
+    const task = makeTask({ id: "task-1", title: "Tarefa da agenda" });
+    mockedFetchTasks.mockResolvedValue([task]);
+    mockedFetchProjects.mockResolvedValue([]);
+    mockedFetchProjectEvents.mockResolvedValue([]);
+    vi.mocked(fetchExternalLinksForTask).mockResolvedValue([]);
+
+    await renderLoaded();
+    await user.click(screen.getByText("Tarefa da agenda"));
+
+    const dialog = within(screen.getByRole("dialog"));
+    await user.click(await dialog.findByRole("button", { name: /Links externos/ }));
+    await user.click(dialog.getByRole("button", { name: "Adicionar link" }));
+    await user.type(dialog.getByLabelText("URL do link 1 de 1"), "https://a.com");
+    await user.type(dialog.getByLabelText("Comentário do link 1 de 1"), "anotação");
+
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    expect(saveExternalLinksForTask).toHaveBeenCalledWith("task-1", [
+      { url: "https://a.com", comment: "anotação", position: 0 },
+    ]);
+  });
+});
+
+/**
+ * Feature 097 — a Agenda deixou de ter um filtro de projeto próprio e concorrente. Dentro do
+ * `TaskList` ela é **controlada** (o recorte vem da barra de cima, que agora aparece também nesta
+ * aba, e o `<Select>` interno não é desenhado); na rota standalone `/tasks/agenda` ela continua
+ * dona do próprio, só que lendo e gravando a mesma preferência do navegador.
+ *
+ * O último teste do bloco é a consequência que as Decisões assumiram por escrito: com um projeto
+ * selecionado, a dose de medicação some da Agenda, porque ela nasce sem `project_id`. Está aqui
+ * para ser uma escolha visível, e não uma regressão silenciosa descoberta pelo usuário.
+ */
+describe("AgendaGrid — filtro de projeto compartilhado (feature 097)", () => {
+  const ALPHA = makeProject({ id: "p-alpha", name: "Alpha" });
+  /** Dias 10 e 20 do mês em foco (o mês local de hoje, que é o que a grade abre): existem em
+   * qualquer mês e estão sempre na grade. Tarefas e eventos ficam em dias **diferentes** porque a
+   * célula do mês só desenha 3 chips e esconde o resto atrás de "+N mais". */
+  const MES = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const DIA_TAREFAS = `${MES}-10`;
+  const DIA_EVENTOS = `${MES}-20`;
+
+  const DO_ALPHA = "Tarefa do Alpha";
+  const SEM_PROJETO = "Tarefa sem projeto";
+  const EVENTO_DO_ALPHA = "Reunião do Alpha";
+  const EVENTO_SEM_PROJETO = "Convite recebido";
+  const DOSE = "Losartana 2 comprimidos";
+
+  function seed() {
+    mockedFetchProjects.mockResolvedValue([ALPHA]);
+    mockedFetchTasks.mockResolvedValue([
+      makeTask({ id: "t-alpha", title: DO_ALPHA, project_id: ALPHA.id, due_date: DIA_TAREFAS }),
+      makeTask({ id: "t-sem", title: SEM_PROJETO, due_date: DIA_TAREFAS }),
+      // Dose já materializada (features 064/071): tarefa pontual, sempre sem projeto.
+      makeTask({
+        id: "dose-1",
+        title: DOSE,
+        due_date: DIA_TAREFAS,
+        due_time: "08:00",
+        dose_time: "08:00",
+        is_quick: true,
+        is_medication: true,
+        medication_id: "med-1",
+      }),
+    ]);
+    mockedFetchProjectEvents.mockResolvedValue([
+      {
+        id: "ev-1",
+        project_id: ALPHA.id,
+        title: EVENTO_DO_ALPHA,
+        starts_at: `${DIA_EVENTOS}T10:00:00`,
+      },
+      // Evento sem projeto: a cópia recebida por convite (feature 076).
+      {
+        id: "ev-2",
+        project_id: null,
+        title: EVENTO_SEM_PROJETO,
+        starts_at: `${DIA_EVENTOS}T11:00:00`,
+      },
+    ] satisfies ProjectEvent[]);
+  }
+
+  /** O que a grade está desenhando agora — chips de tarefa/evento pelo texto, e a dose pela
+   * bolinha (tarefa pontual não escreve o título na célula). */
+  function naTela(): string[] {
+    const nomes = [DO_ALPHA, SEM_PROJETO, EVENTO_DO_ALPHA, EVENTO_SEM_PROJETO].filter(
+      (texto) => screen.queryAllByText(texto).length > 0
+    );
+    if (screen.queryAllByRole("button", { name: new RegExp(DOSE) }).length > 0) nomes.push(DOSE);
+    return nomes;
+  }
+
+  async function renderAgenda(props: Parameters<typeof AgendaGrid>[0] = {}) {
+    const utils = render(
+      <MemoryRouter>
+        <AgendaGrid {...props} />
+      </MemoryRouter>
+    );
+    await screen.findByText("Dom");
+    return utils;
+  }
+
+  it("controlada, obedece à prop e não desenha um segundo seletor de projeto", async () => {
+    seed();
+    const onChange = vi.fn();
+    await renderAgenda({ projectFilter: ALPHA.id, onProjectFilterChange: onChange });
+
+    expect(naTela()).toEqual([DO_ALPHA, EVENTO_DO_ALPHA]);
+    // Quem desenha o controle é a barra de cima do `TaskList`.
+    expect(screen.queryByRole("combobox", { name: "Projeto" })).toBeNull();
+    // E ela não guarda estado próprio: nada de preferência gravada por conta dela.
+    expect(localStorage.getItem(TASK_PROJECT_FILTER_STORAGE_KEY)).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("controlada, trocar a prop troca o recorte — o estado é de fora", async () => {
+    seed();
+    const { rerender } = await renderAgenda({ projectFilter: ALPHA.id });
+    expect(naTela()).toEqual([DO_ALPHA, EVENTO_DO_ALPHA]);
+
+    rerender(
+      <MemoryRouter>
+        <AgendaGrid projectFilter="all" />
+      </MemoryRouter>
+    );
+
+    expect(naTela()).toEqual([DO_ALPHA, SEM_PROJETO, EVENTO_DO_ALPHA, EVENTO_SEM_PROJETO, DOSE]);
+  });
+
+  it("«Sem projeto» mostra tarefa e evento sem projeto, e esconde os do projeto", async () => {
+    seed();
+    await renderAgenda({ projectFilter: "null" });
+
+    expect(naTela()).toEqual([SEM_PROJETO, EVENTO_SEM_PROJETO, DOSE]);
+  });
+
+  it("com um projeto selecionado, a dose de medicação some — consequência assumida nas Decisões", async () => {
+    seed();
+    await renderAgenda({ projectFilter: ALPHA.id });
+
+    expect(screen.queryByRole("button", { name: new RegExp(DOSE) })).toBeNull();
+    expect(naTela()).not.toContain(DOSE);
+  });
+
+  it("não controlada (rota standalone), lê a preferência salva no navegador", async () => {
+    seed();
+    localStorage.setItem(TASK_PROJECT_FILTER_STORAGE_KEY, ALPHA.id);
+
+    await renderAgenda();
+
+    expect(naTela()).toEqual([DO_ALPHA, EVENTO_DO_ALPHA]);
+    expect(screen.getByRole("combobox", { name: "Projeto" })).toHaveTextContent("Alpha");
+  });
+
+  it("não controlada, escolher no `<Select>` grava a preferência e avisa quem estiver ouvindo", async () => {
+    seed();
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    await renderAgenda({ onProjectFilterChange: onChange });
+
+    // "Sem projeto" é a opção que a Agenda não tinha antes desta feature.
+    await user.click(screen.getByRole("combobox", { name: "Projeto" }));
+    await user.click(await screen.findByRole("option", { name: "Sem projeto" }));
+
+    expect(localStorage.getItem(TASK_PROJECT_FILTER_STORAGE_KEY)).toBe("null");
+    expect(onChange).toHaveBeenCalledWith("null");
+    expect(naTela()).toEqual([SEM_PROJETO, EVENTO_SEM_PROJETO, DOSE]);
+  });
+
+  it("não controlada, id de projeto apagado cai para «Todos os projetos» e reescreve a chave", async () => {
+    seed();
+    localStorage.setItem(TASK_PROJECT_FILTER_STORAGE_KEY, "p-apagado");
+
+    await renderAgenda();
+
+    await waitFor(() =>
+      expect(localStorage.getItem(TASK_PROJECT_FILTER_STORAGE_KEY)).toBe("all")
+    );
+    expect(naTela()).toEqual([DO_ALPHA, SEM_PROJETO, EVENTO_DO_ALPHA, EVENTO_SEM_PROJETO, DOSE]);
   });
 });

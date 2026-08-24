@@ -42,8 +42,6 @@ describe("emptyTask", () => {
       priority: null,
       recurrence_rule: null,
       linked_recurring_id: null,
-      external_url: null,
-      external_provider: null,
       icon_key: null,
       icon_url: null,
       is_milestone: false,

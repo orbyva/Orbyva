@@ -132,7 +132,8 @@ describe("MedicationQuickCreateDialog", () => {
     await user.type(screen.getByLabelText(/Quantidade/), "2");
     await user.type(screen.getByLabelText(/Unidade/), "comprimidos");
     await user.type(screen.getByLabelText(/Instruções/), "em jejum");
-    await user.type(screen.getByLabelText(/Término/), "2026-08-24");
+    await user.click(screen.getByRole("radio", { name: "Termina em" }));
+    await user.type(screen.getByLabelText("Data de término"), "2026-08-24");
     await user.click(screen.getByRole("button", { name: "Criar" }));
 
     expect(mockedCreate).toHaveBeenCalledWith(
@@ -165,6 +166,117 @@ describe("MedicationQuickCreateDialog", () => {
 
     expect(mockedCreate).toHaveBeenCalledWith(
       expect.objectContaining({ interval_days: 3 })
+    );
+  });
+
+  // ---- feature 096: "sem limite" deixa de ser um campo vazio e vira um estado afirmativo -------
+
+  it("'Uso contínuo' vem pré-selecionado e o campo de data nem existe", async () => {
+    render(
+      <MedicationQuickCreateDialog open onOpenChange={() => {}} onCreated={() => {}} />
+    );
+
+    expect(screen.getByRole("radio", { name: "Uso contínuo" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Termina em" })).not.toBeChecked();
+    expect(screen.queryByLabelText("Data de término")).toBeNull();
+  });
+
+  it("criar com 'Uso contínuo' manda ended_on: null", async () => {
+    const user = userEvent.setup();
+    mockedCreate.mockResolvedValue({ id: "med-1" } as Medication);
+    render(
+      <MedicationQuickCreateDialog open onOpenChange={() => {}} onCreated={() => {}} />
+    );
+
+    await user.type(screen.getByLabelText(/Nome do remédio/), "Losartana");
+    await user.type(screen.getByLabelText("Horário 1"), "08:00");
+    await user.click(screen.getByRole("button", { name: "Criar" }));
+
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ ended_on: null })
+    );
+  });
+
+  it("alternar de 'Termina em' para 'Uso contínuo' limpa a data no payload", async () => {
+    const user = userEvent.setup();
+    mockedCreate.mockResolvedValue({ id: "med-1" } as Medication);
+    render(
+      <MedicationQuickCreateDialog open onOpenChange={() => {}} onCreated={() => {}} />
+    );
+
+    await user.type(screen.getByLabelText(/Nome do remédio/), "Amoxicilina");
+    await user.type(screen.getByLabelText("Horário 1"), "09:30");
+    await user.click(screen.getByRole("radio", { name: "Termina em" }));
+    await user.type(screen.getByLabelText("Data de término"), "2026-08-24");
+
+    await user.click(screen.getByRole("radio", { name: "Uso contínuo" }));
+    // O campo some junto com a escolha — não fica uma data escondida contando outra história.
+    expect(screen.queryByLabelText("Data de término")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Criar" }));
+
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ ended_on: null })
+    );
+  });
+
+  it("'Termina em' sem data não salva e mostra o erro no campo", async () => {
+    const user = userEvent.setup();
+    render(
+      <MedicationQuickCreateDialog open onOpenChange={() => {}} onCreated={() => {}} />
+    );
+
+    await user.type(screen.getByLabelText(/Nome do remédio/), "Amoxicilina");
+    await user.type(screen.getByLabelText("Horário 1"), "09:30");
+    await user.click(screen.getByRole("radio", { name: "Termina em" }));
+    await user.click(screen.getByRole("button", { name: "Criar" }));
+
+    expect(mockedCreate).not.toHaveBeenCalled();
+    // A mensagem diz o que fazer, e é anunciada — nada de `alert()`.
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Escolha a data de término ou marque “Uso contínuo”."
+    );
+    expect(screen.getByLabelText("Data de término")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("término anterior ao início é barrado com mensagem própria", async () => {
+    const user = userEvent.setup();
+    render(
+      <MedicationQuickCreateDialog open onOpenChange={() => {}} onCreated={() => {}} />
+    );
+
+    await user.type(screen.getByLabelText(/Nome do remédio/), "Amoxicilina");
+    await user.type(screen.getByLabelText("Horário 1"), "09:30");
+    await user.click(screen.getByRole("radio", { name: "Termina em" }));
+    // Início é hoje (17/08) por padrão.
+    await user.type(screen.getByLabelText("Data de término"), "2026-08-10");
+    await user.click(screen.getByRole("button", { name: "Criar" }));
+
+    expect(mockedCreate).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "O término precisa ser igual ou posterior ao início."
+    );
+  });
+
+  it("corrigir a data faz o erro sumir e o tratamento salvar", async () => {
+    const user = userEvent.setup();
+    mockedCreate.mockResolvedValue({ id: "med-1" } as Medication);
+    render(
+      <MedicationQuickCreateDialog open onOpenChange={() => {}} onCreated={() => {}} />
+    );
+
+    await user.type(screen.getByLabelText(/Nome do remédio/), "Amoxicilina");
+    await user.type(screen.getByLabelText("Horário 1"), "09:30");
+    await user.click(screen.getByRole("radio", { name: "Termina em" }));
+    await user.click(screen.getByRole("button", { name: "Criar" }));
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Data de término"), "2026-08-24");
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Criar" }));
+    expect(mockedCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ ended_on: "2026-08-24" })
     );
   });
 
@@ -218,6 +330,42 @@ describe("MedicationQuickCreateDialog — modo edição", () => {
     expect(screen.getByLabelText("Horário 2")).toHaveValue("20:00");
     expect(screen.getByLabelText(/A cada quantos dias/)).toHaveValue(3);
     expect(screen.getByLabelText(/Início/)).toHaveValue("2026-08-10");
+    // Sem `ended_on`, o tratamento abre afirmando que é contínuo (feature 096).
+    expect(screen.getByRole("radio", { name: "Uso contínuo" })).toBeChecked();
+  });
+
+  it("tratamento com término abre em 'Termina em', com a data preenchida", () => {
+    render(
+      <MedicationQuickCreateDialog
+        open
+        onOpenChange={() => {}}
+        onCreated={() => {}}
+        medication={{ ...existing, ended_on: "2026-08-25" }}
+      />
+    );
+
+    expect(screen.getByRole("radio", { name: "Termina em" })).toBeChecked();
+    expect(screen.getByLabelText("Data de término")).toHaveValue("2026-08-25");
+  });
+
+  it("tirar o término de um tratamento existente manda ended_on: null", async () => {
+    const user = userEvent.setup();
+    mockedUpdate.mockResolvedValue(undefined);
+    render(
+      <MedicationQuickCreateDialog
+        open
+        onOpenChange={() => {}}
+        onCreated={() => {}}
+        medication={{ ...existing, ended_on: "2026-08-25" }}
+      />
+    );
+
+    await user.click(screen.getByRole("radio", { name: "Uso contínuo" }));
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "med-1", ended_on: null })
+    );
   });
 
   it("salvar chama updateMedication com o id, não cria outro tratamento", async () => {

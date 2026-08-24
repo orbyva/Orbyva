@@ -60,6 +60,10 @@ vi.mock("@/api/health", () => ({
 // O dialog de consulta (feature 061) grava por `createTask` — o falso escreve na mesma lista que
 // o resumo lê, então o que a tela mostra depois vem mesmo do que foi salvo.
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   createTask: vi.fn(async (draft: TaskCreateRequest) => {
     const created = { ...draft, id: `t${++store.seq}` } as Task;
     store.tasks.push(created);

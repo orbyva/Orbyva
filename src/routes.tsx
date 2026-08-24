@@ -48,6 +48,7 @@ const TaskProjectDetail = lazy(() => import("./pages/admin/tasks/ProjectDetail")
 const TasksLive = lazy(() => import("./pages/admin/tasks/Live"));
 const TasksAgenda = lazy(() => import("./pages/admin/tasks/AgendaCalendar"));
 const TasksTags = lazy(() => import("./pages/admin/tasks/Tags"));
+const TasksLinkIcons = lazy(() => import("./pages/admin/tasks/LinkIconRules"));
 const ShoppingList = lazy(() => import("./pages/admin/shopping/ShoppingList"));
 const Notes = lazy(() => import("./pages/admin/notes/Notes"));
 const NoteDetail = lazy(() => import("./pages/admin/notes/NoteDetail"));
@@ -170,6 +171,10 @@ export const appRoutes: RouteObject[] = [
               { path: "live", element: <TasksLive /> },
               { path: "agenda", element: <TasksAgenda /> },
               { path: "tags", element: <TasksTags /> },
+              // Fora da sidebar, como `/tasks/tags`: é configuração do módulo, alcançada pelo
+              // botão "Configurar ícones" da seção de links do formulário e pelo cabeçalho de
+              // `/tasks/tags` (feature 087).
+              { path: "link-icons", element: <TasksLinkIcons /> },
             ],
           },
 

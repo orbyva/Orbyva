@@ -26,7 +26,7 @@ import { MathBlock } from "@/components/markdown/MathBlock";
  *
  * **O que o renderer recebe é texto do usuário.** Quem produz HTML/SVG a partir dele é responsável
  * pela sanitização — o `MarkdownPreview` não tem `rehype-raw` de propósito (decisão da 055) e um
- * plugin não pode ser o buraco por onde HTML cru volta. Ver `sanitizeSvg.ts`, que é a rede que o
+ * plugin não pode ser o buraco por onde HTML cru volta. Ver `src/lib/sanitizeSvg.ts`, que é a rede que o
  * `MermaidBlock` usa antes de deixar um SVG entrar na página.
  *
  * O outro ponto de extensão é o *parser*, não o render: `remarkPlugins.ts`.

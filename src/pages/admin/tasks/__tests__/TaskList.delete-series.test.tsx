@@ -37,6 +37,10 @@ import type { Project, Task } from "@/types/tasks";
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchTasks: vi.fn(),
   fetchProjects: vi.fn(),
   fetchProjectById: vi.fn(),
@@ -50,7 +54,10 @@ vi.mock("@/api/tasks", () => ({
   deleteTaskSeries: vi.fn(),
   countTaskSeries: vi.fn(),
   createTag: vi.fn(),
-  uploadTaskIcon: vi.fn(),
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   updateProject: vi.fn(),
   createProjectEvent: vi.fn(),
   deleteProjectEvent: vi.fn(),

@@ -21,6 +21,39 @@ O usuário pediu que consultas "virem eventos no calendário geral". O app tem d
 - **Especialista vai no `title`, local e preparo vão na `description`.** O `title` é o único campo que o calendário renderiza na célula do dia, então "Cardiologista — Dr. Silva" é o que precisa estar visível; abrir a tarefa mostra o resto. Sem coluna nova: uma coluna `specialist` em `task` só faria sentido para uma fração das linhas da tabela.
 - **Sem RLS nova**: `task` já tem as políticas por `user_id = auth.uid()`, e a flag não muda isso.
 
+### Decisões do pedido de 2026-08-23 (recorrência semanal)
+
+- **Nada de mecanismo novo de repetição: só a UI limitava.** O único motivo de uma consulta não poder
+  ser semanal é `type RepeatOption = "once" | "monthly"` em
+  `ConsultationQuickCreateDialog.tsx:19`. O resto do caminho já é agnóstico de frequência:
+  `RecurrenceRule.frequency` aceita `"weekly"` (`src/types/tasks.ts:104`),
+  `computeMissingOccurrences` tem os dois ramos semanais (`src/domain/tasks/recurrence.ts:176-182`),
+  `materializeRecurringInstances` copia `is_consultation` e o `time` da regra para cada ocorrência
+  (`src/api/tasks/tasks.ts:75-79`) e `computeVirtualOccurrences` não olha a frequência. **Nenhuma
+  migration, nenhum código de domínio novo.**
+- **Semanal com dias da semana, reusando o que a recorrência já expõe.** A regra sai como
+  `{ frequency: "weekly", interval, time, weekdays? }`. Com nenhum dia marcado, repete no mesmo dia
+  da semana da data da consulta a cada N semanas (`recurrence.ts:8-9`); com dias marcados, usa
+  `computeMissingWeekdayOccurrences` (`:37-72`). Sem os dias, "fisioterapia segunda, quarta e sexta"
+  — o caso semanal mais comum em consulta — exigiria três séries separadas. Os rótulos vêm de
+  `WEEKDAY_LABELS` (`recurrence.ts:296`) e a dica é a mesma frase que `TaskRecurrenceRules.tsx:185`
+  já usa, para não haver duas explicações do mesmo comportamento no app.
+- **A repetição ganha "Termina em", e isso vale também para a mensal que já existia.** Hoje o atalho
+  não oferece fim nenhum: uma consulta mensal criada por ele repete para sempre. Semanal multiplica
+  isso por quatro e materializa uma `task` por semana desde a data inicial até hoje. O campo é
+  opcional (`until` da regra), com "Sem fim" como padrão — mudança pequena que impede a feature nova
+  de piorar um problema que já estava lá.
+  - **Descartado — "depois de N ocorrências" (`count`)**: existe na regra e no formulário completo
+    (`useTaskRecurrenceEditor.ts:16`), mas o atalho vive de ter poucos campos, e "até tal data" é
+    como consulta de retorno costuma ser combinada. Quem precisa de `count` abre a tarefa no
+    formulário completo, que já oferece.
+- **O rótulo do intervalo passa a depender da unidade** ("A cada quantas semanas" / "A cada quantos
+  meses"), em vez de um campo fixo em meses — sem isso o campo mente na opção nova.
+- **Uma ocorrência por dia por série continua sendo o teto**, por causa do índice único
+  `task_recurrence_occurrence_unique_idx` (`20260820100000_task_dedupe_doses_e_ocorrencias.sql:90`).
+  Duas consultas no mesmo dia da mesma série não existem — o que é o comportamento certo aqui, mas
+  fica registrado porque é uma restrição de banco, não de tela.
+
 ## Tarefas
 - [x] Criar a migration `supabase/migrations/20260816190000_task_consultation.sql` adicionando `is_consultation boolean not null default false` em `public.task` — espelhando `20260816120000_task_medication.sql`, que adiciona `is_medication` — + harness `supabase/tests/task_consultation/` validando em Postgres 16 descartável
 - [x] Adicionar `is_consultation?: boolean` ao tipo `Task` em `src/types/tasks.ts`
@@ -45,7 +78,89 @@ O usuário pediu que consultas "virem eventos no calendário geral". O app tem d
       registrado em `## Notas` como pendência explícita do usuário, com o SQL e os passos exatos.
       Nenhum deles está sendo dado como passado.
 
+### Tarefas do pedido de 2026-08-23 (recorrência semanal)
+
+- [x] `ConsultationQuickCreateDialog.tsx`: `type RepeatOption` ganha `"weekly"`, o `<Select>` de
+      Repetição ganha `<SelectItem value="weekly">Repetir a cada X semanas</SelectItem>`, e o campo
+      de intervalo (hoje `monthsInterval`, `:167-180`) passa a ser um `intervalValue` só, com o
+      rótulo variando por unidade ("A cada quantas semanas" / "A cada quantos meses"). Verificação:
+      `npm run build && npm run lint` — build limpo, lint 0 erros. Além disso (a skill `next` exige
+      assertiva de comportamento, não só compilação): caso novo "repetição semanal troca o rótulo do
+      intervalo e monta uma regra weekly" em `ConsultationQuickCreateDialog.test.tsx`, 6/6 passando
+- [x] No mesmo arquivo: linha de dias da semana, visível só com `repeat === "weekly"`, com os sete
+      botões alternáveis de `WEEKDAY_LABELS` (`src/domain/tasks/recurrence.ts:296`) e a dica
+      "Nenhum dia marcado repete no mesmo dia da semana do prazo, a cada intervalo", copiada de
+      `TaskRecurrenceRules.tsx:185`. Cada botão com `aria-pressed` e `aria-label` do dia por extenso
+      (`WEEKDAY_NAMES_SHORT` não serve de nome acessível sozinho). Verificação:
+      `npm run build && npm run lint` — limpos. Assertiva de comportamento: caso "dias da semana
+      marcados viram `weekdays` ordenado" (7/7 no arquivo), que confere a linha só na semanal, os 7
+      botões, `aria-pressed`, o nome acessível por extenso e a dica na tela. `TaskRecurrenceDialog` +
+      `TaskFormFields` (56) seguem passando depois da extração da dica para `WEEKDAYS_EMPTY_HINT`
+- [x] No mesmo arquivo: campo "Termina em" (`<input type="date">`, opcional, rótulo `FormLabel
+      optional`), visível quando `repeat !== "once"`, alimentando `until` na regra — vale para
+      semanal **e** para a mensal que já existia. Verificação: `npm run build && npm run lint` —
+      limpos. Assertiva: caso "«Termina em» vira `until` na regra — vale também para a repetição
+      mensal" (8/8 no arquivo), que também confere que o campo não existe na consulta única
+- [x] `handleSave` monta a regra pelas três opções: `once` → `recurrence_rule: null`; `weekly` →
+      `{ frequency: "weekly", interval, time: dueTime || null, ...(weekdays.length ? { weekdays } :
+      {}), ...(endsOn ? { until: endsOn } : {}) }`; `monthly` → o objeto de hoje mais o `until`.
+      O intervalo passa por `Math.max(1, parseInt(...) || 1)`, como já faz em `:65`. Verificação:
+      `npm run build && npm run lint` — limpos. Assertiva: caso "semanal completa: dias + término na
+      mesma regra, e intervalo inválido vira 1" (9/9 no arquivo) fecha a semanal com tudo junto; as
+      outras duas opções já estavam cobertas (`once` → `null` no caso da consulta única, `monthly`
+      no caso `:99-118` intacto)
+- [x] Bordas e estados do dialog, que o pedido não menciona e a tela exige: "Termina em" anterior à
+      data da consulta é barrado com mensagem `role="alert"` no campo (série vazia é pior que erro);
+      trocar de `weekly` para `once` limpa dias e término do payload; reabrir o dialog depois de
+      salvar volta ao padrão (`once`, sem dias, sem término); o botão de salvar continua desabilitado
+      sem especialidade ou sem data, como hoje. Verificação: `npm run build && npm run lint` —
+      limpos. Assertivas: 3 casos novos (`término anterior à data da consulta é barrado…`, `voltar de
+      semanal para consulta única limpa dias e término`, `depois de agendar, o formulário volta ao
+      padrão…`), 12/12 no arquivo; o botão desabilitado já era o primeiro caso do arquivo
+- [x] Estender `src/pages/admin/tasks/__tests__/ConsultationQuickCreateDialog.test.tsx`: semanal sem
+      dias marcados monta `{ frequency: "weekly", interval: 2, time: "08:00" }`; semanal com terça e
+      quinta acrescenta `weekdays: [2, 4]` ordenado; "Termina em" vira `until` na regra **também** no
+      caso mensal; o caso mensal existente (`:99-118`) continua passando sem alteração; conferir se
+      o `screen.getByRole("combobox")` de `:107` ainda resolve para um só elemento e, se não,
+      qualificar por nome. Verificação: `npm test src/pages/admin/tasks` — **52 arquivos / 529 testes
+      / 0 falhas**. O arquivo foi de 5 para 12 casos; os 5 antigos seguem byte a byte como estavam, e
+      o `getByRole("combobox")` sem nome continua resolvendo sozinho (só há um `combobox` no dialog —
+      o `<SelectTrigger>` ganhou `aria-label="Repetição"` para os casos novos poderem qualificar)
+- [x] Estender `src/domain/tasks/__tests__/consultation.test.ts` com um `describe` semanal, no molde
+      do mensal (`:33`): série toda terça a cada 1 semana gera as datas certas até hoje; a cada 2
+      semanas pula a semana do meio; com `weekdays: [1, 3, 5]` gera três por semana; com `until` no
+      passado para na data certa; ocorrência já materializada não é regerada. Verificação:
+      `npm test src/domain/tasks` — **19 arquivos / 323 testes / 0 falhas** (o arquivo foi de 8 para
+      13 casos). As datas esperadas foram tiradas do calendário de março/2026, não do output da
+      implementação; `until` é conferido nos dois ramos (com e sem `weekdays`), que cortam a série em
+      pontos diferentes do código (`break` vs `continue`)
+- [x] Estender `src/pages/admin/tasks/__tests__/AgendaGrid.consultation.test.tsx`: uma consulta
+      semanal aparece com o estetoscópio em **cada** dia da série dentro da grade do mês — nas
+      ocorrências já materializadas e na prévia virtual pontilhada — sem duplicar bolinha em nenhum
+      dia (a não-regressão da 074). Fixar a data do sistema como o arquivo já faz. Verificação:
+      `npm test src/pages/admin/tasks` — **52 arquivos / 531 testes / 0 falhas** (o arquivo foi de 6
+      para 8 casos). Os dois casos novos varrem a grade por célula de dia (helper `dayCell`): a série
+      toda terça rende 5 chips (origem + materializada de 11/08 + prévias de 18/08, 25/08 e 01/09),
+      **um por dia** — a materializada não ganha prévia por cima —, e a série seg/qua/sex rende 15,
+      caindo nos três dias marcados e em nenhum outro (terça e quinta vazias)
+- [x] **Tarefa acrescentada na checagem de satisfação**: a série semanal tinha artefato para as datas
+      (`consultation.test.ts`) e para a tela (`AgendaGrid.consultation.test.tsx`), mas o **insert** só
+      estava provado na frequência mensal — `tasks.recurring-materialization.test.ts` não tocava
+      `weekly`. Acrescentar um caso com `{ frequency: "weekly", weekdays: [1,3,5] }` conferindo as
+      linhas enviadas ao `insert`: datas, `is_consultation: true` e o horário da regra.
+      Verificação: `npm test src/api` — **18 arquivos / 225 testes / 0 falhas**. O caso novo
+      ("consulta semanal com dias marcados materializa cada sessão da semana como consulta") prova as
+      5 linhas enviadas ao `insert` (05, 07, 10, 12 e 14/08), cada uma com `is_consultation: true`,
+      `due_time: "07:30"` vindo da regra e `recurrence_rule: null`
+- [x] `npm run build && npm run lint && npm test && npm run check:bundle` limpos, com a contagem de
+      testes registrada aqui — `build`: `tsc -b` + Vite sem erro; `lint`: **0 erros** (81 warnings de
+      `react-refresh/only-export-components`, todos pré-existentes e nenhum em arquivo desta
+      feature); `npm test`: **218 arquivos / 2314 testes / 0 falhas** (baseline da esteira era
+      218/2299 — os 15 a mais são os desta rodada: 7 no dialog, 5 no domínio, 2 na Agenda e 1 na
+      materialização); `check:bundle`: "Bundle budget OK"
+
 ## Prompts
+- 2026-08-23 — "- agendar consulta deve permitir também recorrência semanal"
 - 2026-08-16 — "- SUB-MÓDULO DE VIDA.SAÚDE
   - CONTROLAR MEDICAMENTOS
   - CONSULTAS (VIRAM EVENTOS NO CALENDÁRIO GERAL)
@@ -114,4 +229,48 @@ O usuário pediu que consultas "virem eventos no calendário geral". O app tem d
   duas vezes em `Promise.all` — a consulta de medicação e a de consulta médica só diferem na flag,
   e duplicar a cadeia de `.eq/.gte/.order` seria duas fontes de verdade pro mesmo critério.
 - Desvio do plano (pequeno, espelha a 049): `emptyTask()` em `src/domain/tasks/taskDraft.ts` também ganhou `is_consultation: false`, e o `toMatchObject` de `taskDraft.test.ts` foi atualizado. Sem isso o draft do form completo mandaria `undefined` para a coluna `not null` numa edição de consulta.
+### Rodada de 2026-08-23 (recorrência semanal)
+
+- **Checagem de satisfação** (skill `next`) do pedido "agendar consulta deve permitir também
+  recorrência semanal". Rastreabilidade item a item, cada um com artefato que rodou:
+  - *"agendar consulta"* — é o atalho `ConsultationQuickCreateDialog`, e não o formulário completo
+    (que já oferecia semanal). `ConsultationQuickCreateDialog.test.tsx`: **12 casos**, de 5 para 12.
+  - *"recorrência semanal"* — a opção existe e monta a regra certa: caso "repetição semanal troca o
+    rótulo do intervalo e monta uma regra weekly" (`{ frequency: "weekly", interval: 2, time:
+    "08:00" }`) e "semanal completa: dias + término na mesma regra" (`weekdays: [1,3,5]` +
+    `until`).
+  - *a série semanal realmente acontece* — três provas em camadas diferentes:
+    `consultation.test.ts` (as datas: toda terça, a cada 2 semanas, seg/qua/sex, `until`,
+    já materializada); `tasks.recurring-materialization.test.ts` (as linhas que chegam ao `insert`,
+    com `is_consultation: true` e o horário da regra); `AgendaGrid.consultation.test.tsx` (o
+    estetoscópio em cada dia da série no calendário geral, materializadas e prévias, uma bolinha por
+    dia).
+  - *"também"* (semanal **soma**, não substitui) — o caso mensal de `:99-118` continua no arquivo,
+    sem uma linha alterada, e passando; e o "Termina em" novo vale para a mensal também (caso
+    "«Termina em» vira `until` na regra").
+  - Suíte completa: **218 arquivos / 2314 testes / 0 falhas**; `check:bundle` OK. Numa das rodadas
+    `TaskList.form-panel.test.tsx` estourou o `testTimeout` de 5s sob carga total e passou isolado
+    em 2,2s — intermitência conhecida da esteira, não regressão.
+- Confirmado no código antes de construir, como o refino previa: **nenhuma migration**.
+  `recurrence_rule` é `jsonb` sem constraint (`20260803121500_tasks_projects.sql:57`), e
+  `materializeRecurringInstances` não olha a frequência — só chama `computeMissingOccurrences` e
+  copia o subconjunto de campos (incluindo `is_consultation` e o `time` da regra).
+- Desvio pequeno: o intervalo padrão passou a depender da unidade (`DEFAULT_INTERVAL`: 1 semana / 6
+  meses). Com um valor só, escolher "semanal" deixava "a cada 6 semanas" pré-selecionado, que não é
+  cadência de fisioterapia nenhuma.
+- Desvio pequeno: em vez de copiar a frase da dica de dias da semana, ela virou
+  `WEEKDAYS_EMPTY_HINT` em `src/domain/tasks/recurrence.ts`, usada pelo formulário completo
+  (`TaskRecurrenceRules.tsx`) e pelo atalho. Era exatamente o que a decisão pedia ("não haver duas
+  explicações do mesmo comportamento"), só que garantido pelo compilador. `WEEKDAY_NAMES_LONG`
+  também passou a ser exportado — é o nome acessível dos botões de dia, já que `WEEKDAY_LABELS` é só
+  a inicial ("S" é segunda e sábado).
+- A Repetição continua sendo `<Select>`, não radio group, embora a skill `form-design` recomende
+  radio até ~5 opções: o plano especificava o `<SelectItem>` novo, e trocar o widget invalidaria o
+  caso mensal existente que a tarefa manda preservar intacto. O `<SelectTrigger>` ganhou
+  `aria-label="Repetição"` para os casos novos poderem qualificar o `getByRole("combobox")` — o
+  antigo, sem nome, continua resolvendo sozinho.
+- Validação de "Termina em" anterior à data da consulta segue o molde da 096
+  (`aria-invalid` + `role="alert"` + validação no blur): uma série que termina antes de começar
+  passaria por `computeMissingOccurrences` e devolveria nenhuma ocorrência — o usuário pediria
+  recorrência e receberia consulta única, sem aviso.
 - A propagação em `materializeRecurringInstances` não tinha teste nenhum antes (a função é privada, só alcançável por `fetchTasks`). Criado `src/api/__tests__/tasks.recurring-materialization.test.ts`, com um Supabase falso que **guarda as linhas enviadas no insert** — assere as datas geradas, `is_consultation: true` em cada ocorrência, a não-regressão de `is_medication` (049) e que ocorrência já materializada não é recriada.

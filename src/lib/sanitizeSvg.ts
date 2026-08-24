@@ -15,6 +15,13 @@
  *
  * Não substitui um sanitizador de verdade para HTML arbitrário; é uma rede sob um gerador
  * específico, com superfície pequena e conhecida.
+ *
+ * Mora em `src/lib/` (e não mais em `src/components/markdown/`) desde a feature 086, que lhe deu
+ * um segundo consumidor fora do renderer de markdown: o SVG **colado pelo usuário** no seletor de
+ * ícone (`src/domain/tasks/svgIcon.ts`). Ali o markup não vem de um gerador conhecido — vem de um
+ * site qualquer —, e esta limpeza é a barreira que roda **antes** do upload, porque o bucket é
+ * público e a URL pode ser aberta como navegação de topo, contexto em que o modo restrito do
+ * `<img>` (a outra barreira) não vale.
  */
 export function sanitizeSvgMarkup(svg: string): string {
   if (typeof DOMParser === "undefined") return "";

@@ -13,6 +13,7 @@ import {
   deactivateMedication,
   fetchDosesSince,
   fetchMedications,
+  reactivateMedication,
 } from "@/api/health/medications";
 import { fetchReminderPreferences } from "@/api/health";
 import { computeAdherence, formatRate } from "@/domain/health/adherence";
@@ -66,6 +67,7 @@ export default function MedicationList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Medication | null>(null);
   const [endingId, setEndingId] = useState<string | null>(null);
+  const [reactivatingId, setReactivatingId] = useState<string | null>(null);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [reminderPreferences, setReminderPreferences] = useState<ReminderPreference[]>([]);
   const { toast } = useToast();
@@ -175,6 +177,32 @@ export default function MedicationList() {
     }
   }
 
+  /**
+   * Desfaz o encerramento (feature 096). Antes desta feature, encerrar era porta de mão única: a
+   * ação sumia da linha e não havia nada no app que devolvesse `active = true` — um clique errado
+   * ficava para sempre. Falhar aqui não pode mexer na tela: o `load()` só roda no caminho feliz,
+   * então o badge "Encerrado" continua onde estava e o toast explica.
+   */
+  async function handleReactivate(medication: Medication) {
+    setReactivatingId(medication.id);
+    try {
+      await reactivateMedication(medication.id);
+      toast({ title: "Tratamento reativado.", duration: 2000 });
+      await load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(
+          error,
+          "Não foi possível reativar o tratamento."
+        ),
+        variant: "destructive",
+      });
+    } finally {
+      setReactivatingId(null);
+    }
+  }
+
   return (
     <PageShell
       title="Medicações"
@@ -270,6 +298,7 @@ export default function MedicationList() {
                         title={`Encerrar ${medication.name}?`}
                         description="O tratamento para de gerar doses novas. As doses já registradas e o histórico continuam onde estão."
                         confirmLabel="Encerrar"
+                        loadingLabel="Encerrando..."
                         loading={endingId === medication.id}
                         onConfirm={() => handleDeactivate(medication)}
                       >
@@ -277,7 +306,23 @@ export default function MedicationList() {
                           Encerrar
                         </Button>
                       </ConfirmDeleteDialog>
-                    ) : null}
+                    ) : (
+                      /* Feature 096: a saída que faltava. O badge "Encerrado" está certo — o que
+                         não existia era como voltar atrás. */
+                      <ConfirmDeleteDialog
+                        title={`Reativar ${medication.name}?`}
+                        description="O tratamento volta a gerar doses e as do período são recriadas na próxima carga. Doses já tomadas que tenham sido apagadas com “incluir as doses já tomadas” não voltam."
+                        confirmLabel="Reativar"
+                        loadingLabel="Reativando..."
+                        destructive={false}
+                        loading={reactivatingId === medication.id}
+                        onConfirm={() => handleReactivate(medication)}
+                      >
+                        <Button variant="outline" size="sm">
+                          Reativar
+                        </Button>
+                      </ConfirmDeleteDialog>
+                    )}
                   </div>
                 </li>
               );

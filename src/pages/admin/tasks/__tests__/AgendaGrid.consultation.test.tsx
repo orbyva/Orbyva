@@ -26,6 +26,10 @@ import type { Task } from "@/types/tasks";
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchTasks: vi.fn(),
   fetchProjects: vi.fn(),
   fetchProjectEvents: vi.fn(),
@@ -84,6 +88,12 @@ async function renderLoaded(tasks: Task[]) {
   // A grade de chips do mês só existe depois que `loading` vira false.
   await screen.findByText("Dom");
   return utils;
+}
+
+/** A célula do dia na grade do mês, achada pelo botão que abre o modal do dia ("4 de agosto"). */
+function dayCell(label: string): HTMLElement {
+  const trigger = screen.getByLabelText(`Ver tudo do dia ${label}`);
+  return trigger.parentElement as HTMLElement;
 }
 
 /** O chip/bloco que contém um título, seja `button` (tarefa real) ou `div` (ocorrência virtual). */
@@ -231,6 +241,75 @@ describe("AgendaGrid — consulta médica no calendário geral (feature 061)", (
       "Próxima ocorrência — ainda não criada, aparece automaticamente nesse dia"
     );
     expect(within(virtual as HTMLElement).getByLabelText("Consulta médica")).toBeInTheDocument();
+  });
+
+  it("série semanal: estetoscópio em cada dia da série, uma bolinha por dia (074)", async () => {
+    await renderLoaded([
+      makeTask({
+        id: "origem",
+        title: "Fisioterapeuta — sessão",
+        due_date: "2026-08-04", // terça
+        recurrence_rule: { frequency: "weekly", interval: 1, time: null },
+        is_consultation: true,
+      }),
+      // Terça seguinte, já materializada por `materializeRecurringInstances`.
+      makeTask({
+        id: "ocorrencia-1",
+        title: "Fisioterapeuta — sessão",
+        due_date: "2026-08-11",
+        recurrence_origin_id: "origem",
+        is_consultation: true,
+      }),
+    ]);
+
+    // Origem (04/08) + materializada (11/08) + prévia de 18/08, 25/08 e 01/09 — a grade termina
+    // em 05/09, então a terça de 08/09 fica de fora.
+    const dias = ["4 de agosto", "11 de agosto", "18 de agosto", "25 de agosto", "1 de setembro"];
+    for (const dia of dias) {
+      const cell = dayCell(dia);
+      // Uma bolinha só no dia: a materializada de 11/08 não pode ganhar uma prévia por cima.
+      expect(within(cell).getAllByText("Fisioterapeuta — sessão")).toHaveLength(1);
+      expect(within(cell).getByLabelText("Consulta médica")).toBeInTheDocument();
+    }
+    expect(screen.getAllByText("Fisioterapeuta — sessão")).toHaveLength(dias.length);
+    expect(screen.getAllByLabelText("Consulta médica")).toHaveLength(dias.length);
+
+    // As duas linhas reais são clicáveis; as três prévias continuam sendo prévia.
+    const chips = screen
+      .getAllByText("Fisioterapeuta — sessão")
+      .map((node) => node.closest("button, div[title]") as HTMLElement);
+    expect(chips.filter((node) => node.tagName === "BUTTON")).toHaveLength(2);
+    for (const virtual of chips.filter((node) => node.tagName !== "BUTTON")) {
+      expect(virtual.getAttribute("title")).toBe(
+        "Próxima ocorrência — ainda não criada, aparece automaticamente nesse dia"
+      );
+    }
+  });
+
+  it("semanal com dias marcados é uma série só: cai em seg/qua/sex e em nenhum outro dia", async () => {
+    await renderLoaded([
+      makeTask({
+        id: "origem",
+        title: "Fisioterapeuta — sessão",
+        due_date: "2026-08-03", // segunda
+        recurrence_rule: { frequency: "weekly", interval: 1, time: null, weekdays: [1, 3, 5] },
+        is_consultation: true,
+      }),
+    ]);
+
+    for (const dia of ["3 de agosto", "5 de agosto", "7 de agosto", "10 de agosto"]) {
+      const cell = dayCell(dia);
+      expect(within(cell).getAllByText("Fisioterapeuta — sessão")).toHaveLength(1);
+      expect(within(cell).getByLabelText("Consulta médica")).toBeInTheDocument();
+    }
+    // Terça e quinta ficam vazias — o usuário marcou três dias, não a semana inteira.
+    for (const dia of ["4 de agosto", "6 de agosto"]) {
+      expect(within(dayCell(dia)).queryByText("Fisioterapeuta — sessão")).toBeNull();
+    }
+
+    // Origem (03/08) + seg/qua/sex até 05/09, fim da grade: 14 prévias.
+    expect(screen.getAllByText("Fisioterapeuta — sessão")).toHaveLength(15);
+    expect(screen.getAllByLabelText("Consulta médica")).toHaveLength(15);
   });
 
   it("série recorrente comum não ganha marcador de consulta (nenhuma regressão fora da 061)", async () => {

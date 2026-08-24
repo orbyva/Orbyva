@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { KanbanCard, TaskListRow, STATUS_LABELS } from "@/pages/admin/tasks/TaskViews";
 import { formatDateTimeBR } from "@/lib/currency";
-import type { Project, Task } from "@/types/tasks";
+import type { Project, Task, TaskExternalLink } from "@/types/tasks";
 
 /**
  * Cobre a extração do quick-edit compartilhado (`TaskQuickFields`, feature 033) — prova que o
@@ -592,5 +592,142 @@ describe("TaskViews — botão Imediatamente (feature 078)", () => {
     expect(
       within(subtaskRow).queryByRole("button", { name: startNowName })
     ).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Feature 085 — os chips de link externo. O pedido de 2026-08-23 é literal ("todos com a gestão de
+ * ícones+preview"): **um chip por link**, não o primeiro com um contador. O orçamento visual é de 3
+ * chips; o resto vira um "+N".
+ */
+function makeLink(over: Partial<TaskExternalLink> & { url: string }): TaskExternalLink {
+  return { id: `l-${over.url}`, task_id: "task-1", comment: null, position: 0, ...over };
+}
+
+describe("ExternalLinkChip — um chip por link (feature 085)", () => {
+  it("com um link, o rótulo é o de sempre (GitHub continua saindo como owner/repo#N)", () => {
+    renderTaskListRow({
+      externalLinksByTask: {
+        "task-1": [makeLink({ url: "https://github.com/owner/repo/issues/7" })],
+      },
+    });
+
+    const chip = screen.getByRole("link", { name: "owner/repo#7" });
+    expect(chip).toHaveAttribute("href", "https://github.com/owner/repo/issues/7");
+    expect(chip).toHaveAttribute("target", "_blank");
+  });
+
+  it("com três links, saem três chips, cada um com o próprio rótulo e o próprio comentário no title", () => {
+    renderTaskListRow({
+      externalLinksByTask: {
+        "task-1": [
+          makeLink({ url: "https://github.com/owner/repo/issues/7", comment: "issue de origem", position: 0 }),
+          makeLink({ url: "https://docs.google.com/document/d/abc", comment: "contrato", position: 1 }),
+          makeLink({ url: "https://www.figma.com/file/abc", comment: "protótipo", position: 2 }),
+        ],
+      },
+    });
+
+    expect(screen.getByRole("link", { name: "owner/repo#7" })).toHaveAttribute(
+      "title",
+      "issue de origem"
+    );
+    expect(screen.getByRole("link", { name: "docs.google.com" })).toHaveAttribute(
+      "title",
+      "contrato"
+    );
+    // O `www.` some do rótulo, mas o href continua a URL crua.
+    const figma = screen.getByRole("link", { name: "figma.com" });
+    expect(figma).toHaveAttribute("title", "protótipo");
+    expect(figma).toHaveAttribute("href", "https://www.figma.com/file/abc");
+    expect(screen.queryByText(/^\+/)).not.toBeInTheDocument();
+  });
+
+  it("link sem comentário cai na URL no title (melhor do que title nenhum)", () => {
+    renderTaskListRow({
+      externalLinksByTask: { "task-1": [makeLink({ url: "https://exemplo.com/x" })] },
+    });
+    expect(screen.getByRole("link", { name: "exemplo.com" })).toHaveAttribute(
+      "title",
+      "https://exemplo.com/x"
+    );
+  });
+
+  it("com cinco links, saem três chips e um +2 com os rótulos restantes no title", () => {
+    renderTaskListRow({
+      externalLinksByTask: {
+        "task-1": [
+          makeLink({ url: "https://a.com", position: 0 }),
+          makeLink({ url: "https://b.com", position: 1 }),
+          makeLink({ url: "https://c.com", position: 2 }),
+          makeLink({ url: "https://d.com", position: 3 }),
+          makeLink({ url: "https://e.com", position: 4 }),
+        ],
+      },
+    });
+
+    expect(screen.getAllByRole("link")).toHaveLength(3);
+    expect(screen.getByRole("link", { name: "a.com" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "d.com" })).not.toBeInTheDocument();
+
+    const more = screen.getByText("+2");
+    expect(more).toHaveAttribute("title", "d.com, e.com");
+    expect(more).toHaveAttribute("aria-label", "Mais 2 links: d.com, e.com");
+  });
+
+  it("sem link nenhum não há chip (nem mapa, nem lista vazia)", () => {
+    const { unmount } = renderTaskListRow();
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+    unmount();
+
+    renderTaskListRow({ externalLinksByTask: { "task-1": [] } });
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("o Kanban mostra os mesmos chips que a Lista, da mesma lista em lote", () => {
+    renderKanbanCard({
+      externalLinksByTask: {
+        "task-1": [
+          makeLink({ url: "https://github.com/owner/repo/pull/3", comment: "PR", position: 0 }),
+          makeLink({ url: "https://notion.so/x", position: 1 }),
+        ],
+      },
+    });
+
+    expect(screen.getByRole("link", { name: "owner/repo#3" })).toHaveAttribute("title", "PR");
+    expect(screen.getByRole("link", { name: "notion.so" })).toBeInTheDocument();
+  });
+
+  it("clicar no chip não abre o formulário da tarefa (o clique para no link)", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    renderTaskListRow({
+      onEdit,
+      externalLinksByTask: { "task-1": [makeLink({ url: "https://exemplo.com" })] },
+    });
+
+    await user.click(screen.getByRole("link", { name: "exemplo.com" }));
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("a linha aninhada da subtarefa mostra os links dela, não os da tarefa-mãe", () => {
+    const parent = makeTask({ id: "task-1", title: "Mãe" });
+    const child = makeTask({ id: "sub-1", parent_task_id: "task-1", title: "Filha" });
+    renderTaskListRow({
+      task: parent,
+      subtasks: [child],
+      expanded: true,
+      subtaskActions: {
+        onDelete: vi.fn(),
+        onStatusChange: vi.fn(),
+      },
+      externalLinksByTask: {
+        "task-1": [makeLink({ url: "https://mae.com" })],
+        "sub-1": [makeLink({ url: "https://filha.com", task_id: "sub-1" })],
+      },
+    });
+
+    expect(screen.getByRole("link", { name: "mae.com" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "filha.com" })).toBeInTheDocument();
   });
 });

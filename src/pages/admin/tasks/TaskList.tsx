@@ -1,4 +1,4 @@
-import { ListTodo, Tag as TagIcon, Timer } from "lucide-react";
+import { ListTodo, Tag as TagIcon, Timer, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   DndContext,
@@ -61,9 +61,12 @@ import {
   createTask,
   deleteTask,
   fetchDependencies,
+  fetchExternalLinksForTask,
+  fetchExternalLinksForTasks,
   fetchProjects,
   fetchTags,
   fetchTasks,
+  saveExternalLinksForTask,
   updateTask,
   updateTasksSortOrder,
 } from "@/api/tasks";
@@ -80,7 +83,11 @@ import {
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
   isSubtaskDueDateValid,
+  normalizeExternalLinkDrafts,
+  normalizeProjectFilter,
   PRIORITY_OPTIONS,
+  PROJECT_FILTER_ALL,
+  PROJECT_FILTER_NONE,
   rankProjectsByActivity,
   sortTasksBy,
   sortTasksByCompletedAtDesc,
@@ -93,6 +100,10 @@ import type {
 } from "@/domain/tasks";
 import { readTaskSortKey, writeTaskSortKey } from "@/lib/taskSortPreference";
 import {
+  readTaskProjectFilter,
+  writeTaskProjectFilter,
+} from "@/lib/taskProjectFilterPreference";
+import {
   addSubtaskToEditing as addSubtaskDraftToEditing,
   emptyTask,
   removeExistingSubtask as removeExistingSubtaskDraft,
@@ -104,6 +115,8 @@ import type {
   Task,
   TaskCreateRequest,
   TaskDependency,
+  TaskExternalLink,
+  TaskExternalLinkDraft,
   TaskPriority,
   TaskStatus,
 } from "@/types/tasks";
@@ -141,7 +154,9 @@ export default function TaskList() {
     return TASK_VIEW_MODES.includes(requested as TaskViewMode) ? (requested as TaskViewMode) : "lista";
   });
   const [tagFilter, setTagFilter] = useState("");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
+  /** Recorte por projeto, compartilhado pelas quatro abas e pela `ProjectsRail` (feature 097).
+   * Nasce da preferência salva no navegador; sem nada salvo, "todos os projetos". */
+  const [projectFilter, setProjectFilter] = useState<string>(() => readTaskProjectFilter());
   const [statusView, setStatusView] = useState<TaskStatusView>("pending");
   /** Chips de filtro rápido da aba Lista — só afetam essa aba (Kanban/Gantt seguem usando
    * `visibleTasks`/`ganttTasks` sem esse recorte). */
@@ -151,6 +166,15 @@ export default function TaskList() {
    * navegador; sem nada salvo, o padrão é "última atualização". */
   const [sortKey, setSortKey] = useState<TaskSortKey>(() => readTaskSortKey());
   const [subtaskDrafts, setSubtaskDrafts] = useState<string[]>([]);
+  /** Links externos da tarefa aberta no formulário (feature 085). Em edição vêm do banco ao abrir;
+   * em criação nascem vazios e são gravados depois do `createTask`, quando já existe `task_id` —
+   * o mesmo caminho que `subtaskDrafts` faz. */
+  const [externalLinkDrafts, setExternalLinkDrafts] = useState<TaskExternalLinkDraft[]>([]);
+  /** Links de **todas** as tarefas da tela, numa consulta só por `load()`, para os chips dos cards
+   * não virarem uma ida ao banco por tarefa. */
+  const [externalLinksByTask, setExternalLinksByTask] = useState<Record<string, TaskExternalLink[]>>(
+    {}
+  );
   const [kanbanSubtaskDrafts, setKanbanSubtaskDrafts] = useState<Record<string, string>>({});
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -200,6 +224,13 @@ export default function TaskList() {
       setTags(tagList);
       setRecurrings(recurringList);
       setDependencies(dependencyList);
+      // Feature 085: os chips de link são enfeite da lista, não a lista. Falha aqui cai para "sem
+      // chips" em vez de derrubar as tarefas — por isso fica fora do `Promise.all` acima.
+      try {
+        setExternalLinksByTask(await fetchExternalLinksForTasks(taskList.map((t) => t.id)));
+      } catch {
+        setExternalLinksByTask({});
+      }
     } catch (error) {
       toast({
         title: "Erro",
@@ -226,7 +257,11 @@ export default function TaskList() {
 
   const visibleTasks = useMemo(() => {
     const projectId =
-      projectFilter === "all" ? undefined : projectFilter === "null" ? null : projectFilter;
+      projectFilter === PROJECT_FILTER_ALL
+        ? undefined
+        : projectFilter === PROJECT_FILTER_NONE
+          ? null
+          : projectFilter;
     const filtered = filterTasks(tasks, {
       tagId: tagFilter || undefined,
       projectId,
@@ -248,6 +283,29 @@ export default function TaskList() {
     setSortKey(key);
     writeTaskSortKey(key);
   }, []);
+
+  /** Troca o filtro de projeto e grava a escolha (feature 097). Passa por aqui tanto o `<Select>`
+   * da barra quanto a `ProjectsRail`, que dispara o mesmo `onSelect` — é o mesmo recorte. */
+  const handleProjectFilterChange = useCallback((value: string) => {
+    setProjectFilter(value);
+    writeTaskProjectFilter(value);
+  }, []);
+
+  /** A preferência salva pode apontar para um projeto apagado desde a última sessão — sem esta
+   * conferência a tela abriria filtrada por um projeto que nem aparece no `<Select>`, parecendo
+   * vazia sem motivo. Só roda depois que `loading` vira `false`: lista de projetos vazia enquanto
+   * a carga está em voo não é prova de projeto apagado. */
+  useEffect(() => {
+    if (loading) return;
+    const valid = normalizeProjectFilter(
+      projectFilter,
+      projects.map((p) => p.id)
+    );
+    if (valid !== projectFilter) {
+      setProjectFilter(valid);
+      writeTaskProjectFilter(valid);
+    }
+  }, [loading, projects, projectFilter]);
 
   /** Prazo "congelado" desta tarefa (o do último `load()`, enquanto o popover de prazo dela está
    * aberto) ou o prazo vivo, quando não há nada congelado. */
@@ -313,7 +371,7 @@ export default function TaskList() {
 
   /** Projeto específico selecionado na `ProjectsRail` — "all"/"null" não contam. */
   const quadrantProjectTasks = useMemo(() => {
-    if (projectFilter === "all" || projectFilter === "null") return null;
+    if (projectFilter === PROJECT_FILTER_ALL || projectFilter === PROJECT_FILTER_NONE) return null;
     return pendingTasks;
   }, [pendingTasks, projectFilter]);
 
@@ -337,7 +395,11 @@ export default function TaskList() {
   // `visibleTasks` (que já exclui subtarefas pras outras visões).
   const ganttTasks = useMemo(() => {
     const projectId =
-      projectFilter === "all" ? undefined : projectFilter === "null" ? null : projectFilter;
+      projectFilter === PROJECT_FILTER_ALL
+        ? undefined
+        : projectFilter === PROJECT_FILTER_NONE
+          ? null
+          : projectFilter;
     return filterTasks(tasks, { tagId: tagFilter || undefined, projectId }).filter(
       (t) => !(t.linked_recurring_id && t.linked_installment_number == null)
     );
@@ -440,6 +502,7 @@ export default function TaskList() {
     setEditing(null);
     setForm(emptyTask());
     setSubtaskDrafts([]);
+    setExternalLinkDrafts([]);
     setOpen(true);
   }
 
@@ -458,8 +521,6 @@ export default function TaskList() {
       priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
-      external_url: task.external_url ?? null,
-      external_provider: task.external_provider ?? null,
       icon_key: task.icon_key ?? null,
       icon_url: task.icon_url ?? null,
       is_milestone: task.is_milestone ?? false,
@@ -472,7 +533,32 @@ export default function TaskList() {
       is_quick: task.is_quick ?? false,
     });
     setSubtaskDrafts([]);
+    loadExternalLinkDrafts(task.id);
     setOpen(true);
+  }
+
+  /** Carrega os links da tarefa em edição. Zera **antes** de buscar para o formulário nunca mostrar
+   * os links da tarefa anterior enquanto a consulta está em voo; falhar cai para lista vazia, com
+   * aviso — abrir a tarefa continua funcionando. */
+  async function loadExternalLinkDrafts(taskId: string) {
+    setExternalLinkDrafts([]);
+    try {
+      const links = await fetchExternalLinksForTask(taskId);
+      setExternalLinkDrafts(
+        links.map((link) => ({
+          id: link.id,
+          url: link.url,
+          comment: link.comment,
+          position: link.position,
+        }))
+      );
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível carregar os links externos."),
+        variant: "destructive",
+      });
+    }
   }
 
   async function handleCreateTag(name: string, color: string): Promise<Tag> {
@@ -503,9 +589,14 @@ export default function TaskList() {
       due_date: isLinked && !isEditingInstance ? null : form.due_date,
       due_time: isLinked && !isEditingInstance ? null : form.due_time,
     };
+    // Feature 085: linha em branco sai, espaços saem, `position` vira 0..n-1 e a URL repetida
+    // (já acusada na própria linha) fica de fora — o `unique (task_id, url)` do banco nunca chega a
+    // estourar em erro genérico.
+    const links = normalizeExternalLinkDrafts(externalLinkDrafts).drafts;
     try {
       if (editing) {
         await updateTask({ id: editing.id, ...payload });
+        await saveExternalLinksForTask(editing.id, links);
       } else {
         const created = await createTask(payload);
         for (const title of subtaskDrafts) {
@@ -516,6 +607,9 @@ export default function TaskList() {
             title,
           });
         }
+        // Só aqui existe `task_id` para gravar — mesmo motivo pelo qual as subtarefas de uma tarefa
+        // nova esperam o `createTask`.
+        if (links.length > 0) await saveExternalLinksForTask(created.id, links);
       }
       toast({ title: "Tarefa salva!", duration: 2000 });
       setOpen(false);
@@ -768,22 +862,42 @@ export default function TaskList() {
             <TabsTrigger value="gantt">Gantt</TabsTrigger>
             <TabsTrigger value="agenda">Agenda</TabsTrigger>
           </TabsList>
-          {viewMode !== "agenda" && (
-            <div className="flex flex-wrap gap-2">
-              <Select value={projectFilter} onValueChange={setProjectFilter}>
-                <SelectTrigger className="w-44">
-                  <SelectValue placeholder="Projeto" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os projetos</SelectItem>
-                  <SelectItem value="null">Sem projeto</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Feature 097: o filtro de **Projeto** vale para as quatro abas — o recorte "estou
+              trabalhando no projeto X" é do usuário, não da visão. O de **Tag** continua fora da
+              Agenda, que não filtra por tag em lugar nenhum (seria um controle que não faz nada). */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={projectFilter} onValueChange={handleProjectFilterChange}>
+              {/* Com um valor escolhido o `placeholder` some, e o gatilho ficava sem nome
+                  acessível nenhum — o `aria-label` é o nome estável do controle. */}
+              <SelectTrigger className="w-44" aria-label="Projeto">
+                <SelectValue placeholder="Projeto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os projetos</SelectItem>
+                <SelectItem value="null">Sem projeto</SelectItem>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Saída de um clique: o filtro agora **persiste** entre sessões, e sem uma forma
+                óbvia de limpá-lo uma tela filtrada dias depois viraria "sumiu tudo". */}
+            {projectFilter !== PROJECT_FILTER_ALL && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                aria-label="Limpar filtro de projeto"
+                title="Limpar filtro de projeto"
+                onClick={() => handleProjectFilterChange(PROJECT_FILTER_ALL)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+            {viewMode !== "agenda" && (
               <Select
                 value={tagFilter || "all"}
                 onValueChange={(v) => setTagFilter(v === "all" ? "" : v)}
@@ -800,8 +914,8 @@ export default function TaskList() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <TabsContent value="lista" className="mt-4 flex flex-col gap-4 md:flex-row">
@@ -809,7 +923,7 @@ export default function TaskList() {
             <ProjectsRail
               projects={projects}
               activeProjectId={projectFilter}
-              onSelect={setProjectFilter}
+              onSelect={handleProjectFilterChange}
             />
           </div>
           <div className="min-w-0 flex-1 space-y-4">
@@ -909,6 +1023,7 @@ export default function TaskList() {
                           onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
                           onProjectChange={(projectId) => handleProjectChange(task.id, projectId)}
                           projects={projectsByActivity}
+                          externalLinksByTask={externalLinksByTask}
                           subtaskActions={subtaskActions}
                           extraActions={
                             task.status === "done" && !task.linked_recurring_id ? (
@@ -951,6 +1066,7 @@ export default function TaskList() {
                   onDueOpenChange={(task, open) => handleDueOpenChange(task.id, open)}
                   onProjectChange={(task, projectId) => handleProjectChange(task.id, projectId)}
                   projects={projectsByActivity}
+                  externalLinksByTask={externalLinksByTask}
                   subtaskActions={subtaskActions}
                   extraActions={(task) =>
                     !task.linked_recurring_id ? (
@@ -1029,6 +1145,7 @@ export default function TaskList() {
                                 onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
                                 onProjectChange={(projectId) => handleProjectChange(task.id, projectId)}
                                 projects={projectsByActivity}
+                                externalLinksByTask={externalLinksByTask}
                                 subtaskActions={subtaskActions}
                               />
                             );
@@ -1072,7 +1189,13 @@ export default function TaskList() {
         </TabsContent>
 
         <TabsContent value="agenda" className="mt-4">
-          <AgendaGrid />
+          {/* Feature 097: a Agenda passa a obedecer ao filtro da barra de cima. Controlada, ela
+              esconde o `<Select>` de projeto que tinha — dois seletores para o mesmo recorte, um
+              embaixo do outro, seria ruído (e a barra de cima agora aparece nesta aba). */}
+          <AgendaGrid
+            projectFilter={projectFilter}
+            onProjectFilterChange={handleProjectFilterChange}
+          />
         </TabsContent>
       </Tabs>
 
@@ -1110,6 +1233,8 @@ export default function TaskList() {
                 ? removeExistingSubtask(subtask)
                 : setSubtaskDrafts((prev) => prev.filter((_, i) => i !== index))
             }
+            externalLinks={externalLinkDrafts}
+            onExternalLinksChange={setExternalLinkDrafts}
             projects={projectsByActivity}
           />
           <Button onClick={handleSave} className="w-full">

@@ -69,9 +69,9 @@ export function TaskQuickFields({
   return {
     icon: onIconChange ? (
       <TaskIconPicker
-        // Feature 073: numa série, o ícone (e o arquivo enviado) pertencem à origem, não à
-        // ocorrência clicada — Lista, Kanban e popover do Gantt herdam isso daqui de uma vez.
-        taskId={task.recurrence_origin_id ?? task.id}
+        // Feature 073: numa série, o ícone pertence à origem, não à ocorrência clicada — Lista,
+        // Kanban e popover do Gantt herdam o aviso daqui de uma vez. O *arquivo* deixou de ser da
+        // tarefa na 086 (vai para a biblioteca do usuário), então não há mais id a repassar.
         value={{ icon_key: task.icon_key ?? null, icon_url: task.icon_url ?? null }}
         onChange={onIconChange}
         sharedWithSeries={isRecurringTask(task)}

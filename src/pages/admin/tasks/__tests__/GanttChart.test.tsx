@@ -100,6 +100,15 @@ vi.mock("@svar-ui/react-gantt", () => ({
 // verdade nos handlers de `update-task`/`add-link`/`delete-link` — mockado pra provar a fiação
 // (`api.on(...) → nosso handler → chamada de API`) sem bater no Supabase de verdade.
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  // Feature 086: o popover de ícone carrega a biblioteca do usuário ao abrir.
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  uploadIconAsset: vi.fn(),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   updateTask: vi.fn(),
   createDependency: vi.fn(),
   deleteDependency: vi.fn(),

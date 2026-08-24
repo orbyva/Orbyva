@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TaskDeleteDialog } from "@/pages/admin/tasks/TaskDeleteDialog";
 import { countTaskSeries } from "@/api/tasks";
@@ -202,6 +202,69 @@ describe("TaskDeleteDialog — dose de medicação", () => {
     await user.click(screen.getByRole("button", { name: "Apagar só esta dose" }));
 
     expect(onConfirm).toHaveBeenCalled();
+  });
+
+  // ---- feature 096: a hierarquia dos botões ----------------------------------------------------
+  // Até a 096, "Encerrar o tratamento e apagar as doses futuras" era o primeiro botão, vermelho e
+  // de largura total, e "Apagar só esta dose" era o terceiro, em contorno: a ação irreversível
+  // vestida de recomendada, logo acima da de menor alcance. Estes testes prendem a ordem nova para
+  // ela não voltar sozinha numa edição futura.
+
+  it("a ordem cresce em alcance: a destrutiva é a última, não a primeira", async () => {
+    mockedCount.mockResolvedValue(2);
+    mockedFetchMedications.mockResolvedValue([{ id: "med-1" }] as never);
+
+    await abrir(dialog({ task: dose, onConfirmScoped: vi.fn() }));
+    await screen.findByRole("button", {
+      name: "Encerrar o tratamento e apagar as doses futuras (2)",
+    });
+
+    const acoes = within(screen.getByRole("alertdialog")).getAllByRole("button");
+    expect(acoes.map((botao) => botao.textContent)).toEqual([
+      "Apagar só esta dose",
+      "Apagar todas as doses deste tratamento (2)",
+      "Encerrar o tratamento e apagar as doses futuras (2)",
+      "Cancelar",
+    ]);
+
+    // O vermelho continua exatamente onde deve: na única ação que encerra o tratamento.
+    expect(acoes[0]).not.toHaveClass("bg-destructive");
+    expect(acoes[2]).toHaveClass("bg-destructive");
+
+    // E o aviso que dá sentido às três opções continua na tela.
+    expect(screen.getByText(/voltam/)).toBeInTheDocument();
+  });
+
+  it("clicar no primeiro botão apaga só a dose e não encerra tratamento nenhum", async () => {
+    const onConfirm = vi.fn();
+    const onConfirmScoped = vi.fn();
+    mockedCount.mockResolvedValue(2);
+    mockedFetchMedications.mockResolvedValue([{ id: "med-1" }] as never);
+    const user = await abrir(dialog({ task: dose, onConfirm, onConfirmScoped }));
+
+    const primeiro = within(screen.getByRole("alertdialog")).getAllByRole("button")[0]!;
+    expect(primeiro).toHaveTextContent("Apagar só esta dose");
+    await user.click(primeiro);
+
+    expect(onConfirm).toHaveBeenCalled();
+    expect(onConfirmScoped).not.toHaveBeenCalled();
+  });
+
+  it("o botão de encerrar continua sendo o que encerra — só mudou de lugar", async () => {
+    const onConfirm = vi.fn();
+    const onConfirmScoped = vi.fn();
+    mockedCount.mockResolvedValue(2);
+    mockedFetchMedications.mockResolvedValue([{ id: "med-1" }] as never);
+    const user = await abrir(dialog({ task: dose, onConfirm, onConfirmScoped }));
+
+    const acoes = within(await screen.findByRole("alertdialog")).getAllByRole("button");
+    await waitFor(() =>
+      expect(acoes[2]).toHaveTextContent("Encerrar o tratamento e apagar as doses futuras (2)")
+    );
+    await user.click(acoes[2]!);
+
+    expect(onConfirmScoped).toHaveBeenCalledWith({ mode: "end-treatment" });
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 });
 

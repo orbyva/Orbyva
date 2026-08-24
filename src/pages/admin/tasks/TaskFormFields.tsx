@@ -10,16 +10,18 @@ import { cn } from "@/lib/utils";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR } from "@/lib/currency";
 import {
-  detectExternalProvider,
+  describeExternalLink,
   formatRecurrenceSummary,
   isRecurringTask,
   isSubtaskDueDateValid,
 } from "@/domain/tasks";
 import { CollapsibleField } from "./CollapsibleField";
+import { TaskExternalLinksField } from "./TaskExternalLinksField";
 import { TaskDescriptionField } from "./TaskDescriptionField";
 import { TaskDueShortcuts } from "./TaskDueShortcuts";
 import { TaskDurationQuickPick } from "./TaskDurationQuickPick";
 import { TaskIconPicker } from "./TaskIconPicker";
+import { TaskNoteButtons } from "./TaskNoteButtons";
 import { TaskPriorityField } from "./TaskPriorityField";
 import { TaskMilestoneField } from "./TaskMilestoneField";
 import { TaskRecurrenceDialog } from "./TaskRecurrenceDialog";
@@ -28,7 +30,14 @@ import { ProjectBadgeButton } from "./ProjectBadgeButton";
 import { TaskSubtasksField } from "./TaskSubtasksField";
 import { TaskTimeEntriesField } from "./TaskTimeEntriesField";
 import { useTaskRecurrenceEditor, type TaskRecurrenceValue } from "./useTaskRecurrenceEditor";
-import type { Project, SubtaskDraft, Tag, Task, TaskCreateRequest } from "@/types/tasks";
+import type {
+  Project,
+  SubtaskDraft,
+  Tag,
+  Task,
+  TaskCreateRequest,
+  TaskExternalLinkDraft,
+} from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import type { Dimension } from "@/types/dimensions";
 
@@ -38,8 +47,6 @@ const DESCRIPTION_SUMMARY_MAX = 80;
 /** Abaixo de `sm` a densidade some e cada controle volta a ter área de toque confortável
  * (≥44px, regra da `form-design`). Densidade é afordância de desktop. */
 const TOUCH_TARGET_CLASS = "min-h-[44px] sm:min-h-0";
-
-const EXTERNAL_URL_HINT = "Comece com https://";
 
 export interface TaskFormFieldsProps {
   form: TaskCreateRequest;
@@ -58,6 +65,14 @@ export interface TaskFormFieldsProps {
   subtasks: SubtaskDraft[];
   onAddSubtask: (title: string) => void;
   onRemoveSubtask: (subtask: SubtaskDraft, index: number) => void;
+  /**
+   * Rascunhos dos links externos da tarefa (feature 085) — lista **controlada** pelo call site,
+   * como `subtasks`. Em edição vem de `fetchExternalLinksForTask`; em criação nasce vazia e é
+   * gravada depois do `createTask`, quando já existe `task_id`. O formulário não faz I/O nenhum
+   * aqui: quem grava é o `handleSave` de quem chama.
+   */
+  externalLinks: TaskExternalLinkDraft[];
+  onExternalLinksChange: (next: TaskExternalLinkDraft[]) => void;
   /**
    * Presença = campo Projeto aparece (`TaskList.tsx`, tarefa sem projeto fixo pela rota);
    * ausência = campo some (`ProjectDetail.tsx`, projeto já fixo pela rota) — mesmo padrão
@@ -91,10 +106,11 @@ export function TaskFormFields({
   subtasks,
   onAddSubtask,
   onRemoveSubtask,
+  externalLinks,
+  onExternalLinksChange,
   projects,
 }: TaskFormFieldsProps) {
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
-  const [externalUrlError, setExternalUrlError] = useState<string | null>(null);
 
   const isSubtask = !!form.parent_task_id;
   const parentDueDate = tasks.find((t) => t.id === form.parent_task_id)?.due_date ?? null;
@@ -117,6 +133,15 @@ export function TaskFormFields({
     ? (recurrings.find((r) => r.id === form.linked_recurring_id)?.description ?? null)
     : null;
   const recurrenceSummary = formatRecurrenceSummary(recurrenceValue, linkedDescription);
+
+  /** Resumo do gatilho da seção de links: com um link só, o rótulo dele diz mais do que "1 link"
+   * (é o mesmo rótulo que vai sair no chip do card); com vários, a contagem. */
+  const externalLinksSummary =
+    externalLinks.length === 0
+      ? null
+      : externalLinks.length === 1
+        ? describeExternalLink(externalLinks[0].url).label || "1 link"
+        : `${externalLinks.length} links`;
 
   const description = form.description ?? "";
   const descriptionSummary = description.trim()
@@ -315,14 +340,20 @@ export function TaskFormFields({
             <FormLabel optional>Ícone</FormLabel>
             <div className={cn("mt-1.5 flex items-center", TOUCH_TARGET_CLASS)}>
               <TaskIconPicker
-                // Feature 073: mesma regra da edição rápida — o ícone é da série, então o upload
-                // vai pro caminho da origem e o aviso aparece quando a tarefa é recorrente.
-                taskId={editing ? (editing.recurrence_origin_id ?? editing.id) : null}
+                // Feature 073: mesma regra da edição rápida — o aviso aparece quando a tarefa é
+                // recorrente, porque gravar o ícone ali vale para a série inteira. Desde a 086 o
+                // upload não depende mais de a tarefa existir: o arquivo é da biblioteca.
                 value={{ icon_key: form.icon_key ?? null, icon_url: form.icon_url ?? null }}
                 onChange={(next) => setForm((prev) => ({ ...prev, ...next }))}
                 sharedWithSeries={!!editing && isRecurringTask(editing)}
               />
             </div>
+          </div>
+          {/* Feature 084: nota e canvas desta tarefa entram na mesma fileira só-ícone — sem
+              `FormLabel` próprio (o rótulo de cada um vive no tooltip/`aria-label`) e alinhados
+              embaixo, na altura dos controles que têm rótulo em cima. */}
+          <div className={cn("flex items-center self-end", TOUCH_TARGET_CLASS)}>
+            <TaskNoteButtons task={editing} />
           </div>
           <div className={TOUCH_TARGET_CLASS}>
             <TaskPriorityField
@@ -357,8 +388,9 @@ export function TaskFormFields({
           </div>
         </div>
 
-        {/* Bloco 5 — onde a tarefa se encaixa. */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Bloco 5 — onde a tarefa se encaixa. Feature 085: Tags ocupa a linha inteira (perdeu o
+            par) e os links externos viraram a seção própria que o pedido-mãe chamou de "aba". */}
+        <div className="grid grid-cols-1 gap-3">
           <div>
             <FormLabel optional>Tags</FormLabel>
             <TagCombobox
@@ -368,39 +400,9 @@ export function TaskFormFields({
               onCreateTag={onCreateTag}
             />
           </div>
-          <div>
-            <FormLabel optional htmlFor="task-external-url">
-              Link externo
-            </FormLabel>
-            <Input
-              id="task-external-url"
-              value={form.external_url ?? ""}
-              aria-invalid={externalUrlError ? true : undefined}
-              aria-describedby={externalUrlError ? "task-external-url-hint" : undefined}
-              onChange={(e) => {
-                // Validar a cada tecla acusaria erro no meio da digitação: a checagem é no blur.
-                if (externalUrlError) setExternalUrlError(null);
-                setForm((prev) => ({
-                  ...prev,
-                  external_url: e.target.value || null,
-                  external_provider: detectExternalProvider(e.target.value),
-                }));
-              }}
-              onBlur={(e) => {
-                const url = e.target.value.trim();
-                setExternalUrlError(
-                  !url || /^https?:\/\//i.test(url) ? null : EXTERNAL_URL_HINT
-                );
-              }}
-              placeholder="https://github.com/owner/repo/issues/123"
-              className={cn("mt-1.5", TOUCH_TARGET_CLASS)}
-            />
-            {externalUrlError && (
-              <p id="task-external-url-hint" role="alert" className="mt-1 text-xs text-destructive">
-                {externalUrlError}
-              </p>
-            )}
-          </div>
+          <CollapsibleField label="Links externos" summary={externalLinksSummary}>
+            <TaskExternalLinksField value={externalLinks} onChange={onExternalLinksChange} />
+          </CollapsibleField>
         </div>
 
         {/* Bloco 6 — subtarefas. Subtarefa não tem sub-subtarefa. */}

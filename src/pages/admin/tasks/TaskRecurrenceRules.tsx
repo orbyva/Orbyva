@@ -21,6 +21,7 @@ import {
   FREQUENCY_UNIT_LABELS,
   monthlyWeekdayLabel,
   WEEKDAY_LABELS,
+  WEEKDAYS_EMPTY_HINT,
 } from "@/domain/tasks/recurrence";
 import type { RecurrenceFrequency } from "@/types/tasks";
 import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
@@ -181,9 +182,7 @@ export function TaskRecurrenceRules({
                     </Button>
                   ))}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Nenhum dia marcado repete no mesmo dia da semana do prazo, a cada intervalo.
-                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{WEEKDAYS_EMPTY_HINT}</p>
               </div>
             )}
 

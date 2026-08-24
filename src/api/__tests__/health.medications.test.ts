@@ -8,6 +8,7 @@ import {
   fetchDosesSince,
   fetchMedications,
   materializeAllMedicationDoses,
+  reactivateMedication,
   updateMedication,
 } from "@/api/health/medications";
 import { deleteTaskSeries, fetchTasks } from "@/api/tasks";
@@ -32,6 +33,13 @@ const { store } = vi.hoisted(() => ({
     errorByTable: {} as Record<string, string | undefined>,
     /** `delete()` chamado alguma vez — nenhuma operação desta feature pode apagar tratamento. */
     deletes: 0,
+    /**
+     * Todo `update(...)` que passou, com a tabela e o payload **exato** (feature 096). Olhar só a
+     * linha depois não bastaria: gravar `ended_on: null` sobre um `ended_on` que já era nulo é
+     * indistinguível de não gravar nada, e a diferença entre as duas coisas é justamente o bug que
+     * a 096 conserta — `deactivateMedication` não pode mais tocar na coluna.
+     */
+    updates: [] as { table: string; fields: AnyRow }[],
     seq: 0,
   },
 }));
@@ -72,6 +80,18 @@ vi.mock("@/lib/supabase", () => {
     /** `select(..., { count: "exact", head: true })` — a contagem de escopo da feature 075. */
     let counting = false;
 
+    /**
+     * `update ... where`: o patch só cai nas linhas **depois** que todos os filtros passaram, e não
+     * a cada `eq()`. Aplicar cedo (como este duplo fazia) deixava a primeira cláusula escrever em
+     * linhas que a segunda ainda ia descartar — então um `update` escapando do filtro de `user_id`
+     * era indistinguível de um correto, e nenhum teste de escopo aqui significava nada.
+     */
+    const applyPatch = () => {
+      if (!patch) return;
+      for (const row of rows) Object.assign(row, patch);
+      patch = null;
+    };
+
     const result = () => {
       const error = store.errorByTable[table];
       if (error) return { data: null, count: null, error: { message: error } };
@@ -90,10 +110,6 @@ vi.mock("@/lib/supabase", () => {
       },
       eq(column: string, value: unknown) {
         rows = rows.filter((row) => row[column] === value);
-        // O update só é aplicado depois dos filtros — é `update ... where`.
-        if (patch) {
-          for (const row of rows) Object.assign(row, patch);
-        }
         return builder;
       },
       /** `or("id.eq.x,recurrence_origin_id.eq.x,medication_id.eq.y")` — a união da feature 075. */
@@ -147,6 +163,7 @@ vi.mock("@/lib/supabase", () => {
       },
       update(fields: AnyRow) {
         patch = fields;
+        store.updates.push({ table, fields: { ...fields } });
         return builder;
       },
       in(column: string, values: unknown[]) {
@@ -161,13 +178,16 @@ vi.mock("@/lib/supabase", () => {
       single() {
         const error = store.errorByTable[table];
         if (error) return Promise.resolve({ data: null, error: { message: error } });
+        applyPatch();
         return Promise.resolve({ data: written ?? sorted()[0] ?? null, error: null });
       },
       maybeSingle() {
         const { data, error } = result();
+        if (!error) applyPatch();
         return Promise.resolve({ data: data?.[0] ?? null, error });
       },
       then(resolve: (value: unknown) => unknown) {
+        if (!deleting && !store.errorByTable[table]) applyPatch();
         if (deleting) {
           deleting = false;
           const error = store.errorByTable[table];
@@ -195,6 +215,7 @@ beforeEach(() => {
   store.task = [];
   store.errorByTable = {};
   store.deletes = 0;
+  store.updates = [];
   store.seq = 0;
 });
 
@@ -280,7 +301,7 @@ describe("createMedicationWithDoses", () => {
 });
 
 describe("deactivateMedication", () => {
-  it("encerra sem apagar: active vira false, ended_on vira hoje e o histórico fica", async () => {
+  it("encerra sem apagar e sem inventar término: só active vai no payload", async () => {
     store.medication = [
       { id: "med-1", user_id: "user-1", name: "Losartana", active: true, ended_on: null },
     ];
@@ -297,17 +318,20 @@ describe("deactivateMedication", () => {
 
     await deactivateMedication("med-1");
 
-    expect(store.medication[0]).toMatchObject({
-      active: false,
-      ended_on: "2026-08-17",
-    });
+    // O que a feature 096 conserta: `ended_on` não é enviado. Não basta conferir que a coluna
+    // continua nula — gravar `null` por cima de `null` daria o mesmo resultado na linha e
+    // continuaria sendo o app decidindo um fim que o usuário não pediu.
+    expect(store.updates).toEqual([{ table: "medication", fields: { active: false } }]);
+    expect(store.medication[0].ended_on).toBeNull();
+    expect(store.medication[0].active).toBe(false);
+
     // Nada foi apagado — nem o tratamento, nem a dose já tomada.
     expect(store.deletes).toBe(0);
     expect(store.medication).toHaveLength(1);
     expect(store.task[0].completed_at).toBe("2026-08-10T08:05:00Z");
   });
 
-  it("tratamento que já tinha término programado mantém a data original", async () => {
+  it("tratamento com término programado pelo usuário mantém a data ao ser encerrado", async () => {
     store.medication = [
       {
         id: "med-1",
@@ -322,6 +346,136 @@ describe("deactivateMedication", () => {
 
     expect(store.medication[0].ended_on).toBe("2026-08-20");
     expect(store.medication[0].active).toBe(false);
+    expect(store.updates).toEqual([{ table: "medication", fields: { active: false } }]);
+  });
+
+  it("escopa o update por id e por user_id", async () => {
+    store.medication = [
+      { id: "med-1", user_id: "user-1", name: "Losartana", active: true, ended_on: null },
+      { id: "med-1", user_id: "outro", name: "Losartana alheia", active: true, ended_on: null },
+    ];
+
+    await deactivateMedication("med-1");
+
+    expect(store.medication[0].active).toBe(false);
+    // Mesmo id, outro dono: a RLS confirma no banco, mas o filtro tem de estar no cliente também.
+    expect(store.medication[1].active).toBe(true);
+  });
+});
+
+describe("reactivateMedication", () => {
+  it("término no passado é limpo — sem isso o tratamento voltaria ativo sem gerar dose", async () => {
+    store.medication = [
+      {
+        id: "med-1",
+        user_id: "user-1",
+        name: "Losartana",
+        active: false,
+        ended_on: "2026-08-10",
+      },
+    ];
+
+    await reactivateMedication("med-1");
+
+    expect(store.medication[0]).toMatchObject({ active: true, ended_on: null });
+    expect(store.updates).toEqual([
+      { table: "medication", fields: { active: true, ended_on: null } },
+    ]);
+  });
+
+  it("término igual a hoje também é limpo: senão o tratamento morreria de novo amanhã", async () => {
+    // É o valor que o `deactivateMedication` antigo gravava — o estado exato da linha que esta
+    // feature existe para consertar.
+    store.medication = [
+      {
+        id: "med-1",
+        user_id: "user-1",
+        name: "Losartana",
+        active: false,
+        ended_on: "2026-08-17",
+      },
+    ];
+
+    await reactivateMedication("med-1");
+
+    expect(store.medication[0]).toMatchObject({ active: true, ended_on: null });
+  });
+
+  it("término no futuro é preservado: fim programado que ainda não chegou continua valendo", async () => {
+    store.medication = [
+      {
+        id: "med-1",
+        user_id: "user-1",
+        name: "Amoxicilina",
+        active: false,
+        ended_on: "2026-08-25",
+      },
+    ];
+
+    await reactivateMedication("med-1");
+
+    expect(store.medication[0]).toMatchObject({ active: true, ended_on: "2026-08-25" });
+    expect(store.updates).toEqual([{ table: "medication", fields: { active: true } }]);
+  });
+
+  it("término nulo permanece nulo e não entra no payload", async () => {
+    store.medication = [
+      { id: "med-1", user_id: "user-1", name: "Losartana", active: false, ended_on: null },
+    ];
+
+    await reactivateMedication("med-1");
+
+    expect(store.medication[0]).toMatchObject({ active: true, ended_on: null });
+    expect(store.updates).toEqual([{ table: "medication", fields: { active: true } }]);
+  });
+
+  it("escopa leitura e escrita por id e user_id", async () => {
+    store.medication = [
+      { id: "med-1", user_id: "outro", name: "Alheia", active: false, ended_on: "2026-08-10" },
+      { id: "med-1", user_id: "user-1", name: "Minha", active: false, ended_on: "2026-08-25" },
+    ];
+
+    await reactivateMedication("med-1");
+
+    // O tratamento alheio tem `ended_on` no passado: se a leitura não filtrasse por `user_id`, o
+    // `maybeSingle` poderia trazer ele e o payload sairia com `ended_on: null` — apagando um
+    // término que não é do usuário logado.
+    expect(store.updates).toEqual([{ table: "medication", fields: { active: true } }]);
+    expect(store.medication[0]).toMatchObject({ active: false, ended_on: "2026-08-10" });
+    expect(store.medication[1]).toMatchObject({ active: true, ended_on: "2026-08-25" });
+  });
+
+  it("erro na leitura não chega a escrever", async () => {
+    store.medication = [
+      { id: "med-1", user_id: "user-1", name: "Losartana", active: false, ended_on: "2026-08-10" },
+    ];
+    store.errorByTable.medication = "boom";
+
+    await expect(reactivateMedication("med-1")).rejects.toThrow("boom");
+
+    expect(store.updates).toEqual([]);
+    expect(store.medication[0].active).toBe(false);
+  });
+
+  it("nada é apagado ao reativar", async () => {
+    store.medication = [
+      { id: "med-1", user_id: "user-1", name: "Losartana", active: false, ended_on: "2026-08-10" },
+    ];
+    store.task = [
+      {
+        id: "dose-antiga",
+        user_id: "user-1",
+        medication_id: "med-1",
+        due_date: "2026-08-09",
+        status: "done",
+        completed_at: "2026-08-09T08:05:00Z",
+      },
+    ];
+
+    await reactivateMedication("med-1");
+
+    expect(store.deletes).toBe(0);
+    expect(store.task[0].completed_at).toBe("2026-08-09T08:05:00Z");
   });
 });
 
@@ -508,7 +662,9 @@ describe("endMedicationAndDeleteFutureDoses", () => {
     const apagadas = await endMedicationAndDeleteFutureDoses(doseDeHoje);
 
     expect(apagadas).toBe(1);
-    expect(store.medication[0]).toMatchObject({ active: false, ended_on: "2026-08-17" });
+    // `active = false` sozinho é o que segura a materialização — feature 096: o `ended_on`
+    // fabricado nunca fez parte do mecanismo, e o tratamento continua sem término.
+    expect(store.medication[0]).toMatchObject({ active: false, ended_on: null });
     expect(store.task.map((row) => row.id)).toEqual(["dose-15", "dose-16"]);
 
     await fetchTasks();

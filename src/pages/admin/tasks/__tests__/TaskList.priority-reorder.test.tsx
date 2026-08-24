@@ -73,6 +73,10 @@ const writeGate: { hold: boolean; release: (() => void) | null; fail: boolean } 
 };
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchTasks: vi.fn(async () => store.tasks.map((t) => ({ ...t }))),
   fetchProjects: vi.fn(async () => store.projects.map((p) => ({ ...p }))),
   fetchTags: vi.fn(async () => []),
@@ -100,7 +104,10 @@ vi.mock("@/api/tasks", () => ({
   deleteTasks: vi.fn(),
   deleteTaskSeries: vi.fn(),
   createTag: vi.fn(),
-  uploadTaskIcon: vi.fn(),
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   fetchRunningEntry: vi.fn(async () => store.runningEntry),
   startTimer: vi.fn(),
   stopTimer: vi.fn(),
@@ -207,13 +214,17 @@ async function renderListWithProject() {
       </ActiveTimerProvider>
     </MemoryRouter>
   );
-  await screen.findByText("Assinar contrato");
+  // `findAll` porque numa segunda montagem o quadrante já vem aberto (ver o comentário abaixo) e o
+  // título aparece nele **e** na linha da lista.
+  await screen.findAllByText("Assinar contrato");
   // O quadrante só aparece com um projeto específico selecionado na trilha (feature 025).
-  await user.click(
-    within(screen.getByRole("navigation", { name: "Filtrar por projeto" })).getByRole("button", {
-      name: "Orbyva",
-    })
-  );
+  // Desde a 097 o filtro de projeto é preferência salva no navegador: numa **segunda** montagem
+  // dentro do mesmo teste ele já vem selecionado, e clicar no projeto ativo desmarcaria (a trilha
+  // alterna). Por isso o clique é condicionado ao estado real do botão.
+  const railButton = within(
+    screen.getByRole("navigation", { name: "Filtrar por projeto" })
+  ).getByRole("button", { name: "Orbyva" });
+  if (railButton.getAttribute("aria-current") !== "true") await user.click(railButton);
   await screen.findByText("Por prioridade");
   return user;
 }

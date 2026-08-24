@@ -40,10 +40,12 @@ import {
   createTask,
   deleteProjectEvent,
   deleteTask,
+  fetchExternalLinksForTask,
   fetchProjectEvents,
   fetchProjects,
   fetchTags,
   fetchTasks,
+  saveExternalLinksForTask,
   updateTask,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
@@ -63,6 +65,10 @@ import {
   groupSubtasksByParent,
   isQuickTask,
   isSubtaskDueDateValid,
+  normalizeExternalLinkDrafts,
+  normalizeProjectFilter,
+  PROJECT_FILTER_ALL,
+  PROJECT_FILTER_NONE,
   splitAgendaItems,
   type TaskDeleteOption,
 } from "@/domain/tasks";
@@ -74,7 +80,19 @@ import {
 } from "@/domain/tasks/taskDraft";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR } from "@/lib/currency";
-import type { Project, ProjectEvent, SubtaskDraft, Tag, Task, TaskCreateRequest } from "@/types/tasks";
+import {
+  readTaskProjectFilter,
+  writeTaskProjectFilter,
+} from "@/lib/taskProjectFilterPreference";
+import type {
+  Project,
+  ProjectEvent,
+  SubtaskDraft,
+  Tag,
+  Task,
+  TaskCreateRequest,
+  TaskExternalLinkDraft,
+} from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import type { Medication } from "@/types/health";
 import { useToast } from "@/hooks/use-toast";
@@ -212,10 +230,24 @@ export function EventChip({
   );
 }
 
+export interface AgendaGridProps {
+  /** Recorte por projeto vindo de fora — a aba Agenda do `TaskList` (feature 097). Mesmo
+   * vocabulário do `<Select>` de lá: `"all"`, `"null"` ou o id do projeto. Sem esta prop a grade
+   * continua dona do próprio filtro, que é o que mantém a rota standalone `/tasks/agenda` de pé. */
+  projectFilter?: string;
+  /** Par de `projectFilter`. Quando a grade é controlada, o `<Select>` interno **não é
+   * renderizado**: quem desenha o controle é a barra de cima, e dois seletores para o mesmo estado
+   * na mesma tela seriam só ruído. */
+  onProjectFilterChange?: (value: string) => void;
+}
+
 /** Grade de calendário (mês/semana/dia) — extraída de `AgendaCalendar.tsx` (a página `/tasks/agenda`)
  * pra ser reutilizada como aba dentro de `TaskList.tsx`. A página standalone continua existindo,
  * só embrulhando isso num `PageShell`. */
-export function AgendaGrid() {
+export function AgendaGrid({
+  projectFilter: controlledProjectFilter,
+  onProjectFilterChange,
+}: AgendaGridProps = {}) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [events, setEvents] = useState<ProjectEvent[]>([]);
@@ -226,14 +258,39 @@ export function AgendaGrid() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
   const [focusDate, setFocusDate] = useState(() => new Date());
-  const [projectFilter, setProjectFilter] = useState<string>("all");
+  /** Fallback de `projectFilter` para quando a grade **não** é controlada (rota standalone). Nasce
+   * da preferência salva: é a mesma do usuário, e sem isto abrir a Agenda pela sidebar zeraria o
+   * recorte escolhido na aba de Tarefas. */
+  const [internalProjectFilter, setInternalProjectFilter] = useState<string>(() =>
+    readTaskProjectFilter()
+  );
   const [dayModalKey, setDayModalKey] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  /** Feature 085: a Agenda é o terceiro dono do formulário completo e edita tarefas que já existem,
+   * então a seção de links é fiada igual aos outros dois. Passar a seção desabilitada mostraria
+   * lista vazia numa tarefa que tem links e perderia edições no save — pior do que não tê-la. O que
+   * continua fora de escopo aqui são os **chips** nos itens da agenda (nem a Agenda nem o Gantt
+   * mostram chip de link hoje). */
+  const [externalLinkDrafts, setExternalLinkDrafts] = useState<TaskExternalLinkDraft[]>([]);
   const [form, setForm] = useState<TaskCreateRequest>(emptyTask());
   const [viewingEvent, setViewingEvent] = useState<ProjectEvent | null>(null);
   /** Evento cujo dialog de convite (feature 076) está aberto. */
   const [invitingEvent, setInvitingEvent] = useState<ProjectEvent | null>(null);
   const { toast } = useToast();
+
+  /** Controlada = a aba dentro do `TaskList`; não controlada = a rota `/tasks/agenda`. */
+  const isProjectFilterControlled = controlledProjectFilter !== undefined;
+  const projectFilter = isProjectFilterControlled ? controlledProjectFilter : internalProjectFilter;
+  const setProjectFilter = useCallback(
+    (value: string) => {
+      onProjectFilterChange?.(value);
+      if (controlledProjectFilter === undefined) {
+        setInternalProjectFilter(value);
+        writeTaskProjectFilter(value);
+      }
+    },
+    [controlledProjectFilter, onProjectFilterChange]
+  );
 
   const load = useCallback(async () => {
     try {
@@ -273,6 +330,21 @@ export function AgendaGrid() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /** Mesma conferência que o `TaskList` faz (feature 097), para a rota standalone: o id salvo pode
+   * ser de um projeto apagado, e aí o `<Select>` cairia no placeholder com a agenda vazia, sem
+   * pista do porquê. Quando é controlada, quem valida é o dono do estado, lá em cima. */
+  useEffect(() => {
+    if (loading || isProjectFilterControlled) return;
+    const valid = normalizeProjectFilter(
+      internalProjectFilter,
+      projects.map((p) => p.id)
+    );
+    if (valid !== internalProjectFilter) {
+      setInternalProjectFilter(valid);
+      writeTaskProjectFilter(valid);
+    }
+  }, [loading, isProjectFilterControlled, internalProjectFilter, projects]);
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
@@ -387,6 +459,18 @@ export function AgendaGrid() {
     );
   }, [medications, tasks, gridDays]);
 
+  /** O recorte por projeto, num lugar só: tarefas e eventos têm o mesmo `project_id: string | null`
+   * e as três respostas possíveis são as mesmas — `"all"` mostra tudo, `"null"` mostra só o que não
+   * tem projeto, um id mostra só aquele projeto (feature 097). */
+  const matchesProjectFilter = useCallback(
+    (projectId: string | null) => {
+      if (projectFilter === PROJECT_FILTER_ALL) return true;
+      if (projectFilter === PROJECT_FILTER_NONE) return projectId == null;
+      return projectId === projectFilter;
+    },
+    [projectFilter]
+  );
+
   // Subtarefas com `due_date` próprio entram na Agenda como qualquer tarefa de topo (feature 048)
   // — só ficam de fora as sem prazo (nada pra posicionar na grade) e as parcelas de recorrência
   // financeira ainda não geradas, mesmo critério de antes.
@@ -395,9 +479,9 @@ export function AgendaGrid() {
       [...tasks, ...virtualTasks, ...virtualDoses].filter(
         (t) =>
           !(t.linked_recurring_id && t.linked_installment_number == null) &&
-          (projectFilter === "all" ? true : t.project_id === projectFilter)
+          matchesProjectFilter(t.project_id)
       ),
-    [tasks, virtualTasks, virtualDoses, projectFilter]
+    [tasks, virtualTasks, virtualDoses, matchesProjectFilter]
   );
 
   // Mapa id -> tarefa, usado só pra resolver o título da tarefa-mãe no tooltip do indicador de
@@ -409,9 +493,8 @@ export function AgendaGrid() {
   }
 
   const filteredEvents = useMemo(
-    () =>
-      events.filter((e) => (projectFilter === "all" ? true : e.project_id === projectFilter)),
-    [events, projectFilter]
+    () => events.filter((e) => matchesProjectFilter(e.project_id)),
+    [events, matchesProjectFilter]
   );
 
   const itemsByDay = useMemo(
@@ -438,8 +521,6 @@ export function AgendaGrid() {
       priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
-      external_url: task.external_url ?? null,
-      external_provider: task.external_provider ?? null,
       icon_key: task.icon_key ?? null,
       icon_url: task.icon_url ?? null,
       is_milestone: task.is_milestone ?? false,
@@ -451,6 +532,30 @@ export function AgendaGrid() {
       // tarefa que já é pontual, e salvar a desmarcaria sem o usuário pedir.
       is_quick: task.is_quick ?? false,
     });
+    loadExternalLinkDrafts(task.id);
+  }
+
+  /** Carrega os links da tarefa aberta pela agenda — zera antes de buscar para não mostrar os da
+   * tarefa anterior enquanto a consulta está em voo. */
+  async function loadExternalLinkDrafts(taskId: string) {
+    setExternalLinkDrafts([]);
+    try {
+      const links = await fetchExternalLinksForTask(taskId);
+      setExternalLinkDrafts(
+        links.map((link) => ({
+          id: link.id,
+          url: link.url,
+          comment: link.comment,
+          position: link.position,
+        }))
+      );
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível carregar os links externos."),
+        variant: "destructive",
+      });
+    }
   }
 
   async function handleCreateTag(name: string, color: string): Promise<Tag> {
@@ -523,10 +628,12 @@ export function AgendaGrid() {
     };
     const id = editingTask.id;
     const previous = tasks;
+    const links = normalizeExternalLinkDrafts(externalLinkDrafts).drafts;
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...payload } : t)));
     setEditingTask(null);
     try {
       await updateTask({ id, ...payload });
+      await saveExternalLinksForTask(id, links);
     } catch (error) {
       setTasks(previous);
       toast({
@@ -633,19 +740,26 @@ export function AgendaGrid() {
               <TabsTrigger value="day">Dia</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Projeto" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os projetos</SelectItem>
-              {projects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Controlada (aba do `TaskList`), o seletor de cima é o único — ver `AgendaGridProps`. */}
+          {!isProjectFilterControlled && (
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger className="w-44" aria-label="Projeto">
+                <SelectValue placeholder="Projeto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os projetos</SelectItem>
+                {/* Feature 097: alinha as opções com as das outras visões. Vale para os dois
+                    conjuntos da grade — tarefa sem projeto e evento recebido por convite, que
+                    desde a 076 também tem `project_id` nulo. */}
+                <SelectItem value="null">Sem projeto</SelectItem>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
@@ -818,6 +932,8 @@ export function AgendaGrid() {
               subtasks={(subtasksByParent.get(editingTask.id) ?? []).map((s) => ({ id: s.id, title: s.title }))}
               onAddSubtask={addSubtaskToEditing}
               onRemoveSubtask={(subtask) => removeExistingSubtask(subtask)}
+              externalLinks={externalLinkDrafts}
+              onExternalLinksChange={setExternalLinkDrafts}
               projects={projects}
             />
           )}

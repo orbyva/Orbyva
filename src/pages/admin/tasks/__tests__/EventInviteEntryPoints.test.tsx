@@ -30,6 +30,10 @@ vi.mock("@/api/tasks", async () => {
   const actual = await vi.importActual<typeof import("@/api/tasks")>("@/api/tasks");
   return {
     ...actual,
+    // Feature 085: sem isto a busca em lote dos links cairia no Supabase de verdade.
+    fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+    fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+    saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
     fetchTasks: vi.fn(),
     fetchProjects: vi.fn(),
     fetchProjectEvents: vi.fn(),

@@ -28,6 +28,10 @@ const store: { tasks: Task[]; projects: Project[]; runningEntry: TaskTimeEntry |
 let updateShouldFail = false;
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchTasks: vi.fn(async () => store.tasks.map((t) => ({ ...t }))),
   fetchProjects: vi.fn(async () => store.projects.map((p) => ({ ...p }))),
   fetchTags: vi.fn(async () => []),
@@ -43,7 +47,10 @@ vi.mock("@/api/tasks", () => ({
   deleteTasks: vi.fn(),
   deleteTaskSeries: vi.fn(),
   createTag: vi.fn(),
-  uploadTaskIcon: vi.fn(),
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   fetchRunningEntry: vi.fn(async () => store.runningEntry),
   startTimer: vi.fn(),
   stopTimer: vi.fn(),

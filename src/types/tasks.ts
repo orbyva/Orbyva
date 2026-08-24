@@ -145,9 +145,14 @@ export interface Task {
    * Concluir a tarefa marca o item como comprado e vice-versa; excluir o item zera esta coluna
    * (`on delete set null`) sem apagar a tarefa. */
   linked_shopping_item_id?: string | null;
-  /** Link externo genérico (ex.: issue/PR do GitHub) — provider é detectado no cliente pela URL. */
-  external_url?: string | null;
-  external_provider?: string | null;
+  /**
+   * `external_url`/`external_provider` NÃO estão mais aqui de propósito (feature 085): o link
+   * externo virou **vários**, cada um com comentário, na tabela `task_external_link`
+   * (`TaskExternalLink` abaixo), e nenhum código lê ou escreve as duas colunas. Elas continuam
+   * existindo no banco, com o conteúdo original, como rede de segurança até o usuário confirmar
+   * que a migração não perdeu link nenhum — o `drop column` é a última tarefa da 085. Mesmo padrão
+   * que a 055 usou ao aposentar `project.notes`.
+   */
   completed_at?: string | null;
   /** Estimated time to complete in minutes. */
   estimated_duration?: number | null;
@@ -226,3 +231,101 @@ export interface SubtaskDraft {
   id?: string;
   title: string;
 }
+
+/**
+ * Link externo de uma tarefa (feature 085) — espelha `public.task_external_link`.
+ *
+ * Note que **não há** coluna de provider/ícone: a aparência (ícone + rótulo) é derivada da URL em
+ * tempo de render por `describeExternalLink` (`src/domain/tasks/externalLink.ts`), porque a feature
+ * 087 torna essa derivação configurável por regras do usuário — gravar o resultado congelaria uma
+ * decisão que ele passa a poder mudar.
+ */
+export interface TaskExternalLink {
+  id: string;
+  user_id?: string;
+  task_id: string;
+  url: string;
+  /** Anotação livre "por que este link importa" — o pedido-mãe da 085. Opcional. */
+  comment: string | null;
+  /** Ordem manual dentro da tarefa (0..n-1), reescrita inteira a cada save. Decide quais links
+   * viram chip no card e qual entra no "+N". */
+  position: number;
+  created_at?: string;
+}
+
+/** A linha do link enquanto ela é editada no formulário: sem `id`/`user_id`/`task_id`, que quem
+ * grava (`saveExternalLinksForTask`) preenche. É o mesmo espírito de `SubtaskDraft`. */
+export interface TaskExternalLinkDraft {
+  /** Presente só quando a linha já é um link gravado (modo edição) — ausente = ainda não salva. */
+  id?: string;
+  url: string;
+  comment: string | null;
+  position: number;
+}
+
+/**
+ * Um ícone da biblioteca do usuário (feature 086) — espelha `public.icon_asset`.
+ *
+ * É a metade "e aí esse ícone já fica salvo também na lista" do pedido: antes, cada tarefa tinha o
+ * seu arquivo em `task-icons/{userId}/{taskId}.{ext}` e reusar um ícone significava reenviar o
+ * mesmo arquivo. Agora todo ícone custom (upload **ou** SVG colado) vira uma linha aqui, e o
+ * arquivo mora em `task-icons/{userId}/library/{uuid}.{ext}`.
+ *
+ * `url` é a URL pública do arquivo — o mesmo valor que vai para `Task.icon_url`. **Não existe
+ * campo de markup**: o SVG colado é sanitizado (`prepareSvgIcon`) e gravado como arquivo
+ * justamente para que o consumo continue sendo `<img src>`, nunca render inline.
+ */
+export interface IconAsset {
+  id: string;
+  user_id?: string;
+  /** Rótulo da lista, editável. Sem relação com o nome do arquivo no bucket, que é um uuid. */
+  name: string;
+  url: string;
+  created_at?: string;
+}
+
+/** O ícone antes de existir no banco: o que `uploadIconAsset` monta depois de subir o arquivo e
+ * antes do insert. Sem `id`/`user_id`, que quem grava preenche — mesmo espírito de
+ * `TaskExternalLinkDraft`. */
+export interface IconAssetDraft {
+  name: string;
+  url: string;
+}
+
+/**
+ * Uma regra de aparência de link externo (feature 087) — espelha `public.link_icon_rule`.
+ *
+ * É o pedido "coloque uma seção para que eu configure os ícones pre-configurados... esse regex"
+ * virando dado: até aqui, "link do GitHub aparece com o ícone do GitHub" era um `if` no chip, e
+ * acrescentar GitLab ou Jira exigia deploy.
+ *
+ * A forma bate com `LinkIconRuleShape` (`src/domain/tasks/linkIconRules.ts`), que é o subconjunto
+ * que o casamento usa — o tipo mora lá, e não aqui, porque o domínio não pode depender da camada
+ * de tipos de I/O (`externalLink.ts` já importa daqui, e o caminho inverso fecharia o ciclo).
+ */
+export interface LinkIconRule {
+  id: string;
+  user_id?: string;
+  /** Nome da regra na lista ("GitHub issue"). Não participa do casamento. */
+  name: string;
+  /** A regex, como o usuário digitou — no máximo 200 caracteres. Compilada com `i`, nunca com `g`. */
+  pattern: string;
+  /** O "texto que deriva do link": `$1`…`$9` referindo os grupos capturados, `$$` para um `$`
+   * literal. Nulo/vazio cai no host da URL. */
+  label_template: string | null;
+  /** Preset de `TASK_ICON_PRESETS` — mutuamente exclusivo com `icon_url`, como em `Task`. */
+  icon_key: string | null;
+  /** URL de um ícone da biblioteca (feature 086). Guarda a URL, não o id de `IconAsset`: tirar o
+   * ícone da lista não pode apagar o ícone da regra. */
+  icon_url: string | null;
+  /** Ordem de avaliação (crescente) e único lugar em que a precedência é decidida — a **primeira**
+   * regra que casa vence. */
+  position: number;
+  /** `false` pula a regra sem tirá-la da lista: o "desligar sem perder". */
+  enabled: boolean;
+  created_at?: string;
+}
+
+/** A regra antes de existir no banco: o que o diálogo de criar/editar monta. Sem `id`/`user_id`,
+ * que quem grava preenche — mesmo espírito de `TaskExternalLinkDraft`. */
+export type LinkIconRuleDraft = Omit<LinkIconRule, "id" | "user_id" | "created_at">;

@@ -19,6 +19,17 @@ import type { Medication } from "@/types/health";
 
 type FrequencyOption = "daily" | "custom";
 
+/**
+ * Como o tratamento termina (feature 096).
+ *
+ * Até a 096, "sem limite" era o campo `Término` **em branco** — ausência de dado. Nada na tela
+ * confirmava ao usuário que o tratamento era contínuo, então o modelo mental dele e o banco podiam
+ * divergir sem aviso, que é metade do bug que abriu a feature ("está marcado como encerrado, sendo
+ * que não coloquei limite"). Agora é uma escolha afirmativa, e "Uso contínuo" é um estado que se vê
+ * marcado na tela.
+ */
+type DurationOption = "continuous" | "until";
+
 interface MedicationQuickCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -71,6 +82,11 @@ export function MedicationQuickCreateDialog({
     medication?.started_on ?? formatLocalIsoDate(new Date())
   );
   const [endedOn, setEndedOn] = useState(medication?.ended_on ?? "");
+  // Editar um tratamento que já tem término abre em "Termina em"; sem término, em "Uso contínuo".
+  const [duration, setDuration] = useState<DurationOption>(
+    medication?.ended_on ? "until" : "continuous"
+  );
+  const [endedOnError, setEndedOnError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -87,6 +103,33 @@ export function MedicationQuickCreateDialog({
     setCustomInterval("2");
     setStartedOn(formatLocalIsoDate(new Date()));
     setEndedOn("");
+    setDuration("continuous");
+    setEndedOnError(null);
+  }
+
+  /**
+   * O que impede o formulário de salvar um término inconsistente. `null` = pode salvar.
+   *
+   * Escolher "Termina em" e deixar a data vazia não pode virar `ended_on: null` silencioso: seria
+   * o formulário decidindo por conta própria que o tratamento é contínuo, exatamente o tipo de
+   * divergência entre a tela e o banco que a 096 existe para fechar.
+   */
+  function endedOnProblem(): string | null {
+    if (duration !== "until") return null;
+    if (!endedOn) return "Escolha a data de término ou marque “Uso contínuo”.";
+    if (startedOn && endedOn < startedOn) {
+      return "O término precisa ser igual ou posterior ao início.";
+    }
+    return null;
+  }
+
+  function pickDuration(next: DurationOption) {
+    setDuration(next);
+    // Voltar para "Uso contínuo" limpa a data: deixá-la guardada faria o campo reaparecer
+    // preenchido e o payload continuaria dizendo `null` — dois estados contando histórias
+    // diferentes sobre o mesmo tratamento.
+    if (next === "continuous") setEndedOn("");
+    setEndedOnError(null);
   }
 
   function updateTime(index: number, value: string) {
@@ -101,6 +144,14 @@ export function MedicationQuickCreateDialog({
 
   async function handleSave() {
     if (!canSave) return;
+
+    const problem = endedOnProblem();
+    if (problem) {
+      setEndedOnError(problem);
+      return;
+    }
+    setEndedOnError(null);
+
     setSaving(true);
     try {
       const intervalDays =
@@ -114,7 +165,9 @@ export function MedicationQuickCreateDialog({
         times: filledTimes,
         interval_days: intervalDays,
         started_on: startedOn,
-        ended_on: endedOn || null,
+        // Derivado da escolha, não só do campo: "Uso contínuo" significa `null` mesmo que uma data
+        // tenha sobrado no estado por algum caminho.
+        ended_on: duration === "until" ? endedOn || null : null,
       };
 
       if (editing) {
@@ -258,31 +311,78 @@ export function MedicationQuickCreateDialog({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel required htmlFor="medication-started-on">
-                Início
-              </FormLabel>
-              <Input
-                id="medication-started-on"
-                type="date"
-                value={startedOn}
-                onChange={(e) => setStartedOn(e.target.value)}
-              />
+          <div>
+            <FormLabel required htmlFor="medication-started-on">
+              Início
+            </FormLabel>
+            <Input
+              id="medication-started-on"
+              type="date"
+              className="sm:max-w-[14rem]"
+              value={startedOn}
+              onChange={(e) => setStartedOn(e.target.value)}
+            />
+          </div>
+
+          {/* Duas opções mutuamente exclusivas ficam num radio group visível, não atrás de um
+              select: o ponto da 096 é o usuário **ver** que o tratamento é contínuo. */}
+          <div>
+            <FormLabel required>Duração</FormLabel>
+            <div
+              role="radiogroup"
+              aria-label="Duração do tratamento"
+              className="flex flex-col gap-2"
+            >
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="medication-duration"
+                  value="continuous"
+                  checked={duration === "continuous"}
+                  onChange={() => pickDuration("continuous")}
+                />
+                Uso contínuo
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="medication-duration"
+                  value="until"
+                  checked={duration === "until"}
+                  onChange={() => pickDuration("until")}
+                />
+                {/* Curso com fim definido (antibiótico por 7 dias) — a 049 mandava editar a
+                    recorrência à mão pra isso. */}
+                Termina em
+              </label>
+              {duration === "until" ? (
+                <Input
+                  id="medication-ended-on"
+                  type="date"
+                  aria-label="Data de término"
+                  className="sm:max-w-[14rem]"
+                  value={endedOn}
+                  aria-invalid={endedOnError != null}
+                  aria-describedby={endedOnError ? "medication-ended-on-error" : undefined}
+                  onChange={(e) => {
+                    setEndedOn(e.target.value);
+                    if (endedOnError) setEndedOnError(null);
+                  }}
+                  // Validação no blur, não a cada tecla: uma data pela metade não é um erro do
+                  // usuário, é uma data pela metade.
+                  onBlur={() => setEndedOnError(endedOnProblem())}
+                />
+              ) : null}
             </div>
-            <div>
-              {/* Curso com fim definido (antibiótico por 7 dias) — a 049 mandava editar a
-                  recorrência à mão pra isso. */}
-              <FormLabel optional htmlFor="medication-ended-on">
-                Término
-              </FormLabel>
-              <Input
-                id="medication-ended-on"
-                type="date"
-                value={endedOn}
-                onChange={(e) => setEndedOn(e.target.value)}
-              />
-            </div>
+            {endedOnError ? (
+              <p
+                id="medication-ended-on-error"
+                role="alert"
+                className="mt-1 text-xs text-destructive"
+              >
+                {endedOnError}
+              </p>
+            ) : null}
           </div>
 
           <div>

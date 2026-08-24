@@ -160,6 +160,41 @@ describe("materializeRecurringInstances — propagação de flags", () => {
     expect(tasks.filter((t) => t.is_consultation)).toHaveLength(3);
   });
 
+  it("consulta semanal com dias marcados materializa cada sessão da semana como consulta", async () => {
+    // Pedido de 2026-08-23: recorrência semanal. A materialização não olha a frequência — quem
+    // calcula as datas é `computeMissingOccurrences` —, e é justamente isso que este caso fixa:
+    // "fisioterapia seg/qua/sex" é **uma** série, e cada sessão nasce com a flag e o horário dela.
+    store.rows = [
+      origin({
+        id: "fisio",
+        title: "Fisioterapeuta — sessão",
+        due_date: "2026-08-03", // segunda
+        recurrence_rule: { frequency: "weekly", interval: 1, time: "07:30", weekdays: [1, 3, 5] },
+        is_consultation: true,
+      }),
+    ];
+
+    const tasks = await fetchTasks();
+
+    // Origem 03/08 (segunda); faltavam qua/sex da própria semana e seg/qua/sex da seguinte, até
+    // hoje (16/08, domingo) — a segunda de 17/08 ainda não chegou.
+    expect(store.inserted.map((row) => row.due_date)).toEqual([
+      "2026-08-05",
+      "2026-08-07",
+      "2026-08-10",
+      "2026-08-12",
+      "2026-08-14",
+    ]);
+    for (const row of store.inserted) {
+      expect(row.is_consultation).toBe(true);
+      expect(row.recurrence_origin_id).toBe("fisio");
+      expect(row.due_time).toBe("07:30");
+      // A ocorrência não carrega a regra: quem repete é a origem.
+      expect(row.recurrence_rule).toBeNull();
+    }
+    expect(tasks.filter((t) => t.is_consultation)).toHaveLength(6);
+  });
+
   it("não marca como consulta uma série comum nem uma medicação (flags independentes)", async () => {
     store.rows = [
       origin({ id: "comum", title: "Reunião mensal" }),

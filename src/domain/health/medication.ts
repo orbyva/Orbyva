@@ -35,10 +35,23 @@ export interface ExistingDose {
 }
 
 /**
- * Teto de iterações do laço de datas — mesmo espírito do `guard` de
+ * Quantas datas da cadência um laço pode visitar de uma vez — mesmo espírito do `guard` de
  * `computeMissingWeekdayOccurrences` (`src/domain/tasks/recurrence.ts`). Um tratamento contínuo
- * começado há anos não pode virar um laço infinito nem uma insert de milhares de linhas de uma vez;
- * o que sobrar entra na carga seguinte, porque as doses já criadas saem de `existingDoses`.
+ * começado há anos não pode virar laço infinito nem uma insert de milhares de linhas de uma vez.
+ *
+ * **Não é um teto de alcance** (feature 096). Era, até então, e isso escondia um bug: o laço
+ * contava iterações a partir de `started_on` e avançava o cursor em toda passada, inclusive nas
+ * datas cuja dose já existia. O alcance do gerador era `started_on + 399 × interval_days`, **para
+ * sempre** — um tratamento diário começado há mais de 400 dias parava de materializar dose e nunca
+ * mais voltava, enquanto a agenda continuava desenhando a dose virtual pontilhada que nunca virava
+ * real. O comentário aqui afirmava o contrário ("o que sobrar entra na carga seguinte"), então
+ * quem lia o código era ativamente enganado.
+ *
+ * Hoje o laço para **por data** e a janela é ancorada no fim (`hoje`, ou o fim programado), não no
+ * começo: `computeMissingDoses` cobre sempre os últimos `MAX_DAYS` passos de cadência até `limit`.
+ * A consequência assumida é que um tratamento mais velho que isso não materializa retroativamente o
+ * início — e é a troca certa: são doses de mais de um ano atrás, que ninguém vai marcar como
+ * tomadas, e o que não pode faltar é a dose de **hoje**.
  */
 const MAX_DAYS = 400;
 
@@ -87,6 +100,10 @@ function parseIso(iso: string): Date {
  * `existingDoses` são as doses já materializadas **deste** tratamento; a comparação é por
  * (`due_date`, `dose_time` normalizado), então rodar isto de novo com o resultado já inserido
  * devolve lista vazia — é o que impede a mesma dose de aparecer duas vezes no calendário.
+ *
+ * A janela varrida termina em `limit` e tem no máximo `MAX_DAYS` datas de cadência (ver o comentário
+ * de `MAX_DAYS`): a dose de **hoje** sai daqui por mais velho que seja o tratamento, e é o começo
+ * de um tratamento muito antigo que fica de fora, não o fim.
  */
 export function computeMissingDoses(
   medication: Medication,
@@ -113,10 +130,21 @@ export function computeMissingDoses(
       .map((dose) => `${dose.due_date}T${normalizeTime(dose.dose_time) ?? ""}`)
   );
 
-  const missing: DoseSlot[] = [];
+  // Onde a varredura começa. Um tratamento dentro da janela começa em `started_on`, como sempre;
+  // um mais antigo que `MAX_DAYS` passos começa no passo que deixa exatamente `MAX_DAYS` datas até
+  // `limit`. O salto é aritmético a partir de `started_on` (mesma conta de `computeVirtualDoses`),
+  // então a cadência continua alinhada com o início: um `interval_days = 3` cai sempre no dia certo
+  // e nunca no de véspera.
+  const totalSteps = Math.floor(daysBetween(start, limit) / interval);
+  const firstStep = Math.max(0, totalSteps - MAX_DAYS + 1);
   const cursor = parseIso(start);
+  cursor.setDate(cursor.getDate() + firstStep * interval);
 
-  for (let step = 0; step < MAX_DAYS; step += 1) {
+  const missing: DoseSlot[] = [];
+
+  // O laço para **por data**. `MAX_DAYS + 1` é trava de segurança contra laço infinito, não regra
+  // de negócio: o `firstStep` acima garante que a saída seja sempre o `date > limit`.
+  for (let guard = 0; guard <= MAX_DAYS; guard += 1) {
     const date = toIso(cursor);
     if (date > limit) break;
 

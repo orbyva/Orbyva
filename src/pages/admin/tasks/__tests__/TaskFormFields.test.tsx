@@ -1,14 +1,21 @@
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { TaskFormFields } from "@/pages/admin/tasks/TaskFormFields";
 import { emptyTask } from "@/domain/tasks/taskDraft";
 import { dueDateForShortcut } from "@/domain/tasks/agenda";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR } from "@/lib/currency";
-import { uploadTaskIcon } from "@/api/tasks";
-import type { Project, SubtaskDraft, Task, TaskCreateRequest } from "@/types/tasks";
+import { uploadIconAsset } from "@/api/tasks";
+import type {
+  Project,
+  SubtaskDraft,
+  Task,
+  TaskCreateRequest,
+  TaskExternalLinkDraft,
+} from "@/types/tasks";
 
 /**
  * Feature 042 — `TaskFormFields.tsx` é a fonte única do formulário de tarefa dos três call sites.
@@ -18,7 +25,14 @@ import type { Project, SubtaskDraft, Task, TaskCreateRequest } from "@/types/tas
  */
 
 vi.mock("@/api/tasks", () => ({
-  uploadTaskIcon: vi.fn(),
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   fetchEntriesForTask: vi.fn().mockResolvedValue([]),
   updateTimeEntry: vi.fn(),
   deleteTimeEntry: vi.fn(),
@@ -26,6 +40,17 @@ vi.mock("@/api/tasks", () => ({
 
 vi.mock("@/api/recurring", () => ({
   createRecurringApi: vi.fn(),
+}));
+
+// Feature 084: em modo edição o painel consulta as notas já vinculadas à tarefa. Aqui não
+// interessa o que ela devolve — só que o teste não vá à rede.
+vi.mock("@/api/notes/noteLinks", () => ({
+  fetchNotesLinkedTo: vi.fn().mockResolvedValue([]),
+  addNoteLink: vi.fn(),
+}));
+
+vi.mock("@/api/notes/notes", () => ({
+  createNote: vi.fn(),
 }));
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
@@ -64,17 +89,24 @@ function Harness({
   projects,
   tasks = [],
   initialForm,
+  initialLinks,
 }: {
   editing?: Task | null;
   projects?: Project[];
   tasks?: Task[];
   initialForm?: TaskCreateRequest;
+  initialLinks?: TaskExternalLinkDraft[];
 }) {
   const [form, setForm] = useState<TaskCreateRequest>(initialForm ?? emptyTask());
   const [subtasks, setSubtasks] = useState<SubtaskDraft[]>([]);
+  // Feature 085: o link externo deixou de ser um campo do `form` e virou lista própria, controlada
+  // pelo call site como as subtarefas.
+  const [externalLinks, setExternalLinks] = useState<TaskExternalLinkDraft[]>(initialLinks ?? []);
 
   return (
-    <>
+    // Feature 084: o painel agora tem os atalhos de nota/canvas, que navegam para o editor —
+    // `useNavigate` exige um Router acima, como nos três call sites reais (todos são páginas).
+    <MemoryRouter initialEntries={["/tasks"]}>
       <pre data-testid="form">{JSON.stringify(form)}</pre>
       <TaskFormFields
         form={form}
@@ -91,9 +123,11 @@ function Harness({
         onRemoveSubtask={(_subtask, index) =>
           setSubtasks((prev) => prev.filter((_, i) => i !== index))
         }
+        externalLinks={externalLinks}
+        onExternalLinksChange={setExternalLinks}
         projects={projects}
       />
-    </>
+    </MemoryRouter>
   );
 }
 
@@ -147,7 +181,9 @@ describe("TaskFormFields — painel único (feature 080)", () => {
     ).toBeInTheDocument();
     // Bloco 5, 6
     expect(screen.getByText("Tags")).toBeInTheDocument();
-    expect(screen.getByText("Link externo")).toBeInTheDocument();
+    // Feature 085: o campo único "Link externo" virou a seção "Links externos", no mesmo idioma
+    // colapsável de Descrição/Subtarefas — vários links, cada um com comentário.
+    expect(screen.getByRole("button", { name: /Links externos/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Subtarefas/ })).toBeInTheDocument();
   });
 
@@ -161,6 +197,7 @@ describe("TaskFormFields — painel único (feature 080)", () => {
       screen.getByText("Data limite"),
       screen.getByText("Prioridade"),
       screen.getByText("Tags"),
+      screen.getByRole("button", { name: /Links externos/ }),
       screen.getByRole("button", { name: /Subtarefas/ }),
     ];
 
@@ -252,9 +289,11 @@ describe("TaskFormFields — painel único (feature 080)", () => {
     expect(block3?.className).toContain("grid-cols-1");
     expect(block3?.className).toContain("sm:grid-cols-3");
 
+    // Feature 085: o Bloco 5 deixou de ser Tags | Link e virou uma coluna só — Tags ocupa a linha
+    // inteira e os links viraram a seção colapsável logo abaixo.
     const tagsBlock = screen.getByText("Tags").closest("div")?.parentElement;
     expect(tagsBlock?.className).toContain("grid-cols-1");
-    expect(tagsBlock?.className).toContain("sm:grid-cols-2");
+    expect(tagsBlock?.className).not.toContain("sm:grid-cols-2");
   });
 
   it("cabe em uma página: o painel inteiro são poucos blocos de topo, não um campo por linha", () => {
@@ -502,9 +541,13 @@ describe("TaskFormFields — tarefa pontual (feature 070)", () => {
 });
 
 describe("TaskFormFields — ícone (feature 073)", () => {
-  it("editando uma ocorrência recorrente, o campo Ícone avisa da série e o upload usa o id da origem", async () => {
+  it("editando uma ocorrência recorrente, o campo Ícone avisa da série e o upload vai para a biblioteca", async () => {
     const user = userEvent.setup();
-    vi.mocked(uploadTaskIcon).mockResolvedValue("https://cdn.example.com/origem.png");
+    vi.mocked(uploadIconAsset).mockResolvedValue({
+      id: "icon-1",
+      name: "Ícone",
+      url: "https://cdn.example.com/origem.png",
+    });
     render(<Harness editing={makeTask({ id: "ocorrencia-3", recurrence_origin_id: "origem" })} />);
 
     await user.click(screen.getByRole("button", { name: "Definir ícone" }));
@@ -514,12 +557,18 @@ describe("TaskFormFields — ícone (feature 073)", () => {
 
     const file = new File(["conteudo"], "icone.png", { type: "image/png" });
     await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file);
-    expect(uploadTaskIcon).toHaveBeenCalledWith("origem", file);
+    // Feature 086: o caminho no bucket é por ícone (`{userId}/library/{uuid}.{ext}`), então o id da
+    // origem da série deixou de entrar no upload — o aviso da 073 é o que resta dela aqui.
+    expect(uploadIconAsset).toHaveBeenCalledWith({ file });
   });
 
-  it("editando uma tarefa avulsa, o campo Ícone não avisa nada e o upload usa o id dela", async () => {
+  it("editando uma tarefa avulsa, o campo Ícone não avisa nada e o upload funciona", async () => {
     const user = userEvent.setup();
-    vi.mocked(uploadTaskIcon).mockResolvedValue("https://cdn.example.com/task-1.png");
+    vi.mocked(uploadIconAsset).mockResolvedValue({
+      id: "icon-2",
+      name: "Ícone",
+      url: "https://cdn.example.com/task-1.png",
+    });
     render(<Harness editing={makeTask({ id: "task-1" })} />);
 
     await user.click(screen.getByRole("button", { name: "Definir ícone" }));
@@ -530,56 +579,75 @@ describe("TaskFormFields — ícone (feature 073)", () => {
 
     const file = new File(["conteudo"], "icone.png", { type: "image/png" });
     await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file);
-    expect(uploadTaskIcon).toHaveBeenCalledWith("task-1", file);
+    expect(uploadIconAsset).toHaveBeenCalledWith({ file });
+  });
+});
+
+/**
+ * Feature 085 — os links externos saíram do `form` e viraram uma lista própria. A validação por
+ * linha (blur, duplicata, prévia) é testada onde ela mora, em `TaskExternalLinksField.test.tsx`;
+ * aqui interessa só o que é do painel: a seção existe, abre, e o gatilho resume o que tem dentro.
+ */
+describe("TaskFormFields — seção Links externos (feature 085)", () => {
+  it("a seção fica fechada por padrão e abre num clique, com a lista dentro", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    const trigger = screen.getByRole("button", { name: /Links externos/ });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(trigger);
+
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Nenhum link ainda/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Adicionar link" })).toBeInTheDocument();
+  });
+
+  it("com um link só, o gatilho resume pelo rótulo dele; com vários, pela contagem", () => {
+    const { unmount } = render(
+      <Harness
+        initialLinks={[
+          { url: "https://github.com/owner/repo/issues/7", comment: null, position: 0 },
+        ]}
+      />
+    );
+    // Um link só: o rótulo que vai sair no chip diz mais do que "1 link".
+    expect(screen.getByRole("button", { name: /Links externos/ })).toHaveTextContent(
+      "owner/repo#7"
+    );
+    unmount();
+
+    render(
+      <Harness
+        initialLinks={[
+          { url: "https://a.com", comment: null, position: 0 },
+          { url: "https://b.com", comment: null, position: 1 },
+        ]}
+      />
+    );
+    expect(screen.getByRole("button", { name: /Links externos/ })).toHaveTextContent("2 links");
+  });
+
+  it("o campo único de link externo não existe mais no painel", () => {
+    render(<Harness />);
+    expect(screen.queryByLabelText(/^Link externo$/)).not.toBeInTheDocument();
+  });
+
+  it("adicionar um link no painel não mexe no `form` da tarefa (lista à parte, como as subtarefas)", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole("button", { name: /Links externos/ }));
+    await user.click(screen.getByRole("button", { name: "Adicionar link" }));
+    await user.type(screen.getByLabelText("URL do link 1 de 1"), "https://a.com");
+
+    // O `form` da tarefa não tem mais campo de link nenhum (feature 085) — o que muda é a lista à
+    // parte, que o call site grava depois.
+    expect(Object.keys(currentForm())).not.toContain("external_url");
   });
 });
 
 describe("TaskFormFields — validação no blur", () => {
-  it("Link externo sem esquema avisa no blur, com mensagem afirmativa, sem bloquear a digitação", async () => {
-    const user = userEvent.setup();
-    render(<Harness />);
-
-    const input = screen.getByLabelText(/Link externo/);
-    await user.type(input, "github.com/owner/repo");
-    // Enquanto digita, nada de erro.
-    expect(screen.queryByText("Comece com https://")).not.toBeInTheDocument();
-    expect(currentForm().external_url).toBe("github.com/owner/repo");
-
-    await user.tab();
-
-    expect(screen.getByText("Comece com https://")).toBeInTheDocument();
-    expect(input).toHaveAttribute("aria-invalid", "true");
-    // O valor digitado continua lá — avisar não é apagar.
-    expect(currentForm().external_url).toBe("github.com/owner/repo");
-  });
-
-  it("Link externo válido não acusa nada", async () => {
-    const user = userEvent.setup();
-    render(<Harness />);
-
-    await user.type(
-      screen.getByLabelText(/Link externo/),
-      "https://github.com/owner/repo/issues/1"
-    );
-    await user.tab();
-
-    expect(screen.queryByText("Comece com https://")).not.toBeInTheDocument();
-    expect(currentForm().external_provider).toBe("github");
-  });
-
-  it("corrigir o link limpa o aviso", async () => {
-    const user = userEvent.setup();
-    render(<Harness />);
-
-    const input = screen.getByLabelText(/Link externo/);
-    await user.type(input, "github.com");
-    await user.tab();
-    expect(screen.getByText("Comece com https://")).toBeInTheDocument();
-
-    await user.click(input);
-    await user.type(input, "/x");
-    expect(screen.queryByText("Comece com https://")).not.toBeInTheDocument();
-  });
 
   it("prazo de subtarefa que passa do prazo da tarefa principal avisa no próprio campo", async () => {
     const user = userEvent.setup();

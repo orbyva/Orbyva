@@ -62,10 +62,13 @@ import {
   deleteProjectEvent,
   deleteTask,
   fetchDependencies,
+  fetchExternalLinksForTask,
+  fetchExternalLinksForTasks,
   fetchProjectById,
   fetchProjectEvents,
   fetchTags,
   fetchTasks,
+  saveExternalLinksForTask,
   updateProject,
   updateTask,
 } from "@/api/tasks";
@@ -83,6 +86,7 @@ import {
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
   isSubtaskDueDateValid,
+  normalizeExternalLinkDrafts,
   sortTasksBy,
   sortTasksByCompletedAtDesc,
 } from "@/domain/tasks";
@@ -101,6 +105,8 @@ import type {
   Tag,
   Task,
   TaskDependency,
+  TaskExternalLink,
+  TaskExternalLinkDraft,
   TaskPriority,
   TaskStatus,
 } from "@/types/tasks";
@@ -169,6 +175,13 @@ export default function ProjectDetail() {
   const [form, setForm] = useState(emptyTask(id ?? ""));
   const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
   const [newTaskSubtasks, setNewTaskSubtasks] = useState<string[]>([]);
+  /** Links externos da tarefa aberta no formulário (feature 085) — mesma fiação de `TaskList.tsx`,
+   * o outro dono do formulário completo. */
+  const [externalLinkDrafts, setExternalLinkDrafts] = useState<TaskExternalLinkDraft[]>([]);
+  /** Links de todas as tarefas do projeto, numa consulta só por `load()`, para os chips dos cards. */
+  const [externalLinksByTask, setExternalLinksByTask] = useState<Record<string, TaskExternalLink[]>>(
+    {}
+  );
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   /**
    * A aba ativa mora na URL (`?tab=`), não em `useState` — mesmo idioma do filtro por projeto da
@@ -262,6 +275,13 @@ export default function ProjectDetail() {
       setTags(tagList);
       setRecurrings(recurringList);
       setProjectEvents(eventList.filter((e) => e.project_id === id));
+      // Feature 085: chip de link é enfeite do card. Falha aqui cai para "sem chips" em vez de
+      // derrubar o projeto inteiro — por isso fora do `Promise.all`.
+      try {
+        setExternalLinksByTask(await fetchExternalLinksForTasks(projectTasks.map((t) => t.id)));
+      } catch {
+        setExternalLinksByTask({});
+      }
     } catch (error) {
       toast({
         title: "Erro",
@@ -391,6 +411,7 @@ export default function ProjectDetail() {
     setEditing(null);
     setForm({ ...emptyTask(id), status });
     setNewTaskSubtasks([]);
+    setExternalLinkDrafts([]);
     setOpen(true);
   }
 
@@ -409,8 +430,6 @@ export default function ProjectDetail() {
       priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
-      external_url: task.external_url ?? null,
-      external_provider: task.external_provider ?? null,
       icon_key: task.icon_key ?? null,
       icon_url: task.icon_url ?? null,
       is_milestone: task.is_milestone ?? false,
@@ -423,7 +442,31 @@ export default function ProjectDetail() {
       is_quick: task.is_quick ?? false,
     });
     setNewTaskSubtasks([]);
+    loadExternalLinkDrafts(task.id);
     setOpen(true);
+  }
+
+  /** Carrega os links da tarefa em edição — zera antes de buscar para o formulário nunca mostrar os
+   * links da tarefa anterior enquanto a consulta está em voo. */
+  async function loadExternalLinkDrafts(taskId: string) {
+    setExternalLinkDrafts([]);
+    try {
+      const links = await fetchExternalLinksForTask(taskId);
+      setExternalLinkDrafts(
+        links.map((link) => ({
+          id: link.id,
+          url: link.url,
+          comment: link.comment,
+          position: link.position,
+        }))
+      );
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível carregar os links externos."),
+        variant: "destructive",
+      });
+    }
   }
 
   function openEditProject() {
@@ -508,9 +551,13 @@ export default function ProjectDetail() {
       due_date: isLinked && !isEditingInstance ? null : form.due_date,
       due_time: isLinked && !isEditingInstance ? null : form.due_time,
     };
+    // Feature 085: linha em branco sai, espaços saem, `position` vira 0..n-1 e a URL repetida
+    // (já acusada na linha) fica de fora, antes de o `unique` do banco estourar.
+    const links = normalizeExternalLinkDrafts(externalLinkDrafts).drafts;
     try {
       if (editing) {
         await updateTask({ id: editing.id, ...payload });
+        await saveExternalLinksForTask(editing.id, links);
       } else {
         const created = await createTask(payload);
         for (const title of newTaskSubtasks) {
@@ -521,6 +568,8 @@ export default function ProjectDetail() {
             title,
           });
         }
+        // Só aqui existe `task_id` para gravar.
+        if (links.length > 0) await saveExternalLinksForTask(created.id, links);
       }
       toast({ title: "Tarefa salva!", duration: 2000 });
       setOpen(false);
@@ -875,6 +924,7 @@ export default function ProjectDetail() {
                                 onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
                                 onDueChange={(next) => handleDueChange(task.id, next)}
                                 onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
+                                externalLinksByTask={externalLinksByTask}
                                 subtaskActions={subtaskActions}
                               />
                             );
@@ -961,6 +1011,7 @@ export default function ProjectDetail() {
                                 onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
                                 onDueChange={(next) => handleDueChange(task.id, next)}
                                 onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
+                                externalLinksByTask={externalLinksByTask}
                                 subtaskActions={subtaskActions}
                               />
                             ))}
@@ -992,6 +1043,7 @@ export default function ProjectDetail() {
                       onPriorityChange={(task, priority) => handlePriorityChange(task.id, priority)}
                       onDueChange={(task, next) => handleDueChange(task.id, next)}
                       onDueOpenChange={(task, open) => handleDueOpenChange(task.id, open)}
+                      externalLinksByTask={externalLinksByTask}
                       subtaskActions={subtaskActions}
                       extraActions={(task) =>
                         !task.linked_recurring_id ? (
@@ -1081,6 +1133,8 @@ export default function ProjectDetail() {
                 ? removeExistingSubtask(subtask)
                 : setNewTaskSubtasks((prev) => prev.filter((_, i) => i !== index))
             }
+            externalLinks={externalLinkDrafts}
+            onExternalLinksChange={setExternalLinkDrafts}
           />
           <Button onClick={handleSave} className="w-full">
             {editing ? "Salvar alterações" : "Criar tarefa"}

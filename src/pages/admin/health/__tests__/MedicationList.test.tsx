@@ -8,6 +8,7 @@ import {
   deactivateMedication,
   fetchDosesSince,
   fetchMedications,
+  reactivateMedication,
 } from "@/api/health/medications";
 import type { Medication } from "@/types/health";
 import type { Task } from "@/types/tasks";
@@ -22,6 +23,7 @@ vi.mock("@/api/health/medications", () => ({
   fetchMedications: vi.fn(),
   fetchDosesSince: vi.fn(),
   deactivateMedication: vi.fn(),
+  reactivateMedication: vi.fn(),
   createMedicationWithDoses: vi.fn(),
   updateMedication: vi.fn(),
 }));
@@ -42,6 +44,7 @@ vi.mock("@/hooks/use-toast", () => ({
 const mockedFetchMedications = vi.mocked(fetchMedications);
 const mockedFetchDoses = vi.mocked(fetchDosesSince);
 const mockedDeactivate = vi.mocked(deactivateMedication);
+const mockedReactivate = vi.mocked(reactivateMedication);
 const mockedCreate = vi.mocked(createMedicationWithDoses);
 
 function medication(overrides: Partial<Medication> = {}): Medication {
@@ -155,7 +158,7 @@ describe("MedicationList", () => {
     expect(screen.queryByTestId("adherence-med-1")).toBeNull();
   });
 
-  it("tratamento encerrado aparece com badge e sem ação de encerrar", async () => {
+  it("tratamento encerrado aparece com badge, sem 'Encerrar' e com a saída 'Reativar'", async () => {
     mockedFetchMedications.mockResolvedValue([
       medication({ active: false, ended_on: "2026-08-12" }),
     ]);
@@ -165,8 +168,70 @@ describe("MedicationList", () => {
     expect(row.getByText("Encerrado")).toBeInTheDocument();
     expect(row.getByText("Término: 12/08/2026")).toBeInTheDocument();
     expect(row.queryByRole("button", { name: "Encerrar" })).toBeNull();
+    // Feature 096: encerrar deixou de ser porta de mão única.
+    expect(row.getByRole("button", { name: "Reativar" })).toBeInTheDocument();
     // Editar continua disponível: encerrado não é apagado.
     expect(row.getByRole("button", { name: "Editar" })).toBeInTheDocument();
+  });
+
+  it("tratamento ativo mostra 'Encerrar' e nunca 'Reativar'", async () => {
+    mockedFetchMedications.mockResolvedValue([medication()]);
+    renderPage();
+
+    const row = within(await screen.findByRole("listitem", { name: "Losartana" }));
+    expect(row.getByRole("button", { name: "Encerrar" })).toBeInTheDocument();
+    expect(row.queryByRole("button", { name: "Reativar" })).toBeNull();
+  });
+
+  it("reativar confirma, chama reactivateMedication com o id e recarrega a lista", async () => {
+    const user = userEvent.setup();
+    mockedFetchMedications.mockResolvedValue([
+      medication({ active: false, ended_on: "2026-08-12" }),
+    ]);
+    mockedReactivate.mockResolvedValue(undefined);
+    renderPage();
+
+    const row = within(await screen.findByRole("listitem", { name: "Losartana" }));
+    await user.click(row.getByRole("button", { name: "Reativar" }));
+
+    const dialog = within(await screen.findByRole("alertdialog"));
+    // A confirmação diz o que volta e o que não volta — reativar não recupera adesão apagada.
+    expect(dialog.getByText(/volta a gerar doses/)).toBeInTheDocument();
+    expect(dialog.getByText(/não voltam/)).toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "Reativar" }));
+
+    await waitFor(() => expect(mockedReactivate).toHaveBeenCalledWith("med-1"));
+    await waitFor(() => expect(mockedFetchMedications).toHaveBeenCalledTimes(2));
+    expect(mockedDeactivate).not.toHaveBeenCalled();
+  });
+
+  it("erro ao reativar vira toast e o badge 'Encerrado' continua na linha", async () => {
+    const user = userEvent.setup();
+    mockedFetchMedications.mockResolvedValue([
+      medication({ active: false, ended_on: "2026-08-12" }),
+    ]);
+    mockedReactivate.mockRejectedValue(new Error("Failed to fetch"));
+    renderPage();
+
+    const row = within(await screen.findByRole("listitem", { name: "Losartana" }));
+    await user.click(row.getByRole("button", { name: "Reativar" }));
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Reativar",
+      })
+    );
+
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Erro", variant: "destructive" })
+      )
+    );
+    // A tela não pode mentir sobre o estado do banco: a chamada falhou, então o tratamento
+    // continua encerrado — e a lista não foi recarregada.
+    const linha = within(screen.getByRole("listitem", { name: "Losartana" }));
+    expect(linha.getByText("Encerrado")).toBeInTheDocument();
+    expect(linha.getByRole("button", { name: "Reativar" })).toBeInTheDocument();
+    expect(mockedFetchMedications).toHaveBeenCalledTimes(1);
   });
 
   it("encerrar confirma e chama deactivateMedication, recarregando a lista", async () => {

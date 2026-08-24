@@ -351,32 +351,15 @@ async function syncLinkedInstallmentFromTask(
   );
 }
 
-/**
- * Envia um ícone customizado pra uma tarefa (bucket `task-icons`, mesmo padrão de
- * `uploadAlbumCover` em `src/api/albums.ts`) e devolve a URL pública. Não atualiza `task` sozinho
- * — quem chama decide quando gravar `icon_url` (ex.: junto de `icon_key: null` via `updateTask`).
- */
-export async function uploadTaskIcon(taskId: string, file: File): Promise<string> {
-  const userId = await getCurrentUserId();
-  const ext =
-    file.type === "image/png"
-      ? "png"
-      : file.type === "image/webp"
-        ? "webp"
-        : file.type === "image/svg+xml"
-          ? "svg"
-          : "jpg";
-  const path = `${userId}/${taskId}.${ext}`;
-
-  const { error } = await supabase.storage
-    .from("task-icons")
-    .upload(path, file, { upsert: true, contentType: file.type });
-
-  if (error) throw new Error(error.message);
-
-  const { data } = supabase.storage.from("task-icons").getPublicUrl(path);
-  return data.publicUrl;
-}
+// `uploadTaskIcon(taskId, file)` (feature 035) vivia aqui e gravava em
+// `task-icons/{userId}/{taskId}.{ext}`. A feature 086 a substituiu por `uploadIconAsset`
+// (`src/api/tasks/iconAssets.ts`), que grava por **ícone** (`{userId}/library/{uuid}.{ext}`) e
+// registra a linha na biblioteca. Duas razões para a antiga sair em vez de ficar depreciada: o
+// caminho por tarefa era o motivo de o upload exigir uma tarefa já salva (e de a 073 ter de usar o
+// id da origem da série), e ela subia um `.svg` escolhido no seletor **sem sanitizar** — um caminho
+// de upload sem a barreira que a 086 estabeleceu. Os arquivos já gravados no caminho antigo
+// continuam no bucket e as tarefas que apontam para eles seguem funcionando: `icon_url` é URL
+// absoluta, e a migration da 086 copiou cada uma para a biblioteca.
 
 export async function deleteTask(id: string): Promise<void> {
   const userId = await getCurrentUserId();

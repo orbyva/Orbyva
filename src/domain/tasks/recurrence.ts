@@ -295,10 +295,25 @@ const FREQUENCY_UNIT_PLURAL: Record<RecurrenceFrequency, string> = {
 /** Iniciais dos dias da semana nos botões de "Dias da semana" (0=domingo…6=sábado). */
 export const WEEKDAY_LABELS = ["D", "S", "T", "Q", "Q", "S", "S"];
 
+/**
+ * O que acontece quando o usuário não marca dia nenhum na repetição semanal — o ramo
+ * `computeMissingSimpleOccurrences` (mesmo dia da semana da origem, a cada `interval` semanas).
+ * Constante compartilhada de propósito: o formulário completo (`TaskRecurrenceRules`) e o atalho de
+ * consulta (`ConsultationQuickCreateDialog`) explicam o mesmo comportamento, e duas redações
+ * divergentes da mesma regra é como o app passa a se contradizer.
+ */
+export const WEEKDAYS_EMPTY_HINT =
+  "Nenhum dia marcado repete no mesmo dia da semana do prazo, a cada intervalo.";
+
 /** Abreviações usadas no resumo textual ("seg e qua"). */
 export const WEEKDAY_NAMES_SHORT = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
-const WEEKDAY_NAMES_LONG = [
+/**
+ * Nome por extenso do dia (0=domingo…6=sábado). Exportado porque `WEEKDAY_LABELS` é só a inicial
+ * ("S" serve para segunda e sábado) e não funciona como nome acessível dos botões de dia da semana
+ * — quem usa os botões (`TaskRecurrenceRules`, `ConsultationQuickCreateDialog`) precisa deste.
+ */
+export const WEEKDAY_NAMES_LONG = [
   "domingo",
   "segunda-feira",
   "terça-feira",

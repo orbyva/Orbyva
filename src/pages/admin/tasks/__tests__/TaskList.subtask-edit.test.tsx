@@ -18,6 +18,10 @@ import type { Project, Task } from "@/types/tasks";
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchTasks: vi.fn(),
   fetchProjects: vi.fn(),
   fetchTags: vi.fn(),
@@ -27,7 +31,10 @@ vi.mock("@/api/tasks", () => ({
   deleteTask: vi.fn(),
   deleteTasks: vi.fn(),
   createTag: vi.fn(),
-  uploadTaskIcon: vi.fn(),
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/api/recurring", () => ({
@@ -189,7 +196,7 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
     expect(await screen.findByRole("listbox", { name: "Projeto" })).toBeInTheDocument();
   });
 
-  it("o painel esconde o campo Subtarefas ao editar uma subtarefa, mantendo Tags/Link externo", async () => {
+  it("o painel esconde o campo Subtarefas ao editar uma subtarefa, mantendo Tags/Links externos", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", due_date: "2026-08-20" });
     const subtask = makeTask({
@@ -206,7 +213,8 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
     expect(dialog.queryByRole("button", { name: /Subtarefas/ })).not.toBeInTheDocument();
     expect(dialog.queryByPlaceholderText("Adicionar subtarefa")).not.toBeInTheDocument();
     expect(dialog.getByText("Tags")).toBeInTheDocument();
-    expect(dialog.getByText("Link externo")).toBeInTheDocument();
+    // Feature 085: o campo único virou a seção "Links externos" — subtarefa continua tendo a dela.
+    expect(dialog.getByRole("button", { name: /Links externos/ })).toBeInTheDocument();
   });
 
   it("o painel mostra o campo Subtarefas normalmente ao editar uma tarefa de topo", async () => {

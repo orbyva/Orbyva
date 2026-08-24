@@ -6,8 +6,6 @@ import {
   ChevronRight,
   Circle,
   CircleDashed,
-  ExternalLink,
-  Github,
   GripVertical,
   Pen,
   Play,
@@ -33,13 +31,22 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TaskDeleteDialog } from "./TaskDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
-import { detectGitHubLink, isRecurringTask, type TaskDeleteOption } from "@/domain/tasks";
-import type { Project, Tag, Task, TaskPriority, TaskStatus } from "@/types/tasks";
+import { isRecurringTask, resolveLinkAppearance, type TaskDeleteOption } from "@/domain/tasks";
+import { useLinkIconRules } from "@/hooks/useLinkIconRules";
+import type {
+  Project,
+  Tag,
+  Task,
+  TaskExternalLink,
+  TaskPriority,
+  TaskStatus,
+} from "@/types/tasks";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { contrastTextColor } from "@/lib/color";
 import { stripMarkdown } from "@/lib/markdown";
+import { TaskIconBadge } from "./TaskIconBadge";
 import { TaskQuickFields } from "./TaskQuickFields";
 import { TaskStartNowButton } from "./TaskStartNowButton";
 import type { TaskDueQuickEditValue } from "./TaskDueQuickEdit";
@@ -59,30 +66,69 @@ export const STATUS_ICONS: Record<TaskStatus, LucideIcon> = {
   done: CheckCircle2,
 };
 
-/** Chip de link externo — reconhece issue/PR do GitHub pela URL (sem chamada de rede) e mostra
- * "owner/repo#N"; qualquer outra URL vira um chip genérico "Link externo". */
-export function ExternalLinkChip({ url }: { url: string }) {
-  const github = detectGitHubLink(url);
+/** Quantos links viram chip antes de o resto virar um "+N" (feature 085). Três é o que cabe na
+ * linha do card ao lado de status, prazo e tags sem empurrar tudo para a linha de baixo; quem tem
+ * mais abre a tarefa e vê a lista inteira na seção "Links externos". */
+export const EXTERNAL_LINK_CHIPS_VISIBLE = 3;
+
+/**
+ * Chips dos links externos de uma tarefa (feature 085): **um por link**, cada um com o próprio
+ * ícone, o próprio rótulo e o **próprio comentário** no `title`. O comentário é a razão de o link
+ * existir e não pode ficar visível só dentro do formulário.
+ *
+ * Ícone e rótulo saem de `resolveLinkAppearance` com as **regras do usuário** (feature 087): a
+ * primeira regra que casa a URL vence, e sem regra nenhuma o resultado é o de antes — issue/PR do
+ * GitHub vira "owner/repo#N", o resto cai no host. Era aqui que morava o `if` de GitHub; ele saiu
+ * porque reconhecer um serviço novo virou configuração, não deploy.
+ *
+ * Acima de `EXTERNAL_LINK_CHIPS_VISIBLE`, o excedente vira um único "+N" com os rótulos restantes
+ * no `title`. Lista vazia não renderiza nada.
+ */
+export function ExternalLinkChip({ links }: { links: TaskExternalLink[] }) {
+  // Fora do `if` de lista vazia: hook não pode ser condicional. O cache no módulo faz disto uma
+  // leitura de memória depois da primeira busca da página.
+  const rules = useLinkIconRules();
+  if (links.length === 0) return null;
+  const visible = links.slice(0, EXTERNAL_LINK_CHIPS_VISIBLE);
+  const rest = links.slice(EXTERNAL_LINK_CHIPS_VISIBLE);
+  const restLabels = rest
+    .map((link) => resolveLinkAppearance(link.url, rules).label)
+    .join(", ");
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
-    >
-      {github ? (
-        <>
-          <Github className="h-3 w-3" />
-          {github.owner}/{github.repo}#{github.number}
-        </>
-      ) : (
-        <>
-          <ExternalLink className="h-3 w-3" />
-          Link externo
-        </>
+    <>
+      {visible.map((link) => {
+        const { iconKey, iconUrl, label } = resolveLinkAppearance(link.url, rules);
+        return (
+          <a
+            key={link.id}
+            href={link.url}
+            target="_blank"
+            rel="noreferrer"
+            // Sem comentário, o `title` cai na URL: melhor mostrar para onde o chip leva do que
+            // não mostrar nada.
+            title={link.comment ?? link.url}
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-w-[12rem] shrink-0 items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+          >
+            {/* `aria-hidden` no wrapper e não no ícone: `TaskIconBadge` põe o próprio `aria-label`
+                no preset, e o leitor de tela ouviria "Bandeira" antes do rótulo do link. */}
+            <span aria-hidden="true" className="flex shrink-0 items-center">
+              <TaskIconBadge iconKey={iconKey} iconUrl={iconUrl} className="h-3 w-3" />
+            </span>
+            <span className="truncate">{label}</span>
+          </a>
+        );
+      })}
+      {rest.length > 0 && (
+        <span
+          title={restLabels}
+          aria-label={`Mais ${rest.length} ${rest.length === 1 ? "link" : "links"}: ${restLabels}`}
+          className="shrink-0 text-[10px] text-muted-foreground"
+        >
+          +{rest.length}
+        </span>
       )}
-    </a>
+    </>
   );
 }
 
@@ -172,6 +218,7 @@ export function TaskListRow({
   onDueOpenChange,
   onProjectChange,
   projects,
+  externalLinksByTask,
   isNested = false,
   subtaskActions,
 }: {
@@ -228,6 +275,12 @@ export function TaskListRow({
   onProjectChange?: (projectId: string | null) => void;
   /** Catálogo de projetos (já ordenado por atividade) — obrigatório junto com `onProjectChange`. */
   projects?: Project[];
+  /** Links externos por tarefa (feature 085), carregados em **lote** pelo dono da página
+   * (`fetchExternalLinksForTasks` no `load()`). É o mapa inteiro, e não só os desta linha, porque a
+   * linha aninhada da subtarefa é a mesma `TaskListRow` e precisa dos dela — mesmo formato de
+   * `subtasksByParent`. Ausente = nenhum chip; nada é buscado aqui (uma consulta por linha seria
+   * uma ida ao banco por tarefa a cada render). */
+  externalLinksByTask?: Record<string, TaskExternalLink[]>;
   /** `true` = esta linha é uma subtarefa renderizada aninhada sob a linha da tarefa-mãe (feature
    * 046): aplica indentação/borda visual distinta e desliga `ExpandSubtasksButton`/o próprio
    * aninhamento (sem sub-subtarefas — modelo de 2 níveis já estabelecido pela feature 036). */
@@ -342,7 +395,7 @@ export function TaskListRow({
               {taskTags.map((tag) => (
                 <TagBadge key={tag.id} tag={tag} />
               ))}
-              {task.external_url && <ExternalLinkChip url={task.external_url} />}
+              <ExternalLinkChip links={externalLinksByTask?.[task.id] ?? []} />
             </div>
             {task.description && (
               <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
@@ -433,6 +486,7 @@ export function TaskListRow({
                   ? (open) => subtaskActions.onDueOpenChange!(subtask, open)
                   : undefined
               }
+              externalLinksByTask={externalLinksByTask}
               isNested
             />
           ))}
@@ -470,6 +524,7 @@ export function CompletedTasksSection({
   onDueOpenChange,
   onProjectChange,
   projects,
+  externalLinksByTask,
   subtaskActions,
 }: {
   tasks: Task[];
@@ -497,6 +552,8 @@ export function CompletedTasksSection({
   onDueOpenChange?: (task: Task, open: boolean) => void;
   onProjectChange?: (task: Task, projectId: string | null) => void;
   projects?: Project[];
+  /** Repassado direto a cada `TaskListRow` — o mesmo mapa em lote da feature 085. */
+  externalLinksByTask?: Record<string, TaskExternalLink[]>;
   /** Repassado direto a cada `TaskListRow` — já vem parametrizado por tarefa (feature 046), mesmo
    * formato que os handlers acima, só sem precisar de wrapping aqui. */
   subtaskActions?: SubtaskRowActions;
@@ -546,6 +603,7 @@ export function CompletedTasksSection({
               onProjectChange ? (projectId) => onProjectChange(task, projectId) : undefined
             }
             projects={projects}
+            externalLinksByTask={externalLinksByTask}
             subtaskActions={subtaskActions}
           />
         ))}
@@ -713,6 +771,7 @@ export function KanbanCard({
   onDueOpenChange,
   onProjectChange,
   projects,
+  externalLinksByTask,
   subtaskActions,
 }: {
   task: Task;
@@ -753,6 +812,9 @@ export function KanbanCard({
   onProjectChange?: (projectId: string | null) => void;
   /** Catálogo de projetos (já ordenado por atividade) — obrigatório junto com `onProjectChange`. */
   projects?: Project[];
+  /** Links externos por tarefa (feature 085), carregados em lote pelo dono da página — mesmo mapa
+   * que `TaskListRow` recebe. */
+  externalLinksByTask?: Record<string, TaskExternalLink[]>;
   /** Handlers de quick action parametrizados por subtarefa (mesma interface que `TaskListRow`
    * usa desde a feature 046) — presente = mini-card de subtarefa ganha status editável (Select,
    * sem mudar de coluna) e ícone/prioridade/prazo clicáveis; ausente = cai pro visual
@@ -869,7 +931,7 @@ export function KanbanCard({
         {taskTags.map((tag) => (
           <TagBadge key={tag.id} tag={tag} />
         ))}
-        {task.external_url && <ExternalLinkChip url={task.external_url} />}
+        <ExternalLinkChip links={externalLinksByTask?.[task.id] ?? []} />
       </div>
 
       {task.description && (

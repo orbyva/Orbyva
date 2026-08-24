@@ -106,3 +106,36 @@ export type SortableTask = UpdatedSortableTask & { due_date: string | null };
 export function sortTasksBy<T extends SortableTask>(key: TaskSortKey, tasks: T[]): T[] {
   return key === "due" ? sortTasksByDueDate(tasks) : sortTasksByUpdatedAtDesc(tasks);
 }
+
+/**
+ * Filtro de projeto compartilhado pelas quatro visões de Tarefas (feature 097). O valor é
+ * `"all"` (sem recorte), `"null"` (só o que **não** tem projeto) ou o id de um projeto — o mesmo
+ * vocabulário que o `<Select>` da barra e a `ProjectsRail` já falavam antes de a preferência passar
+ * a ser salva.
+ */
+export const PROJECT_FILTER_ALL = "all";
+export const PROJECT_FILTER_NONE = "null";
+
+/** Forma mínima do valor: string não vazia. Não diz que o id existe — quem diz é
+ * `normalizeProjectFilter`, que precisa da lista de projetos carregados. */
+export function isProjectFilterValue(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+/**
+ * O valor que a tela pode de fato usar. `"all"`/`"null"` sempre passam (não dependem de projeto
+ * nenhum); um id só passa se ainda estiver na lista carregada. Qualquer outra coisa — projeto
+ * apagado, formato antigo, lixo gravado por outra versão — cai para `"all"`, em vez de deixar a
+ * tela filtrada por um projeto que não existe mais e não aparece no `<Select>`.
+ */
+export function normalizeProjectFilter(
+  value: unknown,
+  projectIds: Iterable<string>
+): string {
+  if (!isProjectFilterValue(value)) return PROJECT_FILTER_ALL;
+  if (value === PROJECT_FILTER_ALL || value === PROJECT_FILTER_NONE) return value;
+  for (const id of projectIds) {
+    if (id === value) return value;
+  }
+  return PROJECT_FILTER_ALL;
+}
