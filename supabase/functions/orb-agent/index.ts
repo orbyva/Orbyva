@@ -12,6 +12,7 @@ import { buildSystemPrompt } from "./prompt.ts";
 import { persistProposals } from "./proposals.ts";
 import { buildToolRegistry, type ToolContext } from "./tools/registry.ts";
 import {
+  findSimilarTitlesTool,
   proposeMarkMovieTool,
   searchMovieCatalogTool,
 } from "./tools/entertainment/movies.ts";
@@ -36,6 +37,7 @@ const HISTORY_LIMIT = 20;
 const { tools: TOOLS, byName: TOOL_BY_NAME } = buildToolRegistry([
   searchMovieCatalogTool,
   proposeMarkMovieTool,
+  findSimilarTitlesTool,
   searchBookCatalogTool,
   proposeMarkBookTool,
   proposeManualBookTool,

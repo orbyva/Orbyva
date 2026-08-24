@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "../registry.ts";
 import {
+  fetchSimilarTmdb,
   isTmdbConfigured,
   resolveMovieByImdbId,
   searchMoviesTmdb,
@@ -121,5 +122,47 @@ export const proposeMarkMovieTool: ToolDefinition = {
       summary,
     });
     return { ok: true, summary };
+  },
+};
+
+
+/**
+ * Recomendações de filmes/séries parecidos.
+ *
+ * Existia um `suggest_next_actions` oferecendo "ver parecidos" sem nenhuma tool
+ * por trás: o usuário clicava, o modelo não tinha como atender e inventava que
+ * as sugestões apareceriam "na interface" — que não existe. Esta tool fecha
+ * esse buraco.
+ */
+export const findSimilarTitlesTool: ToolDefinition = {
+  name: "find_similar_titles",
+  description:
+    "Busca filmes/séries parecidos com um título. Use quando o usuário pedir recomendações ou algo 'parecido com X'. Devolve título, ano e sinopse curta — responda com eles no texto; NÃO diga que as sugestões aparecem em outro lugar da interface.",
+  input_schema: {
+    type: "object",
+    properties: {
+      title: {
+        type: "string",
+        description: "Título de referência, como o usuário falou",
+      },
+      year: { type: "integer", description: "Ano, se souber" },
+    },
+    required: ["title"],
+  },
+  handler: async (input) => {
+    const title = String(input.title ?? "").trim();
+    const year = input.year != null ? Number(input.year) : null;
+    if (!title) return { error: "title é obrigatório." };
+    if (!isTmdbConfigured()) return { error: "TMDB não configurado." };
+
+    const hits = await searchMoviesTmdb(title, year);
+    const base = hits[0];
+    if (!base) return { similar: [], not_found: true };
+
+    const similar = await fetchSimilarTmdb(base.tmdb_id, base.media_type);
+    return {
+      based_on: { title: base.title, year: base.year },
+      similar,
+    };
   },
 };

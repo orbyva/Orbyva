@@ -73,6 +73,7 @@ type TmdbSearchItem = {
   id: number;
   original_title?: string;
   original_name?: string;
+  overview?: string;
   media_type?: "movie" | "tv" | "person";
   title?: string;
   name?: string;
@@ -202,4 +203,35 @@ export async function resolveMovieByImdbId(
   } catch {
     return null;
   }
+}
+
+export type SimilarTitle = {
+  tmdb_id: number;
+  media_type: "movie" | "tv";
+  title: string;
+  year: number | null;
+  overview: string;
+};
+
+/**
+ * Recomendações do TMDB para um título já resolvido.
+ *
+ * Usa `/recommendations` (curadoria por co-visualização) e não `/similar`
+ * (só gênero/palavra-chave) — as sugestões ficam bem mais relevantes.
+ */
+export async function fetchSimilarTmdb(
+  tmdbId: number,
+  mediaType: "movie" | "tv",
+  limit = 6
+): Promise<SimilarTitle[]> {
+  const data = await tmdbGet<{ results?: TmdbSearchItem[] }>(
+    `/${mediaType}/${tmdbId}/recommendations`
+  );
+  return (data.results ?? []).slice(0, limit).map((item) => ({
+    tmdb_id: item.id,
+    media_type: mediaType,
+    title: (item.title || item.name || "Sem título").trim(),
+    year: yearFromDate(item.release_date || item.first_air_date),
+    overview: (item.overview ?? "").trim().slice(0, 200),
+  }));
 }
