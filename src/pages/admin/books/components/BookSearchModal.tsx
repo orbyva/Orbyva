@@ -23,6 +23,7 @@ import { FormSection } from "@/components/FormSection";
 import { Separator } from "@/components/ui/separator";
 import {
   formatAuthors,
+  parseBookSearchQuery,
   formatBookRating,
   getBookRatingLabel,
 } from "@/domain/books";
@@ -32,6 +33,8 @@ import {
   isAbortError,
   useTypeaheadSearch,
 } from "@/hooks/useTypeaheadSearch";
+
+import { BookManualModal } from "./BookManualModal";
 
 interface BookSearchModalProps {
   onBookAdded: () => void;
@@ -64,6 +67,8 @@ export function BookSearchModal({
   const [wouldRecommend, setWouldRecommend] = useState(true);
   const [readDate, setReadDate] = useState<Date>();
   const [formError, setFormError] = useState("");
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualDraft, setManualDraft] = useState({ title: "", authors: "" });
   const [status, setStatus] = useState<"to_read" | "reading" | "read">(
     "to_read"
   );
@@ -176,6 +181,19 @@ export function BookSearchModal({
     }
   }
 
+  function openManual() {
+    setManualDraft(parseBookSearchQuery(query));
+    setIsOpen(false);
+    setManualOpen(true);
+  }
+
+  function handleManualAdded() {
+    setManualOpen(false);
+    setIsOpen(false);
+    resetState();
+    onBookAdded();
+  }
+
   function resetState() {
     setStep("search");
     setQuery("");
@@ -190,13 +208,14 @@ export function BookSearchModal({
   }
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        setIsOpen(open);
-        if (!open) resetState();
-      }}
-    >
+    <>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) resetState();
+        }}
+      >
       {!hideTrigger ? (
         <DialogTrigger asChild>
           <Button className="w-full gap-2 sm:w-auto">
@@ -248,6 +267,19 @@ export function BookSearchModal({
               </div>
             </FormField>
 
+            {!loading && query.trim().length > 2 && searchResults.length === 0 && (
+              <div className="rounded-md border border-dashed p-3">
+                <p className="mb-3 text-sm text-muted-foreground">
+                  O Google Books não trouxe resultados. Cadastre manualmente —
+                  usamos o que você digitou como ponto de partida.
+                </p>
+                <Button type="button" className="w-full gap-2" onClick={openManual}>
+                  <Plus className="h-4 w-4" />
+                  Adicionar manualmente
+                </Button>
+              </div>
+            )}
+
             {searchResults.length > 0 && (
               <div className="max-h-[55vh] space-y-2 overflow-y-auto sm:max-h-[300px]">
                 {searchResults.map((hit) => (
@@ -273,6 +305,23 @@ export function BookSearchModal({
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {searchResults.length > 0 && (
+              <div className="border-t pt-3">
+                <p className="mb-2 text-sm text-muted-foreground">
+                  Não achou o que queria?
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={openManual}
+                >
+                  <Plus className="h-4 w-4" />
+                  Adicionar livro manualmente
+                </Button>
               </div>
             )}
           </FormSection>
@@ -380,6 +429,16 @@ export function BookSearchModal({
           </>
         )}
       </FormDialogShell>
-    </Dialog>
+      </Dialog>
+
+      <BookManualModal
+        hideTrigger
+        open={manualOpen}
+        onOpenChange={setManualOpen}
+        initialTitle={manualDraft.title}
+        initialAuthors={manualDraft.authors}
+        onBookAdded={handleManualAdded}
+      />
+    </>
   );
 }

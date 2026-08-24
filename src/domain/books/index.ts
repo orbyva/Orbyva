@@ -427,3 +427,33 @@ export function newManualBookId(): string {
 export function isManualBook(googleId: string): boolean {
   return googleId.startsWith(MANUAL_BOOK_PREFIX);
 }
+
+/**
+ * Separa o texto da busca em título e autores pra pré-preencher o cadastro
+ * manual. Espelha `parseAlbumSearchQuery`, com os separadores usados em livro
+ * ("Título de Autor", "Título por Autor").
+ */
+export function parseBookSearchQuery(raw: string): {
+  title: string;
+  authors: string;
+} {
+  const q = raw.trim();
+  if (!q) return { title: "", authors: "" };
+
+  // "de" fica de fora de propósito: é comum DENTRO do título em português
+  // ("Memórias Póstumas de Brás Cubas", "O Alienista de Machado"), e dividir ali
+  // erra mais do que acerta. Melhor não dividir do que dividir errado — isto é
+  // pré-preenchimento, o usuário corrige em campos separados.
+  const byMatch = q.match(/^(.+?)\s+(?:por|by)\s+(.+)$/i);
+  if (byMatch) {
+    return { title: byMatch[1].trim(), authors: byMatch[2].trim() };
+  }
+
+  const dashParts = q.split(/\s+[-–]\s+/);
+  if (dashParts.length === 2 && dashParts[0] && dashParts[1]) {
+    // Em livro a convenção é "Título - Autor", inversa à de álbum.
+    return { title: dashParts[0].trim(), authors: dashParts[1].trim() };
+  }
+
+  return { title: q, authors: "" };
+}
