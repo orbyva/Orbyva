@@ -1,10 +1,10 @@
-@import "@fontsource/plus-jakarta-sans/400.css";
-@import "@fontsource/plus-jakarta-sans/500.css";
-@import "@fontsource/plus-jakarta-sans/600.css";
-@import "@fontsource/plus-jakarta-sans/700.css";
-@import "@fontsource/syne/600.css";
-@import "@fontsource/syne/700.css";
-@import "@fontsource/syne/800.css";
+/* Subset latin só — PT-BR cabe em U+0000–00FF; evita cyrillic/vietnamese no crítico. */
+@import "@fontsource/plus-jakarta-sans/latin-400.css";
+@import "@fontsource/plus-jakarta-sans/latin-500.css";
+@import "@fontsource/plus-jakarta-sans/latin-600.css";
+@import "@fontsource/plus-jakarta-sans/latin-700.css";
+@import "@fontsource/syne/latin-600.css";
+@import "@fontsource/syne/latin-700.css";
 
 /* Syne: glifos passam do em-box — leading folgado evita corte visual */
 .font-display {
@@ -228,6 +228,9 @@ body,
 #root {
   min-height: 100%;
   max-width: 100%;
+  /* Fora de @layer: vence o fundo/cor do boot no index.html depois do CSS carregar. */
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
   /* NÃO usar overflow-x: hidden aqui: isso força overflow-y ≠ visible
      e corta descendentes de fonte (g, y, ç) — bug clássico de CSS. */
 }
@@ -251,33 +254,17 @@ textarea,
   touch-action: manipulation;
 }
 
-/* Hero da landing: CSS em vez de framer-motion no first paint */
+/* Hero da landing: CSS em vez de framer-motion no first paint.
+   Não usar opacity:0 no hero — atrasa FCP (copy) e LCP (print). */
 :root {
   --landing-bg: #070b14;
   --landing-accent: #0ea5e9;
-}
-
-@keyframes landing-fade-up {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 @keyframes landing-beam-dash {
   to {
     stroke-dashoffset: -120;
   }
-}
-
-.landing-hero-copy {
-  animation: landing-fade-up 0.5s ease-out both;
-}
-
-.landing-hero-visual {
-  animation: landing-fade-up 0.55s ease-out 0.12s both;
 }
 
 .landing-beam-path {
@@ -301,11 +288,6 @@ textarea,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landing-hero-copy,
-  .landing-hero-visual {
-    animation: none;
-  }
-
   .landing-beam-path {
     animation: none;
     opacity: 0.35;

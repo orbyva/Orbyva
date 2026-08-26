@@ -6,14 +6,15 @@ import {
   type RouteObject,
 } from "react-router-dom";
 
-import ProtectedRoute from "./ProtectedRoute";
 import LoadingFallback from "./components/LoadingFallback";
-import { useAuth } from "@/hooks/useAuth";
-import { safeNextPath } from "@/lib/nextPath";
+import Landing from "./pages/Landing";
 
+const AuthRoot = lazy(() => import("./AuthRoot"));
+const QuantoAindaCabePage = lazy(() => import("./pages/QuantoAindaCabe"));
+const ProtectedRoute = lazy(() => import("./ProtectedRoute"));
+const ExtensionPanel = lazy(() => import("./pages/admin/extension/ExtensionPanel"));
 const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
-const Login = lazy(() => import("./pages/admin/Login"));
-const Landing = lazy(() => import("./pages/Landing"));
+const LoginEntry = lazy(() => import("./pages/admin/LoginEntry"));
 const Movies = lazy(() => import("./pages/admin/movies/Movies"));
 const Links = lazy(() => import("./pages/admin/content/Links"));
 const Books = lazy(() => import("./pages/admin/books/Books"));
@@ -57,26 +58,9 @@ const withSuspense = (Component: React.ReactNode) => (
   <Suspense fallback={<LoadingFallback />}>{Component}</Suspense>
 );
 
-/** Não bloqueia o first paint anônimo esperando auth. */
+/** Landing anônima sem AuthProvider no grafo (LCP). */
 function LandingEntry() {
-  const { user, loading } = useAuth();
-  if (!loading && user) return <Navigate to="/home" replace />;
-  return withSuspense(<Landing />);
-}
-
-function LoginEntry() {
-  const { user, loading } = useAuth();
-  if (loading) return <LoadingFallback />;
-  // Quem já está logado e cai em `/login?next=...` (link de convite aberto numa aba com sessão)
-  // vai direto para o destino, em vez de perder o link no dashboard. `safeNextPath` barra open
-  // redirect.
-  if (user) {
-    const next = safeNextPath(
-      new URLSearchParams(window.location.search).get("next")
-    );
-    return <Navigate to={next} replace />;
-  }
-  return withSuspense(<Login />);
+  return <Landing />;
 }
 
 const OpsConsole = lazy(() => import("./pages/ops/OpsConsole"));
@@ -102,16 +86,20 @@ export const appRoutes: RouteObject[] = [
     element: <LandingEntry />,
   },
   {
-    path: "/login",
-    element: <LoginEntry />,
-  },
-  {
     path: "/invite/:code",
     element: withSuspense(<InviteAccept />),
   },
   {
-    path: "/events/invite/:token",
-    element: withSuspense(<EventInviteAccept />),
+    path: "/dentro-do-orcamento",
+    element: withSuspense(<QuantoAindaCabePage />),
+  },
+  {
+    path: "/quanto-ainda-cabe",
+    element: <Navigate to="/dentro-do-orcamento" replace />,
+  },
+  {
+    path: "/cabe-no-mes",
+    element: <Navigate to="/dentro-do-orcamento" replace />,
   },
   {
     path: "/about",
@@ -126,88 +114,107 @@ export const appRoutes: RouteObject[] = [
     element: withSuspense(<PrivacyPage />),
   },
   {
-    element: <ProtectedRoute />,
+    element: withSuspense(<AuthRoot />),
     children: [
       {
-        path: "ops",
-        element: withSuspense(<OpsConsole />),
+        path: "login",
+        element: withSuspense(<LoginEntry />),
+      },
+      // Convite de evento: dentro do AuthRoot (a tela lê `useAuth`) e **fora** do ProtectedRoute,
+      // porque o link chega por e-mail para quem pode não ter sessão.
+      {
+        path: "/events/invite/:token",
+        element: withSuspense(<EventInviteAccept />),
       },
       {
-        element: withSuspense(<AdminLayout />),
+        element: withSuspense(<ProtectedRoute />),
         children: [
-          { path: "home", element: <LifeDashboard /> },
-          { path: "timeline", element: <Timeline /> },
-          // Sub-módulo Vida > Saúde (feature 060) — hub de primeiro nível, não uma aba do
-          // dashboard de Vida, para as telas de 061-064 terem deep-link próprio.
-          { path: "life/health", element: <HealthDashboard /> },
-          // Gestão dos tratamentos (feature 064) — o dashboard mostra a próxima dose e a adesão;
-          // cadastrar, editar e encerrar vivem aqui.
-          { path: "life/health/medications", element: <MedicationList /> },
-          { path: "account", element: <Account /> },
-
-          { path: "goals", element: <Goals /> },
-          { path: "habits", element: <Habits /> },
-          { path: "travel", element: <Travel /> },
           {
-            path: "travel/invite/:token",
-            element: <TripInviteAccept />,
+            path: "ops",
+            element: withSuspense(<OpsConsole />),
           },
-          { path: "travel/:id", element: <TripDetail /> },
-          { path: "places", element: <Places /> },
-
           {
-            path: "tasks",
-            children: [
-              { index: true, element: <TaskList /> },
-              { path: "projects", element: <TaskProjects /> },
-              { path: "projects/:id", element: <TaskProjectDetail /> },
-              // `/tasks/gantt` (`TasksGantt.tsx`) foi removida na feature 044: rota separada, sem
-              // link em nenhum lugar do app (nem sidebar — `app-sidebar.tsx` só lista `/tasks` e
-              // `/tasks/projects` — nem em nenhuma outra página), redundante com a aba "Gantt" já
-              // existente aqui dentro de `/tasks` (`TaskList.tsx`), e sem paridade de props
-              // interativas (sem `onOpenTask`/quick actions) — corrigir isso teria sido manter duas
-              // implementações do mesmo Gantt em paridade. `?view=gantt` seleciona a aba direto.
-              { path: "gantt", element: <Navigate to="/tasks?view=gantt" replace /> },
-              { path: "live", element: <TasksLive /> },
-              { path: "agenda", element: <TasksAgenda /> },
-              { path: "tags", element: <TasksTags /> },
-              // Fora da sidebar, como `/tasks/tags`: é configuração do módulo, alcançada pelo
-              // botão "Configurar ícones" da seção de links do formulário e pelo cabeçalho de
-              // `/tasks/tags` (feature 087).
-              { path: "link-icons", element: <TasksLinkIcons /> },
-            ],
+            path: "ext",
+            element: withSuspense(<ExtensionPanel />),
           },
-
-          { path: "shopping-list", element: <ShoppingList /> },
-
           {
-            path: "notes",
+            element: withSuspense(<AdminLayout />),
             children: [
-              { index: true, element: <Notes /> },
-              { path: ":id", element: <NoteDetail /> },
-            ],
-          },
+              { path: "home", element: <LifeDashboard /> },
+              { path: "timeline", element: <Timeline /> },
+              // Sub-módulo Vida > Saúde (feature 060) — hub de primeiro nível, não uma aba do
+              // dashboard de Vida, para as telas de 061-064 terem deep-link próprio.
+              { path: "life/health", element: <HealthDashboard /> },
+              // Gestão dos tratamentos (feature 064) — o dashboard mostra a próxima dose e a adesão;
+              // cadastrar, editar e encerrar vivem aqui.
+              { path: "life/health/medications", element: <MedicationList /> },
+              { path: "account", element: <Account /> },
 
-          {
-            path: "finance",
-            children: [
-              { path: "dashboard", element: <FinanceDashboard /> },
-              { path: "recurring", element: <Recurring /> },
-              { path: "transactions", element: <Transactions /> },
-              { path: "categories", element: <Categories /> },
+              { path: "goals", element: <Goals /> },
+              { path: "habits", element: <Habits /> },
+              { path: "travel", element: <Travel /> },
               {
-                path: "dimensions",
-                element: <Navigate to="/finance/categories" replace />,
+                path: "travel/invite/:token",
+                element: <TripInviteAccept />,
               },
-              { path: "budget", element: <Budget /> },
+              { path: "travel/:id", element: <TripDetail /> },
+              { path: "places", element: <Places /> },
+
+              {
+                path: "tasks",
+                children: [
+                  { index: true, element: <TaskList /> },
+                  { path: "projects", element: <TaskProjects /> },
+                  { path: "projects/:id", element: <TaskProjectDetail /> },
+                  // `/tasks/gantt` (`TasksGantt.tsx`) foi removida na feature 044: rota separada, sem
+                  // link em nenhum lugar do app (nem sidebar — `app-sidebar.tsx` só lista `/tasks` e
+                  // `/tasks/projects` — nem em nenhuma outra página), redundante com a aba "Gantt" já
+                  // existente aqui dentro de `/tasks` (`TaskList.tsx`), e sem paridade de props
+                  // interativas (sem `onOpenTask`/quick actions) — corrigir isso teria sido manter duas
+                  // implementações do mesmo Gantt em paridade. `?view=gantt` seleciona a aba direto.
+                  { path: "gantt", element: <Navigate to="/tasks?view=gantt" replace /> },
+                  { path: "live", element: <TasksLive /> },
+                  { path: "agenda", element: <TasksAgenda /> },
+                  { path: "tags", element: <TasksTags /> },
+                  // Fora da sidebar, como `/tasks/tags`: é configuração do módulo, alcançada pelo
+                  // botão "Configurar ícones" da seção de links do formulário e pelo cabeçalho de
+                  // `/tasks/tags` (feature 087).
+                  { path: "link-icons", element: <TasksLinkIcons /> },
+                ],
+              },
+
+              { path: "shopping-list", element: <ShoppingList /> },
+
+              {
+                path: "notes",
+                children: [
+                  { index: true, element: <Notes /> },
+                  { path: ":id", element: <NoteDetail /> },
+                ],
+              },
+
+              {
+                path: "finance",
+                children: [
+                  { path: "dashboard", element: <FinanceDashboard /> },
+                  { path: "recurring", element: <Recurring /> },
+                  { path: "transactions", element: <Transactions /> },
+                  { path: "categories", element: <Categories /> },
+                  {
+                    path: "dimensions",
+                    element: <Navigate to="/finance/categories" replace />,
+                  },
+                  { path: "budget", element: <Budget /> },
+                ],
+              },
+
+              { path: "movies", element: <Movies /> },
+              { path: "books", element: <Books /> },
+              { path: "music", element: <Music /> },
+              { path: "links", element: <Links /> },
+              { path: "car", element: <Car /> },
             ],
           },
-
-          { path: "movies", element: <Movies /> },
-          { path: "books", element: <Books /> },
-          { path: "music", element: <Music /> },
-          { path: "links", element: <Links /> },
-          { path: "car", element: <Car /> },
         ],
       },
     ],

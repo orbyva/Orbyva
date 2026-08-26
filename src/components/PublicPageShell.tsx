@@ -83,6 +83,9 @@ export function PublicPageShell({
           <Link to="/" className="hover:text-zinc-300">
             Início
           </Link>
+          <Link to="/dentro-do-orcamento" className="hover:text-zinc-300">
+            Está dentro do orçamento?
+          </Link>
           <Link to="/about" className="hover:text-zinc-300">
             Sobre
           </Link>

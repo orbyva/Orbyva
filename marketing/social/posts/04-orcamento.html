@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>P04 · Orçamento</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+</head>
+<body>
+
+<div class="stage stage--feed s-paper" data-eyebrow="Orçamento" data-module="finance" data-idx="04/12"
+     data-sig="tr" data-cta="Defina seu Orçamento">
+
+  <h1 class="head head--sm" style="margin-top:56px">
+    Saiba o que ainda<br><span class="acc">cabe</span> no mês.
+  </h1>
+
+  <p class="sub sub--wide" style="margin-top:28px">
+    Orçamento por categoria, com alerta antes de estourar.
+  </p>
+
+  <div class="spacer"></div>
+
+  <!-- linhas de categoria do Orçamento (BudgetTable.tsx) -->
+  <div class="card" style="padding:36px 38px">
+    <div class="col g32">
+
+      <div class="col g16">
+        <div class="rowf ac">
+          <span class="ui-name">Mercado</span>
+          <span class="chip chip--ok" style="margin-left:auto; padding:8px 18px; font-size:20px">OK</span>
+        </div>
+        <div class="bar"><i class="ok" style="--p:62%"></i></div>
+        <div class="stat3">
+          <div><span class="k">Orçado</span><span class="v">R$ 1.200</span></div>
+          <div><span class="k">Gasto</span><span class="v">R$ 744</span></div>
+          <div><span class="k">Restante</span><span class="v c-ok">R$ 456</span></div>
+        </div>
+      </div>
+
+      <div class="col g16">
+        <div class="rowf ac">
+          <span class="ui-name">Transporte</span>
+          <span class="chip chip--warn" style="margin-left:auto; padding:8px 18px; font-size:20px">QUASE</span>
+        </div>
+        <div class="bar"><i class="warn" style="--p:91%"></i></div>
+        <div class="stat3">
+          <div><span class="k">Orçado</span><span class="v">R$ 400</span></div>
+          <div><span class="k">Gasto</span><span class="v">R$ 364</span></div>
+          <div><span class="k">Restante</span><span class="v c-warn">R$ 36</span></div>
+        </div>
+      </div>
+
+      <div class="col g16">
+        <div class="rowf ac">
+          <span class="ui-name">Restaurantes</span>
+          <span class="chip chip--bad" style="margin-left:auto; padding:8px 18px; font-size:20px">ESTOUROU</span>
+        </div>
+        <div class="bar"><i class="bad" style="--p:100%"></i></div>
+        <div class="stat3">
+          <div><span class="k">Orçado</span><span class="v">R$ 300</span></div>
+          <div><span class="k">Gasto</span><span class="v">R$ 418</span></div>
+          <div><span class="k">Restante</span><span class="v c-bad">− R$ 118</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="margin-top:26px">
+    <span class="chip chip--bad"><span data-icon="alert"></span>Orçamento estourado</span>
+  </div>
+
+  <div class="spacer"></div>
+
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

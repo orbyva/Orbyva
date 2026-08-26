@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="8">
+<title>V4 · Orçamento</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+</head>
+<body>
+
+<div class="stage stage--story s-paper" data-eyebrow="Orçamento" data-module="finance" data-sig="br">
+  <div class="scenes">
+
+    <div class="swap">
+      <div class="head head--sm a" style="--in:k-scale; --d:.15s; --x:5.45s; --s0:.96">Ainda posso<br>gastar?</div>
+      <div class="head head--sm a" style="--d:6.70s">Você descobre<br><span class="acc">antes</span>.</div>
+    </div>
+
+    <!-- as barras enchem em cascata; a terceira passa de 100% -->
+    <div class="card a" style="--d:1.90s; padding:38px 40px">
+      <div class="col g34">
+
+        <div class="col g14">
+          <div class="rowf ac">
+            <span class="ui-name" style="font-size:34px">Mercado</span>
+            <span class="ui-cap tnum" style="margin-left:auto; font-size:26px">R$ 744 / R$ 1.200</span>
+          </div>
+          <div class="bar" style="height:18px"><i class="ok a" style="--p:62%; --d:2.40s; --dur:.85s"></i></div>
+        </div>
+
+        <div class="col g14">
+          <div class="rowf ac">
+            <span class="ui-name" style="font-size:34px">Transporte</span>
+            <span class="ui-cap tnum" style="margin-left:auto; font-size:26px">R$ 364 / R$ 400</span>
+          </div>
+          <div class="bar" style="height:18px"><i class="warn a" style="--p:91%; --d:2.60s; --dur:.95s"></i></div>
+        </div>
+
+        <div class="col g14">
+          <div class="rowf ac">
+            <span class="ui-name" style="font-size:34px">Restaurantes</span>
+            <span class="ui-cap tnum" style="margin-left:auto; font-size:26px">R$ 418 / R$ 300</span>
+          </div>
+          <div class="bar" style="height:18px"><i class="bad a" style="--p:100%; --d:2.80s; --dur:1.35s"></i></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="nudge" style="--d:5.30s; --nd:5.70s">
+      <span class="chip chip--bad" style="font-size:28px; padding:16px 28px">
+        <span data-icon="alert"></span>Orçamento estourado
+      </span>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

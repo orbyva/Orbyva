@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="9">
+<title>V6 · Recorrências</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+</head>
+<body>
+
+<div class="stage stage--story s-ink" data-eyebrow="Recorrências" data-module="finance" data-sig="br">
+  <div class="scenes">
+
+    <div class="swap">
+      <div class="head head--sm a" style="--d:.15s; --x:6.60s">Você lembra<br>de todas as<br>parcelas?</div>
+      <div class="head head--sm a" style="--d:7.00s">O Orbyva<br><span class="acc">lembra</span>.</div>
+    </div>
+
+    <!-- lista de Recorrências entrando; o contador de parcela sobe -->
+    <div class="card a" style="--d:2.20s; padding:16px 38px">
+      <div class="row a" style="--in:k-right; --d:2.50s">
+        <div class="f1">
+          <div class="ui-name" style="font-size:32px">Notebook</div>
+          <div class="ui-cap" style="font-size:24px; margin-top:6px">
+            Parcelada (12x) · parcela
+            <span data-count="7" data-count-fmt="frac" data-count-total="12"
+                  style="--d:3.40s; --dur:1.3s"></span>
+          </div>
+        </div>
+        <span class="ui-num ui-num--xs tnum">R$ 416,58</span>
+      </div>
+      <div class="row a" style="--in:k-right; --d:2.68s">
+        <div class="f1">
+          <div class="ui-name" style="font-size:32px">Internet</div>
+          <div class="ui-cap" style="font-size:24px; margin-top:6px">Mensal fixa · vence dia 10</div>
+        </div>
+        <span class="ui-num ui-num--xs tnum">R$ 129,90</span>
+      </div>
+      <div class="row a" style="--in:k-right; --d:2.86s">
+        <div class="f1">
+          <div class="ui-name c-bad" style="font-size:32px">Aluguel apartamento</div>
+          <div class="ui-cap c-bad" style="font-size:24px; margin-top:6px">Atrasada · venceu em 05/08</div>
+        </div>
+        <span class="ui-num ui-num--xs tnum c-bad">R$ 2.400,00</span>
+      </div>
+    </div>
+
+    <div class="rowf wrap g16">
+      <span class="chip chip--bad a" style="--in:k-right; --d:5.30s; font-size:26px; padding:14px 26px">
+        <span data-icon="alert"></span>Contas atrasadas
+      </span>
+      <span class="chip chip--warn a" style="--in:k-right; --d:5.55s; font-size:26px; padding:14px 26px">
+        <span data-icon="clock"></span>Vencimentos próximos
+      </span>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

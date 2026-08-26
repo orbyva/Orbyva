@@ -1,0 +1,1230 @@
+/*
+ * Design system das peças sociais do Orbyva.
+ * Tokens espelham src/index.css e src/lib/brand.ts — não inventar cor aqui.
+ */
+
+/* ---------- fontes locais (@fontsource, offline) ---------- */
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-weight: 400;
+  font-display: block;
+  src: url("../../../node_modules/@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-weight: 500;
+  font-display: block;
+  src: url("../../../node_modules/@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-weight: 600;
+  font-display: block;
+  src: url("../../../node_modules/@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-weight: 700;
+  font-display: block;
+  src: url("../../../node_modules/@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-weight: 800;
+  font-display: block;
+  src: url("../../../node_modules/@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-800-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Syne";
+  font-weight: 600;
+  font-display: block;
+  src: url("../../../node_modules/@fontsource/syne/files/syne-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Syne";
+  font-weight: 700;
+  font-display: block;
+  src: url("../../../node_modules/@fontsource/syne/files/syne-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Syne";
+  font-weight: 800;
+  font-display: block;
+  src: url("../../../node_modules/@fontsource/syne/files/syne-latin-800-normal.woff2") format("woff2");
+}
+
+/* ---------- tokens ---------- */
+:root {
+  --sky: #0ea5e9;
+  --sky-deep: #0284c7;
+  --sky-dark: #0c4a6e;
+  --sky-light: #38bdf8;
+  --ink: #070b14;
+  --ink-card: #0c1322;
+  --paper: #f8f8f7;
+  --paper-card: #ffffff;
+
+  --m-hub: #6467f2;
+  --m-finance: #0ea5e9;
+  --m-life: #22c38e;
+  --m-travel: #2bcabd;
+  --m-cinema: #dc6eed;
+  --m-car: #fa802e;
+
+  --ok: #23d163;
+  --warn: #f6a823;
+  --bad: #df3a3a;
+  --gold: #fbbf24;
+
+  --sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --display: "Syne", "Plus Jakarta Sans", sans-serif;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+html,
+body {
+  background: #000;
+}
+
+body {
+  font-family: var(--sans);
+  font-variant-ligatures: none;
+}
+
+/* ---------- palco ---------- */
+.stage {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
+
+.stage--feed {
+  width: 1080px;
+  height: 1350px;
+  padding: 84px 88px 78px;
+}
+
+/* margens generosas em cima e embaixo: Reels/TikTok cobrem essas faixas
+   com a própria interface (perfil, legenda, botões) */
+.stage--story {
+  width: 1080px;
+  height: 1920px;
+  padding: 224px 96px 336px;
+}
+
+.stage--square {
+  width: 1080px;
+  height: 1080px;
+  padding: 0;
+}
+
+/* ---------- superfícies ---------- */
+.s-ink {
+  --bg: var(--ink);
+  --fg: #f8fafc;
+  --mut: rgba(248, 250, 252, 0.55);
+  --faint: rgba(248, 250, 252, 0.14);
+  --hair: rgba(248, 250, 252, 0.12);
+  --surf: rgba(255, 255, 255, 0.035);
+  --surf-line: rgba(255, 255, 255, 0.1);
+  --acc: var(--sky);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.s-paper {
+  --bg: var(--paper);
+  --fg: #0b0f1a;
+  --mut: #726a65;
+  --faint: rgba(11, 15, 26, 0.12);
+  --hair: rgba(11, 15, 26, 0.1);
+  --surf: #ffffff;
+  --surf-line: #e7e5e4;
+  --acc: #0a7aae;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.s-sky {
+  --bg: var(--sky);
+  --fg: #ffffff;
+  --mut: rgba(255, 255, 255, 0.72);
+  --faint: rgba(255, 255, 255, 0.18);
+  --hair: rgba(255, 255, 255, 0.28);
+  --surf: rgba(255, 255, 255, 0.12);
+  --surf-line: rgba(255, 255, 255, 0.3);
+  --acc: #ffffff;
+  background: linear-gradient(155deg, #0ea5e9 0%, #0b8fcd 55%, #0284c7 100%);
+  color: var(--fg);
+}
+
+/* atmosfera sky — mesma receita de .landing-atmosphere-glow, mais contida */
+.s-ink .atmo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse 62% 40% at 78% 6%, rgba(14, 165, 233, 0.2), transparent 58%),
+    radial-gradient(ellipse 54% 34% at 6% 96%, rgba(14, 165, 233, 0.1), transparent 60%);
+}
+
+.s-paper .atmo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: radial-gradient(ellipse 60% 38% at 84% 4%, rgba(14, 165, 233, 0.1), transparent 60%);
+}
+
+/* ---------- assinatura: arco de órbita ---------- */
+.orbit-sig {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  color: var(--acc);
+  opacity: 0.16;
+}
+
+.s-paper .orbit-sig {
+  opacity: 0.13;
+}
+
+.s-sky .orbit-sig {
+  opacity: 0.2;
+}
+
+.orbit-sig svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.orbit-sig--br {
+  right: -620px;
+  bottom: -460px;
+  width: 1560px;
+  height: 1560px;
+}
+
+.orbit-sig--tr {
+  right: -700px;
+  top: -560px;
+  width: 1520px;
+  height: 1520px;
+}
+
+.orbit-sig--c {
+  left: 50%;
+  top: 50%;
+  width: 1500px;
+  height: 1500px;
+  transform: translate(-50%, -50%);
+}
+
+/* ---------- cabeçalho / lockup ---------- */
+.head-row {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex: none;
+}
+
+.lockup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* O mark é mais largo que alto (o anel + a órbita que passa por fora dele).
+   Toda caixa de mark se dimensiona pela altura e deriva a largura daí. */
+.mark,
+.constel .mk,
+[data-mark] {
+  aspect-ratio: 1528 / 1094;
+  color: var(--acc);
+}
+
+.mark {
+  height: 52px;
+  flex: none;
+}
+
+.s-sky .mark {
+  color: #fff;
+}
+
+.mark svg,
+.constel .mk svg,
+[data-mark] svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wordmark {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: 31px;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  color: var(--fg);
+}
+
+.wordmark i {
+  font-style: normal;
+  color: var(--acc);
+}
+
+.s-sky .wordmark i {
+  color: #fff;
+}
+
+.eyebrow {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--mod, var(--acc));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.eyebrow::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: currentColor;
+  flex: none;
+}
+
+.idx {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
+  color: var(--mut);
+}
+
+/* ---------- tipografia ---------- */
+.head {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 100px;
+  line-height: 1.02;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+}
+
+.head--xl {
+  font-size: 118px;
+}
+
+.head--lg {
+  font-size: 108px;
+}
+
+.head--sm {
+  font-size: 84px;
+}
+
+.head--xs {
+  font-size: 70px;
+}
+
+.stage--story .head {
+  font-size: 112px;
+}
+
+.stage--story .head--lg {
+  font-size: 124px;
+}
+
+.stage--story .head--sm {
+  font-size: 92px;
+}
+
+.stage--story .head--xs {
+  font-size: 76px;
+}
+
+.stage--story .sub {
+  font-size: 38px;
+}
+
+.acc {
+  color: var(--acc);
+}
+
+.s-paper .acc {
+  color: var(--sky);
+}
+
+.mark-hl {
+  color: #fff;
+  background: var(--sky);
+  padding: 0 0.1em 0.06em;
+  border-radius: 10px;
+  box-decoration-break: clone;
+}
+
+.sub {
+  font-weight: 500;
+  font-size: 33px;
+  line-height: 1.45;
+  color: var(--mut);
+  max-width: 20ch;
+}
+
+.sub--wide {
+  max-width: 100%;
+}
+
+.kicker {
+  font-weight: 700;
+  font-size: 24px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+
+.spacer {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ---------- rodapé ---------- */
+.foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-top: 30px;
+  border-top: 2px solid var(--hair);
+  font-weight: 600;
+  font-size: 25px;
+  letter-spacing: 0.06em;
+  color: var(--mut);
+}
+
+.foot .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--faint);
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--sky);
+  color: #fff;
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: -0.01em;
+  padding: 19px 34px;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(14, 165, 233, 0.32);
+}
+
+.foot .cta {
+  margin-left: auto;
+}
+
+.s-sky .cta {
+  background: #fff;
+  color: #075985;
+  box-shadow: none;
+}
+
+.cta svg {
+  width: 22px;
+  height: 22px;
+}
+
+.cta--lg {
+  font-size: 34px;
+  padding: 24px 44px;
+}
+
+.cta--lg svg {
+  width: 28px;
+  height: 28px;
+}
+
+/* ---------- fragmentos de UI ---------- */
+/* card canônico do app: radius 12 · border + ring · shadow-sm */
+.card {
+  background: var(--surf);
+  border: 2px solid var(--surf-line);
+  border-radius: 20px;
+  padding: 34px 36px;
+}
+
+.s-paper .card {
+  box-shadow: 0 2px 5px rgba(11, 15, 26, 0.05);
+  outline: 2px solid rgba(231, 229, 228, 0.5);
+  outline-offset: -4px;
+}
+
+.card--sky {
+  background: linear-gradient(160deg, #0ea5e9, #0b82bb);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.ui-label {
+  font-weight: 700;
+  font-size: 21px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+
+.card--sky .ui-label {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.ui-cap {
+  font-weight: 500;
+  font-size: 24px;
+  color: var(--mut);
+}
+
+.ui-name {
+  font-weight: 600;
+  font-size: 31px;
+  letter-spacing: -0.01em;
+}
+
+.ui-num {
+  font-weight: 700;
+  font-size: 62px;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+.ui-num--sm {
+  font-size: 38px;
+}
+
+.ui-num--xs {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.hair {
+  height: 2px;
+  background: var(--hair);
+  border: 0;
+}
+
+.card--sky .hair {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* KPI com sublinhado colorido (KpiCard.tsx) */
+.kpi {
+  flex: 1;
+  background: var(--surf);
+  border: 2px solid var(--surf-line);
+  border-radius: 20px;
+  padding: 28px 30px 30px;
+}
+
+.kpi .t {
+  font-weight: 700;
+  font-size: 21px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding-bottom: 12px;
+  border-bottom: 3px solid;
+  display: block;
+}
+
+.kpi .v {
+  margin-top: 18px;
+  font-weight: 700;
+  font-size: 44px;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi .d {
+  margin-top: 10px;
+  font-weight: 500;
+  font-size: 22px;
+  color: var(--mut);
+}
+
+.c-ok {
+  color: var(--ok);
+}
+.c-warn {
+  color: var(--warn);
+}
+.c-bad {
+  color: var(--bad);
+}
+.c-acc {
+  color: var(--acc);
+}
+.c-mut {
+  color: var(--mut);
+}
+
+/* barra de progresso (BudgetTable / Goals) */
+.bar {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--faint);
+  overflow: hidden;
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sky);
+  width: var(--p, 50%);
+}
+
+.bar--thin {
+  height: 10px;
+}
+
+.bar > i.ok {
+  background: var(--ok);
+}
+.bar > i.warn {
+  background: var(--warn);
+}
+.bar > i.bad {
+  background: var(--bad);
+}
+
+/* chip de status (statusBadgeStyles) */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 999px;
+  border: 2px solid;
+  padding: 11px 22px;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.chip svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.chip--ok {
+  color: var(--ok);
+  border-color: rgba(35, 209, 99, 0.3);
+  background: rgba(35, 209, 99, 0.14);
+}
+
+.chip--warn {
+  color: var(--warn);
+  border-color: rgba(246, 168, 35, 0.32);
+  background: rgba(246, 168, 35, 0.14);
+}
+
+.chip--bad {
+  color: var(--bad);
+  border-color: rgba(223, 58, 58, 0.34);
+  background: rgba(223, 58, 58, 0.14);
+}
+
+.chip--mut {
+  color: var(--mut);
+  border-color: var(--surf-line);
+  background: var(--surf);
+}
+
+/* chip de módulo */
+.mchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--m) 42%, transparent);
+  background: color-mix(in srgb, var(--m) 13%, transparent);
+  color: var(--fg);
+  padding: 15px 30px 15px 26px;
+  font-weight: 600;
+  font-size: 30px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.mchip::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--m);
+  flex: none;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--m) 70%, transparent);
+}
+
+/* abas (TabsList do app) */
+.tabs {
+  display: inline-flex;
+  gap: 6px;
+  background: var(--faint);
+  border-radius: 14px;
+  padding: 7px;
+}
+
+.tabs span {
+  font-weight: 600;
+  font-size: 25px;
+  padding: 13px 28px;
+  border-radius: 10px;
+  color: var(--mut);
+  white-space: nowrap;
+}
+
+/* quatro abas longas (Veículos) não cabem na largura do palco */
+.tabs--tight span {
+  font-size: 22px;
+  padding: 12px 20px;
+}
+
+.tabs span.on {
+  background: var(--surf);
+  color: var(--fg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+.s-paper .tabs span.on {
+  background: #fff;
+}
+
+/* heatmap de Hábitos (HabitMonthHeatmap.tsx) */
+/* célula em tamanho fixo (--hc): com `1fr` + aspect-ratio o track não
+   respeita a largura do container e o heatmap vaza para fora do card */
+.heat {
+  display: grid;
+  grid-template-columns: repeat(7, var(--hc, 46px));
+  gap: 9px;
+  justify-content: start;
+}
+
+.heat i {
+  width: var(--hc, 46px);
+  height: var(--hc, 46px);
+  border-radius: 6px;
+  border: 2px solid var(--faint);
+  background: transparent;
+  display: block;
+}
+
+.heat i.d {
+  background: var(--ok);
+  border-color: rgba(35, 209, 99, 0.45);
+}
+.heat i.p3 {
+  background: rgba(35, 209, 99, 0.62);
+  border-color: rgba(35, 209, 99, 0.4);
+}
+.heat i.p2 {
+  background: rgba(35, 209, 99, 0.42);
+  border-color: rgba(35, 209, 99, 0.32);
+}
+.heat i.m {
+  border-color: rgba(223, 58, 58, 0.4);
+  background:
+    repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(223, 58, 58, 0.42) 3px, rgba(223, 58, 58, 0.42) 6px),
+    rgba(223, 58, 58, 0.12);
+}
+.heat i.f {
+  border-color: transparent;
+  background: var(--faint);
+  opacity: 0.5;
+}
+.heat i.now {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--sky) 55%, transparent);
+}
+
+/* faixa da semana (HabitWeekStrip.tsx) */
+.week {
+  display: flex;
+  gap: 10px;
+}
+
+.week span {
+  width: var(--wk, 46px);
+  height: var(--wk, 46px);
+  border-radius: 10px;
+  border: 2px solid var(--faint);
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--mut);
+}
+
+.week span.on {
+  border-color: rgba(35, 209, 99, 0.42);
+  background: rgba(35, 209, 99, 0.16);
+  color: var(--ok);
+}
+
+.week span.now {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sky) 50%, transparent);
+}
+
+/* tile de dia do Roteiro (TripItineraryTab.tsx) */
+.day {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  background: var(--surf);
+  border: 2px solid var(--surf-line);
+  border-radius: 20px;
+  padding: 26px 30px;
+  overflow: hidden;
+}
+
+.day.now {
+  border-color: color-mix(in srgb, var(--m-travel) 40%, transparent);
+  padding-left: 38px;
+}
+
+.day.now::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: var(--m-travel);
+}
+
+.day .tile {
+  width: 78px;
+  height: 78px;
+  border-radius: 18px;
+  flex: none;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 3px;
+  background: var(--faint);
+  color: var(--mut);
+}
+
+.day.now .tile {
+  background: color-mix(in srgb, var(--m-travel) 18%, transparent);
+  color: var(--m-travel);
+}
+
+.day .tile b {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.day .tile s {
+  text-decoration: none;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  line-height: 1;
+}
+
+/* linha de lista genérica */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 24px 4px;
+  border-bottom: 2px solid var(--hair);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row .r-mut {
+  margin-left: auto;
+  color: var(--mut);
+  font-weight: 600;
+  font-size: 25px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* marcador de lista de Lugares/Cinema */
+.tick {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 3px solid var(--faint);
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+
+.tick.on {
+  border-color: transparent;
+  background: var(--m, var(--sky));
+  color: #fff;
+}
+
+.tick svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* estrelas */
+.stars {
+  display: inline-flex;
+  gap: 5px;
+  color: var(--gold);
+}
+
+.stars svg {
+  width: 24px;
+  height: 24px;
+}
+
+.stars .off {
+  color: var(--faint);
+}
+
+/* gráfico de barras (Projeção) */
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  height: 100%;
+}
+
+.chart .col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 100%;
+}
+
+.chart .col i {
+  display: block;
+  border-radius: 7px 7px 3px 3px;
+  background: var(--sky);
+  height: var(--h, 40%);
+}
+
+.chart .col i.neg {
+  background: var(--bad);
+  opacity: 0.85;
+}
+
+.chart .col b {
+  font-weight: 600;
+  font-size: 19px;
+  color: var(--mut);
+  text-align: center;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* botão do app (fake, para mostrar CTA real da interface) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  border-radius: 12px;
+  background: var(--sky);
+  color: #fff;
+  font-weight: 600;
+  font-size: 27px;
+  letter-spacing: -0.01em;
+  padding: 20px 32px;
+  white-space: nowrap;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--fg);
+  border: 2px solid var(--surf-line);
+}
+
+.btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* linha-manifesto: módulo à esquerda, onde ele mora hoje à direita */
+.mrow {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 27px 0;
+  border-bottom: 2px solid var(--hair);
+}
+
+.mrow b {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 64px;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.mrow s {
+  text-decoration: none;
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 23px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  text-align: right;
+}
+
+.mrow--acc {
+  border-bottom: 0;
+  border-top: 4px solid var(--sky);
+  padding-top: 34px;
+}
+
+.mrow--acc b {
+  color: var(--sky);
+}
+
+.mrow--acc s {
+  color: var(--sky);
+}
+
+/* três números lado a lado (Orçado · Gasto · Restante) */
+.stat3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.stat3 > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.stat3 .k {
+  font-weight: 600;
+  font-size: 21px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+
+.stat3 .v {
+  font-weight: 700;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* coluna de lista com cabeçalho de aba */
+.lcol {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.lcol > h3 {
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--m, var(--acc));
+  padding-bottom: 18px;
+  border-bottom: 3px solid color-mix(in srgb, var(--m, var(--acc)) 45%, transparent);
+}
+
+.lcol .it {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.lcol .it .nm {
+  font-weight: 600;
+  font-size: 28px;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lcol .it .ct {
+  font-weight: 500;
+  font-size: 21px;
+  color: var(--mut);
+}
+
+/* constelação: mark ao centro, módulos em órbita
+   (elipses rot -14deg; posições dos nós calculadas sobre a mesma elipse) */
+.constel {
+  position: relative;
+  width: 904px;
+  height: 480px;
+  flex: none;
+}
+
+/* largura útil do palco vertical é menor que a do feed */
+.constel--story {
+  width: 888px;
+}
+
+.constel > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  color: var(--acc);
+}
+
+.constel .mk {
+  position: absolute;
+  left: var(--mx, 452px);
+  top: var(--my, 240px);
+  height: var(--ms, 132px);
+  transform: translate(-50%, -50%);
+}
+
+.constel .node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.constel .mchip {
+  background: color-mix(in srgb, var(--m) 15%, var(--bg));
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.28);
+}
+
+.s-paper .constel .mchip {
+  box-shadow: 0 8px 26px rgba(11, 15, 26, 0.09);
+}
+
+/* capa de Destaque: só o ícone do módulo, centrado na área que o Instagram
+   recorta em círculo. Sem texto — em 55px de diâmetro nada se lê. */
+.hl {
+  width: 100%;
+  flex: 1;
+  display: grid;
+  place-items: center;
+}
+
+.hl > * {
+  width: 460px;
+  height: 460px;
+  color: var(--acc);
+}
+
+/* o mark entra pela altura, senão fica menor que os ícones das outras capas */
+.hl > [data-mark] {
+  width: auto;
+  height: 360px;
+}
+
+.hl svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: 1.5;
+}
+
+/* utilitários de layout */
+.col {
+  display: flex;
+  flex-direction: column;
+}
+.rowf {
+  display: flex;
+}
+.g6 {
+  gap: 6px;
+}
+.g8 {
+  gap: 8px;
+}
+.g12 {
+  gap: 12px;
+}
+.g14 {
+  gap: 14px;
+}
+.g16 {
+  gap: 16px;
+}
+.g20 {
+  gap: 20px;
+}
+.g24 {
+  gap: 24px;
+}
+.g32 {
+  gap: 32px;
+}
+.g34 {
+  gap: 34px;
+}
+.g36 {
+  gap: 36px;
+}
+.g40 {
+  gap: 40px;
+}
+.ac {
+  align-items: center;
+}
+.ae {
+  align-items: flex-end;
+}
+.jb {
+  justify-content: space-between;
+}
+.f1 {
+  flex: 1;
+  min-width: 0;
+}
+.wrap {
+  flex-wrap: wrap;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+.mt-auto {
+  margin-top: auto;
+}

@@ -18,6 +18,10 @@ export function BrandLogo({
     <img
       src={src}
       alt={alt}
+      width={variant === "mark" ? 40 : 160}
+      height={variant === "mark" ? 40 : 40}
+      decoding="async"
+      fetchPriority="low"
       className={cn(
         variant === "mark" ? "object-contain" : "object-contain",
         className

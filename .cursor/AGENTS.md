@@ -220,7 +220,7 @@ Avaliar:
 * Priorização (dor real vs. nice-to-have);
 * Simplicidade; aderência aos módulos existentes;
 * Evitar funcionalidades desnecessárias;
-* Alinhamento com billing (trial 7 dias → Pro) e growth (waitlist, e-mails).
+* Alinhamento com billing (trial 7 dias → Pro) e e-mails de produto.
 
 ---
 

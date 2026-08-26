@@ -116,7 +116,7 @@ export function LandingFeatures() {
         <LandingSectionTitle
           eyebrow="Controle do mês"
           title="O que você sente falta todo mês, num só lugar"
-          description="Saber o que ainda cabe gastar e não esquecer contas. O resto da vida (hábitos, viagens, cinema…) vem junto, desde o dia 1."
+          description="Saber o que ainda dá para gastar e não esquecer contas. O resto da vida (hábitos, viagens, cinema…) vem junto, desde o dia 1."
         />
 
         <div className="mt-16 space-y-20 sm:mt-20 sm:space-y-28">

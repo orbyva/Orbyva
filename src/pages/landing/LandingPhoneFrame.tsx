@@ -28,8 +28,8 @@ export function LandingPhoneFrame({
           height={809}
           className="aspect-[9/19] h-auto w-full object-contain object-top"
           loading={priority ? "eager" : "lazy"}
-          fetchPriority={priority ? "high" : undefined}
-          decoding={priority ? "sync" : "async"}
+          fetchPriority={priority ? "high" : "low"}
+          decoding="async"
         />
       </picture>
     </div>

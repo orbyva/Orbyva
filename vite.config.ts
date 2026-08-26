@@ -2,7 +2,7 @@
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { viteSafariHmrNoReload } from "./vite.safari-hmr";
 
 /**
@@ -11,11 +11,29 @@ import { viteSafariHmrNoReload } from "./vite.safari-hmr";
  */
 const RECHARTS_D3_RE =
   /node_modules\/(d3-array|d3-color|d3-ease|d3-format|d3-interpolate|d3-path|d3-scale|d3-shape|d3-time|d3-time-format|d3-timer|internmap)\//;
+/** CSS do bundle sem bloquear FCP (LCP pinta pelo HTML). */
+function preloadCriticalFonts(): Plugin {
+  return {
+    name: "orbyva-preload-critical-fonts",
+    transformIndexHtml: {
+      order: "post",
+      handler(html, ctx) {
+        if (!ctx.bundle) return html;
+        const next = html.replace(
+          /<link rel="stylesheet" crossorigin href="([^"]+\.css)">/g,
+          '<link rel="stylesheet" href="$1" media="print" data-boot-css>\n    <noscript><link rel="stylesheet" href="$1"></noscript>'
+        );
+        return next;
+      },
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
     viteSafariHmrNoReload(),
     react(),
+    preloadCriticalFonts(),
     VitePWA({
       registerType: "prompt",
       minify: true,
@@ -76,6 +94,10 @@ export default defineConfig({
         globIgnores: ["**/excalidraw-*.js", "**/excalidraw-*.css"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
+          /^\/llms\.txt$/,
+          /^\/robots\.txt$/,
+          /^\/sitemap\.xml$/,
+          /^\/gtm\.js$/,
           /^\/tmdb-media/,
           /^\/books-media/,
           /^\/mb-api/,
@@ -161,6 +183,7 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 700,
+    modulePreload: false,
     rollupOptions: {
       output: {
         manualChunks(id) {

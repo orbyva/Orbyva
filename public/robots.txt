@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Disallow: /home
+Disallow: /account
+Disallow: /timeline
+Disallow: /goals
+Disallow: /habits
+Disallow: /travel
+Disallow: /places
+Disallow: /finance
+Disallow: /movies
+Disallow: /books
+Disallow: /music
+Disallow: /car
+Disallow: /ops
+Disallow: /invite
+
+Sitemap: https://orbyva.app/sitemap.xml

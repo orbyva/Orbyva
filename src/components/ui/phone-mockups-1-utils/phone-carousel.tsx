@@ -45,9 +45,33 @@ export function PhoneCarousel({
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   const reduceMotion = useReducedMotion();
+  const [showPeeks, setShowPeeks] = useState(false);
+  const [autoplayOn, setAutoplayOn] = useState(false);
+  const [desktop, setDesktop] = useState(() =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(min-width: 640px)").matches
+  );
 
-  // Prefetch só vizinhos (webp), não todos os slides de uma vez.
   useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const on = () => setDesktop(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+
+  useEffect(() => {
+    const enable = () => setShowPeeks(true);
+    if (typeof window.requestIdleCallback === "function") {
+      const idle = window.requestIdleCallback(enable, { timeout: 1600 });
+      return () => window.cancelIdleCallback(idle);
+    }
+    const t = window.setTimeout(enable, 400);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  // Prefetch só vizinhos (webp), depois do LCP / peeks.
+  useEffect(() => {
+    if (!showPeeks) return;
     const neighbors = [
       screens[(index - 1 + n) % n],
       screens[(index + 1) % n],
@@ -56,7 +80,7 @@ export function PhoneCarousel({
       const img = new Image();
       img.src = screen!.src.replace(/\.png$/i, ".webp");
     }
-  }, [screens, index, n]);
+  }, [screens, index, n, showPeeks]);
 
   const go = useCallback(
     (nextDir: -1 | 1) => {
@@ -77,14 +101,24 @@ export function PhoneCarousel({
   );
 
   useEffect(() => {
-    if (n < 2 || intervalMs <= 0) return;
+    const start = () => setAutoplayOn(true);
+    const t = window.setTimeout(start, 8000);
+    window.addEventListener("pointerdown", start, { once: true, passive: true });
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("pointerdown", start);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!autoplayOn || n < 2 || intervalMs <= 0) return;
     const id = window.setInterval(() => {
       if (pausedRef.current) return;
       setDir(1);
       setIndex((i) => (i + 1) % n);
     }, intervalMs);
     return () => window.clearInterval(id);
-  }, [n, intervalMs]);
+  }, [autoplayOn, n, intervalMs]);
 
   if (n === 0) return null;
 
@@ -110,9 +144,16 @@ export function PhoneCarousel({
   return (
     <div className={cn("relative w-full select-none", className)}>
       {/* Mobile */}
-      <div className="relative mx-auto w-full max-w-[260px] sm:hidden">
+      {!desktop ? (
+      <div
+        className="relative mx-auto"
+        style={{ width: "min(220px, 62vw)", marginLeft: "auto", marginRight: "auto" }}
+      >
         <div className="pointer-events-none absolute -inset-6 rounded-full bg-sky-500/20 blur-3xl" />
-        <div className="relative z-[1] aspect-[9/19]">
+        <div
+          className="relative z-[1]"
+          style={{ aspectRatio: "390 / 843", width: "100%" }}
+        >
           <AnimatePresence initial={false} custom={dir}>
             <motion.div
               key={`m-${index}`}
@@ -124,20 +165,24 @@ export function PhoneCarousel({
           </AnimatePresence>
         </div>
       </div>
-
-      {/* Desktop 3-up, peeks estáveis, só o centro faz crossfade */}
-      <div className="relative mx-auto hidden h-[560px] max-w-xl items-center justify-center sm:flex">
+      ) : (
+      <div className="relative mx-auto flex h-[480px] max-w-lg items-center justify-center">
         <div className="pointer-events-none absolute inset-x-[8%] top-1/2 z-0 h-[55%] -translate-y-1/2 rounded-full bg-sky-500/20 blur-3xl" />
 
-        <div className="absolute left-[6%] z-[1] w-[38%] max-w-[200px] -translate-y-1 scale-[0.82] opacity-55 transition-[opacity] duration-200">
-          {renderPhone({
-            screen: left,
-            offset: -1,
-            index: (index - 1 + n) % n,
-          })}
+        <div className="absolute left-[8%] z-[1] w-[36%] max-w-[168px] -translate-y-1 scale-[0.9] opacity-55 transition-[opacity] duration-200">
+          {showPeeks
+            ? renderPhone({
+                screen: left,
+                offset: -1,
+                index: (index - 1 + n) % n,
+              })
+            : null}
         </div>
 
-        <div className="relative z-[2] aspect-[9/19] w-[46%] max-w-[240px]">
+        <div
+          className="relative z-[2]"
+          style={{ aspectRatio: "390 / 843", width: "42%", maxWidth: 200 }}
+        >
           <AnimatePresence initial={false}>
             <motion.div
               key={`c-${index}`}
@@ -149,15 +194,18 @@ export function PhoneCarousel({
           </AnimatePresence>
         </div>
 
-        <div className="absolute right-[6%] z-[1] w-[38%] max-w-[200px] -translate-y-1 scale-[0.82] opacity-55 transition-[opacity] duration-200">
-          {renderPhone({
-            screen: right,
-            offset: 1,
-            index: (index + 1) % n,
-          })}
+        <div className="absolute right-[8%] z-[1] w-[36%] max-w-[168px] -translate-y-1 scale-[0.9] opacity-55 transition-[opacity] duration-200">
+          {showPeeks
+            ? renderPhone({
+                screen: right,
+                offset: 1,
+                index: (index + 1) % n,
+              })
+            : null}
         </div>
       </div>
-
+      )}
+      <div style={{ minHeight: 102 }}>
       {center.label ? (
         <div className="relative mt-3 h-5 overflow-hidden text-center">
           <AnimatePresence initial={false}>
@@ -227,6 +275,7 @@ export function PhoneCarousel({
             )}
           />
         ))}
+      </div>
       </div>
     </div>
   );

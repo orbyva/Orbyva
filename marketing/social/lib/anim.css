@@ -1,0 +1,176 @@
+/*
+ * Camada de animação dos vídeos verticais.
+ *
+ * Vocabulário fechado: fade, slide, scale, barra crescendo, número contando e
+ * traço da órbita se desenhando. Nada além disso — a referência é animação de
+ * landing page, não motion design.
+ *
+ * Toda animação começa no tempo 0 do documento e se posiciona por
+ * `animation-delay`. É isso que permite ao render.mjs travar a timeline e
+ * capturar quadro a quadro de forma determinística.
+ *
+ * Uso:
+ *   <div class="a" style="--in:k-up; --d:.4s; --x:3.2s">…</div>
+ *     --in   keyframe de entrada (k-up, k-fade, k-scale, k-left, k-right)
+ *     --d    quando entra          --dur  duração da entrada
+ *     --x    quando sai (omitido = nunca sai)
+ */
+
+@keyframes k-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes k-up {
+  from { opacity: 0; transform: translateY(var(--dy, 30px)); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes k-down {
+  from { opacity: 0; transform: translateY(calc(-1 * var(--dy, 30px))); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes k-left {
+  from { opacity: 0; transform: translateX(var(--dx, 40px)); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes k-right {
+  from { opacity: 0; transform: translateX(calc(-1 * var(--dx, 40px))); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes k-scale {
+  from { opacity: 0; transform: scale(var(--s0, 0.93)); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes k-out {
+  to { opacity: 0; }
+}
+
+/* entrada para quem já é centralizado por translate(-50%,-50%) — o keyframe
+   precisa repetir o translate, senão a animação o descarta e o elemento salta */
+@keyframes k-pop {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(var(--s0, 0.88)); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/*
+ * Entrada + saída na mesma declaração. `both` na entrada segura o estado
+ * inicial durante o delay; `forwards` na saída faz o contrário — não aplica
+ * nada antes de começar, senão sobrescreveria a entrada.
+ */
+.a {
+  animation:
+    var(--in, k-up) var(--dur, 0.62s) var(--ease) var(--d, 0s) both,
+    k-out var(--xdur, 0.42s) ease-out var(--x, 9999s) forwards;
+}
+
+/* dois estados no mesmo lugar da tela (pergunta → resposta) */
+.swap {
+  display: grid;
+}
+
+.swap > * {
+  grid-area: 1 / 1;
+}
+
+.swap--top > * {
+  align-self: start;
+}
+
+/* palco de cena: ocupa a área livre entre cabeçalho e rodapé */
+.scenes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 44px;
+}
+
+.scenes--top {
+  justify-content: flex-start;
+}
+
+/* barra que enche (Orçamento, Metas, progresso do dia) */
+@keyframes k-grow {
+  from { width: 0; }
+  to { width: var(--p); }
+}
+
+.bar > i.a {
+  animation:
+    k-grow var(--dur, 0.9s) var(--ease) var(--d, 0s) both,
+    k-out var(--xdur, 0.42s) ease-out var(--x, 9999s) forwards;
+}
+
+/* traço da órbita se desenhando */
+@keyframes k-draw {
+  from { stroke-dashoffset: var(--len, 1740); }
+  to { stroke-dashoffset: 0; }
+}
+
+.draw {
+  stroke-dasharray: var(--len, 1740);
+  animation: k-draw var(--dur, 1.6s) var(--ease) var(--d, 0s) both;
+}
+
+/* número contando: a animação move --n de 0 a 1 e o kit formata o valor */
+@property --n {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: false;
+}
+
+@keyframes k-count {
+  from { --n: 0; }
+  to { --n: 1; }
+}
+
+[data-count] {
+  animation:
+    k-count var(--dur, 0.95s) var(--ease) var(--d, 0s) both,
+    k-out var(--xdur, 0.42s) ease-out var(--x, 9999s) forwards;
+  font-variant-numeric: tabular-nums;
+}
+
+/* célula do heatmap aparecendo uma a uma */
+.heat i.a {
+  animation:
+    k-scale var(--dur, 0.34s) var(--ease) var(--d, 0s) both,
+    k-out var(--xdur, 0.42s) ease-out var(--x, 9999s) forwards;
+  --s0: 0.7;
+}
+
+/* pulso único, para o alerta que aparece */
+@keyframes k-nudge {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.nudge {
+  animation:
+    k-scale var(--dur, 0.4s) var(--ease) var(--d, 0s) both,
+    k-nudge 0.34s ease-in-out var(--nd, 9999s) 1 both;
+}
+
+/* fundo virando sky no fecho */
+.sky-wash {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(155deg, #0ea5e9 0%, #0b8fcd 55%, #0284c7 100%);
+  animation: k-fade var(--dur, 0.9s) var(--ease) var(--d, 0s) both;
+}
+
+@keyframes k-white {
+  to { color: #fff; }
+}
+
+.to-white {
+  animation: k-white var(--dur, 0.7s) var(--ease) var(--d, 0s) both;
+}

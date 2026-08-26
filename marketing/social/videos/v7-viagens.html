@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="10">
+<title>V7 · Viagens</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+</head>
+<body>
+
+<div class="stage stage--story s-paper" data-eyebrow="Viagens" data-module="travel" data-sig="tr">
+  <div class="scenes">
+
+    <div class="swap">
+      <div class="head head--xs a" style="--d:.15s; --x:8.30s">
+        A viagem começa<br>muito antes<br>do embarque.
+      </div>
+      <div class="head head--sm a" style="--d:8.60s">
+        Tudo na mesma<br><span class="acc">viagem</span>.
+      </div>
+    </div>
+
+    <!-- as abas acendem uma a uma: um estado por camada, no mesmo lugar -->
+    <div class="swap" style="justify-items:start">
+      <div class="a" style="--in:k-fade; --d:2.40s; --x:6.55s">
+        <div class="tabs"><span class="on">Roteiro</span><span>Gastos</span><span>Lugares</span><span>Prazos</span></div>
+      </div>
+      <div class="a" style="--in:k-fade; --d:6.75s; --x:7.15s">
+        <div class="tabs"><span>Roteiro</span><span class="on">Gastos</span><span>Lugares</span><span>Prazos</span></div>
+      </div>
+      <div class="a" style="--in:k-fade; --d:7.35s; --x:7.75s">
+        <div class="tabs"><span>Roteiro</span><span>Gastos</span><span class="on">Lugares</span><span>Prazos</span></div>
+      </div>
+      <div class="a" style="--in:k-fade; --d:7.95s">
+        <div class="tabs"><span>Roteiro</span><span>Gastos</span><span>Lugares</span><span class="on">Prazos</span></div>
+      </div>
+    </div>
+
+    <!-- o Roteiro se monta dia a dia -->
+    <div class="col g20">
+
+      <div class="day now a" style="--in:k-right; --dx:34px; --d:2.90s">
+        <span class="tile"><b>14</b><s>Seg</s></span>
+        <div class="f1">
+          <div class="ui-name" style="font-size:32px">Kyoto · Higashiyama</div>
+          <div class="rowf ac g16" style="margin-top:14px">
+            <span class="bar bar--thin f1" style="max-width:260px"><i class="ok a" style="--p:75%; --d:3.60s"></i></span>
+            <span class="ui-cap tnum" style="font-size:24px">3/4</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="day a" style="--in:k-right; --dx:34px; --d:3.22s">
+        <span class="tile"><b>15</b><s>Ter</s></span>
+        <div class="f1">
+          <div class="ui-name" style="font-size:32px">Kyoto → Osaka</div>
+          <div class="ui-cap" style="font-size:24px; margin-top:10px">Trem · 09:40 → 10:28</div>
+        </div>
+      </div>
+
+      <div class="day a" style="--in:k-right; --dx:34px; --d:3.54s">
+        <span class="tile"><b>16</b><s>Qua</s></span>
+        <div class="f1">
+          <div class="ui-name" style="font-size:32px">Osaka · Namba</div>
+          <div class="ui-cap" style="font-size:24px; margin-top:10px">5 atividades · 2 reservadas</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>
