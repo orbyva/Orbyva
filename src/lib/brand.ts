@@ -14,6 +14,8 @@ export const BRAND = {
   /** Assets em /public */
   logo: "/logo.webp",
   logoMark: "/logo-mark.webp",
+  /** Mark só no sky, fundo transparente (login / fundo escuro). */
+  logoMarkSky: "/logo-mark-sky.png",
   email: "orbyva@gmail.com",
   domain: "orbyva.app",
   siteUrl: "https://orbyva.app",

@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
 
 /**
  * `setupFiles` roda para toda a suíte (`.test.ts` em "node" e `.test.tsx` em "jsdom" —
@@ -11,6 +11,15 @@ import { afterEach } from "vitest";
 if (typeof document !== "undefined") {
   afterEach(() => {
     cleanup();
+    // O FocusScope do Radix (Dialog) agenda `setTimeout(0)` no unmount para disparar
+    // `focusScope.autoFocusOnUnmount`. Com `vi.useFakeTimers()`, esse callback fica na fila e
+    // dispara depois do jsdom cair — `dispatchEvent` recebe um CustomEvent de outro realm e
+    // vira "parameter 1 is not of type 'Event'". Cancela a fila e devolve o relógio real
+    // antes do próximo arquivo (os `beforeEach` que fakeiam o tempo ligam de novo).
+    if (vi.isFakeTimers()) {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
   });
 
   /**

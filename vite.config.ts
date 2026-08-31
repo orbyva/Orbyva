@@ -40,6 +40,7 @@ export default defineConfig({
       includeAssets: [
         "logo.webp",
         "logo-mark.webp",
+        "logo-mark-sky.png",
         "placeholder.svg",
         "pwa-192.png",
         "pwa-512.png",

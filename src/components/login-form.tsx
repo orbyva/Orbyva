@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { BrandLogo } from "@/components/BrandLogo";
 import { FormField } from "@/components/FormField";
+import { FormLabel } from "@/components/FormLabel";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { BRAND } from "@/lib/brand";
 import { supabase } from "@/lib/supabase";
 import { track } from "@/lib/analytics";
@@ -13,6 +13,11 @@ import { getErrorMessage } from "@/lib/errors";
 import { authCallbackUrl, safeNextPath } from "@/lib/nextPath";
 
 type AuthMode = "login" | "signup" | "forgot" | "recovery";
+
+const EASE = "ease-[cubic-bezier(0.32,0.72,0,1)]";
+
+const inputClass =
+  "h-11 rounded-xl border-white/20 bg-white/[0.06] text-zinc-100 shadow-none placeholder:text-zinc-500 focus-visible:border-sky-400/60 focus-visible:ring-sky-400/35";
 
 function modeFromSearch(raw: string | null): AuthMode {
   if (raw === "signup" || raw === "register" || raw === "criar") return "signup";
@@ -24,11 +29,45 @@ function modeFromSearch(raw: string | null): AuthMode {
 function AuthErrorCallout({ message }: { message: string }) {
   return (
     <div
-      className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+      className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200"
       role="alert"
     >
       {message}
     </div>
+  );
+}
+
+function AuthPrimaryButton({
+  children,
+  busy,
+}: {
+  children: string;
+  busy: boolean;
+}) {
+  return (
+    <button
+      type="submit"
+      disabled={busy}
+      className={cn(
+        "group inline-flex h-11 w-full items-center justify-center gap-3 rounded-full bg-sky-400 pl-5 pr-1.5 text-sm font-semibold text-sky-950",
+        "transition-[transform,background-color] duration-300",
+        EASE,
+        "hover:bg-sky-300 active:scale-[0.98]",
+        "disabled:pointer-events-none disabled:opacity-50"
+      )}
+    >
+      <span className="flex-1 text-center">{busy ? "Aguarde…" : children}</span>
+      <span
+        className={cn(
+          "inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-sky-950/15 transition-transform duration-300",
+          EASE,
+          "group-hover:translate-x-0.5"
+        )}
+        aria-hidden
+      >
+        <ArrowRight className="size-4" strokeWidth={2} />
+      </span>
+    </button>
   );
 }
 
@@ -220,22 +259,21 @@ export function LoginForm({
       ? "Enviamos um link seguro para o seu e-mail."
       : isSignup
         ? "7 dias grátis com tudo liberado. Sem cartão no início."
-        : `${BRAND.tagline}. Entre para continuar.`;
+        : "Entre para continuar na órbita.";
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="overflow-hidden">
-        <CardContent className="grid p-0 md:grid-cols-2">
+    <div className={cn("flex flex-col", className)} {...props}>
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <div className="grid overflow-hidden rounded-[calc(2rem-0.375rem)] border border-white/[0.08] md:grid-cols-[1.05fr_0.95fr]">
           <div
             key={mode}
-            className="flex flex-col gap-6 p-6 animate-in fade-in-0 slide-in-from-bottom-1 duration-200 md:p-8"
+            className="flex flex-col gap-6 bg-[var(--landing-bg)]/85 p-6 md:p-8"
           >
-            <div className="flex flex-col items-center text-center">
-              <p className="mb-1 text-sm font-medium text-muted-foreground">
-                {BRAND.name}
-              </p>
-              <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-              <p className="mt-1 text-balance text-sm text-muted-foreground">
+            <div>
+              <h1 className="text-balance font-display text-3xl font-semibold tracking-tighter text-zinc-50 sm:text-4xl">
+                {title}
+              </h1>
+              <p className="mt-2 max-w-[65ch] text-pretty text-sm leading-relaxed text-zinc-400">
                 {subtitle}
               </p>
             </div>
@@ -244,17 +282,18 @@ export function LoginForm({
               <div
                 role="tablist"
                 aria-label="Tipo de acesso"
-                className="grid grid-cols-2 rounded-lg bg-muted p-1"
+                className="grid grid-cols-2 rounded-full border border-white/10 bg-white/[0.04] p-1"
               >
                 <button
                   type="button"
                   role="tab"
                   aria-selected={!isSignup}
                   className={cn(
-                    "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "rounded-full px-3 py-2 text-sm font-medium transition-colors duration-300",
+                    EASE,
                     !isSignup
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-white/10 text-white ring-1 ring-white/10"
+                      : "text-zinc-400 hover:text-zinc-100"
                   )}
                   onClick={() => switchMode("login")}
                 >
@@ -265,10 +304,11 @@ export function LoginForm({
                   role="tab"
                   aria-selected={isSignup}
                   className={cn(
-                    "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "rounded-full px-3 py-2 text-sm font-medium transition-colors duration-300",
+                    EASE,
                     isSignup
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-white/10 text-white ring-1 ring-white/10"
+                      : "text-zinc-400 hover:text-zinc-100"
                   )}
                   onClick={() => switchMode("signup")}
                 >
@@ -278,30 +318,40 @@ export function LoginForm({
             ) : null}
 
             {!isForgot && !isRecovery ? (
-              <Button
+              <button
                 type="button"
-                className="w-full"
                 onClick={handleGoogleLogin}
+                className={cn(
+                  "inline-flex h-11 w-full items-center justify-center rounded-full border border-white/15 bg-white/[0.04] text-sm font-medium text-zinc-100",
+                  "transition-[transform,background-color] duration-300",
+                  EASE,
+                  "hover:bg-white/[0.08] active:scale-[0.98]"
+                )}
               >
                 {isSignup ? "Criar conta com Google" : "Continuar com Google"}
-              </Button>
+              </button>
             ) : null}
 
             {!isForgot && !isRecovery ? (
-              <div className="relative text-center text-xs text-muted-foreground">
-                <span className="bg-card relative z-10 px-2">
-                  {isSignup ? "ou cadastre com e-mail" : "ou e-mail"}
-                </span>
-                <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+              <div className="flex items-center gap-3 text-xs text-zinc-500">
+                <span className="h-px flex-1 bg-white/10" />
+                {isSignup ? "ou cadastre com e-mail" : "ou e-mail"}
+                <span className="h-px flex-1 bg-white/10" />
               </div>
             ) : null}
 
             {isRecovery ? (
               <form
-                className="grid gap-3"
+                className="grid gap-4"
+                aria-busy={busy}
                 onSubmit={(e) => void handleNewPassword(e)}
               >
-                <FormField label="Nova senha" required htmlFor="password">
+                <FormField
+                  label="Nova senha"
+                  required
+                  htmlFor="password"
+                  className="[&_label]:text-zinc-200"
+                >
                   <Input
                     id="password"
                     type="password"
@@ -311,16 +361,24 @@ export function LoginForm({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Mínimo 6 caracteres"
+                    className={inputClass}
                   />
                 </FormField>
                 {error ? <AuthErrorCallout message={error} /> : null}
-                <Button type="submit" disabled={busy} className="w-full">
-                  {busy ? "Aguarde…" : "Salvar senha"}
-                </Button>
+                <AuthPrimaryButton busy={busy}>Salvar senha</AuthPrimaryButton>
               </form>
             ) : isForgot ? (
-              <form className="grid gap-3" onSubmit={(e) => void handleForgot(e)}>
-                <FormField label="E-mail" required htmlFor="email">
+              <form
+                className="grid gap-4"
+                aria-busy={busy}
+                onSubmit={(e) => void handleForgot(e)}
+              >
+                <FormField
+                  label="E-mail"
+                  required
+                  htmlFor="email"
+                  className="[&_label]:text-zinc-200"
+                >
                   <Input
                     id="email"
                     type="email"
@@ -329,30 +387,36 @@ export function LoginForm({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="voce@email.com"
+                    className={inputClass}
                   />
                 </FormField>
                 {error ? <AuthErrorCallout message={error} /> : null}
                 {message ? (
-                  <p className="text-sm text-muted-foreground">{message}</p>
+                  <p className="text-sm text-sky-300">{message}</p>
                 ) : null}
-                <Button type="submit" disabled={busy} className="w-full">
-                  {busy ? "Aguarde…" : "Enviar link de reset"}
-                </Button>
-                <Button
+                <AuthPrimaryButton busy={busy}>
+                  Enviar link de reset
+                </AuthPrimaryButton>
+                <button
                   type="button"
-                  variant="ghost"
-                  className="w-full"
+                  className="text-center text-sm text-zinc-400 transition-colors duration-300 hover:text-zinc-200"
                   onClick={() => switchMode("login")}
                 >
                   Voltar ao login
-                </Button>
+                </button>
               </form>
             ) : (
               <form
-                className="grid gap-3"
+                className="grid gap-4"
+                aria-busy={busy}
                 onSubmit={(e) => void handleEmailAuth(e)}
               >
-                <FormField label="E-mail" required htmlFor="email">
+                <FormField
+                  label="E-mail"
+                  required
+                  htmlFor="email"
+                  className="[&_label]:text-zinc-200"
+                >
                   <Input
                     id="email"
                     type="email"
@@ -361,98 +425,102 @@ export function LoginForm({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="voce@email.com"
+                    className={inputClass}
                   />
                 </FormField>
-                <FormField
-                  label={isSignup ? "Crie uma senha" : "Senha"}
-                  required
-                  htmlFor="password"
-                >
-                  <div className="space-y-1.5">
-                    {!isSignup ? (
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                          onClick={() => switchMode("forgot")}
-                        >
-                          Esqueci a senha
-                        </button>
-                      </div>
-                    ) : null}
-                    <Input
-                      id="password"
-                      type="password"
-                      autoComplete={isSignup ? "new-password" : "current-password"}
+                <div className="grid gap-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <FormLabel
+                      htmlFor="password"
                       required
-                      minLength={6}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder={isSignup ? "Mínimo 6 caracteres" : undefined}
-                    />
+                      className="text-zinc-200"
+                    >
+                      {isSignup ? "Crie uma senha" : "Senha"}
+                    </FormLabel>
+                    {!isSignup ? (
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-sky-400 underline-offset-4 transition-colors duration-300 hover:text-sky-300 hover:underline"
+                        onClick={() => switchMode("forgot")}
+                      >
+                        Esqueci a senha
+                      </button>
+                    ) : null}
                   </div>
-                </FormField>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete={isSignup ? "new-password" : "current-password"}
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={isSignup ? "Mínimo 6 caracteres" : undefined}
+                    className={inputClass}
+                  />
+                </div>
                 {error ? <AuthErrorCallout message={error} /> : null}
                 {message ? (
-                  <p className="text-sm text-muted-foreground">{message}</p>
+                  <p className="text-sm text-sky-300">{message}</p>
                 ) : null}
-                <Button type="submit" disabled={busy} className="w-full">
-                  {busy
-                    ? "Aguarde…"
-                    : isSignup
-                      ? "Criar minha conta"
-                      : "Entrar com e-mail"}
-                </Button>
+                <AuthPrimaryButton busy={busy}>
+                  {isSignup ? "Criar minha conta" : "Entrar com e-mail"}
+                </AuthPrimaryButton>
                 {!isSignup ? (
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
                     disabled={busy || !email.trim()}
-                    className="w-full"
+                    className="text-center text-sm text-zinc-400 transition-colors duration-300 hover:text-zinc-200 disabled:opacity-40"
                     onClick={() => void handleMagicLink()}
                   >
                     Entrar só com link no e-mail
-                  </Button>
+                  </button>
                 ) : null}
               </form>
             )}
 
-            <p className="text-center text-xs text-muted-foreground">
+            <p className="text-xs leading-relaxed text-zinc-500">
               Ao continuar, você aceita os{" "}
-              <a href="/terms" className="underline underline-offset-2">
+              <Link
+                to="/terms"
+                className="text-zinc-300 underline underline-offset-2 hover:text-white"
+              >
                 Termos
-              </a>{" "}
+              </Link>{" "}
               e a{" "}
-              <a href="/privacy" className="underline underline-offset-2">
+              <Link
+                to="/privacy"
+                className="text-zinc-300 underline underline-offset-2 hover:text-white"
+              >
                 Privacidade
-              </a>
+              </Link>
               .
             </p>
           </div>
 
-          <div
-            className={cn(
-              "relative hidden items-center justify-center md:flex",
-              isSignup
-                ? "bg-gradient-to-br from-sky-50 via-white to-sky-100"
-                : "bg-white"
-            )}
-          >
-            <div className="flex flex-col items-center gap-3 p-8 text-center">
-              <BrandLogo
-                variant="full"
-                className="max-h-[70%] max-w-[80%]"
-              />
-              {isSignup ? (
-                <p className="max-w-[16rem] text-sm text-muted-foreground">
-                  Comece agora: orçamento, parcelas e o resto da vida na mesma
-                  órbita.
-                </p>
-              ) : null}
-            </div>
+          <div className="relative hidden flex-col items-start justify-center overflow-hidden border-l border-white/10 bg-sky-950/40 p-8 md:flex">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-12 top-0 size-56 rounded-full bg-sky-400/15 blur-3xl"
+            />
+            <img
+              src={BRAND.logoMarkSky}
+              alt=""
+              width={763}
+              height={548}
+              decoding="async"
+              draggable={false}
+              className="relative mb-6 w-24 h-auto object-contain"
+            />
+            <BrandWordmark size="lg" showSubtitle={false} />
+            <p className="mt-4 max-w-[22ch] text-pretty text-sm leading-relaxed text-zinc-400">
+              {isSignup
+                ? "Orçamento, parcelas e o resto da vida na mesma órbita."
+                : BRAND.wedge}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
