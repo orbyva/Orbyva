@@ -46,9 +46,23 @@ export function moneyFromDigits(digits: string): number | null {
   return Number(cleaned) / 100;
 }
 
+/** Placeholder de "sem data". Era um travessão até a troca por "·" — a comparação em
+ *  `formatDateTimeBR` depende deste valor, então ele vive numa constante só. */
+export const EMPTY_DATE = "·";
+
 export function formatDateBR(isoDate: string | null | undefined): string {
-  if (!isoDate) return "·";
+  if (!isoDate) return EMPTY_DATE;
   const datePart = isoDate.slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return isoDate;
   return datePart.split("-").reverse().join("/");
+}
+
+/** `formatDateBR` + hora opcional (HH:mm ou HH:mm:ss) → "dd/mm/yyyy" ou "dd/mm/yyyy HH:mm". */
+export function formatDateTimeBR(
+  isoDate: string | null | undefined,
+  time?: string | null
+): string {
+  const datePart = formatDateBR(isoDate);
+  if (datePart === EMPTY_DATE || !time) return datePart;
+  return `${datePart} ${time.slice(0, 5)}`;
 }

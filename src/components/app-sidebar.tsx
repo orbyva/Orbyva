@@ -1,7 +1,8 @@
 import * as React from "react"
 import {
-  Clapperboard,
+  Bookmark,
   LayoutDashboard,
+  ListTodo,
   PiggyBank,
   Target,
   type LucideIcon,
@@ -54,15 +55,16 @@ const NAV_FINANCE: NavItem = {
   ],
 }
 
-const NAV_ENTRETENIMENTO: NavItem = {
-  title: "Entretenimento",
+const NAV_CONTEUDO: NavItem = {
+  title: "Conteúdo",
   color: moduleColors.entertainment,
   url: "#",
-  icon: Clapperboard,
+  icon: Bookmark,
   items: [
     { title: "Cinema", url: "/movies" },
     { title: "Livros", url: "/books" },
     { title: "Música", url: "/music" },
+    { title: "Links", url: "/links" },
   ],
 }
 
@@ -73,6 +75,10 @@ const NAV_VIDA: NavItem = {
   icon: Target,
   items: [
     { title: "Hábitos", url: "/habits" },
+    // Feature 071: até aqui só se chegava em `/life/health` pelo card do hub ou pela URL — trocar a
+    // criação de medicação de lugar sem isto seria trocar um lugar ruim por um lugar escondido. A
+    // posição (logo depois de Hábitos) é a mesma que `HOME_MODULES` já usa no hub.
+    { title: "Saúde", url: "/life/health" },
     { title: "Lugares", url: "/places" },
     { title: "Metas", url: "/goals" },
     { title: "Veículos", url: "/car" },
@@ -80,11 +86,24 @@ const NAV_VIDA: NavItem = {
   ],
 }
 
+const NAV_PRODUTIVIDADE: NavItem = {
+  title: "Produtividade",
+  color: moduleColors.productivity,
+  url: "#",
+  icon: ListTodo,
+  items: [
+    { title: "Tarefas", url: "/tasks" },
+    { title: "Projetos", url: "/tasks/projects" },
+    { title: "Notas", url: "/notes" },
+    { title: "Lista de Compras", url: "/shopping-list" },
+  ],
+}
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
 
   const navItems = React.useMemo(
-    () => [NAV_INICIO, NAV_FINANCE, NAV_ENTRETENIMENTO, NAV_VIDA],
+    () => [NAV_INICIO, NAV_FINANCE, NAV_CONTEUDO, NAV_VIDA, NAV_PRODUTIVIDADE],
     []
   )
 

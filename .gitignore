@@ -47,6 +47,12 @@ supabase/.branches/
 /blob-report/
 /playwright/.cache/
 .lighthouseci
+instagram-posts/
+orbyva-instagram-posts.zip
+
+orbyva-linkedin-lancamento.zip
+tiktok-videos/
+orbyva-tiktok-videos.zip
 .venv-tts/
 
 .claude/

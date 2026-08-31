@@ -1,0 +1,520 @@
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  Check,
+  GlassWater,
+  HeartPulse,
+  Pill,
+  Ruler,
+  Stethoscope,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/EmptyState";
+import { PageShell } from "@/components/PageShell";
+import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
+import { HealthHabitQuickCreateDialog } from "@/pages/admin/habits/HealthHabitQuickCreateDialog";
+import { RecordMetricDialog } from "@/pages/admin/life/RecordMetricDialog";
+import { ReminderPreferencesDialog } from "@/pages/admin/life/ReminderPreferencesDialog";
+import { ConsultationQuickCreateDialog } from "@/pages/admin/tasks/ConsultationQuickCreateDialog";
+import { MedicationQuickCreateDialog } from "@/pages/admin/health/MedicationQuickCreateDialog";
+import {
+  fetchHealthHabitsToday,
+  loadHealthSummary,
+  markReminderNotified,
+} from "@/api/health";
+import { toggleHabitLog } from "@/api/habits";
+import { frequencyLabel } from "@/domain/habits";
+import { formatRate } from "@/domain/health/adherence";
+import {
+  METRIC_LABEL,
+  METRIC_TYPES,
+  METRIC_UNIT,
+  bmiCategory,
+  computeBmi,
+  deltaSincePrevious,
+  formatMetricValue,
+  latestByType,
+} from "@/domain/health/metrics";
+import {
+  REMINDER_ENTITY_DESCRIPTION,
+  REMINDER_ENTITY_LABEL,
+  isReminderDue,
+} from "@/domain/health/reminder";
+import { sendBrowserNotification } from "@/lib/browserNotify";
+import { formatDateBR, formatDateTimeBR } from "@/lib/currency";
+import { getErrorMessage } from "@/lib/errors";
+import { cn } from "@/lib/utils";
+import { useLocalDay } from "@/hooks/useLocalDay";
+import { useToast } from "@/hooks/use-toast";
+import type {
+  HealthHabitToday,
+  HealthSummary,
+  ReminderPreference,
+} from "@/types/health";
+
+/**
+ * Porta de entrada do sub-módulo Vida > Saúde (feature 060). Hoje mostra a próxima dose de
+ * medicação — que já existe como tarefa com `is_medication` desde a 049 — e a próxima consulta
+ * médica (`is_consultation`, feature 061). É onde as features 062 (água/alimentação), 063
+ * (métricas e lembretes) e 064 (controle de medicamentos) penduram suas seções.
+ */
+export default function HealthDashboard() {
+  const [summary, setSummary] = useState<HealthSummary | null>(null);
+  const [healthHabits, setHealthHabits] = useState<HealthHabitToday[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [medicationDialogOpen, setMedicationDialogOpen] = useState(false);
+  const [consultationDialogOpen, setConsultationDialogOpen] = useState(false);
+  const [habitDialogOpen, setHabitDialogOpen] = useState(false);
+  const [metricDialogOpen, setMetricDialogOpen] = useState(false);
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const today = useLocalDay();
+  const { toast } = useToast();
+
+  /**
+   * Disparo local dos lembretes vencidos (feature 063). Roda na carga do dashboard, com a aba
+   * aberta — é o transporte que o app tem hoje (`sendBrowserNotification` + toast); push com o app
+   * fechado está fora desta feature.
+   *
+   * Depois de notificar, grava `last_notified_at` na preferência e atualiza o estado local com o
+   * horário gravado: é isso que impede o mesmo lembrete de tocar de novo a cada recarga. Não
+   * recarrega o resumo aqui de propósito — recarregar dentro do próprio efeito de carga seria um
+   * laço.
+   */
+  const fireDueReminders = useCallback(
+    async (preferences: ReminderPreference[]) => {
+      const now = new Date();
+      const due = preferences.filter((pref) => isReminderDue(pref, now));
+      if (due.length === 0) return;
+
+      for (const pref of due) {
+        const title = REMINDER_ENTITY_LABEL[pref.entity_type];
+        const body = REMINDER_ENTITY_DESCRIPTION[pref.entity_type];
+        toast({ title, description: body, duration: 8000 });
+        sendBrowserNotification(title, {
+          body,
+          // Uma notificação por tipo: o navegador substitui a anterior em vez de empilhar.
+          tag: `orbyva-reminder-${pref.entity_type}`,
+        });
+
+        try {
+          const updated = await markReminderNotified(pref.entity_type, now);
+          setSummary((current) =>
+            current
+              ? {
+                  ...current,
+                  reminderPreferences: current.reminderPreferences.map((item) =>
+                    item.entity_type === pref.entity_type
+                      ? { ...item, last_notified_at: updated.last_notified_at }
+                      : item
+                  ),
+                }
+              : current
+          );
+        } catch {
+          // Falhar em marcar não pode derrubar a tela: o pior caso é o lembrete repetir na
+          // próxima carga, e um toast de erro aqui só assustaria sem o usuário poder agir.
+        }
+      }
+    },
+    [toast]
+  );
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [nextSummary, habits] = await Promise.all([
+        loadHealthSummary(),
+        fetchHealthHabitsToday(),
+      ]);
+      setSummary(nextSummary);
+      setHealthHabits(habits);
+      void fireDueReminders(nextSummary.reminderPreferences ?? []);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(
+          error,
+          "Não foi possível carregar os dados de saúde."
+        ),
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, fireDueReminders]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  /**
+   * Check-in do dia (feature 062). Otimista: a lista muda na hora e volta atrás se o banco
+   * recusar. `toggleHabitLog` faz update-ou-insert do `habit_log` de hoje, então marcar aqui e
+   * marcar na página de Hábitos no mesmo dia não conflitam.
+   */
+  async function handleCheckIn(entry: HealthHabitToday) {
+    const next = !entry.doneToday;
+    const revert = healthHabits;
+    setHealthHabits((current) =>
+      current.map((item) =>
+        item.habit.id === entry.habit.id ? { ...item, doneToday: next } : item
+      )
+    );
+    try {
+      await toggleHabitLog(entry.habit.id, today, next);
+    } catch (error) {
+      setHealthHabits(revert);
+      toast({
+        title: "Erro",
+        description: getErrorMessage(
+          error,
+          "Não foi possível registrar o hábito."
+        ),
+        variant: "destructive",
+      });
+    }
+  }
+
+  const nextDose = summary?.nextMedicationDose ?? null;
+  const nextConsultation = summary?.nextConsultation ?? null;
+  const adherence = summary?.medicationAdherence ?? null;
+  const habitsDone = healthHabits.filter((item) => item.doneToday).length;
+
+  // Progresso (feature 063): tudo derivado da mesma janela de medições — nada disso vem pronto do
+  // banco, nem o IMC (que sai do último peso com a última altura, medidos em dias diferentes).
+  const metrics = summary?.latestMetrics ?? [];
+  const latest = latestByType(metrics);
+  const measuredTypes = METRIC_TYPES.filter((type) => latest[type]);
+  const bmi = computeBmi(latest.weight?.value, latest.height?.value);
+
+  // O CTA do estado vazio de cada seção é o mesmo botão do header — só um dos dois aparece por vez,
+  // por seção.
+  return (
+    <PageShell
+      title="Saúde"
+      eyebrow="Vida"
+      description="Hábitos do dia, medicações, consultas e progresso corporal"
+      actions={
+        <div className={PAGE_HEADER_ACTIONS_CLASS}>
+          {/* "Lembretes" está sempre visível: é a única porta para o controle de notificações
+              (feature 063), e ele existe mesmo com a tela ainda vazia. */}
+          <Button variant="outline" onClick={() => setReminderDialogOpen(true)}>
+            Lembretes
+          </Button>
+          {healthHabits.length > 0 ? (
+            <Button variant="outline" onClick={() => setHabitDialogOpen(true)}>
+              Novo hábito de saúde
+            </Button>
+          ) : null}
+          {nextDose ? (
+            <Button onClick={() => setMedicationDialogOpen(true)}>
+              Cadastrar medicação
+            </Button>
+          ) : null}
+          {nextConsultation ? (
+            <Button
+              variant="outline"
+              onClick={() => setConsultationDialogOpen(true)}
+            >
+              Agendar consulta
+            </Button>
+          ) : null}
+        </div>
+      }
+    >
+      {/* Hoje (feature 062): água e alimentação são `habit` com `is_health` — o check-in daqui é o
+          mesmo `habit_log` da página de Hábitos, então streak e heatmap continuam valendo. */}
+      <section
+        aria-labelledby="health-today"
+        className="rounded-xl border bg-card shadow-sm"
+      >
+        <header className="flex items-center gap-2 border-b px-4 py-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--health))]/10 text-[hsl(var(--health))]">
+            <GlassWater className="h-4 w-4" />
+          </span>
+          <h2 id="health-today" className="text-sm font-semibold">
+            Hoje
+          </h2>
+          {healthHabits.length > 0 ? (
+            <span className="ml-auto text-xs text-muted-foreground">
+              {habitsDone} de {healthHabits.length} concluídos
+            </span>
+          ) : null}
+        </header>
+
+        {loading ? (
+          <TableLoadingSkeleton rows={2} columns={2} />
+        ) : healthHabits.length === 0 ? (
+          <EmptyState
+            icon={GlassWater}
+            title="Nenhum hábito de saúde"
+            description="Crie hábitos como beber água ou comer frutas para acompanhar o cuidado com o corpo por aqui."
+            action={
+              <Button onClick={() => setHabitDialogOpen(true)}>
+                Novo hábito de saúde
+              </Button>
+            }
+          />
+        ) : (
+          <ul className="divide-y">
+            {healthHabits.map((entry) => (
+              <li
+                key={entry.habit.id}
+                className="flex items-center gap-3 px-4 py-3"
+              >
+                <button
+                  type="button"
+                  onClick={() => void handleCheckIn(entry)}
+                  aria-pressed={entry.doneToday}
+                  aria-label={
+                    entry.doneToday
+                      ? `Desmarcar ${entry.habit.name} de hoje`
+                      : `Marcar ${entry.habit.name} como feito hoje`
+                  }
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                    entry.doneToday
+                      ? "border-success bg-success text-success-foreground"
+                      : "border-muted-foreground/30 hover:border-primary"
+                  )}
+                >
+                  {entry.doneToday ? <Check className="h-4 w-4" /> : null}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {entry.habit.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {frequencyLabel(entry.habit)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Progresso (feature 063): a série de `health_metric`. O IMC não vem do banco — é derivado
+          aqui do último peso com a última altura, que podem ter sido medidos em dias diferentes. */}
+      <section
+        aria-labelledby="health-progress"
+        className="rounded-xl border bg-card shadow-sm"
+      >
+        <header className="flex items-center gap-2 border-b px-4 py-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--health))]/10 text-[hsl(var(--health))]">
+            <Ruler className="h-4 w-4" />
+          </span>
+          <h2 id="health-progress" className="text-sm font-semibold">
+            Progresso
+          </h2>
+          {measuredTypes.length > 0 ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setMetricDialogOpen(true)}
+            >
+              Registrar medição
+            </Button>
+          ) : null}
+        </header>
+
+        {loading ? (
+          <TableLoadingSkeleton rows={2} columns={3} />
+        ) : measuredTypes.length === 0 ? (
+          <EmptyState
+            icon={Ruler}
+            title="Nenhuma medição registrada"
+            description="Registre peso, altura e medidas para acompanhar a evolução ao longo do tempo."
+            action={
+              <Button onClick={() => setMetricDialogOpen(true)}>
+                Registrar medição
+              </Button>
+            }
+          />
+        ) : (
+          <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            {measuredTypes.map((type) => {
+              const measurement = latest[type]!;
+              const delta = deltaSincePrevious(metrics, type);
+              return (
+                <article
+                  key={type}
+                  aria-label={METRIC_LABEL[type]}
+                  className="rounded-lg border p-3"
+                >
+                  <p className="text-xs text-muted-foreground">
+                    {METRIC_LABEL[type]}
+                  </p>
+                  <p className="text-xl font-semibold">
+                    {formatMetricValue(measurement.value)} {METRIC_UNIT[type]}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDateBR(measurement.recorded_date)}
+                    {/* Sem cor de "bom/ruim": ganhar peso pode ser o objetivo. A variação é
+                        informação, não julgamento. */}
+                    {delta != null ? (
+                      <span className="ml-2 font-medium text-foreground">
+                        {delta === 0
+                          ? "sem variação"
+                          : `${delta > 0 ? "+" : "−"}${formatMetricValue(
+                              Math.abs(delta)
+                            )} ${METRIC_UNIT[type]}`}
+                      </span>
+                    ) : null}
+                  </p>
+                </article>
+              );
+            })}
+
+            {bmi != null ? (
+              <article aria-label="IMC" className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">IMC</p>
+                <p className="text-xl font-semibold">
+                  {formatMetricValue(bmi)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {bmiCategory(bmi)}
+                </p>
+              </article>
+            ) : null}
+          </div>
+        )}
+      </section>
+
+      {/* Medicações (feature 064): o tratamento virou entidade própria (`medication`), então esta
+          seção resume — próxima dose e adesão — e a gestão (cadastrar, editar, encerrar) mora em
+          `/life/health/medications`. */}
+      <section
+        aria-labelledby="health-next-dose"
+        className="rounded-xl border bg-card shadow-sm"
+      >
+        <header className="flex items-center gap-2 border-b px-4 py-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--health))]/10 text-[hsl(var(--health))]">
+            <HeartPulse className="h-4 w-4" />
+          </span>
+          <h2 id="health-next-dose" className="text-sm font-semibold">
+            Medicações
+          </h2>
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+          >
+            <Link to="/life/health/medications">Ver medicações</Link>
+          </Button>
+        </header>
+
+        {loading ? (
+          <TableLoadingSkeleton rows={1} columns={3} />
+        ) : nextDose ? (
+          <div className="flex flex-col gap-1 px-4 py-4">
+            <p className="text-xs text-muted-foreground">Próxima dose</p>
+            <p className="text-base font-semibold">{nextDose.title}</p>
+            <p className="text-sm text-muted-foreground">
+              {formatDateTimeBR(nextDose.due_date, nextDose.due_time)}
+            </p>
+            {/* Sem dose vencida na janela não há adesão a mostrar: "0%" para quem acabou de
+                cadastrar seria uma acusação falsa. */}
+            {adherence && adherence.total > 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="health-adherence">
+                Adesão 30 dias: {formatRate(adherence.takenRate)} ({adherence.taken} de{" "}
+                {adherence.total}) · {formatRate(adherence.onTimeRate)} no horário
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <EmptyState
+            icon={Pill}
+            title="Nenhuma dose agendada"
+            description="Cadastre uma medicação para acompanhar as próximas doses por aqui."
+            action={
+              <Button onClick={() => setMedicationDialogOpen(true)}>
+                Cadastrar medicação
+              </Button>
+            }
+          />
+        )}
+      </section>
+
+      {/* Consultas (feature 061): a consulta é uma tarefa com `is_consultation`, então agendar aqui
+          já a coloca no calendário geral — não há entidade separada para listar. */}
+      <section
+        aria-labelledby="health-next-consultation"
+        className="rounded-xl border bg-card shadow-sm"
+      >
+        <header className="flex items-center gap-2 border-b px-4 py-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--health))]/10 text-[hsl(var(--health))]">
+            <Stethoscope className="h-4 w-4" />
+          </span>
+          <h2 id="health-next-consultation" className="text-sm font-semibold">
+            Consultas
+          </h2>
+        </header>
+
+        {loading ? (
+          <TableLoadingSkeleton rows={1} columns={3} />
+        ) : nextConsultation ? (
+          <div className="flex flex-col gap-1 px-4 py-4">
+            <p className="text-base font-semibold">{nextConsultation.title}</p>
+            <p className="text-sm text-muted-foreground">
+              {formatDateTimeBR(
+                nextConsultation.due_date,
+                nextConsultation.due_time
+              )}
+            </p>
+            {nextConsultation.description ? (
+              <p className="text-sm text-muted-foreground">
+                {nextConsultation.description}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <EmptyState
+            icon={Stethoscope}
+            title="Nenhuma consulta agendada"
+            description="Agende uma consulta para vê-la aqui e no calendário geral."
+            action={
+              <Button onClick={() => setConsultationDialogOpen(true)}>
+                Agendar consulta
+              </Button>
+            }
+          />
+        )}
+      </section>
+
+      <RecordMetricDialog
+        open={metricDialogOpen}
+        onOpenChange={setMetricDialogOpen}
+        onRecorded={load}
+      />
+
+      <ReminderPreferencesDialog
+        open={reminderDialogOpen}
+        onOpenChange={setReminderDialogOpen}
+        preferences={summary?.reminderPreferences ?? []}
+        onSaved={load}
+      />
+
+      <HealthHabitQuickCreateDialog
+        open={habitDialogOpen}
+        onOpenChange={setHabitDialogOpen}
+        onCreated={load}
+      />
+
+      <MedicationQuickCreateDialog
+        open={medicationDialogOpen}
+        onOpenChange={setMedicationDialogOpen}
+        onCreated={load}
+      />
+
+      <ConsultationQuickCreateDialog
+        open={consultationDialogOpen}
+        onOpenChange={setConsultationDialogOpen}
+        onCreated={load}
+      />
+    </PageShell>
+  );
+}

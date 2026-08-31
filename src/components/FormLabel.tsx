@@ -37,6 +37,11 @@ export const FORM_DIALOG_CONTENT_CLASS =
 export const FORM_DIALOG_CONTENT_CLASS_WIDE =
   "max-w-xl sm:max-w-3xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6";
 
+/** Variante mais larga só pro dialog de criar/editar tarefa (`TaskList.tsx`) — formulário em
+ * abas com mais campos que os outros 5 dialogs que usam `FORM_DIALOG_CONTENT_CLASS`. */
+export const FORM_DIALOG_CONTENT_CLASS_LG =
+  "max-w-md sm:max-w-2xl lg:max-w-3xl w-full p-4 sm:p-6";
+
 export const FORM_FIELDS_CLASS = "grid grid-cols-1 gap-4";
 
 export const FORM_MOBILE_TABS_CLASS =

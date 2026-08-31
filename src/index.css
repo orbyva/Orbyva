@@ -58,9 +58,16 @@
     --life: 160 84% 39%;
     --life-foreground: 0 0% 100%;
 
+    /* Saúde (sub-módulo de Vida) = rose-500 — verde/emerald já é Metas em MODULE_DOT */
+    --health: 350 89% 60%;
+
     /* Hub ≠ primary — indigo, distinto do sky das Finanças */
     --hub: 239 84% 45%;
     --hub-foreground: 0 0% 100%;
+
+    /* Produtividade (Tarefas/Projetos) = violeta, distinto de hub (indigo) e cinema (fuchsia) */
+    --productivity: 266 78% 55%;
+    --productivity-foreground: 0 0% 100%;
 
     --border: 20 6% 90%;
     --input: 20 6% 90%;
@@ -123,9 +130,15 @@
     --life: 160 70% 45%;
     --life-foreground: 0 0% 100%;
 
+    /* Mesmo rose-500 do light: o valor é único em todos os pontos de uso (Decisões da 060) */
+    --health: 350 89% 60%;
+
     /* Hub ≠ primary — indigo no dark */
     --hub: 239 84% 67%;
     --hub-foreground: 0 0% 100%;
+
+    --productivity: 266 78% 68%;
+    --productivity-foreground: 0 0% 100%;
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
@@ -373,4 +386,92 @@ textarea,
   .landing-neon-frame::before {
     animation: none;
   }
+}
+
+/**
+ * Tema do realce de sintaxe dos blocos de código do Markdown (feature 067).
+ *
+ * **Não é um tema pronto do highlight.js de propósito.** Os temas do pacote trazem paleta própria
+ * e exigem um arquivo para claro e outro para escuro, com troca no runtime. Aqui as classes usam os
+ * mesmos tokens do resto do app (`hsl(var(--…))`), então o realce acompanha o dark mode sozinho —
+ * é a mesma razão pela qual o `markdownEditorTheme` do CodeMirror usa tokens em vez de cor fixa.
+ *
+ * Os nomes de classe são os do highlight.js (prefixo `hljs-`); o que muda é só a cor de cada um.
+ * Fica fora de `@layer` porque `@apply` não alcança as classes que o `rehype-highlight` injeta em
+ * tempo de renderização — o Tailwind nunca as vê no código-fonte.
+ */
+.hljs {
+  color: hsl(var(--foreground));
+  background: transparent;
+}
+
+/* Ruído: comentário e meta ficam apagados para o código em si aparecer. */
+.hljs-comment,
+.hljs-quote,
+.hljs-meta {
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+
+/* Estrutura da linguagem: palavra-chave, operador, tag. */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-doctag,
+.hljs-name,
+.hljs-tag,
+.hljs-subst {
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+/* Dado literal: string, número, regexp, e o `+` do diff. */
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-attr,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: hsl(var(--success));
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+  color: hsl(var(--chart-6));
+}
+
+/* Nome do que o usuário definiu: função, classe, tipo, variável. */
+.hljs-title,
+.hljs-title_,
+.hljs-class .hljs-title,
+.hljs-function .hljs-title,
+.hljs-type,
+.hljs-built_in,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: hsl(var(--chart-2));
+}
+
+.hljs-variable,
+.hljs-template-variable,
+.hljs-params,
+.hljs-property {
+  color: hsl(var(--warning));
+}
+
+/* O `-` do diff: mesma cor de "algo saiu" do resto do app. */
+.hljs-deletion {
+  color: hsl(var(--destructive));
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 700;
 }

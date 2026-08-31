@@ -118,7 +118,7 @@ export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
   },
 ];
 
-const ENTERTAINMENT_PREFIXES = ["/movies", "/books", "/music"];
+const ENTERTAINMENT_PREFIXES = ["/movies", "/books", "/music", "/links"];
 const LIFE_PREFIXES = ["/habits", "/places", "/goals", "/car", "/travel"];
 
 export function resolveAppArea(pathname: string): AppArea {
@@ -134,7 +134,7 @@ export function resolveAppArea(pathname: string): AppArea {
 
 const AREA_LABELS: Record<AppArea, string> = {
   finance: "Finanças",
-  entertainment: "Entretenimento",
+  entertainment: "Conteúdo",
   life: "Vida",
   home: "Adicionar",
 };

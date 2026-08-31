@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatBRL,
   formatDateBR,
+  formatDateTimeBR,
   formatMoneyInput,
   moneyFromDigits,
   parseMoneyInput,
@@ -50,5 +51,26 @@ describe("formatDateBR", () => {
   it("converte ISO para dd/mm/aaaa", () => {
     expect(formatDateBR("2026-07-03")).toBe("03/07/2026");
     expect(formatDateBR("2026-07-03T12:00:00.000Z")).toBe("03/07/2026");
+  });
+
+  it("retorna o placeholder de sem-data para nulo/indefinido", () => {
+    expect(formatDateBR(null)).toBe("·");
+    expect(formatDateBR(undefined)).toBe("·");
+  });
+});
+
+describe("formatDateTimeBR", () => {
+  it("combina data e hora quando ambos presentes", () => {
+    expect(formatDateTimeBR("2026-07-03", "09:30")).toBe("03/07/2026 09:30");
+    expect(formatDateTimeBR("2026-07-03", "09:30:00")).toBe("03/07/2026 09:30");
+  });
+
+  it("sem hora, retorna só a data formatada", () => {
+    expect(formatDateTimeBR("2026-07-03", null)).toBe("03/07/2026");
+    expect(formatDateTimeBR("2026-07-03")).toBe("03/07/2026");
+  });
+
+  it("sem data, retorna o placeholder mesmo com hora presente", () => {
+    expect(formatDateTimeBR(null, "09:30")).toBe("·");
   });
 });

@@ -74,8 +74,8 @@ export function FirstTxChecklist() {
         <div>
           <p className="text-sm font-semibold">Ative o controle do mês</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Uma transação + orçamento (teto) e, se tiver, parcelas, o trio que
-            deixa o mês sob controle. Entretenimento e Vida já estão no menu.
+            Uma transação + orçamento (teto) e, se tiver, parcelas — o trio que
+            deixa o mês sob controle. Conteúdo e Vida já estão no menu.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

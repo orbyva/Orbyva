@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clapperboard,
   Disc3,
+  HeartPulse,
   MapPin,
   Plane,
   Target,
@@ -49,6 +50,13 @@ export const HOME_MODULES = [
     tone: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
   },
   {
+    label: "Saúde",
+    subtitle: "Medicações e consultas",
+    href: "/life/health",
+    icon: HeartPulse,
+    tone: "bg-[hsl(var(--health))]/10 text-[hsl(var(--health))]",
+  },
+  {
     label: "Metas",
     subtitle: "Progresso longo prazo",
     href: "/goals",
@@ -86,6 +94,7 @@ export const MODULE_DOT: Record<string, string> = {
   habits: "bg-violet-500",
   places: "bg-sky-500",
   cinema: "bg-[hsl(var(--cinema))]",
+  health: "bg-[hsl(var(--health))]",
 };
 
 export type HubCache = {

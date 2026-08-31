@@ -15,6 +15,11 @@ export interface Habit {
   /** Quanto somar na meta a cada check-in (ex.: 1 livro, 0.5 km). */
   goal_increment?: number | null;
   color?: string | null;
+  /**
+   * Hábito de cuidado com o corpo (água, alimentação) — feature 062. Só decide se o hábito também
+   * aparece no Health Dashboard; no resto ele continua um hábito comum.
+   */
+  is_health?: boolean;
   created_at?: string;
 }
 

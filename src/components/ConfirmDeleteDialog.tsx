@@ -16,6 +16,15 @@ interface ConfirmDeleteDialogProps {
   loading?: boolean;
   children: ReactNode;
   confirmLabel?: string;
+  /**
+   * `false` tira o vermelho do botão de confirmar e é o que permite reaproveitar este dialog numa
+   * confirmação **construtiva** (feature 096: "Reativar" na lista de tratamentos). Vestir de
+   * destrutivo uma ação que desfaz um estrago ensina o usuário a ignorar o vermelho, que é
+   * justamente o que essa feature está consertando do outro lado.
+   */
+  destructive?: boolean;
+  /** O que o botão diz enquanto a ação corre. "Excluindo..." mentiria numa ação construtiva. */
+  loadingLabel?: string;
 }
 
 export function ConfirmDeleteDialog({
@@ -25,6 +34,8 @@ export function ConfirmDeleteDialog({
   loading = false,
   children,
   confirmLabel = "Excluir",
+  destructive = true,
+  loadingLabel = "Excluindo...",
 }: ConfirmDeleteDialogProps) {
   return (
     <AlertDialog>
@@ -41,9 +52,13 @@ export function ConfirmDeleteDialog({
               void Promise.resolve(onConfirm()).catch(() => undefined);
             }}
             disabled={loading}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className={
+              destructive
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : undefined
+            }
           >
-            {loading ? "Excluindo..." : confirmLabel}
+            {loading ? loadingLabel : confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

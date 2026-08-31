@@ -26,6 +26,9 @@ function isNavItemActive(pathname: string, url: string): boolean {
   if (url === "/travel") {
     return pathname === "/travel" || pathname.startsWith("/travel/")
   }
+  // "/tasks" tem irmãos mais específicos ("/tasks/projects", "/tasks/live") no mesmo grupo —
+  // sem isso, visitar /tasks/projects ativa "Tarefas" e "Projetos" ao mesmo tempo.
+  if (url === "/tasks") return pathname === "/tasks"
   return pathname === url || pathname.startsWith(`${url}/`)
 }
 
