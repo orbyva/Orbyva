@@ -45,7 +45,7 @@ const PhoneCarousel = lazy(() =>
 );
 
 const FRAME_CLASS =
-  "relative mx-auto overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 shadow-[0_25px_60px_-20px_rgba(14,165,233,0.45)] ring-1 ring-white/10 sm:rounded-[2rem]";
+  "relative mx-auto overflow-hidden rounded-[1.75rem] border-[3px] border-zinc-800 bg-zinc-950 ring-1 ring-white/10 sm:rounded-[2rem]";
 
 function hideBoot() {
   document.getElementById("boot")?.setAttribute("hidden", "");

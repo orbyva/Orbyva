@@ -164,9 +164,10 @@ export function QuantoAindaCabePage() {
         </form>
 
         {result ? (
-          <LandingNeonFrame
-            className={cn("mt-10 px-6 py-8 sm:px-8", verdictTone(result.verdict))}
-          >
+          <div className="mt-10">
+            <LandingNeonFrame
+              className={cn("px-6 py-8 sm:px-8", verdictTone(result.verdict))}
+            >
             <p className="text-xs font-semibold uppercase tracking-wide text-sky-300/90">
               {verdictLabel(result.verdict)}
             </p>
@@ -214,7 +215,8 @@ export function QuantoAindaCabePage() {
             >
               Copiar para o Stories
             </button>
-          </LandingNeonFrame>
+            </LandingNeonFrame>
+          </div>
         ) : (
           <p className="mt-8 text-sm text-zinc-500">
             Preencha a renda para ver o restante deste mês.

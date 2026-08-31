@@ -81,7 +81,7 @@ export function LandingNav({ items, className }: LandingNavProps) {
     setActive(href);
     history.replaceState(null, "", href);
 
-    const headerOffset = 72;
+    const headerOffset = 88;
     const top =
       el.getBoundingClientRect().top + window.scrollY - headerOffset;
 
@@ -101,7 +101,7 @@ export function LandingNav({ items, className }: LandingNavProps) {
   return (
     <nav
       className={cn(
-        "hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1.5 backdrop-blur-md md:flex",
+        "hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1 backdrop-blur-md lg:flex",
         className
       )}
       aria-label="Seções"

@@ -10,7 +10,7 @@ export const BRAND = {
     "Pare de espalhar a vida em vários apps. Organize finanças, hábitos, metas, viagens e cinema numa só órbita.",
   /** Uma linha para o hero: prova + proposta (conversão). */
   heroSupport:
-    "Pare de pagar e abrir cinco apps. Organize o mês, os planos e o resto da vida no mesmo lugar, desde o dia 1.",
+    "Pare de pagar cinco apps. Organize o mês e o resto da vida no mesmo lugar.",
   /** Assets em /public */
   logo: "/logo.webp",
   logoMark: "/logo-mark.webp",

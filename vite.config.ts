@@ -320,9 +320,10 @@ export default defineConfig({
     // `environmentMatchGlobs` mantém o resto da suíte (`.test.ts`, lógica pura) em "node", mais
     // rápido e sem custo de jsdom.
     environmentMatchGlobs: [["src/**/*.test.tsx", "jsdom"]],
-    setupFiles: ["./src/test/setup-jsdom.ts"],
+    setupFiles: ["./src/test/setup-timezone.ts", "./src/test/setup-jsdom.ts"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     env: {
+      TZ: "America/Sao_Paulo",
       VITE_SUPABASE_URL: "https://example.supabase.co",
       VITE_SUPABASE_ANON_KEY: "test-anon-key",
     },

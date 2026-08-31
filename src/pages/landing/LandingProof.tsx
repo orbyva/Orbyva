@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { LandingSectionTitle } from "@/components/landing/LandingSectionTitle";
 import { track } from "@/lib/analytics";
+import { cn } from "@/lib/utils";
 import { fadeUp, staggerDelay } from "@/components/landing/landingMotion";
 
 /**
@@ -29,11 +30,9 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
   return (
     <section
       id="prova"
-      className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-24"
+      className="mx-auto w-full max-w-6xl scroll-mt-24 px-5 py-20 sm:px-8 sm:py-28"
     >
       <LandingSectionTitle
-        align="center"
-        eyebrow="Prova"
         title={
           TESTIMONIALS.length > 0
             ? "Quem já está na órbita"
@@ -42,17 +41,17 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
         description={
           TESTIMONIALS.length > 0
             ? "Feedback de quem está usando o Orbyva de verdade."
-            : "Teste sem cartão, privacidade na mão e controle do mês desde o dia 1. Early access com as regras certas."
+            : "Teste sem cartão, privacidade na mão e controle do mês desde o dia 1."
         }
       />
 
       {TESTIMONIALS.length > 0 ? (
-        <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-0">
           {TESTIMONIALS.map((t, i) => (
             <motion.li
               key={`${t.name}-${i}`}
               {...fadeUp}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
+              className={cn("sm:px-8", i > 0 && "lg:border-l lg:border-white/10")}
             >
               <p className="text-sm leading-relaxed text-zinc-200">
                 “{t.quote}”
@@ -63,18 +62,23 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
           ))}
         </ul>
       ) : (
-        <ul className="mt-12 grid gap-5 sm:grid-cols-3">
+        <ul className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-0">
           {SOCIAL_SIGNALS.map((item, i) => (
             <motion.li
               key={item.title}
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: staggerDelay(i), duration: 0.35 }}
-              className="rounded-2xl border border-sky-400/15 bg-sky-500/[0.04] p-5 text-center sm:text-left"
+              transition={{ delay: staggerDelay(i), duration: 0.4 }}
+              className={cn(
+                i > 0 && "sm:border-l sm:border-white/10 sm:pl-8",
+                i < SOCIAL_SIGNALS.length - 1 && "sm:pr-8"
+              )}
             >
-              <p className="text-sm font-medium text-zinc-100">{item.title}</p>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-500">
+              <p className="font-display text-lg font-semibold tracking-tight text-zinc-100">
+                {item.title}
+              </p>
+              <p className="mt-2 max-w-[65ch] text-sm leading-relaxed text-zinc-400">
                 {item.body}
               </p>
             </motion.li>
@@ -82,16 +86,15 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
         </ul>
       )}
 
-      <p className="mt-10 text-center text-sm text-zinc-500">
+      <p className="mt-10 text-sm text-zinc-500">
         Quer entrar cedo e ajudar a moldar o produto?{" "}
         <Link
           to={ctaTo}
           className="font-medium text-sky-400 hover:text-sky-300"
           onClick={() => track("landing_cta_social_proof")}
         >
-          Comece o teste grátis
-        </Link>
-        .
+          Começar grátis
+        </Link>.
       </p>
     </section>
   );
