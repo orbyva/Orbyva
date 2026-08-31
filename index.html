@@ -37,32 +37,15 @@
     <meta name="twitter:description" content="Orçamento, parcelas e lançamentos — com hábitos, metas, viagens e cinema no mesmo app." />
     <meta name="twitter:image" content="https://orbyva.app/marketing/hub.png" />
 
-    <!-- FCP sem JS. Sem scripts inline (CSP script-src 'self'). -->
+    <!-- FCP sem JS: só o fundo da landing. Sem scripts inline (CSP script-src 'self'). -->
     <style>
       html, body, #root {
         margin: 0;
         min-height: 100%;
         background: #070b14;
       }
-      /* Wordmark só no first paint; o React esconde #boot ao hidratar. */
-      #boot {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        z-index: 15;
-        pointer-events: none;
-      }
+      /* #boot existe pro e2e/hidratação; o wordmark no canto destoava do header (ilha + mark). */
       #boot[hidden] { display: none; }
-      .boot-wordmark {
-        margin: 0;
-        padding: 1.25rem;
-        color: #fafafa;
-        font: 700 1.35rem/1.2 system-ui, -apple-system, sans-serif;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-      }
-      .boot-wordmark span { color: #38bdf8; }
     </style>
     <link
       rel="preload"
@@ -75,9 +58,7 @@
   <body>
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5H8MT38X" height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe></noscript>
-    <div id="boot">
-      <p class="boot-wordmark"><span>O</span>RBYV<span>Ʌ</span></p>
-    </div>
+    <div id="boot" hidden></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

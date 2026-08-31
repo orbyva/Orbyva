@@ -16,9 +16,7 @@ document.querySelectorAll<HTMLLinkElement>("link[data-boot-css]").forEach((link)
   if (link.sheet) apply();
 });
 
-if (window.location.pathname !== "/") {
-  document.getElementById("boot")?.setAttribute("hidden", "");
-}
+document.getElementById("boot")?.setAttribute("hidden", "");
 
 const PwaUpdateBanner = lazy(() =>
   import("@/components/PwaUpdateBanner").then((m) => ({
