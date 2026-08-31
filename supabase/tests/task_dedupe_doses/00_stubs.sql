@@ -89,7 +89,7 @@ create table if not exists public.task (
   is_quick boolean not null default false,
   medication_id uuid references public.medication(id) on delete set null,
   dose_time time,
-  linked_recurring_id uuid,
+  linked_recurring_id bigint,
   linked_installment_number integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

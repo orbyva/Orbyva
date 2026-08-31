@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Smartphone, Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandWordmark } from "@/components/BrandWordmark";
+import LoadingFallback from "@/components/LoadingFallback";
 import PhoneMockupBasic from "@/components/ui/phone-mockups-1";
 import { LandingAtmosphere } from "@/components/landing/LandingAtmosphere";
 import { LandingMagneticCta } from "@/components/landing/LandingMagneticCta";
@@ -14,6 +15,7 @@ import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
 import { isBillingConfigured } from "@/lib/billing-config";
 import { track } from "@/lib/analytics";
+import { landingShouldDeferToApp } from "@/lib/landingAuthHint";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import { FAQ_JSON_LD } from "@/pages/landing/landingFaqData";
 
@@ -94,23 +96,27 @@ export default function Landing() {
   const billingLive = isBillingConfigured();
   const [showStickyCta, setShowStickyCta] = useState(false);
   const [belowFold, setBelowFold] = useState(false);
+  const [handoff, setHandoff] = useState(landingShouldDeferToApp);
   const seenSections = useRef(new Set<string>());
 
   useEffect(() => {
+    if (handoff) return;
     track("landing_view", {
       billing_live: billingLive,
       channel: "instagram",
     });
-  }, [billingLive]);
+  }, [billingLive, handoff]);
 
   useEffect(() => {
+    if (handoff) return;
     const onScroll = () => setShowStickyCta(window.scrollY > 640);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [handoff]);
 
   useEffect(() => {
+    if (handoff) return;
     let cancelled = false;
     let observer: IntersectionObserver | null = null;
     let raf = 0;
@@ -147,7 +153,7 @@ export default function Landing() {
       cancelAnimationFrame(raf);
       observer?.disconnect();
     };
-  }, []);
+  }, [handoff]);
 
   useLayoutEffect(() => {
     document.getElementById("boot")?.setAttribute("hidden", "");
@@ -157,6 +163,7 @@ export default function Landing() {
   }, []);
 
   useEffect(() => {
+    if (handoff) return;
     let idle = 0;
     let timeout = 0;
     const show = () => setBelowFold(true);
@@ -173,40 +180,48 @@ export default function Landing() {
       if (idle) window.cancelIdleCallback(idle);
       if (timeout) window.clearTimeout(timeout);
     };
-  }, []);
+  }, [handoff]);
 
+  /**
+   * Quem já tem sessão (ou OAuth na hash) não espera o idle: a landing está fora do AuthRoot
+   * de propósito (LCP), mas pintar o marketing e só então mandar para `/home` parece um flash.
+   * Visitante anônimo continua sem importar o Supabase.
+   */
   useEffect(() => {
+    if (!handoff) return;
     let cancelled = false;
-    const run = () => {
-      void import("@/lib/supabase").then(({ supabase }) =>
-        supabase.auth.getSession().then(({ data }) => {
-          if (!cancelled && data.session?.user) {
-            navigate("/home", { replace: true });
-          }
-        })
-      );
-    };
-    let idle = 0;
-    let timeout = 0;
-    const arm = () => {
-      if (typeof window.requestIdleCallback === "function") {
-        idle = window.requestIdleCallback(run, { timeout: 4000 });
-      } else {
-        timeout = window.setTimeout(run, 2500);
-      }
-    };
-    if (document.readyState === "complete") arm();
-    else window.addEventListener("load", arm, { once: true });
+    void import("@/lib/supabase")
+      .then(({ supabase }) => supabase.auth.getSession())
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data.session?.user) {
+          navigate("/home", { replace: true });
+          return;
+        }
+        const url = new URL(window.location.href);
+        if (url.searchParams.has("code") || url.searchParams.has("state")) {
+          url.searchParams.delete("code");
+          url.searchParams.delete("state");
+          const next = `${url.pathname}${url.search}${url.hash}`;
+          window.history.replaceState({}, "", next);
+        }
+        setHandoff(false);
+      })
+      .catch(() => {
+        if (!cancelled) setHandoff(false);
+      });
     return () => {
       cancelled = true;
-      if (idle) window.cancelIdleCallback(idle);
-      if (timeout) window.clearTimeout(timeout);
     };
-  }, [navigate]);
+  }, [handoff, navigate]);
 
   const ctaTo = "/login?mode=signup";
   const ctaLabel = "Começar grátis";
   const heroSub = `7 dias grátis · depois Pro ${PLANS.pro.priceLabel}`;
+
+  if (handoff) {
+    return <LoadingFallback />;
+  }
 
   return (
     <div className="relative min-h-svh bg-[var(--landing-bg)] pb-16 text-zinc-100 md:pb-0">

@@ -13,6 +13,47 @@ if (typeof document !== "undefined") {
     cleanup();
   });
 
+  /**
+   * Node 25+ expõe um `localStorage` global incompleto (precisa de `--localstorage-file`).
+   * O jsdom 29 não substitui esse objeto, então `getItem`/`clear` não são funções e a suíte
+   * de componente quebra em `NavUser`, onboarding e nas preferências de tarefas.
+   */
+  const memoryStore = () => {
+    const store = new Map<string, string>();
+    return {
+      get length() {
+        return store.size;
+      },
+      key: (i: number) => [...store.keys()][i] ?? null,
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        store.set(String(k), String(v));
+      },
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+      clear: () => store.clear(),
+    } satisfies Storage;
+  };
+  const local = memoryStore();
+  const session = memoryStore();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: local,
+  });
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: local,
+  });
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: session,
+  });
+  Object.defineProperty(globalThis, "sessionStorage", {
+    configurable: true,
+    value: session,
+  });
+
   // jsdom não implementa `ResizeObserver` nem a API de Pointer Capture que o Radix (Popover,
   // usado por `TaskDueQuickEdit`/`TaskDurationQuickPick`) chama ao posicionar/abrir o conteúdo —
   // sem esses stubs, renderizar/interagir com o popover lança em ambiente de teste.

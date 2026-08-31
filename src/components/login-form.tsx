@@ -10,7 +10,7 @@ import { BRAND } from "@/lib/brand";
 import { supabase } from "@/lib/supabase";
 import { track } from "@/lib/analytics";
 import { getErrorMessage } from "@/lib/errors";
-import { safeNextPath } from "@/lib/nextPath";
+import { authCallbackUrl, safeNextPath } from "@/lib/nextPath";
 
 type AuthMode = "login" | "signup" | "forgot" | "recovery";
 
@@ -88,7 +88,7 @@ export function LoginForm({
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}${nextPath}`,
+        redirectTo: authCallbackUrl(window.location.origin, nextPath),
       },
     });
     if (oauthError) {
@@ -107,7 +107,7 @@ export function LoginForm({
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}${nextPath}`,
+          emailRedirectTo: authCallbackUrl(window.location.origin, nextPath),
           shouldCreateUser: false,
         },
       });
@@ -183,7 +183,7 @@ export function LoginForm({
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}${nextPath}`,
+          emailRedirectTo: authCallbackUrl(window.location.origin, nextPath),
         },
       });
       if (signUpError) throw signUpError;

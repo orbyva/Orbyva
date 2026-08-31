@@ -192,6 +192,15 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
 
 ## Prompts
 
+- 2026-08-31 — `db push` no remoto parou em `notes_core`, verbatim:
+
+```
+ERROR: column p.notes does not exist (SQLSTATE 42703)
+At statement: 15
+insert into public.note (user_id, project_id, title, content)
+select p.user_id, p.id, 'Notas do projeto', p.notes
+```
+
 - 2026-08-16 — prompt que originou o módulo de Notas, verbatim:
 
 ```
@@ -207,6 +216,11 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
 
 ## Notas
 
+- **`db push` 2026-08-31: `project.notes` não existe no remoto (SQLSTATE 42703).** A cópia em
+  `20260816160000_notes_core.sql` assumia a coluna da 006. Nesse banco a 006 já estava no histórico
+  sem a coluna (o `add column` não reexecuta). A migration falhou e não entrou no histórico; o
+  `insert` passou a `EXECUTE` dinâmico só se `information_schema` achar `project.notes`. Sem a
+  coluna, `NOTICE` e segue — não há o que copiar. O `drop column` da 058 continua `if exists`.
 - **`btrim(notes) <> ''` sem lista de caracteres era filtro furado.** O `btrim(x)` de uma
   argumento só remove **espaço** — uma `project.notes` com só quebras de linha/tabs (`'   \n\t '`)
   passava e virava nota vazia no módulo novo. Descoberto pela assertiva de `supabase/tests/

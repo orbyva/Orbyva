@@ -57,13 +57,13 @@ insert into public.task
    linked_recurring_id, linked_installment_number)
 values
   ('dddddddd-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111',
-   'Internet', 'todo', null, null, 'wifi', 'ffffffff-0000-0000-0000-000000000001', null),
+   'Internet', 'todo', null, null, 'wifi', 1001, null),
   ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
    'Internet', 'todo', '2026-06-05', 'dddddddd-0000-0000-0000-000000000000', null,
-   'ffffffff-0000-0000-0000-000000000001', 1),
+   1001, 1),
   ('dddddddd-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
    'Internet', 'done', '2026-07-05', 'dddddddd-0000-0000-0000-000000000000', null,
-   'ffffffff-0000-0000-0000-000000000001', 2);
+   1001, 2);
 
 -- ---- 5) série do OUTRO usuário: também é backfillada, sem nenhum ícone cruzar de dono ---------
 insert into public.task

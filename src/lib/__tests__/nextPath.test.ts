@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_POST_LOGIN_PATH, safeNextPath } from "@/lib/nextPath";
+import {
+  DEFAULT_POST_LOGIN_PATH,
+  authCallbackUrl,
+  safeNextPath,
+} from "@/lib/nextPath";
 
 /**
  * `?next=` existe por causa do convite de evento (feature 076): quem clica no link sem sessão
@@ -44,6 +48,29 @@ describe("safeNextPath", () => {
   it("recusa caractere de controle", () => {
     expect(safeNextPath("/home\nLocation: https://evil.com")).toBe(
       DEFAULT_POST_LOGIN_PATH
+    );
+  });
+});
+
+describe("authCallbackUrl", () => {
+  it("manda OAuth/magic link para /login?next= no AuthRoot, não para a landing", () => {
+    expect(authCallbackUrl("https://orbyva.app", "/home")).toBe(
+      "https://orbyva.app/login?next=%2Fhome"
+    );
+    expect(authCallbackUrl("https://orbyva.app", "/events/invite/tok")).toBe(
+      "https://orbyva.app/login?next=%2Fevents%2Finvite%2Ftok"
+    );
+  });
+
+  it("saneia next perigoso antes de montar a URL", () => {
+    expect(authCallbackUrl("https://orbyva.app", "https://evil.com")).toBe(
+      "https://orbyva.app/login?next=%2Fhome"
+    );
+  });
+
+  it("não empilha next quando o destino já é /login", () => {
+    expect(authCallbackUrl("https://orbyva.app", "/login")).toBe(
+      "https://orbyva.app/login"
     );
   });
 });

@@ -104,7 +104,7 @@ insert into public.task
   (id, user_id, due_date, title, status, linked_recurring_id, linked_installment_number, created_at)
 values
   ('f0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-   null, 'Internet', 'todo', 'cccccccc-cccc-cccc-cccc-cccccccccccc', null, '2026-08-01T00:00:00Z');
+   null, 'Internet', 'todo', 1001, null, '2026-08-01T00:00:00Z');
 
 insert into public.task
   (id, user_id, recurrence_origin_id, due_date, title, status, linked_recurring_id,
@@ -112,10 +112,10 @@ insert into public.task
 values
   ('f0000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
    'f0000000-0000-0000-0000-000000000001', '2026-09-05', 'Internet', 'todo',
-   'cccccccc-cccc-cccc-cccc-cccccccccccc', 1, '2026-09-01T00:00:00Z'),
+   1001, 1, '2026-09-01T00:00:00Z'),
   ('f0000000-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
    'f0000000-0000-0000-0000-000000000001', '2026-09-05', 'Internet', 'todo',
-   'cccccccc-cccc-cccc-cccc-cccccccccccc', 2, '2026-09-01T00:01:00Z');
+   1001, 2, '2026-09-01T00:01:00Z');
 
 -- ---- 8. tarefas avulsas com o mesmo prazo ----------------------------------------------------
 -- Nada nelas é chave: duas tarefas iguais no mesmo dia são só duas tarefas.

@@ -85,13 +85,20 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,webp,svg,woff2,png}"],
         /**
-         * O canvas (feature 058) fica **fora do precache**: são 4,7 MB em ~100 chunks que só quem
-         * abre um canvas usa. Precachear tudo faria a instalação do PWA baixar isso para todo
-         * mundo (medido: 11,4 MB → 15,9 MB de precache). Continuam disponíveis pela rede, sob
-         * demanda, como qualquer chunk lazy; a contrapartida aceita é que abrir um canvas pela
-         * primeira vez exige estar online.
+         * O canvas (feature 058) fica **fora do precache**: o JS do Excalidraw passa de 2 MB
+         * (limite do Workbox) e só quem abre um canvas usa. Sem `manualChunks` o nome do arquivo
+         * não é estável (`excalidraw-*` ou o símbolo interno da lib), então o teto de tamanho
+         * é o que garante que um chunk gigante não entre no precache se o glob falhar.
          */
-        globIgnores: ["**/excalidraw-*.js", "**/excalidraw-*.css"],
+        globIgnores: [
+          "**/excalidraw-*.js",
+          "**/excalidraw-*.css",
+          "**/ExcalidrawCanvas-*.js",
+          "**/ExcalidrawCanvas-*.css",
+          "**/percentages-BXMCSKIN-*.js",
+          "**/subset-shared.chunk-*.js",
+        ],
+        maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
           /^\/llms\.txt$/,
@@ -187,6 +194,19 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          /**
+           * Antes do `node_modules` return: o helper de preload do Vite não mora em
+           * `node_modules` (`\0vite/preload-helper`). Sem chunk próprio, o Rollup o joga no
+           * primeiro vendor grande que o usa — o Excalidraw — e o `index` importa 4,7 MB só
+           * para ter `__vitePreload`. Prod 2026-08-31: `TypeError: $ is not a function`.
+           */
+          if (
+            id.includes("\0vite/") ||
+            id.includes("vite/preload-helper") ||
+            id.includes("vite/dynamic-import-helper")
+          ) {
+            return "vite-runtime";
+          }
           if (!id.includes("node_modules")) return;
           // Utils pequenos, NÃO deixar cair no chunk do recharts (clsx era engolido).
           if (
@@ -226,21 +246,19 @@ export default defineConfig({
             return "codemirror";
           }
           /**
-           * Excalidraw (canvas, feature 058) é a maior dependência do app — 4,7 MB de JS somando
-           * tudo. Um `manualChunks` **único** foi medido e reprovado: colapsa os ~90 locales e os
-           * chunks internos num arquivo de 1,5 MB gzip (e o Workbox nem consegue pré-cachear,
-           * limite de 2 MB por arquivo). É a mesma armadilha que a 057 documentou com o mermaid.
-           *
-           * A regra abaixo é o contrário disso: **um chunk por arquivo do pacote**, que é onde o
-           * próprio Excalidraw já traçou as fronteiras (core, subsetting de fonte, um arquivo por
-           * idioma). Preserva o split natural — quem abre um canvas em pt-BR não baixa os outros
-           * 89 idiomas — e ainda dá nome estável (`excalidraw-…`) para o orçamento de bundle
-           * classificar, em vez de depender do sufixo de build da lib.
+           * Runtime do Vite (preload helper). Sem chunk próprio, o Rollup joga o helper no
+           * primeiro vendor grande que o usa — no caso o Excalidraw — e o `index` importa esse
+           * vendor só para ter `__vitePreload`. Em produção (2026-08-31) isso puxou 4,7 MB de
+           * canvas no boot e explodiu com `TypeError: $ is not a function`.
            */
-          if (id.includes("@excalidraw")) {
-            const file = id.split("?")[0].split("/").pop() ?? "core";
-            return `excalidraw-${file.replace(/\.js$/, "")}`;
-          }
+          /**
+           * Excalidraw **não** entra em `manualChunks`. Forçar nome (um arquivo só ou um por
+           * arquivo do pacote) coloca o grafo do canvas no mesmo chunk do helper de preload, e o
+           * boot da landing importa os 4,7 MB. O `React.lazy` / `import()` do `ExcalidrawCanvas`
+           * e do `CanvasBlock` já o deixam lazy. `globIgnores` + teto de tamanho do Workbox
+           * cobrem o precache. O guarda em `check-bundle-budget.mjs` falha se o `index`
+           * importar o canvas.
+           */
           if (id.includes("@sentry")) return "sentry";
           if (id.includes("@supabase")) return "supabase";
           if (id.includes("@radix-ui")) return "radix";

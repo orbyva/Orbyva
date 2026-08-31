@@ -73,7 +73,7 @@ begin
      linked_installment_number)
   values ('f0000000-0000-0000-0000-0000000000ff', '11111111-1111-1111-1111-111111111111',
           'f0000000-0000-0000-0000-000000000001', '2026-09-05', 'Internet', 'todo',
-          'cccccccc-cccc-cccc-cccc-cccccccccccc', 3);
+          1001, 3);
   delete from public.task where id = 'f0000000-0000-0000-0000-0000000000ff';
 
   -- Mesma dose, mesmo dia e horário, tratamento diferente: chaves diferentes.

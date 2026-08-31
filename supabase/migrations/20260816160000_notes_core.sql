@@ -128,14 +128,35 @@ end $$;
 --
 -- O `not exists` só existe para a reaplicação da migration ser idempotente (não duplicar notas);
 -- na primeira aplicação ele não filtra nada.
-insert into public.note (user_id, project_id, title, content)
-select p.user_id, p.id, 'Notas do projeto', p.notes
-from public.project p
-where p.notes is not null
-  and btrim(p.notes, E' \t\r\n') <> ''
-  and not exists (
+--
+-- `EXECUTE`: o remoto deste push (2026-08-31) não tem `project.notes` (SQLSTATE 42703). A 006
+-- (`20260806130000`) já estava no histórico sem a coluna — o `create table if not exists` do
+-- baseline não recria, e o `add column` da 006 não rodou de novo. SQL estático no `DO` ainda
+-- planeja `p.notes` e quebra; dinâmico só avalia se a coluna existe. Sem a coluna não há o que
+-- copiar. Esta migration falhou e não entrou no histórico — edição no lugar.
+do $$
+begin
+  if exists (
     select 1
-    from public.note n
-    where n.project_id = p.id
-      and n.title = 'Notas do projeto'
-  );
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'project'
+      and column_name = 'notes'
+  ) then
+    execute $ins$
+      insert into public.note (user_id, project_id, title, content)
+      select p.user_id, p.id, 'Notas do projeto', p.notes
+      from public.project p
+      where p.notes is not null
+        and btrim(p.notes, E' \t\r\n') <> ''
+        and not exists (
+          select 1
+          from public.note n
+          where n.project_id = p.id
+            and n.title = 'Notas do projeto'
+        )
+    $ins$;
+  else
+    raise notice 'project.notes ausente — skip cópia para note';
+  end if;
+end $$;

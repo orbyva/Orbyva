@@ -219,6 +219,15 @@ dentro de uma nota markdown). Independente da 056.
       101 chunks `excalidraw-*` na classe `canvas`, o maior com 719,6 KB contra o teto de 750 KB.
       Precache do PWA em 11.140 KiB, praticamente o mesmo dos 11.387 KiB de antes da feature.
       Migration validada à parte, em Postgres 16 (`bash supabase/tests/note_canvas/run.sh`).
+- [x] **Hotfix prod 2026-08-31 — `manualChunks` per-arquivo do Excalidraw quebra o boot.** Depois
+      do merge na `master`, `https://orbyva.app/` ficou no `#boot` (wordmark, fundo escuro, zero
+      React). Causa: `manualChunks` `excalidraw-<arquivo>` criou chunks circulares; o helper de
+      preload do Vite caiu num `excalidraw-*`; o `index` importou esse helper e puxou o grafo
+      inteiro; `TypeError: $ is not a function` em `excalidraw-index-*.js`. Conserto: Excalidraw
+      **sai** do `manualChunks` (split natural: `percentages-BXMCSKIN` + `subset-shared.chunk` +
+      locales); helper isolado em `vite-runtime`; `globIgnores` cobre os nomes novos; guarda no
+      `check-bundle-budget.mjs` falha se o entry do `index.html` importar o canvas. Verificar:
+      `npm run build && npm run check:bundle`; servir `dist` e confirmar que a landing hidrata.
 - [ ] **BLOQUEADA — remoção da coluna `project.notes`, herdada da 055. Última tarefa do módulo.**
       Estado em **2026-08-23**: **Condição 1 cumprida, Condição 2 ainda não** — a tarefa continua
       aberta e **a migration ainda não existe** (ver Notas: criar o arquivo antes da liberação faria
@@ -248,6 +257,15 @@ dentro de uma nota markdown). Independente da 056.
       retornando o mesmo de antes.
 
 ## Prompts
+
+- 2026-08-31 — tela branca em produção depois do merge na main, verbatim:
+
+```
+Em prod depois do merge na main, está assim
+```
+
+(screenshot: fundo `#070b14`, só o wordmark ORBYVɅ no canto — o `#boot` do `index.html`, React
+não hidratou.)
 
 - 2026-08-16 — prompt que originou o módulo de Notas, verbatim:
 
@@ -305,15 +323,23 @@ dentro de uma nota markdown). Independente da 056.
   arquivo *é* o gatilho, não a decisão de rodá-lo. Como a liberação depende de o usuário confirmar
   que as notas migradas estão íntegras, escrever o arquivo agora tiraria dele a chance de dizer não.
   O conteúdo exato da migration está na tarefa, pronto para ser criado quando a confirmação vier.
-- **Desvio com medição: `manualChunks` único para o excalidraw é pior, igual ao caso do mermaid na
-  057.** A tarefa mandava declarar `excalidraw` em `manualChunks`. Foi feito e medido: um chunk de
-  4,71 MB (**1.532,1 KB gzip**), que `check:bundle` reprova e que **quebra o `npm run build`** — o
-  Workbox não pré-cacheia arquivo acima de 2 MB e aborta. A causa é a mesma da 057: `manualChunks`
-  colapsa num arquivo só tudo que a lib importa dinamicamente, aqui os ~90 locales e os chunks
-  internos. A correção foi devolver **um nome por arquivo do pacote** (`excalidraw-<arquivo>`), o
-  que preserva o split natural (101 chunks) e ainda dá nome estável — sem isso o Rollup batizaria o
-  chunk principal a partir de um símbolo interno da lib (`percentages-BXMCSKIN-…`), que é
-  exatamente o tipo de nome frágil que a 057 teve de aceitar para o mermaid.
+- **Desvio revertido em 2026-08-31: `manualChunks` per-arquivo quebra produção.** A 058 original
+  mediu um chunk único (4,71 MB / 1.532 KB gzip) e o rejeitou porque o Workbox abortava em arquivo
+  > 2 MB. A correção (um chunk por arquivo, 101 arquivos) **não foi testada no boot da landing**:
+  no merge da `feat/produtividade` a home de prod ficou no `#boot`. Causa real: o helper de
+  preload do Vite (`__vitePreload`) caiu num `excalidraw-*`; o `index` importou esse helper e puxou
+  4,7 MB de canvas; a avaliação circular explodiu com `TypeError: $ is not a function`.
+  Chunk único **também** vazava: o helper ia parar dentro do `excalidraw-[hash].js` de 4,7 MB.
+  O que funciona: Excalidraw **fora** do `manualChunks` (split natural: `percentages-BXMCSKIN`
+  342 KB gzip, `subset-shared.chunk` 725 KB, locales lazy) **e** o helper isolado em
+  `vite-runtime` (1 KB). Guarda no `check-bundle-budget.mjs` falha se o entry do `index.html`
+  importar o canvas. Landing hidratada no `dist` local; `/login` abre o form.
+- **Desvio com medição (histórico): `manualChunks` único para o excalidraw.** A tarefa mandava
+  declarar `excalidraw` em `manualChunks`. Foi feito e medido: um chunk de 4,71 MB (**1.532,1 KB
+  gzip**), que `check:bundle` reprovava e que **quebrava o `npm run build`** — o Workbox não
+  pré-cacheia arquivo acima de 2 MB e aborta. A correção *da época* foi um nome por arquivo do
+  pacote. **Revertido** (nota acima): o split per-arquivo derruba o app inteiro. O abort do Workbox
+  se resolve com `globIgnores`, que já estava no `vite.config.ts`.
 - **Bug real encontrado no caminho: o canvas engordava o precache do PWA em 4,5 MB.** O
   `globPatterns` do `VitePWA` pega `**/*.js`, então os 101 chunks do Excalidraw entravam no
   precache: 11.387 KiB → 15.905 KiB, cobrados de **todo usuário do app na instalação**, inclusive
@@ -355,3 +381,9 @@ dentro de uma nota markdown). Independente da 056.
 - Excalidraw é a maior dependência do app inteiro. Se `check:bundle` acusar que ela vazou para o
   chunk de entrada, a causa quase certa é um import estático de tipo — usar `import type` resolve
   sem trazer runtime.
+- **2026-08-31: `npm audit` high por `lodash-es` 4.17.21 no grafo do Excalidraw.** Cadeia:
+  `@excalidraw/excalidraw` → `@excalidraw/mermaid-to-excalidraw` → langium/chevrotain →
+  `lodash-es@4.17.21` (GHSA-r5fr-rjxr-66jc e correlatas). `npm audit fix --force` desceria o
+  Excalidraw para `0.18.0`. Override `lodash`/`lodash-es` → `4.18.1` no `package.json` (já havia
+  overrides para o mesmo tipo de coisa). O `_.template` vulnerável não é API nossa — o canvas não
+  passa input de usuário para template do lodash.

@@ -85,6 +85,7 @@ function PhoneFrame({
             height: "100%",
             objectFit: "contain",
             objectPosition: "top",
+            backgroundColor: "#09090b",
           }}
         />
       </picture>

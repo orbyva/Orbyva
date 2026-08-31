@@ -236,7 +236,25 @@ de todo mundo que já entra com Google — nada disso existe.
 
 ## Prompts
 
+- 2026-08-31 — `db push` parou em `project_event` ausente, verbatim:
+
+```
+ERROR: relation "public.project_event" does not exist (SQLSTATE 42P01)
+At statement: 0
+alter table public.project_event
+```
+
 ## Notas
+
+- **`db push` 2026-08-31: a tabela `project_event` não existia neste remoto.** A 006
+  (`20260806130000`) já estava no histórico (como a coluna `project.notes`: o arquivo local cresceu
+  depois do apply), então o `create table` nunca rodou de novo. A 076 (`20260820110000`) fazia só
+  `alter column drop not null` e quebrou com 42P01. A migration falhou e **não** entrou no
+  histórico: o arquivo passou a criar a tabela se faltar (`project_id` já nullable), depois o
+  `drop not null` (no-op se já era), RLS e o trigger. `wipe_own_data` **não** foi reescrito aqui —
+  as migrations já aplicadas neste push (notas, compras, medicação…) já listam `project_event` e o
+  loop ignora relação ausente.
+
 
 - **A premissa "a RPC é `security definer` para atravessar o gate Pro" estava errada, e medir isso
   desenterrou um bug real e maior.** `trg_enforce_app_access` chama `has_app_access()`, que decide

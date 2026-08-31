@@ -2,6 +2,21 @@
 export const DEFAULT_POST_LOGIN_PATH = "/home";
 
 /**
+ * URL que o Supabase deve devolver depois de OAuth / magic link.
+ *
+ * A landing (`/`) está fora do AuthRoot. Se o callback cair no Site URL (`/`), a marketing pinta
+ * antes da sessão ser lida. `/login?next=` entra no AuthRoot: o `LoginEntry` mostra o spinner e
+ * redireciona. `safeNextPath` já saneou `next` contra open redirect.
+ */
+export function authCallbackUrl(origin: string, next: string): string {
+  const dest = safeNextPath(next);
+  const params = new URLSearchParams();
+  if (dest !== "/login") params.set("next", dest);
+  const qs = params.toString();
+  return `${origin}/login${qs ? `?${qs}` : ""}`;
+}
+
+/**
  * Destino pós-login vindo de `?next=` (feature 076: quem clica no link de um convite sem estar
  * logado precisa voltar para o convite, não cair no dashboard e perder o link).
  *

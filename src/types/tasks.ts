@@ -139,6 +139,7 @@ export interface Task {
   start_date?: string | null;
   priority?: TaskPriority | null;
   recurrence_rule: RecurrenceRule | null;
+  /** FK para `recurring_transaction.id` (bigint no remoto). `string` para bater com `Recurring.id`. */
   linked_recurring_id: string | null;
   linked_installment_number: number | null;
   /** Item da Lista de Compras que originou a tarefa (feature 051) — vínculo unidirecional 1:1.

@@ -50,6 +50,10 @@ não existe um estado "para fazer" para distinguir projeto planejado de projeto 
 - [x] `npm run build && npm run lint` limpos + verificação manual
 
 ## Notas
+- **`db push` 2026-08-31: criar projeto deu 400 (SQLSTATE 23514).** A check da 001
+  (`status in ('active', 'completed', 'archived')`) ainda valia neste remoto — a 006 já estava no
+  histórico sem ter reaplicado o CHECK com `planned`. O form manda `planned`. Migration nova
+  `20260831153000_project_status_planned.sql` (idempotente) alinha a constraint e o default.
 - Verificação manual no navegador: troca de status otimista no Kanban de projetos (sem reload
   completo), dialog de edição com paleta de cores/notas/eventos funcionando, card mostrando cor
   (borda esquerda), preview de notas truncado e próximo evento com data/hora formatada. Dados de

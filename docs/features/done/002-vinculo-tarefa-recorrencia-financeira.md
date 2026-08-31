@@ -39,6 +39,15 @@ Plano completo: `docs/superpowers/plans/2026-08-06-task-finance-recurrence-link.
 - 2026-08-12 — "criar tarefa vinculada a uma recorrência, hoje está pedindo para selecionar a recorrência, deve ser possível também criar uma nova a partir do forms de criação de tarefa com recorrência" (bullet 1 de `to-refine/refine.md`, refinado pela esteira em `024-recorrencia-financeira-no-form-tarefa.md` e depois mesclado aqui — deu origem às tarefas de "Nova recorrência" embutida no form).
 
 ## Notas
+- **2026-08-31 — `db push` falhou (uuid × bigint) e a migration foi ajustada.**
+  `supabase db push --include-all` parou em `20260806120050_task_recurring_link.sql`:
+  `task.linked_recurring_id uuid` não consegue referenciar `recurring_transaction.id` no remoto,
+  que ainda é `bigint` (SQLSTATE 42804). O baseline declara a recorrência como uuid, mas com
+  `create table if not exists` — a tabela antiga (identity) nunca foi convertida. A coluna
+  passou a ser `bigint` (mesmo tipo da PK remota). Nada foi gravado no histórico (o arquivo
+  falhou no statement 0). Não converter a PK agora: isso reescreve `recurring_transaction` e
+  `transaction.recurring_transaction_id` em produção. Reaplicar com
+  `supabase db push --include-all --yes`.
 - **Frontmatter `prompt:` ausente**: esta feature foi criada antes do campo `prompt:` existir na convenção do template. O pedido original completo (vínculo tarefa↔recorrência, lembrar de pagamentos como DAS/psicóloga) foi dado em outra sessão e não está registrado verbatim em nenhum arquivo deste repo — só o resumo em Contexto acima. Precisa que o usuário reconstrua/cole o prompt original para preencher o frontmatter antes que a checagem de satisfação da skill `next` possa rodar de forma completa.
 - Migration `20260803120000_tasks_projects.sql` (feature 001) e uma segunda migration do mesmo dia (`ops_trial_ends_at`) compartilhavam o mesmo timestamp — corrompeu o bookkeeping de migrations do Supabase CLI e mascarou por um tempo que a migration da feature 001 nunca tinha sido de fato aplicada ao banco remoto. Renomeada para `20260803121500` antes de aplicar. Lição: nunca duas migrations com o mesmo timestamp (ver `docs/stack.md`).
 - Bug real encontrado durante a verificação manual (não capturado pelo review por task, já que o bug atravessa como o dialog de edição interage com uma linha já materializada): `TaskList.tsx`/`ProjectKanban.tsx` zeravam `due_date` de qualquer edição em uma tarefa vinculada, mesmo quando a edição era só reatribuir o projeto. Corrigido distinguindo "editando o template" (zera `due_date`, correto) de "editando uma instância já materializada" (nunca deve zerar). Ver commit `2802313`.
