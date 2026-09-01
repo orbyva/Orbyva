@@ -12,7 +12,7 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 ## Módulos (navegação)
 
-A sidebar agrupa o app em quatro blocos:
+A sidebar agrupa o app em cinco blocos:
 
 ### Início
 - **Landing** (`/`) — life OS, planos (teste 7 dias → Pro); isca **Está dentro do orçamento?** (`/dentro-do-orcamento`, sem login; aliases `/quanto-ainda-cabe` e `/cabe-no-mes`); marketing com motion OriginKit + Cult UI + Skiper UI (free); módulos por ícones (sem prints repetidos); card do cronômetro flutuante
@@ -26,17 +26,25 @@ A sidebar agrupa o app em quatro blocos:
 - **Orçamento mensal** — planejado vs gasto, alertas e duplicação entre meses
 - **Categorias** — categorias e subcategorias com cor e ícone; busca por nome na página; animação ao mover subcategoria entre categorias
 
-### Entretenimento
-- **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); busca ao digitar; episódios com nota; import Letterboxd / TV Time; card Stories
-- **Livros** (`/books`) — para ler / lendo / lidos / abandonei; Google Books com busca ao digitar; marca-página e notas de leitura; opinião e card Stories
-- **Música** (`/music`) — para ouvir / ouvidos; catálogo via Edge Function (Spotify) com fallback MusicBrainz; busca ao digitar; tracklist + nota por faixa; cadastro manual; card Stories
+### Produtividade
+- **Tarefas** (`/tasks`) — lista unificada, Kanban, agenda e Gantt; timer Live; tags e ícones de link
+- **Projetos** (`/tasks/projects`) — agrupamento de tarefas, detalhe em Lista/Kanban/Agenda/Gantt
+- **Notas** (`/notes`) — markdown (e canvas) soltas ou vinculadas a um projeto
+- **Lista de Compras** (`/shopping-list`) — itens por categoria, com vínculo opcional a tarefa/projeto
 
 ### Vida
 - **Hábitos** (`/habits`) — check-in do dia, faixa da semana, heatmap mensal (aba **Hoje | Mês**), anti-hábitos e vínculo com metas
+- **Saúde** (`/life/health`) — medicações, consultas, métricas corporais e hábitos de saúde
 - **Metas** (`/goals`) — progresso, categorias e prazos
 - **Lugares** (`/places`) — para visitar / visitados (fluxos separados); busca Google Places; nota e opinião; na edição, aba **Visitas** com N visitas ao mesmo lugar (`place_visit_occurrence`)
 - **Viagens** (`/travel`, `/travel/:id`) — paradas multi-cidade (editar parada no lápis do dia); clima + sugestão de roupa/mala sob demanda (botão); roteiro por dia (dias passados ocultos com “ver anteriores”; mover atividades; status de visita; ícone Google Maps quando houver link; próximo destino + rotas Google; ao editar início/fim da viagem o roteiro realinha pelas datas); deslocamentos como **atividade do dia** (origem/destino obrigatórios → título Origem → Destino; modo voo/trem/ônibus/carro; saída/chegada com input `time`; ida/volta iniciais na criação; conflito de horário com visitas); gastos (incl. rateio e vínculo com finanças; lançamento em categoria Viagens pode vincular a uma viagem); lugares da viagem; prazos; convites compartilhados. GPS no Chrome exige `Permissions-Policy: geolocation=(self)` (ver `vercel.json`).
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
+
+### Conteúdo
+- **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); busca ao digitar; episódios com nota; import Letterboxd / TV Time; card Stories
+- **Livros** (`/books`) — para ler / lendo / lidos / abandonei; Google Books com busca ao digitar; marca-página e notas de leitura; opinião e card Stories
+- **Música** (`/music`) — para ouvir / ouvidos; catálogo via Edge Function (Spotify) com fallback MusicBrainz; busca ao digitar; tracklist + nota por faixa; cadastro manual; card Stories
+- **Links** (`/links`) — artigos, vídeos e sites para consumir depois
 
 ---
 

@@ -22,27 +22,6 @@ export const HOME_MODULES = [
     tone: "bg-primary/10 text-primary",
   },
   {
-    label: "Cinema",
-    subtitle: "Filmes e séries",
-    href: "/movies",
-    icon: Clapperboard,
-    tone: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400",
-  },
-  {
-    label: "Livros",
-    subtitle: "Lendo e lidos",
-    href: "/books",
-    icon: BookOpen,
-    tone: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  },
-  {
-    label: "Música",
-    subtitle: "Álbuns e EPs",
-    href: "/music",
-    icon: Disc3,
-    tone: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
-  },
-  {
     label: "Hábitos",
     subtitle: "Rotina do dia",
     href: "/habits",
@@ -64,13 +43,6 @@ export const HOME_MODULES = [
     tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   },
   {
-    label: "Viagens",
-    subtitle: "Planeje e viva",
-    href: "/travel",
-    icon: Plane,
-    tone: "bg-teal-500/10 text-teal-700 dark:text-teal-400",
-  },
-  {
     label: "Lugares",
     subtitle: "Onde você esteve",
     href: "/places",
@@ -78,11 +50,39 @@ export const HOME_MODULES = [
     tone: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
   },
   {
+    label: "Viagens",
+    subtitle: "Planeje e viva",
+    href: "/travel",
+    icon: Plane,
+    tone: "bg-teal-500/10 text-teal-700 dark:text-teal-400",
+  },
+  {
     label: "Veículos",
     subtitle: "Tudo do seu carro",
     href: "/car",
     icon: Car,
     tone: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+  },
+  {
+    label: "Cinema",
+    subtitle: "Filmes e séries",
+    href: "/movies",
+    icon: Clapperboard,
+    tone: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400",
+  },
+  {
+    label: "Livros",
+    subtitle: "Lendo e lidos",
+    href: "/books",
+    icon: BookOpen,
+    tone: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  },
+  {
+    label: "Música",
+    subtitle: "Álbuns e EPs",
+    href: "/music",
+    icon: Disc3,
+    tone: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
   },
 ] as const;
 

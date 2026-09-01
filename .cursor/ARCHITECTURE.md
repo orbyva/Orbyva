@@ -69,14 +69,15 @@ components/ + layouts/  → UI compartilhada e shell
 
 ## 3. Módulos de produto
 
-A sidebar agrupa quatro blocos. Cada módulo tende a ter: página(s) em `pages/admin/<módulo>/`, cliente em `api/`, tipos em `types/`, regras em `domain/` quando houver lógica não trivial.
+A sidebar agrupa cinco blocos. Cada módulo tende a ter: página(s) em `pages/admin/<módulo>/`, cliente em `api/`, tipos em `types/`, regras em `domain/` quando houver lógica não trivial.
 
 | Bloco | Módulos | Rotas principais |
 |-------|---------|------------------|
 | Início | Landing, hub, timeline | `/`, `/home`, `/timeline` |
-| Finanças | Dashboard, txs, recorrências, orçamento, categorias | `/finance/*` |
-| Entretenimento | Cinema, livros, música | `/movies`, `/books`, `/music` |
-| Vida | Hábitos, metas, lugares, viagens, veículos | `/habits`, `/goals`, `/places`, `/travel`, `/car` |
+| Finanças | Dashboard, transações, recorrências, orçamento, categorias | `/finance/*` |
+| Produtividade | Tarefas, projetos, notas, lista de compras | `/tasks`, `/tasks/projects`, `/notes`, `/shopping-list` |
+| Vida | Hábitos, saúde, metas, lugares, viagens, veículos | `/habits`, `/life/health`, `/goals`, `/places`, `/travel`, `/car` |
+| Conteúdo | Cinema, livros, música, links | `/movies`, `/books`, `/music`, `/links` |
 
 Rotas públicas/marketing: `/`, `/dentro-do-orcamento` (aliases `/quanto-ainda-cabe` e `/cabe-no-mes`), `/login`, `/about`, `/terms`, `/privacy`, `/invite/:code`. Ops interno: `/ops` (fora do menu). Painel da extensão: `/ext` (autenticado, sem AdminLayout). Páginas `/about`, `/terms` e `/privacy` usam o shell público (`components/PublicPageShell`) alinhado à landing.
 
@@ -178,7 +179,14 @@ Categorias e subcategorias com cor e ícone; naturezas de lançamento.
 * **Código:** `pages/admin/finance/Categories`; `api/finance/dimensions.ts`; `hooks/useDimensions`; `domain/dimensions/`
 * **APIs:** só Supabase.
 
-### 3.3 Entretenimento
+### 3.3 Produtividade
+
+Tarefas (`/tasks`), projetos (`/tasks/projects`), notas (`/notes`) e lista de compras (`/shopping-list`). Timer Live, agenda e Gantt moram no módulo de tarefas (rotas `/tasks/live`, `/tasks/agenda`; Gantt é aba de `/tasks`).
+
+* **Código:** `pages/admin/tasks/`, `pages/admin/notes/`, `pages/admin/shopping/`; `api/tasks/`, `api/notes/`, `api/shopping/`; `domain/tasks/`, `domain/notes/`, `domain/shopping/`
+* **APIs:** só Supabase (exceto ícones SVG da biblioteca local).
+
+### 3.4 Conteúdo
 
 #### Cinema (`/movies`)
 
@@ -201,7 +209,14 @@ Para ouvir / ouvidos; tracklist + nota por faixa; cadastro manual; card Stories.
 * **Código:** `pages/admin/music/`; `api/albums.ts`; `lib/musicCatalog.ts`, `lib/spotify.ts`, `lib/musicbrainz.ts`, `lib/albumShare.ts`; `domain/music/`
 * **APIs:** Edge **`spotify-catalog`** (Client Credentials no servidor) com fallback **MusicBrainz** + Cover Art Archive. Proxies `/spotify-media`, `/caa-media`, `/mb-api`. Persistência (incl. `track_ratings` jsonb): Supabase Storage para capas manuais.
 
-### 3.4 Vida
+#### Links (`/links`)
+
+Artigos, vídeos e sites para consumir depois.
+
+* **Código:** `pages/admin/content/Links`; `api/contentLinks.ts`; `domain/contentLinks/`
+* **APIs:** só Supabase.
+
+### 3.5 Vida
 
 #### Hábitos (`/habits`)
 
@@ -209,6 +224,13 @@ Check-in do dia, faixa da semana, heatmap mensal (Hoje | Mês), anti-hábitos e 
 
 * **Código:** `pages/admin/habits/`; `api/habits.ts`; `domain/habits/`
 * **APIs:** Supabase. Lembretes: Edge **`habit-reminder-email`** (cron + preferências na Conta).
+
+#### Saúde (`/life/health`)
+
+Medicações, consultas, métricas corporais e hábitos de saúde. Lista de tratamentos em `/life/health/medications`.
+
+* **Código:** `pages/admin/life/HealthDashboard`, `pages/admin/health/`; `api/health/`; `domain/health/`
+* **APIs:** só Supabase.
 
 #### Metas (`/goals`)
 
@@ -238,7 +260,7 @@ Manutenções, abastecimentos, documentos e alertas (carro ou moto).
 * **Código:** `pages/admin/car/`; `api/car.ts`; `domain/car/`; `types/car.ts`
 * **APIs:** só Supabase.
 
-### 3.5 Transversal (não é item de sidebar, mas afeta módulos)
+### 3.6 Transversal (não é item de sidebar, mas afeta módulos)
 
 | Peça | Uso | APIs |
 |------|-----|------|

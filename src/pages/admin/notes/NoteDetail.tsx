@@ -8,6 +8,7 @@ import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { createNote, deleteNote, fetchNote, fetchNotes } from "@/api/notes/notes";
 import { fetchProjects } from "@/api/tasks/projects";
+import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import type { Note } from "@/types/notes";
@@ -28,6 +29,7 @@ export default function NoteDetail() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+  useBreadcrumbTitle(note?.title);
 
   const load = useCallback(async () => {
     // Sem `:id` não há o que carregar — mas o loading precisa terminar, senão a página fica

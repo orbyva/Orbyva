@@ -239,7 +239,7 @@ Avaliar:
 
 Avaliar:
 
-* Facilidade de uso; hierarquia; navegação (sidebar em quatro blocos);
+* Facilidade de uso; hierarquia; navegação (sidebar em cinco blocos);
 * Feedbacks, mensagens de erro, estados vazios e de carregamento;
 * Densidade mobile (especialmente roteiro de viagem);
 * Redução de fricção (⌘K, alertas, PWA).
