@@ -1,10 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { KanbanCard, TaskListRow, STATUS_LABELS } from "@/pages/admin/tasks/TaskViews";
 import { formatDateTimeBR } from "@/lib/currency";
+import { fetchNotes } from "@/api/notes/notes";
+import { invalidateNotesTitleIndex } from "@/hooks/useNotesTitleIndex";
 import type { Project, Task, TaskExternalLink } from "@/types/tasks";
+import type { Note } from "@/types/notes";
+
+vi.mock("@/api/notes/notes", () => ({
+  fetchNotes: vi.fn(),
+}));
+
+beforeEach(() => {
+  invalidateNotesTitleIndex();
+  vi.mocked(fetchNotes).mockResolvedValue([]);
+});
 
 /**
  * Cobre a extração do quick-edit compartilhado (`TaskQuickFields`, feature 033) — prova que o
@@ -70,21 +82,23 @@ function renderKanbanCard(overrides: Partial<Parameters<typeof KanbanCard>[0]> =
 function renderTaskListRow(overrides: Partial<Parameters<typeof TaskListRow>[0]> = {}) {
   const task = overrides.task ?? makeTask();
   return render(
-    <TaskListRow
-      task={task}
-      subtasks={[]}
-      allTags={[]}
-      expanded={false}
-      onToggleExpand={vi.fn()}
-      onToggleSubtask={vi.fn()}
-      onOpenSubtask={vi.fn()}
-      onToggleDone={vi.fn()}
-      onStatusChange={vi.fn()}
-      onOpenSeries={vi.fn()}
-      onEdit={vi.fn()}
-      onDelete={vi.fn()}
-      {...overrides}
-    />
+    <MemoryRouter>
+      <TaskListRow
+        task={task}
+        subtasks={[]}
+        allTags={[]}
+        expanded={false}
+        onToggleExpand={vi.fn()}
+        onToggleSubtask={vi.fn()}
+        onOpenSubtask={vi.fn()}
+        onToggleDone={vi.fn()}
+        onStatusChange={vi.fn()}
+        onOpenSeries={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        {...overrides}
+      />
+    </MemoryRouter>
   );
 }
 
@@ -729,5 +743,78 @@ describe("ExternalLinkChip — um chip por link (feature 085)", () => {
 
     expect(screen.getByRole("link", { name: "mae.com" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "filha.com" })).toBeInTheDocument();
+  });
+});
+
+describe("TaskViews — wiki-link na descrição do card", () => {
+  beforeEach(() => {
+    invalidateNotesTitleIndex();
+    vi.mocked(fetchNotes).mockResolvedValue([]);
+  });
+
+  function makeNote(overrides: Partial<Note> = {}): Note {
+    return {
+      id: "n-finatec",
+      title: "Atividades Finatec",
+      content: "",
+      project_id: null,
+      kind: "markdown",
+      canvas_data: null,
+      ...overrides,
+    };
+  }
+
+  it("[[wiki-link]] vira link para a nota e o clique não abre o formulário da tarefa", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    vi.mocked(fetchNotes).mockResolvedValue([makeNote()]);
+
+    render(
+      <MemoryRouter initialEntries={["/tasks"]}>
+        <Routes>
+          <Route
+            path="/tasks"
+            element={
+              <TaskListRow
+                task={makeTask({
+                  description: "Ata reunião 01/09/2026 em: [[Atividades Finatec]]",
+                })}
+                subtasks={[]}
+                allTags={[]}
+                expanded={false}
+                onToggleExpand={vi.fn()}
+                onToggleSubtask={vi.fn()}
+                onOpenSubtask={vi.fn()}
+                onToggleDone={vi.fn()}
+                onStatusChange={vi.fn()}
+                onOpenSeries={vi.fn()}
+                onEdit={onEdit}
+                onDelete={vi.fn()}
+              />
+            }
+          />
+          <Route path="/notes/:id" element={<p data-testid="note-page">nota</p>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const link = await screen.findByRole("link", { name: "Atividades Finatec" });
+    expect(link).toHaveAttribute("href", "/notes/n-finatec");
+    await user.click(link);
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(screen.getByTestId("note-page")).toHaveTextContent("nota");
+  });
+
+  it("no Kanban o wiki-link também aponta para a nota", async () => {
+    vi.mocked(fetchNotes).mockResolvedValue([makeNote()]);
+    renderKanbanCard({
+      task: makeTask({
+        description: "Ata reunião 01/09/2026 em: [[Atividades Finatec]]",
+      }),
+    });
+    expect(await screen.findByRole("link", { name: "Atividades Finatec" })).toHaveAttribute(
+      "href",
+      "/notes/n-finatec"
+    );
   });
 });

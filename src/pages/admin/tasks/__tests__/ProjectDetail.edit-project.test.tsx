@@ -168,8 +168,11 @@ describe("ProjectDetail — editar projeto", () => {
     await user.click(screen.getByRole("button", { name: "Editar projeto" }));
     const dialog = within(screen.getByRole("dialog"));
     await user.type(dialog.getByPlaceholderText("Título"), "Reunião mensal");
-    const dateInput = document.querySelector('input[type="datetime-local"]') as HTMLInputElement;
-    await user.type(dateInput, "2026-09-01T10:00");
+    await user.click(dialog.getByRole("button", { name: "Data do evento" }));
+    await user.click(screen.getByRole("button", { name: "Hoje" }));
+    const time = dialog.getByLabelText("Horário do evento");
+    await user.clear(time);
+    await user.type(time, "10:00");
     await user.click(dialog.getByRole("button", { name: "Adicionar evento" }));
 
     expect(mockedCreateProjectEvent).toHaveBeenCalledWith(

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { TaskNoteButtons } from "@/pages/admin/tasks/TaskNoteButtons";
-import { createNote } from "@/api/notes/notes";
+import { createNote, fetchNotes } from "@/api/notes/notes";
 import { addNoteLink, fetchNotesLinkedTo } from "@/api/notes/noteLinks";
 import type { Note } from "@/types/notes";
 import type { Task } from "@/types/tasks";
@@ -15,6 +15,7 @@ import type { Task } from "@/types/tasks";
 
 vi.mock("@/api/notes/notes", () => ({
   createNote: vi.fn(),
+  fetchNotes: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/api/notes/noteLinks", () => ({
@@ -77,6 +78,7 @@ function renderButtons(task: Task | null) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(fetchNotesLinkedTo).mockResolvedValue([]);
+  vi.mocked(fetchNotes).mockResolvedValue([]);
   vi.mocked(createNote).mockResolvedValue(makeNote());
   vi.mocked(addNoteLink).mockResolvedValue({
     id: "link-1",
@@ -87,12 +89,13 @@ beforeEach(() => {
   });
 });
 
-describe("TaskNoteButtons — sem nota vinculada, um clique cria e abre", () => {
-  it("clicar em 'Criar nota' cria a nota com o projeto da tarefa, vincula e navega para o editor", async () => {
+describe("TaskNoteButtons — sem nota vinculada, o clique abre o popover", () => {
+  it("clicar em 'Criar nota' e depois em 'Criar nova nota' cria, vincula e navega", async () => {
     const user = userEvent.setup();
     renderButtons(makeTask());
 
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
 
     expect(createNote).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -122,6 +125,7 @@ describe("TaskNoteButtons — sem nota vinculada, um clique cria e abre", () => 
     renderButtons(makeTask());
 
     await user.click(screen.getByRole("button", { name: "Criar canvas desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar novo canvas" }));
 
     expect(createNote).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "canvas", canvas_data: { elements: [] } })
@@ -136,6 +140,7 @@ describe("TaskNoteButtons — sem nota vinculada, um clique cria e abre", () => 
     renderButtons(makeTask({ project_id: null }));
 
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
 
     expect(createNote).toHaveBeenCalledWith(
       expect.objectContaining({ project_id: null })
@@ -208,7 +213,7 @@ describe("TaskNoteButtons — as notas já vinculadas", () => {
     );
     expect(
       screen.getByRole("button", { name: "Criar nota desta tarefa" })
-    ).not.toHaveAttribute("aria-haspopup");
+    ).toHaveAttribute("aria-haspopup", "dialog");
   });
 });
 
@@ -285,6 +290,7 @@ describe("TaskNoteButtons — estado de carregamento", () => {
     await waitFor(() => expect(fetchNotesLinkedTo).toHaveBeenCalled());
 
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
 
     const button = screen.getByRole("button", { name: "Criar nota desta tarefa" });
     expect(button).toBeDisabled();
@@ -306,6 +312,7 @@ describe("TaskNoteButtons — quando a gravação falha", () => {
     renderButtons(makeTask());
 
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
 
     await waitFor(() =>
       expect(toastMock).toHaveBeenCalledWith(
@@ -322,6 +329,7 @@ describe("TaskNoteButtons — quando a gravação falha", () => {
     renderButtons(makeTask());
 
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Criar nota desta tarefa" })).not.toBeDisabled()
@@ -334,6 +342,7 @@ describe("TaskNoteButtons — quando a gravação falha", () => {
     renderButtons(makeTask());
 
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
 
     // A nota criada não é apagada: perder o que o usuário mandou criar é pior que um vínculo
     // faltando, que dá para refazer à mão no editor.
@@ -378,6 +387,27 @@ describe("TaskNoteButtons — modo criação (tarefa ainda não salva)", () => {
     expect(screen.getByRole("button", { name: "Criar canvas desta tarefa" })).toHaveAttribute(
       "type",
       "button"
+    );
+  });
+});
+
+describe("TaskNoteButtons — vincular nota existente", () => {
+  it("escolhe uma nota do catálogo, grava o vínculo e não cria outra", async () => {
+    const user = userEvent.setup();
+    const existing = makeNote({ id: "n-existente", title: "Pauta antiga" });
+    vi.mocked(fetchNotes).mockResolvedValue([existing]);
+    renderButtons(makeTask());
+
+    await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Pauta antiga" }));
+
+    expect(createNote).not.toHaveBeenCalled();
+    expect(addNoteLink).toHaveBeenCalledWith(
+      expect.objectContaining({ note_id: "n-existente", entity_type: "task", entity_id: "task-1" })
+    );
+    expect(screen.getByTestId("location")).toHaveTextContent("/tasks");
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Nota vinculada" })
     );
   });
 });

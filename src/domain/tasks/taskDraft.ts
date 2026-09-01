@@ -50,14 +50,19 @@ export interface SubtaskMutationContext {
 
 /** Cria uma subtarefa para a tarefa em edição (`ctx.editing`) — no-op se não houver tarefa em
  * edição (modo criação usa a lista local de rascunhos no call site, não isso). */
-export async function addSubtaskToEditing(ctx: SubtaskMutationContext, title: string): Promise<void> {
+export async function addSubtaskToEditing(
+  ctx: SubtaskMutationContext,
+  title: string,
+  sortOrder?: number
+): Promise<void> {
   if (!ctx.editing) return;
   try {
     await ctx.createTask({
       ...emptyTask(ctx.editing.project_id),
       parent_task_id: ctx.editing.id,
-      title,
-    });
+            title,
+            sort_order: sortOrder ?? 0,
+          });
     ctx.onSuccess();
   } catch (error) {
     ctx.onError(getErrorMessage(error, "Não foi possível adicionar a subtarefa."));

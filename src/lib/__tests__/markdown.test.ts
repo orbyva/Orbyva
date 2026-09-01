@@ -20,4 +20,10 @@ describe("stripMarkdown", () => {
   it("mantém texto simples sem markdown intacto", () => {
     expect(stripMarkdown("texto simples sem nada")).toBe("texto simples sem nada");
   });
+
+  it("mantém [[wiki-link]] — o card da tarefa precisa deles pra virar clique", () => {
+    expect(stripMarkdown("Ata reunião 01/09/2026 em: [[Atividades Finatec]]")).toBe(
+      "Ata reunião 01/09/2026 em: [[Atividades Finatec]]"
+    );
+  });
 });

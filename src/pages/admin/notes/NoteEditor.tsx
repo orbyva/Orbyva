@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Check, CircleAlert, Loader2 } from "lucide-react";
 import { EditorView } from "@codemirror/view";
 import { Input } from "@/components/ui/input";
@@ -6,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormLabel } from "@/components/FormLabel";
 import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
 import { wikiLinkAutocomplete } from "@/components/codemirror/wikiLinkCompletion";
+import { wikiLinkNavigation } from "@/components/codemirror/wikiLinkNavigation";
 import {
   openInsertMenu,
   slashMenuAutocomplete,
@@ -18,6 +20,7 @@ import { BacklinksPanel } from "@/pages/admin/notes/BacklinksPanel";
 import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
 import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
+import { indexNotesByTitle, normalizeWikiTitle } from "@/domain/notes/wikiLinks";
 import { toggleTaskListItem } from "@/domain/notes/taskList";
 import { extractHeadings } from "@/domain/notes/outline";
 import { countWords, formatWordCount } from "@/domain/notes/wordCount";
@@ -105,6 +108,9 @@ export function NoteEditor({
    */
   const notesRef = useRef<readonly Note[]>(notes);
   notesRef.current = notes;
+  const onCreateNoteRef = useRef(onCreateNote);
+  onCreateNoteRef.current = onCreateNote;
+  const navigate = useNavigate();
   /**
    * Linha do cursor (1-based). É o que o sumário usa para saber em que seção o usuário está — na
    * aba "Escrever" não existe HTML nem `id` para observar, existe texto e cursor.
@@ -121,6 +127,16 @@ export function NoteEditor({
       ),
       // O `/` da 068 — mesma máquina de autocomplete do `[[`, catálogo em `insertItems.ts`.
       slashMenuAutocomplete(),
+      wikiLinkNavigation({
+        resolveHref: (title) => {
+          const id = indexNotesByTitle(notesRef.current).get(normalizeWikiTitle(title));
+          return id ? `/notes/${id}` : null;
+        },
+        onOpen: (title, href) => {
+          if (href) navigate(href);
+          else onCreateNoteRef.current?.(title);
+        },
+      }),
       EditorView.updateListener.of((update) => {
         if (!update.selectionSet && !update.docChanged) return;
         const line = update.state.doc.lineAt(update.state.selection.main.head).number;
@@ -129,7 +145,7 @@ export function NoteEditor({
         setCursorLine(line);
       }),
     ],
-    [note.id]
+    [note.id, navigate]
   );
 
   /**

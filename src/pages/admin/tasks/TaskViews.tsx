@@ -45,10 +45,10 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { contrastTextColor } from "@/lib/color";
-import { stripMarkdown } from "@/lib/markdown";
 import { TaskIconBadge } from "./TaskIconBadge";
 import { TaskQuickFields } from "./TaskQuickFields";
 import { TaskStartNowButton } from "./TaskStartNowButton";
+import { TaskDescriptionSnippet } from "./TaskDescriptionSnippet";
 import type { TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 import type { TaskIconValue } from "./TaskIconPicker";
 
@@ -398,9 +398,7 @@ export function TaskListRow({
               <ExternalLinkChip links={externalLinksByTask?.[task.id] ?? []} />
             </div>
             {task.description && (
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                {stripMarkdown(task.description)}
-              </p>
+              <TaskDescriptionSnippet description={task.description} className="mt-1" />
             )}
           </div>
         </div>
@@ -935,9 +933,7 @@ export function KanbanCard({
       </div>
 
       {task.description && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
-          {stripMarkdown(task.description)}
-        </p>
+        <TaskDescriptionSnippet description={task.description} />
       )}
 
       {subtasks.length > 0 && (

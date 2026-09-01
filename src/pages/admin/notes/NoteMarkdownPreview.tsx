@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { FilePlus2 } from "lucide-react";
 import { defaultUrlTransform } from "react-markdown";
 import type { Components } from "react-markdown";
@@ -44,6 +44,7 @@ export function NoteMarkdownPreview({
   onToggleTaskItem?: (index: number) => void;
   className?: string;
 }) {
+  const navigate = useNavigate();
   const resolved = useMemo(() => {
     const index = indexNotesByTitle(notes);
     return replaceWikiLinks(content, (title) => {
@@ -61,7 +62,11 @@ export function NoteMarkdownPreview({
           return (
             <button
               type="button"
-              onClick={() => onCreateNote?.(missingTitle)}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onCreateNote?.(missingTitle);
+              }}
               disabled={!onCreateNote}
               aria-label={`Criar nota ${missingTitle}`}
               className="inline-flex items-center gap-1 rounded border border-dashed border-muted-foreground/50 px-1.5 py-0.5 align-baseline text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:pointer-events-none disabled:opacity-70"
@@ -72,9 +77,25 @@ export function NoteMarkdownPreview({
           );
         }
 
-        // Rota interna (o wiki-link resolvido, `/notes/<id>`) navega sem recarregar o app.
+        // Rota interna (wiki-link resolvido). `navigate` em vez de `<Link>`: o preview da
+        // descrição da tarefa vive dentro de um Dialog do Radix, e o clique no `<Link>` era
+        // engolido pelo trap de foco — a URL não mudava. Cmd/Ctrl+clique segue o href nativo.
         if (href?.startsWith("/")) {
-          return <Link to={href}>{children}</Link>;
+          return (
+            <a
+              href={href}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                if (event.button !== 0) return;
+                event.preventDefault();
+                event.stopPropagation();
+                navigate(href);
+              }}
+            >
+              {children}
+            </a>
+          );
         }
 
         return (
@@ -84,7 +105,7 @@ export function NoteMarkdownPreview({
         );
       },
     }),
-    [onCreateNote]
+    [onCreateNote, navigate]
   );
 
   return (

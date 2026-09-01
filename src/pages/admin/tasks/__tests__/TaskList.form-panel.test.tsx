@@ -57,6 +57,33 @@ vi.mock("@/hooks/useDimensions", () => ({
   useDimensions: () => ({ dimensions: [], loading: false, error: null, refetch: vi.fn() }),
 }));
 
+/**
+ * Este arquivo prova o payload do painel, não o editor. O CodeMirror real (wiki-link, `/`, live
+ * preview) estoura o `testTimeout` de 5s na suíte cheia — isolado passa, sob carga não.
+ */
+vi.mock("@/components/MarkdownCodeEditor", () => ({
+  MarkdownCodeEditor: ({
+    value,
+    onChange,
+    label,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    label: string;
+  }) => (
+    <textarea
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
+vi.mock("@/api/notes/notes", () => ({
+  fetchNotes: vi.fn().mockResolvedValue([]),
+  createNote: vi.fn(),
+}));
+
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: toastMock }),
@@ -124,6 +151,7 @@ describe("TaskList — painel de tarefa salva todos os blocos (feature 080)", ()
     mockedUpdateTask.mockResolvedValue(undefined);
   });
 
+  // Preenche o painel inteiro — sob a suíte cheia o CodeMirror + dezenas de cliques estouram 5s.
   it("criar: um campo de cada bloco do painel chega inteiro no `createTask`", async () => {
     const user = userEvent.setup();
     await renderLoaded([]);
@@ -132,9 +160,10 @@ describe("TaskList — painel de tarefa salva todos os blocos (feature 080)", ()
     // Bloco 1 — título.
     await user.type(panel.getByLabelText(/^Título/), "Tarefa do painel");
 
-    // Bloco 2 — descrição (atrás do colapsável).
+    // Bloco 2 — descrição (atrás do colapsável). O editor é CodeMirror (`aria-label`), não mais
+    // um textarea com placeholder "Descrição em Markdown".
     await user.click(panel.getByRole("button", { name: /Descrição/ }));
-    await user.type(panel.getByPlaceholderText(/Descrição em Markdown/), "Detalhes aqui");
+    await user.type(panel.getByRole("textbox", { name: "Descrição" }), "Detalhes aqui");
 
     // Bloco 3 — projeto, duração, prazo, horário e recorrência.
     await user.click(panel.getByRole("button", { name: "Sem projeto" }));
@@ -214,7 +243,7 @@ describe("TaskList — painel de tarefa salva todos os blocos (feature 080)", ()
     expect(mockedCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ parent_task_id: "novo-1", title: "Passo 1" })
     );
-  });
+  }, 15_000);
 
   it("criar: 'Tarefa pontual' zera a duração no payload (exclusão mútua preservada)", async () => {
     const user = userEvent.setup();

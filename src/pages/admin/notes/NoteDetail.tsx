@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, NotebookPen, Trash2 } from "lucide-react";
+import { ArrowLeft, FileDown, NotebookPen, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
@@ -15,6 +15,8 @@ import type { Note } from "@/types/notes";
 import type { Project } from "@/types/tasks";
 import { NoteEditor } from "./NoteEditor";
 import { CanvasEditor } from "./CanvasEditor";
+import { NoteMarkdownPreview } from "./NoteMarkdownPreview";
+import { printNote } from "@/domain/notes/printNote";
 
 /**
  * Página de uma nota (`/notes/:id`) — carrega e monta o editor que corresponde ao `kind`: markdown
@@ -107,6 +109,18 @@ export default function NoteDetail() {
             <ArrowLeft className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             Todas as notas
           </Button>
+          {note && note.kind !== "canvas" && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const root = document.getElementById("note-print-root");
+                printNote(note.title, root?.innerHTML ?? "");
+              }}
+            >
+              <FileDown className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              Exportar PDF
+            </Button>
+          )}
           {note && (
             <ConfirmDeleteDialog
               title="Excluir esta nota?"
@@ -138,14 +152,19 @@ export default function NoteDetail() {
           onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}
         />
       ) : (
-        <NoteEditor
-          note={note}
-          projects={projects}
-          notes={notes}
-          onCreateNote={handleCreateLinkedNote}
-          // Só reflete no header; recarregar do banco a cada autosave desperdiçaria consulta.
-          onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}
-        />
+        <>
+          <div id="note-print-root" hidden>
+            <h1 className="note-print-title">{note.title}</h1>
+            <NoteMarkdownPreview content={note.content} notes={notes} />
+          </div>
+          <NoteEditor
+            note={note}
+            projects={projects}
+            notes={notes}
+            onCreateNote={handleCreateLinkedNote}
+            onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}
+          />
+        </>
       )}
     </PageShell>
   );

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
 import { NoteEditor } from "@/pages/admin/notes/NoteEditor";
@@ -139,7 +140,40 @@ describe("NoteMarkdownPreview — wiki-links", () => {
     renderPreview("[[Sem nota]]", []);
     expect(screen.getByRole("button", { name: "Criar nota Sem nota" })).toBeDisabled();
   });
+
+  it("clicar no wiki-link navega para a nota, inclusive dentro de um Dialog", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/tasks"]}>
+        <Routes>
+          <Route
+            path="/tasks"
+            element={
+              <Dialog open>
+                <DialogContent aria-describedby={undefined}>
+                  <DialogTitle>Editar tarefa</DialogTitle>
+                  <NoteMarkdownPreview
+                    content="ver [[Obra da casa]]"
+                    notes={[note("n7", "Obra da casa")]}
+                  />
+                </DialogContent>
+              </Dialog>
+            }
+          />
+          <Route path="/notes/:id" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByRole("link", { name: "Obra da casa" }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/notes/n7");
+  });
 });
+
+function LocationProbe() {
+  const { pathname } = useLocation();
+  return <div data-testid="location">{pathname}</div>;
+}
 
 /**
  * Checklist interativa (feature 067): clicar num `- [ ]` do preview reescreve o Markdown da nota e

@@ -6,6 +6,7 @@ import NoteDetail from "@/pages/admin/notes/NoteDetail";
 import { ProjectNotesSection } from "@/pages/admin/notes/ProjectNotesSection";
 import { TaskNoteButtons } from "@/pages/admin/tasks/TaskNoteButtons";
 import { normalizeNoteDraft } from "@/domain/notes/noteDraft";
+import * as printNoteModule from "@/domain/notes/printNote";
 import type { Note, NoteDraft, NoteLink, NoteLinkDraft } from "@/types/notes";
 import type { Task } from "@/types/tasks";
 
@@ -143,6 +144,7 @@ describe("Nota criada a partir de uma tarefa", () => {
     renderAppWithTask(makeTask());
 
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
 
     // Chegou no editor da nota recém-criada.
     expect(await screen.findByLabelText("Título")).toHaveValue("Trocar a fiação da sala");
@@ -157,11 +159,27 @@ describe("Nota criada a partir de uma tarefa", () => {
     );
   });
 
+  it("Exportar PDF imprime só o documento da nota", async () => {
+    const user = userEvent.setup();
+    const print = vi.spyOn(printNoteModule, "printNote").mockImplementation(() => {});
+    renderAppWithTask(makeTask());
+
+    await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
+    await screen.findByLabelText("Título");
+
+    await user.click(screen.getByRole("button", { name: "Exportar PDF" }));
+    expect(print).toHaveBeenCalledOnce();
+    expect(print.mock.calls[0]?.[0]).toBe("Trocar a fiação da sala");
+    print.mockRestore();
+  });
+
   it("abre com o vínculo da tarefa já feito no painel de Vínculos", async () => {
     const user = userEvent.setup();
     renderAppWithTask(makeTask());
 
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
 
     // O chip do `NoteLinksPanel`: rótulo do tipo + título congelado da tarefa.
     const chip = await screen.findByRole("link", { name: /Tarefa:\s*Trocar a fiação da sala/ });
@@ -176,6 +194,7 @@ describe("Nota criada a partir de uma tarefa", () => {
     renderAppWithTask(makeTask({ project_id: null }));
 
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
 
     const picker = await screen.findByRole("listbox", { name: "Projeto" });
     expect(within(picker).getByRole("option", { name: "Sem projeto" })).toHaveAttribute(
@@ -202,6 +221,7 @@ describe("A nota da tarefa na aba 'Notas' do projeto (feature 069)", () => {
     const user = userEvent.setup();
     renderAppWithTask(makeTask());
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
     await screen.findByLabelText("Título");
 
     cleanup();
@@ -218,6 +238,7 @@ describe("A nota da tarefa na aba 'Notas' do projeto (feature 069)", () => {
     const user = userEvent.setup();
     renderAppWithTask(makeTask({ project_id: null }));
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
     await screen.findByLabelText("Título");
     expect(store.notes[0].project_id).toBeNull();
 
@@ -235,6 +256,7 @@ describe("Canvas criado a partir de uma tarefa", () => {
     renderAppWithTask(makeTask());
 
     await user.click(screen.getByRole("button", { name: "Criar canvas desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar novo canvas" }));
 
     // Canvas é nota com `kind: "canvas"` — quem monta é o `CanvasEditor`, não o editor markdown.
     expect(await screen.findByTestId("excalidraw")).toHaveTextContent("elementos: 0");
@@ -257,6 +279,7 @@ describe("Canvas criado a partir de uma tarefa", () => {
     renderAppWithTask(makeTask());
 
     await user.click(screen.getByRole("button", { name: "Criar canvas desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar novo canvas" }));
     await screen.findByTestId("excalidraw");
 
     // Reabre o formulário da mesma tarefa, com o backend já semeado: um canvas, nenhuma nota.

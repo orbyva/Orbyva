@@ -111,6 +111,38 @@ export function parseWikiLinks(content: string): WikiLinkMatch[] {
   return matches;
 }
 
+/** O wiki-link que cobre o índice `pos`, se houver. `pos` é o offset no conteúdo (como o do cursor). */
+export function wikiLinkAt(content: string, pos: number): WikiLinkMatch | null {
+  return parseWikiLinks(content).find((match) => pos >= match.start && pos < match.end) ?? null;
+}
+
+/** Pedaço de texto plano: prosa ou um `[[wiki-link]]` já separado. */
+export type WikiLinkPlainSegment =
+  | { type: "text"; value: string }
+  | { type: "wiki"; title: string };
+
+/**
+ * Parte um texto (já sem markdown) em prosa + wiki-links. É o que o card da tarefa usa para
+ * deixar `[[Atividades Finatec]]` clicável sem renderizar o Markdown inteiro no espaço de 2 linhas.
+ */
+export function wikiLinkPlainSegments(plain: string): WikiLinkPlainSegment[] {
+  const matches = parseWikiLinks(plain);
+  if (matches.length === 0) return plain ? [{ type: "text", value: plain }] : [];
+  const segments: WikiLinkPlainSegment[] = [];
+  let cursor = 0;
+  for (const match of matches) {
+    if (match.start > cursor) {
+      segments.push({ type: "text", value: plain.slice(cursor, match.start) });
+    }
+    segments.push({ type: "wiki", title: match.title });
+    cursor = match.end;
+  }
+  if (cursor < plain.length) {
+    segments.push({ type: "text", value: plain.slice(cursor) });
+  }
+  return segments;
+}
+
 /**
  * Títulos referenciados, sem repetição e preservando a ordem de aparição. É o que a UI usa para
  * resolver os links de uma vez só, em vez de uma consulta por ocorrência.

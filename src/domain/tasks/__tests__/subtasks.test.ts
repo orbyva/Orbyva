@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { groupSubtasksByParent, isSubtaskDueDateValid } from "@/domain/tasks/subtasks";
+import {
+  groupSubtasksByParent,
+  isSubtaskDueDateValid,
+  reorderItems,
+} from "@/domain/tasks/subtasks";
 
 type Row = { id: string; parent_task_id: string | null };
 
@@ -15,6 +19,15 @@ describe("groupSubtasksByParent", () => {
     expect(map.get("top1")?.map((t) => t.id)).toEqual(["sub1", "sub2"]);
     expect(map.get("top2")?.map((t) => t.id)).toEqual(["sub3"]);
     expect(map.has("top3")).toBe(false);
+  });
+
+  it("ordena cada grupo por sort_order, com o id como desempate", () => {
+    const map = groupSubtasksByParent([
+      { id: "b", parent_task_id: "top", sort_order: 2 },
+      { id: "c", parent_task_id: "top", sort_order: 1 },
+      { id: "a", parent_task_id: "top", sort_order: 1 },
+    ]);
+    expect(map.get("top")?.map((t) => t.id)).toEqual(["a", "c", "b"]);
   });
 
   it("retorna mapa vazio quando não há subtarefas", () => {
@@ -41,5 +54,18 @@ describe("isSubtaskDueDateValid", () => {
 
   it("pai sem prazo não restringe nenhum prazo de subtarefa", () => {
     expect(isSubtaskDueDateValid("2099-01-01", null)).toBe(true);
+  });
+});
+
+describe("reorderItems", () => {
+  it("move o item para o índice destino sem mutar o original", () => {
+    const source = ["a", "b", "c"];
+    expect(reorderItems(source, 0, 2)).toEqual(["b", "c", "a"]);
+    expect(source).toEqual(["a", "b", "c"]);
+  });
+
+  it("índice inválido devolve cópia igual", () => {
+    expect(reorderItems(["a", "b"], 0, 0)).toEqual(["a", "b"]);
+    expect(reorderItems(["a", "b"], -1, 1)).toEqual(["a", "b"]);
   });
 });

@@ -136,17 +136,23 @@ describe("ProjectFormDialog", () => {
     expect(screen.getByText(/Eventos/)).toBeInTheDocument();
   });
 
-  it("adicionar evento chama onAddEvent com título e data preenchidos", async () => {
+  it("adicionar evento chama onAddEvent com título, data do DatePicker e horário", async () => {
     const user = userEvent.setup();
     const onAddEvent = vi.fn().mockResolvedValue(undefined);
     render(<Harness editing={makeProject()} onAddEvent={onAddEvent} />);
 
     await user.type(screen.getByPlaceholderText("Título"), "Reunião mensal");
-    const dateInput = document.querySelector('input[type="datetime-local"]') as HTMLInputElement;
-    await user.type(dateInput, "2026-09-01T10:00");
+    await user.click(screen.getByRole("button", { name: "Data do evento" }));
+    await user.click(screen.getByRole("button", { name: "Hoje" }));
+    const time = screen.getByLabelText("Horário do evento");
+    await user.clear(time);
+    await user.type(time, "10:00");
     await user.click(screen.getByRole("button", { name: "Adicionar evento" }));
 
-    expect(onAddEvent).toHaveBeenCalledWith({ title: "Reunião mensal", startsAt: "2026-09-01T10:00" });
+    expect(onAddEvent).toHaveBeenCalledWith({
+      title: "Reunião mensal",
+      startsAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T10:00$/),
+    });
   });
 
   it("excluir um evento existente chama onDeleteEvent com o id", async () => {

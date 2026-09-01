@@ -83,12 +83,13 @@ describe("addSubtaskToEditing", () => {
 
   it("com tarefa em edição, cria a subtarefa herdando project_id e usando o id como parent_task_id", async () => {
     const ctx = makeContext();
-    await addSubtaskToEditing(ctx, "Nova subtarefa");
+    await addSubtaskToEditing(ctx, "Nova subtarefa", 2);
     expect(ctx.createTask).toHaveBeenCalledWith(
       expect.objectContaining<Partial<TaskCreateRequest>>({
         project_id: "project-1",
         parent_task_id: "parent-1",
         title: "Nova subtarefa",
+        sort_order: 2,
       })
     );
     expect(ctx.onSuccess).toHaveBeenCalledTimes(1);

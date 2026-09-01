@@ -51,6 +51,7 @@ vi.mock("@/api/notes/noteLinks", () => ({
 
 vi.mock("@/api/notes/notes", () => ({
   createNote: vi.fn(),
+  fetchNotes: vi.fn().mockResolvedValue([]),
 }));
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
@@ -396,7 +397,7 @@ describe("TaskFormFields — bloco 2, descrição colapsada", () => {
     const trigger = screen.getByRole("button", { name: /Descrição/ });
     await user.click(trigger);
     await user.type(
-      screen.getByPlaceholderText(/Descrição em Markdown/),
+      screen.getByRole("textbox", { name: "Descrição" }),
       "Levar a lista da feira"
     );
 
@@ -406,7 +407,7 @@ describe("TaskFormFields — bloco 2, descrição colapsada", () => {
     expect(currentForm().description).toBe("Levar a lista da feira");
 
     await user.click(trigger);
-    expect(screen.getByPlaceholderText(/Descrição em Markdown/)).toHaveValue(
+    expect(screen.getByRole("textbox", { name: "Descrição" })).toHaveTextContent(
       "Levar a lista da feira"
     );
   });

@@ -47,6 +47,7 @@ import {
   fetchTasks,
   saveExternalLinksForTask,
   updateTask,
+  updateTasksSortOrder,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
 import { fetchMedications } from "@/api/health/medications";
@@ -656,7 +657,10 @@ export function AgendaGrid({
   };
 
   async function addSubtaskToEditing(title: string) {
-    await addSubtaskDraftToEditing(subtaskMutationCtx, title);
+    const siblingCount = editingTask
+      ? (subtasksByParent.get(editingTask.id) ?? []).length
+      : 0;
+    await addSubtaskDraftToEditing(subtaskMutationCtx, title, siblingCount);
   }
 
   async function removeExistingSubtask(subtask: SubtaskDraft) {
@@ -932,6 +936,29 @@ export function AgendaGrid({
               subtasks={(subtasksByParent.get(editingTask.id) ?? []).map((s) => ({ id: s.id, title: s.title }))}
               onAddSubtask={addSubtaskToEditing}
               onRemoveSubtask={(subtask) => removeExistingSubtask(subtask)}
+              onReorderSubtasks={(next) => {
+                const pairs = next
+                  .filter((s): s is SubtaskDraft & { id: string } => !!s.id)
+                  .map((s, i) => ({ id: s.id, sort_order: i }));
+                const previous = tasks;
+                setTasks((prev) =>
+                  prev.map((t) => {
+                    const pair = pairs.find((p) => p.id === t.id);
+                    return pair ? { ...t, sort_order: pair.sort_order } : t;
+                  })
+                );
+                void updateTasksSortOrder(pairs).catch((error) => {
+                  setTasks(previous);
+                  toast({
+                    title: "Erro",
+                    description: getErrorMessage(
+                      error,
+                      "Não foi possível reordenar as subtarefas."
+                    ),
+                    variant: "destructive",
+                  });
+                });
+              }}
               externalLinks={externalLinkDrafts}
               onExternalLinksChange={setExternalLinkDrafts}
               projects={projects}

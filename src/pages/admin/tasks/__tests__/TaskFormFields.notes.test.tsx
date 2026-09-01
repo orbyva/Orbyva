@@ -41,6 +41,7 @@ vi.mock("@/api/recurring", () => ({
 
 vi.mock("@/api/notes/notes", () => ({
   createNote: vi.fn(),
+  fetchNotes: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/api/notes/noteLinks", () => ({
@@ -171,6 +172,7 @@ describe("TaskFormFields — atalhos de nota e canvas (feature 084)", () => {
     render(<Harness editing={makeTask({ project_id: "project-9" })} />);
 
     await user.click(screen.getByRole("button", { name: "Criar nota desta tarefa" }));
+    await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
 
     expect(createNote).toHaveBeenCalledWith(
       expect.objectContaining({ project_id: "project-9", title: "Escrever a pauta" })

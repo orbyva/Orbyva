@@ -599,12 +599,13 @@ export default function TaskList() {
         await saveExternalLinksForTask(editing.id, links);
       } else {
         const created = await createTask(payload);
-        for (const title of subtaskDrafts) {
+        for (const [index, title] of subtaskDrafts.entries()) {
           await createTask({
             ...emptyTask(),
             project_id: created.project_id,
             parent_task_id: created.id,
             title,
+            sort_order: index,
           });
         }
         // Só aqui existe `task_id` para gravar — mesmo motivo pelo qual as subtarefas de uma tarefa
@@ -634,7 +635,10 @@ export default function TaskList() {
   };
 
   async function addSubtaskToEditing(title: string) {
-    await addSubtaskDraftToEditing(subtaskMutationCtx, title);
+    const siblingCount = editing
+      ? (subtasksByParent.get(editing.id) ?? []).length
+      : 0;
+    await addSubtaskDraftToEditing(subtaskMutationCtx, title, siblingCount);
   }
 
   async function removeExistingSubtask(subtask: SubtaskDraft) {
@@ -1233,6 +1237,30 @@ export default function TaskList() {
                 ? removeExistingSubtask(subtask)
                 : setSubtaskDrafts((prev) => prev.filter((_, i) => i !== index))
             }
+            onReorderSubtasks={(next) => {
+              if (!editing) {
+                setSubtaskDrafts(next.map((s) => s.title));
+                return;
+              }
+              const pairs = next
+                .filter((s): s is SubtaskDraft & { id: string } => !!s.id)
+                .map((s, i) => ({ id: s.id, sort_order: i }));
+              const previous = tasks;
+              setTasks((prev) =>
+                prev.map((t) => {
+                  const pair = pairs.find((p) => p.id === t.id);
+                  return pair ? { ...t, sort_order: pair.sort_order } : t;
+                })
+              );
+              void updateTasksSortOrder(pairs).catch((error) => {
+                setTasks(previous);
+                toast({
+                  title: "Erro",
+                  description: getErrorMessage(error, "Não foi possível reordenar as subtarefas."),
+                  variant: "destructive",
+                });
+              });
+            }}
             externalLinks={externalLinkDrafts}
             onExternalLinksChange={setExternalLinkDrafts}
             projects={projectsByActivity}

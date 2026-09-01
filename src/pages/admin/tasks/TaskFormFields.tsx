@@ -65,6 +65,7 @@ export interface TaskFormFieldsProps {
   subtasks: SubtaskDraft[];
   onAddSubtask: (title: string) => void;
   onRemoveSubtask: (subtask: SubtaskDraft, index: number) => void;
+  onReorderSubtasks?: (next: SubtaskDraft[]) => void;
   /**
    * Rascunhos dos links externos da tarefa (feature 085) — lista **controlada** pelo call site,
    * como `subtasks`. Em edição vem de `fetchExternalLinksForTask`; em criação nasce vazia e é
@@ -106,6 +107,7 @@ export function TaskFormFields({
   subtasks,
   onAddSubtask,
   onRemoveSubtask,
+  onReorderSubtasks,
   externalLinks,
   onExternalLinksChange,
   projects,
@@ -257,7 +259,7 @@ export function TaskFormFields({
         </div>
 
         {/* Bloco 2 — Descrição atrás de um gatilho de uma linha; o editor entra intacto. */}
-        <CollapsibleField label="Descrição" summary={descriptionSummary}>
+        <CollapsibleField label="Descrição" summary={descriptionSummary} lazy>
           <TaskDescriptionField
             value={description}
             onChange={(next) => setForm((prev) => ({ ...prev, description: next }))}
@@ -419,6 +421,7 @@ export function TaskFormFields({
               subtasks={subtasks}
               onAdd={onAddSubtask}
               onRemove={onRemoveSubtask}
+              onReorder={onReorderSubtasks}
             />
           </CollapsibleField>
         )}

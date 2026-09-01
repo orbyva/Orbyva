@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/DatePicker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -15,6 +16,7 @@ import { LabelColorPicker } from "./LabelColorPicker";
 import { EventInviteDialog } from "./EventInviteDialog";
 import { TagCombobox } from "./TagCombobox";
 import { formatDateTimeBR } from "@/lib/currency";
+import { formatLocalIsoDateTime } from "@/lib/dates";
 import type { Project, ProjectCreateRequest, ProjectEvent, ProjectStatus, Tag } from "@/types/tasks";
 
 export const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -62,7 +64,8 @@ export function ProjectFormDialog({
   /** Evento cujo dialog de convite (feature 076) está aberto. */
   const [invitingEvent, setInvitingEvent] = useState<ProjectEvent | null>(null);
   const [eventTitle, setEventTitle] = useState("");
-  const [eventStartsAt, setEventStartsAt] = useState("");
+  const [eventDate, setEventDate] = useState<Date | undefined>();
+  const [eventTime, setEventTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
 
   async function handleSaveClick() {
@@ -78,10 +81,14 @@ export function ProjectFormDialog({
   }
 
   async function handleAddEventClick() {
-    if (!eventTitle.trim() || !eventStartsAt) return;
-    await onAddEvent({ title: eventTitle.trim(), startsAt: eventStartsAt });
+    if (!eventTitle.trim() || !eventDate) return;
+    await onAddEvent({
+      title: eventTitle.trim(),
+      startsAt: formatLocalIsoDateTime(eventDate, eventTime),
+    });
     setEventTitle("");
-    setEventStartsAt("");
+    setEventDate(undefined);
+    setEventTime("09:00");
   }
 
   return (
@@ -90,7 +97,8 @@ export function ProjectFormDialog({
       onOpenChange={(next) => {
         if (!next) {
           setEventTitle("");
-          setEventStartsAt("");
+          setEventDate(undefined);
+          setEventTime("09:00");
         }
         onOpenChange(next);
       }}
@@ -199,18 +207,26 @@ export function ProjectFormDialog({
                     </div>
                   </div>
                 ))}
-                <div className="flex gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Input
                     placeholder="Título"
                     value={eventTitle}
                     onChange={(e) => setEventTitle(e.target.value)}
-                    className="h-8 text-xs"
+                    className="h-8 min-w-[8rem] flex-1 text-xs"
+                  />
+                  <DatePicker
+                    date={eventDate}
+                    onSelect={setEventDate}
+                    placeholder="Data"
+                    ariaLabel="Data do evento"
+                    className="h-8 w-auto text-xs"
                   />
                   <Input
-                    type="datetime-local"
-                    value={eventStartsAt}
-                    onChange={(e) => setEventStartsAt(e.target.value)}
-                    className="h-8 w-48 text-xs"
+                    type="time"
+                    value={eventTime}
+                    onChange={(e) => setEventTime(e.target.value)}
+                    aria-label="Horário do evento"
+                    className="h-8 w-[6.5rem] text-xs"
                   />
                   <Button
                     type="button"
@@ -219,6 +235,7 @@ export function ProjectFormDialog({
                     className="h-8 w-8 shrink-0"
                     onClick={handleAddEventClick}
                     aria-label="Adicionar evento"
+                    disabled={!eventTitle.trim() || !eventDate}
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
