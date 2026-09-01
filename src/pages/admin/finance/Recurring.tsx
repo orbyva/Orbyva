@@ -14,10 +14,11 @@ import {
   filterRecurringList,
   filterRecurringByNature,
   filterRecurringByYearMonth,
+  filterRecurringBySearch,
   countRecurringByNature,
   sortRecurringList,
   toggleRecurringSort,
-  getRecurringProgress,
+  isRecurringPaidInMonth,
   buildFixedYearPlan,
   sumRecurringActiveInMonth,
   type RecurringFilter,
@@ -93,6 +94,8 @@ export default function Recurring() {
   const [activeFilter, setActiveFilter] = useState<RecurringFilter>("all");
   const [natureFilter, setNatureFilter] =
     useState<RecurringNatureFilter>("all");
+  const [search, setSearch] = useState("");
+  const [showQuitadas, setShowQuitadas] = useState(false);
   const [sort, setSort] = useState<RecurringSortState>({
     key: "type",
     dir: "asc",
@@ -119,7 +122,7 @@ export default function Recurring() {
   const reloadRecurring = async () => {
     try {
       const [data, paidMap] = await Promise.all([
-        fetchRecurringTransactions(),
+        fetchRecurringTransactions(null, null, { includeInactive: true }),
         fetchLastPaidAtByRecurring(),
       ]);
       const withInstallments = data.map((rec) => ({
@@ -169,14 +172,23 @@ export default function Recurring() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
+  const activeRecurring = useMemo(
+    () => recurring.filter((rec) => rec.status !== false),
+    [recurring]
+  );
+  const inactiveRecurring = useMemo(
+    () => recurring.filter((rec) => rec.status === false),
+    [recurring]
+  );
+
   const monthBase = useMemo(
-    () => filterRecurringByYearMonth(recurring, listYm.year, listYm.month),
-    [recurring, listYm.year, listYm.month]
+    () => filterRecurringByYearMonth(activeRecurring, listYm.year, listYm.month),
+    [activeRecurring, listYm.year, listYm.month]
   );
 
   const monthTotals = useMemo(
-    () => sumRecurringActiveInMonth(recurring, listYm.year, listYm.month),
-    [recurring, listYm.year, listYm.month]
+    () => sumRecurringActiveInMonth(activeRecurring, listYm.year, listYm.month),
+    [activeRecurring, listYm.year, listYm.month]
   );
 
   const dueAlerts = useMemo(
@@ -184,14 +196,30 @@ export default function Recurring() {
     [monthBase]
   );
 
+  const searchedBase = useMemo(
+    () => filterRecurringBySearch(monthBase, search),
+    [monthBase, search]
+  );
+
+  const searchedArchived = useMemo(
+    () => filterRecurringBySearch(inactiveRecurring, search),
+    [inactiveRecurring, search]
+  );
+
   const natureBase = useMemo(
-    () => filterRecurringByNature(monthBase, natureFilter),
-    [monthBase, natureFilter]
+    () => filterRecurringByNature(searchedBase, natureFilter),
+    [searchedBase, natureFilter]
+  );
+
+  const natureArchived = useMemo(
+    () => filterRecurringByNature(searchedArchived, natureFilter),
+    [searchedArchived, natureFilter]
   );
 
   const natureCounts = useMemo(
-    () => countRecurringByNature(monthBase),
-    [monthBase]
+    () =>
+      countRecurringByNature(showQuitadas ? searchedArchived : searchedBase),
+    [showQuitadas, searchedArchived, searchedBase]
   );
 
   const filterCounts = useMemo(() => {
@@ -201,26 +229,41 @@ export default function Recurring() {
     const upcomingIds = new Set(
       dueAlerts.filter((a) => a.status === "upcoming").map((a) => a.recurring.id)
     );
+    const paidInMonth = natureBase.filter((rec) =>
+      isRecurringPaidInMonth(rec, listYm.year, listYm.month)
+    );
 
     return {
       all: natureBase.length,
-      open: natureBase.filter((rec) => {
-        const progress = getRecurringProgress(rec);
-        return !progress || progress.open > 0;
-      }).length,
-      paid: natureBase.filter((rec) => {
-        const progress = getRecurringProgress(rec);
-        return progress !== null && progress.open === 0 && progress.total > 0;
-      }).length,
+      open: natureBase.length - paidInMonth.length,
+      paid: paidInMonth.length,
       upcoming: natureBase.filter((rec) => upcomingIds.has(rec.id)).length,
       overdue: natureBase.filter((rec) => overdueIds.has(rec.id)).length,
     } satisfies Record<RecurringFilter, number>;
-  }, [natureBase, dueAlerts]);
+  }, [natureBase, dueAlerts, listYm.year, listYm.month]);
 
   const filteredRecurring = useMemo(() => {
-    const byStatus = filterRecurringList(natureBase, activeFilter, dueAlerts);
+    if (showQuitadas) {
+      return sortRecurringList(natureArchived, sort);
+    }
+    const byStatus = filterRecurringList(
+      natureBase,
+      activeFilter,
+      dueAlerts,
+      listYm.year,
+      listYm.month
+    );
     return sortRecurringList(byStatus, sort);
-  }, [natureBase, activeFilter, dueAlerts, sort]);
+  }, [
+    showQuitadas,
+    natureArchived,
+    natureBase,
+    activeFilter,
+    dueAlerts,
+    sort,
+    listYm.year,
+    listYm.month,
+  ]);
 
   const listMonthTitle = `${MONTH_LABELS[listYm.month - 1]} / ${listYm.year}`;
   const listMonthLabel = `${MONTH_LABELS[listYm.month - 1].slice(0, 3)}/${listYm.year}`;
@@ -410,21 +453,36 @@ export default function Recurring() {
               periodLabel={listMonthLabel}
             />
 
-            <RecurringDueAlerts alerts={dueAlerts} />
+            <RecurringDueAlerts alerts={showQuitadas ? [] : dueAlerts} />
 
             <section className="space-y-3">
               <RecurringListFilters
+                search={search}
+                onSearchChange={setSearch}
                 natureFilter={natureFilter}
                 onNatureChange={setNatureFilter}
                 natureCounts={natureCounts}
                 statusFilter={activeFilter}
                 onStatusChange={setActiveFilter}
                 statusCounts={filterCounts}
+                showQuitadas={showQuitadas}
+                onShowQuitadasChange={setShowQuitadas}
+                quitadasCount={inactiveRecurring.length}
               />
 
               <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-border/60 bg-card/30">
                 <RecurringTable
                   recurring={filteredRecurring}
+                  emptyTitle={
+                    showQuitadas
+                      ? "Nenhuma recorrência quitada"
+                      : "Nenhuma recorrência neste filtro"
+                  }
+                  emptyDescription={
+                    showQuitadas
+                      ? "Contas encerradas com o check verde aparecem só aqui. Desmarque o filtro para voltar ao mês."
+                      : "Ajuste a busca ou o filtro, ou cadastre uma recorrência para acompanhar o mês."
+                  }
                   lastPaidAtById={lastPaidAtById}
                   isMobile={isMobile}
                   sort={sort}
@@ -451,7 +509,7 @@ export default function Recurring() {
 
           <TabsContent value="projecao" className="mt-4">
             <RecurringProjection
-              recurring={recurring}
+              recurring={activeRecurring}
               onChanged={reloadRecurring}
               onPaidParcelsChange={patchPaidParcels}
             />

@@ -27,6 +27,11 @@ export function getActionCopyBySide(isReceive: boolean) {
       : "A transação correspondente será registrada automaticamente.",
     unmarkHint:
       "O status da parcela será revertido e a transação vinculada será excluída automaticamente.",
+    restoreLabel: "Reativar recorrência",
+    restoreTitle: "Reativar esta recorrência?",
+    restoreConfirm: "Reativar",
+    restoreHint:
+      "Ela volta para a lista do mês, com as parcelas como estavam.",
     archiveLabel: isReceive
       ? "Marcar recorrência como recebida"
       : "Marcar recorrência como paga",
