@@ -37,10 +37,12 @@ describe("printNote", () => {
 
     const iframe = document.querySelector<HTMLIFrameElement>("iframe[title='Imprimir nota']");
     expect(iframe).toBeTruthy();
-    expect(iframe?.contentDocument?.documentElement.outerHTML).toContain("conteúdo da nota");
-    expect(iframe?.contentDocument?.documentElement.outerHTML).toContain("Pauta");
+    if (!iframe) return;
 
-    const print = vi.spyOn(iframe!.contentWindow!, "print").mockImplementation(() => {});
+    expect(iframe.contentDocument?.documentElement.outerHTML).toContain("conteúdo da nota");
+    expect(iframe.contentDocument?.documentElement.outerHTML).toContain("Pauta");
+
+    const print = vi.spyOn(iframe.contentWindow!, "print").mockImplementation(() => {});
     vi.advanceTimersByTime(50);
     expect(print).toHaveBeenCalledOnce();
     expect(iframe.style.height).not.toBe("297mm");
