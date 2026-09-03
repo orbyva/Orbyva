@@ -183,9 +183,7 @@ Atalhos: **⌘K** busca global · sino de alertas · PWA após `npm run build`.
 
 ### Extensão Chrome
 
-Pasta `extension/` (Manifest V3). Painel lateral fixo: hábitos, restante do orçamento, “está dentro do orçamento?” (à vista e simulação de parcelamento) em páginas de produto e captura para cinema, livros, música e lugares. A UI é `/ext` no app (mesma sessão). Como carregar: [`extension/README.md`](./extension/README.md).
-
-Fora do v1 (ainda não existem no app): Read Later, lista de compras, tarefas/projetos, coleções de sites.
+Pasta `extension/` (Manifest V3). Painel lateral: tarefas do dia, contadores, hábitos, próxima dose, restante do orçamento, captura para links/compras/notas/catálogo (sem duplicar o que já está salvo). A UI é `/ext` no app (mesma sessão). Como carregar: [`extension/README.md`](./extension/README.md).
 
 ---
 

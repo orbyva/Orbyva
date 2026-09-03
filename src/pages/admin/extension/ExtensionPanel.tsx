@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Ban,
+  Bookmark,
   BookOpen,
   Check,
   Clapperboard,
@@ -8,15 +9,39 @@ import {
   Disc3,
   ExternalLink,
   MapPin,
+  NotebookPen,
   ShoppingBag,
   Wallet,
 } from "lucide-react";
-import { loadHomeBundle } from "@/api/hub";
+import { fetchAllAlbums } from "@/api/albums";
+import { fetchAllBooks } from "@/api/books";
+import { fetchContentLinks } from "@/api/contentLinks";
 import { toggleHabitLog } from "@/api/habits";
+import { loadHomeBundle } from "@/api/hub";
+import { fetchAllMovies } from "@/api/movies";
+import { fetchPlaces } from "@/api/places";
+import { fetchShoppingCategories } from "@/api/shopping/categories";
+import { fetchShoppingItems } from "@/api/shopping/items";
+import { fetchProjects } from "@/api/tasks/projects";
+import { createTask, fetchTasks, updateTask } from "@/api/tasks/tasks";
+import { saveExternalLinksForTask } from "@/api/tasks/taskExternalLinks";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { evaluatePurchaseAgainstRemaining } from "@/domain/extension/budgetFit";
+import {
+  captureTarget,
+  countPendingShopping,
+  countToConsumeLinks,
+  existingCatalogForKind,
+  existingForPage,
+  externalLinkDraftFromPage,
+  nextDueMedicationDose,
+  openDayTasks,
+  taskTitleFromPage,
+  visibleDayTasks,
+  type ExistingCapture,
+} from "@/domain/extension/dayBoard";
 import {
   cashVsInstallmentHint,
   evaluateInstallmentAgainstRemaining,
@@ -30,6 +55,8 @@ import {
   resolvePaymentStartDate,
 } from "@/domain/recurring";
 import { isAvoidHabit, isCompletedToday } from "@/domain/habits";
+import { emptyTask } from "@/domain/tasks/taskDraft";
+import { normalizeExternalLinkDrafts } from "@/domain/tasks/externalLink";
 import {
   classifyPage,
   enrichFromUrl,
@@ -39,7 +66,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useExtensionPageContext } from "@/hooks/useExtensionPageContext";
 import { useLocalDay } from "@/hooks/useLocalDay";
 import { useToast } from "@/hooks/use-toast";
-import { capturePage } from "@/lib/extensionCapture";
+import {
+  captureAsLink,
+  captureAsNote,
+  captureAsShoppingItem,
+  capturePage,
+} from "@/lib/extensionCapture";
 import { formatBRL } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
@@ -48,6 +80,10 @@ import type { Habit, HabitLog } from "@/types/habits";
 import type { MonthlyBudgetSummary } from "@/types/finance";
 import type { Recurring } from "@/types/recurring";
 import type { AppAlert } from "@/api/alerts";
+import type { ContentLink } from "@/types/contentLinks";
+import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
+import type { Project, Task } from "@/types/tasks";
+import { ExtDayBoard } from "./ExtDayBoard";
 
 function budgetRemaining(rows: MonthlyBudgetSummary[], balance: number | null): number | null {
   const expense = rows.filter((b) => /despesa/i.test(b.nature_name || ""));
@@ -110,7 +146,7 @@ function kindIcon(kind: ReturnType<typeof classifyPage>) {
   if (kind === "album") return Disc3;
   if (kind === "place") return MapPin;
   if (kind === "product") return ShoppingBag;
-  return Wallet;
+  return Bookmark;
 }
 
 export default function ExtensionPanel() {
@@ -133,14 +169,27 @@ export default function ExtensionPanel() {
   const [loadingHub, setLoadingHub] = useState(true);
   const [saving, setSaving] = useState(false);
   const [installmentCount, setInstallmentCount] = useState(12);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>([]);
+  const [contentLinks, setContentLinks] = useState<ContentLink[]>([]);
+  const [loadingBoard, setLoadingBoard] = useState(true);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<ShoppingCategory[]>([]);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [catalogExisting, setCatalogExisting] = useState<ExistingCapture | null>(
+    null
+  );
+  const [clipping, setClipping] = useState(false);
 
   const page = useMemo(
     () => (rawPage ? enrichFromUrl(rawPage) : null),
     [rawPage]
   );
   const kind = page ? classifyPage(page) : "unknown";
-  const canSave =
-    kind === "movie" || kind === "book" || kind === "album" || kind === "place";
+  const target = page ? captureTarget(kind) : null;
   const purchasePrice =
     kind === "product" && page?.price != null && page.price > 0
       ? page.price
@@ -187,6 +236,69 @@ export default function ExtensionPanel() {
   useEffect(() => {
     void loadHub();
   }, [loadHub]);
+
+  const loadBoard = useCallback(async () => {
+    if (!user) return;
+    try {
+      setLoadingBoard(true);
+      const [nextTasks, nextShopping, nextLinks, nextProjects, nextCategories] =
+        await Promise.all([
+          fetchTasks(),
+          fetchShoppingItems(),
+          fetchContentLinks(),
+          fetchProjects(),
+          fetchShoppingCategories(),
+        ]);
+      setTasks(nextTasks);
+      setShoppingItems(nextShopping);
+      setContentLinks(nextLinks);
+      setProjects(nextProjects);
+      setCategories(nextCategories);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Falha ao carregar o dia."),
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingBoard(false);
+    }
+  }, [toast, user]);
+
+  useEffect(() => {
+    void loadBoard();
+  }, [loadBoard]);
+
+  useEffect(() => {
+    setTaskTitle(taskTitleFromPage(page));
+  }, [page?.url, page?.title]);
+
+  useEffect(() => {
+    if (!user || !page || target !== "catalog") {
+      setCatalogExisting(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const bag =
+          kind === "movie"
+            ? { movies: await fetchAllMovies() }
+            : kind === "book"
+              ? { books: await fetchAllBooks() }
+              : kind === "album"
+                ? { albums: await fetchAllAlbums() }
+                : { places: await fetchPlaces() };
+        if (cancelled) return;
+        setCatalogExisting(existingCatalogForKind(kind, page, bag));
+      } catch {
+        if (!cancelled) setCatalogExisting(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, page, target, user]);
 
   const fit = useMemo(() => {
     if (remaining == null) return null;
@@ -255,6 +367,32 @@ export default function ExtensionPanel() {
     [habits, habitLogs, today]
   );
 
+  const dayTasks = useMemo(() => openDayTasks(tasks, today), [tasks, today]);
+  const visibleTasks = useMemo(
+    () => visibleDayTasks(tasks, today),
+    [tasks, today]
+  );
+  const shoppingPending = useMemo(
+    () => countPendingShopping(shoppingItems),
+    [shoppingItems]
+  );
+  const linksPending = useMemo(
+    () => countToConsumeLinks(contentLinks),
+    [contentLinks]
+  );
+  const pageLink = externalLinkDraftFromPage(page);
+  const existing = useMemo(() => {
+    if (target === "catalog") return catalogExisting;
+    return existingForPage(target, page, {
+      links: contentLinks,
+      shopping: shoppingItems,
+    });
+  }, [catalogExisting, contentLinks, page, shoppingItems, target]);
+  const nextDose = useMemo(
+    () => nextDueMedicationDose(tasks, today),
+    [tasks, today]
+  );
+
   async function handleToggleHabit(habitId: string) {
     const done = isCompletedToday(
       habitLogs.filter((l) => l.habit_id === habitId),
@@ -294,14 +432,22 @@ export default function ExtensionPanel() {
   }
 
   async function handleSave() {
-    if (!page || !canSave) return;
+    if (!page || !target) return;
     setSaving(true);
     try {
-      const result = await capturePage(page);
+      const result =
+        target === "shopping"
+          ? await captureAsShoppingItem(page, categoryId)
+          : target === "link"
+            ? await captureAsLink(page)
+            : await capturePage(page);
       toast({
         title: "Salvo",
         description: `Foi para ${result.label}.`,
       });
+      if (target === "shopping" || target === "link") {
+        void loadBoard();
+      }
     } catch (error) {
       toast({
         title: "Não salvou",
@@ -310,6 +456,79 @@ export default function ExtensionPanel() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCompleteTask(taskId: string) {
+    const prev = tasks;
+    setTasks((current) =>
+      current.map((task) =>
+        task.id === taskId ? { ...task, status: "done" as const } : task
+      )
+    );
+    try {
+      await updateTask({ id: taskId, status: "done" });
+    } catch (error) {
+      setTasks(prev);
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível concluir."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleCreateTask() {
+    const title = taskTitle.trim();
+    if (!title) return;
+    setCreatingTask(true);
+    try {
+      const created = await createTask({
+        ...emptyTask(),
+        title,
+        due_date: today,
+        project_id: projectId,
+      });
+      const link = pageLink
+        ? normalizeExternalLinkDrafts([pageLink]).drafts
+        : [];
+      if (link.length > 0) {
+        await saveExternalLinksForTask(created.id, link);
+      }
+      setTasks((current) => [created, ...current]);
+      setTaskTitle("");
+      toast({
+        title: "Tarefa criada",
+        description: link.length > 0 ? "Já foi com o link desta aba." : undefined,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível criar a tarefa."),
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingTask(false);
+    }
+  }
+
+  async function handleClipNote() {
+    if (!page?.url) return;
+    setClipping(true);
+    try {
+      const result = await captureAsNote(page);
+      toast({
+        title: "Salvo",
+        description: `Foi para ${result.label}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Não salvou",
+        description: getErrorMessage(error, "Falha ao clipar a nota."),
+        variant: "destructive",
+      });
+    } finally {
+      setClipping(false);
     }
   }
 
@@ -362,6 +581,29 @@ export default function ExtensionPanel() {
       </header>
 
       <main className="space-y-3 px-3 py-3">
+        <ExtDayBoard
+          overdueCount={dayTasks.overdue.length}
+          todayCount={dayTasks.today.length}
+          shoppingPending={shoppingPending}
+          linksPending={linksPending}
+          habitsPending={pendingHabits.length}
+          loading={loadingBoard}
+          items={visibleTasks.items}
+          hidden={visibleTasks.hidden}
+          taskTitle={taskTitle}
+          creating={creatingTask}
+          hasPageLink={pageLink != null}
+          projects={projects}
+          projectId={projectId}
+          nextDose={nextDose}
+          today={today}
+          onTaskTitleChange={setTaskTitle}
+          onProjectChange={setProjectId}
+          onCreateTask={() => void handleCreateTask()}
+          onCompleteTask={(id) => void handleCompleteTask(id)}
+          onTakeDose={(id) => void handleCompleteTask(id)}
+        />
+
         <section className="rounded-xl border bg-card p-3 shadow-sm">
           <div className="flex items-start gap-2.5">
             <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -387,26 +629,76 @@ export default function ExtensionPanel() {
               ) : null}
             </div>
           </div>
-          {canSave ? (
+          {target === "shopping" && categories.length > 0 && !existing ? (
+            <label className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="shrink-0">Categoria</span>
+              <select
+                aria-label="Categoria da compra"
+                value={categoryId ?? ""}
+                onChange={(event) =>
+                  setCategoryId(event.target.value ? event.target.value : null)
+                }
+                className="h-7 min-w-0 flex-1 rounded-md border bg-background px-1.5 text-xs text-foreground"
+              >
+                <option value="">Sem categoria</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {existing ? (
+            <a
+              href={existing.href}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex h-8 w-full items-center justify-center rounded-md border border-emerald-500/30 bg-emerald-500/10 text-sm font-medium text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-300"
+            >
+              Já está em {existing.label}
+            </a>
+          ) : target ? (
             <Button
               className="mt-3 w-full"
               size="sm"
-              disabled={saving}
+              disabled={saving || (target === "link" && !page?.url)}
               onClick={() => void handleSave()}
             >
-              {saving ? "Salvando…" : `Salvar em ${pageKindLabel(kind)}`}
+              {saving
+                ? "Salvando…"
+                : target === "shopping"
+                  ? "Adicionar à lista"
+                  : target === "link"
+                    ? "Salvar em Links"
+                    : `Salvar em ${pageKindLabel(kind)}`}
             </Button>
-          ) : kind === "product" ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Lista de compras ainda não está no app. Abaixo: à vista e
-              simulação de parcelamento.
-            </p>
           ) : (
             <p className="mt-2 text-xs text-muted-foreground">
-              Abra IMDb, Letterboxd, Goodreads, Spotify, Maps ou um produto para
-              agir daqui.
+              Navegue em um site para salvar o link, um produto ou um título.
             </p>
           )}
+          {page?.url ? (
+            <Button
+              className="mt-2 w-full"
+              size="sm"
+              variant="outline"
+              disabled={clipping}
+              onClick={() => void handleClipNote()}
+            >
+              <NotebookPen className="size-3.5" />
+              {clipping ? "Clipando…" : "Clipar em nota"}
+            </Button>
+          ) : null}
+          {target === "shopping" && !existing ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              O link do produto entra na lista. Abaixo: à vista e parcelamento.
+            </p>
+          ) : target === "link" && !existing ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Qualquer página vira um link para consumir depois.
+            </p>
+          ) : null}
         </section>
 
         <section

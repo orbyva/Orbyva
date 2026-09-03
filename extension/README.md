@@ -1,6 +1,6 @@
 # Extensão Chrome do Orbyva
 
-Painel lateral fixo: hábitos do dia, restante do orçamento, “está dentro do orçamento?” em páginas de produto e captura para cinema, livros, música e lugares.
+Painel lateral: tarefas do dia, contadores, hábitos, restante do orçamento, “está dentro do orçamento?” em páginas de produto e captura para links, compras, cinema, livros, música e lugares.
 
 A UI vive no app (`/ext`). A extensão só extrai a aba e abre o side panel.
 
@@ -13,15 +13,18 @@ A UI vive no app (`/ext`). A extensão só extrai a aba e abre o side panel.
 
 Entre na mesma conta do app no Chrome. A sessão do `orbyva.app` (ou localhost) vale no iframe.
 
-## O que o v1 faz
+## O que faz
 
+- Contadores: atrasadas, hoje, compras pendentes, links para consumir, hábitos restantes
+- Tarefas de hoje e atrasadas: concluir no toque; criar já com o URL da aba
 - Check-in de hábitos
 - Restante do orçamento do mês
-- Em produto (Amazon, Mercado Livre, Magalu…): veredito **Está dentro do orçamento?** (à vista) e simulação **E se parcelar?** (1ª parcela vs restante do mês + calendário nos meses seguintes; usa a oferta Nx da página quando houver)
-- Salvar: IMDb/Letterboxd → cinema; Goodreads/ISBN → livros; Spotify → música; Maps/Booking/Airbnb → lugares
+- Em produto (Amazon, Mercado Livre, Magalu…): **Adicionar à lista** (título + link do fornecedor) + veredito **Está dentro do orçamento?** e simulação **E se parcelar?**
+- Em qualquer outra página: **Salvar em Links** (artigo/vídeo/site; YouTube vira vídeo)
+- **Já está em…** quando o mesmo URL (ou o título no catálogo) já foi salvo
+- Compra: escolher categoria; tarefa: escolher projeto
+- **Clipar em nota**: título + URL + descrição da aba
+- Próxima dose pendente (hoje ou atrasada) com um toque para marcar
+- Salvar catálogo: IMDb/Letterboxd → cinema; Goodreads/ISBN → livros; Spotify → música; Maps/Booking/Airbnb → lugares
 - Menu de contexto “Abrir painel Orbyva”
 - Chip flutuante em páginas de produto
-
-## Fora do v1 (módulos ainda não prontos no app)
-
-Read Later / artigos, lista de compras, tarefas/projetos, coleções de sites.

@@ -1,12 +1,22 @@
 import { createAlbum } from "@/api/albums";
 import { createBook } from "@/api/books";
+import { createContentLink } from "@/api/contentLinks";
 import { createMovie, fetchMovieById } from "@/api/movies";
+import { createNote } from "@/api/notes/notes";
 import { createPlace } from "@/api/places";
+import { createShoppingItem } from "@/api/shopping/items";
+import {
+  cleanPageTitle,
+  contentLinkFromPage,
+  noteDraftFromPage,
+  shoppingItemFromPage,
+} from "@/domain/extension/dayBoard";
 import { fetchCinemaByImdbId, searchCinema, fetchCinemaDetails } from "@/lib/cinema";
 import {
   fetchGoogleBookById,
   searchGoogleBooks,
 } from "@/lib/googleBooks";
+import { formatBRL } from "@/lib/currency";
 import {
   catalogCoverUrl,
   fetchCatalogAlbumMeta,
@@ -26,15 +36,6 @@ export type CaptureResult = {
   kind: PageKind;
   label: string;
 };
-
-function cleanTitle(title: string): string {
-  return title
-    .replace(/\s*[·|•]\s*Letterboxd.*$/i, "")
-    .replace(/\s*\(\d{4}\)\s*$/, "")
-    .replace(/\s*[-–—]\s*(IMDb|Netflix|Prime Video|Google Maps|Tripadvisor|Booking\.com|Airbnb).*$/i, "")
-    .replace(/\s*\|\s*.*$/, "")
-    .trim();
-}
 
 function placeTypeFor(url: string): PlaceType {
   const host = (() => {
@@ -69,7 +70,7 @@ async function saveMovie(page: ExtractedPage): Promise<void> {
     return;
   }
 
-  const query = cleanTitle(page.title);
+  const query = cleanPageTitle(page.title);
   if (!query) throw new Error("Sem título para buscar no cinema.");
   const hits = await searchCinema(query);
   const hit = hits[0];
@@ -102,7 +103,7 @@ async function saveBook(page: ExtractedPage): Promise<void> {
     });
     return;
   }
-  const query = page.isbn || cleanTitle(page.title);
+  const query = page.isbn || cleanPageTitle(page.title);
   if (!query) throw new Error("Sem título ou ISBN para buscar o livro.");
   const hits = await searchGoogleBooks(query);
   const hit = hits[0];
@@ -139,7 +140,7 @@ async function saveAlbum(page: ExtractedPage): Promise<void> {
     });
     return;
   }
-  const query = cleanTitle(page.title);
+  const query = cleanPageTitle(page.title);
   if (!query) throw new Error("Sem título para buscar o álbum.");
   const { hits, provider } = await searchAlbums(query);
   const hit = hits[0];
@@ -161,7 +162,7 @@ async function saveAlbum(page: ExtractedPage): Promise<void> {
 }
 
 async function savePlace(page: ExtractedPage): Promise<void> {
-  const name = cleanTitle(page.title);
+  const name = cleanPageTitle(page.title);
   if (!name) throw new Error("Sem nome do lugar nesta página.");
   await createPlace({
     name,
@@ -171,6 +172,40 @@ async function savePlace(page: ExtractedPage): Promise<void> {
     address: null,
     notes: `Salvo da extensão · ${page.url}`,
   });
+}
+
+export async function captureAsLink(page: ExtractedPage): Promise<CaptureResult> {
+  const enriched = enrichFromUrl(page);
+  if (!enriched.url.trim()) {
+    throw new Error("Esta aba não tem um endereço para salvar.");
+  }
+  await createContentLink(contentLinkFromPage(enriched));
+  return { kind: "unknown", label: "Links" };
+}
+
+export async function captureAsShoppingItem(
+  page: ExtractedPage,
+  categoryId: string | null = null
+): Promise<CaptureResult> {
+  const enriched = enrichFromUrl(page);
+  const item = shoppingItemFromPage(enriched, categoryId);
+  if (enriched.price != null && enriched.price > 0) {
+    const price = formatBRL(enriched.price);
+    item.description = item.description
+      ? `${price} · ${item.description}`
+      : price;
+  }
+  await createShoppingItem(item);
+  return { kind: "product", label: "Lista de compras" };
+}
+
+export async function captureAsNote(page: ExtractedPage): Promise<CaptureResult> {
+  const enriched = enrichFromUrl(page);
+  if (!enriched.url.trim()) {
+    throw new Error("Esta aba não tem um endereço para salvar.");
+  }
+  await createNote(noteDraftFromPage(enriched));
+  return { kind: "unknown", label: "Notas" };
 }
 
 export async function capturePage(page: ExtractedPage): Promise<CaptureResult> {

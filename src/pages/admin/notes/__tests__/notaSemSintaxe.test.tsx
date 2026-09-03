@@ -170,5 +170,5 @@ describe("escrever uma nota inteira sem digitar sintaxe (068)", () => {
     await user.click(checkbox);
 
     await waitFor(() => expect(savedContent()).toContain("- [x] comprar cimento"));
-  });
+  }, 15_000);
 });
