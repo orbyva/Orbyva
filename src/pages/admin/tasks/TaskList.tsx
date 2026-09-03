@@ -51,6 +51,7 @@ import { TaskFormFields } from "./TaskFormFields";
 import type { TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 import { EmptyState } from "@/components/EmptyState";
 import { FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { GanttChart } from "./GanttChart";
@@ -842,6 +843,7 @@ export default function TaskList() {
       description="Todas as suas tarefas, com ou sem projeto."
       actions={
         <>
+          <ModuleGuideButton moduleId="tasks" />
           <Button variant="outline" asChild>
             <Link to="/tasks/live">
               <Timer className="h-4 w-4" />
@@ -858,6 +860,7 @@ export default function TaskList() {
         </>
       }
     >
+      <ModuleGuide moduleId="tasks" />
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as TaskViewMode)}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <TabsList>

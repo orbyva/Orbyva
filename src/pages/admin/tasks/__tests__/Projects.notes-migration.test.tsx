@@ -16,6 +16,13 @@ import { fetchProjects } from "@/api/tasks";
  * em runtime.
  */
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/api/tasks", () => ({
   // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),

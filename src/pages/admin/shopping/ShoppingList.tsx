@@ -13,6 +13,7 @@ import {
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
@@ -237,6 +238,7 @@ export default function ShoppingList() {
       description="Agrupe o que você precisa comprar por categoria e marque o que já comprou."
       actions={
         <>
+          <ModuleGuideButton moduleId="shopping" />
           <Button variant="outline" onClick={openCreateCategory}>
             Nova categoria
           </Button>
@@ -245,6 +247,7 @@ export default function ShoppingList() {
         </>
       }
     >
+      <ModuleGuide moduleId="shopping" />
       {projects.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <Select

@@ -16,6 +16,13 @@ import {
 } from "@/api/shopping/items";
 import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/api/shopping/categories", () => ({
   fetchShoppingCategories: vi.fn(),
   createShoppingCategory: vi.fn(),

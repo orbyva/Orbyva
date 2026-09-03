@@ -23,6 +23,13 @@ import type { Task } from "@/types/tasks";
  * `TaskList.medication-occurrences.test.tsx` e `ProjectDetail.medication-occurrences.test.tsx`.
  */
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/api/tasks", () => ({
   // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),

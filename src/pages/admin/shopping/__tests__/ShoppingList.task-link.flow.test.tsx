@@ -132,6 +132,13 @@ function makeBuilder(table: string) {
   return builder;
 }
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/lib/supabase", () => ({
   supabase: { from: (table: string) => makeBuilder(table) },
 }));

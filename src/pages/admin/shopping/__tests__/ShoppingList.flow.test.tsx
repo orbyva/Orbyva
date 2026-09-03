@@ -17,6 +17,13 @@ const { store } = vi.hoisted(() => ({
   store: { categories: [] as ShoppingCategory[], items: [] as ShoppingItem[], seq: 0 },
 }));
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/api/shopping/categories", () => ({
   fetchShoppingCategories: vi.fn(async () =>
     [...store.categories].sort((a, b) => a.name.localeCompare(b.name))

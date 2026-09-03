@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { HealthHabitQuickCreateDialog } from "@/pages/admin/habits/HealthHabitQuickCreateDialog";
 import { RecordMetricDialog } from "@/pages/admin/life/RecordMetricDialog";
@@ -197,6 +198,7 @@ export default function HealthDashboard() {
       description="Hábitos do dia, medicações, consultas e progresso corporal"
       actions={
         <div className={PAGE_HEADER_ACTIONS_CLASS}>
+          <ModuleGuideButton moduleId="health" />
           {/* "Lembretes" está sempre visível: é a única porta para o controle de notificações
               (feature 063), e ele existe mesmo com a tela ainda vazia. */}
           <Button variant="outline" onClick={() => setReminderDialogOpen(true)}>
@@ -223,6 +225,7 @@ export default function HealthDashboard() {
         </div>
       }
     >
+      <ModuleGuide moduleId="health" />
       {/* Hoje (feature 062): água e alimentação são `habit` com `is_health` — o check-in daqui é o
           mesmo `habit_log` da página de Hábitos, então streak e heatmap continuam valendo. */}
       <section

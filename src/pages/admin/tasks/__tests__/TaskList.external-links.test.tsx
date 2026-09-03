@@ -28,6 +28,13 @@ import type { Project, Task, TaskExternalLink } from "@/types/tasks";
  *   chips" em vez de derrubar a lista de tarefas.
  */
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/api/tasks", () => ({
   fetchTasks: vi.fn(),
   fetchProjects: vi.fn(),

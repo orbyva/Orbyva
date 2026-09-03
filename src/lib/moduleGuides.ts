@@ -1,11 +1,15 @@
 import {
   BookOpen,
   Car,
+  CheckSquare,
   Disc3,
   Film,
   Flame,
+  HeartPulse,
   MapPin,
+  NotebookPen,
   Plane,
+  ShoppingCart,
   Target,
   Wallet,
   type LucideIcon,
@@ -20,7 +24,11 @@ export type ModuleGuideId =
   | "car"
   | "movies"
   | "books"
-  | "music";
+  | "music"
+  | "health"
+  | "tasks"
+  | "notes"
+  | "shopping";
 
 export type ModuleGuideStep = {
   title: string;
@@ -255,6 +263,102 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       {
         title: "Compartilhe a opinião",
         body: "Gere um card com capa, nota e faixas avaliadas para compartilhar onde preferir.",
+      },
+    ],
+  },
+  health: {
+    id: "health",
+    icon: HeartPulse,
+    title: "Como funciona a Saúde",
+    hook: "Hábitos saudáveis, medicações, consultas e métricas corporais num só lugar.",
+    steps: [
+      {
+        title: "Hábitos de saúde",
+        body: "Veja e marque os hábitos de saúde do dia (água, alimentação…). Eles também aparecem na página de Hábitos, mas aqui ficam reunidos com o restante da saúde.",
+      },
+      {
+        title: "Medicações e adesão",
+        body: "Cadastre tratamentos com posologia e frequência. A adesão dos últimos 30 dias aparece no card e na página dedicada de Medicações.",
+      },
+      {
+        title: "Consultas",
+        body: "Registre consultas médicas como tarefas com data e horário. Elas aparecem aqui e na agenda de tarefas.",
+      },
+      {
+        title: "Métricas corporais",
+        body: "Registre peso, altura, gordura, circunferências e acompanhe a evolução. O IMC é calculado automaticamente.",
+      },
+      {
+        title: "Lembretes",
+        body: "Configure lembretes para medicações, hábitos e consultas. O app avisa na hora certa, direto no navegador.",
+      },
+    ],
+  },
+  tasks: {
+    id: "tasks",
+    icon: CheckSquare,
+    title: "Como funcionam as Tarefas",
+    hook: "Organize tudo o que precisa fazer: lista, agenda, Gantt e projetos com Kanban.",
+    steps: [
+      {
+        title: "Crie tarefas",
+        body: "Título, prazo, prioridade e projeto. Use recorrência para o que se repete (diária, semanal, mensal…).",
+      },
+      {
+        title: "Escolha a visão",
+        body: "Lista agrupa por prazo ou prioridade. Agenda mostra o dia em grade horária. Gantt desenha o cronograma visual.",
+      },
+      {
+        title: "Projetos e Kanban",
+        body: "Agrupe tarefas em projetos. Cada projeto tem lista, Kanban (colunas arrastáveis), Gantt e notas próprias.",
+      },
+      {
+        title: "Subtarefas e ícones",
+        body: "Quebre tarefas grandes em subtarefas. Personalize com ícones (SVG ou da biblioteca) para identificar rápido.",
+      },
+      {
+        title: "Live (tempo real)",
+        body: "Inicie o cronômetro numa tarefa e registre quanto tempo dedicou. O player flutuante acompanha você entre páginas.",
+      },
+    ],
+  },
+  notes: {
+    id: "notes",
+    icon: NotebookPen,
+    title: "Como funcionam as Notas",
+    hook: "Anotações em Markdown ou canvas de desenho, soltas ou vinculadas a projetos.",
+    steps: [
+      {
+        title: "Crie uma nota ou canvas",
+        body: "Nota usa Markdown (títulos, listas, código, diagramas Mermaid). Canvas é um quadro de desenho livre.",
+      },
+      {
+        title: "Vincule a um projeto",
+        body: "Opcional: associe a nota a um projeto e ela aparece na aba Notas daquele projeto.",
+      },
+      {
+        title: "Blocos avançados",
+        body: "Callouts coloridos, diagramas, tabelas e blocos de código com syntax highlighting, tudo dentro do Markdown.",
+      },
+    ],
+  },
+  shopping: {
+    id: "shopping",
+    icon: ShoppingCart,
+    title: "Como funciona a Lista de Compras",
+    hook: "Agrupe o que precisa comprar por categoria e risque o que já comprou.",
+    steps: [
+      {
+        title: "Categorias",
+        body: "Crie categorias (Mercado, Farmácia, Casa…) para organizar os itens. Itens sem categoria também são permitidos.",
+      },
+      {
+        title: "Adicione itens",
+        body: "Nome, quantidade opcional e categoria. Marque como comprado com um toque.",
+      },
+      {
+        title: "Limpe a lista",
+        body: "Depois das compras, remova os itens marcados ou a categoria inteira de uma vez.",
       },
     ],
   },

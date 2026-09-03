@@ -25,6 +25,13 @@ const { store } = vi.hoisted(() => ({
   },
 }));
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/api/health", () => ({
   // A seção "Hoje" (feature 062) tem fluxo próprio em `HealthDashboard.habits.test.tsx`; aqui ela
   // fica vazia de propósito, pra este arquivo continuar sendo sobre dose e consulta.

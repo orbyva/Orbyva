@@ -37,6 +37,13 @@ function stamp(): string {
   return new Date(Date.UTC(2026, 7, 16, 12, store.clock)).toISOString();
 }
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/api/notes/notes", () => ({
   fetchNotes: vi.fn(async ({ projectId }: { projectId?: string | null } = {}) =>
     store.notes

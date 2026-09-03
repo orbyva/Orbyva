@@ -6,6 +6,7 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { MedicationQuickCreateDialog } from "@/pages/admin/health/MedicationQuickCreateDialog";
 import { ReminderPreferencesDialog } from "@/pages/admin/life/ReminderPreferencesDialog";
@@ -210,6 +211,7 @@ export default function MedicationList() {
       description="Tratamentos, posologia e adesão dos últimos 30 dias"
       actions={
         <div className={PAGE_HEADER_ACTIONS_CLASS}>
+          <ModuleGuideButton moduleId="health" />
           {/* Feature 071: "Lembretes" (063) sempre visível, como no dashboard — quem administra o
               tratamento está aqui, e o alerta da dose é parte do controle. */}
           <Button variant="outline" onClick={() => setReminderDialogOpen(true)}>
@@ -221,6 +223,7 @@ export default function MedicationList() {
         </div>
       }
     >
+      <ModuleGuide moduleId="health" />
       <section className="rounded-xl border bg-card shadow-sm">
         {loading ? (
           <TableLoadingSkeleton rows={3} columns={3} />

@@ -23,6 +23,13 @@ import type { Task } from "@/types/tasks";
  * e nos testes do `HealthDashboard`/`MedicationList`.
  */
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/api/health/medications", () => ({
   createMedicationWithDoses: vi.fn(async () => ({ id: "med-1" })),
   updateMedication: vi.fn(),

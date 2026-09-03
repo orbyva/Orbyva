@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { ProjectFormDialog, STATUS_LABELS, formatEventDate } from "./ProjectFormDialog";
@@ -426,8 +427,14 @@ export default function Projects() {
     <PageShell
       title="Projetos"
       description="Agrupe tarefas por projeto e acompanhe o andamento em Lista ou Kanban."
-      actions={<Button onClick={openCreate}>Novo projeto</Button>}
+      actions={
+        <>
+          <ModuleGuideButton moduleId="tasks" />
+          <Button onClick={openCreate}>Novo projeto</Button>
+        </>
+      }
     >
+      <ModuleGuide moduleId="tasks" />
       {loading ? (
         <TableLoadingSkeleton rows={4} />
       ) : projects.length === 0 ? (
