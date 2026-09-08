@@ -139,6 +139,22 @@ beforeEach(() => {
   mockedFetchLinksForTasks.mockResolvedValue({});
 });
 
+/**
+ * Feature 100: o título do card virou um botão de edição inline, então clicar nele **não** abre
+ * mais o dialog completo — quem abre é o lápis da linha/card (ou qualquer ponto fora do título e
+ * da descrição). O caminho do formulário continua existindo, só mudou de gesto.
+ */
+async function openFullDialog(
+  user: ReturnType<typeof userEvent.setup>,
+  title: string
+) {
+  const card = screen
+    .getByRole("button", { name: `Editar título: ${title}` })
+    .closest(".cursor-pointer") as HTMLElement;
+  const pencil = card.querySelector("svg.lucide-pen")?.closest("button") as HTMLButtonElement;
+  await user.click(pencil);
+}
+
 describe("TaskList — links externos no formulário (feature 085)", () => {
   it("criar com dois links grava os dois depois do createTask, com o id novo e as position em ordem", async () => {
     const user = userEvent.setup();
@@ -209,7 +225,7 @@ describe("TaskList — links externos no formulário (feature 085)", () => {
     ]);
     await renderLoaded([makeTask({ title: "Tarefa com links" })]);
 
-    await user.click(screen.getByText("Tarefa com links"));
+    await openFullDialog(user, "Tarefa com links");
     const panel = within(await screen.findByRole("dialog"));
     expect(mockedFetchLinksForTask).toHaveBeenCalledWith("task-1");
 
@@ -232,7 +248,7 @@ describe("TaskList — links externos no formulário (feature 085)", () => {
     ]);
     await renderLoaded([makeTask({ title: "Tarefa com links" })]);
 
-    await user.click(screen.getByText("Tarefa com links"));
+    await openFullDialog(user, "Tarefa com links");
     const panel = within(await screen.findByRole("dialog"));
     await user.click(await panel.findByRole("button", { name: /Links externos/ }));
 
@@ -256,13 +272,13 @@ describe("TaskList — links externos no formulário (feature 085)", () => {
       makeTask({ id: "task-2", title: "Sem link" }),
     ]);
 
-    await user.click(screen.getByText("Com link"));
+    await openFullDialog(user, "Com link");
     let panel = within(await screen.findByRole("dialog"));
     await user.click(await panel.findByRole("button", { name: /Links externos/ }));
     expect(await panel.findByLabelText("URL do link 1 de 1")).toHaveValue("https://a.com");
     await user.keyboard("{Escape}");
 
-    await user.click(screen.getByText("Sem link"));
+    await openFullDialog(user, "Sem link");
     panel = within(await screen.findByRole("dialog"));
     await user.click(await panel.findByRole("button", { name: /Links externos/ }));
     expect(panel.queryByLabelText(/^URL do link/)).not.toBeInTheDocument();

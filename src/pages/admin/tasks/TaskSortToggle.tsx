@@ -9,8 +9,8 @@ interface TaskSortToggleProps {
 }
 
 /**
- * Seletor "Ordenar por" da aba Lista (feature 079). São duas opções só, então botões visíveis —
- * um dropdown esconderia metade do estado atrás de um clique. Compartilhado por `TaskList` e
+ * Seletor "Ordenar por" da aba Lista (feature 079). São poucas opções, então botões visíveis —
+ * um dropdown esconderia o estado atual atrás de um clique. Compartilhado por `TaskList` e
  * `ProjectDetail`, que também compartilham a preferência salva.
  */
 export function TaskSortToggle({ value, onChange, className }: TaskSortToggleProps) {

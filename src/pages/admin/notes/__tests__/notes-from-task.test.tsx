@@ -3,9 +3,10 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import NoteDetail from "@/pages/admin/notes/NoteDetail";
-import { ProjectNotesSection } from "@/pages/admin/notes/ProjectNotesSection";
+import { ProjectDocumentsSection } from "@/pages/admin/notes/ProjectDocumentsSection";
 import { TaskNoteButtons } from "@/pages/admin/tasks/TaskNoteButtons";
 import { normalizeNoteDraft } from "@/domain/notes/noteDraft";
+import { mergeProjectDocuments } from "@/domain/notes/projectDocuments";
 import type { Note, NoteDraft, NoteLink, NoteLinkDraft } from "@/types/notes";
 import type { Task } from "@/types/tasks";
 
@@ -20,6 +21,8 @@ const { store } = vi.hoisted(() => ({
     notes: [] as Note[],
     links: [] as NoteLink[],
     projects: [] as { id: string; name: string }[],
+    /** Ids das tarefas de cada projeto — é o que a aba "Documentos" cruza com os vínculos (105). */
+    tasksByProject: {} as Record<string, string[]>,
     seq: 0,
   },
 }));
@@ -75,6 +78,23 @@ vi.mock("@/api/notes/noteLinks", () => ({
   fetchNotesSharingEntity: vi.fn(async () => []),
 }));
 
+/**
+ * A aba "Documentos" do projeto (feature 105) não lê `fetchNotes({ projectId })`: ela monta a união
+ * das três origens. O falso delega à mesma função pura do domínio que a API usa.
+ */
+vi.mock("@/api/notes/projectDocuments", () => ({
+  fetchProjectDocuments: vi.fn(async (projectId: string) =>
+    mergeProjectDocuments({
+      projectNotes: store.notes.filter((n) => n.project_id === projectId),
+      linkedNotes: store.notes.map((n) => ({ ...n })),
+      links: store.links,
+      projectTaskIds: store.tasksByProject[projectId] ?? [],
+      projectId,
+    })
+  ),
+  countProjectDocuments: vi.fn(async () => 0),
+}));
+
 vi.mock("@/api/tasks/projects", () => ({
   fetchProjects: vi.fn(async () => store.projects.map((p) => ({ ...p }))),
 }));
@@ -119,6 +139,10 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 
 /** A tarefa de um lado, a rota da nota do outro — é o app inteiro que este teste precisa. */
 function renderAppWithTask(task: Task) {
+  // A tarefa entra no projeto dela, como no banco: é isso que a aba "Documentos" cruza depois.
+  if (task.project_id) {
+    (store.tasksByProject[task.project_id] ??= []).push(task.id);
+  }
   return render(
     <MemoryRouter initialEntries={["/tasks"]}>
       <Routes>
@@ -134,6 +158,7 @@ beforeEach(() => {
   store.notes = [];
   store.links = [];
   store.projects = [{ id: "p1", name: "Obra da casa" }];
+  store.tasksByProject = {};
   store.seq = 0;
 });
 
@@ -188,12 +213,12 @@ describe("Nota criada a partir de uma tarefa", () => {
   });
 });
 
-describe("A nota da tarefa na aba 'Notas' do projeto (feature 069)", () => {
+describe("A nota da tarefa na aba 'Documentos' do projeto (features 069 e 105)", () => {
   /** A aba do projeto, montada sozinha — é o que a página do projeto faz ao abrir a aba. */
   function renderProjectNotes(projectId: string) {
     render(
       <MemoryRouter initialEntries={[`/tasks/projects/${projectId}`]}>
-        <ProjectNotesSection projectId={projectId} />
+        <ProjectDocumentsSection projectId={projectId} />
       </MemoryRouter>
     );
   }
@@ -207,8 +232,8 @@ describe("A nota da tarefa na aba 'Notas' do projeto (feature 069)", () => {
     cleanup();
     renderProjectNotes("p1");
 
-    // A aba filtra por `note.project_id`, e a nota nasceu com ele preenchido: é consequência da
-    // criação, não um caminho separado.
+    // A nota nasceu com o `project_id` da tarefa **e** com o vínculo para ela: chega na aba pelas
+    // duas portas (feature 105) e, ainda assim, aparece uma vez só.
     expect(
       await screen.findByRole("link", { name: /Trocar a fiação da sala/ })
     ).toHaveAttribute("href", "/notes/n1");
@@ -224,7 +249,9 @@ describe("A nota da tarefa na aba 'Notas' do projeto (feature 069)", () => {
     cleanup();
     renderProjectNotes("p1");
 
-    expect(await screen.findByText("Nenhuma nota neste projeto")).toBeInTheDocument();
+    // O vínculo com a tarefa existe, mas a tarefa não é de projeto nenhum: vínculo órfão para a
+    // aba de `p1`, que continua vazia.
+    expect(await screen.findByText("Nenhum documento neste projeto")).toBeInTheDocument();
     expect(screen.queryByText("Trocar a fiação da sala")).not.toBeInTheDocument();
   });
 });

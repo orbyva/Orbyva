@@ -114,6 +114,22 @@ async function openCreatePanel(user: ReturnType<typeof userEvent.setup>) {
   return within(await screen.findByRole("dialog"));
 }
 
+/**
+ * Feature 100: o título do card virou um botão de edição inline, então clicar nele **não** abre
+ * mais o dialog completo — quem abre é o lápis da linha/card (ou qualquer ponto fora do título e
+ * da descrição). O caminho do formulário continua existindo, só mudou de gesto.
+ */
+async function openFullDialog(
+  user: ReturnType<typeof userEvent.setup>,
+  title: string
+) {
+  const card = screen
+    .getByRole("button", { name: `Editar título: ${title}` })
+    .closest(".cursor-pointer") as HTMLElement;
+  const pencil = card.querySelector("svg.lucide-pen")?.closest("button") as HTMLButtonElement;
+  await user.click(pencil);
+}
+
 describe("TaskList — painel de tarefa salva todos os blocos (feature 080)", () => {
   beforeEach(() => {
     toastMock.mockReset();
@@ -249,7 +265,7 @@ describe("TaskList — painel de tarefa salva todos os blocos (feature 080)", ()
     });
     await renderLoaded([task]);
 
-    await user.click(screen.getByText("Tarefa existente"));
+    await openFullDialog(user, "Tarefa existente");
     const panel = within(screen.getByRole("dialog"));
 
     // O painel reflete o que está salvo, sem precisar abrir aba nenhuma.

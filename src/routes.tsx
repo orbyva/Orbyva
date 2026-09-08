@@ -50,6 +50,7 @@ const TasksLive = lazy(() => import("./pages/admin/tasks/Live"));
 const TasksAgenda = lazy(() => import("./pages/admin/tasks/AgendaCalendar"));
 const TasksTags = lazy(() => import("./pages/admin/tasks/Tags"));
 const TasksLinkIcons = lazy(() => import("./pages/admin/tasks/LinkIconRules"));
+const TasksRecurrences = lazy(() => import("./pages/admin/tasks/TaskRecurrences"));
 const ShoppingList = lazy(() => import("./pages/admin/shopping/ShoppingList"));
 const Notes = lazy(() => import("./pages/admin/notes/Notes"));
 const NoteDetail = lazy(() => import("./pages/admin/notes/NoteDetail"));
@@ -167,8 +168,9 @@ export const appRoutes: RouteObject[] = [
                   { path: "projects", element: <TaskProjects /> },
                   { path: "projects/:id", element: <TaskProjectDetail /> },
                   // `/tasks/gantt` (`TasksGantt.tsx`) foi removida na feature 044: rota separada, sem
-                  // link em nenhum lugar do app (nem sidebar — `app-sidebar.tsx` só lista `/tasks` e
-                  // `/tasks/projects` — nem em nenhuma outra página), redundante com a aba "Gantt" já
+                  // link em nenhum lugar do app (nem sidebar — `app-sidebar.tsx` lista `/tasks`,
+                  // `/tasks/agenda` e `/tasks/projects`, não esta — nem em nenhuma outra página),
+                  // redundante com a aba "Gantt" já
                   // existente aqui dentro de `/tasks` (`TaskList.tsx`), e sem paridade de props
                   // interativas (sem `onOpenTask`/quick actions) — corrigir isso teria sido manter duas
                   // implementações do mesmo Gantt em paridade. `?view=gantt` seleciona a aba direto.
@@ -180,6 +182,11 @@ export const appRoutes: RouteObject[] = [
                   // botão "Configurar ícones" da seção de links do formulário e pelo cabeçalho de
                   // `/tasks/tags` (feature 087).
                   { path: "link-icons", element: <TasksLinkIcons /> },
+                  // Feature 101: também fora da sidebar, como `tags` e `link-icons`. Quem entra em
+                  // Recorrências veio de Tarefas — o botão "Recorrências" do cabeçalho de `/tasks`
+                  // é a única porta, e um item fixo na sidebar para uma leitura ocasional só
+                  // engordaria o menu.
+                  { path: "recurrences", element: <TasksRecurrences /> },
                 ],
               },
 

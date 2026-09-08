@@ -1,4 +1,5 @@
 import type { TaskPriority } from "@/types/tasks";
+import { bucketForDueDate, type TaskStatusView } from "./agenda";
 
 export interface TaskFilter {
   projectId?: string | null;
@@ -29,6 +30,42 @@ export function filterTasks<T extends FilterableTask>(
     if (filter.priority && task.priority !== filter.priority) return false;
     return true;
   });
+}
+
+/** O recorte que a barra da aba Lista aplica **depois** de `filterTasks` — o `<Select>` de status,
+ * os chips de prioridade e o chip "Hoje" (`TaskList.tsx`, bloco de controles da aba). */
+export interface ListQuickFilters {
+  priority: TaskPriority | null;
+  todayOnly: boolean;
+  statusView: TaskStatusView;
+  todayIso: string;
+}
+
+/** O mínimo que dá pra perguntar sobre visibilidade — nem precisa existir no banco ainda. */
+interface ListVisibleTask {
+  status: string;
+  priority?: TaskPriority | null;
+  due_date: string | null;
+}
+
+/**
+ * Uma tarefa passaria pelos filtros rápidos da aba Lista? Existe (feature 098) para o quick add
+ * poder avisar **antes** de o usuário procurar: a tarefa nasce sem prazo e sem prioridade, então
+ * com um chip de prioridade ou o "Hoje" ligado ela é criada e não aparece em lugar nenhum — sem
+ * aviso, o clique parece não ter feito nada.
+ *
+ * Deliberadamente **não** considera projeto/tag: quem recorta por isso é `filterTasks`, e o quick
+ * add já cria a tarefa dentro do projeto do filtro (feature 099).
+ */
+export function isTaskVisibleInList(
+  task: ListVisibleTask,
+  { priority, todayOnly, statusView, todayIso }: ListQuickFilters
+): boolean {
+  if (statusView === "pending" && task.status === "done") return false;
+  if (statusView === "done" && task.status !== "done") return false;
+  if (priority && task.priority !== priority) return false;
+  if (todayOnly && bucketForDueDate(task.due_date, todayIso) !== "today") return false;
+  return true;
 }
 
 export function sortTasksByDueDate<T extends { due_date: string | null }>(
@@ -81,30 +118,62 @@ export function sortTasksByUpdatedAtDesc<T extends UpdatedSortableTask>(tasks: T
   });
 }
 
+/** Campos que a ordenação por prioridade precisa ler. */
+export interface PrioritySortableTask extends UpdatedSortableTask {
+  priority?: TaskPriority | null;
+}
+
+/** Alta → Média → Baixa → sem prioridade: a mesma sequência das faixas do painel "Por prioridade"
+ * (feature 082), pra listagem e painel não discordarem sobre o que vem primeiro. */
+const PRIORITY_SORT_RANK: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 };
+const NO_PRIORITY_SORT_RANK = 3;
+
+function prioritySortRank(priority: TaskPriority | null | undefined): number {
+  return priority ? PRIORITY_SORT_RANK[priority] : NO_PRIORITY_SORT_RANK;
+}
+
+/** Prioridade mais alta primeiro, sem prioridade por último. Dentro da mesma faixa vale o
+ * desempate de "última atualização" — ordenar só pela faixa deixaria as tarefas de mesma
+ * prioridade em ordem indefinida. Não muta o array de entrada. */
+export function sortTasksByPriority<T extends PrioritySortableTask>(tasks: T[]): T[] {
+  // `sortTasksByUpdatedAtDesc` já devolve cópia, e `Array.prototype.sort` é estável: o desempate
+  // sobrevive à reordenação por faixa.
+  return sortTasksByUpdatedAtDesc(tasks).sort(
+    (a, b) => prioritySortRank(a.priority) - prioritySortRank(b.priority)
+  );
+}
+
 /** Ordenações oferecidas pelo seletor "Ordenar por" da Lista/Kanban (feature 079). */
-export type TaskSortKey = "updated" | "due";
+export type TaskSortKey = "updated" | "due" | "priority";
 
 /** Padrão de fábrica: o pedido literal da feature 079 é "ordene por last_updated". */
 export const DEFAULT_TASK_SORT_KEY: TaskSortKey = "updated";
 
 /** Ordem em que as opções aparecem no seletor. */
-export const TASK_SORT_KEYS = ["updated", "due"] as const satisfies readonly TaskSortKey[];
+export const TASK_SORT_KEYS = [
+  "updated",
+  "due",
+  "priority",
+] as const satisfies readonly TaskSortKey[];
 
 export const TASK_SORT_LABELS: Record<TaskSortKey, string> = {
   updated: "Última atualização",
   due: "Prazo",
+  priority: "Prioridade",
 };
 
 export function isTaskSortKey(value: unknown): value is TaskSortKey {
-  return value === "updated" || value === "due";
+  return value === "updated" || value === "due" || value === "priority";
 }
 
 /** Campos que qualquer comparador do seletor precisa ler. */
-export type SortableTask = UpdatedSortableTask & { due_date: string | null };
+export type SortableTask = PrioritySortableTask & { due_date: string | null };
 
 /** Despacha para o comparador da chave escolhida. Não muta o array de entrada. */
 export function sortTasksBy<T extends SortableTask>(key: TaskSortKey, tasks: T[]): T[] {
-  return key === "due" ? sortTasksByDueDate(tasks) : sortTasksByUpdatedAtDesc(tasks);
+  if (key === "due") return sortTasksByDueDate(tasks);
+  if (key === "priority") return sortTasksByPriority(tasks);
+  return sortTasksByUpdatedAtDesc(tasks);
 }
 
 /**
@@ -138,4 +207,42 @@ export function normalizeProjectFilter(
     if (id === value) return value;
   }
   return PROJECT_FILTER_ALL;
+}
+
+/**
+ * Semântica de **filtragem**: traduz o valor do filtro para o `projectId` que `filterTasks`
+ * espera em `TaskFilter`.
+ *
+ * - `"all"` → `undefined`, que em `filterTasks` significa **não recortar por projeto**
+ *   (`filter.projectId !== undefined` é o guard lá em cima);
+ * - `"null"` → `null`, o recorte "só o que não tem projeto" (`task.project_id === null`);
+ * - id de projeto → o próprio id.
+ *
+ * Existe (feature 099) porque essa conversão estava escrita à mão três vezes em `TaskList.tsx`
+ * (`visibleTasks`, `ganttTasks`, `quadrantProjectTasks`) — e a quarta cópia, a da criação, tem
+ * regra **diferente**: veja `projectIdForNewTask`.
+ */
+export function projectFilterToProjectId(value: unknown): string | null | undefined {
+  if (!isProjectFilterValue(value) || value === PROJECT_FILTER_ALL) return undefined;
+  if (value === PROJECT_FILTER_NONE) return null;
+  return value;
+}
+
+/**
+ * Semântica de **criação**: o `project_id` com que uma tarefa nova nasce quando o filtro está
+ * ligado (feature 099) — "estou olhando o recorte de Casa, então a tarefa que eu criar aqui é de
+ * Casa".
+ *
+ * - id de projeto → o próprio id;
+ * - `"all"` → `null`. **É aqui que ela diverge de `projectFilterToProjectId`**, que devolveria
+ *   `undefined`: "todos os projetos" não é um projeto, e escolher um default (o primeiro da lista,
+ *   o mais ativo) seria escolher pelo usuário;
+ * - `"null"` → `null`, que é literalmente o recorte escolhido;
+ * - qualquer outra coisa (string vazia, `undefined`, lixo) → `null`, o mesmo que o formulário já
+ *   fazia antes desta feature.
+ */
+export function projectIdForNewTask(value: unknown): string | null {
+  if (!isProjectFilterValue(value)) return null;
+  if (value === PROJECT_FILTER_ALL || value === PROJECT_FILTER_NONE) return null;
+  return value;
 }

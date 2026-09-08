@@ -47,6 +47,15 @@ export type ProjectEventCreateRequest = Omit<
   "id" | "user_id" | "created_at"
 >;
 
+/**
+ * Feature 103: evento passa a ser editável. Até aqui `project_event` só nascia e morria — um
+ * horário errado só se consertava apagando e recriando, o que a criação pela Agenda (e o arrasto da
+ * 104) tornaria inaceitável.
+ */
+export type ProjectEventUpdateRequest = Partial<ProjectEventCreateRequest> & {
+  id: string;
+};
+
 /** Convite de evento (feature 076) — espelha `public.event_invite`. */
 export type EventInviteStatus = "pending" | "accepted" | "revoked" | "expired";
 
@@ -329,3 +338,63 @@ export interface LinkIconRule {
 /** A regra antes de existir no banco: o que o diálogo de criar/editar monta. Sem `id`/`user_id`,
  * que quem grava preenche — mesmo espírito de `TaskExternalLinkDraft`. */
 export type LinkIconRuleDraft = Omit<LinkIconRule, "id" | "user_id" | "created_at">;
+
+/**
+ * Tipo do item na base do projeto (feature 106) — espelha o `check` de `public.project_asset.kind`.
+ * A 107 só acrescenta colunas; reescrever o check depois seria arriscado, então o contrato inteiro
+ * já nasce aqui.
+ */
+export type ProjectAssetKind = "link" | "file";
+
+export const PROJECT_ASSET_KINDS: readonly ProjectAssetKind[] = ["link", "file"];
+
+/**
+ * Item da base do projeto (link ou arquivo) — espelha `public.project_asset`.
+ *
+ * A base é **do projeto** (`project_id not null`): tarefa sem projeto não pode alimentá-la.
+ * Vínculo com tarefa é N:N via `project_asset_task` (precedente: `note_link`).
+ * `kind="link"` é esta feature; `kind="file"` será preenchido pela 107.
+ *
+ * O ícone/rótulo do link é derivado da URL em tempo de render (`resolveLinkAppearance` +
+ * `useLinkIconRules`), nunca gravado — a 087 tornou a derivação configurável.
+ */
+export interface ProjectAsset {
+  id: string;
+  user_id?: string;
+  project_id: string;
+  kind: ProjectAssetKind;
+  title: string;
+  /** Obrigatório para kind="link"; nulo para kind="file" (107 usa `storage_path`). */
+  url: string | null;
+  /** Caminho no bucket privado project-files ({userId}/{projectId}/{uuid}.{ext}) para kind="file". */
+  storage_path?: string | null;
+  /** MIME type do arquivo para kind="file" (ex.: application/pdf). */
+  mime_type?: string | null;
+  /** Tamanho em bytes do arquivo para kind="file". */
+  size_bytes?: number | null;
+  comment: string | null;
+  position: number;
+  created_at?: string;
+}
+
+/** O asset enquanto é editado no formulário: sem `id`/`user_id`, que quem grava preenche. */
+export interface ProjectAssetDraft {
+  project_id: string;
+  kind: ProjectAssetKind;
+  title: string;
+  url: string | null;
+  storage_path?: string | null;
+  mime_type?: string | null;
+  size_bytes?: number | null;
+  comment: string | null;
+  position: number;
+}
+
+/** Vínculo asset <-> task (feature 106) — espelha `public.project_asset_task`. */
+export interface ProjectAssetTaskLink {
+  id: string;
+  user_id?: string;
+  asset_id: string;
+  task_id: string;
+  created_at?: string;
+}

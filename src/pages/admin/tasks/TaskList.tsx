@@ -1,4 +1,4 @@
-import { ListTodo, Tag as TagIcon, Timer, X } from "lucide-react";
+import { ListTodo, Repeat, Tag as TagIcon, Timer, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   DndContext,
@@ -36,6 +36,7 @@ import { formatDateBR } from "@/lib/currency";
 import { ProjectsRail } from "./ProjectsRail";
 import { TaskQuadrant } from "./TaskQuadrant";
 import { TaskSortToggle } from "./TaskSortToggle";
+import { TaskQuickAdd, type TaskQuickAddPayload } from "./TaskQuickAdd";
 import { type TaskIconValue } from "./TaskIconPicker";
 import { type SubtaskDraft } from "./TaskSubtasksField";
 import {
@@ -63,10 +64,12 @@ import {
   fetchDependencies,
   fetchExternalLinksForTask,
   fetchExternalLinksForTasks,
+  fetchAssetsForTasks,
   fetchProjects,
   fetchTags,
   fetchTasks,
   saveExternalLinksForTask,
+  saveTaskAssetLinks,
   updateTask,
   updateTasksSortOrder,
 } from "@/api/tasks";
@@ -83,11 +86,13 @@ import {
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
   isSubtaskDueDateValid,
+  isTaskVisibleInList,
   normalizeExternalLinkDrafts,
   normalizeProjectFilter,
   PRIORITY_OPTIONS,
   PROJECT_FILTER_ALL,
-  PROJECT_FILTER_NONE,
+  projectFilterToProjectId,
+  projectIdForNewTask,
   rankProjectsByActivity,
   sortTasksBy,
   sortTasksByCompletedAtDesc,
@@ -170,11 +175,19 @@ export default function TaskList() {
    * em criação nascem vazios e são gravados depois do `createTask`, quando já existe `task_id` —
    * o mesmo caminho que `subtaskDrafts` faz. */
   const [externalLinkDrafts, setExternalLinkDrafts] = useState<TaskExternalLinkDraft[]>([]);
+  /** Assets da base do projeto anexados à tarefa aberta (feature 106). Mesmo ciclo de vida dos
+   * links externos: em edição carregam ao abrir; em criação nascem vazios e gravam depois do
+   * `createTask`. */
+  const [projectAssetIds, setProjectAssetIds] = useState<string[]>([]);
   /** Links de **todas** as tarefas da tela, numa consulta só por `load()`, para os chips dos cards
    * não virarem uma ida ao banco por tarefa. */
   const [externalLinksByTask, setExternalLinksByTask] = useState<Record<string, TaskExternalLink[]>>(
     {}
   );
+  /** Assets da base do projeto anexados a cada tarefa (feature 106) — para o paperclip nos cards. */
+  const [projectAssetsByTask, setProjectAssetsByTask] = useState<
+    Record<string, { id: string; title: string }[]>
+  >({});
   const [kanbanSubtaskDrafts, setKanbanSubtaskDrafts] = useState<Record<string, string>>({});
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -231,6 +244,18 @@ export default function TaskList() {
       } catch {
         setExternalLinksByTask({});
       }
+      // Feature 106: assets da base do projeto anexados às tarefas (paperclip nos cards).
+      // Mesmo tratamento: falha cai para "sem paperclip" sem derrubar a lista.
+      try {
+        const assetMap = await fetchAssetsForTasks(taskList.map((t) => t.id));
+        const assetsByTask: Record<string, { id: string; title: string }[]> = {};
+        for (const [taskId, assets] of Object.entries(assetMap)) {
+          assetsByTask[taskId] = assets.map((a) => ({ id: a.id, title: a.title }));
+        }
+        setProjectAssetsByTask(assetsByTask);
+      } catch {
+        setProjectAssetsByTask({});
+      }
     } catch (error) {
       toast({
         title: "Erro",
@@ -256,15 +281,9 @@ export default function TaskList() {
   });
 
   const visibleTasks = useMemo(() => {
-    const projectId =
-      projectFilter === PROJECT_FILTER_ALL
-        ? undefined
-        : projectFilter === PROJECT_FILTER_NONE
-          ? null
-          : projectFilter;
     const filtered = filterTasks(tasks, {
       tagId: tagFilter || undefined,
-      projectId,
+      projectId: projectFilterToProjectId(projectFilter),
     });
     return filtered.filter(
       (t) =>
@@ -336,11 +355,12 @@ export default function TaskList() {
     (list: Task[]) =>
       list.map((task) => ({
         task,
-        // `id`/`updated_at`/`created_at` viajam junto porque o comparador de "última atualização"
-        // (feature 079) lê do próprio item do array, não do `task` embrulhado.
+        // `id`/`updated_at`/`created_at`/`priority` viajam junto porque os comparadores do
+        // seletor (feature 079) leem do próprio item do array, não do `task` embrulhado.
         id: task.id,
         updated_at: task.updated_at,
         created_at: task.created_at,
+        priority: task.priority ?? null,
         due_date: frozenDueDateOf(task),
       })),
     [frozenDueDateOf]
@@ -369,10 +389,11 @@ export default function TaskList() {
     ) as Record<AgendaBucket, Task[]>;
   }, [pendingTasks, todayIso, withFrozenDueDate]);
 
-  /** Projeto específico selecionado na `ProjectsRail` — "all"/"null" não contam. */
+  /** Projeto específico selecionado na `ProjectsRail` — "all"/"null" não contam (viram
+   * `undefined`/`null` em `projectFilterToProjectId`, que é a mesma leitura usada pelos recortes
+   * de `visibleTasks`/`ganttTasks`). */
   const quadrantProjectTasks = useMemo(() => {
-    if (projectFilter === PROJECT_FILTER_ALL || projectFilter === PROJECT_FILTER_NONE) return null;
-    return pendingTasks;
+    return projectFilterToProjectId(projectFilter) ? pendingTasks : null;
   }, [pendingTasks, projectFilter]);
 
   const nothingToShow =
@@ -394,13 +415,10 @@ export default function TaskList() {
   // Gantt precisa das subtarefas também (a lib hierarquiza pai→filho sozinha), diferente de
   // `visibleTasks` (que já exclui subtarefas pras outras visões).
   const ganttTasks = useMemo(() => {
-    const projectId =
-      projectFilter === PROJECT_FILTER_ALL
-        ? undefined
-        : projectFilter === PROJECT_FILTER_NONE
-          ? null
-          : projectFilter;
-    return filterTasks(tasks, { tagId: tagFilter || undefined, projectId }).filter(
+    return filterTasks(tasks, {
+      tagId: tagFilter || undefined,
+      projectId: projectFilterToProjectId(projectFilter),
+    }).filter(
       (t) => !(t.linked_recurring_id && t.linked_installment_number == null)
     );
   }, [tasks, tagFilter, projectFilter]);
@@ -498,11 +516,67 @@ export default function TaskList() {
     }
   }
 
+  /**
+   * Projeto em que a tarefa do quick add nasce — o mesmo que o dialog "Nova tarefa" usa
+   * (`openCreate`). **Costura da feature 099 com a 098**, consumida: o `TaskQuickAdd` continua sem
+   * saber o que é filtro de projeto (ele só devolve no payload o `projectId` que recebeu), e a
+   * tradução "filtro → projeto da tarefa nova" mora num lugar só.
+   */
+  const projectIdForQuickAdd: string | null = projectIdForNewTask(projectFilter);
+
+  /**
+   * Criação pela tira de quick add (feature 098): só título e descrição, o resto vem de
+   * `emptyTask`. O toast contraria a convenção dos inline creates do app de propósito — a tarefa
+   * nasce sem prazo e cai na caixa "Sem prazo", que pode estar telas abaixo, e com um chip de
+   * prioridade ou "Hoje" ligado ela pode não aparecer em lugar nenhum. Sem aviso, o clique parece
+   * não ter feito nada.
+   *
+   * O erro é reportado aqui **e** re-lançado: o `TaskQuickAdd` precisa saber que falhou para
+   * preservar o que foi digitado (e não limpar o campo).
+   */
+  async function handleQuickAddCreate({
+    title,
+    description,
+    projectId,
+  }: TaskQuickAddPayload & { projectId: string | null }) {
+    try {
+      await createTask({ ...emptyTask(projectId), title, description });
+      await load();
+      const visible = isTaskVisibleInList(
+        { status: "todo", priority: null, due_date: null },
+        { priority: priorityFilter, todayOnly, statusView, todayIso }
+      );
+      toast({
+        title: visible
+          ? `Criada em «${AGENDA_BUCKET_LABELS[bucketForDueDate(null, todayIso)]}»`
+          : "Tarefa criada, mas os filtros ativos a escondem",
+        duration: 2000,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível criar a tarefa."),
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Abre o formulário completo já **semeado com o projeto do filtro** (feature 099): quem está
+   * olhando o recorte de "Casa" e clica em "Nova tarefa" quer uma tarefa de Casa — e, sem isso, a
+   * tarefa nasceria sem projeto e sumiria da lista que ele estava olhando no instante em que fosse
+   * salva (`visibleTasks` recorta exatamente por esse filtro).
+   *
+   * É só o **valor inicial**: trocar o filtro com o dialog aberto não mexe no rascunho, e escolher
+   * "Sem projeto" no `ProjectPicker` continua valendo — o filtro é um palpite, não uma trava.
+   */
   function openCreate() {
     setEditing(null);
-    setForm(emptyTask());
+    setForm(emptyTask(projectIdForNewTask(projectFilter)));
     setSubtaskDrafts([]);
     setExternalLinkDrafts([]);
+    setProjectAssetIds([]);
     setOpen(true);
   }
 
@@ -534,6 +608,7 @@ export default function TaskList() {
     });
     setSubtaskDrafts([]);
     loadExternalLinkDrafts(task.id);
+    loadProjectAssetIds(task.id);
     setOpen(true);
   }
 
@@ -556,6 +631,22 @@ export default function TaskList() {
       toast({
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível carregar os links externos."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  /** Carrega os assets da base do projeto anexados à tarefa (feature 106). Mesmo padrão dos
+   * links externos: zera antes, falha cai para vazio com aviso. */
+  async function loadProjectAssetIds(taskId: string) {
+    setProjectAssetIds([]);
+    try {
+      const assetsMap = await fetchAssetsForTasks([taskId]);
+      setProjectAssetIds(assetsMap[taskId]?.map((a) => a.id) ?? []);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível carregar os anexos do projeto."),
         variant: "destructive",
       });
     }
@@ -597,6 +688,7 @@ export default function TaskList() {
       if (editing) {
         await updateTask({ id: editing.id, ...payload });
         await saveExternalLinksForTask(editing.id, links);
+        await saveTaskAssetLinks(editing.id, projectAssetIds);
       } else {
         const created = await createTask(payload);
         for (const title of subtaskDrafts) {
@@ -610,6 +702,7 @@ export default function TaskList() {
         // Só aqui existe `task_id` para gravar — mesmo motivo pelo qual as subtarefas de uma tarefa
         // nova esperam o `createTask`.
         if (links.length > 0) await saveExternalLinksForTask(created.id, links);
+        if (projectAssetIds.length > 0) await saveTaskAssetLinks(created.id, projectAssetIds);
       }
       toast({ title: "Tarefa salva!", duration: 2000 });
       setOpen(false);
@@ -789,6 +882,57 @@ export default function TaskList() {
     load();
   }
 
+  /**
+   * Feature 100 — título/descrição editados no próprio card, sem abrir o dialog.
+   *
+   * Otimista e **sem `load()`**, pelo mesmo motivo do `handleDueChange` mas por outra via: com
+   * `sortKey = "updated"` (o padrão de fábrica da 079), recarregar jogaria a linha para o topo da
+   * caixa no exato instante em que o usuário terminou de digitar. O estado local também **não**
+   * mexe em `updated_at` — só no campo editado. A ordem real se acerta na próxima recarga natural
+   * (F5, troca de filtro, navegação).
+   *
+   * Falha desfaz o otimismo (o texto antigo volta ao card) e avisa — molde exato do
+   * `handleDueChange`, porque um toast com o texto errado ainda na tela é o pior dos dois mundos.
+   */
+  async function handleTitleChange(taskId: string, title: string) {
+    const before = tasks.find((t) => t.id === taskId);
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, title } : t)));
+    try {
+      // Uma ocorrência de série edita **só** a si mesma: ao contrário do ícone (feature 073), que
+      // pertence à origem, título e descrição não propagam — é o que o dialog completo já faz.
+      await updateTask({ id: taskId, title });
+    } catch (error) {
+      if (before) setTasks((prev) => prev.map((t) => (t.id === taskId ? before : t)));
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível atualizar o título."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleDescriptionChange(taskId: string, description: string) {
+    const before = tasks.find((t) => t.id === taskId);
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, description } : t)));
+    try {
+      await updateTask({ id: taskId, description });
+    } catch (error) {
+      if (before) setTasks((prev) => prev.map((t) => (t.id === taskId ? before : t)));
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível atualizar a descrição."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  /** Título apagado por inteiro: o componente já restaurou o texto anterior, aqui só sai o aviso.
+   * Com aviso, e não em silêncio como o guard de `handleSave`, porque aqui o usuário apagou de
+   * propósito e merece saber por que não colou. */
+  function handleInvalidTitle(message: string) {
+    toast({ title: "Erro", description: message, variant: "destructive" });
+  }
+
   async function handleProjectChange(taskId: string, projectId: string | null) {
     try {
       await updateTask({ id: taskId, project_id: projectId });
@@ -830,6 +974,10 @@ export default function TaskList() {
     onPriorityChange: (subtask, priority) => handlePriorityChange(subtask.id, priority),
     onDueChange: (subtask, next) => handleDueChange(subtask.id, next),
     onDueOpenChange: (subtask, open) => handleDueOpenChange(subtask.id, open),
+    onTitleChange: (subtask, title) => handleTitleChange(subtask.id, title),
+    onDescriptionChange: (subtask, description) =>
+      handleDescriptionChange(subtask.id, description),
+    onInvalidTitle: handleInvalidTitle,
   };
 
   return (
@@ -842,6 +990,14 @@ export default function TaskList() {
             <Link to="/tasks/live">
               <Timer className="h-4 w-4" />
               Live
+            </Link>
+          </Button>
+          {/* Feature 101: a única porta para `/tasks/recurrences` — a tela fica fora da sidebar,
+              como Live e Tags. Quem quer ver "o que se repete na minha vida" está aqui. */}
+          <Button variant="outline" asChild>
+            <Link to="/tasks/recurrences">
+              <Repeat className="h-4 w-4" />
+              Recorrências
             </Link>
           </Button>
           <Button variant="outline" asChild>
@@ -964,6 +1120,14 @@ export default function TaskList() {
               </Button>
             </div>
             <TaskSortToggle value={sortKey} onChange={handleSortKeyChange} />
+            {/* Feature 098: o `+` do canto superior direito da Lista. `ml-auto` empurra a tira
+                para a borda direita da barra, e é o que faz o campo crescer **para a esquerda**
+                ao abrir. */}
+            <TaskQuickAdd
+              className="ml-auto"
+              projectId={projectIdForQuickAdd}
+              onCreate={handleQuickAddCreate}
+            />
           </div>
 
           {!loading && quadrantProjectTasks && (
@@ -1022,8 +1186,14 @@ export default function TaskList() {
                           onDueChange={(next) => handleDueChange(task.id, next)}
                           onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
                           onProjectChange={(projectId) => handleProjectChange(task.id, projectId)}
+                          onTitleChange={(title) => handleTitleChange(task.id, title)}
+                          onDescriptionChange={(description) =>
+                            handleDescriptionChange(task.id, description)
+                          }
+                          onInvalidTitle={handleInvalidTitle}
                           projects={projectsByActivity}
                           externalLinksByTask={externalLinksByTask}
+                          projectAssetsByTask={projectAssetsByTask}
                           subtaskActions={subtaskActions}
                           extraActions={
                             task.status === "done" && !task.linked_recurring_id ? (
@@ -1065,8 +1235,14 @@ export default function TaskList() {
                   onDueChange={(task, next) => handleDueChange(task.id, next)}
                   onDueOpenChange={(task, open) => handleDueOpenChange(task.id, open)}
                   onProjectChange={(task, projectId) => handleProjectChange(task.id, projectId)}
+                  onTitleChange={(task, title) => handleTitleChange(task.id, title)}
+                  onDescriptionChange={(task, description) =>
+                    handleDescriptionChange(task.id, description)
+                  }
+                  onInvalidTitle={handleInvalidTitle}
                   projects={projectsByActivity}
                   externalLinksByTask={externalLinksByTask}
+                  projectAssetsByTask={projectAssetsByTask}
                   subtaskActions={subtaskActions}
                   extraActions={(task) =>
                     !task.linked_recurring_id ? (
@@ -1144,6 +1320,11 @@ export default function TaskList() {
                                 onDueChange={(next) => handleDueChange(task.id, next)}
                                 onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
                                 onProjectChange={(projectId) => handleProjectChange(task.id, projectId)}
+                                onTitleChange={(title) => handleTitleChange(task.id, title)}
+                                onDescriptionChange={(description) =>
+                                  handleDescriptionChange(task.id, description)
+                                }
+                                onInvalidTitle={handleInvalidTitle}
                                 projects={projectsByActivity}
                                 externalLinksByTask={externalLinksByTask}
                                 subtaskActions={subtaskActions}
@@ -1235,6 +1416,8 @@ export default function TaskList() {
             }
             externalLinks={externalLinkDrafts}
             onExternalLinksChange={setExternalLinkDrafts}
+            projectAssetIds={projectAssetIds}
+            onProjectAssetIdsChange={setProjectAssetIds}
             projects={projectsByActivity}
           />
           <Button onClick={handleSave} className="w-full">

@@ -61,7 +61,11 @@ vi.mock("@/api/shopping/items", () => ({
 vi.mock("@/api/notes/notes", () => ({
   fetchNotes: vi.fn(async () => []),
   createNote: vi.fn(),
-  countNotesByProject: vi.fn(async () => 0),
+}));
+
+vi.mock("@/api/notes/projectDocuments", () => ({
+  fetchProjectDocuments: vi.fn(async () => []),
+  countProjectDocuments: vi.fn(async () => 0),
 }));
 
 vi.mock("@/hooks/useDimensions", () => ({
@@ -105,26 +109,33 @@ function makeTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
-/** Chegam na ordem de prazo; a ordem por atualização é outra (Beta, Gama, Alfa). */
+/**
+ * Chegam na ordem de prazo; a ordem por atualização é outra (Beta, Gama, Alfa).
+ *
+ * Os prazos precisam cair **no mesmo balde** de `AGENDA_BUCKET_ORDER`: a Lista do projeto agrupa
+ * por balde antes de ordenar, então tarefas espalhadas em `overdue`/`today`/`this_week` fariam a
+ * ordem dos baldes atropelar o comparador e o teste mediria outra coisa. Fev/2027 é depois do fim
+ * do mês corrente do relógio congelado abaixo (20/08/2026) → as três caem em `later` juntas.
+ */
 const TASKS: Task[] = [
   makeTask({
     id: "t-alfa",
     title: "Alfa",
-    due_date: "2026-08-25",
+    due_date: "2027-02-10",
     created_at: "2026-08-01T08:00:00Z",
     updated_at: "2026-08-19T09:00:00Z",
   }),
   makeTask({
     id: "t-beta",
     title: "Beta",
-    due_date: "2026-08-26",
+    due_date: "2027-02-11",
     created_at: "2026-08-02T08:00:00Z",
     updated_at: "2026-08-19T11:00:00Z",
   }),
   makeTask({
     id: "t-gama",
     title: "Gama",
-    due_date: "2026-08-27",
+    due_date: "2027-02-12",
     created_at: "2026-08-03T08:00:00Z",
     updated_at: "2026-08-19T10:00:00Z",
   }),
@@ -161,6 +172,10 @@ function renderDetail() {
 describe("ProjectDetail — ordenar por última atualização (feature 079)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Relógio congelado como nos vizinhos (`TaskList.sort`, `ProjectDetail.due-regroup`): sem isso
+    // os baldes da agenda mudam conforme o dia real e a ordem esperada aqui deixa de valer.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 7, 20, 10, 0, 0));
     localStorage.clear();
     vi.mocked(fetchProjectById).mockResolvedValue(project);
     vi.mocked(fetchTasks).mockResolvedValue(TASKS.map((t) => ({ ...t })));
@@ -171,11 +186,12 @@ describe("ProjectDetail — ordenar por última atualização (feature 079)", ()
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     localStorage.clear();
   });
 
   it("a Lista do projeto abre ordenada por última atualização", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderDetail();
     await screen.findByText(project.name);
 
@@ -186,7 +202,7 @@ describe("ProjectDetail — ordenar por última atualização (feature 079)", ()
   });
 
   it("trocar para «Prazo» reordena a Lista do projeto e grava a preferência compartilhada", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderDetail();
     await screen.findByText(project.name);
     await user.click(screen.getByRole("tab", { name: "Lista" }));
@@ -200,7 +216,7 @@ describe("ProjectDetail — ordenar por última atualização (feature 079)", ()
 
   it("a preferência já salva pela Lista principal vale ao abrir o projeto", async () => {
     localStorage.setItem(TASK_SORT_STORAGE_KEY, "due");
-    const user = userEvent.setup();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderDetail();
     await screen.findByText(project.name);
 

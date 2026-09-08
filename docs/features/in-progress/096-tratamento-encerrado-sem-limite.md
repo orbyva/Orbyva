@@ -257,6 +257,35 @@ uma migration — e reparar dado de produção no chute é o que a decisão dest
 Suíte completa nesta rodada: **218 arquivos / 2299 testes / 0 falhas** (base 2270, +29),
 `npm run lint` com 0 erros, `npm run build` e `npm run check:bundle` limpos.
 
+### Reverificação (2026-08-31) — nada regrediu, o bloqueio continua sendo só o dado
+
+Nova passada da esteira sobre este arquivo. Não havia tarefa de código pendente: as quatro `- [ ]`
+que sobram são todas de banco de produção (uma aguardando o usuário, duas condicionais ao
+resultado dela, uma bloqueada no reparo). Nenhuma linha de código foi alterada nesta passada.
+
+O que foi reconferido, porque o branch andou bastante (features de produtividade) desde 2026-08-23:
+
+- As cinco mudanças de código da feature continuam no lugar: `deactivateMedication` manda só
+  `{ active: false }` (`medications.ts:212-217`), `reactivateMedication` existe com a limpeza
+  condicional de `ended_on` (`:241-263`), "Reativar" está na lista (`MedicationList.tsx:313-322`),
+  "Uso contínuo"/"Termina em" no formulário (`MedicationQuickCreateDialog.tsx:344-356`) e a ordem
+  invertida no dialog de dose (`TaskDeleteDialog.tsx:178-185`), com o `firstStep`/`totalSteps` do
+  horizonte em `medication.ts:138-147`.
+- Testes dos cinco arquivos da feature: **120 testes / 0 falhas**
+  (`health.medications.test.ts`, `medication.test.ts`, `MedicationList.test.tsx`,
+  `MedicationQuickCreateDialog.test.tsx`, `TaskDeleteDialog.test.tsx`).
+- `bash supabase/tests/medication/run.sh` verde de ponta a ponta em Postgres 16 descartável:
+  `OK Q1 … OK Q2 … OK Q3 … OK Q4`, os 5 controles negativos do diagnóstico e os 11 do backfill,
+  mais as assertivas de RLS. A prova de que o roteiro discrimina H1–H4 continua de pé.
+- Nenhuma migration nova da 096 foi escrita (a condicional depende do diagnóstico). As pendentes no
+  repositório seguem sendo `20260823100000`, `20260823110000` e `20260823120000`, de outras features.
+
+Também foi checado se a esteira teria como rodar o diagnóstico sozinha, para não deixar a feature
+parada por uma premissa velha: **não teria**. O `.env` só tem `VITE_SUPABASE_ANON_KEY` (sem
+`service_role`) e o `supabase/.temp/pooler-url` não carrega senha. Sem credencial de leitura do
+banco, e sendo o roteiro um conjunto de agregações/`join` que o PostgREST não expressa, o passo
+continua sendo do usuário no SQL Editor, como a decisão desta feature já previa.
+
 ### Confirmação independente do diagnóstico do refino (2026-08-23)
 
 Antes de construir em cima, cada afirmação do `## Contexto` foi reconferida no código. Todas se

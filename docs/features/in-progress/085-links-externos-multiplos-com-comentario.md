@@ -301,6 +301,10 @@ A feature `todo/087` (ícones por regex) consome os links criados aqui; esta nã
   caminho da gestão de ícones fica visível de onde o usuário está olhando os links, e a `087` só
   precisa tirar o `disabled` e apontar para `/tasks/link-icons` — omitir deixaria a 087 ter de
   descobrir sozinha onde o botão deveria nascer.
+  - **2026-08-26**: a aposta se pagou — a `087` entrou e o botão já é um link de verdade para
+    `/tasks/link-icons` (`TaskExternalLinksField.tsx:310-314`, abrindo em outra aba para não
+    descartar o formulário não salvo). Coberto por `TaskExternalLinksField.test.tsx` › "o botão de
+    configurar ícones leva à tela de regras, em outra aba".
 - **`AgendaGrid.tsx` (terceiro call site do formulário): fiado igual às outras duas telas**, não
   com a seção desabilitada. A Agenda edita tarefas que já existem; uma seção que abrisse vazia numa
   tarefa com links e perdesse a edição ao salvar seria pior do que não existir. O que **continua
@@ -342,3 +346,61 @@ Suíte completa depois de tudo: **222 arquivos / 2385 testes / 0 falhas**.
 O arquivo **não vai para `done/`**: sobram duas tarefas que não são minhas — aplicar a migration
 (`supabase db push` é do usuário) e o `drop column` bloqueado que só acontece depois da conferência.
 Mesmo desfecho da `058` com `project.notes`.
+
+### Rechecagem (2026-08-26)
+
+Nova passada pelo arquivo: **nenhuma tarefa implementável sobrou** — as duas `- [ ]` restantes
+continuam sendo as mesmas duas ações do usuário (aplicar a migration, e o `drop column` que só
+destrava depois da conferência pós-push). Nada de código foi tocado nesta rodada; o que foi feito
+foi reconferir que o que já estava escrito continua de pé depois de a `087` entrar por cima:
+
+- `npm run build` OK · `npm run lint` 0 erros (87 avisos pré-existentes de
+  `react-refresh/only-export-components`, nenhum nos arquivos desta feature) · `npm run check:bundle`
+  "Bundle budget OK".
+- Suíte completa: **236 arquivos / 2616 testes**, 1 falha — `ProjectDetail.sort.test.tsx` › "a Lista
+  do projeto abre ordenada por última atualização", **pré-existente e alheia à 085** (fixture da
+  `079` com `due_date` fixos de agosto/2026 sem congelar o relógio; a partir de 25/08 as tarefas caem
+  em baldes diferentes da agenda e a ordem dos baldes vence o comparador). Reproduz em `HEAD` limpo.
+- Os quatro arquivos de teste da feature, rodados à parte: **63 testes, 0 falhas**
+  (`externalLink.test.ts`, `taskExternalLinks.test.ts`, `TaskExternalLinksField.test.tsx`,
+  `TaskList.external-links.test.tsx`).
+- `bash supabase/tests/task_external_links/run.sh` → "OK: 20260823100000_task_external_links.sql
+  validada em Postgres 16." (schema, `unique`, RLS nas 4 operações, cascade, cópia do dado antigo,
+  reaplicação idempotente e `wipe_own_data`).
+
+### Rechecagem (2026-08-31) — depois das features 098/099/100
+
+Terceira passada, motivada por 098/099/100 terem entrado por cima dos **mesmos arquivos** desta
+feature (`TaskList.tsx`, `ProjectDetail.tsx`, `TaskViews.tsx` e os dois testes de fluxo de links).
+De novo **nenhuma tarefa implementável sobrou**: as duas `- [ ]` continuam sendo as mesmas ações do
+usuário (aplicar a migration; o `drop column` que só destrava depois da conferência pós-push). Nada
+de código foi tocado nesta rodada.
+
+O que mudou por fora e foi reconferido: a `100` transformou o título do card num botão de edição
+inline, então clicar no título **não abre mais** o dialog completo. Os dois testes de fluxo desta
+feature já foram adaptados junto (helper `openFullDialog`, que clica no lápis da linha/card) — a
+seção "Links externos" continua abrindo, carregando e gravando pelo caminho de sempre, só mudou o
+gesto que abre o formulário.
+
+- `npm run build` OK · `npm run lint` **0 erros** (87 avisos pré-existentes de
+  `react-refresh/only-export-components`, nenhum nos arquivos desta feature) · `npm run check:bundle`
+  "Bundle budget OK" (teto de rota 160 KB gzip intacto).
+- Suíte completa: **244 arquivos / 2733 testes / 0 falhas**. A falha de
+  `ProjectDetail.sort.test.tsx` registrada na rechecagem de 2026-08-26 **não reproduz mais** (a
+  fixture foi congelada por outra feature), e as falhas pré-existentes que a esteira avisou
+  (`CanvasBlock.test.tsx`, `notaSemSintaxe.test.tsx`) também passaram nesta rodada — a suíte está
+  inteiramente verde.
+- Os arquivos de teste da feature, rodados à parte: **120 testes, 0 falhas**
+  (`externalLink.test.ts`, `taskExternalLinks.test.ts`, `TaskExternalLinksField.test.tsx`,
+  `TaskList.external-links.test.tsx`, `ProjectDetail.external-links.test.tsx`, `TaskViews.test.tsx`).
+- `bash supabase/tests/task_external_links/run.sh` → "OK: 20260823100000_task_external_links.sql
+  validada em Postgres 16.", incluindo o controle negativo ("sem a migration não existe
+  `task_external_link`") e as 4 assertivas de comportamento (unique, cascade, RLS por `auth.uid()`,
+  `wipe_own_data`).
+- Confirmado que o app **parou mesmo** de ler/escrever as colunas antigas:
+  `grep -rn "external_url\|external_provider" src --include=*.ts --include=*.tsx` fora de testes
+  devolve **uma única linha**, o comentário-ponteiro em `src/types/tasks.ts:149`.
+
+Continua **fora de `done/`** pelo mesmo motivo das duas rodadas anteriores: as duas `- [ ]` que
+sobram são do usuário, não minhas. Enquanto o `supabase db push` não acontece, a tela funciona mas
+nenhum link é gravado em produção — a tabela não existe lá.

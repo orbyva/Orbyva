@@ -117,3 +117,34 @@ export type NoteLinkDraft = {
   entity_id: string;
   label?: string | null;
 };
+
+/**
+ * Por qual porta um documento entrou na lista do projeto (feature 105):
+ *
+ * - `project` — a nota tem `project_id` daquele projeto (o vínculo direto da 055);
+ * - `task` — há `note_link(entity_type: 'task')` para uma tarefa **daquele** projeto (a 084 é quem
+ *   costuma criar esse vínculo);
+ * - `link` — há `note_link(entity_type: 'project')` apontando para o projeto (a 056).
+ */
+export type ProjectDocumentSource = "project" | "task" | "link";
+
+/**
+ * Uma nota ou canvas na aba "Documentos" do projeto (feature 105), com a **origem** anexada.
+ *
+ * Canvas não é entidade à parte: é `Note` com `kind: 'canvas'` (decisão da 058), então os dois
+ * tipos de documento passam por aqui.
+ */
+export interface ProjectDocument extends Note {
+  /**
+   * Todas as portas por onde a nota entrou — nunca vazio, e com **mais de um** item quando ela
+   * chega por mais de um caminho (ex.: nota do projeto que também está vinculada a uma tarefa
+   * dele). Deduplicar por `note.id` sem guardar isso perderia o motivo de a nota estar na lista.
+   */
+  sources: readonly ProjectDocumentSource[];
+  /**
+   * Rótulo congelado (`note_link.label`) da tarefa de origem — `null` quando o documento não veio
+   * de tarefa, ou quando o vínculo foi criado sem rótulo. É texto, não link: não existe rota para
+   * uma tarefa específica.
+   */
+  taskLabel: string | null;
+}

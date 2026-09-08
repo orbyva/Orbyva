@@ -5,6 +5,8 @@ export * from "./tasks";
 export * from "./taskExternalLinks";
 export * from "./iconAssets";
 export * from "./linkIconRules";
+export * from "./projectAssets";
+export * from "./projectAssetFiles";
 export * from "./dependencies";
 export * from "./timeEntries";
 export * from "./tags";

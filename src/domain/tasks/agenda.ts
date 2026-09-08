@@ -114,7 +114,7 @@ export function groupTasksByAgendaBucket<T extends { due_date: string | null }>(
   return groups;
 }
 
-interface SeriesTask {
+export interface SeriesTask {
   id: string;
   due_date: string | null;
   status: string;
@@ -125,7 +125,23 @@ interface SeriesTask {
   medication_id?: string | null;
 }
 
-function seriesKey(task: SeriesTask): string | null {
+/**
+ * A definição **única** de "estas duas linhas de `task` são a mesma série" — `linked:<id>` para o
+ * vínculo com uma Recorrência Financeira, `simple:<origem>` para a recorrência simples (a própria
+ * tarefa quando ela é a origem, dona da `recurrence_rule`), `null` para tarefa avulsa.
+ *
+ * Exportada na feature 101 (era privada) porque a página "Tarefas recorrentes" agrupa por série e
+ * precisa **da mesma** noção que a Lista usa para colapsar (`collapseRecurringSeries`) e que o
+ * dialog usa para listar ocorrências (`findSeriesTasks`). Duas definições de "mesma série" em
+ * arquivos diferentes é como as telas passam a discordar sobre o que é uma recorrência.
+ *
+ * Repare no que ela **não** trata: medicação. A tarefa-origem de um tratamento backfillado
+ * (049→064) tem `recurrence_rule` **e** `medication_id`, e cai aqui em `simple:<id>`, enquanto as
+ * doses materializadas por `materializeMedicationDoses` nascem sem nenhum dos dois campos de série
+ * e caem em `null`. Quem fecha essa lacuna é `taskSeriesGroupKey` (`series.ts`), testando
+ * `medication_id` **antes** de delegar para cá.
+ */
+export function taskSeriesKey(task: SeriesTask): string | null {
   if (task.linked_recurring_id) return `linked:${task.linked_recurring_id}`;
   if (task.recurrence_origin_id) return `simple:${task.recurrence_origin_id}`;
   if (task.recurrence_rule) return `simple:${task.id}`;
@@ -149,7 +165,7 @@ export function collapseRecurringSeries<T extends SeriesTask>(tasks: T[]): T[] {
   const series = new Map<string, T[]>();
 
   for (const task of tasks) {
-    const key = seriesKey(task);
+    const key = taskSeriesKey(task);
     if (!key) {
       singles.push(task);
       continue;
@@ -235,7 +251,7 @@ export function isMedicationDoseTask(task: SeriesTask): boolean {
 
 /** Todas as ocorrências (passadas e futuras) da mesma série de `representative`, ordenadas por prazo. */
 export function findSeriesTasks<T extends SeriesTask>(allTasks: T[], representative: T): T[] {
-  const key = seriesKey(representative);
+  const key = taskSeriesKey(representative);
   if (!key) return [representative];
-  return allTasks.filter((t) => seriesKey(t) === key).sort(compareByDueDateAsc);
+  return allTasks.filter((t) => taskSeriesKey(t) === key).sort(compareByDueDateAsc);
 }

@@ -128,6 +128,22 @@ beforeEach(() => {
   mockedFetchLinksForTasks.mockResolvedValue({});
 });
 
+/**
+ * Feature 100: o título do card virou um botão de edição inline, então clicar nele **não** abre
+ * mais o dialog completo — quem abre é o lápis da linha/card (ou qualquer ponto fora do título e
+ * da descrição). O caminho do formulário continua existindo, só mudou de gesto.
+ */
+async function openFullDialog(
+  user: ReturnType<typeof userEvent.setup>,
+  title: string
+) {
+  const card = screen
+    .getByRole("button", { name: `Editar título: ${title}` })
+    .closest(".cursor-pointer") as HTMLElement;
+  const pencil = card.querySelector("svg.lucide-pen")?.closest("button") as HTMLButtonElement;
+  await user.click(pencil);
+}
+
 describe("ProjectDetail — links externos (feature 085)", () => {
   it("criar tarefa com link grava depois do createTask, com o id novo", async () => {
     const user = userEvent.setup();
@@ -158,7 +174,7 @@ describe("ProjectDetail — links externos (feature 085)", () => {
     ]);
     await renderWithTasks([makeTask({ title: "Tarefa com link" })]);
 
-    await user.click(screen.getByText("Tarefa com link"));
+    await openFullDialog(user, "Tarefa com link");
     const panel = within(await screen.findByRole("dialog"));
     expect(mockedFetchLinksForTask).toHaveBeenCalledWith("task-1");
 

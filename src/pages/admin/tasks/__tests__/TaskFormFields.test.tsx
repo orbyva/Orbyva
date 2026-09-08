@@ -125,6 +125,8 @@ function Harness({
         }
         externalLinks={externalLinks}
         onExternalLinksChange={setExternalLinks}
+        projectAssetIds={[]}
+        onProjectAssetIdsChange={vi.fn()}
         projects={projects}
       />
     </MemoryRouter>

@@ -93,6 +93,10 @@ const NAV_PRODUTIVIDADE: NavItem = {
   icon: ListTodo,
   items: [
     { title: "Tarefas", url: "/tasks" },
+    // Feature 102: a Agenda volta a ser item de Produtividade, revertendo a redução da feature 023
+    // (que a tinha transformado só numa aba de `/tasks`) — a reversão é pedido explícito do
+    // usuário. A URL continua `/tasks/agenda`, como "Projetos" mora em `/tasks/projects`.
+    { title: "Agenda", url: "/tasks/agenda" },
     { title: "Projetos", url: "/tasks/projects" },
     { title: "Notas", url: "/notes" },
     { title: "Lista de Compras", url: "/shopping-list" },

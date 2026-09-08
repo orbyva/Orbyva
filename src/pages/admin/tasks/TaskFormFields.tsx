@@ -18,6 +18,7 @@ import {
 import { CollapsibleField } from "./CollapsibleField";
 import { TaskExternalLinksField } from "./TaskExternalLinksField";
 import { TaskDescriptionField } from "./TaskDescriptionField";
+import { TaskProjectAssetsField } from "./TaskProjectAssetsField";
 import { TaskDueShortcuts } from "./TaskDueShortcuts";
 import { TaskDurationQuickPick } from "./TaskDurationQuickPick";
 import { TaskIconPicker } from "./TaskIconPicker";
@@ -74,6 +75,12 @@ export interface TaskFormFieldsProps {
   externalLinks: TaskExternalLinkDraft[];
   onExternalLinksChange: (next: TaskExternalLinkDraft[]) => void;
   /**
+   * IDs dos assets da base do projeto anexados a esta tarefa (feature 106) — lista **controlada**,
+   * gravada no `handleSave` via `saveTaskAssetLinks`. Em edição vem de `fetchAssetsForTasks`.
+   */
+  projectAssetIds: string[];
+  onProjectAssetIdsChange: (next: string[]) => void;
+  /**
    * Presença = campo Projeto aparece (`TaskList.tsx`, tarefa sem projeto fixo pela rota);
    * ausência = campo some (`ProjectDetail.tsx`, projeto já fixo pela rota) — mesmo padrão
    * "presença de prop = campo aparece" de `TaskQuickFields` (feature 033).
@@ -108,6 +115,8 @@ export function TaskFormFields({
   onRemoveSubtask,
   externalLinks,
   onExternalLinksChange,
+  projectAssetIds,
+  onProjectAssetIdsChange,
   projects,
 }: TaskFormFieldsProps) {
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
@@ -402,6 +411,22 @@ export function TaskFormFields({
           </div>
           <CollapsibleField label="Links externos" summary={externalLinksSummary}>
             <TaskExternalLinksField value={externalLinks} onChange={onExternalLinksChange} />
+          </CollapsibleField>
+          <CollapsibleField
+            label="Base do projeto"
+            summary={
+              projectAssetIds.length > 0
+                ? `${projectAssetIds.length} ${
+                    projectAssetIds.length === 1 ? "anexo" : "anexos"
+                  }`
+                : null
+            }
+          >
+            <TaskProjectAssetsField
+              projectId={form.project_id ?? null}
+              value={projectAssetIds}
+              onChange={onProjectAssetIdsChange}
+            />
           </CollapsibleField>
         </div>
 

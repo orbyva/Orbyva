@@ -218,6 +218,19 @@ chega-se por dentro do módulo. É o mesmo tratamento que esta tela recebe.
   real roda, falha na autenticação e **degrada para lista vazia** — que é exatamente o caminho que a
   decisão previu. Nenhum teste quebra por isso; quem precisar das regras num teste deve mockar
   `@/api/tasks/linkIconRules`, como faz `ExternalLinkChip.rules.test.tsx`.
+- 2026-08-31 — reverificação (nada implementado; a única tarefa aberta continua bloqueada no
+  `supabase db push`). As features 098–100 mexeram em `TaskViews.tsx`, que é onde vive o
+  `ExternalLinkChip`, então a superfície da 087 foi rodada de novo: `linkIconRules.test.ts`,
+  `externalLink.test.ts`, `api/linkIconRules.test.ts`, `LinkIconRules.test.tsx`,
+  `ExternalLinkChip.rules.test.tsx` e `TaskExternalLinksField.test.tsx` → **6 arquivos / 130 testes,
+  0 falhas**. `bash supabase/tests/link_icon_rule/run.sh` → `OK: 20260823120000_link_icon_rule.sql
+  validada em Postgres 16.` Nenhuma regressão.
+- 2026-08-31 — o `wipe_own_data` desta migration guarda cada tabela com `to_regclass`, inclusive
+  `icon_asset`. Ou seja, no nível de SQL a `20260823120000_link_icon_rule.sql` **não** depende de a
+  migration da 086 já estar no remoto. A dependência que sobra é de produto: a aba "biblioteca" do
+  seletor de ícone da tela lê `icon_asset`. Na prática o ponto é acadêmico — `supabase db push`
+  aplica todas as migrations pendentes de uma vez, então o push é uma decisão única que cobre
+  085 + 086 + 087.
 - 2026-08-23 — desvio próprio (não pedido do usuário): a prévia por linha do formulário da 085
   ficou apontando para `describeExternalLink` enquanto o card passou a ser decorado por regra. Como
   ela se anuncia como "Assim aparece no card", isso é a prévia mentindo; virou tarefa no fim da

@@ -596,6 +596,182 @@ describe("TaskViews — botão Imediatamente (feature 078)", () => {
 });
 
 /**
+ * Feature 100 — título e descrição editáveis clicando neles. O que este bloco trava é a **costura**
+ * (o `TaskQuickFields` nas duas visões e na linha aninhada); o comportamento fino de cada campo
+ * está em `TaskTitleInlineEdit.test.tsx` / `TaskDescriptionInlineEdit.test.tsx`.
+ */
+describe("TaskViews — título e descrição inline (feature 100)", () => {
+  const withDescription = makeTask({ description: "**Comprar** o pão" });
+
+  it("sem os handlers, título e descrição continuam texto estático e clicar neles abre o dialog", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    renderTaskListRow({ task: withDescription, onEdit });
+
+    // Nada de botão de edição inline: é o mesmo `<p>` de sempre.
+    expect(screen.queryByRole("button", { name: /Editar título/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /descrição/i })).toBeNull();
+    expect(screen.getByText("Minha tarefa").tagName).toBe("P");
+    // A prévia continua sem sintaxe de markdown.
+    expect(screen.getByText("Comprar o pão").tagName).toBe("P");
+
+    await user.click(screen.getByText("Minha tarefa"));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByText("Comprar o pão"));
+    expect(onEdit).toHaveBeenCalledTimes(2);
+  });
+
+  it("sem `onDescriptionChange`, tarefa sem descrição continua sem renderizar nada (nem «+ Descrição»)", () => {
+    renderTaskListRow({ task: makeTask({ description: null }) });
+    expect(screen.queryByText("+ Descrição")).toBeNull();
+  });
+
+  it("com os handlers, clicar no título edita ali mesmo e **não** abre o dialog", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    const onTitleChange = vi.fn();
+    renderTaskListRow({ onEdit, onTitleChange });
+
+    await user.click(screen.getByRole("button", { name: "Editar título: Minha tarefa" }));
+    expect(onEdit).not.toHaveBeenCalled();
+
+    await user.keyboard(" corrigida{Enter}");
+    expect(onTitleChange).toHaveBeenCalledWith("Minha tarefa corrigida");
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("com `onDescriptionChange`, clicar na descrição edita ali mesmo e **não** abre o dialog", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    const onDescriptionChange = vi.fn();
+    renderTaskListRow({ task: withDescription, onEdit, onDescriptionChange });
+
+    await user.click(screen.getByRole("button", { name: "Editar descrição: Comprar o pão" }));
+    expect(onEdit).not.toHaveBeenCalled();
+
+    await user.keyboard(" integral");
+    await user.keyboard("{Control>}{Enter}{/Control}");
+    expect(onDescriptionChange).toHaveBeenCalledWith("**Comprar** o pão integral");
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("com `onDescriptionChange`, tarefa sem descrição ganha o alvo «+ Descrição»", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    const onDescriptionChange = vi.fn();
+    renderTaskListRow({ task: makeTask({ description: null }), onEdit, onDescriptionChange });
+
+    await user.click(screen.getByRole("button", { name: "Adicionar descrição: Minha tarefa" }));
+    expect(onEdit).not.toHaveBeenCalled();
+
+    await user.keyboard("agora tem{Control>}{Enter}{/Control}");
+    expect(onDescriptionChange).toHaveBeenCalledWith("agora tem");
+  });
+
+  it("a linha aninhada de subtarefa edita título e descrição com a **subtarefa**, não com a mãe", async () => {
+    const user = userEvent.setup();
+    const subtask = makeTask({ id: "sub-1", title: "Subtarefa A", parent_task_id: "task-1" });
+    const onTitleChange = vi.fn();
+    const onDescriptionChange = vi.fn();
+    renderTaskListRow({
+      subtasks: [subtask],
+      expanded: true,
+      onTitleChange: vi.fn(),
+      onDescriptionChange: vi.fn(),
+      subtaskActions: {
+        onDelete: vi.fn(),
+        onStatusChange: vi.fn(),
+        onTitleChange,
+        onDescriptionChange,
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Editar título: Subtarefa A" }));
+    await user.keyboard(" renomeada{Enter}");
+    expect(onTitleChange).toHaveBeenCalledWith(subtask, "Subtarefa A renomeada");
+
+    const subtaskRow = screen
+      .getByRole("button", { name: "Editar título: Subtarefa A" })
+      .closest(".cursor-pointer") as HTMLElement;
+    await user.click(
+      within(subtaskRow).getByRole("button", { name: "Adicionar descrição: Subtarefa A" })
+    );
+    await user.keyboard("detalhe{Control>}{Enter}{/Control}");
+    expect(onDescriptionChange).toHaveBeenCalledWith(subtask, "detalhe");
+  });
+
+  it("sem os handlers em `subtaskActions`, a linha aninhada continua com o texto estático", () => {
+    const subtask = makeTask({ id: "sub-1", title: "Subtarefa A", parent_task_id: "task-1" });
+    renderTaskListRow({
+      subtasks: [subtask],
+      expanded: true,
+      onTitleChange: vi.fn(),
+      subtaskActions: { onDelete: vi.fn(), onStatusChange: vi.fn() },
+    });
+
+    // A mãe é editável, a subtarefa não — cada uma pela presença do seu próprio handler.
+    expect(screen.getByRole("button", { name: "Editar título: Minha tarefa" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar título: Subtarefa A" })).toBeNull();
+    expect(screen.getByText("Subtarefa A").tagName).toBe("P");
+  });
+
+  it("o KanbanCard faz o mesmo: título e descrição editáveis sem abrir o dialog", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    const onTitleChange = vi.fn();
+    const onDescriptionChange = vi.fn();
+    renderKanbanCard({
+      task: withDescription,
+      onEdit,
+      onTitleChange,
+      onDescriptionChange,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Editar título: Minha tarefa" }));
+    await user.keyboard(" no kanban{Enter}");
+    expect(onTitleChange).toHaveBeenCalledWith("Minha tarefa no kanban");
+
+    await user.click(screen.getByRole("button", { name: "Editar descrição: Comprar o pão" }));
+    await user.keyboard(" quentinho{Control>}{Enter}{/Control}");
+    expect(onDescriptionChange).toHaveBeenCalledWith("**Comprar** o pão quentinho");
+
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("no Kanban sem os handlers, título e descrição continuam `<p>` e o card inteiro abre o dialog", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    renderKanbanCard({ task: withDescription, onEdit });
+
+    expect(screen.getByText("Minha tarefa").tagName).toBe("P");
+    await user.click(screen.getByText("Minha tarefa"));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+  });
+
+  it("tarefa concluída continua editável, com o line-through no botão", () => {
+    renderTaskListRow({ task: makeTask({ status: "done" }), onTitleChange: vi.fn() });
+
+    const button = screen.getByRole("button", { name: "Editar título: Minha tarefa" });
+    expect(button.className).toContain("line-through");
+  });
+
+  it("o lápis continua abrindo o dialog completo (o pedido é «sem abrir o modal», não «sem modal»)", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    const { container } = renderTaskListRow({
+      onEdit,
+      onTitleChange: vi.fn(),
+      onDescriptionChange: vi.fn(),
+    });
+
+    const pencil = container.querySelector("svg.lucide-pen")?.closest("button") as HTMLButtonElement;
+    await user.click(pencil);
+    expect(onEdit).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
  * Feature 085 — os chips de link externo. O pedido de 2026-08-23 é literal ("todos com a gestão de
  * ícones+preview"): **um chip por link**, não o primeiro com um contador. O orçamento visual é de 3
  * chips; o resto vira um "+N".

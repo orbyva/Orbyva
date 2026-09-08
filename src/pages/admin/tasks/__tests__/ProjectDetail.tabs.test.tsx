@@ -22,13 +22,20 @@ import {
   fetchShoppingCategories,
 } from "@/api/shopping/categories";
 import { fetchShoppingItems } from "@/api/shopping/items";
-import { countNotesByProject, fetchNotes } from "@/api/notes/notes";
+import { fetchNotes } from "@/api/notes/notes";
+import {
+  countProjectDocuments,
+  fetchProjectDocuments,
+} from "@/api/notes/projectDocuments";
 import type { Project } from "@/types/tasks";
 
 /**
  * Feature 069 — a página do projeto passa a ter cinco abas (Kanban | Lista | Gantt | Compras |
- * Notas). Compras e notas saíram de baixo do quadro, onde comiam o espaço vertical das tarefas, e
- * viraram abas: só carregam quando alguém as abre.
+ * Documentos). Compras e documentos saíram de baixo do quadro, onde comiam o espaço vertical das
+ * tarefas, e viraram abas: só carregam quando alguém as abre.
+ *
+ * Feature 105 — a última aba passa a se chamar "Documentos" (nota **e** canvas), mas o valor no
+ * `?tab=` continua `notas`, que é contrato público desde a 069; `?tab=documentos` é apelido.
  */
 
 vi.mock("@/api/tasks", () => ({
@@ -72,7 +79,11 @@ vi.mock("@/api/shopping/items", () => ({
 vi.mock("@/api/notes/notes", () => ({
   fetchNotes: vi.fn(),
   createNote: vi.fn(),
-  countNotesByProject: vi.fn(),
+}));
+
+vi.mock("@/api/notes/projectDocuments", () => ({
+  fetchProjectDocuments: vi.fn(),
+  countProjectDocuments: vi.fn(),
 }));
 
 vi.mock("@/hooks/useDimensions", () => ({
@@ -133,7 +144,8 @@ beforeEach(() => {
   vi.mocked(fetchShoppingItems).mockResolvedValue([]);
   vi.mocked(fetchNotes).mockResolvedValue([]);
   vi.mocked(countShoppingCategoriesByProject).mockResolvedValue(0);
-  vi.mocked(countNotesByProject).mockResolvedValue(0);
+  vi.mocked(countProjectDocuments).mockResolvedValue(0);
+  vi.mocked(fetchProjectDocuments).mockResolvedValue([]);
 });
 
 describe("ProjectDetail — abas (feature 069)", () => {
@@ -145,7 +157,7 @@ describe("ProjectDetail — abas (feature 069)", () => {
   it("os gatilhos das abas existem no primeiro render, antes de qualquer await", async () => {
     renderDetail();
 
-    for (const name of ["Kanban", "Lista", "Gantt", "Compras", "Notas"]) {
+    for (const name of ["Kanban", "Lista", "Gantt", "Compras", "Documentos"]) {
       expect(screen.getByRole("tab", { name })).toBeInTheDocument();
     }
     // E o esqueleto de carregamento está *dentro* do painel da aba, não em volta das abas.
@@ -156,29 +168,33 @@ describe("ProjectDetail — abas (feature 069)", () => {
 
   /**
    * O ganho de carga da feature 069, e o que uma regressão futura mais provavelmente desfaz: antes,
-   * abrir *qualquer* projeto disparava `fetchShoppingCategories` + `fetchShoppingItems` +
-   * `fetchNotes`, mesmo para quem só ia olhar o quadro. Agora só quando a aba abre.
+   * abrir *qualquer* projeto disparava `fetchShoppingCategories` + `fetchShoppingItems` + a busca
+   * das notas, mesmo para quem só ia olhar o quadro. Agora só quando a aba abre — e a 105, que
+   * trocou `fetchNotes` pela união de `fetchProjectDocuments`, não pode desfazer isso.
    */
-  it("as requisições de compras e notas não acontecem enquanto a aba não é aberta", async () => {
+  it("as requisições de compras e documentos não acontecem enquanto a aba não é aberta", async () => {
     const user = userEvent.setup();
     renderDetail();
 
     await screen.findByText(project.name);
     expect(fetchShoppingCategories).not.toHaveBeenCalled();
     expect(fetchShoppingItems).not.toHaveBeenCalled();
+    expect(fetchProjectDocuments).not.toHaveBeenCalled();
     expect(fetchNotes).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("tab", { name: "Compras" }));
     expect(fetchShoppingCategories).toHaveBeenCalledWith({ projectId: PROJECT_ID });
     expect(fetchShoppingItems).toHaveBeenCalled();
-    // Abrir compras não puxa as notas junto.
-    expect(fetchNotes).not.toHaveBeenCalled();
+    // Abrir compras não puxa os documentos junto.
+    expect(fetchProjectDocuments).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("tab", { name: "Notas" }));
-    expect(fetchNotes).toHaveBeenCalledWith({ projectId: PROJECT_ID });
+    await user.click(screen.getByRole("tab", { name: "Documentos" }));
+    expect(fetchProjectDocuments).toHaveBeenCalledWith(PROJECT_ID);
+    // E a lista antiga por `project_id` não é mais usada: quem monta a aba é a união.
+    expect(fetchNotes).not.toHaveBeenCalled();
   });
 
-  it("as cinco abas aparecem: Kanban, Lista, Gantt, Compras e Notas", async () => {
+  it("as cinco abas aparecem: Kanban, Lista, Gantt, Compras e Documentos", async () => {
     renderDetail();
 
     await screen.findByText(project.name);
@@ -187,20 +203,21 @@ describe("ProjectDetail — abas (feature 069)", () => {
       "Lista",
       "Gantt",
       "Compras",
-      "Notas",
+      "Documentos",
     ]);
   });
 
-  it("as contagens saem nos gatilhos de Compras e Notas", async () => {
+  it("as contagens saem nos gatilhos de Compras e Documentos", async () => {
     vi.mocked(countShoppingCategoriesByProject).mockResolvedValue(7);
-    vi.mocked(countNotesByProject).mockResolvedValue(2);
+    vi.mocked(countProjectDocuments).mockResolvedValue(2);
 
     renderDetail();
 
     expect(await screen.findByRole("tab", { name: "Compras (7)" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Notas (2)" })).toBeInTheDocument();
+    // A contagem é a da união das três origens (feature 105), não a de `project_id`.
+    expect(screen.getByRole("tab", { name: "Documentos (2)" })).toBeInTheDocument();
     expect(countShoppingCategoriesByProject).toHaveBeenCalledWith(PROJECT_ID);
-    expect(countNotesByProject).toHaveBeenCalledWith(PROJECT_ID);
+    expect(countProjectDocuments).toHaveBeenCalledWith(PROJECT_ID);
   });
 
   it("contagem zero não mostra número", async () => {
@@ -208,18 +225,49 @@ describe("ProjectDetail — abas (feature 069)", () => {
 
     await screen.findByText(project.name);
     expect(screen.getByRole("tab", { name: "Compras" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Notas" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Documentos" })).toBeInTheDocument();
   });
 
-  it("abrir com ?tab=notas já carrega na aba de notas", async () => {
+  it("abrir com ?tab=notas já carrega na aba de documentos (o valor antigo continua valendo)", async () => {
     renderDetail(`/tasks/projects/${PROJECT_ID}?tab=notas`);
 
-    const notas = await screen.findByRole("tab", { name: "Notas" });
-    expect(notas).toHaveAttribute("aria-selected", "true");
+    const documentos = await screen.findByRole("tab", { name: "Documentos" });
+    expect(documentos).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "Kanban" })).toHaveAttribute(
       "aria-selected",
       "false"
     );
+  });
+
+  /** O apelido da 105: o rótulo novo também funciona como link, e cai na mesma aba. */
+  it("?tab=documentos abre a mesma aba que ?tab=notas", async () => {
+    renderDetail(`/tasks/projects/${PROJECT_ID}?tab=documentos`);
+
+    expect(await screen.findByRole("tab", { name: "Documentos" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    // E é a aba de verdade, com a seção montada dentro dela.
+    expect(
+      await screen.findByRole("heading", { name: "Documentos do projeto", level: 2 })
+    ).toBeInTheDocument();
+    expect(fetchProjectDocuments).toHaveBeenCalledWith(PROJECT_ID);
+  });
+
+  /**
+   * Feature 105: com a aba hospedando mais de uma seção (a 106 pendura ali links e arquivos), o
+   * cabeçalho interno volta — a 069 o tinha desligado porque o gatilho da aba já era o título.
+   */
+  it("a aba mostra o cabeçalho da seção de documentos", async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText(project.name);
+    await user.click(screen.getByRole("tab", { name: "Documentos" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Documentos do projeto", level: 2 })
+    ).toBeInTheDocument();
   });
 
   it("?tab=foo (valor inválido) cai no Kanban, sem quebrar", async () => {
@@ -253,7 +301,7 @@ describe("ProjectDetail — abas (feature 069)", () => {
    * quadro é o único conteúdo abaixo das abas — nem a seção de compras nem a de notas ocupam
    * altura ali (não estão no documento).
    */
-  it("na aba Kanban, compras e notas não estão no documento — o quadro é o único conteúdo", async () => {
+  it("na aba Kanban, compras e documentos não estão no documento — o quadro é o único conteúdo", async () => {
     renderDetail();
 
     await screen.findByText(project.name);
@@ -263,11 +311,11 @@ describe("ProjectDetail — abas (feature 069)", () => {
 
     // E nada das duas seções: nem região, nem título, nem estado vazio delas.
     expect(screen.queryByRole("region", { name: "Compras do projeto" })).toBeNull();
-    expect(screen.queryByRole("region", { name: "Notas do projeto" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Documentos do projeto" })).toBeNull();
     expect(screen.queryByText("Compras do projeto")).toBeNull();
-    expect(screen.queryByText("Notas do projeto")).toBeNull();
+    expect(screen.queryByText("Documentos do projeto")).toBeNull();
     expect(screen.queryByText("Nenhuma categoria de compras neste projeto")).toBeNull();
-    expect(screen.queryByText("Nenhuma nota neste projeto")).toBeNull();
+    expect(screen.queryByText("Nenhum documento neste projeto")).toBeNull();
     expect(screen.queryByRole("link", { name: "Ver na Lista de Compras" })).toBeNull();
 
     // Um único painel montado abaixo das abas: o da aba aberta.
@@ -306,14 +354,14 @@ describe("ProjectDetail — abas (feature 069)", () => {
 
   it("falha na contagem não derruba a página nem esconde a aba — só fica sem número", async () => {
     vi.mocked(countShoppingCategoriesByProject).mockRejectedValue(new Error("offline"));
-    vi.mocked(countNotesByProject).mockRejectedValue(new Error("offline"));
+    vi.mocked(countProjectDocuments).mockRejectedValue(new Error("offline"));
 
     renderDetail();
 
     // A página carregou (o nome do projeto está lá) e as abas continuam de pé, sem número.
     expect(await screen.findByText(project.name)).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Compras" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Notas" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Documentos" })).toBeInTheDocument();
     // E sem toast de erro: contagem que falha é silenciosa.
     expect(toastMock).not.toHaveBeenCalled();
   });

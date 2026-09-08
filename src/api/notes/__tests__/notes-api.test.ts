@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  countNotesByProject,
   createNote,
   deleteNote,
   fetchNote,
@@ -134,32 +133,9 @@ describe("api/notes", () => {
   });
 
   /**
-   * Feature 069: a aba "Notas" mostra a contagem. Tem que ser contagem de verdade — `head: true`,
-   * sem `select` de linha nenhuma —, não um `fetchNotes().length` disfarçado.
+   * A contagem do gatilho da aba saiu daqui na feature 105 (virou `countProjectDocuments`, que
+   * conta a união das três origens) — a cobertura dela mora em `projectDocuments.test.ts`.
    */
-  it("countNotesByProject conta com head: true, sem trazer linhas", async () => {
-    nextResult = { data: null, error: null, count: 3 };
-
-    await expect(countNotesByProject("p1")).resolves.toBe(3);
-    expect(lastCall().table).toBe("note");
-    expect(lastCall().select).toEqual(["id", { count: "exact", head: true }]);
-    expect(lastCall().eq).toEqual([
-      ["user_id", "user-1"],
-      ["project_id", "p1"],
-    ]);
-    // Nada de ordenação: contagem não ordena.
-    expect(lastCall().order).toBeUndefined();
-  });
-
-  it("countNotesByProject devolve 0 quando o count vem nulo", async () => {
-    nextResult = { data: null, error: null, count: null };
-    await expect(countNotesByProject("p1")).resolves.toBe(0);
-  });
-
-  it("countNotesByProject transforma erro do PostgREST em Error", async () => {
-    nextResult = { data: null, error: { message: "sem permissão" }, count: null };
-    await expect(countNotesByProject("p1")).rejects.toThrow("sem permissão");
-  });
 
   it("fetchNotes com projectId acrescenta o filtro do vínculo com projeto", async () => {
     nextResult = { data: [], error: null };

@@ -7,6 +7,7 @@ import {
   Circle,
   CircleDashed,
   GripVertical,
+  Paperclip,
   Pen,
   Play,
   Repeat,
@@ -45,7 +46,6 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { contrastTextColor } from "@/lib/color";
-import { stripMarkdown } from "@/lib/markdown";
 import { TaskIconBadge } from "./TaskIconBadge";
 import { TaskQuickFields } from "./TaskQuickFields";
 import { TaskStartNowButton } from "./TaskStartNowButton";
@@ -167,6 +167,15 @@ export interface SubtaskRowActions {
   /** Abertura/fechamento do popover de prazo da subtarefa (feature 081) — mesma semântica da
    * linha de topo: fechar descongela e recarrega. */
   onDueOpenChange?: (subtask: Task, open: boolean) => void;
+  /** Título/descrição editáveis também na **linha aninhada** da subtarefa (feature 100): ela é uma
+   * `TaskListRow` inteira desde a 046, e a subtarefa é uma tarefa completa desde a 036. O mini-card
+   * do Kanban (`KanbanSubtaskCard`) fica de fora de propósito — não mostra descrição e o título é
+   * praticamente o card inteiro. */
+  onTitleChange?: (subtask: Task, title: string) => void | Promise<void>;
+  onDescriptionChange?: (subtask: Task, description: string) => void | Promise<void>;
+  /** Título de subtarefa apagado por inteiro — não precisa da subtarefa, só da mensagem: quem
+   * mostra o toast é a página. */
+  onInvalidTitle?: (message: string) => void;
 }
 
 export function ExpandSubtasksButton({
@@ -217,8 +226,12 @@ export function TaskListRow({
   onDueChange,
   onDueOpenChange,
   onProjectChange,
+  onTitleChange,
+  onInvalidTitle,
+  onDescriptionChange,
   projects,
   externalLinksByTask,
+  projectAssetsByTask,
   isNested = false,
   subtaskActions,
 }: {
@@ -273,6 +286,16 @@ export function TaskListRow({
   /** Presente (junto com `projects`) = badge de projeto clicável (`ProjectBadgeButton`) no lugar
    * de `projectBadge` estático (feature 029). */
   onProjectChange?: (projectId: string | null) => void;
+  /** Presente = título editável clicando nele, sem abrir o dialog (feature 100). Ausente = o mesmo
+   * `<p>` somente-leitura de sempre, e clicar nele continua abrindo o dialog pelo `onClick` do
+   * card. */
+  onTitleChange?: (title: string) => void | Promise<void>;
+  /** Título apagado por inteiro (feature 100): o texto anterior volta e a mensagem chega aqui pra
+   * virar toast na página. */
+  onInvalidTitle?: (message: string) => void;
+  /** Presente = descrição editável clicando nela (feature 100), e tarefa **sem** descrição ganha um
+   * "+ Descrição" clicável — hoje ela simplesmente não renderiza nada, então não há onde clicar. */
+  onDescriptionChange?: (description: string) => void | Promise<void>;
   /** Catálogo de projetos (já ordenado por atividade) — obrigatório junto com `onProjectChange`. */
   projects?: Project[];
   /** Links externos por tarefa (feature 085), carregados em **lote** pelo dono da página
@@ -281,6 +304,8 @@ export function TaskListRow({
    * `subtasksByParent`. Ausente = nenhum chip; nada é buscado aqui (uma consulta por linha seria
    * uma ida ao banco por tarefa a cada render). */
   externalLinksByTask?: Record<string, TaskExternalLink[]>;
+  /** Assets da base do projeto por tarefa (feature 106) — para o paperclip nos cards. */
+  projectAssetsByTask?: Record<string, { id: string; title: string }[]>;
   /** `true` = esta linha é uma subtarefa renderizada aninhada sob a linha da tarefa-mãe (feature
    * 046): aplica indentação/borda visual distinta e desliga `ExpandSubtasksButton`/o próprio
    * aninhamento (sem sub-subtarefas — modelo de 2 níveis já estabelecido pela feature 036). */
@@ -303,6 +328,11 @@ export function TaskListRow({
     onProjectChange,
     projects,
     projectBadge,
+    onTitleChange,
+    onInvalidTitle,
+    onDescriptionChange,
+    // A Lista separa título/metadados/descrição por margem; o card do Kanban usa `space-y`.
+    descriptionClassName: "mt-1",
   });
   const StatusIcon = STATUS_ICONS[task.status];
   return (
@@ -347,14 +377,7 @@ export function TaskListRow({
                 </button>
               )}
               {quickFields.priority}
-              <p
-                className={cn(
-                  "truncate font-medium",
-                  done && "text-muted-foreground line-through"
-                )}
-              >
-                {task.title}
-              </p>
+              {quickFields.title}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               {quickFields.icon}
@@ -395,13 +418,15 @@ export function TaskListRow({
               {taskTags.map((tag) => (
                 <TagBadge key={tag.id} tag={tag} />
               ))}
-              <ExternalLinkChip links={externalLinksByTask?.[task.id] ?? []} />
+<ExternalLinkChip links={externalLinksByTask?.[task.id] ?? []} />
+              {projectAssetsByTask?.[task.id] && projectAssetsByTask[task.id].length > 0 && (
+                <Badge variant="outline" className="text-[10px]" title={projectAssetsByTask[task.id].map((a) => a.title).join(", ")}>
+                  <Paperclip className="h-3 w-3 mr-1" />
+                  {projectAssetsByTask[task.id].length}
+                </Badge>
+              )}
             </div>
-            {task.description && (
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                {stripMarkdown(task.description)}
-              </p>
-            )}
+            {quickFields.description}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -486,6 +511,17 @@ export function TaskListRow({
                   ? (open) => subtaskActions.onDueOpenChange!(subtask, open)
                   : undefined
               }
+              onTitleChange={
+                subtaskActions?.onTitleChange
+                  ? (title) => subtaskActions.onTitleChange!(subtask, title)
+                  : undefined
+              }
+              onDescriptionChange={
+                subtaskActions?.onDescriptionChange
+                  ? (description) => subtaskActions.onDescriptionChange!(subtask, description)
+                  : undefined
+              }
+              onInvalidTitle={subtaskActions?.onInvalidTitle}
               externalLinksByTask={externalLinksByTask}
               isNested
             />
@@ -523,8 +559,12 @@ export function CompletedTasksSection({
   onDueChange,
   onDueOpenChange,
   onProjectChange,
+  onTitleChange,
+  onInvalidTitle,
+  onDescriptionChange,
   projects,
   externalLinksByTask,
+  projectAssetsByTask,
   subtaskActions,
 }: {
   tasks: Task[];
@@ -551,9 +591,17 @@ export function CompletedTasksSection({
   /** Abertura/fechamento do popover de prazo por tarefa (feature 081). */
   onDueOpenChange?: (task: Task, open: boolean) => void;
   onProjectChange?: (task: Task, projectId: string | null) => void;
+  /** Título/descrição editáveis também aqui dentro (feature 100): tarefa concluída continua
+   * editável de propósito — corrigir o nome de algo já feito faz sentido (o que não faz é
+   * reagendar, e é por isso que só o prazo trava quando `done`). */
+  onTitleChange?: (task: Task, title: string) => void | Promise<void>;
+  onDescriptionChange?: (task: Task, description: string) => void | Promise<void>;
+  onInvalidTitle?: (message: string) => void;
   projects?: Project[];
   /** Repassado direto a cada `TaskListRow` — o mesmo mapa em lote da feature 085. */
   externalLinksByTask?: Record<string, TaskExternalLink[]>;
+  /** Assets da base do projeto por tarefa (feature 106) — para o paperclip nos cards. */
+  projectAssetsByTask?: Record<string, { id: string; title: string }[]>;
   /** Repassado direto a cada `TaskListRow` — já vem parametrizado por tarefa (feature 046), mesmo
    * formato que os handlers acima, só sem precisar de wrapping aqui. */
   subtaskActions?: SubtaskRowActions;
@@ -602,8 +650,16 @@ export function CompletedTasksSection({
             onProjectChange={
               onProjectChange ? (projectId) => onProjectChange(task, projectId) : undefined
             }
+            onTitleChange={onTitleChange ? (title) => onTitleChange(task, title) : undefined}
+            onDescriptionChange={
+              onDescriptionChange
+                ? (description) => onDescriptionChange(task, description)
+                : undefined
+            }
+            onInvalidTitle={onInvalidTitle}
             projects={projects}
             externalLinksByTask={externalLinksByTask}
+            projectAssetsByTask={projectAssetsByTask}
             subtaskActions={subtaskActions}
           />
         ))}
@@ -770,8 +826,12 @@ export function KanbanCard({
   onDueChange,
   onDueOpenChange,
   onProjectChange,
+  onTitleChange,
+  onInvalidTitle,
+  onDescriptionChange,
   projects,
   externalLinksByTask,
+  projectAssetsByTask,
   subtaskActions,
 }: {
   task: Task;
@@ -810,11 +870,21 @@ export function KanbanCard({
   /** Presente (junto com `projects`) = badge de projeto clicável no lugar de `projectBadge`
    * estático (feature 033). */
   onProjectChange?: (projectId: string | null) => void;
+  /** Presente = título editável clicando nele, sem abrir o dialog (feature 100) — o Kanban entra
+   * junto com a Lista de propósito: deixá-lo de fora recriaria a assimetria que a 033 corrigiu. */
+  onTitleChange?: (title: string) => void | Promise<void>;
+  /** Título apagado por inteiro (feature 100) — vira toast na página. */
+  onInvalidTitle?: (message: string) => void;
+  /** Presente = descrição editável clicando nela, com "+ Descrição" quando não há nenhuma
+   * (feature 100). */
+  onDescriptionChange?: (description: string) => void | Promise<void>;
   /** Catálogo de projetos (já ordenado por atividade) — obrigatório junto com `onProjectChange`. */
   projects?: Project[];
   /** Links externos por tarefa (feature 085), carregados em lote pelo dono da página — mesmo mapa
    * que `TaskListRow` recebe. */
   externalLinksByTask?: Record<string, TaskExternalLink[]>;
+  /** Assets da base do projeto por tarefa (feature 106) — para o paperclip nos cards. */
+  projectAssetsByTask?: Record<string, { id: string; title: string }[]>;
   /** Handlers de quick action parametrizados por subtarefa (mesma interface que `TaskListRow`
    * usa desde a feature 046) — presente = mini-card de subtarefa ganha status editável (Select,
    * sem mudar de coluna) e ícone/prioridade/prazo clicáveis; ausente = cai pro visual
@@ -841,6 +911,12 @@ export function KanbanCard({
     onProjectChange,
     projects,
     projectBadge,
+    onTitleChange,
+    onInvalidTitle,
+    onDescriptionChange,
+    // O card é mais compacto que a linha da Lista: título em `text-sm` e sem margem própria na
+    // descrição (o `space-y-2` do `<article>` já separa os blocos).
+    titleClassName: "min-w-0 text-sm",
   });
   const StatusIcon = STATUS_ICONS[task.status];
 
@@ -867,7 +943,7 @@ export function KanbanCard({
             <GripVertical className="h-3.5 w-3.5" />
           </button>
           {quickFields.priority}
-          <p className="min-w-0 truncate text-sm font-medium">{task.title}</p>
+          {quickFields.title}
         </div>
         <div className="flex shrink-0 gap-0.5" onClick={(e) => e.stopPropagation()}>
           {onToggleTimer && task.status !== "done" && (
@@ -932,13 +1008,15 @@ export function KanbanCard({
           <TagBadge key={tag.id} tag={tag} />
         ))}
         <ExternalLinkChip links={externalLinksByTask?.[task.id] ?? []} />
+        {projectAssetsByTask?.[task.id] && projectAssetsByTask[task.id].length > 0 && (
+          <Badge variant="outline" className="text-[10px]" title={projectAssetsByTask[task.id].map((a) => a.title).join(", ")}>
+            <Paperclip className="h-3 w-3 mr-1" />
+            {projectAssetsByTask[task.id].length}
+          </Badge>
+        )}
       </div>
 
-      {task.description && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
-          {stripMarkdown(task.description)}
-        </p>
-      )}
+      {quickFields.description}
 
       {subtasks.length > 0 && (
         <div className="space-y-1.5 border-t pt-2" onClick={(e) => e.stopPropagation()}>

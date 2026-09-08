@@ -111,6 +111,8 @@ function Harness({ editing = null }: { editing?: Task | null }) {
         onAddSubtask={(title) => setSubtasks((prev) => [...prev, { title }])}
         externalLinks={externalLinks}
         onExternalLinksChange={setExternalLinks}
+        projectAssetIds={[]}
+        onProjectAssetIdsChange={vi.fn()}
         onRemoveSubtask={(_subtask, index) =>
           setSubtasks((prev) => prev.filter((_, i) => i !== index))
         }

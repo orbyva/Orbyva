@@ -49,11 +49,12 @@ import type { TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 import { GanttChart } from "./GanttChart";
 import { ProjectFormDialog } from "./ProjectFormDialog";
 import { TaskSortToggle } from "./TaskSortToggle";
+import { TaskQuickAdd, type TaskQuickAddPayload } from "./TaskQuickAdd";
 import { SeriesOccurrencesDialog } from "./SeriesOccurrencesDialog";
 import { FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { ProjectShoppingSection } from "@/pages/admin/shopping/ProjectShoppingSection";
-import { ProjectNotesSection } from "@/pages/admin/notes/ProjectNotesSection";
+import { ProjectDocumentsSection } from "@/pages/admin/notes/ProjectDocumentsSection";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
   createProjectEvent,
@@ -61,6 +62,7 @@ import {
   createTask,
   deleteProjectEvent,
   deleteTask,
+  fetchAssetsForTasks,
   fetchDependencies,
   fetchExternalLinksForTask,
   fetchExternalLinksForTasks,
@@ -69,12 +71,13 @@ import {
   fetchTags,
   fetchTasks,
   saveExternalLinksForTask,
+  saveTaskAssetLinks,
   updateProject,
   updateTask,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
 import { countShoppingCategoriesByProject } from "@/api/shopping/categories";
-import { countNotesByProject } from "@/api/notes/notes";
+import { countProjectDocuments } from "@/api/notes/projectDocuments";
 import {
   AGENDA_BUCKET_LABELS,
   AGENDA_BUCKET_ORDER,
@@ -86,6 +89,7 @@ import {
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
   isSubtaskDueDateValid,
+  isTaskVisibleInList,
   normalizeExternalLinkDrafts,
   sortTasksBy,
   sortTasksByCompletedAtDesc,
@@ -123,16 +127,28 @@ import { formatDateBR } from "@/lib/currency";
 
 /**
  * As abas da página do projeto (feature 069). Kanban/Lista/Gantt são visões das tarefas; Compras e
- * Notas são as entidades ligadas ao projeto, que antes ficavam empilhadas embaixo do quadro e
+ * Documentos são as entidades ligadas ao projeto, que antes ficavam empilhadas embaixo do quadro e
  * comiam o espaço vertical dele.
+ *
+ * O valor `notas` continua sendo o da última aba mesmo depois de ela virar "Documentos" (feature
+ * 105): o `?tab=` é contrato público desde a 069 — link salvo, botão voltar, testes — e mudar o
+ * valor quebraria os links que já existem.
  */
 const PROJECT_TABS = ["kanban", "lista", "gantt", "compras", "notas"] as const;
 type ProjectTab = (typeof PROJECT_TABS)[number];
 
+/**
+ * Apelidos aceitos no `?tab=`, para o rótulo novo da aba também funcionar como link
+ * (`?tab=documentos` → a mesma aba de `?tab=notas`).
+ */
+const PROJECT_TAB_ALIASES: Record<string, ProjectTab> = { documentos: "notas" };
+
 /** Aba pedida na URL (`?tab=`). Valor ausente ou desconhecido cai no Kanban, sem quebrar. */
 function parseProjectTab(raw: string | null): ProjectTab {
-  return (PROJECT_TABS as readonly string[]).includes(raw ?? "")
-    ? (raw as ProjectTab)
+  const value = raw ?? "";
+  if (value in PROJECT_TAB_ALIASES) return PROJECT_TAB_ALIASES[value];
+  return (PROJECT_TABS as readonly string[]).includes(value)
+    ? (value as ProjectTab)
     : "kanban";
 }
 
@@ -178,6 +194,14 @@ export default function ProjectDetail() {
   /** Links externos da tarefa aberta no formulário (feature 085) — mesma fiação de `TaskList.tsx`,
    * o outro dono do formulário completo. */
   const [externalLinkDrafts, setExternalLinkDrafts] = useState<TaskExternalLinkDraft[]>([]);
+  /** Assets da base do projeto anexados à tarefa aberta (feature 106). Mesmo ciclo de vida dos
+   * links externos: em edição carregam ao abrir; em criação nascem vazios e gravam depois do
+   * `createTask`. */
+  const [projectAssetIds, setProjectAssetIds] = useState<string[]>([]);
+  /** Assets da base do projeto anexados a cada tarefa (feature 106) — para o paperclip nos cards. */
+  const [projectAssetsByTask] = useState<
+    Record<string, { id: string; title: string }[]>
+  >({});
   /** Links de todas as tarefas do projeto, numa consulta só por `load()`, para os chips dos cards. */
   const [externalLinksByTask, setExternalLinksByTask] = useState<Record<string, TaskExternalLink[]>>(
     {}
@@ -197,12 +221,12 @@ export default function ProjectDetail() {
     setSearchParams(params, { replace: true });
   }
   /**
-   * Contagens dos gatilhos "Compras"/"Notas" (feature 069). `null` = sem número: ou a contagem
-   * ainda não voltou, ou falhou. Fora das abas, essas seções eram o único sinal de que o projeto
-   * tinha lista de compras ou nota; dentro delas, o número é que faz esse papel.
+   * Contagens dos gatilhos "Compras"/"Documentos" (feature 069). `null` = sem número: ou a
+   * contagem ainda não voltou, ou falhou. Fora das abas, essas seções eram o único sinal de que o
+   * projeto tinha lista de compras ou documento; dentro delas, o número é que faz esse papel.
    */
   const [shoppingCount, setShoppingCount] = useState<number | null>(null);
-  const [notesCount, setNotesCount] = useState<number | null>(null);
+  const [documentsCount, setDocumentsCount] = useState<number | null>(null);
   const [statusView, setStatusView] = useState<TaskStatusView>("pending");
   /** Mesma preferência de ordenação da Lista principal (feature 079): as duas telas leem e
    * escrevem a mesma chave de `localStorage`, então escolher aqui vale lá e vice-versa. */
@@ -252,7 +276,7 @@ export default function ProjectDetail() {
         recurringList,
         eventList,
         shoppingTotal,
-        notesTotal,
+        documentsTotal,
       ] = await Promise.all([
         fetchProjectById(id),
         fetchTasks(),
@@ -263,10 +287,10 @@ export default function ProjectDetail() {
         // Contagem é enfeite do gatilho: se falhar, a aba continua lá, só sem número — não é
         // motivo para derrubar a página inteira no `catch` de baixo.
         countShoppingCategoriesByProject(id).catch(() => null),
-        countNotesByProject(id).catch(() => null),
+        countProjectDocuments(id).catch(() => null),
       ]);
       setShoppingCount(shoppingTotal);
-      setNotesCount(notesTotal);
+      setDocumentsCount(documentsTotal);
       setProject(projectData);
       const projectTasks = taskList.filter((t) => t.project_id === id);
       frozenDueDatesRef.current = new Map(projectTasks.map((t) => [t.id, t.due_date]));
@@ -343,11 +367,12 @@ export default function ProjectDetail() {
     (list: Task[]) =>
       list.map((task) => ({
         task,
-        // Carimbos junto do item porque o comparador de "última atualização" (079) lê do próprio
-        // item do array, não do `task` embrulhado.
+        // Carimbos e prioridade junto do item porque os comparadores do seletor (079) leem do
+        // próprio item do array, não do `task` embrulhado.
         id: task.id,
         updated_at: task.updated_at,
         created_at: task.created_at,
+        priority: task.priority ?? null,
         due_date: frozenDueDatesRef.current.has(task.id)
           ? (frozenDueDatesRef.current.get(task.id) ?? null)
           : task.due_date,
@@ -406,12 +431,54 @@ export default function ProjectDetail() {
     });
   }
 
+  /**
+   * Criação pela tira de quick add (feature 098). Aqui o projeto é o da rota, sem ambiguidade
+   * nenhuma — não há filtro de projeto nesta tela e a costura da feature 099 não se aplica.
+   *
+   * Erro é reportado aqui **e** re-lançado: o `TaskQuickAdd` precisa saber que falhou pra
+   * preservar o que foi digitado.
+   */
+  async function handleQuickAddCreate({
+    title,
+    description,
+    projectId,
+  }: TaskQuickAddPayload & { projectId: string | null }) {
+    try {
+      await createTask({ ...emptyTask(projectId), title, description });
+      await load();
+      const visible = isTaskVisibleInList(
+        { status: "todo", priority: null, due_date: null },
+        {
+          // A Lista do projeto não tem chips de prioridade nem "Hoje" — só o `<Select>` de status.
+          priority: null,
+          todayOnly: false,
+          statusView,
+          todayIso: formatLocalIsoDate(new Date()),
+        }
+      );
+      toast({
+        title: visible
+          ? `Criada em «${AGENDA_BUCKET_LABELS.no_date}»`
+          : "Tarefa criada, mas os filtros ativos a escondem",
+        duration: 2000,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível criar a tarefa."),
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }
+
   function openCreate(status: TaskStatus) {
     if (!id) return;
     setEditing(null);
     setForm({ ...emptyTask(id), status });
     setNewTaskSubtasks([]);
     setExternalLinkDrafts([]);
+    setProjectAssetIds([]);
     setOpen(true);
   }
 
@@ -443,6 +510,7 @@ export default function ProjectDetail() {
     });
     setNewTaskSubtasks([]);
     loadExternalLinkDrafts(task.id);
+    loadProjectAssetIds(task.id);
     setOpen(true);
   }
 
@@ -467,9 +535,25 @@ export default function ProjectDetail() {
         variant: "destructive",
       });
     }
-  }
+}
 
-  function openEditProject() {
+/** Carrega os assets da base do projeto anexados à tarefa (feature 106). Mesmo padrão dos
+ * links externos: zera antes, falha cai para vazio com aviso. */
+async function loadProjectAssetIds(taskId: string) {
+  setProjectAssetIds([]);
+  try {
+    const assetsMap = await fetchAssetsForTasks([taskId]);
+    setProjectAssetIds(assetsMap[taskId]?.map((a) => a.id) ?? []);
+  } catch (error) {
+    toast({
+      title: "Erro",
+      description: getErrorMessage(error, "Não foi possível carregar os anexos do projeto."),
+      variant: "destructive",
+    });
+  }
+}
+
+function openEditProject() {
     if (!project) return;
     setProjectForm(projectToForm(project));
     setEditProjectOpen(true);
@@ -558,6 +642,7 @@ export default function ProjectDetail() {
       if (editing) {
         await updateTask({ id: editing.id, ...payload });
         await saveExternalLinksForTask(editing.id, links);
+        await saveTaskAssetLinks(editing.id, projectAssetIds);
       } else {
         const created = await createTask(payload);
         for (const title of newTaskSubtasks) {
@@ -570,6 +655,7 @@ export default function ProjectDetail() {
         }
         // Só aqui existe `task_id` para gravar.
         if (links.length > 0) await saveExternalLinksForTask(created.id, links);
+        if (projectAssetIds.length > 0) await saveTaskAssetLinks(created.id, projectAssetIds);
       }
       toast({ title: "Tarefa salva!", duration: 2000 });
       setOpen(false);
@@ -686,6 +772,47 @@ export default function ProjectDetail() {
     load();
   }
 
+  /**
+   * Feature 100 — espelho de `TaskList.handleTitleChange`/`handleDescriptionChange`: título e
+   * descrição editados no próprio card, otimistas e **sem `load()`** (a Lista deste projeto usa o
+   * mesmo `sortKey` compartilhado, então recarregar jogaria a linha para o topo assim que o usuário
+   * terminasse de digitar). Falha desfaz o otimismo e avisa.
+   */
+  async function handleTitleChange(taskId: string, title: string) {
+    const before = tasks.find((t) => t.id === taskId);
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, title } : t)));
+    try {
+      await updateTask({ id: taskId, title });
+    } catch (error) {
+      if (before) setTasks((prev) => prev.map((t) => (t.id === taskId ? before : t)));
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível atualizar o título."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleDescriptionChange(taskId: string, description: string) {
+    const before = tasks.find((t) => t.id === taskId);
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, description } : t)));
+    try {
+      await updateTask({ id: taskId, description });
+    } catch (error) {
+      if (before) setTasks((prev) => prev.map((t) => (t.id === taskId ? before : t)));
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível atualizar a descrição."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  /** Título apagado por inteiro: o componente já restaurou o texto, aqui só sai o aviso. */
+  function handleInvalidTitle(message: string) {
+    toast({ title: "Erro", description: message, variant: "destructive" });
+  }
+
   async function handleIconChange(taskId: string, next: TaskIconValue) {
     try {
       await updateTask({ id: taskId, ...next });
@@ -795,6 +922,10 @@ export default function ProjectDetail() {
     onPriorityChange: (subtask, priority) => handlePriorityChange(subtask.id, priority),
     onDueChange: (subtask, next) => handleDueChange(subtask.id, next),
     onDueOpenChange: (subtask, open) => handleDueOpenChange(subtask.id, open),
+    onTitleChange: (subtask, title) => handleTitleChange(subtask.id, title),
+    onDescriptionChange: (subtask, description) =>
+      handleDescriptionChange(subtask.id, description),
+    onInvalidTitle: handleInvalidTitle,
   };
 
   if (!loading && !project) {
@@ -852,7 +983,7 @@ export default function ProjectDetail() {
           <TabsTrigger value="lista">Lista</TabsTrigger>
           <TabsTrigger value="gantt">Gantt</TabsTrigger>
           <TabsTrigger value="compras">{tabLabel("Compras", shoppingCount)}</TabsTrigger>
-          <TabsTrigger value="notas">{tabLabel("Notas", notesCount)}</TabsTrigger>
+          <TabsTrigger value="notas">{tabLabel("Documentos", documentsCount)}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="kanban" className="mt-4">
@@ -924,6 +1055,11 @@ export default function ProjectDetail() {
                                 onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
                                 onDueChange={(next) => handleDueChange(task.id, next)}
                                 onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
+                                onTitleChange={(title) => handleTitleChange(task.id, title)}
+                                onDescriptionChange={(description) =>
+                                  handleDescriptionChange(task.id, description)
+                                }
+                                onInvalidTitle={handleInvalidTitle}
                                 externalLinksByTask={externalLinksByTask}
                                 subtaskActions={subtaskActions}
                               />
@@ -963,6 +1099,13 @@ export default function ProjectDetail() {
                   </SelectContent>
                 </Select>
                 <TaskSortToggle value={sortKey} onChange={handleSortKeyChange} />
+                {/* Feature 098: o mesmo `+` da Lista de `/tasks`, aqui com o projeto da rota
+                    fixo — a tarefa nasce dentro deste projeto. */}
+                <TaskQuickAdd
+                  className="ml-auto"
+                  projectId={id ?? null}
+                  onCreate={handleQuickAddCreate}
+                />
               </div>
 
               {listNothingToShow ? (
@@ -1011,7 +1154,13 @@ export default function ProjectDetail() {
                                 onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
                                 onDueChange={(next) => handleDueChange(task.id, next)}
                                 onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
+                                onTitleChange={(title) => handleTitleChange(task.id, title)}
+                                onDescriptionChange={(description) =>
+                                  handleDescriptionChange(task.id, description)
+                                }
+                                onInvalidTitle={handleInvalidTitle}
                                 externalLinksByTask={externalLinksByTask}
+                                projectAssetsByTask={projectAssetsByTask}
                                 subtaskActions={subtaskActions}
                               />
                             ))}
@@ -1043,7 +1192,13 @@ export default function ProjectDetail() {
                       onPriorityChange={(task, priority) => handlePriorityChange(task.id, priority)}
                       onDueChange={(task, next) => handleDueChange(task.id, next)}
                       onDueOpenChange={(task, open) => handleDueOpenChange(task.id, open)}
+                      onTitleChange={(task, title) => handleTitleChange(task.id, title)}
+                      onDescriptionChange={(task, description) =>
+                        handleDescriptionChange(task.id, description)
+                      }
+                      onInvalidTitle={handleInvalidTitle}
                       externalLinksByTask={externalLinksByTask}
+                      projectAssetsByTask={projectAssetsByTask}
                       subtaskActions={subtaskActions}
                       extraActions={(task) =>
                         !task.linked_recurring_id ? (
@@ -1083,19 +1238,24 @@ export default function ProjectDetail() {
         </TabsContent>
 
         {/*
-          Compras e notas moraram fora das abas até a feature 069 — a ideia era que elas não são
-          "uma quarta visão de tarefa" e deviam ficar sempre visíveis. Na tela isso empurrava o
+          Compras e documentos moraram fora das abas até a feature 069 — a ideia era que eles não
+          são "uma quarta visão de tarefa" e deviam ficar sempre visíveis. Na tela isso empurrava o
           quadro para cima do dobrão, e o usuário pediu o contrário ("preciso do espaço para
           poder visualizar as tarefas"): viraram abas. Como o `TabsContent` do Radix só monta o
-          conteúdo da aba aberta, as requisições de compras/notas passaram a ser sob demanda —
+          conteúdo da aba aberta, as requisições de compras/documentos passaram a ser sob demanda —
           quem só olha as tarefas não paga por elas.
+
+          A aba "Documentos" mostra o cabeçalho da seção (feature 105): ela deixou de ser uma lista
+          só — a 106 pendura ali a base de links e arquivos —, e sem título cada lista viraria um
+          bloco anônimo. Na aba "Compras", que continua com uma seção só, o gatilho segue sendo o
+          título.
         */}
         <TabsContent value="compras" className="mt-4">
           {id && <ProjectShoppingSection projectId={id} showHeading={false} />}
         </TabsContent>
 
         <TabsContent value="notas" className="mt-4">
-          {id && <ProjectNotesSection projectId={id} showHeading={false} />}
+          {id && <ProjectDocumentsSection projectId={id} showHeading />}
         </TabsContent>
       </Tabs>
 
@@ -1135,6 +1295,8 @@ export default function ProjectDetail() {
             }
             externalLinks={externalLinkDrafts}
             onExternalLinksChange={setExternalLinkDrafts}
+            projectAssetIds={projectAssetIds}
+            onProjectAssetIdsChange={setProjectAssetIds}
           />
           <Button onClick={handleSave} className="w-full">
             {editing ? "Salvar alterações" : "Criar tarefa"}

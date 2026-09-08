@@ -104,13 +104,29 @@ async function renderWithTasks(tasks: Task[], projects: Project[] = []) {
   return utils;
 }
 
+/**
+ * Feature 100: o título do card virou um botão de edição inline, então clicar nele **não** abre
+ * mais o dialog completo — quem abre é o lápis da linha/card (ou qualquer ponto fora do título e
+ * da descrição). O caminho do formulário continua existindo, só mudou de gesto.
+ */
+async function openFullDialog(
+  user: ReturnType<typeof userEvent.setup>,
+  title: string
+) {
+  const card = screen
+    .getByRole("button", { name: `Editar título: ${title}` })
+    .closest(".cursor-pointer") as HTMLElement;
+  const pencil = card.querySelector("svg.lucide-pen")?.closest("button") as HTMLButtonElement;
+  await user.click(pencil);
+}
+
 /** Expande a tarefa-mãe e abre a subtarefa clicando na sua linha aninhada — desde a feature 046,
  * a subtarefa expandida renderiza como uma `TaskListRow` completa (não mais um checklist de
  * checkboxes), então clicar no título da linha (o mesmo caminho de qualquer `TaskListRow`) chama
  * `onEdit`/`onOpenSubtask`. */
 async function openSubtaskFromChecklist(user: ReturnType<typeof userEvent.setup>, subtaskTitle: string) {
   await user.click(screen.getByRole("button", { name: "Expandir subtarefas" }));
-  await user.click(screen.getByText(subtaskTitle));
+  await openFullDialog(user, subtaskTitle);
 }
 
 describe("TaskList — edição de subtarefa abre o form completo (feature 036)", () => {
@@ -185,7 +201,7 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", project_id: project.id });
     await renderWithTasks([parent], [project]);
 
-    await user.click(screen.getByText("Tarefa principal"));
+    await openFullDialog(user, "Tarefa principal");
 
     // Feature 080: o seletor virou um badge clicável de uma linha; a lista abre no popover.
     const dialog = within(screen.getByRole("dialog"));
@@ -222,7 +238,7 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal" });
     await renderWithTasks([parent]);
 
-    await user.click(screen.getByText("Tarefa principal"));
+    await openFullDialog(user, "Tarefa principal");
     // Seção colapsável (feature 080): um clique abre.
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Subtarefas/ }));
 
@@ -260,7 +276,7 @@ describe("TaskList — edição de subtarefa abre o form completo (feature 036)"
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", due_date: "2026-08-20" });
     await renderWithTasks([parent]);
 
-    await user.click(screen.getByText("Tarefa principal"));
+    await openFullDialog(user, "Tarefa principal");
     const dialog = within(screen.getByRole("dialog"));
 
     expect(dialog.getByText("Início")).toBeInTheDocument();

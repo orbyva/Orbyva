@@ -62,7 +62,11 @@ vi.mock("@/api/shopping/items", () => ({
 vi.mock("@/api/notes/notes", () => ({
   fetchNotes: vi.fn(async () => []),
   createNote: vi.fn(),
-  countNotesByProject: vi.fn(async () => 0),
+}));
+
+vi.mock("@/api/notes/projectDocuments", () => ({
+  fetchProjectDocuments: vi.fn(async () => []),
+  countProjectDocuments: vi.fn(async () => 0),
 }));
 
 vi.mock("@/hooks/useDimensions", () => ({

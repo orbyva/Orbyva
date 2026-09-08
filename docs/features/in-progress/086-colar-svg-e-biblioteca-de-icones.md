@@ -243,3 +243,15 @@ a limpeza.
 - `removedSomething` compara a serialização do SVG **limpo** com a do SVG só reparseado (sem
   limpeza), as duas pelo mesmo parser: assim a normalização do HTML (`<path/>` → `<path></path>`)
   não conta como remoção, e só uma tag/atributo que sumiu de verdade acende o aviso.
+- **Revalidação em 2026-08-26** (features novas entraram na suíte desde a rodada acima): `npm run
+  build`, `npm run lint` (0 erros / 87 warnings de `react-refresh`, o mesmo tipo de sempre), `npm
+  test` **236 arquivos / 2616 testes / 0 falhas**, `npm run check:bundle` (`Bundle budget OK`) e
+  `bash supabase/tests/icon_asset/run.sh` verde. Uma primeira rodada da suíte acusou 8 arquivos
+  falhando por timeout enquanto outra suíte rodava em paralelo na mesma máquina; duas rodadas
+  seguidas sem concorrência vieram 100% verdes — contenção de CPU, não regressão. A única `- [ ]`
+  que resta é o `supabase db push`, que depende de autorização do usuário.
+- **Spot-check em 2026-08-31** (as features de produtividade 098–100 entraram na suíte desde a
+  revalidação acima): os cinco arquivos de teste da 086 — `svgIcon.test.ts`, `iconAssets.test.ts`,
+  `svgIconSecurity.test.tsx`, `TaskIconPicker.test.tsx` e `sanitizeSvg.test.tsx` — rodaram
+  **102 testes / 0 falhas**. Nada do que entrou depois mexeu no seletor de ícone. A feature
+  continua parada só no `supabase db push`.

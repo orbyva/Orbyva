@@ -3,12 +3,16 @@ import type { ReactNode } from "react";
 import type { Project, Task, TaskPriority } from "@/types/tasks";
 import { isRecurringTask } from "@/domain/tasks";
 import { formatDateTimeBR } from "@/lib/currency";
+import { stripMarkdown } from "@/lib/markdown";
+import { cn } from "@/lib/utils";
 import { TaskPriorityFlag } from "./TaskPriorityField";
 import { TaskPriorityQuickPick } from "./TaskPriorityQuickPick";
 import { TaskDueQuickEdit, type TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 import { ProjectBadgeButton } from "./ProjectBadgeButton";
 import { TaskIconBadge } from "./TaskIconBadge";
 import { TaskIconPicker, type TaskIconValue } from "./TaskIconPicker";
+import { TaskTitleInlineEdit } from "./TaskTitleInlineEdit";
+import { TaskDescriptionInlineEdit } from "./TaskDescriptionInlineEdit";
 
 export interface TaskQuickFieldsResult {
   /** Ícone customizado da tarefa — `TaskIconPicker` (clicável) quando `onIconChange` é passado,
@@ -25,6 +29,13 @@ export interface TaskQuickFieldsResult {
    * são passados, senão o `projectBadge` estático recebido (compatibilidade com quem monta o
    * badge por fora). */
   project: ReactNode;
+  /** Título — `TaskTitleInlineEdit` (clicável) quando `onTitleChange` é passado, senão o mesmo
+   * `<p className="truncate font-medium">` somente-leitura de sempre (feature 100). */
+  title: ReactNode;
+  /** Descrição — `TaskDescriptionInlineEdit` (clicável, com "+ Descrição" quando vazia) quando
+   * `onDescriptionChange` é passado; senão a prévia estática `stripMarkdown` de sempre, ou `null`
+   * quando não há descrição (feature 100). */
+  description: ReactNode;
 }
 
 /**
@@ -34,9 +45,15 @@ export interface TaskQuickFieldsResult {
  * correspondente é passado, e cai pro visual somente-leitura de sempre quando ausente — mesma
  * regra "ausência = sem regressão" que `TaskListRow` já seguia.
  *
- * Não é um componente JSX (não renderiza um wrapper) — devolve os três elementos prontos pra
+ * Não é um componente JSX (não renderiza um wrapper) — devolve os elementos prontos pra
  * quem chama posicionar cada um no seu próprio layout (a Lista mostra prioridade junto do título
  * e prazo/projeto na linha de metadados; o Kanban segue o mesmo arranjo, mas em outro container).
+ *
+ * **Esta função é chamada como função pura, não como JSX** (`TaskViews.tsx:297`, `:647`, `:835`) —
+ * e num dos call sites, condicionalmente. Por isso ela não pode ter hook nenhum: todo o estado de
+ * edição inline (rascunho, aberto/fechado, cancelamento) mora **dentro** de
+ * `TaskTitleInlineEdit`/`TaskDescriptionInlineEdit`, que são componentes JSX de verdade. Um
+ * `useState` acrescentado aqui quebraria as regras de hooks nos três call sites de uma vez.
  */
 export function TaskQuickFields({
   task,
@@ -47,6 +64,11 @@ export function TaskQuickFields({
   onProjectChange,
   projects,
   projectBadge,
+  onTitleChange,
+  onInvalidTitle,
+  onDescriptionChange,
+  titleClassName,
+  descriptionClassName,
 }: {
   task: Task;
   /** Presente = edição rápida de ícone inline (popover com `TaskIconPicker`), no lugar do
@@ -64,6 +86,19 @@ export function TaskQuickFields({
   /** Badge do projeto somente-leitura — usado quando `onProjectChange`/`projects` não são
    * passados. */
   projectBadge?: ReactNode;
+  /** Presente = título editável clicando nele (feature 100), no lugar do `<p>` estático. */
+  onTitleChange?: (title: string) => void | Promise<void>;
+  /** Título apagado por inteiro: o componente restaura o valor anterior e manda a mensagem por
+   * aqui — quem mostra o toast é a página. */
+  onInvalidTitle?: (message: string) => void;
+  /** Presente = descrição editável clicando nela (feature 100). Também é o que faz aparecer o
+   * "+ Descrição" numa tarefa sem descrição: sem o handler, continua não renderizando nada. */
+  onDescriptionChange?: (description: string) => void | Promise<void>;
+  /** Diferença de tipografia entre as visões (o Kanban usa `text-sm`), aplicada tanto no estado
+   * clicável quanto no somente-leitura pra não haver dois visuais do mesmo texto. */
+  titleClassName?: string;
+  /** Idem para a descrição — a Lista precisa do `mt-1` que o `space-y` do card do Kanban já dá. */
+  descriptionClassName?: string;
 }): TaskQuickFieldsResult {
   const done = task.status === "done";
   return {
@@ -110,5 +145,36 @@ export function TaskQuickFields({
       ) : (
         projectBadge
       ),
+    title: onTitleChange ? (
+      <TaskTitleInlineEdit
+        value={task.title}
+        onChange={onTitleChange}
+        done={done}
+        onInvalid={onInvalidTitle}
+        className={titleClassName}
+      />
+    ) : (
+      <p
+        className={cn(
+          "truncate font-medium",
+          done && "text-muted-foreground line-through",
+          titleClassName
+        )}
+      >
+        {task.title}
+      </p>
+    ),
+    description: onDescriptionChange ? (
+      <TaskDescriptionInlineEdit
+        value={task.description ?? null}
+        onChange={onDescriptionChange}
+        taskTitle={task.title}
+        className={descriptionClassName}
+      />
+    ) : task.description ? (
+      <p className={cn("line-clamp-2 text-xs text-muted-foreground", descriptionClassName)}>
+        {stripMarkdown(task.description)}
+      </p>
+    ) : null,
   };
 }

@@ -8,11 +8,15 @@ import {
   filterTasks,
   isProjectFilterValue,
   isTaskSortKey,
+  isTaskVisibleInList,
   normalizeProjectFilter,
+  projectFilterToProjectId,
+  projectIdForNewTask,
   sortTasksBy,
   sortTasksByDueDate,
   sortTasksByUpdatedAtDesc,
 } from "@/domain/tasks/filters";
+import type { TaskPriority } from "@/types/tasks";
 
 type Row = {
   id: string;
@@ -144,6 +148,7 @@ describe("sortTasksBy", () => {
     due_date: string | null;
     updated_at?: string | null;
     created_at?: string | null;
+    priority?: TaskPriority | null;
   };
 
   // A ordem por prazo e a ordem por atualização são deliberadamente opostas aqui: assim o teste
@@ -163,9 +168,27 @@ describe("sortTasksBy", () => {
     expect(sortTasksBy("due", list)).toEqual(sortTasksByDueDate(list));
   });
 
+  it('"priority" ordena alta → média → baixa → sem prioridade, desempatando por atualização', () => {
+    const byPriority: SortRow[] = [
+      { id: "sem", due_date: null, updated_at: "2026-08-13T10:00:00Z" },
+      { id: "baixa", due_date: null, updated_at: "2026-08-12T10:00:00Z", priority: "low" },
+      { id: "alta-velha", due_date: null, updated_at: "2026-08-10T10:00:00Z", priority: "high" },
+      { id: "media", due_date: null, updated_at: "2026-08-11T10:00:00Z", priority: "medium" },
+      { id: "alta-nova", due_date: null, updated_at: "2026-08-14T10:00:00Z", priority: "high" },
+    ];
+    expect(sortTasksBy("priority", byPriority).map((r) => r.id)).toEqual([
+      "alta-nova",
+      "alta-velha",
+      "media",
+      "baixa",
+      "sem",
+    ]);
+  });
+
   it("não muta o array de entrada em nenhuma das chaves", () => {
     sortTasksBy("updated", list);
     sortTasksBy("due", list);
+    sortTasksBy("priority", list);
     expect(list.map((r) => r.id)).toEqual(["a", "b", "c"]);
   });
 
@@ -176,16 +199,18 @@ describe("sortTasksBy", () => {
     );
   });
 
-  it("expõe as duas opções, na ordem do seletor, com rótulo por extenso", () => {
-    expect([...TASK_SORT_KEYS]).toEqual(["updated", "due"]);
+  it("expõe as três opções, na ordem do seletor, com rótulo por extenso", () => {
+    expect([...TASK_SORT_KEYS]).toEqual(["updated", "due", "priority"]);
     expect(TASK_SORT_LABELS.updated).toBe("Última atualização");
     expect(TASK_SORT_LABELS.due).toBe("Prazo");
+    expect(TASK_SORT_LABELS.priority).toBe("Prioridade");
   });
 
   it("isTaskSortKey aceita só as chaves conhecidas", () => {
     expect(isTaskSortKey("updated")).toBe(true);
     expect(isTaskSortKey("due")).toBe(true);
-    expect(isTaskSortKey("priority")).toBe(false);
+    expect(isTaskSortKey("priority")).toBe(true);
+    expect(isTaskSortKey("sort_order")).toBe(false);
     expect(isTaskSortKey(null)).toBe(false);
     expect(isTaskSortKey(undefined)).toBe(false);
     expect(isTaskSortKey(1)).toBe(false);
@@ -239,5 +264,182 @@ describe("normalizeProjectFilter", () => {
     expect(isProjectFilterValue(null)).toBe(false);
     expect(isProjectFilterValue(undefined)).toBe(false);
     expect(isProjectFilterValue(7)).toBe(false);
+  });
+});
+
+/**
+ * Feature 098 — o quick add cria a tarefa **sem prazo e sem prioridade**, então precisa saber, na
+ * hora, se ela vai aparecer na tela ou se os chips ativos a escondem (e o aviso muda por causa
+ * disso). O molde de toda tarefa recém-criada é este:
+ */
+const TAREFA_NOVA = { status: "todo", priority: null, due_date: null } as const;
+const HOJE = "2026-08-20";
+
+describe("isTaskVisibleInList (feature 098)", () => {
+  it("sem filtro nenhum, a tarefa nova aparece", () => {
+    expect(
+      isTaskVisibleInList(TAREFA_NOVA, {
+        priority: null,
+        todayOnly: false,
+        statusView: "pending",
+        todayIso: HOJE,
+      })
+    ).toBe(true);
+  });
+
+  it("chip de prioridade ligado esconde a tarefa nova (ela nasce sem prioridade)", () => {
+    for (const priority of ["high", "medium", "low"] as TaskPriority[]) {
+      expect(
+        isTaskVisibleInList(TAREFA_NOVA, {
+          priority,
+          todayOnly: false,
+          statusView: "pending",
+          todayIso: HOJE,
+        })
+      ).toBe(false);
+    }
+    // Uma tarefa com a prioridade do chip continua passando.
+    expect(
+      isTaskVisibleInList(
+        { ...TAREFA_NOVA, priority: "high" },
+        { priority: "high", todayOnly: false, statusView: "pending", todayIso: HOJE }
+      )
+    ).toBe(true);
+  });
+
+  it("«Hoje» ligado esconde a tarefa nova (ela nasce sem prazo)", () => {
+    expect(
+      isTaskVisibleInList(TAREFA_NOVA, {
+        priority: null,
+        todayOnly: true,
+        statusView: "pending",
+        todayIso: HOJE,
+      })
+    ).toBe(false);
+    // Com prazo de hoje, passa; com prazo de outro dia, não.
+    expect(
+      isTaskVisibleInList(
+        { ...TAREFA_NOVA, due_date: HOJE },
+        { priority: null, todayOnly: true, statusView: "pending", todayIso: HOJE }
+      )
+    ).toBe(true);
+    expect(
+      isTaskVisibleInList(
+        { ...TAREFA_NOVA, due_date: "2026-08-21" },
+        { priority: null, todayOnly: true, statusView: "pending", todayIso: HOJE }
+      )
+    ).toBe(false);
+  });
+
+  it("statusView «done» esconde a tarefa nova (ela nasce em «todo»)", () => {
+    expect(
+      isTaskVisibleInList(TAREFA_NOVA, {
+        priority: null,
+        todayOnly: false,
+        statusView: "done",
+        todayIso: HOJE,
+      })
+    ).toBe(false);
+    // E «todas» mostra tanto pendente quanto concluída.
+    for (const status of ["todo", "done"]) {
+      expect(
+        isTaskVisibleInList(
+          { ...TAREFA_NOVA, status },
+          { priority: null, todayOnly: false, statusView: "all", todayIso: HOJE }
+        )
+      ).toBe(true);
+    }
+  });
+
+  it("statusView «pending» esconde a concluída", () => {
+    expect(
+      isTaskVisibleInList(
+        { ...TAREFA_NOVA, status: "done" },
+        { priority: null, todayOnly: false, statusView: "pending", todayIso: HOJE }
+      )
+    ).toBe(false);
+  });
+
+  it("os filtros se acumulam: basta um esconder", () => {
+    expect(
+      isTaskVisibleInList(
+        { status: "todo", priority: "high", due_date: HOJE },
+        { priority: "high", todayOnly: true, statusView: "pending", todayIso: HOJE }
+      )
+    ).toBe(true);
+    expect(
+      isTaskVisibleInList(
+        { status: "todo", priority: "high", due_date: null },
+        { priority: "high", todayOnly: true, statusView: "pending", todayIso: HOJE }
+      )
+    ).toBe(false);
+  });
+});
+
+/**
+ * Feature 099 — as duas leituras do mesmo valor de filtro. Uma responde "o que eu escondo da
+ * tela?" e a outra "onde nasce a tarefa que eu criar agora?". Elas concordam em tudo **menos**
+ * em `"all"`, e é justamente por isso que são duas funções.
+ */
+describe("projectFilterToProjectId (feature 099)", () => {
+  it('"all" vira `undefined` — o valor que `filterTasks` lê como "não recorte por projeto"', () => {
+    expect(projectFilterToProjectId(PROJECT_FILTER_ALL)).toBeUndefined();
+    // E a prova de que `undefined` é mesmo o neutro: com ele, `filterTasks` devolve tudo.
+    expect(filterTasks(rows, { projectId: projectFilterToProjectId("all") })).toHaveLength(
+      rows.length
+    );
+  });
+
+  it('"null" vira `null` — o recorte "só o que não tem projeto"', () => {
+    expect(projectFilterToProjectId(PROJECT_FILTER_NONE)).toBeNull();
+    expect(
+      filterTasks(rows, { projectId: projectFilterToProjectId("null") }).map((r) => r.id)
+    ).toEqual(["3"]);
+  });
+
+  it("id de projeto vira o próprio id", () => {
+    expect(projectFilterToProjectId("p1")).toBe("p1");
+    expect(filterTasks(rows, { projectId: projectFilterToProjectId("p1") }).map((r) => r.id)).toEqual(
+      ["1"]
+    );
+  });
+
+  it("valor que não é string, ou string vazia, cai no neutro (`undefined`)", () => {
+    expect(projectFilterToProjectId(undefined)).toBeUndefined();
+    expect(projectFilterToProjectId(null)).toBeUndefined();
+    expect(projectFilterToProjectId(7)).toBeUndefined();
+    expect(projectFilterToProjectId("")).toBeUndefined();
+    expect(projectFilterToProjectId({ id: "p1" })).toBeUndefined();
+  });
+});
+
+describe("projectIdForNewTask (feature 099)", () => {
+  it("id de projeto → a tarefa nova nasce nesse projeto", () => {
+    expect(projectIdForNewTask("p1")).toBe("p1");
+    expect(projectIdForNewTask("p2")).toBe("p2");
+  });
+
+  it('"all" → sem projeto ("todos" não é um projeto)', () => {
+    expect(projectIdForNewTask(PROJECT_FILTER_ALL)).toBeNull();
+  });
+
+  it('"null" → sem projeto (é literalmente o recorte escolhido)', () => {
+    expect(projectIdForNewTask(PROJECT_FILTER_NONE)).toBeNull();
+  });
+
+  it("valor que não é string, ou string vazia, cai no neutro (`null`)", () => {
+    expect(projectIdForNewTask(undefined)).toBeNull();
+    expect(projectIdForNewTask(null)).toBeNull();
+    expect(projectIdForNewTask(7)).toBeNull();
+    expect(projectIdForNewTask("")).toBeNull();
+    expect(projectIdForNewTask({ id: "p1" })).toBeNull();
+  });
+
+  it('divergência proposital: em "all" uma diz `undefined` (não filtre) e a outra `null` (sem projeto)', () => {
+    expect(projectFilterToProjectId(PROJECT_FILTER_ALL)).toBeUndefined();
+    expect(projectIdForNewTask(PROJECT_FILTER_ALL)).toBeNull();
+    // Nos outros dois casos elas concordam — a diferença é só essa, e é de propósito.
+    expect(projectFilterToProjectId(PROJECT_FILTER_NONE)).toBe(projectIdForNewTask(PROJECT_FILTER_NONE));
+    expect(projectFilterToProjectId("p1")).toBe(projectIdForNewTask("p1"));
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   addDays,
@@ -12,9 +12,28 @@ import {
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CornerDownRight, DollarSign, ExternalLink, Stethoscope, Trash2, UserPlus } from "lucide-react";
+import {
+  CalendarPlus,
+  ChevronLeft,
+  ChevronRight,
+  CornerDownRight,
+  DollarSign,
+  ExternalLink,
+  ListPlus,
+  Pencil,
+  Plus,
+  Stethoscope,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -30,22 +49,27 @@ import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { AgendaHourGrid } from "./AgendaHourGrid";
 import { QuickTaskDotRow } from "./QuickTaskDotRow";
 import { EventInviteDialog } from "./EventInviteDialog";
+import { ProjectEventFormDialog } from "./ProjectEventFormDialog";
 import { TaskIconBadge } from "./TaskIconBadge";
 import { TaskFormFields } from "./TaskFormFields";
 import { TaskDeleteDialog } from "./TaskDeleteDialog";
 import { runScopedTaskDelete } from "./scopedDelete";
 import { formatTimeOfDay } from "./TimeEntryRow";
 import {
+  createProjectEvent,
   createTag,
   createTask,
   deleteProjectEvent,
   deleteTask,
+  fetchAssetsForTasks,
   fetchExternalLinksForTask,
   fetchProjectEvents,
   fetchProjects,
   fetchTags,
   fetchTasks,
   saveExternalLinksForTask,
+  saveTaskAssetLinks,
+  updateProjectEvent,
   updateTask,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
@@ -65,11 +89,16 @@ import {
   groupSubtasksByParent,
   isQuickTask,
   isSubtaskDueDateValid,
+  minutesToTimeInput,
   normalizeExternalLinkDrafts,
   normalizeProjectFilter,
   PROJECT_FILTER_ALL,
   PROJECT_FILTER_NONE,
+  projectEventToDraft,
+  projectIdForNewTask,
   splitAgendaItems,
+  type DragRange,
+  type ProjectEventDraft,
   type TaskDeleteOption,
 } from "@/domain/tasks";
 import {
@@ -87,6 +116,7 @@ import {
 import type {
   Project,
   ProjectEvent,
+  ProjectEventCreateRequest,
   SubtaskDraft,
   Tag,
   Task,
@@ -113,6 +143,12 @@ export const STATUS_DOT_CLASS: Record<Task["status"], string> = {
 
 export function dayKey(date: Date): string {
   return format(date, "yyyy-MM-dd");
+}
+
+/** Rótulo acessível do `+` de um dia (feature 103) — datado, como o do número do dia já é.
+ * Compartilhado com `AgendaHourGrid`, que desenha o mesmo `+` no cabeçalho da coluna. */
+export function newItemLabel(day: Date): string {
+  return `Novo item em ${format(day, "d 'de' MMMM", { locale: ptBR })}`;
 }
 
 export function isVirtualTask(task: Task): boolean {
@@ -230,6 +266,48 @@ export function EventChip({
   );
 }
 
+/**
+ * Menu "Novo" da Agenda (feature 103) — os dois tipos de item de primeira classe do calendário,
+ * evento e tarefa, num menu só. Dois botões soltos na barra empatariam visualmente com os controles
+ * de navegação.
+ *
+ * O mesmo menu serve o botão da barra e o `+` de cada dia da grade: o que muda é só o gatilho e a
+ * data que já vai pré-preenchida (e, na 104, a faixa de horário arrastada).
+ */
+export function NewAgendaItemMenu({
+  trigger,
+  onPickEvent,
+  onPickTask,
+  align = "end",
+  open,
+  onOpenChange,
+}: {
+  trigger: React.ReactNode;
+  onPickEvent: () => void;
+  onPickTask: () => void;
+  align?: "start" | "center" | "end";
+  /** Controlado só no menu da faixa arrastada (feature 104): lá quem abre é o `pointerup`, não um
+   * clique no gatilho. Omitido, o menu se governa sozinho como nos outros dois call sites. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  return (
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuContent align={align}>
+        <DropdownMenuItem onSelect={onPickEvent}>
+          <CalendarPlus className="mr-2 h-4 w-4" />
+          Evento
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onPickTask}>
+          <ListPlus className="mr-2 h-4 w-4" />
+          Tarefa
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export interface AgendaGridProps {
   /** Recorte por projeto vindo de fora — a aba Agenda do `TaskList` (feature 097). Mesmo
    * vocabulário do `<Select>` de lá: `"all"`, `"null"` ou o id do projeto. Sem esta prop a grade
@@ -272,10 +350,40 @@ export function AgendaGrid({
    * continua fora de escopo aqui são os **chips** nos itens da agenda (nem a Agenda nem o Gantt
    * mostram chip de link hoje). */
   const [externalLinkDrafts, setExternalLinkDrafts] = useState<TaskExternalLinkDraft[]>([]);
+  /** Assets da base do projeto anexados à tarefa aberta (feature 106). Mesmo ciclo de vida dos
+   * links externos: em edição carregam ao abrir; em criação nascem vazios e gravam depois do
+   * `createTask`. */
+  const [projectAssetIds, setProjectAssetIds] = useState<string[]>([]);
   const [form, setForm] = useState<TaskCreateRequest>(emptyTask());
+  /** Feature 103 — a Agenda passa a criar tarefa de topo, não só editar. O mesmo dialog serve os
+   * dois modos (como em `TaskList`): `editingTask` preenchido = edição, `creatingTask` = criação. */
+  const [creatingTask, setCreatingTask] = useState(false);
+  /** Subtarefas digitadas antes de existir `task_id` — só viram linhas depois do `createTask`,
+   * mesmo caminho de `TaskList.tsx`. */
+  const [subtaskDrafts, setSubtaskDrafts] = useState<string[]>([]);
   const [viewingEvent, setViewingEvent] = useState<ProjectEvent | null>(null);
+  /** Feature 103 — formulário de evento (criação e edição no mesmo dialog). `editingEvent` nulo =
+   * criação; preenchido = edição daquela linha. `eventDraft` é o pré-preenchimento: a data do dia
+   * clicado na criação, o evento inteiro na edição. */
+  const [eventFormOpen, setEventFormOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<ProjectEvent | null>(null);
+  const [eventDraft, setEventDraft] = useState<Partial<ProjectEventDraft>>({});
   /** Evento cujo dialog de convite (feature 076) está aberto. */
   const [invitingEvent, setInvitingEvent] = useState<ProjectEvent | null>(null);
+  /**
+   * Feature 104 — faixa de horário desenhada com o arrasto na grade de horas, esperando o usuário
+   * dizer o que criar nela. `null` = nenhuma faixa pendente (é também o que fecha o menu).
+   *
+   * A faixa não vira item sozinha de propósito: a Agenda tem **dois** tipos de item de primeira
+   * classe e adivinhar erraria metade das vezes (ver `## Decisões` da 104).
+   */
+  const [pendingRange, setPendingRange] = useState<({ dayKey: string } & DragRange) | null>(null);
+  /** Ponto do viewport onde o gesto terminou — é o que ancora o menu na faixa. Guardado na **fase
+   * de captura** do `pointerup`, que roda antes do handler da coluna que chama `onCreateInRange`:
+   * quando a faixa chega, o ponto já está aqui. Depois que o fantasma some não sobra elemento
+   * nenhum na tela para ancorar. */
+  const pointerRef = useRef({ x: 0, y: 0 });
+  const [rangeAnchor, setRangeAnchor] = useState({ x: 0, y: 0 });
   const { toast } = useToast();
 
   /** Controlada = a aba dentro do `TaskList`; não controlada = a rota `/tasks/agenda`. */
@@ -504,9 +612,12 @@ export function AgendaGrid({
 
   const today = new Date();
   const dayModalItems = dayModalKey ? (itemsByDay.get(dayModalKey) ?? []) : [];
+  /** O dialog de tarefa é um só para os dois modos (criar/editar) — ver `openNewTask`. */
+  const taskDialogOpen = creatingTask || !!editingTask;
 
   function openTaskFromChip(task: Task) {
     setDayModalKey(null);
+    setCreatingTask(false);
     setEditingTask(task);
     setForm({
       project_id: task.project_id,
@@ -533,6 +644,7 @@ export function AgendaGrid({
       is_quick: task.is_quick ?? false,
     });
     loadExternalLinkDrafts(task.id);
+    loadProjectAssetIds(task.id);
   }
 
   /** Carrega os links da tarefa aberta pela agenda — zera antes de buscar para não mostrar os da
@@ -556,9 +668,25 @@ export function AgendaGrid({
         variant: "destructive",
       });
     }
-  }
+}
 
-  async function handleCreateTag(name: string, color: string): Promise<Tag> {
+/** Carrega os assets da base do projeto anexados à tarefa (feature 106). Mesmo padrão dos
+ * links externos: zera antes, falha cai para vazio com aviso. */
+async function loadProjectAssetIds(taskId: string) {
+  setProjectAssetIds([]);
+  try {
+    const assetsMap = await fetchAssetsForTasks([taskId]);
+    setProjectAssetIds(assetsMap[taskId]?.map((a) => a.id) ?? []);
+  } catch (error) {
+    toast({
+      title: "Erro",
+      description: getErrorMessage(error, "Não foi possível carregar os anexos do projeto."),
+      variant: "destructive",
+    });
+  }
+}
+
+async function handleCreateTag(name: string, color: string): Promise<Tag> {
     const tag = await createTag({ name, color });
     setTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
     return tag;
@@ -634,11 +762,48 @@ export function AgendaGrid({
     try {
       await updateTask({ id, ...payload });
       await saveExternalLinksForTask(id, links);
+      await saveTaskAssetLinks(id, projectAssetIds);
     } catch (error) {
       setTasks(previous);
       toast({
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível salvar a tarefa."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  /**
+   * Criação de tarefa pela Agenda (feature 103), no molde de `TaskList.handleSave`: `createTask`
+   * primeiro, subtarefas em rascunho depois, e os links externos **só no fim** — antes do insert não
+   * existe `task_id` para gravá-los.
+   *
+   * Título vazio é no-op silencioso, o mesmo guard das outras telas: não há nada a reportar.
+   */
+  async function handleCreateTask() {
+    if (!form.title.trim()) return;
+    const links = normalizeExternalLinkDrafts(externalLinkDrafts).drafts;
+    try {
+      const created = await createTask(form);
+      for (const title of subtaskDrafts) {
+        await createTask({
+          ...emptyTask(created.project_id),
+          parent_task_id: created.id,
+          title,
+        });
+      }
+      if (links.length > 0) await saveExternalLinksForTask(created.id, links);
+      if (projectAssetIds.length > 0) await saveTaskAssetLinks(created.id, projectAssetIds);
+      setCreatingTask(false);
+      setSubtaskDrafts([]);
+      toast({ title: "Tarefa criada", duration: 2000 });
+      await load();
+    } catch (error) {
+      // Dialog fica aberto com o que foi digitado — perder o formulário num erro de rede é o pior
+      // desfecho possível.
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível criar a tarefa."),
         variant: "destructive",
       });
     }
@@ -689,6 +854,110 @@ export function AgendaGrid({
     await runScopedTaskDelete(task, option, { reload: load, notify: toast });
   }
 
+  /** Abre o formulário de evento novo. A data chega do `+` de um dia da grade; pelo botão da barra
+   * vem vazia e o usuário escolhe. O par `startTime`/`endTime` só vem da faixa arrastada
+   * (feature 104) — daí o evento nasce com `ends_at` real, não com os 30 min de fallback. */
+  function openNewEvent(date?: string, times?: { startTime: string; endTime: string }) {
+    setEditingEvent(null);
+    setEventDraft(date ? { date, ...times } : {});
+    setEventFormOpen(true);
+  }
+
+  /**
+   * Abre o formulário de tarefa nova (o mesmo `TaskFormFields` que a Agenda já hospeda para
+   * edição). Duas heranças de propósito:
+   *
+   * - o **projeto do filtro** (`projectIdForNewTask`, feature 099) — a Agenda era a exceção
+   *   registrada por escrito lá ("não cria tarefa"), e deixa de ser;
+   * - o **dia escolhido** como `due_date`, quando veio do `+` de uma célula. Criar pela Agenda e a
+   *   tarefa não aparecer na Agenda seria o mesmo bug que a 099 consertou na Lista.
+   */
+  function openNewTask(
+    date?: string,
+    /** Só a faixa arrastada (feature 104) traz horário e duração: são exatamente os dois campos que
+     * `getItemTimeRange` lê para redesenhar o bloco no mesmo lugar da grade. */
+    timing?: { dueTime: string; durationMinutes: number }
+  ) {
+    setEditingTask(null);
+    setSubtaskDrafts([]);
+    setExternalLinkDrafts([]);
+    setProjectAssetIds([]);
+    setForm({
+      ...emptyTask(projectIdForNewTask(projectFilter)),
+      due_date: date ?? null,
+      due_time: timing?.dueTime ?? null,
+      estimated_duration: timing?.durationMinutes ?? null,
+    });
+    setCreatingTask(true);
+  }
+
+  /**
+   * Feature 104 — o usuário desenhou uma faixa na grade de horas. Guarda a faixa e o ponto do
+   * gesto; o menu "Evento/Tarefa" abre ancorado ali, e é a escolha dele que abre o formulário já
+   * preenchido com o horário desenhado.
+   */
+  function handleCreateInRange(range: { dayKey: string } & DragRange) {
+    setRangeAnchor(pointerRef.current);
+    setPendingRange(range);
+  }
+
+  /** Faixa → formulário de evento, com início e fim reais (o que o gesto desenhou). */
+  function openEventFromRange() {
+    if (!pendingRange) return;
+    const { dayKey: date, startMinutes, durationMinutes } = pendingRange;
+    setPendingRange(null);
+    openNewEvent(date, {
+      startTime: minutesToTimeInput(startMinutes),
+      endTime: minutesToTimeInput(startMinutes + durationMinutes),
+    });
+  }
+
+  /** Faixa → formulário de tarefa: `due_date`, `due_time` e `estimated_duration` da faixa. */
+  function openTaskFromRange() {
+    if (!pendingRange) return;
+    const { dayKey: date, startMinutes, durationMinutes } = pendingRange;
+    setPendingRange(null);
+    openNewTask(date, { dueTime: minutesToTimeInput(startMinutes), durationMinutes });
+  }
+
+  function closeTaskDialog() {
+    setEditingTask(null);
+    setCreatingTask(false);
+  }
+
+  /** Detalhe do evento → edição, no mesmo formulário da criação. Fecha o detalhe para não empilhar
+   * dois dialogs. */
+  function openEditEvent(event: ProjectEvent) {
+    setViewingEvent(null);
+    setEditingEvent(event);
+    setEventDraft(projectEventToDraft(event));
+    setEventFormOpen(true);
+  }
+
+  /**
+   * Criação e edição de evento passam pelo mesmo formulário (uma decisão da 103), então o `submit`
+   * também é um só: com `editingEvent` é update, sem ele é insert.
+   *
+   * Nada de inserção otimista — a Agenda recalcula ocorrências virtuais e doses a partir de
+   * `tasks`, e um item enxertado à mão sairia do lugar. No erro o dialog **fica aberto** com o que
+   * foi digitado: perder o formulário num erro de rede é o pior desfecho possível aqui.
+   */
+  async function handleSubmitEvent(payload: ProjectEventCreateRequest) {
+    try {
+      if (editingEvent) await updateProjectEvent({ id: editingEvent.id, ...payload });
+      else await createProjectEvent(payload);
+      setEventFormOpen(false);
+      toast({ title: editingEvent ? "Evento salvo" : "Evento criado", duration: 2000 });
+      await load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível salvar o evento."),
+        variant: "destructive",
+      });
+    }
+  }
+
   async function handleDeleteEvent(id: string) {
     try {
       await deleteProjectEvent(id);
@@ -733,6 +1002,19 @@ export function AgendaGrid({
           </Button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Feature 103: o único ponto de entrada de criação da Agenda. Antes dela a grade era
+              somente leitura para criação — evento só nascia dentro do dialog de projeto e tarefa
+              de topo não nascia aqui de jeito nenhum. */}
+          <NewAgendaItemMenu
+            trigger={
+              <Button size="sm" className="h-8 gap-1.5" aria-label="Novo item na agenda">
+                <Plus className="h-4 w-4" />
+                Novo
+              </Button>
+            }
+            onPickEvent={() => openNewEvent()}
+            onPickTask={() => openNewTask()}
+          />
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as CalendarViewMode)}>
             <TabsList>
               <TabsTrigger value="month">Mês</TabsTrigger>
@@ -766,16 +1048,27 @@ export function AgendaGrid({
       {loading ? (
         <TableLoadingSkeleton rows={5} />
       ) : viewMode === "day" || viewMode === "week" ? (
-        <AgendaHourGrid
-          days={gridDays}
-          itemsByDay={itemsByDay}
-          projectById={projectById}
-          taskById={taskById}
-          onOpenTask={openTaskFromChip}
-          onOpenEvent={openEventFromChip}
-          onToggleQuick={toggleTaskDone}
-          onOpenDay={setDayModalKey}
-        />
+        // Feature 104: o `pointerup` que fecha o arrasto passa por aqui na fase de captura, antes
+        // do handler da coluna — é assim que o menu da faixa sabe onde abrir.
+        <div
+          onPointerUpCapture={(e) => {
+            pointerRef.current = { x: e.clientX, y: e.clientY };
+          }}
+        >
+          <AgendaHourGrid
+            days={gridDays}
+            itemsByDay={itemsByDay}
+            projectById={projectById}
+            taskById={taskById}
+            onOpenTask={openTaskFromChip}
+            onOpenEvent={openEventFromChip}
+            onToggleQuick={toggleTaskDone}
+            onOpenDay={setDayModalKey}
+            onNewEvent={openNewEvent}
+            onNewTask={openNewTask}
+            onCreateInRange={handleCreateInRange}
+          />
+        </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <div className="grid grid-cols-7 border-b bg-muted/40">
@@ -802,7 +1095,10 @@ export function AgendaGrid({
               return (
                 <div
                   key={key}
-                  className={cn("min-h-24 border-b border-r p-1 sm:min-h-28", !inMonth && "bg-muted/20")}
+                  className={cn(
+                    "group relative min-h-24 border-b border-r p-1 sm:min-h-28",
+                    !inMonth && "bg-muted/20"
+                  )}
                 >
                   {/* Feature 075: o número do dia abre o modal do dia, como já acontecia em
                       semana/dia (`AgendaHourGrid`). Sem isto, uma dose sozinha na célula do mês era
@@ -821,6 +1117,26 @@ export function AgendaGrid({
                   >
                     {format(day, "d")}
                   </button>
+                  {/* Feature 103: o gesto óbvio de "quero marcar algo nesse dia". Absoluto no canto,
+                      e não em linha com o número do dia, para não empurrar os chips nem tirar o
+                      número da raiz da célula (é por ele que os testes acham a célula). Aparece no
+                      hover e no foco — 42 células com um `+` fixo seria ruído; é a mesma afordância
+                      que a 104 vai estender para faixa de horário arrastada. */}
+                  <NewAgendaItemMenu
+                    align="end"
+                    onPickEvent={() => openNewEvent(key)}
+                    onPickTask={() => openNewTask(key)}
+                    trigger={
+                      <button
+                        type="button"
+                        aria-label={newItemLabel(day)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-0.5 top-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    }
+                  />
                   <QuickTaskDotRow
                     tasks={quick}
                     onToggle={toggleTaskDone}
@@ -892,7 +1208,7 @@ export function AgendaGrid({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!editingTask} onOpenChange={(v) => !v && setEditingTask(null)}>
+      <Dialog open={taskDialogOpen} onOpenChange={(v) => !v && closeTaskDialog()}>
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS_LG}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -909,7 +1225,7 @@ export function AgendaGrid({
                   )}
                 />
               )}
-              Editar tarefa
+              {editingTask ? "Editar tarefa" : "Nova tarefa"}
             </DialogTitle>
           </DialogHeader>
           {editingTask?.linked_recurring_id && (
@@ -918,7 +1234,7 @@ export function AgendaGrid({
               Vinculada a uma Recorrência Financeira — concluir aqui já reflete em Finanças.
             </p>
           )}
-          {editingTask && (
+          {taskDialogOpen && (
             <TaskFormFields
               form={form}
               setForm={setForm}
@@ -929,17 +1245,39 @@ export function AgendaGrid({
               recurrings={recurrings}
               onRecurringCreated={(rec) => setRecurrings((prev) => [rec, ...prev])}
               dimensions={dimensions}
-              subtasks={(subtasksByParent.get(editingTask.id) ?? []).map((s) => ({ id: s.id, title: s.title }))}
-              onAddSubtask={addSubtaskToEditing}
-              onRemoveSubtask={(subtask) => removeExistingSubtask(subtask)}
+              // Em criação não há `task_id`: as subtarefas ficam numa lista local e só viram linhas
+              // depois do `createTask` — mesmo desenho de `TaskList.tsx`.
+              subtasks={
+                editingTask
+                  ? (subtasksByParent.get(editingTask.id) ?? []).map((s) => ({
+                      id: s.id,
+                      title: s.title,
+                    }))
+                  : subtaskDrafts.map((title) => ({ title }))
+              }
+              onAddSubtask={(title) =>
+                editingTask
+                  ? addSubtaskToEditing(title)
+                  : setSubtaskDrafts((prev) => [...prev, title])
+              }
+              onRemoveSubtask={(subtask, index) =>
+                editingTask
+                  ? removeExistingSubtask(subtask)
+                  : setSubtaskDrafts((prev) => prev.filter((_, i) => i !== index))
+              }
               externalLinks={externalLinkDrafts}
               onExternalLinksChange={setExternalLinkDrafts}
+              projectAssetIds={projectAssetIds}
+              onProjectAssetIdsChange={setProjectAssetIds}
               projects={projects}
             />
           )}
           <div className="flex gap-2">
-            <Button onClick={handleSaveTaskEdit} className="flex-1">
-              Salvar alterações
+            <Button
+              onClick={editingTask ? handleSaveTaskEdit : handleCreateTask}
+              className="flex-1"
+            >
+              {editingTask ? "Salvar alterações" : "Criar tarefa"}
             </Button>
             {/* Item virtual (`virtual:`) não existe no banco — não há o que excluir. Na prática ele
                 nem chega aqui (o chip/bolinha dele é `disabled`), mas a guarda fica explícita. */}
@@ -982,6 +1320,19 @@ export function AgendaGrid({
                 </Badge>
               )}
               <div className="flex gap-2">
+                {/* Feature 103: sem "Editar", criar pela Agenda seria criar sem conserto — um
+                    horário errado só se resolvia apagando e recriando. Vale também para a cópia
+                    recebida por convite (project_id nulo): a linha é da agenda do próprio usuário,
+                    e o formulário avisa que a alteração não volta para o anfitrião. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => openEditEvent(viewingEvent)}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Editar
+                </Button>
                 {viewingEvent.project_id && (
                   <Button variant="outline" size="sm" className="gap-1.5" asChild>
                     <Link to={`/tasks/projects/${viewingEvent.project_id}`}>
@@ -1015,6 +1366,40 @@ export function AgendaGrid({
           )}
         </DialogContent>
       </Dialog>
+
+      <ProjectEventFormDialog
+        open={eventFormOpen}
+        onOpenChange={setEventFormOpen}
+        initial={eventDraft}
+        projects={projects}
+        mode={editingEvent ? "edit" : "create"}
+        // `project_id` nulo é o único sinal que a linha carrega de "cópia recebida por convite"
+        // (feature 076) — a mesma leitura que o badge do dialog de detalhe já fazia. Ver `## Notas`
+        // da 103: com evento sem projeto agora criável aqui, esse sinal ficou ambíguo.
+        receivedByInvite={!!editingEvent && editingEvent.project_id === null}
+        onSubmit={handleSubmitEvent}
+      />
+
+      {/* Feature 104 — menu da faixa arrastada. O gatilho é um alvo invisível de tamanho zero
+          posicionado onde o gesto terminou: a faixa mora dentro da coluna da grade e o fantasma
+          some no `pointerup`, então não sobra elemento para ancorar. Fechar sem escolher (Escape,
+          clique fora) descarta a faixa — nada fica pendente em estado. */}
+      <NewAgendaItemMenu
+        align="start"
+        open={!!pendingRange}
+        onOpenChange={(aberto) => {
+          if (!aberto) setPendingRange(null);
+        }}
+        onPickEvent={openEventFromRange}
+        onPickTask={openTaskFromRange}
+        trigger={
+          <span
+            aria-hidden="true"
+            className="fixed h-0 w-0"
+            style={{ left: rangeAnchor.x, top: rangeAnchor.y }}
+          />
+        }
+      />
 
       {invitingEvent && (
         <EventInviteDialog

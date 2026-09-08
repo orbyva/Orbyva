@@ -114,6 +114,22 @@ async function renderWithTasks(tasks: Task[], project: Project = makeProject()) 
   return utils;
 }
 
+/**
+ * Feature 100: o título do card virou um botão de edição inline, então clicar nele **não** abre
+ * mais o dialog completo — quem abre é o lápis da linha/card (ou qualquer ponto fora do título e
+ * da descrição). O caminho do formulário continua existindo, só mudou de gesto.
+ */
+async function openFullDialog(
+  user: ReturnType<typeof userEvent.setup>,
+  title: string
+) {
+  const card = screen
+    .getByRole("button", { name: `Editar título: ${title}` })
+    .closest(".cursor-pointer") as HTMLElement;
+  const pencil = card.querySelector("svg.lucide-pen")?.closest("button") as HTMLButtonElement;
+  await user.click(pencil);
+}
+
 /** `ProjectDetail` abre por padrão na visão Kanban — `KanbanCard` mostra os mini-cards de
  * subtarefa direto (sem botão "Expandir subtarefas", diferente de `TaskListRow`). Clicar no
  * título do mini-card (não mais um `<button>` — feature 047 trocou o checklist de checkboxes por
@@ -155,7 +171,7 @@ describe("ProjectDetail — edição de subtarefa abre o form completo (feature 
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal" });
     await renderWithTasks([parent]);
 
-    await user.click(screen.getByText("Tarefa principal"));
+    await openFullDialog(user, "Tarefa principal");
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Subtarefas/ }));
 
     expect(

@@ -12,6 +12,7 @@ import {
   isRecurringTask,
   isSimpleRecurringTask,
   sortTasksByCompletedAtDesc,
+  taskSeriesKey,
 } from "@/domain/tasks/agenda";
 
 const TODAY = "2026-08-06"; // quinta-feira
@@ -76,6 +77,40 @@ function task(overrides: Partial<Row> & { id: string }): Row {
     ...overrides,
   };
 }
+
+/** Feature 101: `taskSeriesKey` deixou de ser privado — a página "Tarefas recorrentes" agrupa por
+ * ela. Estes casos fixam o contrato agora que ele é público (e são os mesmos que
+ * `collapseRecurringSeries`/`findSeriesTasks` já dependiam implicitamente). */
+describe("taskSeriesKey", () => {
+  it("vínculo com Recorrência Financeira ganha a chave linked:<id>", () => {
+    expect(taskSeriesKey(task({ id: "t1", linked_recurring_id: "rec-9" }))).toBe("linked:rec-9");
+  });
+
+  it("ocorrência materializada aponta para a origem em simple:<origem>", () => {
+    expect(taskSeriesKey(task({ id: "t2", recurrence_origin_id: "orig-1" }))).toBe("simple:orig-1");
+  });
+
+  it("a tarefa-origem (dona da regra) é a própria chave simple:<id>", () => {
+    expect(
+      taskSeriesKey(task({ id: "orig-1", recurrence_rule: { frequency: "daily", interval: 1 } }))
+    ).toBe("simple:orig-1");
+  });
+
+  it("origem e ocorrência caem na MESMA chave — é o que faz as telas concordarem", () => {
+    const origin = task({ id: "orig-1", recurrence_rule: { frequency: "daily", interval: 1 } });
+    const occurrence = task({ id: "t3", recurrence_origin_id: "orig-1" });
+    expect(taskSeriesKey(occurrence)).toBe(taskSeriesKey(origin));
+  });
+
+  it("tarefa avulsa não tem série", () => {
+    expect(taskSeriesKey(task({ id: "t4" }))).toBeNull();
+  });
+
+  it("não conhece medicação: a dose materializada (só medication_id) cai em null", () => {
+    // É exatamente a lacuna que `taskSeriesGroupKey` (series.ts) fecha.
+    expect(taskSeriesKey(task({ id: "dose-1", medication_id: "med-1" }))).toBeNull();
+  });
+});
 
 describe("collapseRecurringSeries", () => {
   it("tarefas não recorrentes passam direto", () => {

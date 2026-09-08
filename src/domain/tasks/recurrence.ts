@@ -204,7 +204,7 @@ interface SeriesOriginSource {
  * Recorrência Financeira, porque as duas gravam `recurrence_origin_id` nas ocorrências
  * (`materializeRecurringInstances` e `materializeLinkedInstances`). Doses de medicação (feature
  * 064) caem fora sozinhas — nascem com `recurrence_rule` e `recurrence_origin_id` nulos, agrupadas
- * só por `medication_id`, que `seriesKey` também não reconhece como série.
+ * só por `medication_id`, que `taskSeriesKey` também não reconhece como série.
  */
 export function resolveSeriesOriginId(task: SeriesOriginSource): string | null {
   if (task.recurrence_origin_id) return task.recurrence_origin_id;

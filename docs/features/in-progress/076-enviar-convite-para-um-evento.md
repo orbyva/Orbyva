@@ -204,6 +204,19 @@ de todo mundo que já entra com Google — nada disso existe.
       #   RESEND_API_KEY, RESEND_FROM, SITE_URL
       supabase secrets list     # conferir que os três já existem antes de testar
       ```
+      **Medido em 26/08/2026 (leituras, sem escrever nada no projeto remoto):**
+      `supabase functions list` no projeto linkado (`orbyva-dev`, ref `cmspyjarkbsrqtjhtwpz`, o único
+      projeto Orbyva na conta) devolve 15 funções ACTIVE e **`event-invite-email` não está entre
+      elas** — confirmado, não publicada.
+      E `supabase secrets list` no mesmo projeto devolve só `OPS_ADMIN_EMAILS` + os `SUPABASE_*`
+      automáticos: **`RESEND_API_KEY`, `RESEND_FROM` e `SITE_URL` não existem lá**. Isso significa
+      que `deploy` sozinho **não** resolve — `sendResendEmail` (`_shared/resend.ts:26-27`) devolve
+      `{ ok: false, error: "RESEND_API_KEY ausente" }` antes de chamar o Resend, a função responde
+      500 e nenhum e-mail (nem o `.ics`) sai. Os três valores existem no `.env` local, então é
+      `supabase secrets set` a partir dele. Nota lateral: como o segredo falta no projeto inteiro,
+      as outras funções de e-mail já publicadas (`trip-invite-email`, `welcome-email`,
+      `waitlist-email`, …) também não conseguem enviar nada nesse projeto hoje — é pré-existente e
+      fora do escopo da 076, mas explica por que "e-mail não chega" não é sintoma só desta feature.
       Depois disso, o **teste ponta a ponta com duas contas de verdade** descrito no fim desta
       tarefa é o que fecha a feature — ele é o único passo que a suíte não cobre, porque envolve
       caixa de entrada real.
@@ -373,3 +386,88 @@ O código, esse, está inteiro e verificado: 195 arquivos / 1990 testes / 0 falh
 feature, o harness `supabase/tests/event_invite/run.sh` passando com controle negativo, e a
 rastreabilidade das três pernas do prompt logo acima. O que falta é deploy e uma caixa de entrada
 real — nada de implementação.
+
+### Reverificação em 2026-08-26 — código continua íntegro, deploy continua pendente
+
+Rodada completa nesta data, sem tocar em código de produto (a única alteração desta sessão é este
+arquivo):
+
+- `npx tsc -p tsconfig.app.json --noEmit` — limpo.
+- `npm run build` — ok; `npm run check:bundle` — "Bundle budget OK".
+- `npm run lint` — 0 erros, 87 warnings (todos `react-refresh/only-export-components`,
+  pré-existentes; eram 80 em 20/08, os 7 novos vêm de features posteriores, não da 076).
+- `bash supabase/tests/event_invite/run.sh` — passa, com o controle negativo de banco inteiro.
+- `npm test` — **236 arquivos / 2616 testes, 1 falha**, detalhada abaixo e **não** desta feature.
+  Todos os arquivos da 076 (`eventInvites`, `ics`, `ics.mirror`, `inviteEmail`, `pedido-literal`,
+  `EventInviteAccept`, `EventInviteDialog`, `EventInviteEntryPoints`, `AgendaGrid.invite-event`,
+  `nextPath`) passam.
+
+**A falha é uma bomba-relógio de calendário na feature 079, pré-existente e alheia à 076.**
+`src/pages/admin/tasks/__tests__/ProjectDetail.sort.test.tsx` → "a Lista do projeto abre ordenada
+por última atualização" espera `["Beta", "Gama", "Alfa"]` e recebe `["Alfa", "Beta", "Gama"]`.
+Causa: o fixture usa `due_date` fixos `2026-08-25 / 26 / 27` sem congelar o relógio, e a Lista
+agrupa por `AGENDA_BUCKET_ORDER` **antes** de ordenar (`ProjectDetail.tsx:387,979`). Enquanto a
+data de hoje era anterior a 25/08 as três tarefas caíam num único balde e a ordem por
+`updated_at` aparecia; a partir de 25/08/2026 elas se espalham em `overdue`/`today`/`this_week`,
+e a ordem dos baldes passa por cima do comparador. Não se auto-cura — o calendário só anda pra
+frente.
+Confirmado que **não** é da 076 nem do trabalho não commitado de ordenação por prioridade: o mesmo
+teste falha igual num worktree limpo em `HEAD` (`fada6d8`), sem nenhuma modificação. Deixado como
+está de propósito — é teste da 079 e a área de ordenação estava sendo editada em paralelo nesta
+mesma árvore. Conserto mínimo sugerido: empurrar os três `due_date` do fixture para um mês
+distante (ex.: `2027-…`), que devolve as três ao balde `later` e mantém a intenção do teste, sem
+mexer no comparador nem em `sortTasksByDueDate`.
+
+### Reverificação em 2026-08-31 — nada mudou no que depende de código; o deploy segue pendente
+
+Rodada completa nesta data. **Nenhuma linha de código de produto foi alterada** — a única alteração
+desta sessão é esta seção.
+
+- `npx tsc -p tsconfig.app.json --noEmit` — limpo.
+- `npm run build` — ok; `npm run check:bundle` — "Bundle budget OK".
+- `npm run lint` — 0 erros, 87 warnings (todos `react-refresh/only-export-components`, pré-existentes).
+- `bash supabase/tests/event_invite/run.sh` — passa, com o controle negativo de banco inteiro.
+- `npm test` — **244 arquivos / 2733 testes, 3 falhas em 2 arquivos**, nenhuma da 076 (detalhe abaixo).
+- Só os arquivos da 076 (`eventInvites`, `ics`, `ics.mirror`, `inviteEmail`, `pedido-literal`,
+  `EventInviteAccept`, `EventInviteDialog`, `EventInviteEntryPoints`, `AgendaGrid.invite-event`,
+  `nextPath`): **10 arquivos / 124 testes / 0 falhas**.
+
+**A falha da 079 anotada em 26/08 sumiu** — `ProjectDetail.sort.test.tsx` passa agora; o trabalho de
+ordenação em curso nesta mesma árvore corrigiu o fixture. As 3 falhas de hoje são outras e ficam
+fora do alcance desta feature:
+- `src/components/__tests__/CanvasBlock.test.tsx` (2) — área da **058**, que está parada aguardando
+  decisão do usuário sobre a coluna `project.notes`. Não tocada de propósito.
+- `src/pages/admin/notes/__tests__/notaSemSintaxe.test.tsx` (1, timeout de 5 s) — área da **068**.
+Nenhum arquivo em `src/components/`, `src/pages/admin/notes/` ou `src/domain/notes/` tem alteração
+não commitada (`git status --porcelain` nesses caminhos volta vazio), então as três falham já em
+`HEAD` (`fada6d8`) e não vêm do trabalho não commitado, que só toca `src/domain/tasks` e
+`src/pages/admin/tasks`.
+
+**Remedição do bloqueio, hoje, só com leitura do projeto remoto** (`orbyva-dev`, ref
+`cmspyjarkbsrqtjhtwpz`; CLI em `node_modules/.bin/supabase`, 2.109.1):
+- `supabase functions list` → 15 funções ACTIVE, **`event-invite-email` continua fora**.
+- `supabase secrets list` → só `OPS_ADMIN_EMAILS` + os `SUPABASE_*` automáticos. **`RESEND_API_KEY`,
+  `RESEND_FROM` e `SITE_URL` continuam ausentes.** Os três estão no `.env` local.
+
+**Detalhe novo, medido nesta rodada, que muda a receita do deploy — os três segredos não são
+equivalentes:**
+- `RESEND_API_KEY` é o único **obrigatório**: sem ele `sendResendEmail`
+  (`_shared/resend.ts:26-27`) devolve `{ ok: false, error: "RESEND_API_KEY ausente" }` antes de
+  chamar o Resend e nenhum e-mail sai.
+- `RESEND_FROM` é **opcional**: `_shared/resend.ts:29-32` cai em `Orbyva <noreply@orbyva.app>`. Só
+  precisa ser setado se a conta Resend não estiver verificada para esse domínio.
+- `SITE_URL` **não é cosmético**, ao contrário do que a tarefa sugere. `siteOriginFromEnv()`
+  (`_shared/cors.ts:3-13`) devolve `null` sem ele, e aí `corsHeadersForRequest` responde
+  `Access-Control-Allow-Origin: null` para qualquer origem que não seja localhost/ngrok
+  (`cors.ts:36-42`). Ou seja: **deployar sem `SITE_URL` faz a chamada do app em produção morrer no
+  CORS**; de `localhost`/ngrok funciona. Ele também define o host do link do convite
+  (`event-invite-email/index.ts:125-126`, fallback `https://orbyva.app`).
+
+**Efeito colateral a decidir antes de setar o segredo**: `RESEND_API_KEY` é secret de projeto, não
+de função. Setá-lo destrava o envio das **outras 15 funções já publicadas** (`welcome-email`,
+`waitlist-email`, `lifecycle-email`, `retention-d7-email`, `weekly-digest-email`,
+`habit-reminder-email`, `auth-send-email`, `trip-invite-email`), que hoje falham em silêncio pelo
+mesmo motivo. Não há `cron.schedule` em `supabase/migrations/` nem workflow em `.github/workflows/`
+disparando essas funções — o agendador, se existir, está no dashboard e não dá para conferir daqui.
+Se houver, e-mail de verdade passa a sair para usuários de verdade no momento em que o segredo for
+criado. Isso é decisão do usuário, não da esteira.

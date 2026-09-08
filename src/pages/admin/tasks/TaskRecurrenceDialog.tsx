@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ export function TaskRecurrenceDialog({
   dimensions,
   onRecurringCreated,
   onChange,
+  footer,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,6 +41,13 @@ export function TaskRecurrenceDialog({
   dimensions: Dimension[];
   onRecurringCreated: (recurring: Recurring) => void;
   onChange: (next: TaskRecurrenceValue) => void;
+  /**
+   * Rodapé opcional (feature 101). No formulário completo o dialog não tem nenhum: as mudanças caem
+   * no rascunho do painel e quem grava é o "Salvar" do formulário. Já a página "Tarefas
+   * recorrentes" abre este dialog **sozinho**, sem formulário em volta — lá ele precisa do próprio
+   * botão de salvar (e do aviso de que as ocorrências já materializadas não são reescritas).
+   */
+  footer?: ReactNode;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -57,6 +66,7 @@ export function TaskRecurrenceDialog({
           onRecurringCreated={onRecurringCreated}
           onChange={onChange}
         />
+        {footer}
       </DialogContent>
     </Dialog>
   );
