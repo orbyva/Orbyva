@@ -3,9 +3,22 @@ import {
   groupSubtasksByParent,
   isSubtaskDueDateValid,
   reorderItems,
+  sortSubtasks,
 } from "@/domain/tasks/subtasks";
+import type { TaskPriority } from "@/types/tasks";
 
 type Row = { id: string; parent_task_id: string | null };
+
+type SortRow = {
+  id: string;
+  due_date?: string | null;
+  priority?: TaskPriority | null;
+  created_at?: string | null;
+};
+
+function idsOf(rows: SortRow[]): string[] {
+  return sortSubtasks(rows).map((r) => r.id);
+}
 
 describe("groupSubtasksByParent", () => {
   it("agrupa subtarefas pelo pai, ignorando tarefas de topo", () => {
@@ -67,5 +80,66 @@ describe("reorderItems", () => {
   it("índice inválido devolve cópia igual", () => {
     expect(reorderItems(["a", "b"], 0, 0)).toEqual(["a", "b"]);
     expect(reorderItems(["a", "b"], -1, 1)).toEqual(["a", "b"]);
+  });
+});
+
+describe("sortSubtasks", () => {
+  it("ordena por prazo ascendente, sem prazo por último", () => {
+    expect(
+      idsOf([
+        { id: "late", due_date: "2026-09-20" },
+        { id: "none", due_date: null },
+        { id: "soon", due_date: "2026-09-10" },
+      ])
+    ).toEqual(["soon", "late", "none"]);
+  });
+
+  it("sem prazo, ordena por prioridade (alta primeiro; sem prioridade no fim)", () => {
+    expect(
+      idsOf([
+        { id: "none", due_date: null, priority: null },
+        { id: "low", due_date: null, priority: "low" },
+        { id: "high", due_date: null, priority: "high" },
+        { id: "medium", due_date: null, priority: "medium" },
+      ])
+    ).toEqual(["high", "medium", "low", "none"]);
+  });
+
+  it("sem prazo e sem prioridade, ordena pela data de criação (mais antiga primeiro)", () => {
+    expect(
+      idsOf([
+        { id: "new", due_date: null, priority: null, created_at: "2026-06-01T00:00:00Z" },
+        { id: "old", due_date: null, priority: null, created_at: "2026-01-01T00:00:00Z" },
+      ])
+    ).toEqual(["old", "new"]);
+  });
+
+  it("prazo manda sobre prioridade e criação", () => {
+    expect(
+      idsOf([
+        { id: "undated-high", due_date: null, priority: "high", created_at: "2026-01-01T00:00:00Z" },
+        { id: "dated", due_date: "2026-09-20", priority: null, created_at: "2026-08-01T00:00:00Z" },
+        { id: "undated-old", due_date: null, priority: null, created_at: "2026-01-01T00:00:00Z" },
+      ])
+    ).toEqual(["dated", "undated-high", "undated-old"]);
+  });
+
+  it("mesmo prazo desempata por prioridade, depois criação", () => {
+    expect(
+      idsOf([
+        { id: "low", due_date: "2026-09-10", priority: "low", created_at: "2026-01-01T00:00:00Z" },
+        { id: "high-new", due_date: "2026-09-10", priority: "high", created_at: "2026-06-01T00:00:00Z" },
+        { id: "high-old", due_date: "2026-09-10", priority: "high", created_at: "2026-01-01T00:00:00Z" },
+      ])
+    ).toEqual(["high-old", "high-new", "low"]);
+  });
+
+  it("não muta o array de entrada", () => {
+    const source: SortRow[] = [
+      { id: "b", due_date: "2026-09-20" },
+      { id: "a", due_date: "2026-09-10" },
+    ];
+    expect(sortSubtasks(source).map((r) => r.id)).toEqual(["a", "b"]);
+    expect(source.map((r) => r.id)).toEqual(["b", "a"]);
   });
 });

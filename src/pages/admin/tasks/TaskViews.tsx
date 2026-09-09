@@ -31,7 +31,12 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TaskDeleteDialog } from "./TaskDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
-import { isRecurringTask, resolveLinkAppearance, type TaskDeleteOption } from "@/domain/tasks";
+import {
+  isRecurringTask,
+  resolveLinkAppearance,
+  sortSubtasks,
+  type TaskDeleteOption,
+} from "@/domain/tasks";
 import { useLinkIconRules } from "@/hooks/useLinkIconRules";
 import type {
   Project,
@@ -437,7 +442,7 @@ export function TaskListRow({
       </div>
       {!isNested && expanded && subtasks.length > 0 && (
         <div className="mt-2 space-y-2 border-t pt-2" onClick={(e) => e.stopPropagation()}>
-          {subtasks.map((subtask) => (
+          {sortSubtasks(subtasks).map((subtask) => (
             <TaskListRow
               key={subtask.id}
               task={subtask}
@@ -938,7 +943,7 @@ export function KanbanCard({
 
       {subtasks.length > 0 && (
         <div className="space-y-1.5 border-t pt-2" onClick={(e) => e.stopPropagation()}>
-          {subtasks.map((subtask) => (
+          {sortSubtasks(subtasks).map((subtask) => (
             <KanbanSubtaskCard
               key={subtask.id}
               subtask={subtask}
