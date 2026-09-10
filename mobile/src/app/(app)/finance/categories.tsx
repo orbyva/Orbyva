@@ -1,0 +1,537 @@
+import { useFocusEffect, useNavigation } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
+
+import {
+  createClassApi,
+  fetchDimensions,
+  updateClassApi,
+} from "@/api/finance/dimensions";
+import { ClassDragRow } from "@/components/ClassDragRow";
+import { TypeIcon } from "@/components/TypeIcon";
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Spacing } from "@/constants/theme";
+import {
+  filterDimensionTree,
+  moveClassToType,
+  typeIdAtPoint,
+  typeIdForClass,
+} from "@/domain/dimensions/listView";
+import { useAppShell } from "@/hooks/use-app-shell";
+import { useTheme } from "@/hooks/use-theme";
+import { getErrorMessage } from "@/lib/errors";
+import type { Dimension } from "@/types/dimensions";
+
+type Rect = { x: number; y: number; w: number; h: number };
+
+function TypeDropCard({
+  typeId,
+  onRegister,
+  style,
+  children,
+}: {
+  typeId: number;
+  onRegister: (id: number, node: View | null) => void;
+  style: StyleProp<ViewStyle>;
+  children: ReactNode;
+}) {
+  const ref = useRef<View>(null);
+  useEffect(() => {
+    onRegister(typeId, ref.current);
+    return () => onRegister(typeId, null);
+  }, [onRegister, typeId]);
+  return (
+    <View ref={ref} collapsable={false} style={style}>
+      {children}
+    </View>
+  );
+}
+
+export default function CategoriesScreen() {
+  const theme = useTheme();
+  const navigation = useNavigation();
+  const { bottomInset } = useAppShell();
+  const [rows, setRows] = useState<Dimension[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [natureId, setNatureId] = useState<number | "all">("all");
+  const [addingTypeId, setAddingTypeId] = useState<number | null>(null);
+  const [className, setClassName] = useState("");
+  const [savingClass, setSavingClass] = useState(false);
+  const [dragging, setDragging] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
+
+  const typeRects = useRef(new Map<number, Rect>());
+  const typeNodes = useRef(new Map<number, View>());
+  const rootRef = useRef<View>(null);
+  const movingRef = useRef(false);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const absX = useSharedValue(0);
+  const absY = useSharedValue(0);
+  const ghostVisible = useSharedValue(0);
+  const originX = useSharedValue(0);
+  const originY = useSharedValue(0);
+
+  const ghostStyle = useAnimatedStyle(() => ({
+    opacity: ghostVisible.value,
+    transform: [
+      { translateX: absX.value - originX.value - 16 },
+      { translateY: absY.value - originY.value - 20 },
+    ],
+  }));
+
+  useEffect(() => {
+    navigation.setOptions({ title: "Categorias" });
+  }, [navigation]);
+
+  const load = useCallback(async () => {
+    setError(null);
+    setRows(await fetchDimensions());
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      setLoading(true);
+      void load()
+        .catch((err) => {
+          if (!cancelled) {
+            setError(
+              getErrorMessage(err, "Não foi possível carregar as categorias.")
+            );
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [load])
+  );
+
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err, "Não foi possível atualizar."));
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const filtered = useMemo(
+    () => filterDimensionTree(rows, search, natureId),
+    [rows, search, natureId]
+  );
+
+  const registerTypeNode = useCallback((id: number, node: View | null) => {
+    if (node) typeNodes.current.set(id, node);
+    else typeNodes.current.delete(id);
+  }, []);
+
+  function measureRoot() {
+    rootRef.current?.measureInWindow((x, y) => {
+      originX.value = x;
+      originY.value = y;
+    });
+  }
+
+  const onDragStart = useCallback(
+    (id: number) => {
+      movingRef.current = true;
+      const from = rowsRef.current
+        .flatMap((n) => n.types)
+        .flatMap((t) => t.classes);
+      const cls = from.find((c) => c.id === id);
+      setDragging({ id, name: cls?.name ?? "Subcategoria" });
+      setNotice(null);
+      setError(null);
+      measureRoot();
+    },
+    [originX, originY]
+  );
+
+  const onDragEnd = useCallback((id: number, x: number, y: number) => {
+    movingRef.current = false;
+    setDragging(null);
+    const entries = [...typeNodes.current.entries()];
+    if (entries.length === 0) return;
+
+    let pending = entries.length;
+    const rects = new Map<number, Rect>();
+    const finish = () => {
+      const targetId = typeIdAtPoint(rects, x, y);
+      const fromId = typeIdForClass(rowsRef.current, id);
+      if (targetId == null || fromId == null || fromId === targetId) return;
+      const snapshot = rowsRef.current;
+      setRows(moveClassToType(snapshot, id, targetId));
+      void updateClassApi({ id, type_id: targetId })
+        .then(() => setNotice("Subcategoria movida."))
+        .catch((err) => {
+          setRows(snapshot);
+          setError(
+            getErrorMessage(err, "Não foi possível mover a subcategoria.")
+          );
+        });
+    };
+
+    for (const [typeId, node] of entries) {
+      node.measureInWindow((mx, my, w, h) => {
+        rects.set(typeId, { x: mx, y: my, w, h });
+        typeRects.current.set(typeId, { x: mx, y: my, w, h });
+        pending -= 1;
+        if (pending === 0) finish();
+      });
+    }
+  }, []);
+
+  async function addClass(typeId: number) {
+    const name = className.trim();
+    if (!name) {
+      setError("Informe o nome da subcategoria.");
+      return;
+    }
+    setSavingClass(true);
+    setError(null);
+    try {
+      await createClassApi({ name, type_id: typeId });
+      setClassName("");
+      setAddingTypeId(null);
+      setNotice(`Subcategoria "${name}" criada.`);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err, "Não foi possível criar a subcategoria."));
+    } finally {
+      setSavingClass(false);
+    }
+  }
+
+  return (
+    <GestureHandlerRootView style={styles.flex}>
+    <ThemedView style={styles.flex}>
+      <View
+        ref={rootRef}
+        style={styles.flex}
+        collapsable={false}
+        onLayout={measureRoot}
+      >
+        <View style={styles.head}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Segure o punho da subcategoria e solte em outra categoria para
+            reassociar.
+          </ThemedText>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Buscar categoria ou subcategoria"
+            placeholderTextColor={theme.textSecondary}
+            style={[
+              styles.search,
+              {
+                color: theme.text,
+                borderColor: theme.backgroundSelected,
+                backgroundColor: theme.backgroundElement,
+              },
+            ]}
+          />
+          <View style={styles.chips}>
+            <Pressable
+              onPress={() => setNatureId("all")}
+              style={[
+                styles.chip,
+                { backgroundColor: theme.backgroundElement },
+                natureId === "all" && {
+                  backgroundColor: theme.backgroundSelected,
+                },
+              ]}
+            >
+              <ThemedText type="smallBold">Todas</ThemedText>
+            </Pressable>
+            {rows.map((nature) => (
+              <Pressable
+                key={nature.id}
+                onPress={() => setNatureId(nature.id)}
+                style={[
+                  styles.chip,
+                  { backgroundColor: theme.backgroundElement },
+                  natureId === nature.id && {
+                    backgroundColor: theme.backgroundSelected,
+                  },
+                ]}
+              >
+                <ThemedText type="smallBold">{nature.name}</ThemedText>
+              </Pressable>
+            ))}
+          </View>
+          {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+          {notice ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {notice}
+            </ThemedText>
+          ) : null}
+        </View>
+
+        {loading && rows.length === 0 ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={theme.primary} />
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={[
+              styles.list,
+              { paddingBottom: bottomInset + 24 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => void onRefresh()}
+              />
+            }
+          >
+            {filtered.length === 0 ? (
+              <ThemedText themeColor="textSecondary">
+                Nenhuma categoria neste recorte. Use o + para criar.
+              </ThemedText>
+            ) : (
+              filtered.map((nature) => (
+                <View key={nature.id} style={styles.nature}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {nature.name}
+                  </ThemedText>
+                  {nature.types.length === 0 ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Sem categorias nesta natureza.
+                    </ThemedText>
+                  ) : (
+                    nature.types.map((type) => {
+                      const color = type.hex_color || theme.textSecondary;
+                      const adding = addingTypeId === type.id;
+                      return (
+                        <TypeDropCard
+                          key={type.id}
+                          typeId={type.id}
+                          onRegister={registerTypeNode}
+                          style={[
+                            styles.card,
+                            {
+                              backgroundColor: theme.backgroundElement,
+                              borderColor: theme.backgroundSelected,
+                            },
+                          ]}
+                        >
+                          <View style={styles.typeHead}>
+                            <View
+                              style={[
+                                styles.iconWrap,
+                                { backgroundColor: `${color}22` },
+                              ]}
+                            >
+                              <TypeIcon
+                                name={type.lucide_icon}
+                                color={color}
+                                size={18}
+                              />
+                            </View>
+                            <ThemedText type="smallBold" style={styles.typeName}>
+                              {type.name}
+                            </ThemedText>
+                          </View>
+                          {type.classes.map((cls) => (
+                            <ClassDragRow
+                              key={cls.id}
+                              id={cls.id}
+                              name={cls.name}
+                              dragging={dragging?.id === cls.id}
+                              absX={absX}
+                              absY={absY}
+                              ghostVisible={ghostVisible}
+                              onDragStart={onDragStart}
+                              onDragEnd={onDragEnd}
+                            />
+                          ))}
+                          {adding ? (
+                            <View style={styles.addRow}>
+                              <TextInput
+                                autoFocus
+                                value={className}
+                                onChangeText={setClassName}
+                                placeholder="Nome da subcategoria"
+                                placeholderTextColor={theme.textSecondary}
+                                style={[
+                                  styles.classInput,
+                                  {
+                                    color: theme.text,
+                                    borderColor: theme.backgroundSelected,
+                                    backgroundColor: theme.background,
+                                  },
+                                ]}
+                                onSubmitEditing={() => void addClass(type.id)}
+                              />
+                              <Pressable
+                                disabled={savingClass}
+                                onPress={() => void addClass(type.id)}
+                                style={[
+                                  styles.addSave,
+                                  { backgroundColor: theme.primary },
+                                ]}
+                              >
+                                {savingClass ? (
+                                  <ActivityIndicator color="#0B0F1A" />
+                                ) : (
+                                  <ThemedText
+                                    type="smallBold"
+                                    style={styles.addSaveLabel}
+                                  >
+                                    Salvar
+                                  </ThemedText>
+                                )}
+                              </Pressable>
+                              <Pressable
+                                onPress={() => {
+                                  setAddingTypeId(null);
+                                  setClassName("");
+                                }}
+                              >
+                                <ThemedText type="linkPrimary">
+                                  Cancelar
+                                </ThemedText>
+                              </Pressable>
+                            </View>
+                          ) : (
+                            <Pressable
+                              onPress={() => {
+                                setAddingTypeId(type.id);
+                                setClassName("");
+                                setNotice(null);
+                                setError(null);
+                              }}
+                            >
+                              <ThemedText type="linkPrimary">
+                                Adicionar subcategoria
+                              </ThemedText>
+                            </Pressable>
+                          )}
+                        </TypeDropCard>
+                      );
+                    })
+                  )}
+                </View>
+              ))
+            )}
+          </ScrollView>
+        )}
+
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.ghost,
+            { backgroundColor: theme.background, borderColor: theme.primary },
+            ghostStyle,
+          ]}
+        >
+          <ThemedText type="smallBold">
+            {dragging?.name ?? "Subcategoria"}
+          </ThemedText>
+        </Animated.View>
+      </View>
+    </ThemedView>
+    </GestureHandlerRootView>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  head: {
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+    gap: Spacing.two,
+  },
+  search: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 16,
+  },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  list: { padding: Spacing.four, gap: Spacing.four },
+  nature: { gap: Spacing.two },
+  card: {
+    borderWidth: 2,
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
+  },
+  typeHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+  iconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  typeName: { flex: 1 },
+  addRow: { gap: 8 },
+  classInput: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    fontSize: 16,
+  },
+  addSave: {
+    height: 40,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addSaveLabel: { color: "#0B0F1A" },
+  error: { color: "#E11D48" },
+  ghost: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    zIndex: 80,
+    minWidth: 140,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    shadowColor: "#0B0F1A",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+});
