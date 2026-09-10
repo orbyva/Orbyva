@@ -2,6 +2,12 @@
 
 Recorte do `architecture.md`/`brainstorm.md` decidido com o usuário: LLM Anthropic Claude, UI em sheet flutuante global, escopo restrito a Cinema/Livros/Música. Plano completo: ver histórico da conversa (arquivo de plano `stateful-enchanting-hickey.md`).
 
+> **Status (2026-08-27): POC validada e congelada.** Entretenimento foi o recorte
+> escolhido para provar a arquitetura do agente com o menor custo de erro — não é
+> prioridade de produto. A prioridade é Finanças e depois Produtividade; ver
+> `docs/planning/prioridades.md`. Este documento segue como referência de padrão
+> para os próximos módulos do Orb.
+
 Sem `orb_usage`/cota nesta fase. Edge Function nunca escreve nas tabelas de domínio — só gera `orb_proposal`; a escrita real é client-side via `src/api/*` após confirmação.
 
 ## Tarefas

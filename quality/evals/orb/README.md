@@ -1,6 +1,6 @@
 # Evals do Orb
 
-Smoke de 6 casos contra a Edge `orb-agent`. Cobre o que já quebrou de verdade
+Smoke de 20 casos contra a Edge `orb-agent`. Cobre o que já quebrou de verdade
 — não é suite de cobertura, é rede de regressão sobre bugs conhecidos.
 
 ```bash
@@ -12,9 +12,28 @@ Precisa do ambiente local de pé (`supabase start` + `supabase functions serve`)
 
 ## Custo
 
-Cada caso é uma conversa real, então gasta tokens. Com `ORB_MODEL=claude-haiku-4-5`
-dá ~**$0,01 por turno** — a suite inteira sai por ~**$0,06**. Por isso fica fora
-de `npm run test`: rode depois de mexer em `prompt.ts`, nas tools ou no modelo.
+Cada caso é uma conversa real, então gasta tokens — por isso fica fora de
+`npm run test`: rode depois de mexer em `prompt.ts`, nas tools ou no modelo.
+
+O runner **mede e reporta** o custo, lendo o `usage` que a Edge devolve por turno:
+
+```
+✓ filme-direto  (3.2s, $0.0089, 3 rodadas, 5210 tok de cache)
+...
+20/20 passaram
+modelo claude-haiku-4-5 · 26 turnos · 2.8 rodadas/turno · cache hit 61%
+custo $0.2314 total · $0.0089/turno
+```
+
+É esse número que decide troca de modelo: rode a suíte com um `ORB_MODEL` e com
+outro e compare **taxa de acerto e custo lado a lado**, em vez de benchmark de
+terceiro. Preços por modelo ficam em `PRICES`, no topo do `run.mjs`; modelo fora
+da tabela conta tokens e omite o custo em vez de chutar.
+
+O `cache hit` só é diferente de zero por causa do breakpoint de cache em
+`prompt.ts` — o bloco estático (identidade + regras) vem antes da parte volátil
+(data e resumo da biblioteca), então tools + regras são relidas a ~10% do custo
+nas rodadas seguintes do mesmo turno.
 
 ## Bug aberto que os evals expõem
 
@@ -53,6 +72,7 @@ livro não existe — é o que `catalogo-fora-nao-vira-manual` protege.
 | `data-relativa-nao-vira-hoje` | "ontem" tem de virar ontem, não hoje |
 | `nao-grava-direto` | mesmo mandando, tudo vira proposta — a Edge nunca escreve sozinha |
 | `catalogo-fora-nao-vira-manual` | catálogo indisponível ≠ obra inexistente |
+| `link-para-a-biblioteca` | listar itens sem oferecer o caminho pra tela deixa o usuário sem saída |
 
 ## Duas decisões de design
 

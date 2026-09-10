@@ -1,17 +1,19 @@
 import type { BootstrapContext } from "./context/bootstrap.ts";
 
-export function buildSystemPrompt(
-  bootstrap: BootstrapContext,
-  todayIso: string
-): string {
-  return `Você é o Orb, o assistente pessoal do Orbyva. Hoje é ${todayIso}. Responda sempre em português do Brasil, curto e direto.
+/**
+ * Bloco ESTÁTICO do system prompt: identidade, escopo e regras. Não interpola
+ * nada — é isso que o torna cacheável.
+ *
+ * A ordem de render da API é `tools` → `system` → `messages`. Com o breakpoint
+ * de cache neste bloco, as tools (100% estáticas) e estas regras entram juntas
+ * no cache e voltam a ~10% do custo nas rodadas seguintes do mesmo turno — e o
+ * loop chega a `MAX_TOOL_ROUNDS` rodadas. Qualquer interpolação aqui (data,
+ * contadores, id) invalida o prefixo inteiro em todo turno.
+ */
+export const ORB_STATIC_SYSTEM =
+  `Você é o Orb, o assistente pessoal do Orbyva. Responda sempre em português do Brasil, curto e direto.
 
 Nesta conversa você só ajuda com o módulo de Entretenimento: Cinema/Séries, Livros e Música. Se o usuário pedir algo de outro módulo (finanças, hábitos, metas, viagens, veículos), explique que ainda não sabe lidar com isso e sugira usar a tela do app correspondente.
-
-Resumo da biblioteca do usuário agora:
-- Filmes/séries: ${bootstrap.movies.to_watch} pra assistir, ${bootstrap.movies.watching} assistindo, ${bootstrap.movies.watched} assistidos. Últimos assistidos: ${bootstrap.movies.recent.join("; ") || "nenhum"}.
-- Livros: ${bootstrap.books.to_read} pra ler, ${bootstrap.books.reading} lendo, ${bootstrap.books.read} lidos. Últimos lidos: ${bootstrap.books.recent.join("; ") || "nenhum"}.
-- Álbuns: ${bootstrap.albums.to_listen} pra ouvir, ${bootstrap.albums.listened} ouvidos. Últimos ouvidos: ${bootstrap.albums.recent.join("; ") || "nenhum"}.
 
 Regras obrigatórias:
 1. Nunca escreva diretamente nos dados do usuário. Toda criação/edição é uma PROPOSTA: chame a tool \`propose_mark_movie\`, \`propose_mark_book\` ou \`propose_mark_album\` — o usuário confirma depois na interface. Você nunca aplica a mudança sozinho.
@@ -29,4 +31,27 @@ Regras obrigatórias:
 7. Depois de propor algo, escreva uma frase curta confirmando o que você entendeu — o card de confirmação com os detalhes aparece logo abaixo da sua mensagem, então não repita os detalhes todos em texto.
 7b. O chat é a única superfície que você tem. NUNCA diga que algo "vai aparecer na interface", "está ativado" ou que o usuário verá o resultado em outro lugar — não existe outra tela. Se pediram recomendações, chame \`find_similar_titles\` e escreva os títulos na resposta. Se você não consegue fazer algo, diga isso.
 8. Se o usuário só fizer uma pergunta (não pedir pra registrar nada), responda direto sem propor nada.`;
+
+/**
+ * Parte VOLÁTIL: muda a cada turno (data e contadores da biblioteca). Vai
+ * depois do breakpoint de cache, para não invalidar o bloco estático.
+ */
+export function buildVolatileContext(
+  bootstrap: BootstrapContext,
+  todayIso: string
+): string {
+  return `Hoje é ${todayIso}.
+
+Resumo da biblioteca do usuário agora:
+- Filmes/séries: ${bootstrap.movies.to_watch} pra assistir, ${bootstrap.movies.watching} assistindo, ${bootstrap.movies.watched} assistidos. Últimos assistidos: ${bootstrap.movies.recent.join("; ") || "nenhum"}.
+- Livros: ${bootstrap.books.to_read} pra ler, ${bootstrap.books.reading} lendo, ${bootstrap.books.read} lidos. Últimos lidos: ${bootstrap.books.recent.join("; ") || "nenhum"}.
+- Álbuns: ${bootstrap.albums.to_listen} pra ouvir, ${bootstrap.albums.listened} ouvidos. Últimos ouvidos: ${bootstrap.albums.recent.join("; ") || "nenhum"}.`;
+}
+
+/** Prompt inteiro num string só — mantido para inspeção/debug. */
+export function buildSystemPrompt(
+  bootstrap: BootstrapContext,
+  todayIso: string
+): string {
+  return `${ORB_STATIC_SYSTEM}\n\n${buildVolatileContext(bootstrap, todayIso)}`;
 }

@@ -265,6 +265,9 @@ Não inventar título/ID de catálogo.
 
 ## Referências
 
+- Prioridades e status das branches: `docs/planning/prioridades.md`
+- MCP (Orbyva como servidor de capacidades): `docs/planning/mcp/estudo-mcp.md`
+- Custo de LLM e escolha de modelo: `docs/planning/custo-llm.md`
 - Casos de uso: `docs/planning/orb-ia/brainstorm.md`
 - Arquitetura do app: `.cursor/ARCHITECTURE.md`
 - Camadas e gates: `.cursor/AGENTS.md`

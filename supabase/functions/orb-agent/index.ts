@@ -5,10 +5,12 @@
  * Body: { thread_id: string | null, message: string, locale?, timezone? }
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import Anthropic from "https://esm.sh/@anthropic-ai/sdk@0.32.1?target=deno";
+// 0.32.1 (nov/2024) não tem prompt caching fora do namespace beta nem os
+// campos de cache em `usage` — daí o bump. Ver docs/planning/custo-llm.md.
+import Anthropic from "https://esm.sh/@anthropic-ai/sdk@0.121.0?target=deno";
 import { corsHeadersForRequest } from "../_shared/cors.ts";
 import { buildBootstrapContext } from "./context/bootstrap.ts";
-import { buildSystemPrompt } from "./prompt.ts";
+import { ORB_STATIC_SYSTEM, buildVolatileContext } from "./prompt.ts";
 import { persistProposals } from "./proposals.ts";
 import { buildToolRegistry, type ToolContext } from "./tools/registry.ts";
 import {
@@ -148,7 +150,16 @@ Deno.serve(async (req) => {
     // 3. Bootstrap context + system prompt.
     const bootstrap = await buildBootstrapContext(client, user.id);
     const todayIso = todayIsoInTimezone(body.timezone);
-    const systemPrompt = buildSystemPrompt(bootstrap, todayIso);
+    // Dois blocos: o estático leva o breakpoint de cache (e arrasta as tools,
+    // que renderizam antes dele); o volátil vem depois para não invalidá-lo.
+    const systemBlocks: Anthropic.TextBlockParam[] = [
+      {
+        type: "text",
+        text: ORB_STATIC_SYSTEM,
+        cache_control: { type: "ephemeral" },
+      },
+      { type: "text", text: buildVolatileContext(bootstrap, todayIso) },
+    ];
 
     // 4. Loop de tool-calling.
     const anthropic = new Anthropic({ apiKey: anthropicKey });
@@ -177,15 +188,35 @@ Deno.serve(async (req) => {
       { role: "user", content: body.message },
     ];
 
+    // Custo do turno: acumulado por rodada e gravado em `orb_message.meta`.
+    // Sem migration nova — `meta` já é jsonb. É o que permite responder "quanto
+    // custa um turno" e "quantas rodadas o loop usa de verdade" com SQL.
+    const usage = {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      rounds: 0,
+      model: MODEL,
+    };
+
     let finalText = "";
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const response = await anthropic.messages.create({
         model: MODEL,
         max_tokens: 2048,
-        system: systemPrompt,
+        system: systemBlocks,
         tools: anthropicTools,
         messages,
       });
+
+      usage.rounds += 1;
+      usage.input_tokens += response.usage?.input_tokens ?? 0;
+      usage.output_tokens += response.usage?.output_tokens ?? 0;
+      usage.cache_read_input_tokens +=
+        response.usage?.cache_read_input_tokens ?? 0;
+      usage.cache_creation_input_tokens +=
+        response.usage?.cache_creation_input_tokens ?? 0;
 
       if (response.stop_reason === "pause_turn") {
         messages.push({ role: "assistant", content: response.content });
@@ -249,6 +280,7 @@ Deno.serve(async (req) => {
           meta: {
             suggested_actions: ctx.suggestedActions,
             clarify: ctx.clarify,
+            usage,
           },
         },
       ])
@@ -283,6 +315,7 @@ Deno.serve(async (req) => {
       })),
       clarify: ctx.clarify,
       suggested_actions: ctx.suggestedActions,
+      usage,
     };
 
     return json(req, payload, 200);

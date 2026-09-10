@@ -97,6 +97,16 @@ export interface OrbAgentRequest {
   timezone: string;
 }
 
+/** Custo do turno, somado nas rodadas do loop na Edge. */
+export interface OrbUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens: number;
+  cache_creation_input_tokens: number;
+  rounds: number;
+  model: string;
+}
+
 export interface OrbAgentResponse {
   thread_id: string;
   message_id: string;
@@ -104,6 +114,7 @@ export interface OrbAgentResponse {
   proposals: OrbProposal[];
   clarify: OrbClarify | null;
   suggested_actions: OrbSuggestedAction[];
+  usage?: OrbUsage;
 }
 
 export type OrbMessageRole = "user" | "assistant" | "tool";

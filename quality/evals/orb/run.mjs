@@ -104,6 +104,54 @@ async function send(token, threadId, message) {
   return body;
 }
 
+/**
+ * US$ por 1M tokens, por modelo. Leitura de cache custa 0,1x do input e escrita
+ * 1,25x — é o que torna o breakpoint de `prompt.ts` visível aqui.
+ * Modelo desconhecido: contabiliza tokens e omite o custo, em vez de chutar.
+ */
+const PRICES = {
+  "claude-sonnet-5": { in: 2.0, out: 10.0 },
+  "claude-haiku-4-5": { in: 1.0, out: 5.0 },
+  "claude-opus-5": { in: 5.0, out: 25.0 },
+};
+
+const zeroUsage = () => ({
+  input_tokens: 0,
+  output_tokens: 0,
+  cache_read_input_tokens: 0,
+  cache_creation_input_tokens: 0,
+  rounds: 0,
+  turns: 0,
+  model: null,
+});
+
+function addUsage(acc, u) {
+  if (!u) return acc;
+  acc.input_tokens += u.input_tokens ?? 0;
+  acc.output_tokens += u.output_tokens ?? 0;
+  acc.cache_read_input_tokens += u.cache_read_input_tokens ?? 0;
+  acc.cache_creation_input_tokens += u.cache_creation_input_tokens ?? 0;
+  acc.rounds += u.rounds ?? 0;
+  acc.turns += 1;
+  acc.model = u.model ?? acc.model;
+  return acc;
+}
+
+/** Custo em US$, ou null se o modelo não estiver na tabela. */
+function costOf(acc) {
+  const p = PRICES[acc.model];
+  if (!p) return null;
+  return (
+    (acc.input_tokens * p.in +
+      acc.cache_read_input_tokens * p.in * 0.1 +
+      acc.cache_creation_input_tokens * p.in * 1.25 +
+      acc.output_tokens * p.out) /
+    1e6
+  );
+}
+
+const money = (v) => (v == null ? "?" : `$${v.toFixed(4)}`);
+
 /** Compara só as chaves declaradas — o resto do payload é livre. */
 function checkPayload(payload, expected) {
   const fails = [];
@@ -226,6 +274,7 @@ async function main() {
 
   let failed = 0;
   let flaky = 0;
+  const total = zeroUsage();
 
   for (const c of selected) {
     const started = Date.now();
@@ -233,12 +282,16 @@ async function main() {
     // é instabilidade, não regressão. Vale distinguir os dois no relatório.
     let fails = [];
     let attempts = 0;
+    // Conta as duas tentativas: a retentativa custa dinheiro de verdade.
+    const spent = zeroUsage();
     for (attempts = 1; attempts <= 2; attempts++) {
       let threadId = null;
       let last = null;
       try {
         for (const turn of c.turns) {
           last = await send(token, threadId, turn.send);
+          addUsage(spent, last.usage);
+          addUsage(total, last.usage);
           threadId = last.thread_id;
         }
       } catch (err) {
@@ -251,18 +304,22 @@ async function main() {
     }
 
     const secs = ((Date.now() - started) / 1000).toFixed(1);
+    const cached = spent.cache_read_input_tokens;
+    const cost = spent.turns
+      ? `, ${money(costOf(spent))}, ${spent.rounds} rodadas${cached ? `, ${cached} tok de cache` : ""}`
+      : "";
     if (fails.length) {
       failed++;
       const tag = c.known_broken ? "✗ (conhecido)" : "✗";
-      console.log(`${tag} ${c.id}  (${secs}s, ${attempts - 1} tentativas)`);
+      console.log(`${tag} ${c.id}  (${secs}s${cost}, ${attempts - 1} tentativas)`);
       if (c.known_broken) console.log(`    bloqueado por: ${c.known_broken}`);
       console.log(`    ${c.why}`);
       for (const f of fails) console.log(`    → ${f}`);
     } else if (attempts > 1) {
       flaky++;
-      console.log(`~ ${c.id}  (${secs}s) — passou só na 2ª tentativa`);
+      console.log(`~ ${c.id}  (${secs}s${cost}) — passou só na 2ª tentativa`);
     } else {
-      console.log(`✓ ${c.id}  (${secs}s)`);
+      console.log(`✓ ${c.id}  (${secs}s${cost})`);
     }
   }
 
@@ -271,6 +328,26 @@ async function main() {
       (flaky ? ` · ${flaky} instáveis` : "") +
       (failed ? ` · ${failed} falharam` : "")
   );
+
+  if (total.turns) {
+    const c = costOf(total);
+    const hit =
+      total.cache_read_input_tokens + total.input_tokens > 0
+        ? (
+            (100 * total.cache_read_input_tokens) /
+            (total.cache_read_input_tokens + total.input_tokens)
+          ).toFixed(0)
+        : "0";
+    console.log(
+      `modelo ${total.model ?? "?"} · ${total.turns} turnos · ` +
+        `${(total.rounds / total.turns).toFixed(1)} rodadas/turno · ` +
+        `cache hit ${hit}%`
+    );
+    console.log(
+      `custo ${money(c)} total · ${money(c == null ? null : c / total.turns)}/turno` +
+        (c == null ? "  (modelo fora da tabela de preços)" : "")
+    );
+  }
   process.exit(failed ? 1 : 0);
 }
 
