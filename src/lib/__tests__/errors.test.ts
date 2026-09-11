@@ -77,4 +77,25 @@ describe("getErrorMessage", () => {
   it("usa fallback quando mensagem vazia", () => {
     expect(getErrorMessage({}, "Tente de novo.")).toBe("Tente de novo.");
   });
+
+  it("traduz códigos da trava de billing", () => {
+    expect(
+      getErrorMessage({
+        code: "RATE_LIMITED",
+        message: "Edge Function returned a non-2xx status code",
+      })
+    ).toMatch(/aguarde/i);
+    expect(
+      getErrorMessage({
+        code: "ALREADY_SUBSCRIBED",
+        message: "FunctionsHttpError",
+      })
+    ).toMatch(/assinatura ativa/i);
+    expect(
+      getErrorMessage({
+        code: "CHECKOUT_IN_PROGRESS",
+        message: "non-2xx",
+      })
+    ).toMatch(/instantes/i);
+  });
 });

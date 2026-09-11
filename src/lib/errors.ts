@@ -102,8 +102,19 @@ function mapKnownError(message: string, code: string): string | null {
   ) {
     return "Informe um e-mail válido.";
   }
-  if (/for security purposes.*only request this after|over_request_rate|rate limit/i.test(text)) {
+  if (
+    code === "RATE_LIMITED" ||
+    /for security purposes.*only request this after|over_request_rate|rate limit/i.test(
+      text
+    )
+  ) {
     return "Aguarde um momento antes de tentar de novo.";
+  }
+  if (code === "ALREADY_SUBSCRIBED") {
+    return "Você já tem uma assinatura ativa. Gerencie pelo portal na Conta.";
+  }
+  if (code === "CHECKOUT_IN_PROGRESS") {
+    return "Já estamos abrindo o checkout. Tente de novo em instantes.";
   }
   if (
     /refresh_token|session.*expired|JWT expired|invalid JWT|Auth session missing|not authenticated/i.test(

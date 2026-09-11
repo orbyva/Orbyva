@@ -4,21 +4,23 @@ import {
   corsHeadersForRequest,
   siteOriginFromEnv,
 } from "../_shared/cors.ts";
-
-function json(req: Request, body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeadersForRequest(req),
-      "Content-Type": "application/json",
-    },
-  });
-}
+import {
+  BILLING_ERROR_CODES,
+  billingDenied,
+  billingJson,
+  claimCustomerWithRetry,
+  consumeBillingQuota,
+  finishCustomer,
+  isStripeCustomerId,
+  releaseCustomerClaim,
+  shouldBlockCheckout,
+  stripeIdempotencyKey,
+} from "../_shared/billingGuard.ts";
 
 function requireSiteOrigin(req: Request): string | Response {
   const origin = siteOriginFromEnv();
   if (!origin) {
-    return json(
+    return billingJson(
       req,
       {
         error:
@@ -34,6 +36,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeadersForRequest(req) });
   }
+  if (req.method !== "POST") {
+    return billingJson(req, { error: "Método não permitido." }, 405);
+  }
 
   try {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -43,7 +48,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     if (!stripeKey || !priceId) {
-      return json(
+      return billingJson(
         req,
         {
           error:
@@ -53,7 +58,7 @@ Deno.serve(async (req) => {
       );
     }
     if (!priceId.startsWith("price_")) {
-      return json(
+      return billingJson(
         req,
         {
           error:
@@ -67,7 +72,7 @@ Deno.serve(async (req) => {
     if (siteOrigin instanceof Response) return siteOrigin;
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json(req, { error: "Não autenticado" }, 401);
+    if (!authHeader) return billingJson(req, { error: "Não autenticado" }, 401);
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -76,9 +81,11 @@ Deno.serve(async (req) => {
       data: { user },
       error: userError,
     } = await userClient.auth.getUser();
-    if (userError || !user) return json(req, { error: "Não autenticado" }, 401);
+    if (userError || !user) return billingJson(req, { error: "Não autenticado" }, 401);
 
-    const admin = createClient(supabaseUrl, serviceKey);
+    const admin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
     const stripe = new Stripe(stripeKey, {
       apiVersion: "2024-12-18.acacia",
       httpClient: Stripe.createFetchHttpClient(),
@@ -88,64 +95,108 @@ Deno.serve(async (req) => {
     const successUrl = `${siteOrigin}/account?checkout=success`;
     const cancelUrl = `${siteOrigin}/account?checkout=cancel`;
 
-    const { data: profile, error: profileError } = await admin
-      .from("profiles")
-      .select("stripe_customer_id")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      return json(
+    const quota = await consumeBillingQuota(admin, user.id, "checkout");
+    if (!quota.ok) {
+      if (quota.reason === "limit") {
+        return billingDenied(req, BILLING_ERROR_CODES.RATE_LIMITED, 429);
+      }
+      return billingJson(
         req,
+        { error: "Não foi possível abrir o checkout. Tente de novo." },
+        503
+      );
+    }
+
+    const claimed = await claimCustomerWithRetry(admin, user.id);
+    if (!claimed.ok) {
+      if (claimed.reason === "inflight") {
+        return billingDenied(
+          req,
+          BILLING_ERROR_CODES.CHECKOUT_IN_PROGRESS,
+          409
+        );
+      }
+      return billingJson(
+        req,
+        { error: "Não foi possível abrir o checkout. Tente de novo." },
+        503
+      );
+    }
+
+    if (shouldBlockCheckout(claimed.subscription_status)) {
+      if (claimed.action === "create" && claimed.claim) {
+        await releaseCustomerClaim(admin, user.id, claimed.claim);
+      }
+      return billingDenied(req, BILLING_ERROR_CODES.ALREADY_SUBSCRIBED, 409);
+    }
+
+    let customerId = claimed.customer_id;
+    if (claimed.action === "create" || !isStripeCustomerId(customerId)) {
+      if (!claimed.claim) {
+        return billingJson(
+          req,
+          { error: "Não foi possível abrir o checkout. Tente de novo." },
+          503
+        );
+      }
+      const customer = await stripe.customers.create(
         {
-          error: `Tabela profiles inacessível: ${profileError.message}. Rode supabase/migrations/20240101000300_billing.sql.`,
+          email: user.email ?? undefined,
+          metadata: { supabase_user_id: user.id },
         },
+        { idempotencyKey: stripeIdempotencyKey("customer", user.id) }
+      );
+      const finished = await finishCustomer(
+        admin,
+        user.id,
+        claimed.claim,
+        customer.id
+      );
+      if (!finished.ok || !isStripeCustomerId(finished.customer_id)) {
+        await releaseCustomerClaim(admin, user.id, claimed.claim);
+        return billingJson(
+          req,
+          { error: "Não foi possível abrir o checkout. Tente de novo." },
+          500
+        );
+      }
+      if (finished.customer_id !== customer.id) {
+        try {
+          await stripe.customers.del(customer.id);
+        } catch {
+          /* órfão residual; o perfil ficou com o Customer que já existia */
+        }
+      }
+      customerId = finished.customer_id;
+    }
+
+    if (!isStripeCustomerId(customerId)) {
+      return billingJson(
+        req,
+        { error: "Não foi possível abrir o checkout. Tente de novo." },
         500
       );
     }
 
-    let customerId = profile?.stripe_customer_id as string | null | undefined;
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email ?? undefined,
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "subscription",
+        customer: customerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        client_reference_id: user.id,
         metadata: { supabase_user_id: user.id },
-      });
-      customerId = customer.id;
-      const { error: upsertError } = await admin.from("profiles").upsert({
-        id: user.id,
-        plan: "free",
-        stripe_customer_id: customerId,
-        updated_at: new Date().toISOString(),
-      });
-      if (upsertError) {
-        return json(
-          req,
-          {
-            error: `Falha ao salvar stripe_customer_id: ${upsertError.message}`,
-          },
-          500
-        );
-      }
-    }
-
-    // Assinatura BRL: métodos vindos do Dashboard (dynamic payment methods).
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      client_reference_id: user.id,
-      metadata: { supabase_user_id: user.id },
-      subscription_data: {
-        metadata: { supabase_user_id: user.id },
+        subscription_data: {
+          metadata: { supabase_user_id: user.id },
+        },
       },
-    });
+      { idempotencyKey: stripeIdempotencyKey("checkout", user.id) }
+    );
 
-    return json(req, { url: session.url });
+    return billingJson(req, { url: session.url });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return json(req, { error: message }, 500);
+    return billingJson(req, { error: message }, 500);
   }
 });
