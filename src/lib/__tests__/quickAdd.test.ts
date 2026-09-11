@@ -14,6 +14,8 @@ describe("resolveAppArea", () => {
     expect(resolveAppArea("/habits")).toBe("life");
     expect(resolveAppArea("/places")).toBe("life");
     expect(resolveAppArea("/travel/abc")).toBe("life");
+    expect(resolveAppArea("/life/health")).toBe("life");
+    expect(resolveAppArea("/life/health/medications")).toBe("life");
     expect(resolveAppArea("/home")).toBe("home");
     expect(resolveAppArea("/account")).toBe("home");
   });
@@ -26,9 +28,15 @@ describe("quickAddActionsForArea", () => {
     expect(finance.map((a) => a.id)).toContain("recurring");
 
     const life = quickAddActionsForArea("life");
-    expect(life.map((a) => a.id)).toEqual(
-      expect.arrayContaining(["place", "trip", "habit"])
-    );
+    expect(life.map((a) => a.id)).toEqual([
+      "habit",
+      "medication",
+      "consultation",
+      "place",
+      "goal",
+      "vehicle",
+      "trip",
+    ]);
   });
 
   it("home devolve mix curado", () => {

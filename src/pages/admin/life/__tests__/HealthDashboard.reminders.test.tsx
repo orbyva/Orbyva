@@ -34,6 +34,8 @@ vi.mock("@/api/health", () => ({
     nextConsultation: null,
     latestMetrics: [],
     reminderPreferences: store.preferences,
+    upcomingConsultations: [],
+    medications: [],
   })),
   fetchHealthHabitsToday: vi.fn(async () => []),
   recordHealthMetric: vi.fn(),

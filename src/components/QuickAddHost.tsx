@@ -12,6 +12,8 @@ import { MovieSearchModal } from "@/pages/admin/movies/components/MovieSearchMod
 import { BookSearchModal } from "@/pages/admin/books/components/BookSearchModal";
 import { AlbumSearchModal } from "@/pages/admin/music/components/AlbumSearchModal";
 import { VehicleFormDialog } from "@/pages/admin/car/components/VehicleFormDialog";
+import { MedicationQuickCreateDialog } from "@/pages/admin/health/MedicationQuickCreateDialog";
+import { ConsultationQuickCreateDialog } from "@/pages/admin/tasks/ConsultationQuickCreateDialog";
 
 const emptyTx = (): TransactionCreateRequest => ({
   class_id: 0,
@@ -115,6 +117,22 @@ export function QuickAddHost() {
         }}
         onAlbumAdded={closeAction}
         hideTrigger
+      />
+
+      <MedicationQuickCreateDialog
+        open={activeAction === "medication"}
+        onOpenChange={(open) => {
+          if (!open) closeAction();
+        }}
+        onCreated={closeAction}
+      />
+
+      <ConsultationQuickCreateDialog
+        open={activeAction === "consultation"}
+        onOpenChange={(open) => {
+          if (!open) closeAction();
+        }}
+        onCreated={closeAction}
       />
     </>
   );

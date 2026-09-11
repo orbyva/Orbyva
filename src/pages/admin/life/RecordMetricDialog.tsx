@@ -14,7 +14,7 @@ import {
   FORM_DIALOG_CONTENT_CLASS,
   FORM_FIELDS_CLASS,
 } from "@/components/FormLabel";
-import { recordHealthMetric } from "@/api/health";
+import { recordHealthMetric, updateHealthMetric } from "@/api/health";
 import {
   METRIC_LABEL,
   METRIC_TYPES,
@@ -23,13 +23,15 @@ import {
 import { formatLocalIsoDate } from "@/lib/dates";
 import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
-import type { MetricType } from "@/types/health";
+import type { HealthMetric, MetricType } from "@/types/health";
 
 interface RecordMetricDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Chamado depois que a medição é gravada — quem chama recarrega o dashboard. */
   onRecorded: () => void;
+  /** Presente = edição da medição. Ausente = registro novo. Remontar com `key` ao trocar o alvo. */
+  metric?: HealthMetric | null;
 }
 
 /**
@@ -44,13 +46,19 @@ export function RecordMetricDialog({
   open,
   onOpenChange,
   onRecorded,
+  metric = null,
 }: RecordMetricDialogProps) {
-  const [metricType, setMetricType] = useState<MetricType>("weight");
-  const [value, setValue] = useState("");
-  const [recordedDate, setRecordedDate] = useState(() =>
-    formatLocalIsoDate(new Date())
+  const editing = metric != null;
+  const [metricType, setMetricType] = useState<MetricType>(
+    metric?.metric_type ?? "weight"
   );
-  const [notes, setNotes] = useState("");
+  const [value, setValue] = useState(
+    metric != null ? String(metric.value).replace(".", ",") : ""
+  );
+  const [recordedDate, setRecordedDate] = useState(
+    () => metric?.recorded_date ?? formatLocalIsoDate(new Date())
+  );
+  const [notes, setNotes] = useState(metric?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -72,14 +80,24 @@ export function RecordMetricDialog({
     if (!canSave) return;
     setSaving(true);
     try {
-      await recordHealthMetric({
-        metric_type: metricType,
-        value: parsedValue,
-        recorded_date: recordedDate,
-        notes: notes.trim() || null,
-      });
-      toast({ title: "Medição registrada!", duration: 2000 });
-      reset();
+      if (editing) {
+        await updateHealthMetric({
+          id: metric.id,
+          value: parsedValue,
+          recorded_date: recordedDate,
+          notes: notes.trim() || null,
+        });
+        toast({ title: "Medição atualizada!", duration: 2000 });
+      } else {
+        await recordHealthMetric({
+          metric_type: metricType,
+          value: parsedValue,
+          recorded_date: recordedDate,
+          notes: notes.trim() || null,
+        });
+        toast({ title: "Medição registrada!", duration: 2000 });
+        reset();
+      }
       onOpenChange(false);
       onRecorded();
     } catch (error) {
@@ -87,7 +105,7 @@ export function RecordMetricDialog({
         title: "Erro",
         description: getErrorMessage(
           error,
-          "Não foi possível registrar a medição."
+          "Não foi possível salvar a medição."
         ),
         variant: "destructive",
       });
@@ -100,13 +118,15 @@ export function RecordMetricDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) reset();
+        if (!next && !editing) reset();
         onOpenChange(next);
       }}
     >
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogHeader>
-          <DialogTitle>Registrar medição</DialogTitle>
+          <DialogTitle>
+            {editing ? "Editar medição" : "Registrar medição"}
+          </DialogTitle>
         </DialogHeader>
         <div className={FORM_FIELDS_CLASS}>
           <div>
@@ -114,6 +134,7 @@ export function RecordMetricDialog({
             <Select
               value={metricType}
               onValueChange={(next) => setMetricType(next as MetricType)}
+              disabled={editing}
             >
               <SelectTrigger aria-label="Tipo">
                 <SelectValue />
@@ -166,7 +187,13 @@ export function RecordMetricDialog({
             disabled={!canSave || saving}
             className="w-full"
           >
-            {saving ? "Registrando..." : "Registrar"}
+            {saving
+              ? editing
+                ? "Salvando..."
+                : "Registrando..."
+              : editing
+                ? "Salvar"
+                : "Registrar"}
           </Button>
         </div>
       </DialogContent>

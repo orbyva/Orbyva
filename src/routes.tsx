@@ -29,6 +29,12 @@ const HealthDashboard = lazy(
 const MedicationList = lazy(
   () => import("./pages/admin/health/MedicationList")
 );
+const ConsultationList = lazy(
+  () => import("./pages/admin/health/ConsultationList")
+);
+const ProgressList = lazy(
+  () => import("./pages/admin/health/ProgressList")
+);
 const FinanceDashboard = lazy(() => import("./pages/admin/home/FinanceDashboard"));
 const Goals = lazy(() => import("./pages/admin/goals/Goals"));
 const Habits = lazy(() => import("./pages/admin/habits/Habits"));
@@ -148,6 +154,8 @@ export const appRoutes: RouteObject[] = [
               // Gestão dos tratamentos (feature 064) — o dashboard mostra a próxima dose e a adesão;
               // cadastrar, editar e encerrar vivem aqui.
               { path: "life/health/medications", element: <MedicationList /> },
+              { path: "life/health/consultations", element: <ConsultationList /> },
+              { path: "life/health/progress", element: <ProgressList /> },
               { path: "account", element: <Account /> },
 
               { path: "goals", element: <Goals /> },

@@ -2,12 +2,17 @@ import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { fetchDosesSince, fetchMedications } from "@/api/health/medications";
 import { computeAdherence } from "@/domain/health/adherence";
+import {
+  selectDashboardConsultations,
+  selectDashboardDoses,
+} from "@/domain/health/dashboard";
 import { formatLocalIsoDate } from "@/lib/dates";
 import type { Habit } from "@/types/habits";
 import type {
   HealthHabitToday,
   HealthMetric,
   HealthMetricCreateRequest,
+  HealthMetricUpdateRequest,
   HealthSummary,
   MetricType,
   ReminderEntityType,
@@ -17,20 +22,15 @@ import type {
 import type { Task } from "@/types/tasks";
 
 /**
- * Próximo compromisso de saúde pendente de um tipo (`is_medication` na 060, `is_consultation` na
- * 061) — pendente (`status = 'todo'`), agendado de hoje em diante, o primeiro por `due_date` e, no
- * mesmo dia, por `due_time`.
- *
- * Não há tabela de medicação nem de consulta: desde a feature 049 uma medicação é uma tarefa
- * recorrente com `is_medication = true` (cada dose é uma ocorrência materializada), e a 061 fez o
- * mesmo com consultas. Por isso as duas consultas são em `task`, mudando só a flag.
+ * Próxima dose pendente (`is_medication`) de hoje em diante — o fallback do hub quando a
+ * listagem do dia está vazia. Consultas usam `fetchUpcomingConsultationTasks`.
  *
  * `due_time` nulo vai para o fim do dia (`nullsFirst: false`): um compromisso sem horário não deve
  * passar na frente de um marcado para as 8h do mesmo dia.
  */
 async function fetchNextPendingTask(
   userId: string,
-  flag: "is_medication" | "is_consultation",
+  flag: "is_medication",
   today: string
 ): Promise<Task | null> {
   const { data, error } = await supabase
@@ -47,6 +47,53 @@ async function fetchNextPendingTask(
 
   if (error) throw new Error(error.message);
   return (data as Task | null) ?? null;
+}
+
+/** Quantas consultas o hub lista de uma vez — o bastante para a agenda da semana sem paginar. */
+const CONSULTATION_LIST_LIMIT = 15;
+
+/** Teto da tela "Ver consultas": histórico completo sem paginar, com folga para anos de agenda. */
+const CONSULTATION_HISTORY_LIMIT = 100;
+
+/**
+ * Consultas de hoje em diante. Sem filtro de `status`: a seleção do que aparece no hub
+ * (`selectDashboardConsultations`) precisa das comparecidas de hoje junto das pendentes.
+ */
+async function fetchUpcomingConsultationTasks(
+  userId: string,
+  today: string
+): Promise<Task[]> {
+  const { data, error } = await supabase
+    .from("task")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_consultation", true)
+    .gte("due_date", today)
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .order("due_time", { ascending: true, nullsFirst: false })
+    .limit(CONSULTATION_LIST_LIMIT);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Task[];
+}
+
+/**
+ * Todas as consultas do usuário, pendentes e já comparecidas — alimenta "Ver consultas".
+ * Sem recorte de data: o histórico é o ponto da tela.
+ */
+export async function fetchConsultationTasks(): Promise<Task[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("task")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_consultation", true)
+    .order("due_date", { ascending: false, nullsFirst: false })
+    .order("due_time", { ascending: false, nullsFirst: false })
+    .limit(CONSULTATION_HISTORY_LIMIT);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Task[];
 }
 
 /**
@@ -83,28 +130,38 @@ export async function loadHealthSummary(): Promise<HealthSummary> {
 
   const [
     nextMedicationDose,
-    nextConsultation,
+    consultationRows,
     latestMetrics,
     reminderPreferences,
     medications,
     recentDoses,
   ] = await Promise.all([
     fetchNextPendingTask(userId, "is_medication", today),
-    fetchNextPendingTask(userId, "is_consultation", today),
+    fetchUpcomingConsultationTasks(userId, today),
     fetchHealthMetrics(),
     fetchReminderPreferences(),
     fetchMedications(true),
     fetchDosesSince(formatLocalIsoDate(windowStart)),
   ]);
 
+  const upcomingConsultations = selectDashboardConsultations(
+    consultationRows,
+    today
+  );
+  const todayDoses = selectDashboardDoses(recentDoses, today);
+
   return {
     nextMedicationDose,
-    nextConsultation,
+    nextConsultation:
+      upcomingConsultations.find((task) => task.status === "todo") ?? null,
     latestMetrics,
     reminderPreferences,
     // Calculada aqui, não guardada: a fonte é a mesma lista de doses que a tela mostra.
     medicationAdherence: computeAdherence(recentDoses),
     activeMedicationCount: medications.length,
+    todayDoses,
+    upcomingConsultations,
+    medications,
   };
 }
 
@@ -158,6 +215,46 @@ export async function recordHealthMetric(
 
   if (error) throw new Error(error.message);
   return data as HealthMetric;
+}
+
+/** Atualiza valor, data ou observação de uma medição já gravada — não troca o tipo. */
+export async function updateHealthMetric(
+  input: HealthMetricUpdateRequest
+): Promise<HealthMetric> {
+  const userId = await getCurrentUserId();
+  const payload: {
+    value?: number;
+    recorded_date?: string;
+    notes?: string | null;
+  } = {};
+  if (input.value !== undefined) payload.value = input.value;
+  if (input.recorded_date !== undefined) payload.recorded_date = input.recorded_date;
+  if (input.notes !== undefined) {
+    payload.notes = input.notes?.trim() ? input.notes.trim() : null;
+  }
+
+  const { data, error } = await supabase
+    .from("health_metric")
+    .update(payload)
+    .eq("id", input.id)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as HealthMetric;
+}
+
+/** Remove uma medição corporal. O IMC some sozinho se peso ou altura deixarem de existir. */
+export async function deleteHealthMetric(id: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("health_metric")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message);
 }
 
 /** Preferências de lembrete do usuário — uma linha por `entity_type` já configurado. */

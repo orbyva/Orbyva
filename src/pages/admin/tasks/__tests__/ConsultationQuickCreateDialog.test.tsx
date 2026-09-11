@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConsultationQuickCreateDialog } from "@/pages/admin/tasks/ConsultationQuickCreateDialog";
-import { createTask } from "@/api/tasks";
+import { createTask, updateTask } from "@/api/tasks";
+import type { Task } from "@/types/tasks";
 
 /**
  * Atalho de agendamento de consulta (feature 061). Substitui a verificação manual no navegador
@@ -17,6 +18,7 @@ vi.mock("@/api/tasks", () => ({
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
   saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   createTask: vi.fn(),
+  updateTask: vi.fn(),
 }));
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
@@ -26,6 +28,7 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 
 const mockedCreateTask = vi.mocked(createTask);
+const mockedUpdateTask = vi.mocked(updateTask);
 
 function renderDialog(props: Partial<Parameters<typeof ConsultationQuickCreateDialog>[0]> = {}) {
   return render(
@@ -48,6 +51,7 @@ describe("ConsultationQuickCreateDialog", () => {
   beforeEach(() => {
     toastMock.mockReset();
     mockedCreateTask.mockReset();
+    mockedUpdateTask.mockReset();
   });
 
   it("botão Agendar começa desabilitado e só habilita com especialidade + data", async () => {
@@ -357,5 +361,53 @@ describe("ConsultationQuickCreateDialog", () => {
       expect.objectContaining({ title: "Erro", description: "Falhou", variant: "destructive" })
     );
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("editar esta ocorrência preenche o formulário, esconde repetição e chama updateTask", async () => {
+    const user = userEvent.setup();
+    mockedUpdateTask.mockResolvedValue(undefined as never);
+    const onCreated = vi.fn();
+    const task = {
+      id: "c1",
+      project_id: null,
+      parent_task_id: null,
+      recurrence_origin_id: null,
+      title: "tesste — Dr Teste",
+      description: "Clínica Vida",
+      status: "todo",
+      tag_ids: [],
+      due_date: "2026-08-16",
+      due_time: "11:06:00",
+      recurrence_rule: null,
+      linked_recurring_id: null,
+      linked_installment_number: null,
+      is_consultation: true,
+    } as Task;
+
+    renderDialog({ task, onCreated });
+
+    expect(screen.getByRole("heading", { name: "Editar consulta" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Especialidade/)).toHaveValue("tesste");
+    expect(screen.getByLabelText(/Profissional/)).toHaveValue("Dr Teste");
+    expect(screen.getByLabelText(/^Data/)).toHaveValue("2026-08-16");
+    expect(screen.getByLabelText(/Horário/)).toHaveValue("11:06");
+    expect(screen.getByLabelText(/Local e preparo/)).toHaveValue("Clínica Vida");
+    expect(screen.queryByRole("combobox", { name: "Repetição" })).toBeNull();
+
+    await user.clear(screen.getByLabelText(/Especialidade/));
+    await user.type(screen.getByLabelText(/Especialidade/), "Cardiologista");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    expect(mockedCreateTask).not.toHaveBeenCalled();
+    expect(mockedUpdateTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "c1",
+        title: "Cardiologista — Dr Teste",
+        description: "Clínica Vida",
+        due_date: "2026-08-16",
+        due_time: "11:06",
+      })
+    );
+    expect(onCreated).toHaveBeenCalled();
   });
 });

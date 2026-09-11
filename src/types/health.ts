@@ -35,6 +35,21 @@ export interface HealthSummary {
   medicationAdherence: AdherenceSummary;
   /** Quantos tratamentos ativos existem (feature 064) — o que a seção "Medicações" resume. */
   activeMedicationCount: number;
+  /**
+   * Doses de hoje (pendentes e tomadas) mais as atrasadas ainda pendentes — a listagem marcável
+   * do hub de Saúde. Continuam sendo as mesmas `task` da agenda.
+   */
+  todayDoses: Task[];
+  /**
+   * Próximas consultas pendentes e as de hoje já comparecidas. A agenda segue listando as mesmas
+   * linhas; aqui o hub deixa de mostrar só a imediata.
+   */
+  upcomingConsultations: Task[];
+  /**
+   * Tratamentos ativos — o hub usa para editar/encerrar a medicação a partir da dose listada,
+   * sem uma ida extra a `/life/health/medications`.
+   */
+  medications: Medication[];
 }
 
 /**
@@ -98,6 +113,10 @@ export type HealthMetricCreateRequest = Omit<
   HealthMetric,
   "id" | "user_id" | "created_at"
 >;
+
+export type HealthMetricUpdateRequest = Partial<
+  Pick<HealthMetric, "value" | "recorded_date" | "notes">
+> & { id: string };
 
 /** O que pode ter lembrete — espelha o check de `reminder_preference.entity_type`. */
 export type ReminderEntityType =

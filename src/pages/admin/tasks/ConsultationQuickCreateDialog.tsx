@@ -10,9 +10,12 @@ import {
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS } from "@/components/FormLabel";
-import { createTask } from "@/api/tasks";
+import { createTask, updateTask } from "@/api/tasks";
 import { emptyTask } from "@/domain/tasks/taskDraft";
-import { buildConsultationTitle } from "@/domain/tasks/consultation";
+import {
+  buildConsultationTitle,
+  splitConsultationTitle,
+} from "@/domain/tasks/consultation";
 import {
   WEEKDAY_LABELS,
   WEEKDAY_NAMES_LONG,
@@ -21,6 +24,7 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import type { Task } from "@/types/tasks";
 
 type RepeatOption = "once" | "weekly" | "monthly";
 
@@ -46,8 +50,10 @@ const DEFAULT_INTERVAL: Record<Exclude<RepeatOption, "once">, string> = {
 interface ConsultationQuickCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Chamado depois que a consulta é criada com sucesso — quem chama recarrega a lista. */
+  /** Chamado depois que a consulta é salva — quem chama recarrega a lista. */
   onCreated: () => void;
+  /** Presente = edição desta ocorrência. Ausente = agendamento. Remontar com `key`. */
+  task?: Task | null;
 }
 
 /**
@@ -62,11 +68,14 @@ export function ConsultationQuickCreateDialog({
   open,
   onOpenChange,
   onCreated,
+  task = null,
 }: ConsultationQuickCreateDialogProps) {
-  const [specialty, setSpecialty] = useState("");
-  const [professional, setProfessional] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [dueTime, setDueTime] = useState("");
+  const editing = task != null;
+  const parsed = task ? splitConsultationTitle(task.title) : null;
+  const [specialty, setSpecialty] = useState(parsed?.specialty ?? "");
+  const [professional, setProfessional] = useState(parsed?.professional ?? "");
+  const [dueDate, setDueDate] = useState(task?.due_date ?? "");
+  const [dueTime, setDueTime] = useState(task?.due_time?.slice(0, 5) ?? "");
   const [repeat, setRepeat] = useState<RepeatOption>("once");
   // String (não number) pra não clampar durante a digitação — mesmo motivo documentado em
   // `MedicationQuickCreateDialog.tsx` (apagar pra redigitar fazia o campo saltar pro mínimo).
@@ -76,7 +85,7 @@ export function ConsultationQuickCreateDialog({
   /** `until` da regra. Vazio = sem fim, que é o padrão de quem só quer "todo mês". */
   const [endsOn, setEndsOn] = useState("");
   const [endsOnError, setEndsOnError] = useState<string | null>(null);
-  const [details, setDetails] = useState("");
+  const [details, setDetails] = useState(task?.description ?? "");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -135,43 +144,65 @@ export function ConsultationQuickCreateDialog({
   async function handleSave() {
     if (!canSave) return;
 
-    const problem = endsOnProblem();
-    if (problem) {
-      setEndsOnError(problem);
-      return;
+    if (!editing) {
+      const problem = endsOnProblem();
+      if (problem) {
+        setEndsOnError(problem);
+        return;
+      }
+      setEndsOnError(null);
     }
-    setEndsOnError(null);
 
     setSaving(true);
     try {
-      const interval = Math.max(1, parseInt(intervalValue, 10) || 1);
-      await createTask({
-        ...emptyTask(),
-        title: buildConsultationTitle(specialty, professional),
-        description: details.trim() || null,
-        status: "todo",
-        due_date: dueDate,
-        due_time: dueTime || null,
-        is_consultation: true,
-        recurrence_rule:
-          repeat === "once"
-            ? null
-            : {
-                frequency: repeat,
-                interval,
-                time: dueTime || null,
-                ...(repeat === "weekly" && weekdays.length > 0 ? { weekdays } : {}),
-                ...(endsOn ? { until: endsOn } : {}),
-              },
-      });
-      toast({ title: "Consulta agendada!", duration: 2000 });
-      reset();
+      const title = buildConsultationTitle(specialty, professional);
+      const description = details.trim() || null;
+      if (editing) {
+        await updateTask({
+          id: task.id,
+          title,
+          description,
+          due_date: dueDate,
+          due_time: dueTime || null,
+        });
+        toast({ title: "Consulta atualizada!", duration: 2000 });
+      } else {
+        const interval = Math.max(1, parseInt(intervalValue, 10) || 1);
+        await createTask({
+          ...emptyTask(),
+          title,
+          description,
+          status: "todo",
+          due_date: dueDate,
+          due_time: dueTime || null,
+          is_consultation: true,
+          recurrence_rule:
+            repeat === "once"
+              ? null
+              : {
+                  frequency: repeat,
+                  interval,
+                  time: dueTime || null,
+                  ...(repeat === "weekly" && weekdays.length > 0
+                    ? { weekdays }
+                    : {}),
+                  ...(endsOn ? { until: endsOn } : {}),
+                },
+        });
+        toast({ title: "Consulta agendada!", duration: 2000 });
+        reset();
+      }
       onOpenChange(false);
       onCreated();
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error, "Não foi possível agendar a consulta."),
+        description: getErrorMessage(
+          error,
+          editing
+            ? "Não foi possível salvar a consulta."
+            : "Não foi possível agendar a consulta."
+        ),
         variant: "destructive",
       });
     } finally {
@@ -183,13 +214,15 @@ export function ConsultationQuickCreateDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) reset();
+        if (!next && !editing) reset();
         onOpenChange(next);
       }}
     >
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogHeader>
-          <DialogTitle>Agendar consulta</DialogTitle>
+          <DialogTitle>
+            {editing ? "Editar consulta" : "Agendar consulta"}
+          </DialogTitle>
         </DialogHeader>
         <div className={FORM_FIELDS_CLASS}>
           <div>
@@ -236,6 +269,8 @@ export function ConsultationQuickCreateDialog({
               onChange={(e) => setDueTime(e.target.value)}
             />
           </div>
+          {editing ? null : (
+            <>
           <div>
             <FormLabel>Repetição</FormLabel>
             <Select value={repeat} onValueChange={(v) => pickRepeat(v as RepeatOption)}>
@@ -328,6 +363,8 @@ export function ConsultationQuickCreateDialog({
               )}
             </div>
           )}
+            </>
+          )}
           <div>
             <FormLabel optional htmlFor="consultation-details">
               Local e preparo
@@ -341,7 +378,13 @@ export function ConsultationQuickCreateDialog({
             />
           </div>
           <Button onClick={handleSave} disabled={!canSave || saving} className="w-full">
-            {saving ? "Agendando..." : "Agendar"}
+            {saving
+              ? editing
+                ? "Salvando..."
+                : "Agendando..."
+              : editing
+                ? "Salvar"
+                : "Agendar"}
           </Button>
         </div>
       </DialogContent>

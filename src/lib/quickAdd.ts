@@ -8,6 +8,8 @@ export type QuickAddActionId =
   | "book"
   | "music"
   | "habit"
+  | "medication"
+  | "consultation"
   | "place"
   | "goal"
   | "vehicle"
@@ -86,6 +88,22 @@ export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
     area: "life",
   },
   {
+    id: "medication",
+    label: "Cadastrar medicação",
+    href: "/life/health/medications",
+    keywords: ["medicação", "remédio", "dose", "comprimido", "tratamento"],
+    area: "life",
+    inline: true,
+  },
+  {
+    id: "consultation",
+    label: "Agendar consulta",
+    href: "/life/health",
+    keywords: ["consulta", "médico", "exame", "retorno", "especialista"],
+    area: "life",
+    inline: true,
+  },
+  {
     id: "place",
     label: "Novo lugar",
     href: "/places?new=1",
@@ -119,7 +137,7 @@ export const QUICK_ADD_ACTIONS: QuickAddAction[] = [
 ];
 
 const ENTERTAINMENT_PREFIXES = ["/movies", "/books", "/music", "/links"];
-const LIFE_PREFIXES = ["/habits", "/places", "/goals", "/car", "/travel"];
+const LIFE_PREFIXES = ["/habits", "/places", "/goals", "/car", "/travel", "/life"];
 
 export function resolveAppArea(pathname: string): AppArea {
   if (pathname.startsWith("/finance")) return "finance";

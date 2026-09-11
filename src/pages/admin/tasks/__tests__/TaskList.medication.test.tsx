@@ -139,13 +139,12 @@ describe("TaskList — a criação de medicação mora só na Saúde (071)", () 
 });
 
 /**
- * Item (a) do pedido literal da 071 — "não existe mais nenhuma porta de criação de medicação fora
- * da Saúde". Os testes acima cobrem o `TaskList`; esta varredura cobre o resto do app: só a Saúde
- * (a lista de tratamentos e o hub `life/HealthDashboard.tsx`, que é a própria tela de Saúde) monta
- * o diálogo de criação.
+ * Item (a) do pedido literal da 071 — a criação saiu de Tarefas. Os testes acima cobrem o
+ * `TaskList`; esta varredura cobre o resto do app: o diálogo mora na Saúde (lista + hub) e no `+`
+ * de Vida (`QuickAddHost`), que é o overlay do módulo-pai — não em Produtividade.
  */
-describe("o diálogo de criação de medicação só é montado na Saúde (071)", () => {
-  it("nenhum módulo fora da Saúde importa MedicationQuickCreateDialog", () => {
+describe("o diálogo de criação de medicação só é montado na Saúde e no + de Vida", () => {
+  it("só Saúde e o overlay do + de Vida importam MedicationQuickCreateDialog", () => {
     const src = resolve(__dirname, "../../../..");
 
     function walk(dir: string): string[] {
@@ -169,6 +168,7 @@ describe("o diálogo de criação de medicação só é montado na Saúde (071)"
       .sort();
 
     expect(importers).toEqual([
+      "components/QuickAddHost.tsx",
       "pages/admin/health/MedicationList.tsx",
       "pages/admin/life/HealthDashboard.tsx",
     ]);
