@@ -9,8 +9,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/DatePicker";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS } from "@/components/FormLabel";
 import { createTask, updateTask } from "@/api/tasks";
+import { formatDateBR } from "@/lib/currency";
+import { formatLocalIsoDate } from "@/lib/dates";
 import { emptyTask } from "@/domain/tasks/taskDraft";
 import {
   buildConsultationTitle,
@@ -125,9 +128,9 @@ export function ConsultationQuickCreateDialog({
    * tudo que passa de `until`, então a série nasceria com a consulta inicial e nenhuma repetição —
    * o usuário pediu recorrência e receberia uma consulta única, sem aviso nenhum.
    */
-  function endsOnProblem(): string | null {
-    if (repeat === "once" || !endsOn) return null;
-    if (dueDate && endsOn < dueDate) {
+  function endsOnProblem(until = endsOn): string | null {
+    if (repeat === "once" || !until) return null;
+    if (dueDate && until < dueDate) {
       return "O término precisa ser igual ou posterior à data da consulta.";
     }
     return null;
@@ -248,14 +251,11 @@ export function ConsultationQuickCreateDialog({
             />
           </div>
           <div>
-            <FormLabel required htmlFor="consultation-date">
-              Data
-            </FormLabel>
-            <Input
-              id="consultation-date"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+            <FormLabel required>Data</FormLabel>
+            <DatePicker
+              date={dueDate ? new Date(`${dueDate}T12:00:00`) : undefined}
+              ariaLabel={dueDate ? `Data — ${formatDateBR(dueDate)}` : "Data"}
+              onSelect={(d) => setDueDate(d ? formatLocalIsoDate(d) : "")}
             />
           </div>
           <div>
@@ -330,23 +330,20 @@ export function ConsultationQuickCreateDialog({
               uma tarefa por semana desde a data inicial, todas as semanas, para sempre. */}
           {repeat !== "once" && (
             <div>
-              <FormLabel optional htmlFor="consultation-ends-on">
-                Termina em
-              </FormLabel>
-              <Input
-                id="consultation-ends-on"
-                type="date"
-                value={endsOn}
+              <FormLabel optional>Termina em</FormLabel>
+              <DatePicker
+                clearable
+                date={endsOn ? new Date(`${endsOn}T12:00:00`) : undefined}
+                ariaLabel={endsOn ? `Termina em — ${formatDateBR(endsOn)}` : "Termina em"}
                 aria-invalid={endsOnError != null}
                 aria-describedby={
                   endsOnError ? "consultation-ends-on-error" : "consultation-ends-on-hint"
                 }
-                onChange={(e) => {
-                  setEndsOn(e.target.value);
-                  if (endsOnError) setEndsOnError(null);
+                onSelect={(d) => {
+                  const next = d ? formatLocalIsoDate(d) : "";
+                  setEndsOn(next);
+                  setEndsOnError(endsOnProblem(next));
                 }}
-                // Validação no blur, não a cada tecla: uma data pela metade não é erro do usuário.
-                onBlur={() => setEndsOnError(endsOnProblem())}
               />
               {endsOnError ? (
                 <p

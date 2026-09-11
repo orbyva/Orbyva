@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import HealthDashboard from "@/pages/admin/life/HealthDashboard";
+import { pickDate } from "@/test/pickDate";
 import type { HealthMetric, HealthMetricCreateRequest, MetricType } from "@/types/health";
 
 /**
@@ -179,8 +180,7 @@ describe("Health Dashboard — registrar medição", () => {
     await user.click(await screen.findByRole("button", { name: "Registrar medição" }));
 
     await user.type(await screen.findByLabelText(/Valor/), "78,4");
-    await user.clear(screen.getByLabelText(/Data/));
-    await user.type(screen.getByLabelText(/Data/), "2026-08-16");
+    await pickDate(user, /^Data/, "2026-08-16");
     await user.click(screen.getByRole("button", { name: "Registrar" }));
 
     await waitFor(() => expect(store.metrics).toHaveLength(1));

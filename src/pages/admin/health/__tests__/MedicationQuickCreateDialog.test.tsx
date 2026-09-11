@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MedicationQuickCreateDialog } from "@/pages/admin/health/MedicationQuickCreateDialog";
 import { createMedicationWithDoses, updateMedication } from "@/api/health/medications";
+import { pickDate } from "@/test/pickDate";
 import type { Medication } from "@/types/health";
 
 /**
@@ -133,7 +134,7 @@ describe("MedicationQuickCreateDialog", () => {
     await user.type(screen.getByLabelText(/Unidade/), "comprimidos");
     await user.type(screen.getByLabelText(/Instruções/), "em jejum");
     await user.click(screen.getByRole("radio", { name: "Termina em" }));
-    await user.type(screen.getByLabelText("Data de término"), "2026-08-24");
+    await pickDate(user, "Data de término", "2026-08-24");
     await user.click(screen.getByRole("button", { name: "Criar" }));
 
     expect(mockedCreate).toHaveBeenCalledWith(
@@ -207,7 +208,7 @@ describe("MedicationQuickCreateDialog", () => {
     await user.type(screen.getByLabelText(/Nome do remédio/), "Amoxicilina");
     await user.type(screen.getByLabelText("Horário 1"), "09:30");
     await user.click(screen.getByRole("radio", { name: "Termina em" }));
-    await user.type(screen.getByLabelText("Data de término"), "2026-08-24");
+    await pickDate(user, "Data de término", "2026-08-24");
 
     await user.click(screen.getByRole("radio", { name: "Uso contínuo" }));
     // O campo some junto com a escolha — não fica uma data escondida contando outra história.
@@ -249,7 +250,7 @@ describe("MedicationQuickCreateDialog", () => {
     await user.type(screen.getByLabelText("Horário 1"), "09:30");
     await user.click(screen.getByRole("radio", { name: "Termina em" }));
     // Início é hoje (17/08) por padrão.
-    await user.type(screen.getByLabelText("Data de término"), "2026-08-10");
+    await pickDate(user, "Data de término", "2026-08-10");
     await user.click(screen.getByRole("button", { name: "Criar" }));
 
     expect(mockedCreate).not.toHaveBeenCalled();
@@ -271,7 +272,7 @@ describe("MedicationQuickCreateDialog", () => {
     await user.click(screen.getByRole("button", { name: "Criar" }));
     expect(screen.getByRole("alert")).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText("Data de término"), "2026-08-24");
+    await pickDate(user, "Data de término", "2026-08-24");
     expect(screen.queryByRole("alert")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Criar" }));
@@ -329,7 +330,7 @@ describe("MedicationQuickCreateDialog — modo edição", () => {
     expect(screen.getByLabelText("Horário 1")).toHaveValue("08:00");
     expect(screen.getByLabelText("Horário 2")).toHaveValue("20:00");
     expect(screen.getByLabelText(/A cada quantos dias/)).toHaveValue(3);
-    expect(screen.getByLabelText(/Início/)).toHaveValue("2026-08-10");
+    expect(screen.getByRole("button", { name: "Início — 10/08/2026" })).toBeInTheDocument();
     // Sem `ended_on`, o tratamento abre afirmando que é contínuo (feature 096).
     expect(screen.getByRole("radio", { name: "Uso contínuo" })).toBeChecked();
   });
@@ -345,7 +346,7 @@ describe("MedicationQuickCreateDialog — modo edição", () => {
     );
 
     expect(screen.getByRole("radio", { name: "Termina em" })).toBeChecked();
-    expect(screen.getByLabelText("Data de término")).toHaveValue("2026-08-25");
+    expect(screen.getByRole("button", { name: "Data de término — 25/08/2026" })).toBeInTheDocument();
   });
 
   it("tirar o término de um tratamento existente manda ended_on: null", async () => {

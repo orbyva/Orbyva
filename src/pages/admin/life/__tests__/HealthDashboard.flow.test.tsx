@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import HealthDashboard from "@/pages/admin/life/HealthDashboard";
+import { pickDate } from "@/test/pickDate";
 import type { Medication, MedicationCreateRequest } from "@/types/health";
 import type { Task, TaskCreateRequest } from "@/types/tasks";
 
@@ -294,7 +295,7 @@ describe("Health Dashboard — fluxo", () => {
 
     await user.type(await screen.findByLabelText(/Especialidade/), "Cardiologista");
     await user.type(screen.getByLabelText(/Profissional/), "Dr. Silva");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
     await user.type(screen.getByLabelText(/Horário/), "14:30");
     await user.type(screen.getByLabelText(/Local e preparo/), "Clínica Vida — jejum de 8h");
     await user.click(screen.getByRole("button", { name: "Agendar" }));

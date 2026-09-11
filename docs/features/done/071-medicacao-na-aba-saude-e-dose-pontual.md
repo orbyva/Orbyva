@@ -54,6 +54,7 @@ Acho que a visualização das coisas de saúde tem que ser melhor aqui no própr
 - 2026-09-11 — "Nesse caso o Cadastrar medicação, Agendar Consulta, Novo hábito de saúde. Pode ficar ali no card de cada um, sem ter que ficar lá em cima. Permita também poder excluir e editar Consultas, Medicações, Progresso e Hábito de saúde"
 - 2026-09-11 — "Eu estava pensando em seguir a estrutura de todos terem a estrutura do medicação.
 Tem ali o "Ver medicações" que ele vai  mostrar todas e o histórico. Podíamos seguir o mesmo exemplo para consultas e progressos. Agora em questão de layout. Ao invés de ter o botão "Agendar consulta" vai ter só "+""
+- 2026-09-11 — "O datepicker das coisas de saúde não é o do componente existente. Deixe padronizado"
 
 ## Notas
 
@@ -143,4 +144,5 @@ Tem ali o "Ver medicações" que ele vai  mostrar todas e o histórico. Podíamo
 - **Pedido de 2026-09-11 — o + de Vida ganha "Cadastrar medicação" e "Agendar consulta".** Overlay (`inline`), os mesmos diálogos do hub, sem voltar a criar medicação em Tarefas. Hábito de saúde e medição ficaram de fora: o primeiro já existe como "Novo hábito"; o segundo é log, não entidade nova.
 - **Pedido de 2026-09-11 — CTAs de criação saem do cabeçalho da página e passam para o card de cada seção** (Hoje, Medicações, Consultas). O cabeçalho fica só com "Como funciona?" e "Lembretes". Cada linha/card de hábito, medição, consulta e dose ganha editar e excluir: medicação **encerra** o tratamento (histórico permanece, como na lista de tratamentos); consulta, hábito e medição apagam a ocorrência/registro.
 - **Pedido de 2026-09-11 — consultas e progresso ganham a mesma estrutura de medicações.** No hub o criar vira só `+` (o nome fica no `aria-label`); **Ver consultas** e **Ver progresso** abrem listas próprias com histórico (`/life/health/consultations`, `/life/health/progress`), no mesmo molde de **Ver medicações**.
+- **Pedido de 2026-09-11 — datepicker de saúde padronizado.** Consulta, medicação e medição deixam o `<input type="date">` nativo e passam a usar o `DatePicker` do resto do app (calendário com dropdown de mês/ano). Horário continua `<input type="time">`.
 - **A "tarefa especial" do prompt não é um tipo novo de tarefa**: é a dose que a 064 já materializa, agora marcada como pontual (070) e com ícone de comprimido. Nenhuma flag nova em `task` é criada aqui — `medication_id` continua sendo a fonte da verdade e `is_medication` continua sendo a flag de renderização, exatamente como a 064 decidiu.

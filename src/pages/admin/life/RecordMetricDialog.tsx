@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/DatePicker";
 import {
   FormLabel,
   FORM_DIALOG_CONTENT_CLASS,
@@ -20,6 +21,7 @@ import {
   METRIC_TYPES,
   METRIC_UNIT,
 } from "@/domain/health/metrics";
+import { formatDateBR } from "@/lib/currency";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
@@ -161,14 +163,11 @@ export function RecordMetricDialog({
             />
           </div>
           <div>
-            <FormLabel required htmlFor="metric-date">
-              Data
-            </FormLabel>
-            <Input
-              id="metric-date"
-              type="date"
-              value={recordedDate}
-              onChange={(e) => setRecordedDate(e.target.value)}
+            <FormLabel required>Data</FormLabel>
+            <DatePicker
+              date={recordedDate ? new Date(`${recordedDate}T12:00:00`) : undefined}
+              ariaLabel={recordedDate ? `Data — ${formatDateBR(recordedDate)}` : "Data"}
+              onSelect={(d) => setRecordedDate(d ? formatLocalIsoDate(d) : "")}
             />
           </div>
           <div>
