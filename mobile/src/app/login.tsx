@@ -15,10 +15,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useThemePreference } from "@/hooks/use-theme-preference";
+import { useFeedback } from "@/hooks/use-toast";
 import {
   authRedirectUri,
   createSessionFromUrl,
@@ -35,6 +37,7 @@ type Mode = "login" | "signup";
 export default function LoginScreen() {
   const { user, loading } = useAuth();
   const theme = useTheme();
+  const { fail } = useFeedback();
   const { scheme } = useThemePreference();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
@@ -58,7 +61,7 @@ export default function LoginScreen() {
     try {
       await fn();
     } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível entrar."));
+      fail(getErrorMessage(err, "Não foi possível entrar."));
     } finally {
       setBusy(false);
     }
@@ -168,7 +171,7 @@ export default function LoginScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           <View style={styles.body}>
-            <ThemedText type="subtitle">Orbyva</ThemedText>
+            <ThemedText type="title">Orbyva</ThemedText>
             <ThemedText themeColor="textSecondary">
               {mode === "signup"
                 ? "7 dias grátis com tudo liberado. Sem cartão no início."
@@ -219,9 +222,7 @@ export default function LoginScreen() {
               onChangeText={setPassword}
             />
 
-            {error ? (
-              <ThemedText style={styles.error}>{error}</ThemedText>
-            ) : null}
+            <Banner message={error} />
             {message ? (
               <ThemedText themeColor="textSecondary">{message}</ThemedText>
             ) : null}

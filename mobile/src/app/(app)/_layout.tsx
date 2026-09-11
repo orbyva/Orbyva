@@ -13,6 +13,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { normalizePath } from "@/lib/nav";
 
+function AppHeaderLeft() {
+  return <StackHeaderLeft />;
+}
+
+function AppHeaderRight() {
+  return <HeaderAlertsButton />;
+}
+
 function AppStack() {
   const theme = useTheme();
   const pathname = usePathname();
@@ -28,8 +36,8 @@ function AppStack() {
           headerStyle: { backgroundColor: theme.background },
           headerTintColor: theme.text,
           contentStyle: { backgroundColor: theme.background },
-          headerLeft: () => (hideChrome ? undefined : <StackHeaderLeft />),
-          headerRight: () => (hideChrome ? undefined : <HeaderAlertsButton />),
+          headerLeft: hideChrome ? undefined : AppHeaderLeft,
+          headerRight: hideChrome ? undefined : AppHeaderRight,
           headerBackVisible: false,
         }}
       >

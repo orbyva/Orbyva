@@ -1,8 +1,7 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -23,6 +22,7 @@ import { TasksKanban } from "@/components/TasksKanban";
 import { TasksList } from "@/components/TasksList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import {
   filterTasksByProject,
@@ -39,6 +39,7 @@ import {
 } from "@/domain/tasks/listView";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
+import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
   PROJECT_FILTER_ALL,
@@ -52,6 +53,7 @@ import {
 
 export default function TasksScreen() {
   const theme = useTheme();
+  const { fail } = useFeedback();
   const router = useRouter();
   const { bottomInset } = useAppShell();
   const [rows, setRows] = useState<Task[]>([]);
@@ -65,6 +67,7 @@ export default function TasksScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const hasLoaded = useRef(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -81,7 +84,7 @@ export default function TasksScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      setLoading(true);
+      if (!hasLoaded.current) setLoading(true);
       void load()
         .catch((err) => {
           if (!cancelled) {
@@ -91,7 +94,10 @@ export default function TasksScreen() {
           }
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            hasLoaded.current = true;
+            setLoading(false);
+          }
         });
       return () => {
         cancelled = true;
@@ -104,7 +110,7 @@ export default function TasksScreen() {
     try {
       await load();
     } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível atualizar."));
+      fail(getErrorMessage(err, "Não foi possível atualizar."));
     } finally {
       setRefreshing(false);
     }
@@ -126,7 +132,7 @@ export default function TasksScreen() {
       await completeTaskApi(task.id);
     } catch (err) {
       setRows(previous);
-      setError(getErrorMessage(err, "Não foi possível concluir a tarefa."));
+      fail(getErrorMessage(err, "Não foi possível concluir a tarefa."));
     } finally {
       setBusyId(null);
     }
@@ -147,7 +153,7 @@ export default function TasksScreen() {
       await reopenTaskApi(task.id);
     } catch (err) {
       setRows(previous);
-      setError(getErrorMessage(err, "Não foi possível reabrir a tarefa."));
+      fail(getErrorMessage(err, "Não foi possível reabrir a tarefa."));
     } finally {
       setBusyId(null);
     }
@@ -173,7 +179,7 @@ export default function TasksScreen() {
       await setTaskStatusApi(task.id, status);
     } catch (err) {
       setRows(previous);
-      setError(getErrorMessage(err, "Não foi possível mover a tarefa."));
+      fail(getErrorMessage(err, "Não foi possível mover a tarefa."));
     }
   }
 
@@ -247,9 +253,7 @@ export default function TasksScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      {error ? (
-        <ThemedText style={styles.error}>{error}</ThemedText>
-      ) : null}
+      <Banner message={error} style={styles.banner} />
       {loading && rows.length === 0 ? (
         <View style={styles.center}>
           <ActivityIndicator color={theme.primary} />
@@ -298,54 +302,21 @@ export default function TasksScreen() {
             ]}
           />
           {projectChips.length > 2 ? (
-            <View style={styles.chips}>
-              {projectChips.map((chip) => (
-                <Pressable
-                  key={chip.id}
-                  onPress={() => setProjectFilter(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    projectFilter === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
-              ))}
-            </View>
+            <ChipBar
+              options={projectChips}
+              value={projectFilter}
+              onChange={setProjectFilter}
+            />
           ) : null}
           {tags.length > 0 ? (
-            <View style={styles.chips}>
-              <Pressable
-                onPress={() => setTagFilter(TAG_FILTER_ALL)}
-                style={[
-                  styles.chip,
-                  { backgroundColor: theme.backgroundElement },
-                  tagFilter === TAG_FILTER_ALL && {
-                    backgroundColor: theme.backgroundSelected,
-                  },
-                ]}
-              >
-                <ThemedText type="smallBold">Todas as tags</ThemedText>
-              </Pressable>
-              {tags.map((tag) => (
-                <Pressable
-                  key={tag.id}
-                  onPress={() => setTagFilter(tag.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    tagFilter === tag.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{tag.name}</ThemedText>
-                </Pressable>
-              ))}
-            </View>
+            <ChipBar
+              options={[
+                { id: TAG_FILTER_ALL, label: "Todas as tags" },
+                ...tags.map((tag) => ({ id: tag.id, label: tag.name })),
+              ]}
+              value={tagFilter}
+              onChange={setTagFilter}
+            />
           ) : null}
           {view === "kanban" ? (
             <TasksKanban
@@ -391,7 +362,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.three,
     gap: Spacing.three,
   },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   search: {
     minHeight: 44,
     borderRadius: 12,
@@ -399,14 +369,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 16,
   },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  error: {
-    color: "#E11D48",
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
+  banner: {
+    marginHorizontal: Spacing.four,
+    marginTop: Spacing.two,
   },
 });

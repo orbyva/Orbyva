@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
+import { Card } from "@/components/ui/Card";
 import { ModuleColors, Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
 import type { TimelineItem } from "@/types/timeline";
 
 type TimelineListProps = {
@@ -23,7 +23,6 @@ function statusLabel(status: TimelineItem["status"]): string | null {
 }
 
 export function TimelineList({ items, onPressItem }: TimelineListProps) {
-  const theme = useTheme();
 
   if (items.length === 0) {
     return (
@@ -42,15 +41,16 @@ export function TimelineList({ items, onPressItem }: TimelineListProps) {
       {items.map((item) => {
         const badge = statusLabel(item.status);
         return (
-          <Pressable
+          <Card
             key={item.id}
-            onPress={() => onPressItem(item)}
             style={[
-              styles.row,
-              { backgroundColor: theme.backgroundElement },
               item.status === "overdue" && styles.overdueBorder,
             ]}
           >
+            <Pressable
+              onPress={() => onPressItem(item)}
+              style={styles.row}
+            >
             <View
               style={[styles.dot, { backgroundColor: moduleColor(item.module) }]}
             />
@@ -84,6 +84,7 @@ export function TimelineList({ items, onPressItem }: TimelineListProps) {
               ) : null}
             </View>
           </Pressable>
+          </Card>
         );
       })}
     </View>

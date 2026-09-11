@@ -18,6 +18,8 @@ import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
+import { FormSection } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import {
   buildFixedYearPlan,
@@ -31,6 +33,7 @@ import {
   splitInstallmentValue,
 } from "@/domain/recurring/values";
 import { useTheme } from "@/hooks/use-theme";
+import { useFeedback } from "@/hooks/use-toast";
 import { formatBRL, formatMoneyInput, moneyFromDigits } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import type { Dimension } from "@/types/dimensions";
@@ -81,6 +84,7 @@ function defaultRecurring(): RecurringCreateRequest {
 
 export default function RecurringFormScreen() {
   const theme = useTheme();
+  const { fail } = useFeedback();
   const router = useRouter();
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
@@ -175,39 +179,39 @@ export default function RecurringFormScreen() {
 
   async function onSave() {
     if (!rec.class_id) {
-      setError("Selecione a categoria.");
+      fail("Selecione a categoria.");
       return;
     }
     if (!rec.description.trim()) {
-      setError("Informe a descrição.");
+      fail("Informe a descrição.");
       return;
     }
     if (!rec.payment_start_date) {
-      setError("Informe o início do pagamento.");
+      fail("Informe o início do pagamento.");
       return;
     }
     if (!rec.due_day || rec.due_day < 1 || rec.due_day > 31) {
-      setError("Informe o dia de vencimento (1 a 31).");
+      fail("Informe o dia de vencimento (1 a 31).");
       return;
     }
 
     if (isSplit) {
       if (!rec.installment_count || rec.installment_count < 1) {
-        setError("Informe o número de parcelas.");
+        fail("Informe o número de parcelas.");
         return;
       }
       if (rec.installment_count > MAX_SPLIT_INSTALLMENTS) {
-        setError(
+        fail(
           `Use no máximo ${MAX_SPLIT_INSTALLMENTS} parcelas, ou escolha Mensal fixa.`
         );
         return;
       }
       if (totalValue == null || totalValue <= 0) {
-        setError("Informe o valor total.");
+        fail("Informe o valor total.");
         return;
       }
     } else if (value == null || value <= 0) {
-      setError("Informe um valor válido.");
+      fail("Informe um valor válido.");
       return;
     }
 
@@ -226,7 +230,7 @@ export default function RecurringFormScreen() {
       await createRecurringApi(payload);
       router.back();
     } catch (err) {
-      setError(getErrorMessage(err, "Falha ao adicionar recorrência."));
+      fail(getErrorMessage(err, "Falha ao adicionar recorrência."));
     } finally {
       setSaving(false);
     }
@@ -259,7 +263,7 @@ export default function RecurringFormScreen() {
           contentContainerStyle={styles.body}
           keyboardShouldPersistTaps="handled"
         >
-          {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+          <Banner message={error} />
 
           <View style={styles.modeRow}>
             <Pressable
@@ -362,6 +366,15 @@ export default function RecurringFormScreen() {
             />
           </Field>
 
+          <FormSection
+            title="Agenda"
+            defaultOpen={false}
+            hint={
+              isSplit
+                ? `${rec.installment_count ?? "?"}x · dia ${rec.due_day ?? "?"}`
+                : `${normalizeFixedFrequency(rec.frequency)} · dia ${rec.due_day ?? "?"}`
+            }
+          >
           {isSplit ? (
             <Field label="Nº de parcelas" required>
               <TextInput
@@ -473,6 +486,7 @@ export default function RecurringFormScreen() {
               }}
             />
           </Field>
+          </FormSection>
 
           <Pressable
             disabled={saving}

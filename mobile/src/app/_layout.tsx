@@ -3,12 +3,14 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, type ReactNode } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import {
   ThemePreferenceProvider,
   useThemePreference,
 } from "@/hooks/use-theme-preference";
+import { ToastProvider } from "@/hooks/use-toast";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -34,13 +36,15 @@ function RootStack() {
   return (
     <ThemeProvider value={theme}>
       <SplashGate>
-        <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="auth/callback" />
-          <Stack.Screen name="(app)" />
-        </Stack>
-        <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+        <ToastProvider>
+          <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="auth/callback" />
+            <Stack.Screen name="(app)" />
+          </Stack>
+          <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+        </ToastProvider>
       </SplashGate>
     </ThemeProvider>
   );
@@ -49,11 +53,13 @@ function RootStack() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemePreferenceProvider>
-        <AuthProvider>
-          <RootStack />
-        </AuthProvider>
-      </ThemePreferenceProvider>
+      <SafeAreaProvider>
+        <ThemePreferenceProvider>
+          <AuthProvider>
+            <RootStack />
+          </AuthProvider>
+        </ThemePreferenceProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

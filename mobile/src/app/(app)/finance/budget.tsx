@@ -1,5 +1,5 @@
 import { useFocusEffect, useNavigation } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -17,6 +17,7 @@ import { shiftYearMonth } from "@/api/finance/transactions";
 import { BudgetList } from "@/components/BudgetList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import {
   getBudgetRealizedValue,
@@ -46,6 +47,7 @@ export default function BudgetScreen() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [rows, setRows] = useState<MonthlyBudgetSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,7 +64,7 @@ export default function BudgetScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      setLoading(true);
+      if (!hasLoaded.current) setLoading(true);
       void load()
         .catch((err) => {
           if (!cancelled) {
@@ -72,7 +74,10 @@ export default function BudgetScreen() {
           }
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            hasLoaded.current = true;
+            setLoading(false);
+          }
         });
       return () => {
         cancelled = true;
@@ -213,7 +218,7 @@ export default function BudgetScreen() {
           </View>
         ) : null}
 
-        {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+        <Banner message={error} />
       </View>
 
       {loading && rows.length === 0 ? (

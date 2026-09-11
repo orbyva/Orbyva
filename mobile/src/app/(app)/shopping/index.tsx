@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,8 +18,11 @@ import {
   setShoppingItemStatusApi,
 } from "@/api/shopping/items";
 import { fetchProjects } from "@/api/tasks/projects";
+import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
+import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
 import {
   filterShoppingByProject,
@@ -45,6 +48,7 @@ export default function ShoppingScreen() {
   const [taskLinks, setTaskLinks] = useState<Map<string, string>>(new Map());
   const [projectFilter, setProjectFilter] = useState(SHOPPING_PROJECT_ALL);
   const [loading, setLoading] = useState(true);
+  const hasLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -65,7 +69,7 @@ export default function ShoppingScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      setLoading(true);
+      if (!hasLoaded.current) setLoading(true);
       void load()
         .catch((err) => {
           if (!cancelled) {
@@ -75,7 +79,10 @@ export default function ShoppingScreen() {
           }
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            hasLoaded.current = true;
+            setLoading(false);
+          }
         });
       return () => {
         cancelled = true;
@@ -152,7 +159,7 @@ export default function ShoppingScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+      <Banner message={error} style={styles.banner} />
       {loading && items.length === 0 ? (
         <View style={styles.center}>
           <ActivityIndicator color={theme.primary} />
@@ -171,23 +178,11 @@ export default function ShoppingScreen() {
           }
         >
           {projectChips.length > 2 ? (
-            <View style={styles.chips}>
-              {projectChips.map((chip) => (
-                <Pressable
-                  key={chip.id}
-                  onPress={() => setProjectFilter(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    projectFilter === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
-              ))}
-            </View>
+            <ChipBar
+              options={projectChips}
+              value={projectFilter}
+              onChange={setProjectFilter}
+            />
           ) : null}
           {groups.length === 0 ? (
             <View style={styles.empty}>
@@ -220,15 +215,7 @@ export default function ShoppingScreen() {
                     {group.key === "uncategorized" ? "" : " · editar"}
                   </ThemedText>
                 </Pressable>
-                <View
-                  style={[
-                    styles.table,
-                    {
-                      borderColor: theme.backgroundSelected,
-                      backgroundColor: theme.background,
-                    },
-                  ]}
-                >
+                <Card>
                   {group.items.map((item, index) => {
                     const purchased = item.status === "purchased";
                     const qty = formatShoppingQty(item);
@@ -315,7 +302,7 @@ export default function ShoppingScreen() {
                       </View>
                     );
                   })}
-                </View>
+                </Card>
               </View>
             ))
           )}
@@ -333,12 +320,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.three,
     gap: Spacing.four,
   },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
   section: { gap: Spacing.two },
   sectionHead: {
     flexDirection: "row",
@@ -346,11 +327,6 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  table: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -367,9 +343,8 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: 2 },
   purchased: { textDecorationLine: "line-through", opacity: 0.55 },
   empty: { gap: Spacing.one, paddingVertical: Spacing.four },
-  error: {
-    color: "#E11D48",
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
+  banner: {
+    marginHorizontal: Spacing.four,
+    marginTop: Spacing.two,
   },
 });

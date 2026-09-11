@@ -1,15 +1,18 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
+import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlan } from "@/hooks/use-plan";
 import { useTheme } from "@/hooks/use-theme";
 import { useThemePreference } from "@/hooks/use-theme-preference";
+import { useFeedback } from "@/hooks/use-toast";
 import { PLANS } from "@/lib/plan";
 import { getErrorMessage } from "@/lib/errors";
 import { AUTH_STORAGE_KEY } from "@/lib/supabase";
@@ -18,6 +21,7 @@ import { secureStoreAdapter } from "@/lib/secure-store";
 export default function AccountScreen() {
   const { user, signOut } = useAuth();
   const theme = useTheme();
+  const { fail } = useFeedback();
   const { scheme, toggleScheme } = useThemePreference();
   const plan = usePlan();
   const { bottomInset } = useAppShell();
@@ -42,7 +46,7 @@ export default function AccountScreen() {
       await signOut();
       await secureStoreAdapter.removeItem(AUTH_STORAGE_KEY);
     } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível sair."));
+      fail(getErrorMessage(err, "Não foi possível sair."));
     } finally {
       setBusy(false);
     }
@@ -50,14 +54,14 @@ export default function AccountScreen() {
 
   return (
     <ThemedView style={[styles.body, { paddingBottom: bottomInset + 24 }]}>
-      <ThemedText type="subtitle">Conta</ThemedText>
-      <View style={styles.block}>
+      <ThemedText type="title">Conta</ThemedText>
+      <Card style={styles.block}>
         <ThemedText type="small" themeColor="textSecondary">
           E-mail
         </ThemedText>
         <ThemedText>{user?.email ?? "sem e-mail"}</ThemedText>
-      </View>
-      <View style={styles.block}>
+      </Card>
+      <Card style={styles.block}>
         <ThemedText type="small" themeColor="textSecondary">
           Plano
         </ThemedText>
@@ -72,8 +76,8 @@ export default function AccountScreen() {
             </ThemedText>
           </>
         )}
-      </View>
-      <View style={styles.block}>
+      </Card>
+      <Card style={styles.block}>
         <ThemedText type="small" themeColor="textSecondary">
           Aparência
         </ThemedText>
@@ -97,8 +101,8 @@ export default function AccountScreen() {
             Alternar para {scheme === "dark" ? "Claro" : "Escuro"}
           </ThemedText>
         </Pressable>
-      </View>
-      {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+      </Card>
+      <Banner message={error} />
       <Pressable
         accessibilityRole="button"
         disabled={busy}
@@ -117,7 +121,7 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   body: { flex: 1, padding: Spacing.four, gap: Spacing.four },
-  block: { gap: 4 },
+  block: { gap: 4, padding: Spacing.three },
   themeBtn: {
     marginTop: 8,
     minHeight: 48,

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
+import { Card } from "@/components/ui/Card";
 import { ModuleColors, Spacing } from "@/constants/theme";
 import { formatShortDate } from "@/domain/timeline";
 import { useTheme } from "@/hooks/use-theme";
@@ -44,12 +45,7 @@ export function HubUpcoming({
           </ThemedText>
         </View>
       ) : (
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.backgroundElement },
-          ]}
-        >
+        <Card>
           {visible.map((item, index) => (
             <Pressable
               key={item.id}
@@ -91,7 +87,7 @@ export function HubUpcoming({
               </View>
             </Pressable>
           ))}
-        </View>
+        </Card>
       )}
     </View>
   );
@@ -104,7 +100,6 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
     justifyContent: "space-between",
   },
-  card: { borderRadius: 16, overflow: "hidden" },
   row: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>P14 · Tarefas</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+</head>
+<body>
+
+<div class="stage stage--feed s-paper" data-eyebrow="Tarefas" data-module="productivity" data-idx="14/15"
+     data-sig="tr" data-cta="Abra Tarefas">
+
+  <h1 class="head head--sm" style="margin-top:54px">
+    O dia inteiro,<br>em <span style="color:var(--m-productivity)">uma vista</span>.
+  </h1>
+
+  <p class="sub sub--wide" style="margin-top:28px">
+    Lista, Kanban, Gantt e Agenda — Tarefas e Projetos juntos.
+  </p>
+
+  <div class="spacer"></div>
+
+  <div class="tabs tabs--tight">
+    <span>Lista</span><span class="on">Kanban</span><span>Gantt</span><span>Agenda</span>
+  </div>
+
+  <!-- Kanban (TaskViews.tsx) · colunas A fazer / Fazendo / Feito -->
+  <div class="kboard" style="margin-top:22px">
+
+    <div class="kcol">
+      <h3>A fazer</h3>
+      <div class="kcard">
+        <div class="ui-name" style="font-size:24px">Revisar orçamento</div>
+        <div class="ui-cap" style="font-size:18px; margin-top:8px">Hoje · Finanças</div>
+      </div>
+      <div class="kcard">
+        <div class="ui-name" style="font-size:24px">Ligar para o pedreiro</div>
+        <div class="ui-cap" style="font-size:18px; margin-top:8px">Esta semana · Obra</div>
+      </div>
+    </div>
+
+    <div class="kcol">
+      <h3>Fazendo</h3>
+      <div class="kcard">
+        <div class="ui-name" style="font-size:24px">Pauta da reunião</div>
+        <div class="ui-cap" style="font-size:18px; margin-top:8px">Hoje · 45 min</div>
+      </div>
+      <div class="kcard">
+        <div class="ui-name" style="font-size:24px">Comprar cimento</div>
+        <div class="ui-cap" style="font-size:18px; margin-top:8px">Lista de Compras</div>
+      </div>
+    </div>
+
+    <div class="kcol">
+      <h3>Feito</h3>
+      <div class="kcard">
+        <div class="ui-name" style="font-size:24px">Enviar convite</div>
+        <div class="ui-cap" style="font-size:18px; margin-top:8px">Concluída em 10/08</div>
+      </div>
+      <div class="kcard">
+        <div class="ui-name" style="font-size:24px">Atualizar cronograma</div>
+        <div class="ui-cap" style="font-size:18px; margin-top:8px">Projeto · Ativo</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="rowf wrap g16" style="margin-top:24px">
+    <span class="chip chip--mut">Projetos</span>
+    <span class="chip chip--mut">Notas</span>
+    <span class="chip chip--mut">Lista de Compras</span>
+  </div>
+
+  <div class="spacer"></div>
+
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

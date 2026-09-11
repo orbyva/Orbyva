@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,8 +13,11 @@ import {
 
 import { deleteNoteApi, fetchNotes } from "@/api/notes/notes";
 import { fetchProjects } from "@/api/tasks/projects";
+import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
+import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
 import {
   filterNotes,
@@ -40,6 +43,7 @@ export default function NotesScreen() {
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState(NOTE_PROJECT_ALL);
   const [loading, setLoading] = useState(true);
+  const hasLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +60,7 @@ export default function NotesScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      setLoading(true);
+      if (!hasLoaded.current) setLoading(true);
       void load()
         .catch((err) => {
           if (!cancelled) {
@@ -66,7 +70,10 @@ export default function NotesScreen() {
           }
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            hasLoaded.current = true;
+            setLoading(false);
+          }
         });
       return () => {
         cancelled = true;
@@ -140,7 +147,7 @@ export default function NotesScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+      <Banner message={error} style={styles.banner} />
       {loading && rows.length === 0 ? (
         <View style={styles.center}>
           <ActivityIndicator color={theme.primary} />
@@ -174,23 +181,11 @@ export default function NotesScreen() {
             ]}
           />
           {projectChips.length > 2 ? (
-            <View style={styles.chips}>
-              {projectChips.map((chip) => (
-                <Pressable
-                  key={chip.id}
-                  onPress={() => setProjectFilter(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    projectFilter === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
-              ))}
-            </View>
+            <ChipBar
+              options={projectChips}
+              value={projectFilter}
+              onChange={setProjectFilter}
+            />
           ) : null}
           {visible.length === 0 ? (
             <View style={styles.empty}>
@@ -209,15 +204,12 @@ export default function NotesScreen() {
                 ? projectNameById[note.project_id]
                 : null;
               return (
-                <Pressable
-                  key={note.id}
-                  onPress={() => openNote(note)}
-                  onLongPress={() => confirmDelete(note)}
-                  style={[
-                    styles.card,
-                    { backgroundColor: theme.backgroundElement },
-                  ]}
-                >
+                <Card key={note.id}>
+                  <Pressable
+                    onPress={() => openNote(note)}
+                    onLongPress={() => confirmDelete(note)}
+                    style={styles.card}
+                  >
                   <ThemedText type="smallBold" numberOfLines={1}>
                     {note.title}
                   </ThemedText>
@@ -236,11 +228,12 @@ export default function NotesScreen() {
                       .join(" · ")}
                   </ThemedText>
                   <Pressable onPress={() => confirmDelete(note)} hitSlop={8}>
-                    <ThemedText type="small" style={styles.delete}>
+                    <ThemedText type="small" themeColor="danger">
                       Excluir
                     </ThemedText>
                   </Pressable>
                 </Pressable>
+                </Card>
               );
             })
           )}
@@ -266,22 +259,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: Spacing.one,
   },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
   card: {
-    borderRadius: 16,
     padding: Spacing.three,
     gap: 4,
   },
   empty: { gap: Spacing.one, paddingVertical: Spacing.four },
-  delete: { color: "#E11D48" },
-  error: {
-    color: "#E11D48",
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
+  banner: {
+    marginHorizontal: Spacing.four,
+    marginTop: Spacing.two,
   },
 });

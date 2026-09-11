@@ -27,6 +27,7 @@ import { NatureLineChart } from "@/components/charts/NatureLineChart";
 import { MonthLedger } from "@/components/MonthLedger";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import {
   buildMomTrends,
@@ -207,7 +208,7 @@ export default function FinanceDashboardScreen() {
           />
         }
       >
-        {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+        <Banner message={error} />
 
         <View style={styles.actions}>
           <Pressable

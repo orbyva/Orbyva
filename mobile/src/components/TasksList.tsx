@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
+import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
 import { PRIORITY_COLORS, PRIORITY_LABELS } from "@/domain/tasks/priority";
 import { useTheme } from "@/hooks/use-theme";
@@ -45,15 +46,7 @@ export function TasksList({
           <ThemedText type="small" themeColor="textSecondary">
             {section.label} · {section.items.length}
           </ThemedText>
-          <View
-            style={[
-              styles.table,
-              {
-                borderColor: theme.backgroundSelected,
-                backgroundColor: theme.background,
-              },
-            ]}
-          >
+          <Card>
             {section.items.map((task, index) => {
               const overdue = section.id === "overdue";
               const children = childrenByParent?.[task.id] ?? [];
@@ -155,7 +148,7 @@ export function TasksList({
                 </View>
               );
             })}
-          </View>
+          </Card>
         </View>
       ))}
     </View>
@@ -202,11 +195,6 @@ function Check({
 const styles = StyleSheet.create({
   stack: { gap: Spacing.four },
   section: { gap: Spacing.two },
-  table: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
   row: {
     flexDirection: "row",
     alignItems: "flex-start",

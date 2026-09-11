@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
+import { Card } from "@/components/ui/Card";
 import { ModuleColors, Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
 import type { AppHref } from "@/lib/nav";
 
 export const HUB_MODULES: {
@@ -102,29 +102,28 @@ type HubModulesGridProps = {
 };
 
 export function HubModulesGrid({ onOpen }: HubModulesGridProps) {
-  const theme = useTheme();
+  const live = HUB_MODULES.filter(
+    (mod): mod is (typeof HUB_MODULES)[number] & { href: Exclude<AppHref, null> } =>
+      Boolean(mod.href)
+  );
 
   return (
     <View style={styles.block}>
       <ThemedText type="smallBold">Módulos</ThemedText>
       <View style={styles.grid}>
-        {HUB_MODULES.map((mod) => (
+        {live.map((mod) => (
           <Pressable
             key={mod.label}
-            onPress={() => {
-              if (mod.href) onOpen(mod.href);
-            }}
-            style={[
-              styles.tile,
-              { backgroundColor: theme.backgroundElement },
-              !mod.href && styles.soon,
-            ]}
+            onPress={() => onOpen(mod.href)}
+            style={styles.tileWrap}
           >
-            <View style={[styles.dot, { backgroundColor: mod.color }]} />
-            <ThemedText type="smallBold">{mod.label}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {mod.href ? mod.subtitle : "Em breve"}
-            </ThemedText>
+            <Card style={styles.tile}>
+              <View style={[styles.dot, { backgroundColor: mod.color }]} />
+              <ThemedText type="smallBold">{mod.label}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {mod.subtitle}
+              </ThemedText>
+            </Card>
           </Pressable>
         ))}
       </View>
@@ -139,13 +138,15 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: Spacing.two,
   },
-  tile: {
+  tileWrap: {
     width: "48%",
     flexGrow: 1,
-    borderRadius: 16,
+    minWidth: "47%",
+  },
+  tile: {
     padding: Spacing.three,
     gap: 4,
+    width: "100%",
   },
-  soon: { opacity: 0.7 },
   dot: { width: 10, height: 10, borderRadius: 5, marginBottom: 4 },
 });

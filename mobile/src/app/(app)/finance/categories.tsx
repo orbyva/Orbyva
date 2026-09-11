@@ -26,6 +26,7 @@ import { ClassDragRow } from "@/components/ClassDragRow";
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import {
   filterDimensionTree,
@@ -69,6 +70,7 @@ export default function CategoriesScreen() {
   const { bottomInset } = useAppShell();
   const [rows, setRows] = useState<Dimension[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export default function CategoriesScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      setLoading(true);
+      if (!hasLoaded.current) setLoading(true);
       void load()
         .catch((err) => {
           if (!cancelled) {
@@ -124,7 +126,10 @@ export default function CategoriesScreen() {
           }
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            hasLoaded.current = true;
+            setLoading(false);
+          }
         });
       return () => {
         cancelled = true;
@@ -287,7 +292,7 @@ export default function CategoriesScreen() {
               </Pressable>
             ))}
           </View>
-          {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+          <Banner message={error} />
           {notice ? (
             <ThemedText type="small" themeColor="textSecondary">
               {notice}

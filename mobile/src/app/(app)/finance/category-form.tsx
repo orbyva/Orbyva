@@ -14,6 +14,7 @@ import {
 import { createTypeApi, fetchDimensions } from "@/api/finance/dimensions";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import {
   QUICK_CREATE_TYPE_ICON,
@@ -121,7 +122,7 @@ export default function CategoryFormScreen() {
           contentContainerStyle={styles.body}
           keyboardShouldPersistTaps="handled"
         >
-          {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+          <Banner message={error} />
 
           <Field label="Nome" required>
             <TextInput

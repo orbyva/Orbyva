@@ -8,18 +8,24 @@ export const Colors = {
   light: {
     text: '#0B0F1A',
     background: '#F8FAFC',
+    surface: '#FFFFFF',
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
     primary: '#0EA5E9',
+    danger: '#E11D48',
+    success: '#16A34A',
   },
   dark: {
     text: '#ffffff',
     background: '#0B0F1A',
+    surface: '#16181D',
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
     primary: '#0EA5E9',
+    danger: '#FB7185',
+    success: '#4ADE80',
   },
 } as const;
 
@@ -63,6 +69,13 @@ export const Spacing = {
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const FabSize = 56;
 export const MaxContentWidth = 800;
+
+export const Radius = {
+  card: 16,
+  input: 14,
+  chip: 999,
+  control: 12,
+} as const;
 
 /** Cores de grupo da sidebar / hub, alinhadas ao web (`moduleColors`). */
 export const ModuleColors = {

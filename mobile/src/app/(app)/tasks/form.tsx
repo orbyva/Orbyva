@@ -34,6 +34,8 @@ import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { TimeField } from "@/components/TimeField";
+import { Banner } from "@/components/ui/Banner";
+import { FormSection } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import { PRIORITY_OPTIONS } from "@/domain/tasks/priority";
 import {
@@ -43,6 +45,7 @@ import {
 } from "@/domain/tasks/recurrence";
 import { endOfWeekIso, todayIsoDate, visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
+import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import type {
   RecurrenceFrequency,
@@ -76,6 +79,7 @@ const STATUS_CHIPS = (Object.keys(TASK_STATUS_LABELS) as TaskStatus[]).map(
 
 export default function TaskFormScreen() {
   const theme = useTheme();
+  const { fail } = useFeedback();
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ projectId?: string; id?: string }>();
@@ -274,11 +278,11 @@ export default function TaskFormScreen() {
   async function onSave() {
     const trimmed = title.trim();
     if (!trimmed) {
-      setError("Informe o título da tarefa.");
+      fail("Informe o título da tarefa.");
       return;
     }
     if (repeat !== "none" && canEditRepeat && !dueDate) {
-      setError("Recorrência precisa de um prazo.");
+      fail("Recorrência precisa de um prazo.");
       return;
     }
     setSaving(true);
@@ -305,7 +309,7 @@ export default function TaskFormScreen() {
       }
       router.back();
     } catch (err) {
-      setError(
+      fail(
         getErrorMessage(
           err,
           editId
@@ -325,7 +329,7 @@ export default function TaskFormScreen() {
         await action();
         router.back();
       } catch (err) {
-        setError(getErrorMessage(err, "Não foi possível excluir a tarefa."));
+        fail(getErrorMessage(err, "Não foi possível excluir a tarefa."));
         setSaving(false);
       }
     })();
@@ -377,7 +381,7 @@ export default function TaskFormScreen() {
       setTags((cur) => [...cur, created].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
       setTagIds((cur) => [...cur, created.id]);
     } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível criar a tag."));
+      fail(getErrorMessage(err, "Não foi possível criar a tag."));
     }
   }
 
@@ -406,7 +410,7 @@ export default function TaskFormScreen() {
       setChildren((cur) => [...cur, created]);
       savedSubtaskTitles.current[created.id] = created.title;
     } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível adicionar a subtarefa."));
+      fail(getErrorMessage(err, "Não foi possível adicionar a subtarefa."));
     }
   }
 
@@ -439,7 +443,7 @@ export default function TaskFormScreen() {
       setChildren((cur) =>
         cur.map((row) => (row.id === task.id ? { ...row, title: original } : row))
       );
-      setError(getErrorMessage(err, "Não foi possível renomear a subtarefa."));
+      fail(getErrorMessage(err, "Não foi possível renomear a subtarefa."));
     }
   }
 
@@ -463,7 +467,7 @@ export default function TaskFormScreen() {
       else await reopenTaskApi(task.id);
     } catch (err) {
       setChildren(previous);
-      setError(getErrorMessage(err, "Não foi possível atualizar a subtarefa."));
+      fail(getErrorMessage(err, "Não foi possível atualizar a subtarefa."));
     } finally {
       setBusySubtaskId(null);
     }
@@ -485,7 +489,7 @@ export default function TaskFormScreen() {
               await deleteTaskApi(task.id);
               setChildren((cur) => cur.filter((row) => row.id !== task.id));
             } catch (err) {
-              setError(
+              fail(
                 getErrorMessage(err, "Não foi possível excluir a subtarefa.")
               );
             }
@@ -535,7 +539,7 @@ export default function TaskFormScreen() {
           contentContainerStyle={styles.body}
           keyboardShouldPersistTaps="handled"
         >
-          {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+          <Banner message={error} />
 
           <Field label="Título" required>
             <TextInput
@@ -548,14 +552,6 @@ export default function TaskFormScreen() {
             />
           </Field>
 
-          <Field label="Status">
-            <ChipBar
-              options={STATUS_CHIPS}
-              value={status}
-              onChange={setStatus}
-            />
-          </Field>
-
           <Field label="Projeto">
             <Pressable
               onPress={() => setProjectPickerOpen(true)}
@@ -563,37 +559,6 @@ export default function TaskFormScreen() {
             >
               <ThemedText>{projectName}</ThemedText>
             </Pressable>
-          </Field>
-
-          <Field label="Tags">
-            {tags.length > 0 ? (
-              <View style={styles.chipRow}>
-                {tags.map((tag) => (
-                  <Pressable
-                    key={tag.id}
-                    onPress={() => toggleTag(tag.id)}
-                    style={[
-                      styles.chip,
-                      { backgroundColor: theme.backgroundElement },
-                      tagIds.includes(tag.id) && {
-                        backgroundColor: theme.backgroundSelected,
-                      },
-                    ]}
-                  >
-                    <ThemedText type="smallBold">{tag.name}</ThemedText>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-            <TextInput
-              placeholder="Nova tag"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
-              value={newTag}
-              onChangeText={setNewTag}
-              onSubmitEditing={() => void addTag()}
-              returnKeyType="done"
-            />
           </Field>
 
           <Field label="Prazo">
@@ -656,27 +621,88 @@ export default function TaskFormScreen() {
             )}
           </Field>
 
-          <Field label="Prioridade">
-            <View style={styles.chipRow}>
-              {PRIORITY_OPTIONS.map(([value, label]) => (
-                <Pressable
-                  key={label}
-                  onPress={() => setPriority(value)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    priority === value && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{label}</ThemedText>
-                </Pressable>
-              ))}
-            </View>
-          </Field>
+          <FormSection
+            title="Status e prioridade"
+            defaultOpen={Boolean(editId) || status !== "todo" || Boolean(priority)}
+            hint={
+              [TASK_STATUS_LABELS[status], priority ? PRIORITY_OPTIONS.find((row) => row[0] === priority)?.[1] : null]
+                .filter(Boolean)
+                .join(" · ") || undefined
+            }
+          >
+            <Field label="Status">
+              <ChipBar
+                options={STATUS_CHIPS}
+                value={status}
+                onChange={setStatus}
+              />
+            </Field>
+            <Field label="Prioridade">
+              <View style={styles.chipRow}>
+                {PRIORITY_OPTIONS.map(([value, label]) => (
+                  <Pressable
+                    key={label}
+                    onPress={() => setPriority(value)}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: theme.backgroundElement },
+                      priority === value && {
+                        backgroundColor: theme.backgroundSelected,
+                      },
+                    ]}
+                  >
+                    <ThemedText type="smallBold">{label}</ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            </Field>
+          </FormSection>
 
-          <Field label="Repetição">
+          <FormSection
+            title="Tags"
+            defaultOpen={tagIds.length > 0}
+            hint={
+              tagIds.length > 0
+                ? `${tagIds.length} selecionada${tagIds.length === 1 ? "" : "s"}`
+                : undefined
+            }
+          >
+            {tags.length > 0 ? (
+              <View style={styles.chipRow}>
+                {tags.map((tag) => (
+                  <Pressable
+                    key={tag.id}
+                    onPress={() => toggleTag(tag.id)}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: theme.backgroundElement },
+                      tagIds.includes(tag.id) && {
+                        backgroundColor: theme.backgroundSelected,
+                      },
+                    ]}
+                  >
+                    <ThemedText type="smallBold">{tag.name}</ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+            <TextInput
+              placeholder="Nova tag"
+              placeholderTextColor={theme.textSecondary}
+              style={inputStyle}
+              value={newTag}
+              onChangeText={setNewTag}
+              onSubmitEditing={() => void addTag()}
+              returnKeyType="done"
+            />
+          </FormSection>
+
+          <FormSection
+            title="Repetição"
+            defaultOpen={repeat !== "none" || isLinked || isInstance}
+            hint={repeatHint}
+          >
+            <Field label="Repetição">
             {canEditRepeat ? (
               <>
                 <View style={styles.chipRow}>
@@ -797,7 +823,17 @@ export default function TaskFormScreen() {
               {repeatHint}
             </ThemedText>
           </Field>
+          </FormSection>
 
+          <FormSection
+            title="Links"
+            defaultOpen={links.some((link) => link.url.trim())}
+            hint={
+              links.some((link) => link.url.trim())
+                ? `${links.filter((link) => link.url.trim()).length} link${links.filter((link) => link.url.trim()).length === 1 ? "" : "s"}`
+                : undefined
+            }
+          >
           <Field label="Links">
             {links.map((link, index) => (
               <View key={`link-${index}`} style={styles.subRow}>
@@ -827,7 +863,7 @@ export default function TaskFormScreen() {
                   }
                   hitSlop={8}
                 >
-                  <ThemedText type="small" style={styles.error}>
+                  <ThemedText type="small" themeColor="danger">
                     Excluir
                   </ThemedText>
                 </Pressable>
@@ -839,7 +875,17 @@ export default function TaskFormScreen() {
               <ThemedText type="linkPrimary">Adicionar link</ThemedText>
             </Pressable>
           </Field>
+          </FormSection>
 
+          <FormSection
+            title="Subtarefas"
+            defaultOpen={children.length > 0 || draftSubtasks.length > 0}
+            hint={
+              children.length + draftSubtasks.length > 0
+                ? `${children.length + draftSubtasks.length}`
+                : undefined
+            }
+          >
           <Field label="Subtarefas">
             {children.map((child) => (
               <View key={child.id} style={styles.subRow}>
@@ -888,7 +934,7 @@ export default function TaskFormScreen() {
                   </ThemedText>
                 </Pressable>
                 <Pressable onPress={() => removeSaved(child)} hitSlop={8}>
-                  <ThemedText type="small" style={styles.error}>
+                  <ThemedText type="small" themeColor="danger">
                     Excluir
                   </ThemedText>
                 </Pressable>
@@ -912,7 +958,7 @@ export default function TaskFormScreen() {
                   returnKeyType="done"
                 />
                 <Pressable onPress={() => removeDraft(index)} hitSlop={8}>
-                  <ThemedText type="small" style={styles.error}>
+                  <ThemedText type="small" themeColor="danger">
                     Excluir
                   </ThemedText>
                 </Pressable>
@@ -928,7 +974,13 @@ export default function TaskFormScreen() {
               returnKeyType="done"
             />
           </Field>
+          </FormSection>
 
+          <FormSection
+            title="Descrição"
+            defaultOpen={description.trim().length > 0}
+            hint={description.trim() ? "Preenchida" : undefined}
+          >
           <Field label="Descrição">
             <TextInput
               multiline
@@ -940,6 +992,7 @@ export default function TaskFormScreen() {
               textAlignVertical="top"
             />
           </Field>
+          </FormSection>
 
           <Pressable
             disabled={saving}
@@ -957,7 +1010,7 @@ export default function TaskFormScreen() {
 
           {editId ? (
             <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText style={styles.error}>Excluir tarefa</ThemedText>
+              <ThemedText themeColor="danger">Excluir tarefa</ThemedText>
             </Pressable>
           ) : null}
         </ScrollView>

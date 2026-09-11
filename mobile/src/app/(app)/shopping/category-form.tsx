@@ -22,6 +22,7 @@ import { fetchProjects } from "@/api/tasks/projects";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
@@ -184,7 +185,7 @@ export default function ShoppingCategoryFormScreen() {
           contentContainerStyle={styles.body}
           keyboardShouldPersistTaps="handled"
         >
-          {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+          <Banner message={error} />
           <View style={styles.field}>
             <ThemedText type="small" themeColor="textSecondary">
               Nome *

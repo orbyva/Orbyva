@@ -92,6 +92,18 @@ export async function fetchTasks(): Promise<Task[]> {
   return materializeRecurringInstances(userId, (data ?? []) as Task[]);
 }
 
+/** Contagem/agenda do hub: sem materializar série (isso escreve no banco). */
+export async function fetchOpenTasksLite(): Promise<Task[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("task")
+    .select("id, title, status, due_date, due_time, parent_task_id")
+    .eq("user_id", userId)
+    .neq("status", "done");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Task[];
+}
+
 export async function fetchTaskById(id: string): Promise<Task | null> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase

@@ -23,6 +23,7 @@ import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
@@ -261,7 +262,7 @@ export default function NoteEditorScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.body}>
-          {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+          <Banner message={error} />
           {statusLabel ? (
             <ThemedText type="small" themeColor="textSecondary">
               {statusLabel}

@@ -16,6 +16,7 @@ import { HubStaleNudge } from "@/components/hub/HubStaleNudge";
 import { HubUpcoming } from "@/components/hub/HubUpcoming";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import { formatMomTrend, previousYearMonth } from "@/domain/finance/insights";
 import { daysSinceIsoDate, firstNameFromUser, todayHeading } from "@/domain/timeline";
@@ -123,11 +124,11 @@ export default function HomeScreen() {
         <ThemedText type="small" themeColor="textSecondary">
           {todayHeading()}
         </ThemedText>
-        <ThemedText style={styles.hello}>
+        <ThemedText type="value">
           {first ? `Olá, ${first}` : "Olá"}
         </ThemedText>
 
-        {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+        <Banner message={error} />
 
         {bundle ? (
           <HubLedgerHero
@@ -185,6 +186,4 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three },
-  hello: { fontSize: 28, lineHeight: 34, fontWeight: "700" },
-  error: { color: "#E11D48" },
 });

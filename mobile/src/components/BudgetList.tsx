@@ -1,6 +1,7 @@
 import { StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
+import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
 import {
   getBudgetRealizedValue,
@@ -45,13 +46,9 @@ function BudgetRow({
   const realized = getBudgetRealizedValue(row);
 
   return (
-    <View
+    <Card
       style={[
         styles.card,
-        {
-          backgroundColor: theme.backgroundElement,
-          borderColor: theme.backgroundSelected,
-        },
         nested && { marginLeft: 10, borderLeftWidth: 3, borderLeftColor: theme.primary },
       ]}
     >
@@ -95,7 +92,7 @@ function BudgetRow({
           style={[styles.barFill, { width: `${pct}%`, backgroundColor: color }]}
         />
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -142,8 +139,6 @@ const styles = StyleSheet.create({
   list: { gap: Spacing.four },
   group: { gap: Spacing.two },
   card: {
-    borderWidth: 1,
-    borderRadius: 14,
     padding: 14,
     gap: 8,
   },

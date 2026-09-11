@@ -1,5 +1,5 @@
 import { useFocusEffect, useNavigation } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,7 @@ import {
 import { RecurringList } from "@/components/RecurringList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import {
   filterRecurringList,
@@ -80,6 +81,7 @@ export default function RecurringScreen() {
     {}
   );
   const [loading, setLoading] = useState(true);
+  const hasLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -102,7 +104,7 @@ export default function RecurringScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      setLoading(true);
+      if (!hasLoaded.current) setLoading(true);
       void load()
         .catch((err) => {
           if (!cancelled) {
@@ -110,7 +112,10 @@ export default function RecurringScreen() {
           }
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            hasLoaded.current = true;
+            setLoading(false);
+          }
         });
       return () => {
         cancelled = true;
@@ -297,7 +302,7 @@ export default function RecurringScreen() {
           ))}
         </View>
 
-        {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+        <Banner message={error} />
         {notice ? (
           <ThemedText type="small" themeColor="textSecondary">
             {notice}

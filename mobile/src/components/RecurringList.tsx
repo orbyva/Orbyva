@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
+import { Card } from "@/components/ui/Card";
 import {
   getRecurringActionCopy,
   getRemainingInfo,
@@ -52,15 +53,7 @@ export function RecurringList({
   }
 
   return (
-    <View
-      style={[
-        styles.table,
-        {
-          borderColor: theme.backgroundSelected,
-          backgroundColor: theme.background,
-        },
-      ]}
-    >
+    <Card>
       {items.map((item, index) => {
         const copy = getRecurringActionCopy(item);
         const plan = formatInstallmentPlanSummary(item);
@@ -224,16 +217,11 @@ export function RecurringList({
           </View>
         );
       })}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  table: {
-    borderWidth: 1,
-    borderRadius: 14,
-    overflow: "hidden",
-  },
   empty: { paddingVertical: 24, gap: 6, paddingHorizontal: 8 },
   row: {
     paddingHorizontal: 14,

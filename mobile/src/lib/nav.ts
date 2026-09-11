@@ -114,6 +114,10 @@ const FINANCE_QUICK_ADD: QuickAddItem[] = [
   { id: "budget", label: "Criar orçamento", href: null },
 ];
 
+function liveQuickAdd(items: QuickAddItem[]): QuickAddItem[] {
+  return items.filter((item) => item.href);
+}
+
 /** Ações do `+`. Lista vazia esconde o FAB. Uma ação com href = toque direto. */
 export function quickAddActionsForPath(pathname: string): QuickAddItem[] {
   const path = normalizePath(pathname);
@@ -201,14 +205,16 @@ export function quickAddActionsForPath(pathname: string): QuickAddItem[] {
       },
     ];
   }
-  if (path === "/finance" || path === "/finance/") return FINANCE_QUICK_ADD;
+  if (path === "/finance" || path === "/finance/") {
+    return liveQuickAdd(FINANCE_QUICK_ADD);
+  }
   if (
     path === "/" ||
     path === "/home" ||
     path.startsWith("/home/") ||
     path.startsWith("/timeline")
   ) {
-    return HOME_QUICK_ADD;
+    return liveQuickAdd(HOME_QUICK_ADD);
   }
   return [];
 }

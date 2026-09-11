@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -10,7 +10,8 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Card } from "@/components/ui/Card";
+import { Radius, Spacing } from "@/constants/theme";
 import { PRIORITY_COLORS, PRIORITY_LABELS } from "@/domain/tasks/priority";
 import { useTheme } from "@/hooks/use-theme";
 import { formatDateTimeBR } from "@/lib/currency";
@@ -59,6 +60,8 @@ export function TasksKanban({
   childrenByParent?: Record<string, Task[]>;
 }) {
   const theme = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const columnWidth = Math.round(windowWidth * 0.78);
   const rootRef = useRef<View>(null);
   const columnNodes = useRef(new Map<TaskStatus, View>());
   const columnsRef = useRef(columns);
@@ -133,14 +136,22 @@ export function TasksKanban({
   }, []);
 
   return (
-    <GestureHandlerRootView style={styles.flex}>
+    <View style={styles.flex}>
       <View
         ref={rootRef}
         collapsable={false}
         style={styles.flex}
         onLayout={measureRoot}
       >
-        <View style={styles.stack}>
+        <ScrollView
+          horizontal
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={columnWidth + Spacing.two}
+          snapToAlignment="start"
+          contentContainerStyle={styles.board}
+        >
           {columns.map((column) => (
             <View
               key={column.id}
@@ -148,43 +159,39 @@ export function TasksKanban({
                 registerColumn(column.id, node);
               }}
               collapsable={false}
-              style={[
-                styles.column,
-                {
-                  borderColor: theme.backgroundSelected,
-                  backgroundColor: theme.backgroundElement,
-                },
-              ]}
+              style={{ width: columnWidth }}
             >
-              <ThemedText type="small" themeColor="textSecondary">
-                {column.label} · {column.items.length}
-              </ThemedText>
-              {column.items.length === 0 ? (
+              <Card style={styles.column}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Solte aqui
+                  {column.label} · {column.items.length}
                 </ThemedText>
-              ) : (
-                column.items.map((task) => (
-                  <KanbanCard
-                    key={task.id}
-                    task={task}
-                    dragging={dragging?.id === task.id}
-                    busyId={busyId}
-                    absX={absX}
-                    absY={absY}
-                    ghostVisible={ghostVisible}
-                    onDragStart={onDragStart}
-                    onDragEnd={onDragEnd}
-                    onComplete={onComplete}
-                    onReopen={onReopen}
-                    onOpen={onOpen}
-                    subtasks={childrenByParent?.[task.id] ?? []}
-                  />
-                ))
-              )}
+                {column.items.length === 0 ? (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Solte aqui
+                  </ThemedText>
+                ) : (
+                  column.items.map((task) => (
+                    <KanbanCard
+                      key={task.id}
+                      task={task}
+                      dragging={dragging?.id === task.id}
+                      busyId={busyId}
+                      absX={absX}
+                      absY={absY}
+                      ghostVisible={ghostVisible}
+                      onDragStart={onDragStart}
+                      onDragEnd={onDragEnd}
+                      onComplete={onComplete}
+                      onReopen={onReopen}
+                      onOpen={onOpen}
+                      subtasks={childrenByParent?.[task.id] ?? []}
+                    />
+                  ))
+                )}
+              </Card>
             </View>
           ))}
-        </View>
+        </ScrollView>
         <Animated.View
           pointerEvents="none"
           style={[
@@ -201,7 +208,7 @@ export function TasksKanban({
           </ThemedText>
         </Animated.View>
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }
 
@@ -291,8 +298,7 @@ const KanbanCard = memo(function KanbanCard({
       style={[
         styles.card,
         {
-          backgroundColor: theme.background,
-          borderColor: theme.backgroundSelected,
+          backgroundColor: theme.backgroundElement,
           opacity: dragging ? 0.35 : 1,
         },
       ]}
@@ -396,17 +402,14 @@ const KanbanCard = memo(function KanbanCard({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  stack: { gap: Spacing.three },
+  board: { gap: Spacing.two, paddingRight: Spacing.three },
   column: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
     padding: Spacing.three,
     gap: Spacing.two,
-    minHeight: 88,
+    minHeight: 160,
   },
   card: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.control,
     overflow: "hidden",
   },
   row: {

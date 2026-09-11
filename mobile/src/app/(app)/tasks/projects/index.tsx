@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,6 +15,8 @@ import { fetchTasks } from "@/api/tasks/tasks";
 import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
+import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
 import {
   groupProjectsByStatus,
@@ -42,6 +44,7 @@ export default function ProjectsScreen() {
   const [view, setView] = useState<"lista" | "kanban">("lista");
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(true);
+  const hasLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,7 +63,7 @@ export default function ProjectsScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      setLoading(true);
+      if (!hasLoaded.current) setLoading(true);
       void load()
         .catch((err) => {
           if (!cancelled) {
@@ -70,7 +73,10 @@ export default function ProjectsScreen() {
           }
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            hasLoaded.current = true;
+            setLoading(false);
+          }
         });
       return () => {
         cancelled = true;
@@ -111,16 +117,13 @@ export default function ProjectsScreen() {
     const openCount = openTasksForProject(tasks, project.id).length;
     const nextEvent = nextEventByProject.get(project.id);
     return (
-      <Pressable
+      <Card
         key={project.id}
+        style={{ borderLeftWidth: 3, borderLeftColor: project.color || theme.primary }}
+      >
+      <Pressable
         onPress={() => router.navigate(`/tasks/projects/${project.id}`)}
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.backgroundElement,
-            borderColor: project.color || theme.backgroundSelected,
-          },
-        ]}
+        style={styles.card}
       >
         <View style={styles.cardHead}>
           <View
@@ -154,12 +157,13 @@ export default function ProjectsScreen() {
           </ThemedText>
         ) : null}
       </Pressable>
+      </Card>
     );
   }
 
   return (
     <ThemedView style={styles.flex}>
-      {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+      <Banner message={error} style={styles.banner} />
       {loading && projects.length === 0 ? (
         <View style={styles.center}>
           <ActivityIndicator color={theme.primary} />
@@ -242,8 +246,6 @@ const styles = StyleSheet.create({
   },
   section: { gap: Spacing.two, marginTop: Spacing.two },
   card: {
-    borderRadius: 16,
-    borderLeftWidth: 3,
     padding: Spacing.three,
     gap: 6,
   },
@@ -260,9 +262,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   empty: { gap: Spacing.one, paddingVertical: Spacing.four },
-  error: {
-    color: "#E11D48",
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
+  banner: {
+    marginHorizontal: Spacing.four,
+    marginTop: Spacing.two,
   },
 });

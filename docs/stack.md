@@ -9,6 +9,7 @@ Decisões fixas do projeto. Muda raramente — não é aqui que fica o estado de
 - Supabase (Postgres + Auth) — RLS estritamente por `user_id` em toda tabela nova
 - Tailwind 3 + shadcn/ui (Radix)
 - Vitest para testes de domínio; Playwright para e2e (`npm run test:e2e`)
+- Cliente nativo: Expo em `mobile/`, mesmo Supabase
 
 ## Comandos
 

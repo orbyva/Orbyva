@@ -12,6 +12,7 @@ import { fetchFinanceTimeline } from "@/api/timeline";
 import { TimelineList } from "@/components/TimelineList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import { groupTimelineByDate } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
@@ -98,7 +99,7 @@ export default function TimelineScreen() {
           Parcelas em aberto e tarefas com prazo. Vida e conteúdo entram na
           próxima fatia.
         </ThemedText>
-        {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+        <Banner message={error} />
         {grouped.length === 0 ? (
           <ThemedText
             type="small"

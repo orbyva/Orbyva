@@ -112,8 +112,10 @@ export function AppSidebar() {
             showsVerticalScrollIndicator={false}
           >
             {NAV_GROUPS.map((group) => {
+              const items = group.items.filter((item) => item.href);
+              if (items.length === 0) return null;
               const expanded = Boolean(openGroups[group.title]);
-              const groupActive = group.items.some((item) =>
+              const groupActive = items.some((item) =>
                 isNavActive(path, item.href)
               );
               return (
@@ -148,9 +150,8 @@ export function AppSidebar() {
                     />
                   </Pressable>
                   {expanded
-                    ? group.items.map((item) => {
+                    ? items.map((item) => {
                         const active = isNavActive(path, item.href);
-                        const soon = !item.href;
                         return (
                           <Pressable
                             key={item.title}
@@ -165,37 +166,18 @@ export function AppSidebar() {
                             <View
                               style={[
                                 styles.leafDot,
-                                {
-                                  backgroundColor: soon
-                                    ? theme.backgroundSelected
-                                    : group.color,
-                                },
+                                { backgroundColor: group.color },
                               ]}
                             />
                             <ThemedText
                               style={{
                                 flex: 1,
-                                color: soon ? theme.textSecondary : theme.text,
+                                color: theme.text,
                                 fontWeight: active ? "700" : "500",
                               }}
                             >
                               {item.title}
                             </ThemedText>
-                            {soon ? (
-                              <View
-                                style={[
-                                  styles.soon,
-                                  { backgroundColor: theme.backgroundSelected },
-                                ]}
-                              >
-                                <ThemedText
-                                  style={styles.soonText}
-                                  themeColor="textSecondary"
-                                >
-                                  em breve
-                                </ThemedText>
-                              </View>
-                            ) : null}
                           </Pressable>
                         );
                       })
@@ -319,8 +301,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   leafDot: { width: 6, height: 6, borderRadius: 3 },
-  soon: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  soonText: { fontSize: 10, fontWeight: "600" },
   footer: {
     flexDirection: "row",
     alignItems: "center",

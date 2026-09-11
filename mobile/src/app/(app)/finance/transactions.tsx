@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,9 +18,11 @@ import {
   shiftYearMonth,
   type NatureFilter,
 } from "@/api/finance/transactions";
+import { ChipBar } from "@/components/ChipBar";
 import { TransactionsList } from "@/components/TransactionsList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
@@ -60,6 +62,7 @@ export default function TransactionsScreen() {
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const hasLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -93,7 +96,7 @@ export default function TransactionsScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      setLoading(true);
+      if (!hasLoaded.current) setLoading(true);
       void load()
         .catch((err) => {
           if (!cancelled) {
@@ -103,7 +106,10 @@ export default function TransactionsScreen() {
           }
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            hasLoaded.current = true;
+            setLoading(false);
+          }
         });
       return () => {
         cancelled = true;
@@ -197,25 +203,13 @@ export default function TransactionsScreen() {
           ]}
         />
 
-        <View style={styles.chips}>
-          {NATURE_CHIPS.map((chip) => (
-            <Pressable
-              key={chip.id}
-              onPress={() => setNature(chip.id)}
-              style={[
-                styles.chip,
-                { backgroundColor: theme.backgroundElement },
-                nature === chip.id && {
-                  backgroundColor: theme.backgroundSelected,
-                },
-              ]}
-            >
-              <ThemedText type="smallBold">{chip.label}</ThemedText>
-            </Pressable>
-          ))}
-        </View>
+        <ChipBar
+          options={NATURE_CHIPS}
+          value={nature}
+          onChange={setNature}
+        />
 
-        {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+        <Banner message={error} />
         {notice ? (
           <ThemedText type="small" themeColor="textSecondary">
             {notice}

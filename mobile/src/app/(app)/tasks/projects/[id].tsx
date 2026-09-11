@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -23,6 +23,7 @@ import { TasksKanban } from "@/components/TasksKanban";
 import { TasksList } from "@/components/TasksList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import { filterNotesByProject, noteExcerpt } from "@/domain/notes/listView";
 import { formatShoppingQty, groupShoppingItems } from "@/domain/shopping/listView";
@@ -69,6 +70,7 @@ export default function ProjectDetailScreen() {
   const [categories, setCategories] = useState<ShoppingCategory[]>([]);
   const [tab, setTab] = useState<ProjectTab>("lista");
   const [loading, setLoading] = useState(true);
+  const hasLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -103,7 +105,7 @@ export default function ProjectDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      setLoading(true);
+      if (!hasLoaded.current) setLoading(true);
       void load()
         .catch((err) => {
           if (!cancelled) {
@@ -113,7 +115,10 @@ export default function ProjectDetailScreen() {
           }
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            hasLoaded.current = true;
+            setLoading(false);
+          }
         });
       return () => {
         cancelled = true;
@@ -282,7 +287,7 @@ export default function ProjectDetailScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+      <Banner message={error} />
       {loading && !project ? (
         <View style={styles.center}>
           <ActivityIndicator color={theme.primary} />

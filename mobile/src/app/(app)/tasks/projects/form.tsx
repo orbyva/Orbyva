@@ -27,6 +27,7 @@ import { ChipBar } from "@/components/ChipBar";
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
 import { TimeField } from "@/components/TimeField";
 import { Spacing } from "@/constants/theme";
 import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
@@ -234,7 +235,7 @@ export default function ProjectFormScreen() {
           contentContainerStyle={styles.body}
           keyboardShouldPersistTaps="handled"
         >
-          {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+          <Banner message={error} />
           <View style={styles.field}>
             <ThemedText type="small" themeColor="textSecondary">
               Nome *

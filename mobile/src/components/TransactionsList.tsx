@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
+import { Card } from "@/components/ui/Card";
 import { useTheme } from "@/hooks/use-theme";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import type { Transaction } from "@/types/finance";
@@ -47,15 +48,7 @@ export function TransactionsList({
   }
 
   return (
-    <View
-      style={[
-        styles.table,
-        {
-          borderColor: theme.backgroundSelected,
-          backgroundColor: theme.background,
-        },
-      ]}
-    >
+    <Card>
       {transactions.map((tx, index) => {
         const nature = tx.class?.type?.nature?.name ?? "";
         const swatch = tx.class?.type?.hex_color || natureColor(nature);
@@ -128,16 +121,11 @@ export function TransactionsList({
           </View>
         );
       })}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  table: {
-    borderWidth: 1,
-    borderRadius: 14,
-    overflow: "hidden",
-  },
   empty: { paddingVertical: 24, gap: 6, paddingHorizontal: 8 },
   row: {
     paddingHorizontal: 14,

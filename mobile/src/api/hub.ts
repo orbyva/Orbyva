@@ -1,29 +1,21 @@
 import { seedAppAlerts, type AppAlert } from "@/api/alerts";
 import {
-  fetchHubHabits,
-  fetchLastWatchedMovie,
-  fetchNextTrip,
-  isCompletedToday,
-  type HubMovie,
-  type HubTrip,
-} from "@/api/life/hubExtras";
-import {
   budgetMonthIso,
   fetchLatestTransactionAt,
   fetchMonthlyBudgetSummary,
   fetchRecurringForDashboard,
   fetchValueByNatureForMonth,
 } from "@/api/finance/dashboard";
-import { fetchTasks } from "@/api/tasks/tasks";
+import { fetchOpenTasksLite } from "@/api/tasks/tasks";
+import { assembleFinanceTimeline } from "@/api/timeline";
 import { buildAppAlerts } from "@/domain/alerts";
 import { previousYearMonth } from "@/domain/finance/insights";
 import { getRecurringDueAlerts } from "@/domain/recurring/alerts";
-import { addDaysIso, getTodayIso } from "@/domain/timeline";
 import { countOpenTaskBuckets, todayIsoDate } from "@/domain/tasks/listView";
+import { addDaysIso, getTodayIso } from "@/domain/timeline";
 import type { MonthlyBudgetSummary } from "@/types/finance";
 import type { RecurringDueAlert } from "@/types/recurring";
 import type { TimelineItem } from "@/types/timeline";
-import { assembleFinanceTimeline } from "@/api/timeline";
 
 export type HubBudgetHighlight = {
   planned: number;
@@ -37,8 +29,6 @@ export type HubDaySummary = {
   tasksOverdue: number;
   tasksToday: number;
   nextPayment: RecurringDueAlert | null;
-  lastMovie: HubMovie | null;
-  nextTrip: HubTrip | null;
 };
 
 export type HubBundle = {
@@ -89,9 +79,6 @@ export async function loadHubBundle(): Promise<HubBundle> {
     budgets,
     recurring,
     latestAt,
-    habitsBundle,
-    lastMovie,
-    nextTrip,
     tasks,
   ] = await Promise.all([
     fetchValueByNatureForMonth(year, month),
@@ -99,10 +86,7 @@ export async function loadHubBundle(): Promise<HubBundle> {
     fetchMonthlyBudgetSummary(budgetMonthIso(year, month)),
     fetchRecurringForDashboard(),
     fetchLatestTransactionAt().catch(() => null),
-    fetchHubHabits(todayIso).catch(() => ({ habits: [], logs: [] })),
-    fetchLastWatchedMovie().catch(() => null),
-    fetchNextTrip(todayIso).catch(() => null),
-    fetchTasks().catch(() => []),
+    fetchOpenTasksLite().catch(() => []),
   ]);
 
   const taskBuckets = countOpenTaskBuckets(tasks, todayIsoDate());
@@ -113,13 +97,6 @@ export async function loadHubBundle(): Promise<HubBundle> {
   const upcoming = assembleFinanceTimeline(recurring, 7, 0, tasks).filter(
     (item) => item.date >= todayIso && item.date <= addDaysIso(todayIso, 7)
   );
-
-  const habitsDone = habitsBundle.habits.filter((h) =>
-    isCompletedToday(
-      habitsBundle.logs.filter((l) => l.habit_id === h.id),
-      todayIso
-    )
-  ).length;
 
   return {
     year,
@@ -133,13 +110,11 @@ export async function loadHubBundle(): Promise<HubBundle> {
     upcoming,
     latestTransactionAt: latestAt,
     day: {
-      habitsCount: habitsBundle.habits.length,
-      habitsDone,
+      habitsCount: 0,
+      habitsDone: 0,
       tasksOverdue: taskBuckets.overdue,
       tasksToday: taskBuckets.today,
       nextPayment: recurringAlerts[0] ?? null,
-      lastMovie,
-      nextTrip,
     },
   };
 }

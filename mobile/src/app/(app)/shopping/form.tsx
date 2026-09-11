@@ -22,10 +22,14 @@ import {
   fetchTaskLinksForItems,
   updateShoppingItemApi,
 } from "@/api/shopping/items";
+import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner } from "@/components/ui/Banner";
+import { FormSection } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
 
@@ -33,6 +37,7 @@ const NO_CATEGORY = "__none__";
 
 export default function ShoppingFormScreen() {
   const theme = useTheme();
+  const { fail } = useFeedback();
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ id?: string }>();
@@ -111,7 +116,7 @@ export default function ShoppingFormScreen() {
   async function onSave() {
     const trimmed = title.trim();
     if (!trimmed) {
-      setError("Informe o nome do item.");
+      fail("Informe o nome do item.");
       return;
     }
     setSaving(true);
@@ -140,7 +145,7 @@ export default function ShoppingFormScreen() {
       }
       router.back();
     } catch (err) {
-      setError(
+      fail(
         getErrorMessage(
           err,
           editId
@@ -167,7 +172,7 @@ export default function ShoppingFormScreen() {
               await deleteShoppingItemApi(editId);
               router.back();
             } catch (err) {
-              setError(
+              fail(
                 getErrorMessage(err, "Não foi possível excluir o item.")
               );
               setSaving(false);
@@ -181,7 +186,7 @@ export default function ShoppingFormScreen() {
   async function onConvert() {
     if (!existing) return;
     if (linkedTaskId) {
-      setError("Este item já tem uma tarefa.");
+      fail("Este item já tem uma tarefa.");
       return;
     }
     setSaving(true);
@@ -193,7 +198,7 @@ export default function ShoppingFormScreen() {
       await createTaskFromShoppingItemApi(existing, category);
       router.back();
     } catch (err) {
-      setError(
+      fail(
         getErrorMessage(err, "Não foi possível criar a tarefa deste item.")
       );
     } finally {
@@ -228,7 +233,7 @@ export default function ShoppingFormScreen() {
           contentContainerStyle={styles.body}
           keyboardShouldPersistTaps="handled"
         >
-          {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+          <Banner message={error} />
           <View style={styles.field}>
             <ThemedText type="small" themeColor="textSecondary">
               Item *
@@ -242,6 +247,36 @@ export default function ShoppingFormScreen() {
               onChangeText={setTitle}
             />
           </View>
+          <View style={styles.field}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Categoria
+            </ThemedText>
+            <ChipBar
+              options={[
+                { id: NO_CATEGORY, label: "Sem categoria" },
+                ...categories.map((category) => ({
+                  id: category.id,
+                  label: category.name,
+                })),
+              ]}
+              value={categoryId}
+              onChange={(id) => {
+                setCategoryId(id);
+                setNewCategory("");
+              }}
+            />
+          </View>
+          <FormSection
+            title="Detalhes"
+            defaultOpen={Boolean(
+              quantity.trim() ||
+                unit.trim() ||
+                description.trim() ||
+                providerLink.trim() ||
+                newCategory.trim()
+            )}
+            hint="Quantidade, unidade, descrição e link"
+          >
           <View style={styles.row}>
             <View style={[styles.field, styles.flex]}>
               <ThemedText type="small" themeColor="textSecondary">
@@ -267,43 +302,6 @@ export default function ShoppingFormScreen() {
                 value={unit}
                 onChangeText={setUnit}
               />
-            </View>
-          </View>
-          <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
-              Categoria
-            </ThemedText>
-            <View style={styles.chips}>
-              <Pressable
-                onPress={() => setCategoryId(NO_CATEGORY)}
-                style={[
-                  styles.chip,
-                  { backgroundColor: theme.backgroundElement },
-                  categoryId === NO_CATEGORY && {
-                    backgroundColor: theme.backgroundSelected,
-                  },
-                ]}
-              >
-                <ThemedText type="smallBold">Sem categoria</ThemedText>
-              </Pressable>
-              {categories.map((category) => (
-                <Pressable
-                  key={category.id}
-                  onPress={() => {
-                    setCategoryId(category.id);
-                    setNewCategory("");
-                  }}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    categoryId === category.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{category.name}</ThemedText>
-                </Pressable>
-              ))}
             </View>
           </View>
           <View style={styles.field}>
@@ -350,6 +348,7 @@ export default function ShoppingFormScreen() {
               onChangeText={setProviderLink}
             />
           </View>
+          </FormSection>
           <Pressable
             disabled={saving}
             onPress={() => void onSave()}
@@ -375,7 +374,7 @@ export default function ShoppingFormScreen() {
           ) : null}
           {editId ? (
             <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText style={styles.error}>Excluir item</ThemedText>
+              <ThemedText themeColor="danger">Excluir item</ThemedText>
             </Pressable>
           ) : null}
         </ScrollView>
@@ -398,7 +397,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   area: { minHeight: 96, paddingTop: 12 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chips: { flexDirection: "row", flexWrap: "nowrap", gap: 8 },
   chip: {
     borderRadius: 999,
     paddingHorizontal: 14,
