@@ -14,6 +14,8 @@ type AppShellState = {
   setSidebarOpen: (open: boolean) => void;
   alertsOpen: boolean;
   setAlertsOpen: (open: boolean) => void;
+  searchOpen: boolean;
+  setSearchOpen: (open: boolean) => void;
   quickAddOpen: boolean;
   setQuickAddOpen: (open: boolean) => void;
   bottomInset: number;
@@ -25,6 +27,7 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const bottomInset = FabSize + 24 + Math.max(insets.bottom, 8);
 
@@ -34,11 +37,13 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
       setSidebarOpen,
       alertsOpen,
       setAlertsOpen,
+      searchOpen,
+      setSearchOpen,
       quickAddOpen,
       setQuickAddOpen,
       bottomInset,
     }),
-    [alertsOpen, bottomInset, quickAddOpen, sidebarOpen]
+    [alertsOpen, bottomInset, quickAddOpen, searchOpen, sidebarOpen]
   );
 
   return (

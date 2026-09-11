@@ -1,12 +1,14 @@
-import { Pressable, StyleSheet, View } from "react-native";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
-import { PRIORITY_COLORS, PRIORITY_LABELS } from "@/domain/tasks/priority";
+import { PRIORITY_COLORS } from "@/domain/tasks/priority";
+import { taskScheduleMeta, todayIsoDate } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
-import { formatDateTimeBR } from "@/lib/currency";
-import type { Task } from "@/types/tasks";
+import { openExternalUrl } from "@/lib/url";
+import type { Task, TaskStatus } from "@/types/tasks";
+import { TASK_STATUS_LABELS } from "@/types/tasks";
 
 export function TasksList({
   sections,
@@ -14,6 +16,8 @@ export function TasksList({
   onComplete,
   onReopen,
   onOpen,
+  onChangeStatus,
+  linksByTaskId,
   childrenByParent,
   emptyTitle = "Nenhuma tarefa em aberto",
   emptyHint = "Use o + para criar uma com título e prazo.",
@@ -23,12 +27,33 @@ export function TasksList({
   onComplete: (task: Task) => void;
   onReopen?: (task: Task) => void;
   onOpen?: (task: Task) => void;
+  onChangeStatus?: (task: Task, status: TaskStatus) => void;
+  linksByTaskId?: Record<string, { url: string; comment: string | null }>;
   childrenByParent?: Record<string, Task[]>;
   emptyTitle?: string;
   emptyHint?: string;
 }) {
   const theme = useTheme();
   const visible = sections.filter((section) => section.items.length > 0);
+
+  function pickStatus(task: Task) {
+    if (!onChangeStatus) return;
+    Alert.alert("Status", task.title, [
+      {
+        text: TASK_STATUS_LABELS.todo,
+        onPress: () => onChangeStatus(task, "todo"),
+      },
+      {
+        text: TASK_STATUS_LABELS.doing,
+        onPress: () => onChangeStatus(task, "doing"),
+      },
+      {
+        text: TASK_STATUS_LABELS.done,
+        onPress: () => onChangeStatus(task, "done"),
+      },
+      { text: "Cancelar", style: "cancel" },
+    ]);
+  }
 
   if (visible.length === 0) {
     return (
@@ -49,17 +74,17 @@ export function TasksList({
           <Card>
             {section.items.map((task, index) => {
               const overdue = section.id === "overdue";
+              const done = task.status === "done";
               const children = childrenByParent?.[task.id] ?? [];
+              const link = linksByTaskId?.[task.id];
               const meta = [
-                task.due_date
-                  ? formatDateTimeBR(task.due_date, task.due_time)
-                  : "Sem prazo",
-                task.priority ? PRIORITY_LABELS[task.priority] : null,
+                taskScheduleMeta(task),
                 task.recurrence_rule ||
                 task.recurrence_origin_id ||
                 task.linked_recurring_id
                   ? "Recorrente"
                   : null,
+                link?.comment?.trim() || (link ? "Link" : null),
               ]
                 .filter(Boolean)
                 .join(" · ");
@@ -75,17 +100,26 @@ export function TasksList({
                 >
                   <View style={styles.row}>
                     <Check
-                      checked={false}
+                      checked={done}
                       disabled={busyId === task.id}
                       overdue={overdue}
                       busy={busyId === task.id}
-                      label={`Concluir ${task.title}`}
-                      onPress={() => onComplete(task)}
+                      label={
+                        done
+                          ? `Reabrir ${task.title}`
+                          : `Concluir ${task.title}`
+                      }
+                      onPress={() => {
+                        if (done) onReopen?.(task);
+                        else onComplete(task);
+                      }}
                       theme={theme}
                     />
                     <Pressable
-                      disabled={!onOpen}
+                      disabled={!onOpen && !onChangeStatus}
                       onPress={() => onOpen?.(task)}
+                      onLongPress={() => pickStatus(task)}
+                      delayLongPress={280}
                       style={styles.copy}
                     >
                       <View style={styles.titleRow}>
@@ -97,7 +131,10 @@ export function TasksList({
                             ]}
                           />
                         ) : null}
-                        <ThemedText numberOfLines={2} style={styles.title}>
+                        <ThemedText
+                          numberOfLines={2}
+                          style={[styles.title, done ? styles.childDone : undefined]}
+                        >
                           {task.title}
                         </ThemedText>
                       </View>
@@ -109,39 +146,87 @@ export function TasksList({
                         {meta}
                       </ThemedText>
                     </Pressable>
+                    {link ? (
+                      <Pressable
+                        onPress={() => void openExternalUrl(link.url)}
+                        hitSlop={8}
+                      >
+                        <ThemedText type="small" themeColor="textSecondary">
+                          Abrir
+                        </ThemedText>
+                      </Pressable>
+                    ) : null}
                   </View>
                   {children.map((child) => {
-                    const done = child.status === "done";
+                    const childDone = child.status === "done";
+                    const childOverdue = Boolean(
+                      child.due_date &&
+                        child.status !== "done" &&
+                        child.due_date < todayIsoDate()
+                    );
+                    const childLink = linksByTaskId?.[child.id];
                     return (
                       <View key={child.id} style={styles.childRow}>
                         <Check
-                          checked={done}
+                          checked={childDone}
                           disabled={busyId === child.id}
-                          overdue={false}
+                          overdue={childOverdue}
                           busy={busyId === child.id}
                           label={
-                            done
+                            childDone
                               ? `Reabrir ${child.title}`
                               : `Concluir ${child.title}`
                           }
                           onPress={() => {
-                            if (done) onReopen?.(child);
+                            if (childDone) onReopen?.(child);
                             else onComplete(child);
                           }}
                           theme={theme}
                         />
                         <Pressable
-                          disabled={!onOpen}
+                          disabled={!onOpen && !onChangeStatus}
                           onPress={() => onOpen?.(child)}
+                          onLongPress={() => pickStatus(child)}
+                          delayLongPress={280}
                           style={styles.copy}
                         >
+                          <View style={styles.titleRow}>
+                            {child.priority ? (
+                              <View
+                                style={[
+                                  styles.prio,
+                                  { backgroundColor: PRIORITY_COLORS[child.priority] },
+                                ]}
+                              />
+                            ) : null}
+                            <ThemedText
+                              numberOfLines={2}
+                              style={[
+                                styles.title,
+                                childDone ? styles.childDone : undefined,
+                              ]}
+                            >
+                              {child.title}
+                            </ThemedText>
+                          </View>
                           <ThemedText
-                            numberOfLines={2}
-                            style={done ? styles.childDone : undefined}
+                            type="small"
+                            themeColor="textSecondary"
+                            style={childOverdue ? styles.overdue : undefined}
                           >
-                            {child.title}
+                            {taskScheduleMeta(child)}
                           </ThemedText>
                         </Pressable>
+                        {childLink ? (
+                          <Pressable
+                            onPress={() => void openExternalUrl(childLink.url)}
+                            hitSlop={8}
+                          >
+                            <ThemedText type="small" themeColor="textSecondary">
+                              Abrir
+                            </ThemedText>
+                          </Pressable>
+                        ) : null}
                       </View>
                     );
                   })}

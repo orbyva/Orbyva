@@ -7,6 +7,7 @@ export type AppHref =
   | "/finance/recurring"
   | "/finance/recurring-form"
   | "/finance/budget"
+  | "/finance/budget-form"
   | "/finance/categories"
   | "/finance/category-form"
   | "/tasks"
@@ -18,6 +19,31 @@ export type AppHref =
   | "/shopping"
   | "/shopping/form"
   | "/shopping/category-form"
+  | "/habits"
+  | "/habits/form"
+  | "/health"
+  | "/health/form"
+  | "/health/consult-form"
+  | "/health/metric-form"
+  | "/goals"
+  | "/goals/form"
+  | "/places"
+  | "/places/form"
+  | "/travel"
+  | "/travel/form"
+  | "/cars"
+  | "/cars/form"
+  | "/cars/maint-form"
+  | "/cars/fuel-form"
+  | "/cars/doc-form"
+  | "/movies"
+  | "/movies/form"
+  | "/books"
+  | "/books/form"
+  | "/music"
+  | "/music/form"
+  | "/links"
+  | "/links/form"
   | "/account"
   | null;
 
@@ -71,12 +97,12 @@ export const NAV_GROUPS: NavGroup[] = [
     color: "#22A37A",
     icon: "leaf-outline",
     items: [
-      { title: "Hábitos", href: null },
-      { title: "Saúde", href: null },
-      { title: "Metas", href: null },
-      { title: "Lugares", href: null },
-      { title: "Viagens", href: null },
-      { title: "Veículos", href: null },
+      { title: "Hábitos", href: "/habits" },
+      { title: "Saúde", href: "/health" },
+      { title: "Metas", href: "/goals" },
+      { title: "Lugares", href: "/places" },
+      { title: "Viagens", href: "/travel" },
+      { title: "Veículos", href: "/cars" },
     ],
   },
   {
@@ -84,10 +110,10 @@ export const NAV_GROUPS: NavGroup[] = [
     color: "#D46BE8",
     icon: "film-outline",
     items: [
-      { title: "Cinema", href: null },
-      { title: "Livros", href: null },
-      { title: "Música", href: null },
-      { title: "Links", href: null },
+      { title: "Cinema", href: "/movies" },
+      { title: "Livros", href: "/books" },
+      { title: "Música", href: "/music" },
+      { title: "Links", href: "/links" },
     ],
   },
 ];
@@ -101,17 +127,18 @@ export type QuickAddItem = {
 
 const HOME_QUICK_ADD: QuickAddItem[] = [
   { id: "transaction", label: "Registrar transação", href: "/finance/form" },
-  { id: "movie", label: "Adicionar filme", href: null },
-  { id: "habit", label: "Novo hábito", href: null },
-  { id: "place", label: "Novo lugar", href: null },
-  { id: "trip", label: "Nova viagem", href: null },
+  { id: "movie", label: "Adicionar filme", href: "/movies/form" },
+  { id: "habit", label: "Novo hábito", href: "/habits/form" },
+  { id: "goal", label: "Nova meta", href: "/goals/form" },
+  { id: "place", label: "Novo lugar", href: "/places/form" },
+  { id: "trip", label: "Nova viagem", href: "/travel/form" },
 ];
 
 const FINANCE_QUICK_ADD: QuickAddItem[] = [
   { id: "transaction", label: "Registrar transação", href: "/finance/form" },
   { id: "recurring", label: "Nova recorrência", href: "/finance/recurring-form" },
   { id: "category", label: "Nova categoria", href: "/finance/category-form" },
-  { id: "budget", label: "Criar orçamento", href: null },
+  { id: "budget", label: "Criar orçamento", href: "/finance/budget-form" },
 ];
 
 function liveQuickAdd(items: QuickAddItem[]): QuickAddItem[] {
@@ -123,7 +150,15 @@ export function quickAddActionsForPath(pathname: string): QuickAddItem[] {
   const path = normalizePath(pathname);
   if (path.endsWith("/form") || path.endsWith("-form")) return [];
   if (path === "/account" || path.startsWith("/account/")) return [];
-  if (path.startsWith("/finance/budget")) return [];
+  if (path.startsWith("/finance/budget")) {
+    return [
+      {
+        id: "budget",
+        label: "Criar orçamento",
+        href: "/finance/budget-form",
+      },
+    ];
+  }
   if (path.startsWith("/finance/categories")) {
     return [
       {
@@ -196,6 +231,75 @@ export function quickAddActionsForPath(pathname: string): QuickAddItem[] {
       },
     ];
   }
+  if (path.startsWith("/habits")) {
+    return [
+      {
+        id: "habit",
+        label: "Novo hábito",
+        href: "/habits/form",
+      },
+    ];
+  }
+  if (path.startsWith("/goals")) {
+    return [
+      {
+        id: "goal",
+        label: "Nova meta",
+        href: "/goals/form",
+      },
+    ];
+  }
+  if (path.startsWith("/health")) {
+    return [
+      { id: "med", label: "Nova medicação", href: "/health/form" },
+      { id: "consult", label: "Nova consulta", href: "/health/consult-form" },
+      { id: "metric", label: "Nova medição", href: "/health/metric-form" },
+    ];
+  }
+  if (path.startsWith("/places")) {
+    return [{ id: "place", label: "Novo lugar", href: "/places/form" }];
+  }
+  if (path.startsWith("/travel")) {
+    return [{ id: "trip", label: "Nova viagem", href: "/travel/form" }];
+  }
+  if (/^\/cars\/[^/]+$/.test(path)) {
+    const vehicleId = path.split("/")[2];
+    return [
+      {
+        id: "maint",
+        label: "Registrar manutenção",
+        href: "/cars/maint-form",
+        params: vehicleId ? { vehicleId } : undefined,
+      },
+      {
+        id: "fuel",
+        label: "Registrar abastecimento",
+        href: "/cars/fuel-form",
+        params: vehicleId ? { vehicleId } : undefined,
+      },
+      {
+        id: "doc",
+        label: "Novo documento",
+        href: "/cars/doc-form",
+        params: vehicleId ? { vehicleId } : undefined,
+      },
+    ];
+  }
+  if (path.startsWith("/cars")) {
+    return [{ id: "car", label: "Novo veículo", href: "/cars/form" }];
+  }
+  if (path.startsWith("/movies")) {
+    return [{ id: "movie", label: "Adicionar filme", href: "/movies/form" }];
+  }
+  if (path.startsWith("/books")) {
+    return [{ id: "book", label: "Adicionar livro", href: "/books/form" }];
+  }
+  if (path.startsWith("/music")) {
+    return [{ id: "album", label: "Adicionar álbum", href: "/music/form" }];
+  }
+  if (path.startsWith("/links")) {
+    return [{ id: "link", label: "Adicionar link", href: "/links/form" }];
+  }
   if (path.startsWith("/finance/transactions")) {
     return [
       {
@@ -244,6 +348,36 @@ export function isNavActive(pathname: string, href: AppHref): boolean {
   }
   if (href === "/shopping") {
     return path === "/shopping" || path.startsWith("/shopping/");
+  }
+  if (href === "/habits") {
+    return path === "/habits" || path.startsWith("/habits/");
+  }
+  if (href === "/health") {
+    return path === "/health" || path.startsWith("/health/");
+  }
+  if (href === "/goals") {
+    return path === "/goals" || path.startsWith("/goals/");
+  }
+  if (href === "/places") {
+    return path === "/places" || path.startsWith("/places/");
+  }
+  if (href === "/travel") {
+    return path === "/travel" || path.startsWith("/travel/");
+  }
+  if (href === "/cars") {
+    return path === "/cars" || path.startsWith("/cars/");
+  }
+  if (href === "/movies") {
+    return path === "/movies" || path.startsWith("/movies/");
+  }
+  if (href === "/books") {
+    return path === "/books" || path.startsWith("/books/");
+  }
+  if (href === "/music") {
+    return path === "/music" || path.startsWith("/music/");
+  }
+  if (href === "/links") {
+    return path === "/links" || path.startsWith("/links/");
   }
   return path === href || path.startsWith(`${href}/`);
 }

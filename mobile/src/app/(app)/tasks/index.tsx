@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { fetchProjects } from "@/api/tasks/projects";
+import { fetchFirstExternalLinkByTask } from "@/api/tasks/links";
 import { fetchTags } from "@/api/tasks/tags";
 import {
   completeTaskApi,
@@ -24,13 +25,17 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
+import { PRIORITY_OPTIONS } from "@/domain/tasks/priority";
 import {
+  filterTasksByPriority,
   filterTasksByProject,
   filterTasksByQuery,
   filterTasksByTag,
+  filterTasksDueToday,
   groupSubtasksByParentId,
   groupTasksForList,
   openTopLevelTasks,
+  PRIORITY_FILTER_ALL,
   recentCompletedTasks,
   TAG_FILTER_ALL,
   TASK_LIST_BUCKETS,
@@ -61,6 +66,11 @@ export default function TasksScreen() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [projectFilter, setProjectFilter] = useState(PROJECT_FILTER_ALL);
   const [tagFilter, setTagFilter] = useState(TAG_FILTER_ALL);
+  const [priorityFilter, setPriorityFilter] = useState(PRIORITY_FILTER_ALL);
+  const [todayOnly, setTodayOnly] = useState(false);
+  const [linksByTaskId, setLinksByTaskId] = useState<
+    Record<string, { url: string; comment: string | null }>
+  >({});
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"lista" | "kanban" | "done">("lista");
   const [loading, setLoading] = useState(true);
@@ -71,14 +81,18 @@ export default function TasksScreen() {
 
   const load = useCallback(async () => {
     setError(null);
-    const [nextTasks, nextProjects, nextTags] = await Promise.all([
+    const [nextTasks, nextProjects, nextTags, nextLinks] = await Promise.all([
       fetchTasks(),
       fetchProjects(),
       fetchTags(),
+      fetchFirstExternalLinkByTask().catch(
+        () => ({}) as Record<string, { url: string; comment: string | null }>
+      ),
     ]);
     setRows(nextTasks);
     setProjects(nextProjects);
     setTags(nextTags);
+    setLinksByTaskId(nextLinks);
   }, []);
 
   useFocusEffect(
@@ -201,11 +215,21 @@ export default function TasksScreen() {
 
   const scoped = useMemo(
     () =>
-      filterTasksByQuery(
-        filterTasksByTag(filterTasksByProject(rows, projectFilter), tagFilter),
-        query
+      filterTasksDueToday(
+        filterTasksByPriority(
+          filterTasksByQuery(
+            filterTasksByTag(
+              filterTasksByProject(rows, projectFilter),
+              tagFilter
+            ),
+            query
+          ),
+          priorityFilter
+        ),
+        todayIsoDate(),
+        todayOnly
       ),
-    [projectFilter, query, rows, tagFilter]
+    [priorityFilter, projectFilter, query, rows, tagFilter, todayOnly]
   );
   const grouped = useMemo(
     () => groupTasksForList(scoped, todayIsoDate()),
@@ -318,6 +342,25 @@ export default function TasksScreen() {
               onChange={setTagFilter}
             />
           ) : null}
+          <ChipBar
+            options={[
+              { id: PRIORITY_FILTER_ALL, label: "Prioridade" },
+              ...PRIORITY_OPTIONS.filter((row) => row[0]).map(([id, label]) => ({
+                id: id as string,
+                label,
+              })),
+            ]}
+            value={priorityFilter}
+            onChange={setPriorityFilter}
+          />
+          <ChipBar
+            options={[
+              { id: "all", label: "Agenda" },
+              { id: "today", label: "Só hoje" },
+            ]}
+            value={todayOnly ? "today" : "all"}
+            onChange={(id) => setTodayOnly(id === "today")}
+          />
           {view === "kanban" ? (
             <TasksKanban
               columns={kanbanSections}
@@ -335,6 +378,8 @@ export default function TasksScreen() {
               onComplete={(task) => void onComplete(task)}
               onReopen={(task) => void onReopen(task)}
               onOpen={openTask}
+              onChangeStatus={(task, status) => void onMoveStatus(task, status)}
+              linksByTaskId={linksByTaskId}
               childrenByParent={childrenByParent}
               emptyTitle={
                 view === "done"

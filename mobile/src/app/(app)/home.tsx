@@ -7,22 +7,26 @@ import {
   StyleSheet,
 } from "react-native";
 
-import { loadHubBundle, type HubBundle } from "@/api/hub";
+import { loadHubBundle, type HubBundle, type HubHabitToday } from "@/api/hub";
+import { toggleHabitLog } from "@/api/habits/habits";
+import { FirstTxChecklist } from "@/components/hub/FirstTxChecklist";
 import { HubAlerts } from "@/components/hub/HubAlerts";
 import { HubDaySummary } from "@/components/hub/HubDaySummary";
 import { HubLedgerHero } from "@/components/hub/HubLedgerHero";
 import { HubModulesGrid } from "@/components/hub/HubModulesGrid";
 import { HubStaleNudge } from "@/components/hub/HubStaleNudge";
 import { HubUpcoming } from "@/components/hub/HubUpcoming";
+import { MonthShareCard } from "@/components/hub/MonthShareCard";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
 import { formatMomTrend, previousYearMonth } from "@/domain/finance/insights";
-import { daysSinceIsoDate, firstNameFromUser, todayHeading } from "@/domain/timeline";
+import { daysSinceIsoDate, firstNameFromUser, getTodayIso, todayHeading } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
+import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import type { TimelineItem } from "@/types/timeline";
 
@@ -30,6 +34,7 @@ export default function HomeScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { user } = useAuth();
+  const { fail } = useFeedback();
   const { bottomInset, setAlertsOpen } = useAppShell();
   const first = firstNameFromUser(user);
   const [loading, setLoading] = useState(true);
@@ -37,6 +42,7 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<HubBundle | null>(null);
   const [staleDismissed, setStaleDismissed] = useState(false);
+  const [busyHabitId, setBusyHabitId] = useState<string | null>(null);
   const hasLoaded = useRef(false);
 
   const load = useCallback(async () => {
@@ -102,6 +108,50 @@ export default function HomeScreen() {
     router.navigate(item.href ?? "/finance");
   }
 
+  async function onToggleHabit(habit: HubHabitToday) {
+    const today = getTodayIso();
+    setBusyHabitId(habit.id);
+    setBundle((cur) => {
+      if (!cur) return cur;
+      return {
+        ...cur,
+        day: {
+          ...cur.day,
+          habits: cur.day.habits.map((row) =>
+            row.id === habit.id ? { ...row, done: !row.done } : row
+          ),
+          habitsDone: cur.day.habits.reduce((sum, row) => {
+            const done = row.id === habit.id ? !row.done : row.done;
+            return sum + (done ? 1 : 0);
+          }, 0),
+        },
+      };
+    });
+    try {
+      await toggleHabitLog(habit.id, today, !habit.done);
+    } catch (err) {
+      setBundle((cur) => {
+        if (!cur) return cur;
+        return {
+          ...cur,
+          day: {
+            ...cur.day,
+            habits: cur.day.habits.map((row) =>
+              row.id === habit.id ? { ...row, done: habit.done } : row
+            ),
+            habitsDone: cur.day.habits.reduce((sum, row) => {
+              const done = row.id === habit.id ? habit.done : row.done;
+              return sum + (done ? 1 : 0);
+            }, 0),
+          },
+        };
+      });
+      fail(getErrorMessage(err, "Não foi possível atualizar o hábito."));
+    } finally {
+      setBusyHabitId(null);
+    }
+  }
+
   if (loading && !bundle) {
     return (
       <ThemedView style={styles.center}>
@@ -144,6 +194,18 @@ export default function HomeScreen() {
           />
         ) : null}
 
+        <FirstTxChecklist />
+
+        {bundle ? (
+          <MonthShareCard
+            year={bundle.year}
+            month={bundle.month}
+            receita={bundle.receita}
+            despesa={bundle.despesa}
+            budgetPlanned={bundle.budgetHighlight?.planned ?? null}
+          />
+        ) : null}
+
         {showStale && daysWithoutTx != null ? (
           <HubStaleNudge
             daysWithoutTx={daysWithoutTx}
@@ -165,6 +227,10 @@ export default function HomeScreen() {
             day={bundle.day}
             onOpenFinance={openFinance}
             onOpenTasks={() => router.navigate("/tasks")}
+            onOpenHabits={() => router.navigate("/habits")}
+            onOpenMovies={() => router.navigate("/movies")}
+            onToggleHabit={(habit) => void onToggleHabit(habit)}
+            busyHabitId={busyHabitId}
           />
         ) : null}
 

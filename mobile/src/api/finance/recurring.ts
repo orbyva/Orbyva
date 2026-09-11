@@ -4,7 +4,11 @@ import {
   calculateInstallments,
   resolvePaymentStartDate,
 } from "@/domain/recurring/installments";
-import { resolveFixedRenewalRollback } from "@/domain/recurring/constants";
+import {
+  buildRenewedFixedSchedule,
+  canRenewFixedPlan,
+  resolveFixedRenewalRollback,
+} from "@/domain/recurring/constants";
 import { createTransaction, deleteTransaction } from "@/api/finance/transactions";
 import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
 
@@ -58,6 +62,93 @@ export async function createRecurringApi(
     .single();
   if (error) throw error;
   return withInstallments(data as unknown as Recurring);
+}
+
+export async function fetchRecurringById(id: string): Promise<Recurring | null> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("recurring_transaction")
+    .select(RECURRING_SELECT)
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return withInstallments(data as unknown as Recurring);
+}
+
+export async function updateRecurringApi(
+  id: string,
+  data: RecurringCreateRequest
+): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("recurring_transaction")
+    .update({
+      class_id: data.class_id,
+      value: data.value,
+      description: data.description,
+      frequency: data.frequency,
+      validity: data.validity,
+      due_day: data.due_day,
+      installment_count: data.installment_count,
+      payment_start_date: data.payment_start_date,
+      status: data.status,
+    })
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (error) throw error;
+}
+
+export async function renewFixedRecurringApi(
+  recurring: Recurring
+): Promise<{ year: number }> {
+  if (!canRenewFixedPlan(recurring)) {
+    throw new Error("Esta parcela fixa ainda não pode ser renovada.");
+  }
+  const schedule = buildRenewedFixedSchedule(recurring);
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("recurring_transaction")
+    .update({
+      payment_start_date: schedule.payment_start_date,
+      installment_count: schedule.installment_count,
+      validity: schedule.validity,
+    })
+    .eq("id", recurring.id)
+    .eq("user_id", userId);
+  if (error) throw error;
+  return { year: schedule.year };
+}
+
+export async function softDeleteRecurring(id: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("recurring_transaction")
+    .update({ status: false })
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (error) throw error;
+}
+
+export async function restoreRecurring(id: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("recurring_transaction")
+    .update({ status: true })
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (error) throw error;
+}
+
+export async function deleteRecurringApi(recurringId: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("recurring_transaction")
+    .delete()
+    .eq("id", recurringId)
+    .eq("user_id", userId);
+  if (error) throw error;
 }
 
 export async function fetchLastPaidAtByRecurring(

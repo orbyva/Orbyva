@@ -30,15 +30,18 @@ export function DateField({
   value,
   onChange,
   style,
+  maximumDate,
 }: {
   value: string;
   onChange: (iso: string) => void;
   style?: StyleProp<ViewStyle>;
+  maximumDate?: string | null;
 }) {
   const theme = useTheme();
   const themeVariant = useOptionalThemeScheme();
   const [open, setOpen] = useState(false);
   const date = isoToDate(value);
+  const max = maximumDate ? isoToDate(maximumDate) : undefined;
 
   function onPick(event: DateTimePickerEvent, next?: Date) {
     if (Platform.OS === "android") {
@@ -59,6 +62,7 @@ export function DateField({
           themeVariant={themeVariant}
           accentColor={theme.primary}
           onChange={onPick}
+          maximumDate={max}
           style={styles.iosPicker}
         />
       </View>
@@ -76,6 +80,7 @@ export function DateField({
           mode="date"
           display="calendar"
           onChange={onPick}
+          maximumDate={max}
         />
       ) : null}
     </View>

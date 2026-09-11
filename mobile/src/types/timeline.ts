@@ -18,7 +18,17 @@ export type TimelineStatus =
 export type TimelineHref =
   | "/finance"
   | "/finance/transactions"
-  | "/tasks";
+  | "/tasks"
+  | "/habits"
+  | "/health"
+  | "/goals"
+  | "/places"
+  | "/travel"
+  | "/cars"
+  | "/movies"
+  | "/books"
+  | "/music"
+  | "/links";
 
 export interface TimelineItem {
   id: string;

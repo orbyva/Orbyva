@@ -1,4 +1,4 @@
-import { useFocusEffect, useNavigation } from "expo-router";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,14 +12,21 @@ import {
 } from "react-native";
 
 import {
+  deleteRecurringApi,
   fetchLastPaidAtByRecurring,
   fetchRecurringTransactions,
+  renewFixedRecurringApi,
+  restoreRecurring,
+  softDeleteRecurring,
   updateRecurringParcelPayment,
 } from "@/api/finance/recurring";
 import { RecurringList } from "@/components/RecurringList";
+import { RecurringProjection } from "@/components/RecurringProjection";
+import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { CollapsibleChrome } from "@/components/ui/CollapsibleChrome";
 import { Spacing } from "@/constants/theme";
 import {
   filterRecurringList,
@@ -29,6 +36,7 @@ import {
   type RecurringFilter,
 } from "@/domain/recurring/alerts";
 import { getRecurringActionCopy } from "@/domain/recurring/copy";
+import { canRenewFixedPlan } from "@/domain/recurring/constants";
 import {
   countRecurringByNature,
   filterRecurringByNature,
@@ -45,6 +53,11 @@ import { getErrorMessage } from "@/lib/errors";
 import type { Recurring } from "@/types/recurring";
 
 const now = new Date();
+
+const VIEW_CHIPS: { id: "list" | "projection"; label: string }[] = [
+  { id: "list", label: "Lista" },
+  { id: "projection", label: "Projeção" },
+];
 
 const STATUS_CHIPS: { id: RecurringFilter; label: string }[] = [
   { id: "all", label: "Todas" },
@@ -70,11 +83,14 @@ function monthTitle(year: number, month: number): string {
 export default function RecurringScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
+  const router = useRouter();
   const { bottomInset } = useAppShell();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [nature, setNature] = useState<RecurringNatureFilter>("all");
   const [status, setStatus] = useState<RecurringFilter>("all");
+  const [tab, setTab] = useState<"list" | "projection">("list");
+  const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<Recurring[]>([]);
   const [lastPaidAtById, setLastPaidAtById] = useState<Record<string, string>>(
@@ -94,12 +110,12 @@ export default function RecurringScreen() {
   const load = useCallback(async () => {
     setError(null);
     const [data, paidMap] = await Promise.all([
-      fetchRecurringTransactions(),
+      fetchRecurringTransactions({ includeInactive: showArchived }),
       fetchLastPaidAtByRecurring().catch(() => ({}) as Record<string, string>),
     ]);
-    setRows(data);
+    setRows(showArchived ? data.filter((item) => item.status === false) : data);
     setLastPaidAtById(paidMap);
-  }, []);
+  }, [showArchived]);
 
   useFocusEffect(
     useCallback(() => {
@@ -208,111 +224,254 @@ export default function RecurringScreen() {
     );
   }
 
+  function onManage(rec: Recurring) {
+    const buttons: {
+      text: string;
+      style?: "cancel" | "destructive";
+      onPress?: () => void;
+    }[] = [
+      {
+        text: "Editar",
+        onPress: () =>
+          router.push({
+            pathname: "/finance/recurring-form",
+            params: { id: rec.id },
+          }),
+      },
+    ];
+    if (rec.status === false) {
+      buttons.push({
+        text: "Reativar",
+        onPress: () => {
+          void (async () => {
+            try {
+              await restoreRecurring(rec.id);
+              setNotice("Recorrência reativada.");
+              await load();
+            } catch (err) {
+              setError(getErrorMessage(err, "Não foi possível reativar."));
+            }
+          })();
+        },
+      });
+    } else {
+      buttons.push({
+        text: "Arquivar",
+        onPress: () => {
+          void (async () => {
+            try {
+              await softDeleteRecurring(rec.id);
+              setNotice("Recorrência arquivada.");
+              await load();
+            } catch (err) {
+              setError(getErrorMessage(err, "Não foi possível arquivar."));
+            }
+          })();
+        },
+      });
+    }
+    if (canRenewFixedPlan(rec)) {
+      buttons.push({
+        text: "Renovar fixa",
+        onPress: () => {
+          void (async () => {
+            try {
+              const result = await renewFixedRecurringApi(rec);
+              setNotice(`Plano renovado até ${result.year}.`);
+              await load();
+            } catch (err) {
+              setError(getErrorMessage(err, "Não foi possível renovar."));
+            }
+          })();
+        },
+      });
+    }
+    buttons.push({
+      text: "Excluir",
+      style: "destructive",
+      onPress: () => {
+        Alert.alert(
+          "Excluir recorrência?",
+          `${rec.description || rec.class?.name || "Esta recorrência"}. Esta ação não pode ser desfeita.`,
+          [
+            { text: "Cancelar", style: "cancel" },
+            {
+              text: "Excluir",
+              style: "destructive",
+              onPress: () => {
+                void (async () => {
+                  try {
+                    await deleteRecurringApi(rec.id);
+                    setNotice("Recorrência excluída.");
+                    await load();
+                  } catch (err) {
+                    setError(
+                      getErrorMessage(err, "Não foi possível excluir.")
+                    );
+                  }
+                })();
+              },
+            },
+          ]
+        );
+      },
+    });
+    buttons.push({ text: "Cancelar", style: "cancel" });
+    Alert.alert(rec.description || rec.class?.name || "Recorrência", undefined, buttons);
+  }
+
   return (
     <ThemedView style={styles.flex}>
-      <View style={styles.filters}>
-        <View style={styles.monthRow}>
-          <Pressable
-            onPress={() => {
-              const next = shiftYearMonth(year, month, -1);
-              setYear(next.year);
-              setMonth(next.month);
-            }}
-            style={[
-              styles.monthBtn,
-              { backgroundColor: theme.backgroundElement },
-            ]}
-          >
-            <ThemedText type="smallBold">‹</ThemedText>
-          </Pressable>
-          <ThemedText type="smallBold" style={styles.monthTitle}>
-            {monthTitle(year, month)}
-          </ThemedText>
-          <Pressable
-            onPress={() => {
-              const next = shiftYearMonth(year, month, 1);
-              setYear(next.year);
-              setMonth(next.month);
-            }}
-            style={[
-              styles.monthBtn,
-              { backgroundColor: theme.backgroundElement },
-            ]}
-          >
-            <ThemedText type="smallBold">›</ThemedText>
-          </Pressable>
-        </View>
-
-        <ThemedText type="small" themeColor="textSecondary">
-          A receber {formatBRL(monthTotals.receive)} · a pagar{" "}
-          {formatBRL(monthTotals.pay)}
-        </ThemedText>
-
-        <TextInput
-          placeholder="Buscar descrição, categoria..."
-          placeholderTextColor={theme.textSecondary}
-          value={search}
-          onChangeText={setSearch}
-          style={[
-            styles.search,
-            {
-              color: theme.text,
-              backgroundColor: theme.backgroundElement,
-              borderColor: theme.backgroundSelected,
-            },
-          ]}
-        />
-
-        <View style={styles.chips}>
-          {NATURE_CHIPS.map((chip) => (
+      <CollapsibleChrome
+        label="Filtros"
+        hint={
+          tab === "projection"
+            ? "Projeção do mês"
+            : [
+                STATUS_CHIPS.find((chip) => chip.id === status)?.label,
+                `receber ${formatBRL(monthTotals.receive)}`,
+                `pagar ${formatBRL(monthTotals.pay)}`,
+              ].join(" · ")
+        }
+        leading={
+          <>
+            <ChipBar
+              options={VIEW_CHIPS}
+              value={tab}
+              onChange={(next) => {
+                setTab(next);
+                if (next === "projection") setShowArchived(false);
+              }}
+            />
+            {tab === "list" ? (
+              <View style={styles.monthRow}>
+                <Pressable
+                  onPress={() => {
+                    const next = shiftYearMonth(year, month, -1);
+                    setYear(next.year);
+                    setMonth(next.month);
+                  }}
+                  style={[
+                    styles.monthBtn,
+                    { backgroundColor: theme.backgroundElement },
+                  ]}
+                >
+                  <ThemedText type="smallBold">‹</ThemedText>
+                </Pressable>
+                <ThemedText type="smallBold" style={styles.monthTitle}>
+                  {monthTitle(year, month)}
+                </ThemedText>
+                <Pressable
+                  onPress={() => {
+                    const next = shiftYearMonth(year, month, 1);
+                    setYear(next.year);
+                    setMonth(next.month);
+                  }}
+                  style={[
+                    styles.monthBtn,
+                    { backgroundColor: theme.backgroundElement },
+                  ]}
+                >
+                  <ThemedText type="smallBold">›</ThemedText>
+                </Pressable>
+              </View>
+            ) : null}
+          </>
+        }
+        footer={
+          <>
+            <Banner message={error} />
+            {notice ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                {notice}
+              </ThemedText>
+            ) : null}
+            {tab === "list" ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                {filtered.length}{" "}
+                {filtered.length === 1 ? "recorrência" : "recorrências"}
+              </ThemedText>
+            ) : null}
+          </>
+        }
+      >
+        {tab === "list" ? (
+          <>
+            <ThemedText type="small" themeColor="textSecondary">
+              A receber {formatBRL(monthTotals.receive)} · a pagar{" "}
+              {formatBRL(monthTotals.pay)}
+            </ThemedText>
+            <TextInput
+              placeholder="Buscar descrição, categoria..."
+              placeholderTextColor={theme.textSecondary}
+              value={search}
+              onChangeText={setSearch}
+              style={[
+                styles.search,
+                {
+                  color: theme.text,
+                  backgroundColor: theme.backgroundElement,
+                  borderColor: theme.backgroundSelected,
+                },
+              ]}
+            />
+            <View style={styles.chips}>
+              {NATURE_CHIPS.map((chip) => (
+                <Pressable
+                  key={chip.id}
+                  onPress={() => setNature(chip.id)}
+                  style={[
+                    styles.chip,
+                    { backgroundColor: theme.backgroundElement },
+                    nature === chip.id && {
+                      backgroundColor: theme.backgroundSelected,
+                    },
+                  ]}
+                >
+                  <ThemedText type="smallBold">
+                    {chip.label}
+                    {chip.id === "pay" ? ` · ${natureCounts.pay}` : ""}
+                    {chip.id === "receive" ? ` · ${natureCounts.receive}` : ""}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.chips}>
+              {STATUS_CHIPS.map((chip) => (
+                <Pressable
+                  key={chip.id}
+                  onPress={() => setStatus(chip.id)}
+                  style={[
+                    styles.chip,
+                    { backgroundColor: theme.backgroundElement },
+                    status === chip.id && {
+                      backgroundColor: theme.backgroundSelected,
+                    },
+                  ]}
+                >
+                  <ThemedText type="smallBold">{chip.label}</ThemedText>
+                </Pressable>
+              ))}
+            </View>
             <Pressable
-              key={chip.id}
-              onPress={() => setNature(chip.id)}
+              onPress={() => setShowArchived((cur) => !cur)}
               style={[
                 styles.chip,
-                { backgroundColor: theme.backgroundElement },
-                nature === chip.id && {
-                  backgroundColor: theme.backgroundSelected,
+                {
+                  backgroundColor: showArchived
+                    ? theme.backgroundSelected
+                    : theme.backgroundElement,
+                  alignSelf: "flex-start",
                 },
               ]}
             >
               <ThemedText type="smallBold">
-                {chip.label}
-                {chip.id === "pay" ? ` · ${natureCounts.pay}` : ""}
-                {chip.id === "receive" ? ` · ${natureCounts.receive}` : ""}
+                {showArchived ? "Arquivadas" : "Ver arquivadas"}
               </ThemedText>
             </Pressable>
-          ))}
-        </View>
-        <View style={styles.chips}>
-          {STATUS_CHIPS.map((chip) => (
-            <Pressable
-              key={chip.id}
-              onPress={() => setStatus(chip.id)}
-              style={[
-                styles.chip,
-                { backgroundColor: theme.backgroundElement },
-                status === chip.id && {
-                  backgroundColor: theme.backgroundSelected,
-                },
-              ]}
-            >
-              <ThemedText type="smallBold">{chip.label}</ThemedText>
-            </Pressable>
-          ))}
-        </View>
-
-        <Banner message={error} />
-        {notice ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            {notice}
-          </ThemedText>
+          </>
         ) : null}
-        <ThemedText type="small" themeColor="textSecondary">
-          {filtered.length}{" "}
-          {filtered.length === 1 ? "recorrência" : "recorrências"}
-        </ThemedText>
-      </View>
+      </CollapsibleChrome>
 
       {loading && rows.length === 0 ? (
         <View style={styles.center}>
@@ -331,12 +490,24 @@ export default function RecurringScreen() {
             />
           }
         >
+          {tab === "projection" ? (
+            <RecurringProjection
+              items={rows.filter((item) => item.status)}
+              year={year}
+              month={month}
+              onSelectMonth={(next) => {
+                setYear(next.year);
+                setMonth(next.month);
+              }}
+            />
+          ) : (
           <RecurringList
             items={filtered}
             year={year}
             month={month}
             lastPaidAtById={lastPaidAtById}
             busyId={busyId}
+            onManage={onManage}
             onToggleMonth={(rec) => {
               const inst = recurringInstallmentInMonth(rec, year, month);
               if (!inst) return;
@@ -350,6 +521,7 @@ export default function RecurringScreen() {
               confirmToggle(rec, number, paid)
             }
           />
+          )}
         </ScrollView>
       )}
     </ThemedView>
@@ -359,11 +531,6 @@ export default function RecurringScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  filters: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-    gap: Spacing.two,
-  },
   monthRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -7,6 +7,32 @@ import { formatShortDate } from "@/domain/timeline";
 import { useTheme } from "@/hooks/use-theme";
 import type { TimelineItem } from "@/types/timeline";
 
+function moduleLabel(module: TimelineItem["module"]): string {
+  if (module === "tasks") return "Tarefas";
+  if (module === "habits") return "Vida";
+  if (module === "goals") return "Metas";
+  if (module === "travel") return "Viagens";
+  if (module === "places") return "Lugares";
+  if (module === "car") return "Veículos";
+  if (module === "cinema") return "Conteúdo";
+  return "Finanças";
+}
+
+function moduleColor(module: TimelineItem["module"]): string {
+  if (module === "tasks") return ModuleColors.productivity;
+  if (module === "cinema") return ModuleColors.entertainment;
+  if (
+    module === "habits" ||
+    module === "goals" ||
+    module === "travel" ||
+    module === "places" ||
+    module === "car"
+  ) {
+    return ModuleColors.life;
+  }
+  return ModuleColors.finance;
+}
+
 type HubUpcomingProps = {
   items: TimelineItem[];
   onOpenTimeline: () => void;
@@ -59,14 +85,15 @@ export function HubUpcoming({
               ]}
             >
               <View
-                style={[styles.dot, { backgroundColor: ModuleColors.finance }]}
+                style={[styles.dot, { backgroundColor: moduleColor(item.module) }]}
               />
               <View style={styles.body}>
                 <ThemedText type="smallBold" numberOfLines={1}>
                   {item.title}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                  Finanças{item.subtitle ? ` · ${item.subtitle}` : ""}
+                  {moduleLabel(item.module)}
+                  {item.subtitle ? ` · ${item.subtitle}` : ""}
                 </ThemedText>
               </View>
               <View style={styles.meta}>

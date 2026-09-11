@@ -18,3 +18,10 @@ function required(name: "EXPO_PUBLIC_SUPABASE_URL" | "EXPO_PUBLIC_SUPABASE_ANON_
 
 export const supabaseUrl = required("EXPO_PUBLIC_SUPABASE_URL");
 export const supabaseAnonKey = required("EXPO_PUBLIC_SUPABASE_ANON_KEY");
+
+export const tmdbApiKey =
+  extraValue("EXPO_PUBLIC_TMDB_API_KEY") ||
+  process.env.EXPO_PUBLIC_TMDB_API_KEY?.trim();
+export const googleBooksApiKey =
+  extraValue("EXPO_PUBLIC_GOOGLE_BOOKS_API_KEY") ||
+  process.env.EXPO_PUBLIC_GOOGLE_BOOKS_API_KEY?.trim();

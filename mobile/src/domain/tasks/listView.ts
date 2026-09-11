@@ -4,6 +4,9 @@ import {
   groupTasksByAgendaBucket,
   type AgendaBucket,
 } from "@/domain/tasks/agenda";
+import { PRIORITY_LABELS } from "@/domain/tasks/priority";
+import { compareSubtasks, sortSubtasks } from "@/domain/tasks/subtasks";
+import { formatDateTimeBR } from "@/lib/currency";
 import type { Project, Task } from "@/types/tasks";
 import { PROJECT_FILTER_ALL, PROJECT_FILTER_NONE } from "@/types/tasks";
 
@@ -145,6 +148,25 @@ export function filterTasksByTag(tasks: Task[], tagId: string): Task[] {
   return tasks.filter((task) => (task.tag_ids ?? []).includes(tagId));
 }
 
+export const PRIORITY_FILTER_ALL = "all";
+
+export function filterTasksByPriority(
+  tasks: Task[],
+  priority: string
+): Task[] {
+  if (!priority || priority === PRIORITY_FILTER_ALL) return tasks;
+  return tasks.filter((task) => (task.priority ?? null) === priority);
+}
+
+export function filterTasksDueToday(
+  tasks: Task[],
+  todayIso: string,
+  enabled: boolean
+): Task[] {
+  if (!enabled) return tasks;
+  return tasks.filter((task) => task.due_date === todayIso);
+}
+
 export const PROJECT_STATUS_ORDER = [
   "planned",
   "active",
@@ -206,10 +228,25 @@ export function filterTasksByQuery(tasks: Task[], query: string): Task[] {
   );
 }
 
+export function taskScheduleMeta(task: {
+  due_date: string | null;
+  due_time?: string | null;
+  priority?: Task["priority"];
+}): string {
+  return [
+    task.due_date
+      ? formatDateTimeBR(task.due_date, task.due_time)
+      : "Sem prazo",
+    task.priority ? PRIORITY_LABELS[task.priority] : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export function subtasksOf(tasks: Task[], parentId: string): Task[] {
-  return tasks
-    .filter((task) => task.parent_task_id === parentId)
-    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+  return sortSubtasks(
+    tasks.filter((task) => task.parent_task_id === parentId)
+  );
 }
 
 export function groupSubtasksByParentId(tasks: Task[]): Record<string, Task[]> {
@@ -224,7 +261,7 @@ export function groupSubtasksByParentId(tasks: Task[]): Record<string, Task[]> {
     list.sort((a, b) => {
       if (a.status === "done" && b.status !== "done") return 1;
       if (b.status === "done" && a.status !== "done") return -1;
-      return a.title.localeCompare(b.title, "pt-BR");
+      return compareSubtasks(a, b);
     });
   }
   return map;

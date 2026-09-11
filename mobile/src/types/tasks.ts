@@ -27,8 +27,11 @@ export interface Task {
   recurrence_rule: RecurrenceRule | null;
   recurrence_origin_id: string | null;
   linked_recurring_id: string | null;
+  linked_shopping_item_id?: string | null;
+  linked_installment_number?: number | null;
   tag_ids?: string[];
   medication_id?: string | null;
+  dose_time?: string | null;
   is_quick?: boolean;
   is_medication?: boolean;
   is_consultation?: boolean;

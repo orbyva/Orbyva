@@ -1,4 +1,4 @@
-import { usePathname, useRouter } from "expo-router";
+import { type Href, usePathname, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Alert, Modal, Pressable, StyleSheet, View } from "react-native";
 
@@ -55,7 +55,10 @@ export function QuickAddSheet() {
                   return;
                 }
                 if (action.params) {
-                  router.push({ pathname: action.href, params: action.params });
+                  router.push({
+                    pathname: action.href,
+                    params: action.params,
+                  } as Href);
                 } else {
                   router.push(action.href);
                 }

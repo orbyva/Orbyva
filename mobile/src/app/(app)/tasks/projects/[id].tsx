@@ -355,6 +355,7 @@ export default function ProjectDetailScreen() {
               onOpen={(task) =>
                 router.push({ pathname: "/tasks/form", params: { id: task.id } })
               }
+              onChangeStatus={(task, status) => void onMoveStatus(task, status)}
               childrenByParent={childrenByParent}
             />
           ) : null}

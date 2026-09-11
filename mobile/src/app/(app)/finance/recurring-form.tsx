@@ -1,7 +1,8 @@
-import { useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,7 +13,12 @@ import {
 } from "react-native";
 
 import { fetchDimensions } from "@/api/finance/dimensions";
-import { createRecurringApi } from "@/api/finance/recurring";
+import {
+  createRecurringApi,
+  deleteRecurringApi,
+  fetchRecurringById,
+  updateRecurringApi,
+} from "@/api/finance/recurring";
 import { fetchMostUsedClassIds, todayIsoDate } from "@/api/finance/transactions";
 import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import { DateField } from "@/components/DateField";
@@ -87,6 +93,9 @@ export default function RecurringFormScreen() {
   const { fail } = useFeedback();
   const router = useRouter();
   const navigation = useNavigation();
+  const params = useLocalSearchParams<{ id?: string }>();
+  const editId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const isEditing = Boolean(editId);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,11 +119,38 @@ export default function RecurringFormScreen() {
     ]);
     setDimensions(dims);
     setFrequentIds(frequent);
-  }, []);
+    if (!editId) return;
+    const existing = await fetchRecurringById(editId);
+    if (!existing) throw new Error("Recorrência não encontrada.");
+    const payload: RecurringCreateRequest = {
+      class_id: existing.class?.id ?? 0,
+      value: existing.value,
+      description: existing.description,
+      frequency: existing.frequency,
+      validity: existing.validity,
+      due_day: existing.due_day,
+      installment_count: existing.installment_count,
+      payment_start_date: existing.payment_start_date,
+      status: existing.status,
+    };
+    const split = !isFixedRecurringPlan(existing);
+    setPlanMode(split ? "split" : "fixed");
+    setRec(payload);
+    setValueDigits(String(Math.round(Number(existing.value) * 100)));
+    if (split && existing.installment_count) {
+      const total = getTotalFromInstallments(
+        existing.value,
+        existing.installment_count
+      );
+      setTotalDigits(String(Math.round(total * 100)));
+    }
+  }, [editId]);
 
   useEffect(() => {
-    navigation.setOptions({ title: "Nova recorrência" });
-  }, [navigation]);
+    navigation.setOptions({
+      title: isEditing ? "Editar recorrência" : "Nova recorrência",
+    });
+  }, [isEditing, navigation]);
 
   useEffect(() => {
     let cancelled = false;
@@ -227,10 +263,21 @@ export default function RecurringFormScreen() {
             value: splitInstallmentValue(totalValue!, rec.installment_count!),
           }
         : applyFixedYearFields({ ...rec, value: value! });
-      await createRecurringApi(payload);
+      if (isEditing && editId) {
+        await updateRecurringApi(editId, payload);
+      } else {
+        await createRecurringApi(payload);
+      }
       router.back();
     } catch (err) {
-      fail(getErrorMessage(err, "Falha ao adicionar recorrência."));
+      fail(
+        getErrorMessage(
+          err,
+          isEditing
+            ? "Falha ao editar recorrência."
+            : "Falha ao adicionar recorrência."
+        )
+      );
     } finally {
       setSaving(false);
     }
@@ -497,10 +544,50 @@ export default function RecurringFormScreen() {
               <ActivityIndicator color="#0B0F1A" />
             ) : (
               <ThemedText type="smallBold" style={styles.primaryLabel}>
-                Salvar recorrência
+                {isEditing ? "Salvar alterações" : "Salvar recorrência"}
               </ThemedText>
             )}
           </Pressable>
+          {isEditing && editId ? (
+            <Pressable
+              onPress={() =>
+                Alert.alert(
+                  "Excluir recorrência?",
+                  "Esta ação não pode ser desfeita.",
+                  [
+                    { text: "Cancelar", style: "cancel" },
+                    {
+                      text: "Excluir",
+                      style: "destructive",
+                      onPress: () => {
+                        void (async () => {
+                          setSaving(true);
+                          try {
+                            await deleteRecurringApi(editId);
+                            router.back();
+                          } catch (err) {
+                            fail(
+                              getErrorMessage(
+                                err,
+                                "Não foi possível excluir a recorrência."
+                              )
+                            );
+                          } finally {
+                            setSaving(false);
+                          }
+                        })();
+                      },
+                    },
+                  ]
+                )
+              }
+              style={styles.danger}
+            >
+              <ThemedText type="smallBold" style={styles.dangerLabel}>
+                Excluir recorrência
+              </ThemedText>
+            </Pressable>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>
@@ -564,5 +651,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
   },
   primaryLabel: { color: "#0B0F1A" },
+  danger: { alignItems: "center", paddingVertical: 12 },
+  dangerLabel: { color: "#E11D48" },
   error: { color: "#E11D48", textAlign: "center" },
 });

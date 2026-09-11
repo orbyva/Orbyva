@@ -1,4 +1,4 @@
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { Card } from "@/components/ui/Card";
@@ -34,11 +34,13 @@ function BudgetRow({
   title,
   caption,
   nested,
+  onPress,
 }: {
   row: MonthlyBudgetSummary;
   title: string;
   caption: string;
   nested?: boolean;
+  onPress?: (row: MonthlyBudgetSummary) => void;
 }) {
   const theme = useTheme();
   const color = statusColor(row.status);
@@ -46,12 +48,17 @@ function BudgetRow({
   const realized = getBudgetRealizedValue(row);
 
   return (
-    <Card
-      style={[
-        styles.card,
-        nested && { marginLeft: 10, borderLeftWidth: 3, borderLeftColor: theme.primary },
-      ]}
-    >
+    <Pressable onPress={onPress ? () => onPress(row) : undefined}>
+      <Card
+        style={[
+          styles.card,
+          nested && {
+            marginLeft: 10,
+            borderLeftWidth: 3,
+            borderLeftColor: theme.primary,
+          },
+        ]}
+      >
       <View style={styles.cardTop}>
         <View style={styles.cardCopy}>
           <ThemedText type="small" themeColor="textSecondary">
@@ -92,15 +99,22 @@ function BudgetRow({
           style={[styles.barFill, { width: `${pct}%`, backgroundColor: color }]}
         />
       </View>
-    </Card>
+      </Card>
+    </Pressable>
   );
 }
 
-export function BudgetList({ groups }: { groups: BudgetGroup[] }) {
+export function BudgetList({
+  groups,
+  onPressRow,
+}: {
+  groups: BudgetGroup[];
+  onPressRow?: (row: MonthlyBudgetSummary) => void;
+}) {
   if (groups.length === 0) {
     return (
       <ThemedText themeColor="textSecondary">
-        Nenhum orçamento neste mês. Cadastre tetos no web por enquanto.
+        Nenhum orçamento neste mês. Use o + para criar um teto.
       </ThemedText>
     );
   }
@@ -119,6 +133,7 @@ export function BudgetList({ groups }: { groups: BudgetGroup[] }) {
                   ? "Categoria · 1 subcategoria"
                   : `Categoria · ${children.length} subcategorias`
             }
+            onPress={onPressRow}
           />
           {children.map((row) => (
             <BudgetRow
@@ -127,6 +142,7 @@ export function BudgetList({ groups }: { groups: BudgetGroup[] }) {
               nested
               title={row.class_name ?? "Sem subcategoria"}
               caption={`Subcategoria · ${typeName}`}
+              onPress={onPressRow}
             />
           ))}
         </View>

@@ -17,7 +17,7 @@ import {
   fetchExternalLinksForTask,
   saveExternalLinksForTask,
 } from "@/api/tasks/links";
-import { createTagApi, fetchTags } from "@/api/tasks/tags";
+import { createTagApi, deleteTagApi, fetchTags, updateTagApi } from "@/api/tasks/tags";
 import {
   completeTaskApi,
   createTaskApi,
@@ -31,24 +31,35 @@ import {
 import { ChipBar } from "@/components/ChipBar";
 import { DateField } from "@/components/DateField";
 import { StringSelectModal } from "@/components/StringSelectModal";
+import { SubtaskFormRow } from "@/components/SubtaskFormRow";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { TimeField } from "@/components/TimeField";
 import { Banner } from "@/components/ui/Banner";
 import { FormSection } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
+import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
 import { PRIORITY_OPTIONS } from "@/domain/tasks/priority";
 import {
   formatRecurrenceSummary,
+  monthlyWeekdayLabel,
   WEEKDAY_LABELS,
   WEEKDAYS_EMPTY_HINT,
 } from "@/domain/tasks/recurrence";
 import { endOfWeekIso, todayIsoDate, visibleProjects } from "@/domain/tasks/listView";
+import {
+  clampDueToParent,
+  isSubtaskDueDateValid,
+  sortSubtasks,
+} from "@/domain/tasks/subtasks";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
+import { formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
+import { openExternalUrl } from "@/lib/url";
 import type {
   RecurrenceFrequency,
+  RecurrenceMonthlyMode,
   RecurrenceRule,
   Tag,
   Task,
@@ -101,15 +112,24 @@ export default function TaskFormScreen() {
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [newTag, setNewTag] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#A855F7");
+  const [editingTag, setEditingTag] = useState<Tag | null>(null);
+  const [editTagName, setEditTagName] = useState("");
+  const [editTagColor, setEditTagColor] = useState("#A855F7");
   const [repeat, setRepeat] = useState<"none" | RecurrenceFrequency>("none");
   const [interval, setInterval] = useState("1");
   const [until, setUntil] = useState<string | null>(null);
   const [weekdays, setWeekdays] = useState<number[]>([]);
+  const [monthlyMode, setMonthlyMode] = useState<RecurrenceMonthlyMode>("day");
+  const [endMode, setEndMode] = useState<"never" | "until" | "count">("never");
+  const [endCount, setEndCount] = useState("5");
   const [repeatDirty, setRepeatDirty] = useState(false);
   const [linkedRecurringId, setLinkedRecurringId] = useState<string | null>(null);
   const [originId, setOriginId] = useState<string | null>(null);
   const [existingRule, setExistingRule] = useState<RecurrenceRule | null>(null);
-  const [links, setLinks] = useState<{ url: string }[]>([{ url: "" }]);
+  const [links, setLinks] = useState<{ url: string; comment: string }[]>([
+    { url: "", comment: "" },
+  ]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [children, setChildren] = useState<Task[]>([]);
@@ -119,15 +139,25 @@ export default function TaskFormScreen() {
   const [busySubtaskId, setBusySubtaskId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [parentTaskId, setParentTaskId] = useState<string | null>(null);
+  const [parentDueDate, setParentDueDate] = useState<string | null>(null);
+  const [parentTitle, setParentTitle] = useState<string | null>(null);
 
+  const isSubtask = Boolean(parentTaskId);
   const isInstance = Boolean(originId);
   const isLinked = Boolean(linkedRecurringId);
-  const canEditRepeat = !isInstance && !isLinked;
+  const canEditRepeat = !isInstance && !isLinked && !isSubtask;
   const seriesOriginId = originId ?? (existingRule && editId ? editId : null);
 
   useEffect(() => {
-    navigation.setOptions({ title: editId ? "Editar tarefa" : "Nova tarefa" });
-  }, [editId, navigation]);
+    navigation.setOptions({
+      title: parentTaskId
+        ? "Editar subtarefa"
+        : editId
+          ? "Editar tarefa"
+          : "Nova tarefa",
+    });
+  }, [editId, parentTaskId, navigation]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,6 +183,9 @@ export default function TaskFormScreen() {
             fetchExternalLinksForTask(editId),
           ]);
           if (!task) throw new Error("Tarefa não encontrada.");
+          const parent = task.parent_task_id
+            ? await fetchTaskById(task.parent_task_id)
+            : null;
           if (cancelled) return;
           setTitle(task.title);
           setDescription(task.description ?? "");
@@ -169,14 +202,29 @@ export default function TaskFormScreen() {
           setInterval(String(task.recurrence_rule?.interval ?? 1));
           setUntil(task.recurrence_rule?.until ?? null);
           setWeekdays(task.recurrence_rule?.weekdays ?? []);
-          setChildren(childRows);
+          setMonthlyMode(task.recurrence_rule?.monthlyMode ?? "day");
+          if (task.recurrence_rule?.count) {
+            setEndMode("count");
+            setEndCount(String(task.recurrence_rule.count));
+          } else if (task.recurrence_rule?.until) {
+            setEndMode("until");
+          } else {
+            setEndMode("never");
+          }
+          setParentTaskId(task.parent_task_id);
+          setParentDueDate(parent?.due_date ?? null);
+          setParentTitle(parent?.title ?? null);
+          setChildren(task.parent_task_id ? [] : sortSubtasks(childRows));
           savedSubtaskTitles.current = Object.fromEntries(
             childRows.map((row) => [row.id, row.title])
           );
           setLinks(
             linkRows.length > 0
-              ? linkRows.map((row) => ({ url: row.url }))
-              : [{ url: "" }]
+              ? linkRows.map((row) => ({
+                  url: row.url,
+                  comment: row.comment ?? "",
+                }))
+              : [{ url: "", comment: "" }]
           );
         } else if (paramProjectId) {
           setProjectId(paramProjectId);
@@ -197,12 +245,12 @@ export default function TaskFormScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!editId) return;
+      if (!editId || parentTaskId) return;
       let cancelled = false;
       void fetchSubtasksApi(editId)
         .then((rows) => {
           if (!cancelled) {
-            setChildren(rows);
+            setChildren(sortSubtasks(rows));
             savedSubtaskTitles.current = Object.fromEntries(
               rows.map((row) => [row.id, row.title])
             );
@@ -212,19 +260,25 @@ export default function TaskFormScreen() {
       return () => {
         cancelled = true;
       };
-    }, [editId])
+    }, [editId, parentTaskId])
   );
 
   const today = todayIsoDate();
   const weekEnd = endOfWeekIso(today);
   const chipId =
     dueDate == null ? "none" : dueDate === today ? "today" : dueDate === weekEnd ? "week" : null;
+  const dueDateError =
+    isSubtask && parentDueDate && !isSubtaskDueDateValid(dueDate, parentDueDate)
+      ? `O prazo não pode passar de ${formatDateBR(parentDueDate)}, prazo da tarefa principal.`
+      : null;
+  const maxDueDate = isSubtask ? parentDueDate : null;
   const projectName =
     projectId == null
       ? "Sem projeto"
       : (projects.find((project) => project.id === projectId)?.name ?? "Projeto");
 
   const parsedInterval = Math.max(1, Number.parseInt(interval, 10) || 1);
+  const parsedCount = Math.max(1, Number.parseInt(endCount, 10) || 1);
 
   const recurrenceRule = useMemo((): RecurrenceRule | null => {
     if (!canEditRepeat) return existingRule;
@@ -237,16 +291,20 @@ export default function TaskFormScreen() {
       frequency: repeat,
       interval: parsedInterval,
       time: dueTime,
-      until,
+      until: endMode === "until" ? until : undefined,
+      count: endMode === "count" ? parsedCount : undefined,
       weekdays:
         repeat === "weekly" && weekdays.length > 0 ? [...weekdays].sort() : undefined,
-      monthlyMode: repeat === "monthly" ? "day" : undefined,
+      monthlyMode: repeat === "monthly" ? monthlyMode : undefined,
     };
   }, [
     canEditRepeat,
     dueDate,
     dueTime,
+    endMode,
     existingRule,
+    monthlyMode,
+    parsedCount,
     parsedInterval,
     repeat,
     repeatDirty,
@@ -271,7 +329,12 @@ export default function TaskFormScreen() {
   async function persistLinks(taskId: string) {
     await saveExternalLinksForTask(
       taskId,
-      links.map((link) => ({ url: link.url.trim() })).filter((link) => link.url)
+      links
+        .map((link) => ({
+          url: link.url.trim(),
+          comment: link.comment.trim() || null,
+        }))
+        .filter((link) => link.url)
     );
   }
 
@@ -283,6 +346,14 @@ export default function TaskFormScreen() {
     }
     if (repeat !== "none" && canEditRepeat && !dueDate) {
       fail("Recorrência precisa de um prazo.");
+      return;
+    }
+    if (isSubtask && !isSubtaskDueDateValid(dueDate, parentDueDate)) {
+      fail(
+        parentDueDate
+          ? `O prazo não pode passar de ${formatDateBR(parentDueDate)}, prazo da tarefa principal.`
+          : "O prazo da subtarefa não pode passar do prazo da tarefa principal."
+      );
       return;
     }
     setSaving(true);
@@ -300,7 +371,7 @@ export default function TaskFormScreen() {
           if (!trimmedChild) continue;
           await createTaskApi({
             title: trimmedChild,
-            due_date: null,
+            due_date: dueDate,
             project_id: created.project_id,
             parent_task_id: created.id,
             description: "",
@@ -377,9 +448,10 @@ export default function TaskFormScreen() {
       return;
     }
     try {
-      const created = await createTagApi(trimmed);
+      const created = await createTagApi(trimmed, newTagColor);
       setTags((cur) => [...cur, created].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
       setTagIds((cur) => [...cur, created.id]);
+      setNewTagColor("#A855F7");
     } catch (err) {
       fail(getErrorMessage(err, "Não foi possível criar a tag."));
     }
@@ -389,6 +461,62 @@ export default function TaskFormScreen() {
     setTagIds((cur) =>
       cur.includes(id) ? cur.filter((tagId) => tagId !== id) : [...cur, id]
     );
+  }
+
+  function startEditTag(tag: Tag) {
+    setEditingTag(tag);
+    setEditTagName(tag.name);
+    setEditTagColor(tag.color || "#A855F7");
+  }
+
+  async function saveEditTag() {
+    if (!editingTag) return;
+    const trimmed = editTagName.trim();
+    if (!trimmed) {
+      fail("Informe o nome da tag.");
+      return;
+    }
+    try {
+      await updateTagApi({
+        id: editingTag.id,
+        name: trimmed,
+        color: editTagColor,
+      });
+      setTags((cur) =>
+        cur
+          .map((tag) =>
+            tag.id === editingTag.id
+              ? { ...tag, name: trimmed, color: editTagColor }
+              : tag
+          )
+          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+      );
+      setEditingTag(null);
+    } catch (err) {
+      fail(getErrorMessage(err, "Não foi possível salvar a tag."));
+    }
+  }
+
+  function confirmDeleteTag(tag: Tag) {
+    Alert.alert("Excluir tag", `Excluir “${tag.name}”?`, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            try {
+              await deleteTagApi(tag.id);
+              setTags((cur) => cur.filter((row) => row.id !== tag.id));
+              setTagIds((cur) => cur.filter((id) => id !== tag.id));
+              if (editingTag?.id === tag.id) setEditingTag(null);
+            } catch (err) {
+              fail(getErrorMessage(err, "Não foi possível excluir a tag."));
+            }
+          })();
+        },
+      },
+    ]);
   }
 
   async function addSubtask() {
@@ -402,12 +530,12 @@ export default function TaskFormScreen() {
     try {
       const created = await createTaskApi({
         title: trimmed,
-        due_date: null,
+        due_date: dueDate,
         project_id: projectId,
         parent_task_id: editId,
         description: "",
       });
-      setChildren((cur) => [...cur, created]);
+      setChildren((cur) => sortSubtasks([...cur, created]));
       savedSubtaskTitles.current[created.id] = created.title;
     } catch (err) {
       fail(getErrorMessage(err, "Não foi possível adicionar a subtarefa."));
@@ -444,6 +572,53 @@ export default function TaskFormScreen() {
         cur.map((row) => (row.id === task.id ? { ...row, title: original } : row))
       );
       fail(getErrorMessage(err, "Não foi possível renomear a subtarefa."));
+    }
+  }
+
+  async function patchSubtask(
+    task: Task,
+    patch: { due_date?: string | null; priority?: TaskPriority | null }
+  ) {
+    const nextDue = clampDueToParent(
+      patch.due_date !== undefined ? patch.due_date : task.due_date,
+      dueDate
+    );
+    const nextPriority =
+      patch.priority !== undefined ? patch.priority : (task.priority ?? null);
+    const nextTime = nextDue ? task.due_time : null;
+    setBusySubtaskId(task.id);
+    setChildren((cur) =>
+      sortSubtasks(
+        cur.map((row) =>
+          row.id === task.id
+            ? {
+                ...row,
+                due_date: nextDue,
+                due_time: nextTime,
+                priority: nextPriority,
+              }
+            : row
+        )
+      )
+    );
+    try {
+      await updateTaskApi({
+        id: task.id,
+        title: savedSubtaskTitles.current[task.id] ?? task.title,
+        due_date: nextDue,
+        due_time: nextTime,
+        description: task.description ?? "",
+        project_id: task.project_id,
+        priority: nextPriority,
+        status: task.status,
+      });
+    } catch (err) {
+      setChildren((cur) =>
+        cur.map((row) => (row.id === task.id ? task : row))
+      );
+      fail(getErrorMessage(err, "Não foi possível atualizar a subtarefa."));
+    } finally {
+      setBusySubtaskId(null);
     }
   }
 
@@ -540,6 +715,11 @@ export default function TaskFormScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Banner message={error} />
+          {isSubtask && parentTitle ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Subtarefa de “{parentTitle}”
+            </ThemedText>
+          ) : null}
 
           <Field label="Título" required>
             <TextInput
@@ -574,8 +754,11 @@ export default function TaskFormScreen() {
                         setRepeat("none");
                         setRepeatDirty(true);
                       }
-                    } else if (chip.id === "today") setDueDate(today);
-                    else setDueDate(weekEnd);
+                    } else if (chip.id === "today") {
+                      setDueDate(clampDueToParent(today, maxDueDate));
+                    } else {
+                      setDueDate(clampDueToParent(weekEnd, maxDueDate));
+                    }
                   }}
                   style={[
                     styles.chip,
@@ -591,7 +774,12 @@ export default function TaskFormScreen() {
             </View>
             {dueDate ? (
               <>
-                <DateField value={dueDate} onChange={setDueDate} style={inputStyle} />
+                <DateField
+                  value={dueDate}
+                  onChange={setDueDate}
+                  maximumDate={maxDueDate}
+                  style={inputStyle}
+                />
                 <View style={styles.chipRow}>
                   <Pressable
                     onPress={() =>
@@ -619,11 +807,22 @@ export default function TaskFormScreen() {
                 Vai para a inbox até você definir uma data.
               </ThemedText>
             )}
+            {dueDateError ? (
+              <ThemedText type="small" themeColor="danger">
+                {dueDateError}
+              </ThemedText>
+            ) : isSubtask && parentDueDate ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                No máximo {formatDateBR(parentDueDate)} (tarefa principal).
+              </ThemedText>
+            ) : null}
           </Field>
 
           <FormSection
             title="Status e prioridade"
-            defaultOpen={Boolean(editId) || status !== "todo" || Boolean(priority)}
+            defaultOpen={
+              isSubtask || Boolean(editId) || status !== "todo" || Boolean(priority)
+            }
             hint={
               [TASK_STATUS_LABELS[status], priority ? PRIORITY_OPTIONS.find((row) => row[0] === priority)?.[1] : null]
                 .filter(Boolean)
@@ -673,6 +872,8 @@ export default function TaskFormScreen() {
                   <Pressable
                     key={tag.id}
                     onPress={() => toggleTag(tag.id)}
+                    onLongPress={() => startEditTag(tag)}
+                    delayLongPress={280}
                     style={[
                       styles.chip,
                       { backgroundColor: theme.backgroundElement },
@@ -681,9 +882,47 @@ export default function TaskFormScreen() {
                       },
                     ]}
                   >
-                    <ThemedText type="smallBold">{tag.name}</ThemedText>
+                    <View style={styles.tagChip}>
+                      <View
+                        style={[
+                          styles.tagDot,
+                          { backgroundColor: tag.color || "#A855F7" },
+                        ]}
+                      />
+                      <ThemedText type="smallBold">{tag.name}</ThemedText>
+                    </View>
                   </Pressable>
                 ))}
+              </View>
+            ) : null}
+            {editingTag ? (
+              <View style={styles.field}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Editar tag
+                </ThemedText>
+                <TextInput
+                  placeholder="Nome"
+                  placeholderTextColor={theme.textSecondary}
+                  style={inputStyle}
+                  value={editTagName}
+                  onChangeText={setEditTagName}
+                />
+                <ColorDots value={editTagColor} onChange={setEditTagColor} />
+                <View style={styles.chipRow}>
+                  <Pressable onPress={() => void saveEditTag()}>
+                    <ThemedText type="linkPrimary">Salvar</ThemedText>
+                  </Pressable>
+                  <Pressable onPress={() => confirmDeleteTag(editingTag)}>
+                    <ThemedText type="small" themeColor="danger">
+                      Excluir
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable onPress={() => setEditingTag(null)}>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Cancelar
+                    </ThemedText>
+                  </Pressable>
+                </View>
               </View>
             ) : null}
             <TextInput
@@ -695,8 +934,16 @@ export default function TaskFormScreen() {
               onSubmitEditing={() => void addTag()}
               returnKeyType="done"
             />
+            {newTag.trim() ? (
+              <ColorDots value={newTagColor} onChange={setNewTagColor} />
+            ) : (
+              <ThemedText type="small" themeColor="textSecondary">
+                Segure uma tag para editar ou excluir.
+              </ThemedText>
+            )}
           </FormSection>
 
+          {!isSubtask ? (
           <FormSection
             title="Repetição"
             defaultOpen={repeat !== "none" || isLinked || isInstance}
@@ -717,6 +964,9 @@ export default function TaskFormScreen() {
                           setUntil(null);
                           setWeekdays([]);
                           setInterval("1");
+                          setMonthlyMode("day");
+                          setEndMode("never");
+                          setEndCount("5");
                         }
                       }}
                       style={[
@@ -778,25 +1028,80 @@ export default function TaskFormScreen() {
                         ) : null}
                       </>
                     ) : null}
-                    <Pressable
-                      onPress={() => {
-                        setRepeatDirty(true);
-                        setUntil((cur) => cur ?? dueDate ?? today);
-                      }}
-                      style={[
-                        styles.chip,
-                        { backgroundColor: theme.backgroundElement },
-                        until ? { backgroundColor: theme.backgroundSelected } : null,
-                      ]}
-                    >
-                      <ThemedText type="smallBold">
-                        {until ? "Com término" : "Sem término"}
-                      </ThemedText>
-                    </Pressable>
-                    {until ? (
+                    {repeat === "monthly" && dueDate ? (
+                      <View style={styles.chipRow}>
+                        <Pressable
+                          onPress={() => {
+                            setMonthlyMode("day");
+                            setRepeatDirty(true);
+                          }}
+                          style={[
+                            styles.chip,
+                            { backgroundColor: theme.backgroundElement },
+                            monthlyMode === "day" && {
+                              backgroundColor: theme.backgroundSelected,
+                            },
+                          ]}
+                        >
+                          <ThemedText type="smallBold">
+                            No dia {Number(dueDate.slice(8, 10))}
+                          </ThemedText>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => {
+                            setMonthlyMode("weekday");
+                            setRepeatDirty(true);
+                          }}
+                          style={[
+                            styles.chip,
+                            { backgroundColor: theme.backgroundElement },
+                            monthlyMode === "weekday" && {
+                              backgroundColor: theme.backgroundSelected,
+                            },
+                          ]}
+                        >
+                          <ThemedText type="smallBold">
+                            {monthlyWeekdayLabel(dueDate)}
+                          </ThemedText>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Termina
+                    </ThemedText>
+                    <View style={styles.chipRow}>
+                      {(
+                        [
+                          ["never", "Nunca"],
+                          ["until", "Em uma data"],
+                          ["count", "Depois de N"],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <Pressable
+                          key={id}
+                          onPress={() => {
+                            setRepeatDirty(true);
+                            setEndMode(id);
+                            if (id === "never") setUntil(null);
+                            if (id === "until") setUntil((cur) => cur ?? dueDate ?? today);
+                            if (id === "count") setUntil(null);
+                          }}
+                          style={[
+                            styles.chip,
+                            { backgroundColor: theme.backgroundElement },
+                            endMode === id
+                              ? { backgroundColor: theme.backgroundSelected }
+                              : null,
+                          ]}
+                        >
+                          <ThemedText type="smallBold">{label}</ThemedText>
+                        </Pressable>
+                      ))}
+                    </View>
+                    {endMode === "until" ? (
                       <>
                         <DateField
-                          value={until}
+                          value={until ?? dueDate ?? today}
                           onChange={(value) => {
                             setUntil(value);
                             setRepeatDirty(true);
@@ -806,6 +1111,7 @@ export default function TaskFormScreen() {
                         <Pressable
                           onPress={() => {
                             setUntil(null);
+                            setEndMode("never");
                             setRepeatDirty(true);
                           }}
                         >
@@ -813,6 +1119,23 @@ export default function TaskFormScreen() {
                             Remover término
                           </ThemedText>
                         </Pressable>
+                      </>
+                    ) : null}
+                    {endMode === "count" ? (
+                      <>
+                        <TextInput
+                          keyboardType="number-pad"
+                          value={endCount}
+                          onChangeText={(value) => {
+                            setEndCount(value.replace(/\D/g, "") || "1");
+                            setRepeatDirty(true);
+                          }}
+                          style={inputStyle}
+                          accessibilityLabel="Número de ocorrências"
+                        />
+                        <ThemedText type="small" themeColor="textSecondary">
+                          ocorrências
+                        </ThemedText>
                       </>
                     ) : null}
                   </>
@@ -824,6 +1147,7 @@ export default function TaskFormScreen() {
             </ThemedText>
           </Field>
           </FormSection>
+          ) : null}
 
           <FormSection
             title="Links"
@@ -836,47 +1160,70 @@ export default function TaskFormScreen() {
           >
           <Field label="Links">
             {links.map((link, index) => (
-              <View key={`link-${index}`} style={styles.subRow}>
+              <View key={`link-${index}`} style={styles.linkBlock}>
+                <View style={styles.subRow}>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    placeholder="https://"
+                    placeholderTextColor={theme.textSecondary}
+                    style={[inputStyle, styles.flex]}
+                    value={link.url}
+                    onChangeText={(value) =>
+                      setLinks((cur) =>
+                        cur.map((row, rowIndex) =>
+                          rowIndex === index ? { ...row, url: value } : row
+                        )
+                      )
+                    }
+                  />
+                  <Pressable
+                    onPress={() =>
+                      setLinks((cur) =>
+                        cur.length === 1
+                          ? [{ url: "", comment: "" }]
+                          : cur.filter((_, rowIndex) => rowIndex !== index)
+                      )
+                    }
+                    hitSlop={8}
+                  >
+                    <ThemedText type="small" themeColor="danger">
+                      Excluir
+                    </ThemedText>
+                  </Pressable>
+                </View>
                 <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="url"
-                  placeholder="https://"
+                  placeholder="Comentário (opcional)"
                   placeholderTextColor={theme.textSecondary}
-                  style={[inputStyle, styles.flex]}
-                  value={link.url}
+                  style={inputStyle}
+                  value={link.comment}
                   onChangeText={(value) =>
                     setLinks((cur) =>
                       cur.map((row, rowIndex) =>
-                        rowIndex === index ? { url: value } : row
+                        rowIndex === index ? { ...row, comment: value } : row
                       )
                     )
                   }
                 />
-                <Pressable
-                  onPress={() =>
-                    setLinks((cur) =>
-                      cur.length === 1
-                        ? [{ url: "" }]
-                        : cur.filter((_, rowIndex) => rowIndex !== index)
-                    )
-                  }
-                  hitSlop={8}
-                >
-                  <ThemedText type="small" themeColor="danger">
-                    Excluir
-                  </ThemedText>
-                </Pressable>
+                {link.url.trim() ? (
+                  <Pressable onPress={() => openExternalUrl(link.url)}>
+                    <ThemedText type="linkPrimary">Abrir</ThemedText>
+                  </Pressable>
+                ) : null}
               </View>
             ))}
             <Pressable
-              onPress={() => setLinks((cur) => [...cur, { url: "" }])}
+              onPress={() =>
+                setLinks((cur) => [...cur, { url: "", comment: "" }])
+              }
             >
               <ThemedText type="linkPrimary">Adicionar link</ThemedText>
             </Pressable>
           </Field>
           </FormSection>
 
+          {!isSubtask ? (
           <FormSection
             title="Subtarefas"
             defaultOpen={children.length > 0 || draftSubtasks.length > 0}
@@ -888,57 +1235,35 @@ export default function TaskFormScreen() {
           >
           <Field label="Subtarefas">
             {children.map((child) => (
-              <View key={child.id} style={styles.subRow}>
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: child.status === "done" }}
-                  disabled={busySubtaskId === child.id}
-                  onPress={() => void toggleSubtask(child)}
-                  style={[
-                    styles.subCheck,
-                    {
-                      borderColor: theme.textSecondary,
-                      backgroundColor:
-                        child.status === "done" ? theme.primary : "transparent",
-                    },
-                  ]}
-                />
-                <TextInput
-                  style={[
-                    inputStyle,
-                    styles.subInput,
-                    child.status === "done" && styles.subDone,
-                  ]}
-                  value={child.title}
-                  onChangeText={(value) =>
-                    setChildren((cur) =>
-                      cur.map((row) =>
-                        row.id === child.id ? { ...row, title: value } : row
-                      )
+              <SubtaskFormRow
+                key={child.id}
+                task={child}
+                parentDueDate={dueDate}
+                todayIso={today}
+                busy={busySubtaskId === child.id}
+                onToggle={() => void toggleSubtask(child)}
+                onChangeTitle={(value) =>
+                  setChildren((cur) =>
+                    cur.map((row) =>
+                      row.id === child.id ? { ...row, title: value } : row
                     )
-                  }
-                  onEndEditing={() => void renameSubtask(child, child.title)}
-                  returnKeyType="done"
-                />
-                <Pressable
-                  onPress={() =>
-                    router.push({
-                      pathname: "/tasks/form",
-                      params: { id: child.id },
-                    })
-                  }
-                  hitSlop={8}
-                >
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Abrir
-                  </ThemedText>
-                </Pressable>
-                <Pressable onPress={() => removeSaved(child)} hitSlop={8}>
-                  <ThemedText type="small" themeColor="danger">
-                    Excluir
-                  </ThemedText>
-                </Pressable>
-              </View>
+                  )
+                }
+                onRename={(title) => void renameSubtask(child, title)}
+                onOpen={() =>
+                  router.push({
+                    pathname: "/tasks/form",
+                    params: { id: child.id },
+                  })
+                }
+                onDelete={() => removeSaved(child)}
+                onDueChange={(nextDue) =>
+                  void patchSubtask(child, { due_date: nextDue })
+                }
+                onPriorityChange={(nextPriority) =>
+                  void patchSubtask(child, { priority: nextPriority })
+                }
+              />
             ))}
             {draftSubtasks.map((childTitle, index) => (
               <View key={`draft-${index}`} style={styles.subRow}>
@@ -975,6 +1300,7 @@ export default function TaskFormScreen() {
             />
           </Field>
           </FormSection>
+          ) : null}
 
           <FormSection
             title="Descrição"
@@ -1035,6 +1361,30 @@ export default function TaskFormScreen() {
   );
 }
 
+function ColorDots({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <View style={styles.chipRow}>
+      {CATEGORY_COLORS.map((color) => (
+        <Pressable
+          key={color}
+          onPress={() => onChange(color)}
+          style={[
+            styles.colorDot,
+            { backgroundColor: color },
+            value.toLowerCase() === color.toLowerCase() && styles.colorDotOn,
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 function Field({
   label,
   required,
@@ -1082,6 +1432,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  tagChip: { flexDirection: "row", alignItems: "center", gap: 8 },
+  tagDot: { width: 8, height: 8, borderRadius: 4 },
+  colorDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  colorDotOn: { borderColor: "#0B0F1A" },
+  linkBlock: { gap: 8 },
   subRow: {
     flexDirection: "row",
     alignItems: "center",

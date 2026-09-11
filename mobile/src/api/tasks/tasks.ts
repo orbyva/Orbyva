@@ -1,11 +1,14 @@
+import { fetchRecurringById, updateRecurringParcelPayment } from "@/api/finance/recurring";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { supabase } from "@/lib/supabase";
+import { resolveItemStatusFromTask } from "@/domain/shopping/taskLink";
 import { computeMissingOccurrences } from "@/domain/tasks/recurrence";
 import { todayIsoDate } from "@/domain/tasks/listView";
+import { sortSubtasks } from "@/domain/tasks/subtasks";
 import type { RecurrenceRule, Task, TaskPriority, TaskStatus } from "@/types/tasks";
 
 const TASK_SELECT =
-  "id, title, description, status, due_date, due_time, completed_at, parent_task_id, project_id, priority, recurrence_rule, recurrence_origin_id, linked_recurring_id, tag_ids, medication_id, is_quick, is_medication, is_consultation, icon_key, icon_url";
+  "id, title, description, status, due_date, due_time, completed_at, parent_task_id, project_id, priority, recurrence_rule, recurrence_origin_id, linked_recurring_id, linked_shopping_item_id, linked_installment_number, tag_ids, medication_id, is_quick, is_medication, is_consultation, icon_key, icon_url";
 
 export type TaskWriteInput = {
   title: string;
@@ -18,6 +21,7 @@ export type TaskWriteInput = {
   parent_task_id?: string | null;
   status?: TaskStatus;
   tag_ids?: string[];
+  is_consultation?: boolean;
 };
 
 async function materializeRecurringInstances(
@@ -140,7 +144,7 @@ export async function createTaskApi(input: TaskWriteInput): Promise<Task> {
         is_milestone: false,
         is_quick: false,
         is_medication: false,
-        is_consultation: false,
+        is_consultation: input.is_consultation ?? false,
         sort_order: 0,
       },
     ])
@@ -168,11 +172,85 @@ export async function updateTaskApi(
       ...(input.recurrence_rule !== undefined
         ? { recurrence_rule: input.recurrence_rule }
         : {}),
+      ...(input.status === "done"
+        ? { completed_at: new Date().toISOString() }
+        : input.status
+          ? { completed_at: null }
+          : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.id)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
+  if (input.status) await syncTaskSideEffects(input.id, userId, input.status);
+}
+
+async function syncLinkedShoppingItemFromTask(
+  taskId: string,
+  userId: string,
+  taskStatus: TaskStatus
+): Promise<void> {
+  const { data: task, error } = await supabase
+    .from("task")
+    .select("linked_shopping_item_id")
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!task?.linked_shopping_item_id) return;
+  const { error: itemError } = await supabase
+    .from("shopping_item")
+    .update({
+      status: resolveItemStatusFromTask(taskStatus),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", task.linked_shopping_item_id)
+    .eq("user_id", userId);
+  if (itemError) throw new Error(itemError.message);
+}
+
+async function syncLinkedInstallmentFromTask(
+  taskId: string,
+  userId: string,
+  becomingDone: boolean
+): Promise<void> {
+  const { data: task, error } = await supabase
+    .from("task")
+    .select("linked_recurring_id, linked_installment_number")
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!task?.linked_recurring_id || task.linked_installment_number == null) {
+    return;
+  }
+  const recurring = await fetchRecurringById(task.linked_recurring_id);
+  if (!recurring) return;
+  const paidParcels = recurring.paid_parcels ?? [];
+  const isPaid = paidParcels.includes(task.linked_installment_number);
+  if (becomingDone === isPaid) return;
+  await updateRecurringParcelPayment(
+    task.linked_recurring_id,
+    task.linked_installment_number,
+    paidParcels
+  );
+}
+
+async function syncTaskSideEffects(
+  taskId: string,
+  userId: string,
+  status: TaskStatus
+): Promise<void> {
+  try {
+    await syncLinkedInstallmentFromTask(taskId, userId, status === "done");
+  } catch (syncError) {
+    console.error("Falha ao sincronizar parcela vinculada:", syncError);
+  }
+  try {
+    await syncLinkedShoppingItemFromTask(taskId, userId, status);
+  } catch (syncError) {
+    console.error("Falha ao sincronizar item de compras vinculado:", syncError);
+  }
 }
 
 export async function completeTaskApi(id: string): Promise<void> {
@@ -188,6 +266,7 @@ export async function completeTaskApi(id: string): Promise<void> {
     .eq("id", id)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
+  await syncTaskSideEffects(id, userId, "done");
 }
 
 export async function reopenTaskApi(id: string): Promise<void> {
@@ -202,6 +281,7 @@ export async function reopenTaskApi(id: string): Promise<void> {
     .eq("id", id)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
+  await syncTaskSideEffects(id, userId, "todo");
 }
 
 export async function deleteTaskApi(id: string): Promise<void> {
@@ -223,7 +303,7 @@ export async function fetchSubtasksApi(parentId: string): Promise<Task[]> {
     .eq("parent_task_id", parentId)
     .order("title", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []) as Task[];
+  return sortSubtasks((data ?? []) as Task[]);
 }
 
 export async function setTaskStatusApi(
@@ -242,6 +322,7 @@ export async function setTaskStatusApi(
     .eq("id", id)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
+  await syncTaskSideEffects(id, userId, status);
 }
 
 export async function deleteTaskSeriesApi(originId: string): Promise<void> {

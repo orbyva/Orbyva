@@ -1,7 +1,9 @@
-import { useFocusEffect, useNavigation } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -19,6 +21,8 @@ import Animated, {
 
 import {
   createClassApi,
+  deleteClassApi,
+  deleteTypeApi,
   fetchDimensions,
   updateClassApi,
 } from "@/api/finance/dimensions";
@@ -27,6 +31,7 @@ import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { CollapsibleChrome } from "@/components/ui/CollapsibleChrome";
 import { Spacing } from "@/constants/theme";
 import {
   filterDimensionTree,
@@ -67,6 +72,7 @@ function TypeDropCard({
 export default function CategoriesScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
+  const router = useRouter();
   const { bottomInset } = useAppShell();
   const [rows, setRows] = useState<Dimension[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +83,7 @@ export default function CategoriesScreen() {
   const [search, setSearch] = useState("");
   const [natureId, setNatureId] = useState<number | "all">("all");
   const [addingTypeId, setAddingTypeId] = useState<number | null>(null);
+  const [editingClassId, setEditingClassId] = useState<number | null>(null);
   const [className, setClassName] = useState("");
   const [savingClass, setSavingClass] = useState(false);
   const [dragging, setDragging] = useState<{
@@ -235,6 +242,96 @@ export default function CategoriesScreen() {
     }
   }
 
+  async function renameClass(classId: number) {
+    const name = className.trim();
+    if (!name) {
+      setError("Informe o nome da subcategoria.");
+      return;
+    }
+    setSavingClass(true);
+    setError(null);
+    try {
+      await updateClassApi({ id: classId, name });
+      setClassName("");
+      setEditingClassId(null);
+      setNotice("Subcategoria atualizada.");
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err, "Não foi possível renomear a subcategoria."));
+    } finally {
+      setSavingClass(false);
+    }
+  }
+
+  function confirmDeleteType(typeId: number, name: string) {
+    Alert.alert(
+      "Excluir categoria?",
+      `${name}. Só funciona se não houver subcategorias.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                await deleteTypeApi(typeId);
+                setNotice("Categoria excluída.");
+                await load();
+              } catch (err) {
+                setError(getErrorMessage(err, "Não foi possível excluir."));
+              }
+            })();
+          },
+        },
+      ]
+    );
+  }
+
+  function confirmDeleteClass(classId: number, name: string) {
+    Alert.alert(
+      "Excluir subcategoria?",
+      `${name}. Só funciona se não houver lançamentos, recorrências ou tetos ligados a ela.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                await deleteClassApi(classId);
+                setNotice("Subcategoria excluída.");
+                await load();
+              } catch (err) {
+                setError(getErrorMessage(err, "Não foi possível excluir."));
+              }
+            })();
+          },
+        },
+      ]
+    );
+  }
+
+  function onClassMenu(id: number, name: string) {
+    Alert.alert(name, undefined, [
+      {
+        text: "Renomear",
+        onPress: () => {
+          setAddingTypeId(null);
+          setEditingClassId(id);
+          setClassName(name);
+        },
+      },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: () => confirmDeleteClass(id, name),
+      },
+      { text: "Cancelar", style: "cancel" },
+    ]);
+  }
+
   return (
     <GestureHandlerRootView style={styles.flex}>
     <ThemedView style={styles.flex}>
@@ -244,7 +341,25 @@ export default function CategoriesScreen() {
         collapsable={false}
         onLayout={measureRoot}
       >
-        <View style={styles.head}>
+        <CollapsibleChrome
+          label="Filtros"
+          hint={
+            natureId === "all"
+              ? "Todas as naturezas"
+              : (rows.find((nature) => nature.id === natureId)?.name ??
+                "Filtro")
+          }
+          footer={
+            <>
+              <Banner message={error} />
+              {notice ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {notice}
+                </ThemedText>
+              ) : null}
+            </>
+          }
+        >
           <ThemedText type="small" themeColor="textSecondary">
             Segure o punho da subcategoria e solte em outra categoria para
             reassociar.
@@ -292,13 +407,7 @@ export default function CategoriesScreen() {
               </Pressable>
             ))}
           </View>
-          <Banner message={error} />
-          {notice ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              {notice}
-            </ThemedText>
-          ) : null}
-        </View>
+        </CollapsibleChrome>
 
         {loading && rows.length === 0 ? (
           <View style={styles.center}>
@@ -365,20 +474,97 @@ export default function CategoriesScreen() {
                             <ThemedText type="smallBold" style={styles.typeName}>
                               {type.name}
                             </ThemedText>
+                            <Pressable
+                              hitSlop={8}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/finance/category-form",
+                                  params: { id: String(type.id) },
+                                })
+                              }
+                            >
+                              <Ionicons
+                                name="pencil-outline"
+                                size={18}
+                                color={theme.textSecondary}
+                              />
+                            </Pressable>
+                            <Pressable
+                              hitSlop={8}
+                              onPress={() =>
+                                confirmDeleteType(type.id, type.name)
+                              }
+                            >
+                              <Ionicons
+                                name="trash-outline"
+                                size={18}
+                                color={theme.textSecondary}
+                              />
+                            </Pressable>
                           </View>
-                          {type.classes.map((cls) => (
-                            <ClassDragRow
-                              key={cls.id}
-                              id={cls.id}
-                              name={cls.name}
-                              dragging={dragging?.id === cls.id}
-                              absX={absX}
-                              absY={absY}
-                              ghostVisible={ghostVisible}
-                              onDragStart={onDragStart}
-                              onDragEnd={onDragEnd}
-                            />
-                          ))}
+                          {type.classes.map((cls) =>
+                            editingClassId === cls.id ? (
+                              <View key={cls.id} style={styles.addRow}>
+                                <TextInput
+                                  autoFocus
+                                  value={className}
+                                  onChangeText={setClassName}
+                                  placeholder="Nome da subcategoria"
+                                  placeholderTextColor={theme.textSecondary}
+                                  style={[
+                                    styles.classInput,
+                                    {
+                                      color: theme.text,
+                                      borderColor: theme.backgroundSelected,
+                                      backgroundColor: theme.background,
+                                    },
+                                  ]}
+                                />
+                                <Pressable
+                                  disabled={savingClass}
+                                  onPress={() => void renameClass(cls.id)}
+                                  style={[
+                                    styles.addSave,
+                                    { backgroundColor: theme.primary },
+                                  ]}
+                                >
+                                  {savingClass ? (
+                                    <ActivityIndicator color="#0B0F1A" />
+                                  ) : (
+                                    <ThemedText
+                                      type="smallBold"
+                                      style={styles.addSaveLabel}
+                                    >
+                                      Salvar
+                                    </ThemedText>
+                                  )}
+                                </Pressable>
+                                <Pressable
+                                  onPress={() => {
+                                    setEditingClassId(null);
+                                    setClassName("");
+                                  }}
+                                >
+                                  <ThemedText type="linkPrimary">
+                                    Cancelar
+                                  </ThemedText>
+                                </Pressable>
+                              </View>
+                            ) : (
+                              <ClassDragRow
+                                key={cls.id}
+                                id={cls.id}
+                                name={cls.name}
+                                dragging={dragging?.id === cls.id}
+                                absX={absX}
+                                absY={absY}
+                                ghostVisible={ghostVisible}
+                                onDragStart={onDragStart}
+                                onDragEnd={onDragEnd}
+                                onMenu={(id) => onClassMenu(id, cls.name)}
+                              />
+                            )
+                          )}
                           {adding ? (
                             <View style={styles.addRow}>
                               <TextInput
@@ -472,11 +658,6 @@ export default function CategoriesScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  head: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-    gap: Spacing.two,
-  },
   search: {
     minHeight: 44,
     borderRadius: 12,

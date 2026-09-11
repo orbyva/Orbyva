@@ -1,28 +1,53 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { fetchAppAlerts, subscribeAppAlerts } from "@/api/alerts";
 import { ThemedText } from "@/components/themed-text";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
+import {
+  filterVisibleAlerts,
+  loadDismissedAlertIds,
+  loadEnabledAlertKinds,
+} from "@/lib/alertPrefs";
+import type { AppAlertKind } from "@/domain/alerts";
 
 export function HeaderAlertsButton() {
   const theme = useTheme();
-  const { alertsOpen, setAlertsOpen, setQuickAddOpen } = useAppShell();
+  const { alertsOpen, setAlertsOpen, setQuickAddOpen, setSearchOpen } = useAppShell();
   const [unread, setUnread] = useState(0);
+  const prefs = useRef({
+    enabled: new Set<AppAlertKind>(),
+    dismissed: new Set<string>(),
+  });
 
   const refreshCount = useCallback(() => {
-    void fetchAppAlerts()
-      .then((rows) => setUnread(rows.length))
+    void Promise.all([
+      fetchAppAlerts(),
+      loadEnabledAlertKinds(),
+      loadDismissedAlertIds(),
+    ])
+      .then(([rows, kinds, hidden]) => {
+        prefs.current = { enabled: kinds, dismissed: hidden };
+        setUnread(filterVisibleAlerts(rows, kinds, hidden).length);
+      })
       .catch(() => undefined);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       refreshCount();
-      return subscribeAppAlerts((rows) => setUnread(rows.length));
+      return subscribeAppAlerts((rows) =>
+        setUnread(
+          filterVisibleAlerts(
+            rows,
+            prefs.current.enabled,
+            prefs.current.dismissed
+          ).length
+        )
+      );
     }, [refreshCount])
   );
 
@@ -33,6 +58,7 @@ export function HeaderAlertsButton() {
       onPress={() => {
         refreshCount();
         setQuickAddOpen(false);
+        setSearchOpen(false);
         setAlertsOpen(!alertsOpen);
       }}
       hitSlop={8}

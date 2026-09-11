@@ -12,9 +12,9 @@ import Animated, {
 import { ThemedText } from "@/components/themed-text";
 import { Card } from "@/components/ui/Card";
 import { Radius, Spacing } from "@/constants/theme";
-import { PRIORITY_COLORS, PRIORITY_LABELS } from "@/domain/tasks/priority";
+import { PRIORITY_COLORS } from "@/domain/tasks/priority";
+import { taskScheduleMeta, todayIsoDate } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
-import { formatDateTimeBR } from "@/lib/currency";
 import type { Task, TaskStatus } from "@/types/tasks";
 import { TASK_STATUS_LABELS } from "@/types/tasks";
 
@@ -284,14 +284,10 @@ const KanbanCard = memo(function KanbanCard({
   );
 
   const done = task.status === "done";
-  const meta = [
-    task.due_date
-      ? formatDateTimeBR(task.due_date, task.due_time)
-      : "Sem prazo",
-    task.priority ? PRIORITY_LABELS[task.priority] : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const meta = taskScheduleMeta(task);
+  const overdue = Boolean(
+    task.due_date && task.status !== "done" && task.due_date < todayIsoDate()
+  );
 
   return (
     <View
@@ -328,7 +324,7 @@ const KanbanCard = memo(function KanbanCard({
           style={[
             styles.check,
             {
-              borderColor: theme.textSecondary,
+              borderColor: overdue ? "#E11D48" : theme.textSecondary,
               backgroundColor: done ? theme.primary : "transparent",
               opacity: busyId === task.id ? 0.4 : 1,
             },
@@ -355,13 +351,22 @@ const KanbanCard = memo(function KanbanCard({
               {task.title}
             </ThemedText>
           </View>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText
+            type="small"
+            themeColor="textSecondary"
+            style={overdue ? styles.overdue : undefined}
+          >
             {meta}
           </ThemedText>
         </Pressable>
       </View>
       {subtasks.map((child) => {
         const childDone = child.status === "done";
+        const childOverdue = Boolean(
+          child.due_date &&
+            child.status !== "done" &&
+            child.due_date < todayIsoDate()
+        );
         return (
           <View key={child.id} style={styles.childRow}>
             <Pressable
@@ -376,7 +381,7 @@ const KanbanCard = memo(function KanbanCard({
               style={[
                 styles.check,
                 {
-                  borderColor: theme.textSecondary,
+                  borderColor: childOverdue ? "#E11D48" : theme.textSecondary,
                   backgroundColor: childDone ? theme.primary : "transparent",
                 },
               ]}
@@ -386,11 +391,28 @@ const KanbanCard = memo(function KanbanCard({
               onPress={() => onOpen?.(child)}
               style={styles.copy}
             >
+              <View style={styles.titleRow}>
+                {child.priority ? (
+                  <View
+                    style={[
+                      styles.prio,
+                      { backgroundColor: PRIORITY_COLORS[child.priority] },
+                    ]}
+                  />
+                ) : null}
+                <ThemedText
+                  numberOfLines={2}
+                  style={[styles.title, childDone ? styles.doneTitle : undefined]}
+                >
+                  {child.title}
+                </ThemedText>
+              </View>
               <ThemedText
-                numberOfLines={2}
-                style={childDone ? styles.doneTitle : undefined}
+                type="small"
+                themeColor="textSecondary"
+                style={childOverdue ? styles.overdue : undefined}
               >
-                {child.title}
+                {taskScheduleMeta(child)}
               </ThemedText>
             </Pressable>
           </View>
@@ -432,6 +454,7 @@ const styles = StyleSheet.create({
   title: { flex: 1 },
   prio: { width: 8, height: 8, borderRadius: 4 },
   doneTitle: { textDecorationLine: "line-through", opacity: 0.55 },
+  overdue: { color: "#E11D48" },
   childRow: {
     flexDirection: "row",
     alignItems: "flex-start",

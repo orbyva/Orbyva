@@ -1,4 +1,4 @@
-import { usePathname, useRouter } from "expo-router";
+import { type Href, usePathname, useRouter } from "expo-router";
 import { Pressable, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -28,7 +28,10 @@ export function QuickAddFab() {
         setAlertsOpen(false);
         if (direct?.href) {
           if (direct.params) {
-            router.push({ pathname: direct.href, params: direct.params });
+            router.push({
+              pathname: direct.href,
+              params: direct.params,
+            } as Href);
           } else {
             router.push(direct.href);
           }

@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 
-import { HeaderAlertsButton } from "@/components/chrome/HeaderAlertsButton";
+import { HeaderChromeRight } from "@/components/chrome/HeaderChromeRight";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -15,7 +15,7 @@ export default function FinanceStackLayout() {
         headerTintColor: theme.text,
         contentStyle: { backgroundColor: theme.background },
         headerLeft: () => <StackHeaderLeft />,
-        headerRight: () => <HeaderAlertsButton />,
+        headerRight: () => <HeaderChromeRight />,
         headerBackVisible: false,
       }}
     >
@@ -23,6 +23,16 @@ export default function FinanceStackLayout() {
       <Stack.Screen name="transactions" options={{ title: "Transações" }} />
       <Stack.Screen name="recurring" options={{ title: "Recorrências" }} />
       <Stack.Screen name="budget" options={{ title: "Orçamento" }} />
+      <Stack.Screen
+        name="budget-form"
+        options={{
+          title: "Orçamento",
+          presentation: "modal",
+          headerLeft: undefined,
+          headerRight: undefined,
+          headerBackVisible: true,
+        }}
+      />
       <Stack.Screen name="categories" options={{ title: "Categorias" }} />
       <Stack.Screen
         name="form"

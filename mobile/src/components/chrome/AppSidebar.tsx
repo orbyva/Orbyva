@@ -47,6 +47,18 @@ export function AppSidebar() {
       path.startsWith("/tasks") ||
       path.startsWith("/notes") ||
       path.startsWith("/shopping"),
+    Vida:
+      path.startsWith("/habits") ||
+      path.startsWith("/health") ||
+      path.startsWith("/goals") ||
+      path.startsWith("/places") ||
+      path.startsWith("/travel") ||
+      path.startsWith("/cars"),
+    Conteúdo:
+      path.startsWith("/movies") ||
+      path.startsWith("/books") ||
+      path.startsWith("/music") ||
+      path.startsWith("/links"),
   });
 
   function close() {

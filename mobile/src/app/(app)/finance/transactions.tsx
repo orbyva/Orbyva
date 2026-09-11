@@ -23,6 +23,7 @@ import { TransactionsList } from "@/components/TransactionsList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { CollapsibleChrome } from "@/components/ui/CollapsibleChrome";
 import { Spacing } from "@/constants/theme";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
@@ -155,39 +156,57 @@ export default function TransactionsScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      <View style={styles.filters}>
-        <View style={styles.monthRow}>
-          <Pressable
-            onPress={() => {
-              const next = shiftYearMonth(year, month, -1);
-              setYear(next.year);
-              setMonth(next.month);
-            }}
-            style={[
-              styles.monthBtn,
-              { backgroundColor: theme.backgroundElement },
-            ]}
-          >
-            <ThemedText type="smallBold">‹</ThemedText>
-          </Pressable>
-          <ThemedText type="smallBold" style={styles.monthTitle}>
-            {monthTitle(year, month)}
-          </ThemedText>
-          <Pressable
-            onPress={() => {
-              const next = shiftYearMonth(year, month, 1);
-              setYear(next.year);
-              setMonth(next.month);
-            }}
-            style={[
-              styles.monthBtn,
-              { backgroundColor: theme.backgroundElement },
-            ]}
-          >
-            <ThemedText type="smallBold">›</ThemedText>
-          </Pressable>
-        </View>
-
+      <CollapsibleChrome
+        label="Filtros"
+        hint={`${NATURE_CHIPS.find((chip) => chip.id === nature)?.label ?? "Todas"} · ${total} ${total === 1 ? "transação" : "transações"}`}
+        leading={
+          <View style={styles.monthRow}>
+            <Pressable
+              onPress={() => {
+                const next = shiftYearMonth(year, month, -1);
+                setYear(next.year);
+                setMonth(next.month);
+              }}
+              style={[
+                styles.monthBtn,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
+              <ThemedText type="smallBold">‹</ThemedText>
+            </Pressable>
+            <ThemedText type="smallBold" style={styles.monthTitle}>
+              {monthTitle(year, month)}
+            </ThemedText>
+            <Pressable
+              onPress={() => {
+                const next = shiftYearMonth(year, month, 1);
+                setYear(next.year);
+                setMonth(next.month);
+              }}
+              style={[
+                styles.monthBtn,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
+              <ThemedText type="smallBold">›</ThemedText>
+            </Pressable>
+          </View>
+        }
+        footer={
+          <>
+            <Banner message={error} />
+            {notice ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                {notice}
+              </ThemedText>
+            ) : null}
+            <ThemedText type="small" themeColor="textSecondary">
+              {total} {total === 1 ? "transação" : "transações"}
+              {totalPages > 1 ? ` · página ${page} de ${totalPages}` : ""}
+            </ThemedText>
+          </>
+        }
+      >
         <TextInput
           placeholder="Buscar descrição, categoria..."
           placeholderTextColor={theme.textSecondary}
@@ -202,24 +221,12 @@ export default function TransactionsScreen() {
             },
           ]}
         />
-
         <ChipBar
           options={NATURE_CHIPS}
           value={nature}
           onChange={setNature}
         />
-
-        <Banner message={error} />
-        {notice ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            {notice}
-          </ThemedText>
-        ) : null}
-        <ThemedText type="small" themeColor="textSecondary">
-          {total} {total === 1 ? "transação" : "transações"}
-          {totalPages > 1 ? ` · página ${page} de ${totalPages}` : ""}
-        </ThemedText>
-      </View>
+      </CollapsibleChrome>
 
       {loading && rows.length === 0 ? (
         <View style={styles.center}>
@@ -283,11 +290,6 @@ export default function TransactionsScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  filters: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-    gap: Spacing.two,
-  },
   monthRow: {
     flexDirection: "row",
     alignItems: "center",

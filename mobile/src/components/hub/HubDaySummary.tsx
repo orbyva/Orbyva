@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import type { HubDaySummary as HubDaySummaryData } from "@/api/hub";
+import type { HubDaySummary as HubDaySummaryData, HubHabitToday } from "@/api/hub";
 import { ThemedText } from "@/components/themed-text";
 import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
@@ -12,9 +12,21 @@ type HubDaySummaryProps = {
   day: HubDaySummaryData;
   onOpenFinance: () => void;
   onOpenTasks: () => void;
+  onOpenHabits: () => void;
+  onOpenMovies: () => void;
+  onToggleHabit: (habit: HubHabitToday) => void;
+  busyHabitId?: string | null;
 };
 
-export function HubDaySummary({ day, onOpenFinance, onOpenTasks }: HubDaySummaryProps) {
+export function HubDaySummary({
+  day,
+  onOpenFinance,
+  onOpenTasks,
+  onOpenHabits,
+  onOpenMovies,
+  onToggleHabit,
+  busyHabitId,
+}: HubDaySummaryProps) {
   const theme = useTheme();
 
   return (
@@ -43,6 +55,89 @@ export function HubDaySummary({ day, onOpenFinance, onOpenTasks }: HubDaySummary
               : "Abrir"}
           </ThemedText>
         </Pressable>
+
+        {day.habits.length > 0 ? (
+          <View
+            style={[
+              styles.row,
+              {
+                borderTopColor: theme.backgroundSelected,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                alignItems: "flex-start",
+              },
+            ]}
+          >
+            <Pressable
+              onPress={onOpenHabits}
+              style={[styles.icon, { backgroundColor: "rgba(34,163,122,0.16)" }]}
+            >
+              <Ionicons name="leaf" size={18} color="#22A37A" />
+            </Pressable>
+            <View style={styles.body}>
+              <Pressable onPress={onOpenHabits}>
+                <ThemedText type="smallBold">
+                  Hábitos {day.habitsDone}/{day.habitsCount}
+                </ThemedText>
+              </Pressable>
+              {day.habits.map((habit) => (
+                <Pressable
+                  key={habit.id}
+                  disabled={busyHabitId === habit.id}
+                  onPress={() => onToggleHabit(habit)}
+                  style={styles.habitRow}
+                >
+                  <View
+                    style={[
+                      styles.habitCheck,
+                      {
+                        borderColor: habit.done ? theme.success : theme.textSecondary,
+                        backgroundColor: habit.done ? theme.success : "transparent",
+                      },
+                    ]}
+                  />
+                  <ThemedText
+                    type="small"
+                    style={habit.done ? styles.habitDone : undefined}
+                    numberOfLines={1}
+                  >
+                    {habit.name}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {day.lastMovie || day.moviesToWatch > 0 ? (
+          <Pressable
+            onPress={onOpenMovies}
+            style={[
+              styles.row,
+              {
+                borderTopColor: theme.backgroundSelected,
+                borderTopWidth: StyleSheet.hairlineWidth,
+              },
+            ]}
+          >
+            <View style={[styles.icon, { backgroundColor: "rgba(212,107,232,0.16)" }]}>
+              <Ionicons name="film" size={18} color="#D46BE8" />
+            </View>
+            <View style={styles.body}>
+              <ThemedText type="smallBold" numberOfLines={1}>
+                {day.lastMovie
+                  ? day.lastMovie.title
+                  : `${day.moviesToWatch} para assistir`}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {day.lastMovie
+                  ? day.moviesToWatch > 0
+                    ? `Último filme · ${day.moviesToWatch} na fila`
+                    : "Último filme"
+                  : "Cinema"}
+              </ThemedText>
+            </View>
+          </Pressable>
+        ) : null}
 
         {day.nextPayment ? (
           <Pressable
@@ -83,4 +178,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   body: { flex: 1, minWidth: 0, gap: 2 },
+  habitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  habitCheck: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+  },
+  habitDone: { textDecorationLine: "line-through", opacity: 0.55 },
 });

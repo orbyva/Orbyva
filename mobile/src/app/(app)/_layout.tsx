@@ -3,9 +3,12 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { AlertsSheet } from "@/components/chrome/AlertsSheet";
 import { AppSidebar } from "@/components/chrome/AppSidebar";
-import { HeaderAlertsButton } from "@/components/chrome/HeaderAlertsButton";
+import { HeaderChromeRight } from "@/components/chrome/HeaderChromeRight";
+import { ModuleGuideHost } from "@/components/chrome/ModuleGuideHost";
+import { OnboardingHost } from "@/components/chrome/OnboardingHost";
 import { QuickAddFab } from "@/components/chrome/QuickAddFab";
 import { QuickAddSheet } from "@/components/chrome/QuickAddSheet";
+import { SearchSheet } from "@/components/chrome/SearchSheet";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
 import { ThemedView } from "@/components/themed-view";
 import { AppShellProvider } from "@/hooks/use-app-shell";
@@ -18,7 +21,7 @@ function AppHeaderLeft() {
 }
 
 function AppHeaderRight() {
-  return <HeaderAlertsButton />;
+  return <HeaderChromeRight />;
 }
 
 function AppStack() {
@@ -47,12 +50,25 @@ function AppStack() {
         <Stack.Screen name="tasks" options={{ headerShown: false }} />
         <Stack.Screen name="notes" options={{ headerShown: false }} />
         <Stack.Screen name="shopping" options={{ headerShown: false }} />
+        <Stack.Screen name="habits" options={{ headerShown: false }} />
+        <Stack.Screen name="health" options={{ headerShown: false }} />
+        <Stack.Screen name="goals" options={{ headerShown: false }} />
+        <Stack.Screen name="places" options={{ headerShown: false }} />
+        <Stack.Screen name="travel" options={{ headerShown: false }} />
+        <Stack.Screen name="cars" options={{ headerShown: false }} />
+        <Stack.Screen name="movies" options={{ headerShown: false }} />
+        <Stack.Screen name="books" options={{ headerShown: false }} />
+        <Stack.Screen name="music" options={{ headerShown: false }} />
+        <Stack.Screen name="links" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ title: "Conta" }} />
       </Stack>
       <QuickAddFab />
       <QuickAddSheet />
       <AppSidebar />
       <AlertsSheet />
+      <SearchSheet />
+      <ModuleGuideHost />
+      <OnboardingHost />
     </View>
   );
 }

@@ -12,6 +12,16 @@ type TimelineListProps = {
 
 function moduleColor(module: TimelineItem["module"]): string {
   if (module === "tasks") return ModuleColors.productivity;
+  if (module === "cinema") return ModuleColors.entertainment;
+  if (
+    module === "habits" ||
+    module === "goals" ||
+    module === "travel" ||
+    module === "places" ||
+    module === "car"
+  ) {
+    return ModuleColors.life;
+  }
   return ModuleColors.finance;
 }
 

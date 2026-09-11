@@ -218,32 +218,161 @@ link.
       Listas não piscam spinner ao voltar. Card sem sombra iOS pesada.
       Verificação: `npx tsc --noEmit` ✓
 
+### 3g — Subtarefa: prazo e prioridade visíveis
+
+- [x] Lista e kanban mostram prazo e prioridade da subtarefa. Verificação: `npx tsc --noEmit`
+- [x] Form da mãe: editar prazo/prioridade na linha; form da subtarefa com prazo
+      (não além da mãe) e prioridade visível. Verificação: `npx tsc --noEmit`
+
 ### 4 — Vida
 
-- [ ] Hábitos: check-in do dia + faixa da semana. Verificação: check no app = `/habits`
-- [ ] Saúde v1: próxima dose / marcar tomada; lista de tratamentos. Consultas e métricas corporais
-      se couberem sem inflar; senão ficam para prompt seguinte. Verificação: dose marcada some do
-      pendente no web
-- [ ] Metas: lista + progresso. Verificação: meta do web aparece com o mesmo percentual
-- [ ] Lugares / Viagens / Veículos v1: listas + detalhe read-mostly; criar lugar ou viagem completa
-      pode ficar na fatia seguinte se o form web for grande demais. Verificação: viagem existente
-      abre no app com datas e paradas
-- [ ] Hub/Timeline passam a incluir vida. Verificação: hábitos de hoje no hub são acionáveis
+- [x] Hábitos: check-in do dia + faixa da semana. Verificação: `npx tsc --noEmit` ✓
+- [x] Saúde v1: próxima dose / marcar tomada; lista de tratamentos. Consultas e métricas corporais
+      se couberem sem inflar; senão ficam para prompt seguinte. Verificação: `npx tsc --noEmit` ✓
+- [x] Metas: lista + progresso. Verificação: `npx tsc --noEmit` ✓
+- [x] Lugares / Viagens / Veículos v1: listas + detalhe read-mostly; criar lugar ou viagem completa
+      pode ficar na fatia seguinte se o form web for grande demais. Verificação: `npx tsc --noEmit` ✓
+- [x] Hub/Timeline passam a incluir vida. Verificação: hábitos de hoje no hub são acionáveis;
+      `npx tsc --noEmit` ✓
+
+### 4b — Vida, paridade do dia a dia
+
+UI nativa. Sem clone pixel, sem clima/share-card/autocomplete Google, sem lançar
+despesa no ledger de Finanças (fica `transaction_id` nulo). Push de lembrete continua
+fora (063/098). Convite de viagem gera link (`orbyva.app/travel/invite/…`).
+
+- [x] Hábitos: visão mês (heatmap), insights, vínculo com meta, `is_health`.
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Saúde: CRUD de tratamento (materializa doses), consulta, métricas, lembretes.
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Lugares: criar / editar / excluir / marcar visita.
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Viagens: criar / editar / excluir, paradas, roteiro, checklist, gastos, convite.
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Veículos: CRUD do carro, manutenção, abastecimento, documentos.
+      Verificação: `npx tsc --noEmit` ✓
+
+### 4c — Vida, paridade visual e de ações
+
+UI nativa, mesmas ações do web no dia a dia. Sem clima/share-card/autocomplete
+Google, sem rateio de gasto. Push continua fora.
+
+- [x] Saúde: “medicação” (não tratamento); seções com ícone/cor; hábitos de
+      saúde do dia. Verificação: `npx tsc --noEmit` ✓
+- [x] Metas financeiras: destinar valor, rotina em Recorrências, sincronizar
+      do ledger. Verificação: `npx tsc --noEmit` ✓
+- [x] Lugares: só Para visitar / Visitados; busca, tipo, ícones. Verificação:
+      `npx tsc --noEmit` ✓
+- [x] Viagens: cards com countdown, checklist, orçamento; filtros Ativas /
+      Concluídas. Verificação: `npx tsc --noEmit` ✓
+- [x] Veículos: ícones, alertas, consumo, abas no detalhe, editar km.
+      Verificação: `npx tsc --noEmit` ✓
 
 ### 5 — Conteúdo
 
-- [ ] Cinema / Livros / Música / Links v1: listas por status + mudar status. Busca de catálogo
+- [x] Cinema / Livros / Música / Links v1: listas por status + mudar status. Busca de catálogo
       (TMDB / Google Books / Spotify via Edge) na criação, se o CORS/invoke da fundação já
       estiver ok; senão cadastro manual e busca na fatia seguinte. Verificação: filme marcado
       “assistido” no app some de “para assistir” no web
-- [ ] Hub/Timeline incluem conteúdo (ex. último filme). Nenhum tile “Em breve” restante dos cinco
-      grupos. Verificação: grade do hub navega para os cinco grupos nativos
+- [x] Hub/Timeline incluem conteúdo (ex. último filme). Nenhum tile “Em breve”
+      restante dos cinco grupos. Verificação: grade do hub navega para os
+      cinco grupos nativos
+
+### 5b — Conteúdo, paridade do dia a dia
+
+UI nativa. Sem share-card / recap canvas / push de episódio novo.
+
+- [x] Cinema: insights, filtros (tipo/gênero/nota/favorito), detalhe, episódios
+      de série (TMDB se a chave existir). Verificação: `npx tsc --noEmit` ✓
+- [x] Livros: insights, filtros, detalhe, marca-página, notas de leitura.
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Música: insights, filtros, detalhe, notas por faixa (Spotify se o
+      invoke responder). Verificação: `npx tsc --noEmit` ✓
+- [x] Links: filtro por tipo, tags, favorito. Verificação: `npx tsc --noEmit` ✓
 
 ### 6 — Lojas (depois dos módulos, ou após Finanças se quiser TestFlight cedo)
 
 - [ ] EAS: perfil `preview` (TestFlight / Play internal) e `production`. Ícones / splash /
       bundle id (`app.orbyva` ou o que o usuário confirmar). **Não submeter às lojas sem o
       usuário pedir.** Verificação: `eas build --profile preview` gera artefato iOS e Android
+
+### 7 — Início e conta, paridade do web
+
+UI nativa. Sem IAP/Stripe no app (plano só leitura + link orbyva.app/account).
+Sem offline-first. Push remoto (token + Edge) **não entra sem sim** para migration
+e deploy.
+
+- [x] Sino: recorrência, orçamento, tarefas atrasadas, metas, veículos/documentos,
+      episódio novo (TMDB); dispensar e restaurar. Verificação: `npx tsc --noEmit` ✓
+- [x] Busca global no chrome (transações, cinema, livros, música, lugares, viagens,
+      metas, hábitos, veículos, notas). Verificação: `npx tsc --noEmit` ✓
+- [x] Timeline: filtro por módulo + hábitos do dia, lugares visitados, veículos.
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Cartão do mês no Início (share nativo). Verificação: `npx tsc --noEmit` ✓
+- [x] Conta: nome/avatar, Termos/Privacidade, ver plano. Verificação: `npx tsc --noEmit` ✓
+- [x] Exportar CSV, limpar dados, excluir conta. Verificação: `npx tsc --noEmit` ✓
+- [x] Preferências de alerta (quais kinds o sino mostra). Verificação: `npx tsc --noEmit` ✓
+- [x] Convite de amigos (link/share). Verificação: `npx tsc --noEmit` ✓
+- [x] Onboarding (tour + categorias padrão), checklist 1ª tx, guias de módulo,
+      refazer tour. Verificação: `npx tsc --noEmit` ✓
+- [ ] Push nativo (expo-notifications + token). **Só com confirmação** de migration
+      e deploy de Edge. Sem o sim, permanece `[ ]`
+
+### 8 — Finanças, paridade do web
+
+UI nativa. Sem reordenar categorias (o web também não tem).
+
+- [x] Orçamento: criar / editar / excluir teto; sugerir pelos 3 meses; duplicar
+      mês; aplicar nos 12 meses. Verificação: `npx tsc --noEmit`
+- [x] Categorias: editar e excluir categoria e subcategoria. Verificação:
+      `npx tsc --noEmit`
+- [x] Recorrência: editar, arquivar, reativar, excluir, renovar fixa.
+      Verificação: `npx tsc --noEmit`
+- [x] Projeção de recorrências (mês a mês) + simular compra parcelada.
+      Verificação: `npx tsc --noEmit`
+- [x] Projeção: toque na barra (ou na linha) foca o mês e filtra a lista.
+      Verificação: `npx tsc --noEmit`
+- [x] Projeção: toque no mês sem recarregar; haptic + fade no card.
+      Verificação: `npx tsc --noEmit`
+- [x] Cabeçalhos fixos (orçamento, transações, recorrências, categorias)
+      recolhíveis. Verificação: `npx tsc --noEmit`
+
+### 9 — Vida, paridade do web
+
+UI nativa. Push de lembrete continua na tarefa de push (migration). Sem IAP.
+
+- [x] Lugares: autocomplete Google, visita no extrato, histórico.
+      Verificação: `npx tsc --noEmit`
+- [x] Veículos: editar manutenção / abastecimento / documento; lançar no
+      ledger. Verificação: `npx tsc --noEmit`
+- [x] Viagens: gasto (editar, pessoal/conjunto, pagador), rateio, extrato.
+      Verificação: `npx tsc --noEmit`
+- [x] Viagens: aceitar convite, membros (sair / remover).
+      Verificação: `npx tsc --noEmit`
+- [x] Viagens: prazos, editar roteiro (atividade / nota do dia).
+      Verificação: `npx tsc --noEmit`
+- [x] Viagens: clima + mala, rotas entre paradas, cartão para compartilhar.
+      Verificação: `npx tsc --noEmit`
+- [x] Lugares/viagens: busca Google com “perto de mim” (`expo-location`).
+      Sem GPS a busca continua. Verificação: `npx tsc --noEmit`
+
+### 10 — Produtividade, o que ainda faltava no dia a dia
+
+UI nativa. Sem Gantt, Excalidraw, timer Live, Eisenhower, grade da semana,
+biblioteca de ícone, regras regex de link.
+
+- [x] Tarefa ↔ compra ↔ parcela financeira (concluir/reabrir nos dois lados).
+      Verificação: `npx tsc --noEmit`
+- [x] Links externos: preservar comentário; abrir na lista.
+      Verificação: `npx tsc --noEmit`
+- [x] Lista: filtro hoje / prioridade; status rápido no card.
+      Verificação: `npx tsc --noEmit`
+- [x] Recorrência: contagem de ocorrências + mensal por dia da semana.
+      Verificação: `npx tsc --noEmit`
+- [x] Notas: vínculos (tarefa / projeto / meta) + toolbar markdown + share.
+      Verificação: `npx tsc --noEmit`
+- [x] Tags: cor, editar, excluir. Compras: aviso de exclusão em cascata;
+      abrir fornecedor/tarefa; item na categoria. Verificação: `npx tsc --noEmit`
 
 ## Prompts
 
@@ -285,6 +414,45 @@ link.
 - 2026-09-10 — No kanban possibilite o usuário arrastar a task
 - 2026-09-10 — Aplique essas mudanças em tudo
 - 2026-09-10 — To achando meio lento
+- 2026-09-11 — Mas em produtividade não aparece as coisas de subatask, tipo, não dá pra colcoar prazo, não aparece a prioridade quando coloco. Seria interessante aparecer
+- 2026-09-11 — Boa! Agora vamos para o módulo de vida
+- 2026-09-11 — Pode fazer tudo o que faltou de Vida.
+- 2026-09-11 — Saúde
+  - Troque o termo tratamento para medicação
+  - Deixe os grupos de tratamentos, lembretes e etc com uma separação mais evidente, coloque uma corzinha tal sei lá. Veja o que é melhor
+  - Deixe mais parecido com web com os ícones
+
+  Metas
+  - Não ta dando pra fazer aquilo do web né, de destinar valor a meta, criar uma rotina etc.
+
+  Lugares
+  - Não faz sentidos ter o todos, ou já foi visitado ou não.
+  - Deixe mais parecido com web com os ícones, filtros, buscas etc.
+
+  Viagens
+  - Tb deixe mais parecido com o web
+
+  Veículos
+  - Tb deixe mais parecido com o Web.
+
+  Eu to achando q ta mt simples e to sentindo o web mais completo, eu acho que o app tem que mantes as mesmas funcionalidades. Sei que a parte de Produtividade realmente é complexo, mas as outras dá para fazer
+- 2026-09-11 — Faça a parte de conteúdo
+- 2026-09-11 — Passe para o que resta em conteúdo
+- 2026-09-11 — Pq a API não ta pegand ainda? Era para estar no app, está no .env
+- 2026-09-11 — Faça um levantamento dessas coisas do que faz sentido ter e o que não faz com ✅ e ❌
+- 2026-09-11 — Onboarding / tour / guias de módulo
+
+Acho que isso faz sentido, eu posso conhecer, mas novos usuário não. Entende?
+- 2026-09-11 — Certo. Vamos aplicar. Vamos por módulos. Na ordem que vc mandou.
+Inicie a implementação
+- 2026-09-11 — Vamos para finanças
+- 2026-09-11 — Vamos para Vida então
+- 2026-09-11 — Pq isso não está no app? Seria bom, não?
+- 2026-09-11 — Vamos para o que falta em produtividade agorea
+- 2026-09-11 — ERROR [Error: Uncaught (in promise, id: 0) Error: Invalid key provided to SecureStore. Keys must not be empty and contain only alphanumeric characters, ".", "-", and "_".]
+- 2026-09-11 — Permita que o gráfico de projeção seja clicável para filtrar
+- 2026-09-11 — Toda vez dá um novo reload. Tem como ajustar isso? Ter um efeitinho bacana ao invés do reload
+- 2026-09-11 — Ficou muito bom! Acho que esses cabeçalhos que ficam fixos do filtro e tal pode ter a opção de recolher. Para não ocupar mt espaço na tela. Principalmente a de orçamento
 
 ## Notas
 
@@ -421,3 +589,76 @@ link.
   spinner ao voltar. Cards com sombra iOS (radius 16) em cada linha. Agora
   hub lite, reload silencioso, card só com borda, ChipBar sem haptic, kanban
   sem GestureHandlerRootView extra. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Subtarefa no app: lista/kanban mostram prazo e prioridade;
+  no form da mãe a linha edita os dois; o form da filha limita o prazo ao
+  da mãe e esconde recorrência/subtarefas aninhadas. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Vida v1 nativa: hábitos (check-in + faixa Seg–Dom + CRUD simples),
+  saúde (próxima dose/marcar tomada, consulta, tratamentos), metas (lista +
+  barra de progresso), lugares/viagens/veículos (lista + detalhe). Hub checka
+  hábito do dia; timeline inclui dose, meta e viagem. Sem heatmap, sem criar
+  tratamento/lugar/viagem/carro (forms grandes ficam no web). `npx tsc --noEmit` ✓.
+- 2026-09-11 — Vida 4b: paridade do dia a dia. Hábitos ganham mês/insights/meta/`is_health`.
+  Saúde cria tratamento (materializa doses), consulta, métricas e preferência de
+  lembrete (sem push). Lugares/viagens/veículos passam a criar e editar. Ficam no
+  web: autocomplete Google, clima, cartão de share, rateio de gasto e lançamento
+  no ledger (`transaction_id` nulo). Convite de viagem gera link `orbyva.app`.
+  `npx tsc --noEmit` ✓.
+- 2026-09-11 — Vida 4c: Saúde usa “medicação” e seções com ícone/cor; hábitos
+  de saúde do dia. Metas financeiras destinam valor e criam rotina no ledger
+  (diferente de gasto de viagem/carro, que continua sem lançamento). Lugares
+  só Para visitar / Visitados, com busca e ícone de tipo. Viagens e veículos
+  ganham cards/abas mais próximos do web. Sem clima, share-card, autocomplete
+  Google, rateio ou push. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Conteúdo v1 nativo: Cinema/Livros/Música/Links com lista por status,
+  cadastro (catálogo TMDB/Google Books/Spotify-Edge quando a chave/invoke
+  responde; senão na mão) e mudança de status. Hub mostra último filme;
+  timeline inclui assistido/lido/ouvido. Grade do hub sem “Em breve”. Sem
+  episódios TMDB, tags de link, heatmap ou share-card. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Conteúdo 5b: detalhe nativo, insights, filtros, favorito e
+  recomendar. Séries marcam episódio/temporada (TMDB). Livros têm notas de
+  leitura. Álbuns Spotify ciclam nota por faixa. Links ganham tipo, tag e
+  favorito. Share-card e push de episódio novo ficam no web. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Catálogo TMDB/Books no app não lia o `.env` da raiz (`VITE_*`).
+  Expo só enxergava `mobile/.env` e nomes `EXPO_PUBLIC_*`. `app.config.ts`
+  reaproveita as chaves do web e copia para `extra`; `mobile/.env` também
+  recebeu os nomes Expo. Sem restart do Metro a busca continua “indisponível”.
+  `npx tsc --noEmit` ✓.
+- 2026-09-11 — Início e conta (fatia 7): sino com metas/veículos/episódios,
+  dispensar, busca global, timeline com filtro + hábitos/lugares/carros,
+  cartão do mês (Share nativo, sem canvas), conta com perfil/termos/export/
+  wipe/delete/prefs/convite, onboarding e guias. Quem já tem transação não
+  vê o tour. Push remoto continua `[ ]` até sim de migration. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Finanças paridade: teto criar/editar/excluir, duplicar mês,
+  sugestões 3 meses, replicar 12 meses; categorias editar/excluir; recorrência
+  editar/arquivar/reativar/excluir/renovar; aba de projeção com barras e
+  simular parcela (não grava). Sem reordenar categorias. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Vida paridade do web: lugares com Google + visita no extrato +
+  histórico; veículos editam manutenção/abastecimento/documento e lançam no
+  ledger; viagens com gasto pessoal/conjunto, pagador, rateio, extrato, convite
+  (colar token / `orbyva://travel/invite/:token`), membros, prazos, roteiro
+  editável, clima+mala, rotas DRIVE entre paradas e share do resumo. Sem
+  IAP. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Busca de lugares no app pede GPS (`expo-location`) igual ao web:
+  prioriza perto de você; se recusar, a busca segue sem viés. Destino/parada
+  de viagem não pedem (cidade não é “perto de mim”). No Expo Go já funciona;
+  build nativo já gerado precisa rebuild por causa do módulo. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Produtividade, o que ainda faltava: concluir/reabrir sincroniza
+  item de compra e parcela financeira; links guardam comentário e abrem na
+  lista; filtro hoje/prioridade e status no long-press; recorrência com N
+  ocorrências e mensal por dia da semana; notas com vínculo tarefa/projeto/meta,
+  toolbar markdown e share; tags com cor/editar/excluir; compras avisam cascade,
+  abrem fornecedor/tarefa e criam item na categoria. Sem Gantt, Excalidraw,
+  timer, Eisenhower, grade da semana. `npx tsc --noEmit` ✓.
+- 2026-09-11 — SecureStore recusava `orbyva_onboarding_v1:` (o `:`). Adapter
+  sanitiza a chave no native; prefixo do onboarding passou a `_`. Falha do
+  store no tour não vira uncaught. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Projeção: toque na barra (ou na linha do mês) foca aquele
+  mês, destaca o valor e aplica o mesmo filtro na aba Lista.
+  `npx tsc --noEmit` ✓.
+- 2026-09-11 — Toque na projeção não troca mais a janela nem mostra spinner:
+  só destaca o mês, haptic e fade no card. Fetch do ledger fica em
+  background e acumula cache. `npx tsc --noEmit` ✓.
+- 2026-09-11 — Cabeçalhos sticky de Finanças recolhem: mês / aba ficam
+  visíveis; KPIs, busca e chips vão para `CollapsibleChrome` (orçamento
+  começa fechado, com gasto/teto e estouros no hint). Na projeção o
+  toggle some. `npx tsc --noEmit` ✓.

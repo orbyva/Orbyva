@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 
-import { HeaderAlertsButton } from "@/components/chrome/HeaderAlertsButton";
+import { HeaderChromeRight } from "@/components/chrome/HeaderChromeRight";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -15,7 +15,7 @@ export default function ShoppingStackLayout() {
         headerTintColor: theme.text,
         contentStyle: { backgroundColor: theme.background },
         headerLeft: () => <StackHeaderLeft />,
-        headerRight: () => <HeaderAlertsButton />,
+        headerRight: () => <HeaderChromeRight />,
         headerBackVisible: false,
       }}
     >

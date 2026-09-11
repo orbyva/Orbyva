@@ -12,6 +12,30 @@ export interface ValueByTypeMonth {
   total_value: number;
 }
 
+export interface MonthlyBudgetCreateRequest {
+  type_id: number | null;
+  class_id: number | null;
+  budget_month: string;
+  planned_value: number;
+}
+
+export interface MonthlyBudgetUpdateRequest {
+  id: number;
+  type_id?: number | null;
+  class_id?: number | null;
+  budget_month?: string;
+  planned_value?: number;
+}
+
+export interface MonthlyBudgetSuggestion {
+  type_id: number;
+  type_name: string;
+  class_id: number | null;
+  class_name: string | null;
+  suggested_value: number;
+  average_spent: number;
+}
+
 export interface MonthlyBudgetSummary {
   id: number;
   type_id: number;
@@ -19,6 +43,7 @@ export interface MonthlyBudgetSummary {
   class_id: number | null;
   class_name: string | null;
   nature_name: string;
+  budget_month?: string;
   expense_value?: number;
   income_value?: number;
   planned_value: number;

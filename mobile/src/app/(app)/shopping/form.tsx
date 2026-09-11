@@ -40,9 +40,13 @@ export default function ShoppingFormScreen() {
   const { fail } = useFeedback();
   const router = useRouter();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; categoryId?: string }>();
   const editId =
     typeof params.id === "string" && params.id.length > 0 ? params.id : null;
+  const paramCategoryId =
+    typeof params.categoryId === "string" && params.categoryId.length > 0
+      ? params.categoryId
+      : null;
 
   const [title, setTitle] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -82,6 +86,8 @@ export default function ShoppingFormScreen() {
           setCategoryId(item.shopping_category_id ?? NO_CATEGORY);
           const links = await fetchTaskLinksForItems([item.id]);
           if (!cancelled) setLinkedTaskId(links.get(item.id) ?? null);
+        } else if (paramCategoryId) {
+          setCategoryId(paramCategoryId);
         }
       } catch (err) {
         if (!cancelled) {
@@ -95,7 +101,7 @@ export default function ShoppingFormScreen() {
     return () => {
       cancelled = true;
     };
-  }, [editId]);
+  }, [editId, paramCategoryId]);
 
   function parsedQuantity(): number | null {
     const trimmed = quantity.trim().replace(",", ".");
@@ -368,9 +374,16 @@ export default function ShoppingFormScreen() {
             </Pressable>
           ) : null}
           {linkedTaskId ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              Já existe uma tarefa ligada a este item.
-            </ThemedText>
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/tasks/form",
+                  params: { id: linkedTaskId },
+                })
+              }
+            >
+              <ThemedText type="linkPrimary">Abrir tarefa ligada</ThemedText>
+            </Pressable>
           ) : null}
           {editId ? (
             <Pressable disabled={saving} onPress={onDelete}>

@@ -1,6 +1,6 @@
 import { getCurrentUserId } from "@/lib/auth-user";
 import { supabase } from "@/lib/supabase";
-import { buildTaskDraftFromItem } from "@/domain/shopping/taskLink";
+import { buildTaskDraftFromItem, resolveTaskStatusFromItem } from "@/domain/shopping/taskLink";
 import type {
   ShoppingCategory,
   ShoppingItem,
@@ -51,6 +51,7 @@ export async function fetchShoppingItemById(
 export async function createShoppingCategoryApi(input: {
   name: string;
   projectId?: string | null;
+  color?: string | null;
 }): Promise<ShoppingCategory> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
@@ -60,7 +61,7 @@ export async function createShoppingCategoryApi(input: {
         user_id: userId,
         name: input.name,
         description: "",
-        color: null,
+        color: input.color ?? null,
         project_id: input.projectId ?? null,
       },
     ])
@@ -74,6 +75,7 @@ export async function updateShoppingCategoryApi(input: {
   id: string;
   name: string;
   projectId: string | null;
+  color?: string | null;
 }): Promise<void> {
   const userId = await getCurrentUserId();
   const { error } = await supabase
@@ -81,6 +83,7 @@ export async function updateShoppingCategoryApi(input: {
     .update({
       name: input.name,
       project_id: input.projectId,
+      ...(input.color !== undefined ? { color: input.color } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.id)
@@ -174,6 +177,21 @@ export async function setShoppingItemStatusApi(
     .eq("id", id)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
+  try {
+    const taskStatus = resolveTaskStatusFromItem(status);
+    const { error: taskError } = await supabase
+      .from("task")
+      .update({
+        status: taskStatus,
+        completed_at: taskStatus === "done" ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("linked_shopping_item_id", id)
+      .eq("user_id", userId);
+    if (taskError) throw new Error(taskError.message);
+  } catch (syncError) {
+    console.error("Falha ao sincronizar tarefa vinculada ao item:", syncError);
+  }
 }
 
 export async function createTaskFromShoppingItemApi(

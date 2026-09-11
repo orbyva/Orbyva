@@ -16,6 +16,24 @@ export async function fetchExternalLinksForTask(
   return data ?? [];
 }
 
+export async function fetchFirstExternalLinkByTask(): Promise<
+  Record<string, { url: string; comment: string | null }>
+> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("task_external_link")
+    .select("task_id, url, comment, position")
+    .eq("user_id", userId)
+    .order("position", { ascending: true });
+  if (error) throw new Error(error.message);
+  const map: Record<string, { url: string; comment: string | null }> = {};
+  for (const row of data ?? []) {
+    if (!row.task_id || !row.url || map[row.task_id]) continue;
+    map[row.task_id] = { url: row.url, comment: row.comment };
+  }
+  return map;
+}
+
 export async function saveExternalLinksForTask(
   taskId: string,
   drafts: TaskExternalLinkDraft[]
@@ -28,13 +46,12 @@ export async function saveExternalLinksForTask(
     .eq("task_id", taskId);
   if (delError) throw new Error(delError.message);
   const rows = drafts
-    .map((draft) => draft.url.trim())
-    .filter(Boolean)
-    .map((url, position) => ({
+    .filter((draft) => draft.url.trim())
+    .map((draft, position) => ({
       user_id: userId,
       task_id: taskId,
-      url,
-      comment: null,
+      url: draft.url.trim(),
+      comment: draft.comment?.trim() || null,
       position,
     }));
   if (rows.length === 0) return;

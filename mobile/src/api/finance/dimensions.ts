@@ -8,6 +8,7 @@ import type {
   Nature,
   Type,
   TypeCreateRequest,
+  TypeUpdateRequest,
 } from "@/types/dimensions";
 
 function asOne<T>(value: T | T[] | null | undefined): T | null {
@@ -199,6 +200,111 @@ export function classIdsForSearch(
     }
   }
   return ids;
+}
+
+export async function updateTypeApi(
+  updateData: TypeUpdateRequest
+): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { id, ...updateFields } = updateData;
+  const { error } = await supabase
+    .from("type")
+    .update(updateFields)
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (error) throw error;
+}
+
+export async function deleteTypeApi(typeId: number): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { count: classCount, error: classCountError } = await supabase
+    .from("class")
+    .select("id", { count: "exact", head: true })
+    .eq("type_id", typeId)
+    .eq("user_id", userId);
+  if (classCountError) throw classCountError;
+  if ((classCount ?? 0) > 0) {
+    const n = classCount ?? 0;
+    throw new Error(
+      n === 1
+        ? "Esta categoria ainda tem 1 subcategoria. Exclua ou mova essa subcategoria antes de apagar a categoria."
+        : `Esta categoria ainda tem ${n} subcategorias. Exclua ou mova as subcategorias antes de apagar a categoria.`
+    );
+  }
+
+  const { error } = await supabase
+    .from("type")
+    .delete()
+    .eq("id", typeId)
+    .eq("user_id", userId);
+  if (error) {
+    if (String(error.code) === "23503") {
+      throw new Error(
+        "Não é possível excluir esta categoria: ainda há subcategorias ou lançamentos ligados a ela. Remova esses vínculos primeiro."
+      );
+    }
+    throw error;
+  }
+}
+
+export async function deleteClassApi(classId: number): Promise<void> {
+  const userId = await getCurrentUserId();
+
+  const { count: txCount, error: txCountError } = await supabase
+    .from("transaction")
+    .select("id", { count: "exact", head: true })
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+  if (txCountError) throw txCountError;
+  if ((txCount ?? 0) > 0) {
+    const n = txCount ?? 0;
+    throw new Error(
+      n === 1
+        ? "Esta subcategoria está em 1 lançamento. Altere ou exclua esse lançamento antes."
+        : `Esta subcategoria está em ${n} lançamentos. Altere ou exclua esses lançamentos antes.`
+    );
+  }
+
+  const { count: recurringCount, error: recurringError } = await supabase
+    .from("recurring_transaction")
+    .select("id", { count: "exact", head: true })
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+  if (recurringError) throw recurringError;
+  if ((recurringCount ?? 0) > 0) {
+    const n = recurringCount ?? 0;
+    throw new Error(
+      n === 1
+        ? "Esta subcategoria está em 1 recorrência. Altere ou exclua essa recorrência antes."
+        : `Esta subcategoria está em ${n} recorrências. Altere ou exclua essas recorrências antes.`
+    );
+  }
+
+  const { count: budgetCount, error: budgetError } = await supabase
+    .from("monthly_budget")
+    .select("id", { count: "exact", head: true })
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+  if (budgetError) throw budgetError;
+  if ((budgetCount ?? 0) > 0) {
+    throw new Error(
+      "Esta subcategoria está em uso no orçamento. Remova ou altere esses orçamentos antes."
+    );
+  }
+
+  const { error } = await supabase
+    .from("class")
+    .delete()
+    .eq("id", classId)
+    .eq("user_id", userId);
+  if (error) {
+    if (error.code === "23503") {
+      throw new Error(
+        "Não é possível excluir: ainda há registros vinculados a esta subcategoria."
+      );
+    }
+    throw error;
+  }
 }
 
 export async function updateClassApi(

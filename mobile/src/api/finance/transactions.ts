@@ -204,3 +204,40 @@ export async function fetchMostUsedClassIds(
     .slice(0, limit)
     .map(([id]) => id);
 }
+
+const AVULSO_SELECT =
+  "id, value, description, transaction_at, recurring_transaction_id, class:class_id(id, name, type:type_id(name, exclude_from_spend, nature:nature_id(name)))";
+
+export async function fetchAvulsoLedgerInRange(
+  startDate: string,
+  endDate: string
+): Promise<
+  Array<{
+    id: number;
+    value: number;
+    description: string;
+    transaction_at: string;
+    recurring_transaction_id?: string | null;
+    class?: Transaction["class"];
+  }>
+> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("transaction")
+    .select(AVULSO_SELECT)
+    .eq("user_id", userId)
+    .is("recurring_transaction_id", null)
+    .gte("transaction_at", startDate)
+    .lte("transaction_at", endDate)
+    .order("transaction_at", { ascending: true })
+    .limit(1000);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as Array<{
+    id: number;
+    value: number;
+    description: string;
+    transaction_at: string;
+    recurring_transaction_id?: string | null;
+    class?: Transaction["class"];
+  }>;
+}

@@ -25,6 +25,7 @@ export function RecurringList({
   busyId,
   onToggleMonth,
   onToggleInstallment,
+  onManage,
 }: {
   items: Recurring[];
   year: number;
@@ -37,6 +38,7 @@ export function RecurringList({
     installmentNumber: number,
     paid: boolean
   ) => void;
+  onManage?: (rec: Recurring) => void;
 }) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -107,6 +109,11 @@ export function RecurringList({
               </View>
               <ThemedText type="smallBold">{formatBRL(item.value)}</ThemedText>
             </View>
+            {item.status === false ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                Arquivada
+              </ThemedText>
+            ) : null}
 
             {plan ? (
               <View
@@ -130,6 +137,17 @@ export function RecurringList({
             ) : null}
 
             <View style={styles.actions}>
+              {onManage ? (
+                <Pressable
+                  onPress={() => onManage(item)}
+                  style={[
+                    styles.ghost,
+                    { borderColor: theme.backgroundSelected },
+                  ]}
+                >
+                  <ThemedText type="small">Gerir</ThemedText>
+                </Pressable>
+              ) : null}
               <Pressable
                 onPress={() =>
                   setExpanded((prev) => ({ ...prev, [item.id]: !open }))

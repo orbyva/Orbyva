@@ -35,6 +35,7 @@ import { visibleProjects } from "@/domain/tasks/listView";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
+import { openExternalUrl } from "@/lib/url";
 import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
 import type { Project } from "@/types/tasks";
 
@@ -194,27 +195,45 @@ export default function ShoppingScreen() {
           ) : (
             groups.map((group) => (
               <View key={group.key} style={styles.section}>
-                <Pressable
-                  onPress={() => {
-                    if (group.key === "uncategorized") return;
-                    router.push({
-                      pathname: "/shopping/category-form",
-                      params: { id: group.key },
-                    });
-                  }}
-                  style={styles.sectionHead}
-                >
-                  <View
-                    style={[
-                      styles.dot,
-                      { backgroundColor: group.color || theme.textSecondary },
-                    ]}
-                  />
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {group.label}
-                    {group.key === "uncategorized" ? "" : " · editar"}
-                  </ThemedText>
-                </Pressable>
+                <View style={styles.sectionHead}>
+                  <Pressable
+                    onPress={() => {
+                      if (group.key === "uncategorized") return;
+                      router.push({
+                        pathname: "/shopping/category-form",
+                        params: { id: group.key },
+                      });
+                    }}
+                    style={styles.sectionTitle}
+                  >
+                    <View
+                      style={[
+                        styles.dot,
+                        { backgroundColor: group.color || theme.textSecondary },
+                      ]}
+                    />
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
+                      {group.label}
+                      {group.key === "uncategorized" ? "" : " · editar"}
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: "/shopping/form",
+                        params:
+                          group.key === "uncategorized"
+                            ? undefined
+                            : { categoryId: group.key },
+                      })
+                    }
+                    hitSlop={8}
+                  >
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Adicionar
+                    </ThemedText>
+                  </Pressable>
+                </View>
                 <Card>
                   {group.items.map((item, index) => {
                     const purchased = item.status === "purchased";
@@ -274,9 +293,21 @@ export default function ShoppingScreen() {
                           ) : null}
                         </Pressable>
                         {linked ? (
-                          <ThemedText type="small" themeColor="textSecondary">
-                            Tarefa
-                          </ThemedText>
+                          <Pressable
+                            onPress={() => {
+                              const taskId = taskLinks.get(item.id);
+                              if (!taskId) return;
+                              router.push({
+                                pathname: "/tasks/form",
+                                params: { id: taskId },
+                              });
+                            }}
+                            hitSlop={8}
+                          >
+                            <ThemedText type="small" themeColor="textSecondary">
+                              Tarefa
+                            </ThemedText>
+                          </Pressable>
                         ) : (
                           <Pressable
                             disabled={busyId === item.id}
@@ -299,6 +330,16 @@ export default function ShoppingScreen() {
                             </ThemedText>
                           </Pressable>
                         )}
+                        {item.provider_link ? (
+                          <Pressable
+                            onPress={() => openExternalUrl(item.provider_link as string)}
+                            hitSlop={8}
+                          >
+                            <ThemedText type="small" themeColor="textSecondary">
+                              Link
+                            </ThemedText>
+                          </Pressable>
+                        ) : null}
                       </View>
                     );
                   })}
@@ -322,6 +363,12 @@ const styles = StyleSheet.create({
   },
   section: { gap: Spacing.two },
   sectionHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
+  },
+  sectionTitle: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.two,

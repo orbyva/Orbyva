@@ -1,4 +1,4 @@
-import { useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 
-import { createTypeApi, fetchDimensions } from "@/api/finance/dimensions";
+import { createTypeApi, fetchDimensions, updateTypeApi } from "@/api/finance/dimensions";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -32,6 +32,10 @@ export default function CategoryFormScreen() {
   const theme = useTheme();
   const router = useRouter();
   const navigation = useNavigation();
+  const params = useLocalSearchParams<{ id?: string }>();
+  const editIdRaw = Number(Array.isArray(params.id) ? params.id[0] : params.id);
+  const editId = Number.isFinite(editIdRaw) && editIdRaw > 0 ? editIdRaw : null;
+  const isEditing = editId != null;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,15 +47,29 @@ export default function CategoryFormScreen() {
   const load = useCallback(async () => {
     const dims = await fetchDimensions();
     setDimensions(dims);
+    if (isEditing && editId != null) {
+      const found = dims
+        .flatMap((nature) =>
+          nature.types.map((type) => ({ nature, type }))
+        )
+        .find((item) => item.type.id === editId);
+      if (!found) throw new Error("Categoria não encontrada.");
+      setName(found.type.name);
+      setNatureId(found.nature.id);
+      setColor(found.type.hex_color || CATEGORY_COLORS[0]);
+      return;
+    }
     setNatureId((current) => {
       if (current != null && dims.some((n) => n.id === current)) return current;
       return resolveNatureForCreate(dims)?.id ?? null;
     });
-  }, []);
+  }, [editId, isEditing]);
 
   useEffect(() => {
-    navigation.setOptions({ title: "Nova categoria" });
-  }, [navigation]);
+    navigation.setOptions({
+      title: isEditing ? "Editar categoria" : "Nova categoria",
+    });
+  }, [isEditing, navigation]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,15 +108,31 @@ export default function CategoryFormScreen() {
     setSaving(true);
     setError(null);
     try {
-      await createTypeApi({
-        name: trimmed,
-        nature_id: natureId,
-        hex_color: hex,
-        lucide_icon: QUICK_CREATE_TYPE_ICON,
-      });
+      if (isEditing && editId != null) {
+        await updateTypeApi({
+          id: editId,
+          name: trimmed,
+          nature_id: natureId,
+          hex_color: hex,
+        });
+      } else {
+        await createTypeApi({
+          name: trimmed,
+          nature_id: natureId,
+          hex_color: hex,
+          lucide_icon: QUICK_CREATE_TYPE_ICON,
+        });
+      }
       router.back();
     } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível criar a categoria."));
+      setError(
+        getErrorMessage(
+          err,
+          isEditing
+            ? "Não foi possível salvar a categoria."
+            : "Não foi possível criar a categoria."
+        )
+      );
     } finally {
       setSaving(false);
     }

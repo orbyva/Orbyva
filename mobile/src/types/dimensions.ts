@@ -33,6 +33,10 @@ export interface TypeCreateRequest {
   exclude_from_spend?: boolean;
 }
 
+export interface TypeUpdateRequest extends Partial<TypeCreateRequest> {
+  id: number;
+}
+
 export interface ClassCreateRequest {
   name: string;
   type_id: number;

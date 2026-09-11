@@ -8,7 +8,8 @@ import {
   View,
 } from "react-native";
 
-import { fetchFinanceTimeline } from "@/api/timeline";
+import { fetchFinanceTimeline, TIMELINE_MODULE_LABELS } from "@/api/timeline";
+import { ChipBar } from "@/components/ChipBar";
 import { TimelineList } from "@/components/TimelineList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -18,7 +19,7 @@ import { groupTimelineByDate } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
-import type { TimelineItem } from "@/types/timeline";
+import type { TimelineItem, TimelineModule } from "@/types/timeline";
 
 export default function TimelineScreen() {
   const theme = useTheme();
@@ -28,6 +29,7 @@ export default function TimelineScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<TimelineItem[]>([]);
+  const [filter, setFilter] = useState<TimelineModule | "all">("all");
   const hasLoaded = useRef(false);
 
   const load = useCallback(async () => {
@@ -59,7 +61,22 @@ export default function TimelineScreen() {
     }, [load])
   );
 
-  const grouped = useMemo(() => groupTimelineByDate(items), [items]);
+  const filtered = useMemo(
+    () => (filter === "all" ? items : items.filter((item) => item.module === filter)),
+    [filter, items]
+  );
+  const grouped = useMemo(() => groupTimelineByDate(filtered), [filtered]);
+  const filterOptions = useMemo(() => {
+    const present = new Set(items.map((item) => item.module));
+    const modules: Array<TimelineModule | "all"> = ["all"];
+    for (const key of Object.keys(TIMELINE_MODULE_LABELS) as TimelineModule[]) {
+      if (present.has(key)) modules.push(key);
+    }
+    return modules.map((id) => ({
+      id,
+      label: id === "all" ? "Todos" : TIMELINE_MODULE_LABELS[id],
+    }));
+  }, [items]);
 
   async function onRefresh() {
     setRefreshing(true);
@@ -96,9 +113,11 @@ export default function TimelineScreen() {
         }
       >
         <ThemedText themeColor="textSecondary">
-          Parcelas em aberto e tarefas com prazo. Vida e conteúdo entram na
-          próxima fatia.
+          Parcelas, tarefas, hábitos, veículos, lugares e viagens no mesmo calendário.
         </ThemedText>
+        {filterOptions.length > 1 ? (
+          <ChipBar options={filterOptions} value={filter} onChange={setFilter} />
+        ) : null}
         <Banner message={error} />
         {grouped.length === 0 ? (
           <ThemedText

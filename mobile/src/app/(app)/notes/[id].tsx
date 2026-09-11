@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   TextInput,
   View,
@@ -20,11 +21,13 @@ import {
 import { fetchProjects } from "@/api/tasks/projects";
 import { ChipBar } from "@/components/ChipBar";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
+import { NoteLinksSection } from "@/components/NoteLinksSection";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
+import { prefixLines, wrapInline } from "@/domain/notes/markdown";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
@@ -65,6 +68,7 @@ export default function NoteEditorScreen() {
   const savingRef = useRef(false);
   const pendingRef = useRef(false);
   const persistRef = useRef<() => Promise<void>>(async () => {});
+  const selectionRef = useRef({ start: 0, end: 0 });
 
   const load = useCallback(async () => {
     if (!noteId) throw new Error("Nota não encontrada.");
@@ -197,6 +201,36 @@ export default function NoteEditorScreen() {
     scheduleSave();
   }
 
+  function applyWrap(left: string, right?: string) {
+    const next = wrapInline(contentRef.current, selectionRef.current, left, right);
+    onContentChange(next.text);
+  }
+
+  function applyPrefix(prefix: string) {
+    const next = prefixLines(contentRef.current, selectionRef.current, prefix);
+    onContentChange(next.text);
+  }
+
+  async function onShare() {
+    const body = [titleRef.current.trim(), contentRef.current.trim()]
+      .filter(Boolean)
+      .join("\n\n");
+    if (!body) {
+      Alert.alert("Nota vazia", "Escreva algo para compartilhar.");
+      return;
+    }
+    try {
+      await persist();
+      await Share.share(
+        Platform.OS === "ios"
+          ? { title: titleRef.current.trim() || "Nota", message: body }
+          : { message: body, title: titleRef.current.trim() || "Nota" }
+      );
+    } catch {
+      // usuário cancelou
+    }
+  }
+
   function onDelete() {
     if (!noteId) return;
     Alert.alert("Excluir nota", "Essa ação não tem volta.", [
@@ -278,6 +312,7 @@ export default function NoteEditorScreen() {
             </ThemedText>
             <ThemedText>{projectName}</ThemedText>
           </Pressable>
+          {noteId ? <NoteLinksSection noteId={noteId} /> : null}
           <TextInput
             placeholder="Título"
             placeholderTextColor={theme.textSecondary}
@@ -302,17 +337,51 @@ export default function NoteEditorScreen() {
               <MarkdownPreview text={content} />
             </ScrollView>
           ) : (
-            <TextInput
-              multiline
-              placeholder="Escreva em markdown…"
-              placeholderTextColor={theme.textSecondary}
-              style={[styles.bodyInput, inputStyle]}
-              value={content}
-              onChangeText={onContentChange}
-              textAlignVertical="top"
-              editable={!deleting}
-            />
+            <>
+              <View style={styles.toolbar}>
+                <Pressable
+                  onPressIn={() => applyWrap("**")}
+                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                >
+                  <ThemedText type="smallBold">N</ThemedText>
+                </Pressable>
+                <Pressable
+                  onPressIn={() => applyWrap("*")}
+                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                >
+                  <ThemedText type="smallBold">I</ThemedText>
+                </Pressable>
+                <Pressable
+                  onPressIn={() => applyPrefix("- ")}
+                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                >
+                  <ThemedText type="smallBold">Lista</ThemedText>
+                </Pressable>
+                <Pressable
+                  onPressIn={() => applyPrefix("- [ ] ")}
+                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                >
+                  <ThemedText type="smallBold">Check</ThemedText>
+                </Pressable>
+              </View>
+              <TextInput
+                multiline
+                placeholder="Escreva em markdown…"
+                placeholderTextColor={theme.textSecondary}
+                style={[styles.bodyInput, inputStyle]}
+                value={content}
+                onChangeText={onContentChange}
+                onSelectionChange={(event) => {
+                  selectionRef.current = event.nativeEvent.selection;
+                }}
+                textAlignVertical="top"
+                editable={!deleting}
+              />
+            </>
           )}
+          <Pressable disabled={deleting} onPress={() => void onShare()}>
+            <ThemedText type="linkPrimary">Compartilhar</ThemedText>
+          </Pressable>
           <Pressable disabled={deleting} onPress={onDelete}>
             <ThemedText style={styles.error}>Excluir nota</ThemedText>
           </Pressable>
@@ -370,5 +439,11 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   preview: { paddingVertical: 12, paddingBottom: 24 },
+  toolbar: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tool: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   error: { color: "#E11D48", textAlign: "center" },
 });

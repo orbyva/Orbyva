@@ -24,6 +24,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
 import { Spacing } from "@/constants/theme";
+import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
@@ -39,6 +40,7 @@ export default function ShoppingCategoryFormScreen() {
     typeof params.id === "string" && params.id.length > 0 ? params.id : null;
 
   const [name, setName] = useState("");
+  const [color, setColor] = useState<string>(CATEGORY_COLORS[0]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -72,6 +74,7 @@ export default function ShoppingCategoryFormScreen() {
           if (!category) throw new Error("Categoria não encontrada.");
           setName(category.name);
           setProjectId(category.project_id ?? null);
+          setColor(category.color || CATEGORY_COLORS[0]);
         }
       } catch (err) {
         if (!cancelled) {
@@ -103,9 +106,10 @@ export default function ShoppingCategoryFormScreen() {
           id: editId,
           name: trimmed,
           projectId,
+          color,
         });
       } else {
-        await createShoppingCategoryApi({ name: trimmed, projectId });
+        await createShoppingCategoryApi({ name: trimmed, projectId, color });
       }
       router.back();
     } catch (err) {
@@ -126,7 +130,7 @@ export default function ShoppingCategoryFormScreen() {
     if (!editId) return;
     Alert.alert(
       "Excluir categoria",
-      "Os itens desta categoria ficam sem categoria.",
+      "Os itens desta categoria também são excluídos.",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -210,6 +214,25 @@ export default function ShoppingCategoryFormScreen() {
               <ThemedText>{projectName}</ThemedText>
             </Pressable>
           </View>
+          <View style={styles.field}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Cor
+            </ThemedText>
+            <View style={styles.colors}>
+              {CATEGORY_COLORS.map((swatch) => (
+                <Pressable
+                  key={swatch}
+                  onPress={() => setColor(swatch)}
+                  style={[
+                    styles.colorDot,
+                    { backgroundColor: swatch },
+                    color.toLowerCase() === swatch.toLowerCase() &&
+                      styles.colorDotOn,
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
           <Pressable
             disabled={saving}
             onPress={() => void onSave()}
@@ -271,4 +294,13 @@ const styles = StyleSheet.create({
   },
   primaryLabel: { color: "#0B0F1A" },
   error: { color: "#E11D48", textAlign: "center" },
+  colors: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  colorDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  colorDotOn: { borderColor: "#0B0F1A" },
 });

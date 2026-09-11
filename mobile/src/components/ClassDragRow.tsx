@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { memo, useMemo, useRef } from "react";
-import { StyleSheet } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -20,6 +20,7 @@ export const ClassDragRow = memo(function ClassDragRow({
   ghostVisible,
   onDragStart,
   onDragEnd,
+  onMenu,
 }: {
   id: number;
   name: string;
@@ -29,6 +30,7 @@ export const ClassDragRow = memo(function ClassDragRow({
   ghostVisible: SharedValue<number>;
   onDragStart: (id: number) => void;
   onDragEnd: (id: number, x: number, y: number) => void;
+  onMenu?: (id: number) => void;
 }) {
   const theme = useTheme();
   const live = useSharedValue(0);
@@ -75,33 +77,45 @@ export const ClassDragRow = memo(function ClassDragRow({
   );
 
   return (
-    <GestureDetector gesture={pan}>
-      <Animated.View
-        style={[
-          styles.row,
-          {
-            backgroundColor: theme.background,
-            borderColor: theme.backgroundSelected,
-            opacity: dragging ? 0.35 : 1,
-          },
-        ]}
-      >
-        <Animated.View style={styles.handle}>
+    <View style={styles.wrap}>
+      <GestureDetector gesture={pan}>
+        <Animated.View
+          style={[
+            styles.row,
+            {
+              backgroundColor: theme.background,
+              borderColor: theme.backgroundSelected,
+              opacity: dragging ? 0.35 : 1,
+            },
+          ]}
+        >
+          <Animated.View style={styles.handle}>
+            <Ionicons
+              name="reorder-three-outline"
+              size={22}
+              color={theme.textSecondary}
+            />
+          </Animated.View>
+          <ThemedText type="small" style={styles.name}>
+            {name}
+          </ThemedText>
+        </Animated.View>
+      </GestureDetector>
+      {onMenu ? (
+        <Pressable onPress={() => onMenu(id)} hitSlop={8} style={styles.menu}>
           <Ionicons
-            name="reorder-three-outline"
-            size={22}
+            name="ellipsis-horizontal"
+            size={18}
             color={theme.textSecondary}
           />
-        </Animated.View>
-        <ThemedText type="small" style={styles.name}>
-          {name}
-        </ThemedText>
-      </Animated.View>
-    </GestureDetector>
+        </Pressable>
+      ) : null}
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
+  wrap: { flexDirection: "row", alignItems: "center", gap: 4 },
   row: {
     minHeight: 40,
     borderWidth: 1,
@@ -110,7 +124,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    flex: 1,
   },
   handle: { paddingHorizontal: 8, paddingVertical: 8 },
   name: { flex: 1 },
+  menu: { paddingHorizontal: 8, paddingVertical: 8 },
 });
