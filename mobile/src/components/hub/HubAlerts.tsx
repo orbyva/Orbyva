@@ -8,10 +8,10 @@ import { useTheme } from "@/hooks/use-theme";
 type HubAlertsProps = {
   alerts: AppAlert[];
   extraCount: number;
-  onOpen: () => void;
+  onPressItem: (alert: AppAlert) => void;
 };
 
-export function HubAlerts({ alerts, extraCount, onOpen }: HubAlertsProps) {
+export function HubAlerts({ alerts, extraCount, onPressItem }: HubAlertsProps) {
   const theme = useTheme();
   const priority = alerts
     .filter((a) => a.severity === "danger" || a.severity === "warning")
@@ -45,7 +45,7 @@ export function HubAlerts({ alerts, extraCount, onOpen }: HubAlertsProps) {
           {priority.map((alert) => (
             <Pressable
               key={alert.id}
-              onPress={onOpen}
+              onPress={() => onPressItem(alert)}
               style={[
                 styles.row,
                 alert.severity === "danger"

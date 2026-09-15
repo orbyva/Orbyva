@@ -41,6 +41,8 @@ export interface Vehicle {
   color?: string | null;
   current_km: number;
   fuel_type?: FuelType | null;
+  purchase_date?: string | null;
+  purchase_value?: number | null;
   notes?: string | null;
 }
 

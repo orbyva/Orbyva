@@ -2,7 +2,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,9 +9,7 @@ import {
 } from "react-native";
 
 import {
-  budgetMonthIso,
   fetchMonthLedger,
-  fetchMonthlyBudgetSummary,
   fetchRecurringForDashboard,
   fetchValueByNatureForMonth,
   fetchValueByNatureYearMonth,
@@ -23,6 +20,7 @@ import {
   DonutChart,
   type DonutSlice,
 } from "@/components/charts/DonutChart";
+import { ChipBar } from "@/components/ChipBar";
 import { NatureLineChart } from "@/components/charts/NatureLineChart";
 import { MonthLedger } from "@/components/MonthLedger";
 import { ThemedText } from "@/components/themed-text";
@@ -33,18 +31,22 @@ import {
   buildMomTrends,
   previousYearMonth,
 } from "@/domain/finance/insights";
-import { getRecurringDueAlerts } from "@/domain/recurring/alerts";
+import {
+  calculateCommittedThisMonth,
+  calculateProjectedMonthBalance,
+  getRecurringDueAlerts,
+} from "@/domain/recurring/alerts";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
+import { tintedSurface } from "@/lib/color";
 import { formatBRL } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
-import {
-  sumExpenseBudgetCeiling,
-  type LedgerTransaction,
-  type ValueByNatureYearMonth,
-  type ValueByTypeMonth,
+import type {
+  LedgerTransaction,
+  ValueByNatureYearMonth,
+  ValueByTypeMonth,
 } from "@/types/finance";
-import type { RecurringDueAlert } from "@/types/recurring";
+import type { Recurring, RecurringDueAlert } from "@/types/recurring";
 
 const now = new Date();
 const YEAR = now.getFullYear();
@@ -77,7 +79,7 @@ export default function FinanceDashboardScreen() {
   const [despesa, setDespesa] = useState(0);
   const [prevReceita, setPrevReceita] = useState<number | null>(null);
   const [prevDespesa, setPrevDespesa] = useState<number | null>(null);
-  const [ceiling, setCeiling] = useState<number | null>(null);
+  const [recurring, setRecurring] = useState<Recurring[]>([]);
   const [byType, setByType] = useState<ValueByTypeMonth[]>([]);
   const [series, setSeries] = useState<ValueByNatureYearMonth[]>([]);
   const [alerts, setAlerts] = useState<RecurringDueAlert[]>([]);
@@ -87,12 +89,11 @@ export default function FinanceDashboardScreen() {
   const load = useCallback(async () => {
     setError(null);
     const prev = previousYearMonth(YEAR, MONTH);
-    const [current, previous, types, budgets, recurring, history, monthTxs] =
+    const [current, previous, types, recs, history, monthTxs] =
       await Promise.all([
         fetchValueByNatureForMonth(YEAR, MONTH),
         fetchValueByNatureForMonth(prev.year, prev.month),
         fetchValueByTypeForMonth(YEAR, MONTH),
-        fetchMonthlyBudgetSummary(budgetMonthIso(YEAR, MONTH)),
         fetchRecurringForDashboard(),
         fetchValueByNatureYearMonth(),
         fetchMonthLedger(YEAR, MONTH),
@@ -102,8 +103,8 @@ export default function FinanceDashboardScreen() {
     setPrevReceita(previous ? previous.receita_total : null);
     setPrevDespesa(previous ? previous.despesa_total : null);
     setByType(types);
-    setCeiling(sumExpenseBudgetCeiling(budgets));
-    setAlerts(getRecurringDueAlerts(recurring));
+    setRecurring(recs);
+    setAlerts(getRecurringDueAlerts(recs));
     setSeries(history);
     setLedger(monthTxs);
   }, []);
@@ -133,6 +134,16 @@ export default function FinanceDashboardScreen() {
   );
 
   const saldo = receita - despesa;
+  const committed = useMemo(
+    () =>
+      calculateCommittedThisMonth(recurring, new Date(YEAR, MONTH - 1, 15)),
+    [recurring]
+  );
+  const projected = useMemo(
+    () =>
+      calculateProjectedMonthBalance({ receita, despesa }, committed),
+    [receita, despesa, committed]
+  );
   const mom = useMemo(
     () =>
       buildMomTrends(
@@ -145,7 +156,6 @@ export default function FinanceDashboardScreen() {
     [receita, despesa, prevReceita, prevDespesa]
   );
 
-  const overBudget = ceiling != null && ceiling > 0 && despesa > ceiling;
   const despesaSlices = useMemo(
     () => slicesForNature(byType, "Despesa"),
     [byType]
@@ -210,73 +220,36 @@ export default function FinanceDashboardScreen() {
       >
         <Banner message={error} />
 
-        <View style={styles.actions}>
-          <Pressable
-            onPress={() => router.push("/finance/transactions")}
-            style={[
-              styles.actionBtn,
-              { backgroundColor: theme.backgroundElement },
-            ]}
-          >
-            <ThemedText type="smallBold">Transações</ThemedText>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push("/finance/recurring")}
-            style={[
-              styles.actionBtn,
-              { backgroundColor: theme.backgroundElement },
-            ]}
-          >
-            <ThemedText type="smallBold">Recorrências</ThemedText>
-          </Pressable>
-        </View>
-        <View style={styles.actions}>
-          <Pressable
-            onPress={() => router.push("/finance/budget")}
-            style={[
-              styles.actionBtn,
-              { backgroundColor: theme.backgroundElement },
-            ]}
-          >
-            <ThemedText type="smallBold">Orçamento</ThemedText>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push("/finance/categories")}
-            style={[
-              styles.actionBtn,
-              { backgroundColor: theme.backgroundElement },
-            ]}
-          >
-            <ThemedText type="smallBold">Categorias</ThemedText>
-          </Pressable>
-        </View>
-
         <View style={styles.kpiRow}>
           <Kpi
-            label="Saldo"
-            value={formatBRL(saldo)}
-            hint={mom.saldo}
-            theme={theme}
+            label="Receita"
+            value={formatBRL(receita)}
+            hint={mom.receita}
+            accent={theme.success}
           />
           <Kpi
             label="Despesa"
             value={formatBRL(despesa)}
             hint={mom.despesa}
-            theme={theme}
+            accent={theme.danger}
           />
         </View>
-        <Kpi
-          label="Teto do mês"
-          value={ceiling != null ? formatBRL(ceiling) : "Sem orçamento"}
-          hint={
-            overBudget
-              ? "Estourou o teto"
-              : ceiling
-                ? `${formatBRL(Math.max(0, ceiling - despesa))} restantes`
-                : undefined
-          }
-          theme={theme}
-        />
+        <View style={styles.kpiRow}>
+          <Kpi
+            label="Saldo"
+            value={formatBRL(saldo)}
+            hint={mom.saldo}
+            accent={saldo < 0 ? theme.danger : theme.primary}
+          />
+          <Kpi
+            label="Saldo previsto"
+            value={formatBRL(projected.projectedBalance)}
+            hint={`A pagar: ${formatBRL(committed.pay)} · A receber: ${formatBRL(committed.receive)}`}
+            accent={
+              projected.projectedBalance < 0 ? theme.danger : theme.success
+            }
+          />
+        </View>
 
         {alerts.length > 0 ? (
           <View style={styles.block}>
@@ -295,32 +268,14 @@ export default function FinanceDashboardScreen() {
 
         <View style={styles.block}>
           <ThemedText type="smallBold">Por categoria</ThemedText>
-          <View style={styles.tabs}>
-            <Pressable
-              onPress={() => selectDonutTab("despesa")}
-              style={[
-                styles.tab,
-                { backgroundColor: theme.backgroundElement },
-                donutTab === "despesa" && {
-                  backgroundColor: theme.backgroundSelected,
-                },
-              ]}
-            >
-              <ThemedText type="smallBold">Despesas</ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() => selectDonutTab("receita")}
-              style={[
-                styles.tab,
-                { backgroundColor: theme.backgroundElement },
-                donutTab === "receita" && {
-                  backgroundColor: theme.backgroundSelected,
-                },
-              ]}
-            >
-              <ThemedText type="smallBold">Receitas</ThemedText>
-            </Pressable>
-          </View>
+          <ChipBar
+            options={[
+              { id: "despesa", label: "Despesas" },
+              { id: "receita", label: "Receitas" },
+            ]}
+            value={donutTab}
+            onChange={selectDonutTab}
+          />
           <ThemedText type="small" themeColor="textSecondary">
             Toque uma fatia para ver o valor e filtrar o extrato.
           </ThemedText>
@@ -375,19 +330,24 @@ function Kpi({
   label,
   value,
   hint,
-  theme,
+  accent,
 }: {
   label: string;
   value: string;
   hint?: string | null;
-  theme: { backgroundElement: string };
+  accent: string;
 }) {
   return (
-    <View style={[styles.kpi, { backgroundColor: theme.backgroundElement }]}>
-      <ThemedText type="small" themeColor="textSecondary">
+    <View style={[styles.kpi, tintedSurface(accent)]}>
+      <ThemedText
+        type="smallBold"
+        style={[styles.kpiLabel, { color: accent, borderBottomColor: accent }]}
+      >
         {label}
       </ThemedText>
-      <ThemedText type="smallBold">{value}</ThemedText>
+      <ThemedText type="smallBold" style={[styles.kpiValue, { color: accent }]}>
+        {value}
+      </ThemedText>
       {hint ? (
         <ThemedText type="small" themeColor="textSecondary">
           {hint}
@@ -401,22 +361,21 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  actions: { flexDirection: "row", gap: Spacing.two },
-  actionBtn: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 12,
-    borderRadius: 999,
-  },
   kpiRow: { flexDirection: "row", gap: Spacing.two },
-  kpi: { flex: 1, borderRadius: 16, padding: Spacing.three, gap: 4 },
-  block: { gap: Spacing.two },
-  tabs: { flexDirection: "row", gap: Spacing.two },
-  tab: {
+  kpi: {
     flex: 1,
-    alignItems: "center",
-    paddingVertical: 10,
-    borderRadius: 999,
+    borderRadius: 16,
+    padding: Spacing.three,
+    gap: 6,
+    borderWidth: 1,
   },
+  kpiLabel: {
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    borderBottomWidth: 2,
+    paddingBottom: 6,
+  },
+  kpiValue: { fontSize: 18, lineHeight: 24 },
+  block: { gap: Spacing.two },
   error: { color: "#E11D48" },
 });

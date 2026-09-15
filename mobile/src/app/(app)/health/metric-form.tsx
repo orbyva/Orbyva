@@ -15,6 +15,7 @@ import { recordHealthMetric } from "@/api/health/health";
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { METRIC_LABEL, METRIC_TYPES, METRIC_UNIT } from "@/domain/health/metrics";
@@ -126,19 +127,13 @@ export default function MetricFormScreen() {
               onChangeText={setNotes}
             />
           </Field>
-          <Pressable
+          <FormButton
+            label="Registrar medição"
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                Registrar medição
-              </ThemedText>
-            )}
-          </Pressable>
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>

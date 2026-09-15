@@ -41,3 +41,14 @@ export function prefixLines(
     end: lineStart + prefixed.length,
   };
 }
+
+export function insertAt(
+  text: string,
+  range: TextRange,
+  insertion: string
+): { text: string; start: number; end: number } {
+  const { start, end } = clampRange(text, range.start, range.end);
+  const next = `${text.slice(0, start)}${insertion}${text.slice(end)}`;
+  const caret = start + insertion.length;
+  return { text: next, start: caret, end: caret };
+}

@@ -24,6 +24,8 @@ import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
+import { FormBlock } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { formatMoneyInput, moneyFromDigits } from "@/lib/currency";
@@ -225,6 +227,7 @@ export default function BudgetFormScreen() {
         >
           <Banner message={error} />
 
+          <FormBlock title="Classificação">
           {parentOnly ? (
             <Field label="Categoria">
               <ThemedText type="smallBold">{typeLabel ?? "Categoria"}</ThemedText>
@@ -245,7 +248,9 @@ export default function BudgetFormScreen() {
               />
             </Field>
           )}
+          </FormBlock>
 
+          <FormBlock title="Detalhes">
           <Field label="Valor planejado" required>
             <TextInput
               keyboardType="number-pad"
@@ -285,31 +290,28 @@ export default function BudgetFormScreen() {
               </View>
             </Pressable>
           ) : null}
+          </FormBlock>
 
-          <Pressable
+          <FormButton
+            label={
+              isEditing
+                ? "Salvar alterações"
+                : applyAllMonths
+                  ? `Salvar nos 12 meses de ${year}`
+                  : "Adicionar orçamento"
+            }
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {isEditing
-                  ? "Salvar alterações"
-                  : applyAllMonths
-                    ? `Salvar nos 12 meses de ${year}`
-                    : "Adicionar orçamento"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
 
           {isEditing ? (
-            <Pressable onPress={onDelete} style={styles.danger}>
-              <ThemedText type="smallBold" style={styles.dangerLabel}>
-                Excluir teto
-              </ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir teto"
+              tone="danger"
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

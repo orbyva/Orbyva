@@ -11,7 +11,7 @@ export function CoverThumb({
 }: {
   uri?: string | null;
   fallback: string;
-  variant?: "poster" | "square" | "hero";
+  variant?: "poster" | "square" | "hero" | "list";
 }) {
   const theme = useTheme();
   const size =
@@ -19,7 +19,9 @@ export function CoverThumb({
       ? styles.square
       : variant === "hero"
         ? styles.hero
-        : styles.poster;
+        : variant === "list"
+          ? styles.list
+          : styles.poster;
   if (uri) {
     return <Image source={{ uri }} style={[styles.base, size]} />;
   }
@@ -40,6 +42,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   poster: { width: 48, height: 72 },
-  square: { width: 56, height: 56 },
+  list: { width: 88, height: 132 },
+  square: { width: 88, height: 88 },
   hero: { width: 96, height: 144 },
 });

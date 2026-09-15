@@ -63,6 +63,13 @@
         {
           "locationWhenInUsePermission": "O Orbyva usa sua localização para priorizar lugares próximos na busca."
         }
+      ],
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Orbyva usa uma foto da galeria no card de compartilhar."
+        }
       ]
     ],
     "experiments": {

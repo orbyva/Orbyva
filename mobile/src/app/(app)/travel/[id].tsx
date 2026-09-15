@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 
+import { fetchPlaces } from "@/api/places/places";
 import {
   leaveTrip,
   listTripMembers,
@@ -39,6 +40,8 @@ import {
   updateItineraryDayNotes,
   updateTripMilestone,
 } from "@/api/travel/travel";
+import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
+import { TripShareStoryCard } from "@/components/share/TripShareStoryCard";
 import { ChipBar } from "@/components/ChipBar";
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
@@ -55,6 +58,7 @@ import {
   MILESTONE_TYPE_LABELS,
   TRIP_STATUS_LABELS,
 } from "@/domain/travel";
+import { buildTripShareText } from "@/domain/share";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
@@ -63,6 +67,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { fetchTravelRoutes, type RouteLegResult } from "@/lib/googleRoutes";
 import { fetchDailyForecast, type WeatherForecast } from "@/lib/googleWeather";
 import { getTripAccess, type TripAccess } from "@/lib/tripAccess";
+import type { PlaceVisit } from "@/types/places";
 import type {
   Trip,
   TripChecklistCategory,
@@ -144,6 +149,8 @@ export default function TripDetailScreen() {
   const [milestoneType, setMilestoneType] =
     useState<TripMilestoneType>("flight");
   const [milestoneDate, setMilestoneDate] = useState(getTodayIso());
+  const [shareOpen, setShareOpen] = useState(false);
+  const [tripPlaces, setTripPlaces] = useState<PlaceVisit[]>([]);
 
   const load = useCallback(async () => {
     const [
@@ -270,20 +277,13 @@ export default function TripDetailScreen() {
 
   async function shareTrip() {
     if (!trip) return;
-    const lines = [
-      trip.title,
-      trip.destination,
-      `${formatDateBR(trip.start_date)} – ${formatDateBR(trip.end_date)}`,
-      stops.length
-        ? `Paradas: ${stops.map((s) => s.name).join(" → ")}`
-        : null,
-      spent > 0 ? `Gastos ${formatBRL(spent)}` : null,
-    ].filter(Boolean);
     try {
-      await Share.share({ message: lines.join("\n") });
-    } catch (err) {
-      fail(getErrorMessage(err, "Não foi possível compartilhar."));
+      const all = await fetchPlaces();
+      setTripPlaces(all.filter((place) => place.trip_id === id));
+    } catch {
+      setTripPlaces([]);
     }
+    setShareOpen(true);
   }
 
   if (loading && !trip) {
@@ -1024,6 +1024,25 @@ export default function TripDetailScreen() {
           </>
         ) : null}
       </ScrollView>
+      {trip ? (
+        <OpinionShareSheet
+          visible={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title={trip.title}
+          sheetTitle="Compartilhar viagem"
+          hasNotes={false}
+          allowPhoto
+          maxPhotos={4}
+          message={() => buildTripShareText(trip, tripPlaces)}
+          renderCard={({ photoUris }) => (
+            <TripShareStoryCard
+              trip={trip}
+              places={tripPlaces}
+              photoUris={photoUris}
+            />
+          )}
+        />
+      ) : null}
     </ThemedView>
   );
 }

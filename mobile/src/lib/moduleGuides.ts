@@ -124,7 +124,7 @@ export const MODULE_GUIDES: Record<ModuleGuideId, ModuleGuideConfig> = {
       },
       {
         title: "Metas financeiras ↔ saldo + categoria Meta",
-        body: "Destinar valor = aporte avulso (natureza Investimento → categoria Meta → subcategoria = nome da meta). Rotina em Recorrências: você informa o valor planejado por mês; o app calcula a falta atual da meta e cria as parcelas (falta ÷ aporte). Com prazo, o valor mensal vem sugerido.",
+        body: "Destinar valor = aporte avulso (natureza Investimento → categoria Meta → subcategoria = nome da meta). Aportes mensais em Recorrências: você informa o valor planejado por mês; o app calcula a falta atual da meta e cria as parcelas (falta ÷ aporte). Com prazo, o valor mensal vem sugerido.",
       },
     ],
   },

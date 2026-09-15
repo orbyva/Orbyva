@@ -35,7 +35,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { fail } = useFeedback();
-  const { bottomInset, setAlertsOpen } = useAppShell();
+  const { bottomInset } = useAppShell();
   const first = firstNameFromUser(user);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -217,9 +217,7 @@ export default function HomeScreen() {
         <HubAlerts
           alerts={bundle?.alerts ?? []}
           extraCount={extraAlerts}
-          onOpen={() => {
-            setAlertsOpen(true);
-          }}
+          onPressItem={(alert) => router.navigate(alert.href)}
         />
 
         {bundle ? (
@@ -236,6 +234,7 @@ export default function HomeScreen() {
 
         <HubUpcoming
           items={bundle?.upcoming ?? []}
+          recent={bundle?.recent ?? []}
           onOpenTimeline={() => router.navigate("/timeline")}
           onOpenItem={openItem}
         />

@@ -22,6 +22,7 @@ import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { GOAL_CATEGORY_LABELS } from "@/domain/goals";
 import { getTodayIso } from "@/domain/habits";
@@ -286,23 +287,20 @@ export default function GoalFormScreen() {
               onChangeText={setDescription}
             />
           </Field>
-          <Pressable
+          <FormButton
+            label={editId ? "Salvar alterações" : "Criar meta"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Criar meta"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
           {editId ? (
-            <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText themeColor="danger">Excluir meta</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir meta"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

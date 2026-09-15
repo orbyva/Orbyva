@@ -11,6 +11,8 @@ export type AppHref =
   | "/finance/categories"
   | "/finance/category-form"
   | "/tasks"
+  | "/tasks/agenda"
+  | "/tasks/live"
   | "/tasks/form"
   | "/tasks/projects"
   | "/tasks/projects/form"
@@ -87,6 +89,8 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: "checkbox-outline",
     items: [
       { title: "Tarefas", href: "/tasks" },
+      { title: "Agenda", href: "/tasks/agenda" },
+      { title: "Live", href: "/tasks/live" },
       { title: "Projetos", href: "/tasks/projects" },
       { title: "Notas", href: "/notes" },
       { title: "Lista de Compras", href: "/shopping" },
@@ -337,6 +341,12 @@ export function isNavActive(pathname: string, href: AppHref): boolean {
   }
   if (href === "/tasks") {
     return path === "/tasks" || path === "/tasks/" || path.startsWith("/tasks/form");
+  }
+  if (href === "/tasks/agenda") {
+    return path === "/tasks/agenda" || path.startsWith("/tasks/agenda/");
+  }
+  if (href === "/tasks/live") {
+    return path === "/tasks/live" || path.startsWith("/tasks/live/");
   }
   if (href === "/tasks/projects") {
     return (

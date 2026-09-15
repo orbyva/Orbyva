@@ -11,13 +11,14 @@ import {
 
 import { fetchAllBooks, updateBook } from "@/api/books/books";
 import { ChipBar } from "@/components/ChipBar";
-import { CoverThumb } from "@/components/CoverThumb";
+import { CatalogMediaCard } from "@/components/CatalogMediaCard";
+import { FilterSelect } from "@/components/FilterSelect";
 import { InsightsStrip } from "@/components/InsightsStrip";
+import { ReviewSheet } from "@/components/ReviewSheet";
 import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
 import {
   BOOK_STATUS_LABELS,
@@ -68,6 +69,7 @@ export default function BooksScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [reviewBook, setReviewBook] = useState<Book | null>(null);
   const [error, setError] = useState<string | null>(null);
   const hasLoaded = useRef(false);
 
@@ -136,15 +138,30 @@ export default function BooksScreen() {
     return sortBooks(list, sort, status);
   }, [category, favoritesOnly, ratingFloor, search, sort, status, statusBooks]);
 
-  async function markRead(book: Book) {
+  async function markRead(
+    book: Book,
+    extras: { rating: number | null; recommend: boolean }
+  ) {
     setBusyId(book.google_id);
     try {
-      await updateBook(bookStatusUpdate(book, "read", getTodayIso()));
+      await updateBook({
+        ...bookStatusUpdate(book, "read", getTodayIso()),
+        rating: extras.rating,
+        would_recommend: extras.recommend,
+      });
       setBooks((cur) =>
         cur.map((row) =>
-          row.google_id === book.google_id ? { ...row, status: "read" } : row
+          row.google_id === book.google_id
+            ? {
+                ...row,
+                status: "read",
+                rating: extras.rating,
+                would_recommend: extras.recommend,
+              }
+            : row
         )
       );
+      setReviewBook(null);
     } catch (err) {
       fail(getErrorMessage(err, "Não foi possível atualizar o status."));
     } finally {
@@ -201,24 +218,34 @@ export default function BooksScreen() {
             onChangeText={setSearch}
             placeholder="Buscar título ou autor"
           />
-          {categories.length > 0 ? (
-            <ChipBar
-              options={[
-                { id: "all", label: "Categorias" },
-                ...categories.map((id) => ({ id, label: id })),
-              ]}
-              value={category}
-              onChange={setCategory}
+          <View style={styles.filters}>
+            {categories.length > 0 ? (
+              <FilterSelect
+                label="Categoria"
+                value={category}
+                options={[
+                  { id: "all", label: "Todas as categorias" },
+                  ...categories.map((id) => ({ id, label: id })),
+                ]}
+                onChange={setCategory}
+              />
+            ) : null}
+            {status === "read" ? (
+              <FilterSelect
+                label="Nota"
+                value={ratingFloor}
+                options={RATING_CHIPS}
+                onChange={(id) => setRatingFloor(id as BookRatingFloor)}
+              />
+            ) : null}
+            <FilterSelect
+              label="Ordenar"
+              value={sort}
+              options={CATALOG_SORT_OPTIONS}
+              onChange={(id) =>
+                setSort(id as (typeof CATALOG_SORT_OPTIONS)[number]["id"])
+              }
             />
-          ) : null}
-          {status === "read" ? (
-            <ChipBar
-              options={RATING_CHIPS}
-              value={ratingFloor}
-              onChange={setRatingFloor}
-            />
-          ) : null}
-          <View style={styles.row}>
             <Pressable
               onPress={() => setFavoritesOnly((cur) => !cur)}
               style={[
@@ -227,7 +254,9 @@ export default function BooksScreen() {
                 favoritesOnly && { backgroundColor: theme.backgroundSelected },
               ]}
             >
-              <ThemedText type="smallBold">Favoritos</ThemedText>
+              <ThemedText type="smallBold">
+                {favoritesOnly ? "♥ Favoritos" : "Favoritos"}
+              </ThemedText>
             </Pressable>
             <Pressable onPress={surprise}>
               <ThemedText type="small" style={{ color: theme.primary }}>
@@ -235,56 +264,54 @@ export default function BooksScreen() {
               </ThemedText>
             </Pressable>
           </View>
-          <ChipBar
-            options={CATALOG_SORT_OPTIONS}
-            value={sort}
-            onChange={setSort}
-          />
           {visible.length === 0 ? (
             <ThemedText themeColor="textSecondary">
               Nenhum livro neste filtro.
             </ThemedText>
           ) : (
             visible.map((book) => (
-              <Pressable
+              <CatalogMediaCard
                 key={book.google_id}
+                coverUri={book.cover_url}
+                fallback={book.title}
+                title={book.title}
+                favorite={book.is_favorite === true}
+                rating={book.rating != null ? String(book.rating) : null}
+                meta={[
+                  formatAuthors(book.authors),
+                  book.published_year,
+                  formatBookmark(book),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+                actionLabel={
+                  book.status !== "read" && book.status !== "abandoned"
+                    ? "Marcar lido"
+                    : null
+                }
+                onAction={
+                  busyId === book.google_id
+                    ? undefined
+                    : () => setReviewBook(book)
+                }
                 onPress={() => openBook(book.google_id)}
-              >
-                <Card style={styles.card}>
-                  <CoverThumb uri={book.cover_url} fallback={book.title} />
-                  <View style={styles.copy}>
-                    <ThemedText type="smallBold" numberOfLines={2}>
-                      {book.title}
-                      {book.is_favorite ? " ♥" : ""}
-                    </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {[
-                        formatAuthors(book.authors),
-                        book.published_year,
-                        formatBookmark(book),
-                        book.rating != null ? `${book.rating}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </ThemedText>
-                    {book.status !== "read" && book.status !== "abandoned" ? (
-                      <Pressable
-                        disabled={busyId === book.google_id}
-                        onPress={() => void markRead(book)}
-                        hitSlop={8}
-                      >
-                        <ThemedText type="small" style={{ color: theme.primary }}>
-                          Marcar lido
-                        </ThemedText>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                </Card>
-              </Pressable>
+              />
             ))
           )}
         </ScrollView>
       )}
+      <ReviewSheet
+        visible={reviewBook != null}
+        title="Avaliar livro"
+        itemTitle={reviewBook?.title ?? ""}
+        confirmLabel="Marcar lido"
+        busy={reviewBook != null && busyId === reviewBook.google_id}
+        onClose={() => setReviewBook(null)}
+        onConfirm={(result) => {
+          if (!reviewBook) return;
+          return markRead(reviewBook, result);
+        }}
+      />
     </ThemedView>
   );
 }
@@ -294,17 +321,10 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   banner: { marginHorizontal: Spacing.four, marginTop: Spacing.three },
   list: { padding: Spacing.four, gap: Spacing.three },
-  row: { flexDirection: "row", alignItems: "center", gap: 16, flexWrap: "wrap" },
+  filters: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
   chip: {
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  card: {
-    padding: Spacing.three,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  copy: { flex: 1, gap: 4 },
 });

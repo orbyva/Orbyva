@@ -56,8 +56,6 @@ export async function generatePlaceShareImage(
 
   paintStoryBackdrop(ctx, {
     photo: options.backdropPhoto ?? photos[0] ?? null,
-    washFrom: "rgba(14, 165, 233, 0.48)",
-    washTo: "rgba(2, 132, 199, 0.28)",
   });
 
   drawStoryHeader(ctx, "Minha opinião");

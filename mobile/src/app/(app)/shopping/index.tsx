@@ -18,7 +18,7 @@ import {
   setShoppingItemStatusApi,
 } from "@/api/shopping/items";
 import { fetchProjects } from "@/api/tasks/projects";
-import { ChipBar } from "@/components/ChipBar";
+import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -179,11 +179,14 @@ export default function ShoppingScreen() {
           }
         >
           {projectChips.length > 2 ? (
-            <ChipBar
-              options={projectChips}
-              value={projectFilter}
-              onChange={setProjectFilter}
-            />
+            <FilterRow>
+              <FilterSelect
+                label="Projeto"
+                value={projectFilter}
+                options={projectChips}
+                onChange={setProjectFilter}
+              />
+            </FilterRow>
           ) : null}
           {groups.length === 0 ? (
             <View style={styles.empty}>

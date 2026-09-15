@@ -13,7 +13,7 @@ import {
 
 import { deleteNoteApi, fetchNotes } from "@/api/notes/notes";
 import { fetchProjects } from "@/api/tasks/projects";
-import { ChipBar } from "@/components/ChipBar";
+import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -113,13 +113,6 @@ export default function NotesScreen() {
   );
 
   function openNote(note: Note) {
-    if (note.kind === "canvas") {
-      Alert.alert(
-        "Canvas",
-        "Desenho Excalidraw fica no web nesta versão. Abra a nota no computador para editar."
-      );
-      return;
-    }
     router.navigate(`/notes/${note.id}`);
   }
 
@@ -181,24 +174,27 @@ export default function NotesScreen() {
             ]}
           />
           {projectChips.length > 2 ? (
-            <ChipBar
-              options={projectChips}
-              value={projectFilter}
-              onChange={setProjectFilter}
-            />
+            <FilterRow>
+              <FilterSelect
+                label="Projeto"
+                value={projectFilter}
+                options={projectChips}
+                onChange={setProjectFilter}
+              />
+            </FilterRow>
           ) : null}
           {visible.length === 0 ? (
             <View style={styles.empty}>
               <ThemedText type="smallBold">Nenhuma nota ainda</ThemedText>
               <ThemedText themeColor="textSecondary">
-                Use o + para escrever em markdown simples.
+                Use o + para escrever ou desenhar.
               </ThemedText>
             </View>
           ) : (
             visible.map((note) => {
               const excerpt =
                 note.kind === "canvas"
-                  ? "Canvas · só no web"
+                  ? "Desenho"
                   : noteExcerpt(note.content);
               const projectName = note.project_id
                 ? projectNameById[note.project_id]

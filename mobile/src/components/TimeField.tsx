@@ -1,6 +1,4 @@
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useState } from "react";
 import {
   Platform,
@@ -41,12 +39,13 @@ export function TimeField({
   const [open, setOpen] = useState(false);
   const date = parseHm(value);
 
-  function onPick(event: DateTimePickerEvent, next?: Date) {
-    if (Platform.OS === "android") {
-      setOpen(false);
-      if (event.type === "dismissed") return;
-    }
-    if (next) onChange(formatHm(next));
+  function onValueChange(_event: unknown, next: Date) {
+    if (Platform.OS === "android") setOpen(false);
+    onChange(formatHm(next));
+  }
+
+  function onDismiss() {
+    if (Platform.OS === "android") setOpen(false);
   }
 
   if (Platform.OS === "ios") {
@@ -59,7 +58,8 @@ export function TimeField({
           locale="pt-BR"
           themeVariant={themeVariant}
           accentColor={theme.primary}
-          onChange={onPick}
+          onValueChange={onValueChange}
+          onDismiss={onDismiss}
           style={styles.iosPicker}
         />
       </View>
@@ -77,7 +77,8 @@ export function TimeField({
           mode="time"
           display="default"
           is24Hour
-          onChange={onPick}
+          onValueChange={onValueChange}
+          onDismiss={onDismiss}
         />
       ) : null}
     </View>

@@ -14,6 +14,7 @@ import {
   recurringInstallmentInMonth,
 } from "@/domain/recurring/alerts";
 import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import type { Recurring } from "@/types/recurring";
 
@@ -65,6 +66,7 @@ export function RecurringList({
         const open = !!expanded[item.id];
         const color = item.class?.type?.hex_color || "#64748B";
         const busy = busyId === item.id;
+        const actionColor = copy.isReceive ? theme.success : theme.danger;
 
         return (
           <View
@@ -107,7 +109,12 @@ export function RecurringList({
                   ) : null}
                 </View>
               </View>
-              <ThemedText type="smallBold">{formatBRL(item.value)}</ThemedText>
+              <ThemedText
+                type="smallBold"
+                style={{ color: actionColor, fontSize: 16 }}
+              >
+                {formatBRL(item.value)}
+              </ThemedText>
             </View>
             {item.status === false ? (
               <ThemedText type="small" themeColor="textSecondary">
@@ -136,6 +143,30 @@ export function RecurringList({
               </View>
             ) : null}
 
+            {monthInst ? (
+              <Pressable
+                disabled={busy}
+                onPress={() => onToggleMonth(item)}
+                style={[
+                  styles.pay,
+                  {
+                    backgroundColor: paidInMonth
+                      ? theme.backgroundElement
+                      : actionColor,
+                  },
+                ]}
+              >
+                <ThemedText
+                  type="smallBold"
+                  style={
+                    paidInMonth ? undefined : { color: "#FFFFFF", fontSize: 15 }
+                  }
+                >
+                  {paidInMonth ? "Desfazer" : copy.action}
+                </ThemedText>
+              </Pressable>
+            ) : null}
+
             <View style={styles.actions}>
               {onManage ? (
                 <Pressable
@@ -145,7 +176,7 @@ export function RecurringList({
                     { borderColor: theme.backgroundSelected },
                   ]}
                 >
-                  <ThemedText type="small">Gerir</ThemedText>
+                  <ThemedText type="small">Opções</ThemedText>
                 </Pressable>
               ) : null}
               <Pressable
@@ -155,70 +186,121 @@ export function RecurringList({
                 style={[
                   styles.ghost,
                   { borderColor: theme.backgroundSelected },
+                  open && { backgroundColor: theme.backgroundElement },
                 ]}
               >
                 <ThemedText type="small">
                   {open ? "Ocultar parcelas" : "Ver parcelas"}
                 </ThemedText>
               </Pressable>
-              {monthInst ? (
-                <Pressable
-                  disabled={busy}
-                  onPress={() => onToggleMonth(item)}
-                  style={[
-                    styles.pay,
-                    {
-                      backgroundColor: paidInMonth
-                        ? theme.backgroundElement
-                        : theme.primary,
-                    },
-                  ]}
-                >
-                  <ThemedText
-                    type="smallBold"
-                    style={paidInMonth ? undefined : styles.payLabel}
-                  >
-                    {paidInMonth ? "Desfazer" : copy.action}
-                  </ThemedText>
-                </Pressable>
-              ) : null}
             </View>
 
             {open ? (
               <View
                 style={[
                   styles.parcels,
-                  { borderColor: theme.backgroundSelected },
+                  {
+                    borderColor: theme.backgroundSelected,
+                    backgroundColor: theme.background,
+                  },
                 ]}
               >
-                {typeof item.installments === "string" ? (
+                <View
+                  style={[
+                    styles.parcelHead,
+                    { borderBottomColor: theme.backgroundSelected },
+                  ]}
+                >
                   <ThemedText type="small" themeColor="textSecondary">
+                    {remaining
+                      ? `${remaining.paid}/${remaining.total} ${copy.progressPaidLabel} · resto ${formatBRL(remaining.remainingAmount)}`
+                      : "Parcelas"}
+                  </ThemedText>
+                </View>
+                {typeof item.installments === "string" ? (
+                  <ThemedText
+                    type="small"
+                    themeColor="textSecondary"
+                    style={styles.parcelPad}
+                  >
                     {item.installments}
                   </ThemedText>
                 ) : Array.isArray(item.installments) ? (
-                  item.installments.map((inst) => {
+                  item.installments.map((inst, instIndex) => {
                     const paid = (item.paid_parcels || []).includes(inst.number);
                     return (
-                      <View key={inst.number} style={styles.parcel}>
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {inst.number}
-                        </ThemedText>
+                      <View
+                        key={inst.number}
+                        style={[
+                          styles.parcel,
+                          instIndex > 0 && {
+                            borderTopWidth: StyleSheet.hairlineWidth,
+                            borderTopColor: theme.backgroundSelected,
+                          },
+                          paid && { opacity: 0.72 },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.parcelNum,
+                            {
+                              backgroundColor: paid
+                                ? hexAlpha(theme.success, 0.16)
+                                : theme.backgroundElement,
+                            },
+                          ]}
+                        >
+                          <ThemedText
+                            type="smallBold"
+                            style={{
+                              color: paid ? theme.success : theme.textSecondary,
+                            }}
+                          >
+                            {inst.number}
+                          </ThemedText>
+                        </View>
                         <ThemedText type="small" style={styles.parcelDate}>
                           {item.frequency === "Anual"
                             ? inst.dueDate.slice(0, 4)
                             : formatDateBR(inst.dueDate)}
                         </ThemedText>
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {paid ? copy.doneBadge : copy.openBadge}
-                        </ThemedText>
+                        <View
+                          style={[
+                            styles.badge,
+                            {
+                              borderColor: paid
+                                ? hexAlpha(theme.success, 0.4)
+                                : theme.backgroundSelected,
+                            },
+                          ]}
+                        >
+                          <ThemedText
+                            type="small"
+                            style={{
+                              color: paid ? theme.success : theme.textSecondary,
+                            }}
+                          >
+                            {paid ? copy.doneBadge : copy.openBadge}
+                          </ThemedText>
+                        </View>
                         <Pressable
                           disabled={busy}
                           onPress={() =>
                             onToggleInstallment(item, inst.number, paid)
                           }
-                          hitSlop={8}
+                          style={[
+                            styles.parcelAction,
+                            {
+                              backgroundColor: paid
+                                ? theme.backgroundElement
+                                : hexAlpha(actionColor, 0.14),
+                            },
+                          ]}
                         >
-                          <ThemedText type="linkPrimary">
+                          <ThemedText
+                            type="smallBold"
+                            style={{ color: paid ? theme.text : actionColor }}
+                          >
                             {paid ? "Desfazer" : copy.action}
                           </ThemedText>
                         </Pressable>
@@ -226,7 +308,11 @@ export function RecurringList({
                     );
                   })
                 ) : (
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText
+                    type="small"
+                    themeColor="textSecondary"
+                    style={styles.parcelPad}
+                  >
                     Sem parcelas calculadas.
                   </ThemedText>
                 )}
@@ -278,25 +364,46 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pay: {
-    minWidth: 108,
-    height: 40,
-    borderRadius: 10,
+    height: 46,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 12,
   },
-  payLabel: { color: "#0B0F1A" },
   parcels: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: "hidden",
   },
+  parcelHead: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  parcelPad: { paddingHorizontal: 12, paddingVertical: 12 },
   parcel: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 10,
   },
+  parcelNum: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   parcelDate: { flex: 1 },
+  badge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  parcelAction: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
 });

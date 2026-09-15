@@ -1,6 +1,4 @@
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useState } from "react";
 import {
   Platform,
@@ -43,12 +41,13 @@ export function DateField({
   const date = isoToDate(value);
   const max = maximumDate ? isoToDate(maximumDate) : undefined;
 
-  function onPick(event: DateTimePickerEvent, next?: Date) {
-    if (Platform.OS === "android") {
-      setOpen(false);
-      if (event.type === "dismissed") return;
-    }
-    if (next) onChange(dateToIso(next));
+  function onValueChange(_event: unknown, next: Date) {
+    if (Platform.OS === "android") setOpen(false);
+    onChange(dateToIso(next));
+  }
+
+  function onDismiss() {
+    if (Platform.OS === "android") setOpen(false);
   }
 
   if (Platform.OS === "ios") {
@@ -61,7 +60,8 @@ export function DateField({
           locale="pt-BR"
           themeVariant={themeVariant}
           accentColor={theme.primary}
-          onChange={onPick}
+          onValueChange={onValueChange}
+          onDismiss={onDismiss}
           maximumDate={max}
           style={styles.iosPicker}
         />
@@ -79,7 +79,8 @@ export function DateField({
           value={date}
           mode="date"
           display="calendar"
-          onChange={onPick}
+          onValueChange={onValueChange}
+          onDismiss={onDismiss}
           maximumDate={max}
         />
       ) : null}

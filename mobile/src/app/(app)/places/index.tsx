@@ -11,6 +11,7 @@ import {
 
 import { fetchPlaces } from "@/api/places/places";
 import { ChipBar } from "@/components/ChipBar";
+import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { SearchField } from "@/components/SearchField";
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
@@ -177,25 +178,32 @@ export default function PlacesScreen() {
             onChangeText={setSearch}
             placeholder="Buscar por nome, endereço ou comentário"
           />
-          <ChipBar
-            options={CATEGORY_FILTERS}
-            value={category}
-            onChange={setCategory}
-          />
-          {statusFilter === "visited" ? (
-            <>
-              <ChipBar
-                options={RATING_CHIPS}
-                value={ratingFilter}
-                onChange={setRatingFilter}
-              />
-              <ChipBar
-                options={RECOMMEND_CHIPS}
-                value={recommendFilter}
-                onChange={setRecommendFilter}
-              />
-            </>
-          ) : null}
+          <FilterRow>
+            <FilterSelect
+              label="Tipo"
+              value={category}
+              options={CATEGORY_FILTERS}
+              onChange={(id) => setCategory(id as PlaceFilter)}
+            />
+            {statusFilter === "visited" ? (
+              <>
+                <FilterSelect
+                  label="Nota"
+                  value={ratingFilter}
+                  options={RATING_CHIPS}
+                  onChange={(id) => setRatingFilter(id as PlaceRatingFilter)}
+                />
+                <FilterSelect
+                  label="Opinião"
+                  value={recommendFilter}
+                  options={RECOMMEND_CHIPS}
+                  onChange={(id) =>
+                    setRecommendFilter(id as PlaceRecommendFilter)
+                  }
+                />
+              </>
+            ) : null}
+          </FilterRow>
           {visible.length === 0 ? (
             <ThemedText themeColor="textSecondary">
               Nenhum lugar neste filtro.

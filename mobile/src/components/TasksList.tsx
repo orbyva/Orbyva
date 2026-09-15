@@ -17,6 +17,8 @@ export function TasksList({
   onReopen,
   onOpen,
   onChangeStatus,
+  onToggleTimer,
+  runningTaskId,
   linksByTaskId,
   childrenByParent,
   emptyTitle = "Nenhuma tarefa em aberto",
@@ -28,6 +30,8 @@ export function TasksList({
   onReopen?: (task: Task) => void;
   onOpen?: (task: Task) => void;
   onChangeStatus?: (task: Task, status: TaskStatus) => void;
+  onToggleTimer?: (task: Task) => void;
+  runningTaskId?: string | null;
   linksByTaskId?: Record<string, { url: string; comment: string | null }>;
   childrenByParent?: Record<string, Task[]>;
   emptyTitle?: string;
@@ -146,6 +150,16 @@ export function TasksList({
                         {meta}
                       </ThemedText>
                     </Pressable>
+                    {onToggleTimer && !done ? (
+                      <Pressable
+                        onPress={() => onToggleTimer(task)}
+                        hitSlop={8}
+                      >
+                        <ThemedText type="small" style={{ color: theme.primary }}>
+                          {runningTaskId === task.id ? "Parar" : "Live"}
+                        </ThemedText>
+                      </Pressable>
+                    ) : null}
                     {link ? (
                       <Pressable
                         onPress={() => void openExternalUrl(link.url)}

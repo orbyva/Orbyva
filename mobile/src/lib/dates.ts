@@ -1,3 +1,7 @@
+export function startOfLocalDay(d = new Date()): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 /** Datas civis no fuso local (evita shift de `toISOString` em UTC−). */
 export function formatLocalIsoDate(d: Date): string {
   const y = d.getFullYear();

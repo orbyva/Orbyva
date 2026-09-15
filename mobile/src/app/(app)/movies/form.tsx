@@ -25,9 +25,12 @@ import {
   updateMovie,
 } from "@/api/movies/movies";
 import { CatalogSearch } from "@/components/CatalogSearch";
+import { DateField } from "@/components/DateField";
+import { RecommendField } from "@/components/RecommendField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { appendActivityDate } from "@/domain/entertainment/insights";
 import {
@@ -81,6 +84,8 @@ export default function MovieFormScreen() {
   const [tmdbTvId, setTmdbTvId] = useState<number | null>(null);
   const [scoreImdb, setScoreImdb] = useState<number | null>(null);
   const [watchedDates, setWatchedDates] = useState<string[]>([]);
+  const [activityDate, setActivityDate] = useState(getTodayIso());
+  const [wouldRecommend, setWouldRecommend] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,6 +136,9 @@ export default function MovieFormScreen() {
     setWatchedDates(
       (movie.watched_dates ?? []).map((d) => String(d).slice(0, 10))
     );
+    const latest = (movie.watched_dates ?? []).map((d) => String(d).slice(0, 10)).at(-1);
+    setActivityDate(latest ?? getTodayIso());
+    setWouldRecommend(movie.would_recommend !== false);
     setManual(true);
   }
 
@@ -180,7 +188,7 @@ export default function MovieFormScreen() {
     const nextStatus = status as MovieStatus;
     const dates =
       nextStatus === MovieStatus.WATCHED
-        ? appendActivityDate(watchedDates, getTodayIso())
+        ? appendActivityDate(watchedDates, activityDate)
         : watchedDates;
     setSaving(true);
     setError(null);
@@ -199,7 +207,7 @@ export default function MovieFormScreen() {
       score_imdb: scoreImdb,
       watched_dates: dates,
       notes: notes.trim() || null,
-      would_recommend: true,
+      would_recommend: wouldRecommend,
       tmdb_tv_id: tmdbTvId,
       following: true,
       notify_new_episodes: false,
@@ -278,11 +286,10 @@ export default function MovieFormScreen() {
                 onSelect={(hit) => void onPickHit(hit)}
               />
               {!manual ? (
-                <Pressable onPress={() => setManual(true)}>
-                  <ThemedText type="small" style={{ color: theme.primary }}>
-                    Cadastrar na mão
-                  </ThemedText>
-                </Pressable>
+                <FormButton
+                  label="Cadastrar na mão"
+                  onPress={() => setManual(true)}
+                />
               ) : null}
             </>
           ) : null}
@@ -357,6 +364,21 @@ export default function MovieFormScreen() {
                   onChangeText={setRating}
                 />
               </Field>
+              {status === "watched" ? (
+                <Field label="Data em que assistiu">
+                  <DateField
+                    value={activityDate}
+                    onChange={setActivityDate}
+                    style={inputStyle}
+                  />
+                </Field>
+              ) : null}
+              {status === "watched" || status === "abandoned" ? (
+                <RecommendField
+                  value={wouldRecommend}
+                  onChange={setWouldRecommend}
+                />
+              ) : null}
               <Field label="Notas">
                 <TextInput
                   placeholder="Opcional"
@@ -367,24 +389,21 @@ export default function MovieFormScreen() {
                   onChangeText={setNotes}
                 />
               </Field>
-              <Pressable
+              <FormButton
+                label={editId ? "Salvar alterações" : "Adicionar"}
+                tone="primary"
                 disabled={saving}
+                busy={saving}
                 onPress={() => void onSave()}
-                style={[styles.primary, { backgroundColor: theme.primary }]}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#0B0F1A" />
-                ) : (
-                  <ThemedText type="smallBold" style={styles.primaryLabel}>
-                    {editId ? "Salvar alterações" : "Adicionar"}
-                  </ThemedText>
-                )}
-              </Pressable>
-              {editId ? (
-                <Pressable disabled={saving} onPress={onDelete}>
-                  <ThemedText themeColor="danger">Excluir título</ThemedText>
-                </Pressable>
-              ) : null}
+              />
+          {editId ? (
+            <FormButton
+              label="Excluir título"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
+          ) : null}
             </>
           ) : null}
         </ScrollView>

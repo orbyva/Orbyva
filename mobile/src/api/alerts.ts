@@ -36,6 +36,10 @@ export function seedAppAlerts(data: AppAlert[]) {
   notify();
 }
 
+export function invalidateAppAlertsCache() {
+  alertsCache = null;
+}
+
 export function subscribeAppAlerts(listener: (alerts: AppAlert[]) => void) {
   listeners.add(listener);
   if (alertsCache) listener(alertsCache);
@@ -130,8 +134,12 @@ export async function fetchAppAlerts(): Promise<AppAlert[]> {
   seedAppAlerts(base);
   void loadSeriesEpisodeAlerts()
     .then((seriesAlerts) => {
-      if (seriesAlerts.length === 0 || !alertsCache) return;
+      if (!alertsCache) return;
       const without = alertsCache.filter((a) => a.kind !== "series_episode");
+      if (seriesAlerts.length === 0) {
+        seedAppAlerts(without);
+        return;
+      }
       const order = { danger: 0, warning: 1, info: 2, success: 3 };
       seedAppAlerts(
         [...without, ...seriesAlerts].sort(

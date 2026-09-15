@@ -20,6 +20,7 @@ import {
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { DOCUMENT_TYPE_LABELS } from "@/domain/car";
@@ -165,19 +166,13 @@ export default function DocumentFormScreen() {
               {paid ? "Pago" : "Em aberto"}
             </ThemedText>
           </Pressable>
-          <Pressable
+          <FormButton
+            label={editId ? "Salvar alterações" : "Salvar documento"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Salvar documento"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>

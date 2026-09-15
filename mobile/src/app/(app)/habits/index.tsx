@@ -248,7 +248,7 @@ export default function HabitsScreen() {
                     >
                       <ThemedText type="smallBold">{habit.name}</ThemedText>
                     </Pressable>
-                    <HabitMonthHeatmap map={map} avoid={avoid} />
+                    <HabitMonthHeatmap map={map} avoid={avoid} showLegend={false} />
                   </Card>
                 );
               })}

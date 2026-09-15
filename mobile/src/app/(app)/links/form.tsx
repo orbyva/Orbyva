@@ -23,6 +23,7 @@ import { createTagApi, fetchTags } from "@/api/tasks/tags";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import {
   isValidContentLinkUrl,
@@ -351,31 +352,25 @@ export default function LinkFormScreen() {
             />
           </Field>
           {editId && isValidContentLinkUrl(url) ? (
-            <Pressable
+            <FormButton
+              label="Abrir no navegador"
               onPress={() => void Linking.openURL(normalizeContentLinkUrl(url))}
-            >
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                Abrir no navegador
-              </ThemedText>
-            </Pressable>
+            />
           ) : null}
-          <Pressable
+          <FormButton
+            label={editId ? "Salvar alterações" : "Adicionar"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Adicionar"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
           {editId ? (
-            <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText themeColor="danger">Excluir link</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir link"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

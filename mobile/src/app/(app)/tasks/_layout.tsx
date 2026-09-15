@@ -20,6 +20,8 @@ export default function TasksStackLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: "Tarefas" }} />
+      <Stack.Screen name="agenda" options={{ title: "Agenda" }} />
+      <Stack.Screen name="live" options={{ title: "Live" }} />
       <Stack.Screen name="projects" options={{ headerShown: false }} />
       <Stack.Screen
         name="form"

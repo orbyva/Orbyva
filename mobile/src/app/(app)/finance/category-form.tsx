@@ -15,6 +15,8 @@ import { createTypeApi, fetchDimensions, updateTypeApi } from "@/api/finance/dim
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
+import { FormBlock } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import {
   QUICK_CREATE_TYPE_ICON,
@@ -158,24 +160,7 @@ export default function CategoryFormScreen() {
         >
           <Banner message={error} />
 
-          <Field label="Nome" required>
-            <TextInput
-              autoFocus
-              value={name}
-              onChangeText={setName}
-              placeholder="Ex: Alimentação"
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.input,
-                {
-                  color: theme.text,
-                  borderColor: theme.backgroundSelected,
-                  backgroundColor: theme.backgroundElement,
-                },
-              ]}
-            />
-          </Field>
-
+          <FormBlock title="Classificação">
           <Field label="Natureza" required>
             <View style={styles.chipRow}>
               {dimensions.map((nature) => {
@@ -204,6 +189,26 @@ export default function CategoryFormScreen() {
               })}
             </View>
           </Field>
+          </FormBlock>
+
+          <FormBlock title="Detalhes">
+          <Field label="Nome" required>
+            <TextInput
+              autoFocus
+              value={name}
+              onChangeText={setName}
+              placeholder="Ex: Alimentação"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.input,
+                {
+                  color: theme.text,
+                  borderColor: theme.backgroundSelected,
+                  backgroundColor: theme.backgroundElement,
+                },
+              ]}
+            />
+          </Field>
 
           <Field label="Cor" required>
             <View style={styles.swatches}>
@@ -224,20 +229,15 @@ export default function CategoryFormScreen() {
               })}
             </View>
           </Field>
+          </FormBlock>
 
-          <Pressable
+          <FormButton
+            label="Salvar categoria"
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                Salvar categoria
-              </ThemedText>
-            )}
-          </Pressable>
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>

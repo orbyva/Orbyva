@@ -28,6 +28,7 @@ import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { TimeField } from "@/components/TimeField";
 import { Spacing } from "@/constants/theme";
 import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
@@ -309,11 +310,12 @@ export default function ProjectFormScreen() {
                         {formatEventWhen(event.starts_at)}
                       </ThemedText>
                     </View>
-                    <Pressable onPress={() => removeEvent(event)} hitSlop={8}>
-                      <ThemedText type="small" style={styles.error}>
-                        Excluir
-                      </ThemedText>
-                    </Pressable>
+                    <FormButton
+                      label="Excluir"
+                      tone="danger"
+                      compact
+                      onPress={() => removeEvent(event)}
+                    />
                   </View>
                 ))
               )}
@@ -334,32 +336,30 @@ export default function ProjectFormScreen() {
                 onChange={setEventTime}
                 style={inputStyle}
               />
-              <Pressable onPress={() => void addEvent()}>
-                <ThemedText type="linkPrimary">Adicionar evento</ThemedText>
-              </Pressable>
+              <FormButton
+                label="Adicionar evento"
+                onPress={() => void addEvent()}
+              />
             </View>
           ) : (
             <ThemedText type="small" themeColor="textSecondary">
               Eventos entram depois de criar o projeto.
             </ThemedText>
           )}
-          <Pressable
+          <FormButton
+            label={editId ? "Salvar alterações" : "Criar projeto"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Criar projeto"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
           {editId ? (
-            <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText style={styles.error}>Excluir projeto</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir projeto"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

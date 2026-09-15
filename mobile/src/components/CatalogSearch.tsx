@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 
 import { CoverThumb } from "@/components/CoverThumb";
 import { SearchField } from "@/components/SearchField";
@@ -23,6 +29,8 @@ export function CatalogSearch<T>({
   search,
   toView,
   onSelect,
+  selectedLabel = null,
+  onClear,
 }: {
   placeholder: string;
   enabled: boolean;
@@ -30,6 +38,8 @@ export function CatalogSearch<T>({
   search: (query: string) => Promise<T[]>;
   toView: (hit: T) => CatalogHitView;
   onSelect: (hit: T) => void;
+  selectedLabel?: string | null;
+  onClear?: () => void;
 }) {
   const theme = useTheme();
   const [query, setQuery] = useState("");
@@ -39,6 +49,7 @@ export function CatalogSearch<T>({
   const reqId = useRef(0);
   const searchRef = useRef(search);
   searchRef.current = search;
+  const showingSelected = Boolean(selectedLabel) && query === "";
 
   useEffect(() => {
     if (!enabled) return;
@@ -84,8 +95,11 @@ export function CatalogSearch<T>({
   return (
     <View style={styles.block}>
       <SearchField
-        value={query}
-        onChangeText={setQuery}
+        value={showingSelected ? selectedLabel! : query}
+        onChangeText={(next) => {
+          if (selectedLabel) onClear?.();
+          setQuery(next);
+        }}
         placeholder={placeholder}
       />
       {loading ? <ActivityIndicator color={theme.primary} /> : null}
@@ -94,28 +108,42 @@ export function CatalogSearch<T>({
           {error}
         </ThemedText>
       ) : null}
-      {hits.map((hit) => {
-        const view = toView(hit);
-        return (
-          <Pressable key={view.key} onPress={() => onSelect(hit)}>
-            <View style={styles.hit}>
-              <CoverThumb
-                uri={view.cover}
-                fallback={view.title}
-                variant={view.square ? "square" : "poster"}
-              />
-              <View style={styles.copy}>
-                <ThemedText type="smallBold" numberOfLines={2}>
-                  {view.title}
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
-                  {view.subtitle}
-                </ThemedText>
+      {showingSelected ? null : (
+        hits.map((hit) => {
+          const view = toView(hit);
+          return (
+            <Pressable
+              key={view.key}
+              onPress={() => {
+                Keyboard.dismiss();
+                setQuery("");
+                setHits([]);
+                onSelect(hit);
+              }}
+            >
+              <View style={styles.hit}>
+                <CoverThumb
+                  uri={view.cover}
+                  fallback={view.title}
+                  variant={view.square ? "square" : "poster"}
+                />
+                <View style={styles.copy}>
+                  <ThemedText type="smallBold" numberOfLines={2}>
+                    {view.title}
+                  </ThemedText>
+                  <ThemedText
+                    type="small"
+                    themeColor="textSecondary"
+                    numberOfLines={2}
+                  >
+                    {view.subtitle}
+                  </ThemedText>
+                </View>
               </View>
-            </View>
-          </Pressable>
-        );
-      })}
+            </Pressable>
+          );
+        })
+      )}
     </View>
   );
 }

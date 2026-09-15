@@ -9,7 +9,7 @@ import {
 import { fetchHubHabits, isCompletedToday } from "@/api/life/hubExtras";
 import { fetchMovieListMeta } from "@/api/movies/movies";
 import { fetchOpenTasksLite } from "@/api/tasks/tasks";
-import { assembleFinanceTimeline } from "@/api/timeline";
+import { fetchFinanceTimeline } from "@/api/timeline";
 import { buildAppAlerts } from "@/domain/alerts";
 import { previousYearMonth } from "@/domain/finance/insights";
 import { getRecurringDueAlerts } from "@/domain/recurring/alerts";
@@ -53,6 +53,7 @@ export type HubBundle = {
   recurringAlerts: RecurringDueAlert[];
   alerts: AppAlert[];
   upcoming: TimelineItem[];
+  recent: TimelineItem[];
   latestTransactionAt: string | null;
   day: HubDaySummary;
 };
@@ -118,9 +119,16 @@ export async function loadHubBundle(): Promise<HubBundle> {
     overdueTasks: taskBuckets.overdue,
   });
 
-  const upcoming = assembleFinanceTimeline(recurring, 7, 0, tasks).filter(
-    (item) => item.date >= todayIso && item.date <= addDaysIso(todayIso, 7)
+  const timeline = await fetchFinanceTimeline(7, 14).catch(() => []);
+  const upcoming = timeline.filter(
+    (item) =>
+      item.status !== "completed" &&
+      item.date >= todayIso &&
+      item.date <= addDaysIso(todayIso, 7)
   );
+  const recent = timeline
+    .filter((item) => item.status === "completed" || item.date < todayIso)
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   const habitRows = hubHabits.habits.map((habit) => ({
     id: habit.id,
@@ -141,6 +149,7 @@ export async function loadHubBundle(): Promise<HubBundle> {
     recurringAlerts: recurringAlerts.slice(0, 3),
     alerts,
     upcoming,
+    recent,
     latestTransactionAt: latestAt,
     day: {
       habitsCount: habitRows.length,

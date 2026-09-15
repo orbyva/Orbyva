@@ -77,6 +77,82 @@ export function formatMovieRating(rating: number): string {
     : rating.toFixed(1).replace(".", ",");
 }
 
+export function getMovieRatingLabel(rating: number): string {
+  if (rating >= 9) return "Obra-prima";
+  if (rating >= 8) return "Excelente";
+  if (rating >= 7) return "Muito bom";
+  if (rating >= 6) return "Bom";
+  if (rating >= 4) return "Regular";
+  if (rating >= 2) return "Fraco";
+  return "Ruim";
+}
+
+export type RatedShareEpisode = {
+  season: number;
+  episode: number;
+  title: string;
+  rating: number;
+};
+
+export function resolveRatedEpisodes(
+  rows: { season_number: number; episode_number: number; episode_name?: string | null; rating?: number | null }[]
+): RatedShareEpisode[] {
+  return rows
+    .filter((episode) => episode.rating != null && episode.rating > 0)
+    .sort(
+      (a, b) =>
+        a.season_number - b.season_number ||
+        a.episode_number - b.episode_number
+    )
+    .map((episode) => ({
+      season: episode.season_number,
+      episode: episode.episode_number,
+      title: episode.episode_name?.trim() || `Episódio ${episode.episode_number}`,
+      rating: episode.rating as number,
+    }));
+}
+
+function sortEpisodesByRatingDesc(
+  episodes: RatedShareEpisode[]
+): RatedShareEpisode[] {
+  return [...episodes].sort((a, b) => {
+    if (b.rating !== a.rating) return b.rating - a.rating;
+    if (a.season !== b.season) return a.season - b.season;
+    return a.episode - b.episode;
+  });
+}
+
+export function pickEpisodesForShare(
+  episodes: RatedShareEpisode[],
+  limit: number
+): RatedShareEpisode[] {
+  if (episodes.length <= limit) return episodes;
+  return sortEpisodesByRatingDesc(episodes).slice(0, limit);
+}
+
+/** Badge do card: nota do usuário (assistido) ou IMDb (lista / assistindo). */
+export function getMovieCardRating(movie: Movie): {
+  value: string;
+  source: "user" | "imdb";
+} | null {
+  if (
+    movie.status === MovieStatus.WATCHED &&
+    movie.rating != null &&
+    movie.rating > 0
+  ) {
+    return { value: formatMovieRating(movie.rating), source: "user" };
+  }
+  if (
+    (movie.status === MovieStatus.TO_WATCH ||
+      movie.status === MovieStatus.WATCHING) &&
+    movie.score_imdb != null &&
+    movie.score_imdb > 0
+  ) {
+    return { value: formatMovieRating(movie.score_imdb), source: "imdb" };
+  }
+  return null;
+}
+
 export function getLatestWatchedDate(dates: Movie["watched_dates"]): string | null {
   if (!dates?.length) return null;
   const sorted = [...dates]

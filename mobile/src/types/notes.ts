@@ -1,10 +1,17 @@
 export type NoteKind = "markdown" | "canvas";
 
+export interface NoteCanvasData {
+  elements: readonly unknown[];
+  appState?: Record<string, unknown> | null;
+  files?: Record<string, unknown> | null;
+}
+
 export interface Note {
   id: string;
   title: string;
   content: string;
   kind: NoteKind;
+  canvas_data: NoteCanvasData | null;
   project_id: string | null;
   updated_at?: string | null;
 }

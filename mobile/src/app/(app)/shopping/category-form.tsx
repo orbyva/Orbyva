@@ -23,6 +23,7 @@ import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
 import { visibleProjects } from "@/domain/tasks/listView";
@@ -233,23 +234,20 @@ export default function ShoppingCategoryFormScreen() {
               ))}
             </View>
           </View>
-          <Pressable
+          <FormButton
+            label={editId ? "Salvar alterações" : "Criar categoria"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Criar categoria"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
           {editId ? (
-            <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText style={styles.error}>Excluir categoria</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir categoria"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

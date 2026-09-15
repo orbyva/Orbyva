@@ -5,7 +5,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -18,11 +17,20 @@ import {
   fetchVehicleById,
   updateVehicle,
 } from "@/api/car/car";
+import { ChoiceChip } from "@/components/ChoiceChip";
+import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
+import { FormBlock } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
-import { FUEL_TYPE_LABELS, VEHICLE_KIND_LABELS } from "@/domain/car";
+import {
+  FUEL_TYPE_LABELS,
+  getFuelTypesForKind,
+  VEHICLE_KIND_LABELS,
+} from "@/domain/car";
+import { getTodayIso } from "@/domain/habits";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -31,10 +39,6 @@ import type { FuelType, VehicleKind } from "@/types/car";
 const KIND_CHIPS = (Object.keys(VEHICLE_KIND_LABELS) as VehicleKind[]).map(
   (id) => ({ id, label: VEHICLE_KIND_LABELS[id] })
 );
-const FUEL_CHIPS = (Object.keys(FUEL_TYPE_LABELS) as FuelType[]).map((id) => ({
-  id,
-  label: FUEL_TYPE_LABELS[id],
-}));
 
 export default function VehicleFormScreen() {
   const theme = useTheme();
@@ -53,7 +57,9 @@ export default function VehicleFormScreen() {
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("");
   const [km, setKm] = useState("0");
-  const [fuelType, setFuelType] = useState<FuelType>("flex");
+  const [fuelType, setFuelType] = useState<FuelType | null>("flex");
+  const [purchaseDate, setPurchaseDate] = useState<string | null>(null);
+  const [purchaseValue, setPurchaseValue] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +86,10 @@ export default function VehicleFormScreen() {
         setColor(vehicle.color ?? "");
         setKm(String(vehicle.current_km ?? 0));
         setFuelType(vehicle.fuel_type ?? "flex");
+        setPurchaseDate(vehicle.purchase_date ?? null);
+        setPurchaseValue(
+          vehicle.purchase_value != null ? String(vehicle.purchase_value) : ""
+        );
         setNotes(vehicle.notes ?? "");
       })
       .catch((err) => {
@@ -111,6 +121,7 @@ export default function VehicleFormScreen() {
     }
     const currentKm = Number.parseInt(km.replace(/\D/g, ""), 10) || 0;
     const yearNum = year.trim() ? Number.parseInt(year, 10) : null;
+    const parsedPurchase = Number.parseFloat(purchaseValue.replace(",", "."));
     setSaving(true);
     setError(null);
     const payload = {
@@ -122,6 +133,11 @@ export default function VehicleFormScreen() {
       color,
       current_km: currentKm,
       fuel_type: fuelType,
+      purchase_date: purchaseDate,
+      purchase_value:
+        Number.isFinite(parsedPurchase) && parsedPurchase > 0
+          ? parsedPurchase
+          : null,
       notes,
     };
     try {
@@ -181,22 +197,22 @@ export default function VehicleFormScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Banner message={error} />
+          <FormBlock title="Identificação">
           <Field label="Tipo">
             <View style={styles.chips}>
               {KIND_CHIPS.map((chip) => (
-                <Pressable
+                <ChoiceChip
                   key={chip.id}
-                  onPress={() => setKind(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    kind === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+                  label={chip.label}
+                  active={kind === chip.id}
+                  onPress={() => {
+                    setKind(chip.id);
+                    const allowed = getFuelTypesForKind(chip.id);
+                    if (fuelType && !allowed.includes(fuelType)) {
+                      setFuelType(null);
+                    }
+                  }}
+                />
               ))}
             </View>
           </Field>
@@ -230,6 +246,8 @@ export default function VehicleFormScreen() {
           <Field label="Cor">
             <TextInput style={inputStyle} value={color} onChangeText={setColor} />
           </Field>
+          </FormBlock>
+          <FormBlock title="Uso">
           <Field label="Km atual">
             <TextInput
               keyboardType="number-pad"
@@ -240,23 +258,37 @@ export default function VehicleFormScreen() {
           </Field>
           <Field label="Combustível">
             <View style={styles.chips}>
-              {FUEL_CHIPS.map((chip) => (
-                <Pressable
-                  key={chip.id}
-                  onPress={() => setFuelType(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    fuelType === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+              {getFuelTypesForKind(kind).map((id) => (
+                <ChoiceChip
+                  key={id}
+                  label={FUEL_TYPE_LABELS[id as FuelType] ?? id}
+                  active={fuelType === id}
+                  onPress={() => setFuelType(id as FuelType)}
+                />
               ))}
             </View>
           </Field>
+          </FormBlock>
+          <FormBlock title="Dados de compra">
+            <Field label="Data de compra">
+              <DateField
+                value={purchaseDate ?? getTodayIso()}
+                onChange={(iso) => setPurchaseDate(iso)}
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="Valor de compra">
+              <TextInput
+                keyboardType="decimal-pad"
+                placeholder="Opcional"
+                placeholderTextColor={theme.textSecondary}
+                style={inputStyle}
+                value={purchaseValue}
+                onChangeText={setPurchaseValue}
+              />
+            </Field>
+          </FormBlock>
+          <FormBlock title="Detalhes">
           <Field label="Notas">
             <TextInput
               placeholder="Opcional"
@@ -266,23 +298,21 @@ export default function VehicleFormScreen() {
               onChangeText={setNotes}
             />
           </Field>
-          <Pressable
+          </FormBlock>
+          <FormButton
+            label={editId ? "Salvar alterações" : "Criar veículo"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Criar veículo"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
           {editId ? (
-            <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText themeColor="danger">Excluir veículo</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir veículo"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

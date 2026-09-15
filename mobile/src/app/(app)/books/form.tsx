@@ -24,9 +24,12 @@ import {
   updateBook,
 } from "@/api/books/books";
 import { CatalogSearch } from "@/components/CatalogSearch";
+import { DateField } from "@/components/DateField";
+import { RecommendField } from "@/components/RecommendField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { appendActivityDate } from "@/domain/entertainment/insights";
 import {
@@ -72,6 +75,8 @@ export default function BookFormScreen() {
   const [scoreGoogle, setScoreGoogle] = useState<number | null>(null);
   const [catalogId, setCatalogId] = useState<string | null>(null);
   const [readDates, setReadDates] = useState<string[]>([]);
+  const [activityDate, setActivityDate] = useState(getTodayIso());
+  const [wouldRecommend, setWouldRecommend] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,6 +126,11 @@ export default function BookFormScreen() {
     setScoreGoogle(book.score_google ?? null);
     setCatalogId(book.google_id);
     setReadDates((book.read_dates ?? []).map((d) => String(d).slice(0, 10)));
+    setActivityDate(
+      (book.read_dates ?? []).map((d) => String(d).slice(0, 10)).at(-1) ??
+        getTodayIso()
+    );
+    setWouldRecommend(book.would_recommend !== false);
     setManual(true);
   }
 
@@ -165,7 +175,7 @@ export default function BookFormScreen() {
     const parsedRating = Number.parseFloat(rating.replace(",", "."));
     const parsedPage = Number.parseInt(currentPage, 10);
     const dates =
-      status === "read" ? appendActivityDate(readDates, getTodayIso()) : readDates;
+      status === "read" ? appendActivityDate(readDates, activityDate) : readDates;
     setSaving(true);
     setError(null);
     const payload = {
@@ -189,7 +199,7 @@ export default function BookFormScreen() {
         ? Math.min(10, Math.max(0, parsedRating))
         : null,
       notes: notes.trim() || null,
-      would_recommend: true,
+      would_recommend: wouldRecommend,
       read_dates: dates,
       score_google: scoreGoogle,
     };
@@ -267,11 +277,10 @@ export default function BookFormScreen() {
                 onSelect={(hit) => void onPickHit(hit)}
               />
               {!manual ? (
-                <Pressable onPress={() => setManual(true)}>
-                  <ThemedText type="small" style={{ color: theme.primary }}>
-                    Cadastrar na mão
-                  </ThemedText>
-                </Pressable>
+                <FormButton
+                  label="Cadastrar na mão"
+                  onPress={() => setManual(true)}
+                />
               ) : null}
             </>
           ) : null}
@@ -348,6 +357,21 @@ export default function BookFormScreen() {
                   onChangeText={setRating}
                 />
               </Field>
+              {status === "read" ? (
+                <Field label="Data em que leu">
+                  <DateField
+                    value={activityDate}
+                    onChange={setActivityDate}
+                    style={inputStyle}
+                  />
+                </Field>
+              ) : null}
+              {status === "read" || status === "abandoned" ? (
+                <RecommendField
+                  value={wouldRecommend}
+                  onChange={setWouldRecommend}
+                />
+              ) : null}
               <Field label="Notas">
                 <TextInput
                   placeholder="Opcional"
@@ -358,24 +382,21 @@ export default function BookFormScreen() {
                   onChangeText={setNotes}
                 />
               </Field>
-              <Pressable
+              <FormButton
+                label={editId ? "Salvar alterações" : "Adicionar"}
+                tone="primary"
                 disabled={saving}
+                busy={saving}
                 onPress={() => void onSave()}
-                style={[styles.primary, { backgroundColor: theme.primary }]}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#0B0F1A" />
-                ) : (
-                  <ThemedText type="smallBold" style={styles.primaryLabel}>
-                    {editId ? "Salvar alterações" : "Adicionar"}
-                  </ThemedText>
-                )}
-              </Pressable>
-              {editId ? (
-                <Pressable disabled={saving} onPress={onDelete}>
-                  <ThemedText themeColor="danger">Excluir livro</ThemedText>
-                </Pressable>
-              ) : null}
+              />
+          {editId ? (
+            <FormButton
+              label="Excluir livro"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
+          ) : null}
             </>
           ) : null}
         </ScrollView>

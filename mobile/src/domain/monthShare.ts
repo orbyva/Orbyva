@@ -40,11 +40,16 @@ export function monthShareText(input: {
 }): string {
   const leftover = monthRemainingVsPlan(input);
   const saldo = input.receita - input.despesa;
-  return [
-    `Orbyva · ${monthLabel(input.year, input.month)}`,
-    `Receitas ${formatBRL(input.receita)}`,
-    `Despesas ${formatBRL(input.despesa)}`,
-    `Saldo ${formatBRL(saldo)}`,
-    `${leftover.label} ${formatBRL(leftover.value)}`,
-  ].join("\n");
+  const lines = [
+    `📊 ${monthLabel(input.year, input.month)}`,
+    `Receitas: ${formatBRL(input.receita)}`,
+    `Despesas: ${formatBRL(input.despesa)}`,
+  ];
+  if (input.budgetPlanned != null && input.budgetPlanned > 0) {
+    lines.push(`Teto: ${formatBRL(input.budgetPlanned)}`);
+  }
+  lines.push(`Saldo: ${formatBRL(saldo)}`);
+  lines.push(`${leftover.label}: ${formatBRL(leftover.value)}`);
+  lines.push("via Orbyva");
+  return lines.join("\n");
 }

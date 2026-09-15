@@ -35,8 +35,6 @@ import {
   calculateFuelConsumption,
   DOCUMENT_TYPE_LABELS,
   FUEL_TYPE_LABELS,
-  getDocumentAlerts,
-  getMaintenanceAlerts,
   getMaintenanceSchedule,
   MAINTENANCE_TYPE_LABELS,
   vehicleLabel,
@@ -48,12 +46,12 @@ import { formatBRL, formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import type { FuelLog, Maintenance, Vehicle, VehicleDocument } from "@/types/car";
 
-type Tab = "resumo" | "manutencao" | "combustivel" | "documentos";
+type Tab = "cronograma" | "manutencao" | "combustivel" | "documentos";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "resumo", label: "Veículo" },
-  { id: "manutencao", label: "Manutenção" },
-  { id: "combustivel", label: "Combustível" },
+  { id: "cronograma", label: "Cronograma" },
+  { id: "manutencao", label: "Manutenções" },
+  { id: "combustivel", label: "Abastecimentos" },
   { id: "documentos", label: "Documentos" },
 ];
 
@@ -65,7 +63,7 @@ export default function CarDetailScreen() {
   const { bottomInset } = useAppShell();
   const params = useLocalSearchParams<{ id?: string }>();
   const id = typeof params.id === "string" ? params.id : "";
-  const [tab, setTab] = useState<Tab>("resumo");
+  const [tab, setTab] = useState<Tab>("cronograma");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [documents, setDocuments] = useState<VehicleDocument[]>([]);
   const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
@@ -117,11 +115,6 @@ export default function CarDetailScreen() {
     () => calculateFuelConsumption(fuelLogs),
     [fuelLogs]
   );
-  const maintAlerts = useMemo(
-    () => (vehicle ? getMaintenanceAlerts(vehicle, maintenances) : []),
-    [vehicle, maintenances]
-  );
-  const docAlerts = useMemo(() => getDocumentAlerts(documents), [documents]);
   const schedule = useMemo(
     () => (vehicle ? getMaintenanceSchedule(vehicle, maintenances) : []),
     [vehicle, maintenances]
@@ -251,50 +244,29 @@ export default function CarDetailScreen() {
 
             <ChipBar options={TABS} value={tab} onChange={setTab} />
 
-            {tab === "resumo" ? (
+            {tab === "cronograma" ? (
               <>
-                {maintAlerts.length === 0 && docAlerts.length === 0 ? (
+                {schedule.length === 0 ? (
                   <ThemedText themeColor="textSecondary">
-                    Nenhum alerta no momento.
+                    Nenhum item no cronograma.
                   </ThemedText>
                 ) : (
-                  <>
-                    {maintAlerts.map((alert) => (
-                      <Card
-                        key={`m-${alert.type}-${alert.message}`}
-                        style={[
-                          styles.card,
-                          alert.status === "overdue" && {
-                            borderColor: theme.danger,
-                          },
-                        ]}
-                      >
-                        <ThemedText type="smallBold">{alert.label}</ThemedText>
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {alert.message}
-                        </ThemedText>
-                      </Card>
-                    ))}
-                    {docAlerts.map((alert) => (
-                      <Card
-                        key={`d-${alert.document.id}`}
-                        style={[
-                          styles.card,
-                          alert.status === "overdue" && {
-                            borderColor: theme.danger,
-                          },
-                        ]}
-                      >
-                        <ThemedText type="smallBold">
-                          {DOCUMENT_TYPE_LABELS[alert.document.type] ??
-                            alert.document.type}
-                        </ThemedText>
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {alert.message}
-                        </ThemedText>
-                      </Card>
-                    ))}
-                  </>
+                  schedule.map((item) => (
+                    <Card
+                      key={item.type}
+                      style={[
+                        styles.card,
+                        item.status === "overdue" && {
+                          borderColor: theme.danger,
+                        },
+                      ]}
+                    >
+                      <ThemedText type="smallBold">{item.label}</ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {item.message}
+                      </ThemedText>
+                    </Card>
+                  ))
                 )}
               </>
             ) : null}

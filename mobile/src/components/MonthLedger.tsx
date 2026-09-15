@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { TypeIcon } from "@/components/TypeIcon";
@@ -5,6 +6,8 @@ import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import type { LedgerTransaction } from "@/types/finance";
+
+const PAGE_SIZE = 8;
 
 export function MonthLedger({
   rows,
@@ -27,6 +30,18 @@ export function MonthLedger({
   headerBg: string;
   rowBg: string;
 }) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+
+  useEffect(() => {
+    setPage(1);
+  }, [rows, selectedType, monthLabel, nature]);
+
+  const visible = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return rows.slice(start, start + PAGE_SIZE);
+  }, [page, rows]);
+
   return (
     <View style={styles.wrap}>
       <View style={styles.head}>
@@ -36,6 +51,7 @@ export function MonthLedger({
             {rows.length} {rows.length === 1 ? "transação" : "transações"} de{" "}
             {nature} em {monthLabel}
             {selectedType ? ` · ${selectedType}` : ""}
+            {totalPages > 1 ? ` · página ${page} de ${totalPages}` : ""}
           </ThemedText>
         </View>
         {selectedType ? (
@@ -70,7 +86,7 @@ export function MonthLedger({
           Nenhuma transação encontrada.
         </ThemedText>
       ) : (
-        rows.map((tx) => (
+        visible.map((tx) => (
           <Pressable
             key={tx.id}
             onPress={onPressRow ? () => onPressRow(tx) : undefined}
@@ -101,6 +117,38 @@ export function MonthLedger({
           </Pressable>
         ))
       )}
+
+      {totalPages > 1 ? (
+        <View style={styles.pager}>
+          <Pressable
+            onPress={() => setPage((cur) => Math.max(1, cur - 1))}
+            disabled={page <= 1}
+            hitSlop={8}
+          >
+            <ThemedText
+              type="linkPrimary"
+              style={page <= 1 ? styles.pagerOff : undefined}
+            >
+              Anterior
+            </ThemedText>
+          </Pressable>
+          <ThemedText type="small" themeColor="textSecondary">
+            {page} / {totalPages}
+          </ThemedText>
+          <Pressable
+            onPress={() => setPage((cur) => Math.min(totalPages, cur + 1))}
+            disabled={page >= totalPages}
+            hitSlop={8}
+          >
+            <ThemedText
+              type="linkPrimary"
+              style={page >= totalPages ? styles.pagerOff : undefined}
+            >
+              Próxima
+            </ThemedText>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -142,4 +190,11 @@ const styles = StyleSheet.create({
   subName: { flex: 1 },
   colValue: { width: 92, textAlign: "right" },
   empty: { paddingVertical: 12 },
+  pager: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 4,
+  },
+  pagerOff: { opacity: 0.35 },
 });

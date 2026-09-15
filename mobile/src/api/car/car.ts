@@ -133,6 +133,8 @@ export async function createVehicle(input: {
   color?: string | null;
   current_km: number;
   fuel_type?: FuelType | null;
+  purchase_date?: string | null;
+  purchase_value?: number | null;
   notes?: string | null;
 }): Promise<Vehicle> {
   const userId = await getCurrentUserId();
@@ -166,6 +168,8 @@ export async function updateVehicle(input: {
   color?: string | null;
   current_km?: number;
   fuel_type?: FuelType | null;
+  purchase_date?: string | null;
+  purchase_value?: number | null;
   notes?: string | null;
 }): Promise<void> {
   const userId = await getCurrentUserId();

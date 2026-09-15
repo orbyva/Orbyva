@@ -7,7 +7,7 @@ import { fetchAllMovies } from "@/api/movies/movies";
 import { fetchAllAlbums } from "@/api/music/albums";
 import { fetchPlaces } from "@/api/places/places";
 import { fetchTasks } from "@/api/tasks/tasks";
-import { fetchTrips } from "@/api/travel/travel";
+import { fetchTrips, fetchMilestonesForTrips } from "@/api/travel/travel";
 import { getLatestReadDate } from "@/domain/books";
 import { getDocumentAlerts, getMaintenanceAlerts } from "@/domain/car";
 import { isCompletedToday } from "@/domain/habits";
@@ -31,7 +31,7 @@ import type { Album } from "@/types/music";
 import type { PlaceVisit } from "@/types/places";
 import type { Task } from "@/types/tasks";
 import type { TimelineItem, TimelineModule } from "@/types/timeline";
-import type { Trip } from "@/types/travel";
+import type { Trip, TripMilestone } from "@/types/travel";
 
 const STATUS_ORDER: Record<TimelineItem["status"], number> = {
   overdue: 0,
@@ -56,8 +56,20 @@ function collectRecurringItems(
     if (!Array.isArray(rec.installments)) continue;
     const paid = rec.paid_parcels || [];
     for (const installment of rec.installments) {
-      if (paid.includes(installment.number)) continue;
       if (!inWindow(installment.dueDate, minIso, maxIso)) continue;
+      const isPaid = paid.includes(installment.number);
+      if (isPaid) {
+        items.push({
+          id: `finance-paid-${rec.id}-${installment.number}`,
+          date: installment.dueDate,
+          module: "finance",
+          title: rec.description || rec.class?.name || "Parcela",
+          subtitle: `Paga · parcela ${installment.number} · ${formatBRL(Number(rec.value) || 0)}`,
+          status: "completed",
+          href: "/finance/recurring",
+        });
+        continue;
+      }
       const overdue = installment.dueDate < todayIso;
       items.push({
         id: `finance-${rec.id}-${installment.number}`,
@@ -66,7 +78,7 @@ function collectRecurringItems(
         title: rec.description || rec.class?.name || "Parcela",
         subtitle: `Parcela ${installment.number} · ${formatBRL(Number(rec.value) || 0)}`,
         status: resolveTimelineStatus(installment.dueDate, todayIso, overdue),
-        href: "/finance",
+        href: "/finance/recurring",
       });
     }
   }
@@ -151,7 +163,8 @@ function collectTripItems(
   trips: Trip[],
   todayIso: string,
   minIso: string,
-  maxIso: string
+  maxIso: string,
+  milestones: TripMilestone[] = []
 ): TimelineItem[] {
   const items: TimelineItem[] = [];
   for (const trip of trips) {
@@ -167,10 +180,30 @@ function collectTripItems(
         module: "travel",
         title: trip.title,
         subtitle,
-        status: resolveTimelineStatus(date, todayIso, date < todayIso),
+        status: resolveTimelineStatus(date, todayIso, date < todayIso && trip.status !== "completed"),
         href: "/travel",
       });
     }
+  }
+  const tripById = new Map(trips.map((trip) => [trip.id, trip]));
+  for (const milestone of milestones) {
+    if (!inWindow(milestone.due_date, minIso, maxIso)) continue;
+    const trip = tripById.get(milestone.trip_id);
+    items.push({
+      id: `travel-ms-${milestone.id}`,
+      date: milestone.due_date,
+      module: "travel",
+      title: milestone.title,
+      subtitle: trip?.title ?? "Marco",
+      status: milestone.done
+        ? "completed"
+        : resolveTimelineStatus(
+            milestone.due_date,
+            todayIso,
+            milestone.due_date < todayIso
+          ),
+      href: "/travel",
+    });
   }
   return items;
 }
@@ -281,9 +314,26 @@ function collectCarItems(
 function collectHabitItems(
   habits: Habit[],
   logs: HabitLog[],
-  todayIso: string
+  todayIso: string,
+  minIso: string,
+  maxIso: string
 ): TimelineItem[] {
   const items: TimelineItem[] = [];
+  const habitById = new Map(habits.map((habit) => [habit.id, habit]));
+  for (const log of logs) {
+    if (!log.completed || !inWindow(log.date, minIso, maxIso)) continue;
+    const habit = habitById.get(log.habit_id);
+    if (!habit) continue;
+    items.push({
+      id: `habit-done-${log.id}`,
+      date: log.date,
+      module: "habits",
+      title: habit.name,
+      subtitle: "Hábito concluído",
+      status: log.date === todayIso ? "today" : "completed",
+      href: "/habits",
+    });
+  }
   for (const habit of habits) {
     const habitLogs = logs.filter((l) => l.habit_id === habit.id);
     if (isCompletedToday(habitLogs, todayIso)) continue;
@@ -364,6 +414,9 @@ export async function fetchFinanceTimeline(
       fetchHabitsWithLogs().catch(() => ({ habits: [], logs: [] })),
       fetchPlaces().catch(() => []),
     ]);
+  const milestones = await fetchMilestonesForTrips(
+    trips.filter((trip) => trip.status !== "cancelled").map((trip) => trip.id)
+  ).catch(() => []);
   return assembleFinanceTimeline(
     recurring,
     daysAhead,
@@ -381,6 +434,7 @@ export async function fetchFinanceTimeline(
       habits: habitsBundle.habits,
       habitLogs: habitsBundle.logs,
       places,
+      milestones,
     }
   );
 }
@@ -402,6 +456,7 @@ export function assembleFinanceTimeline(
     habits?: Habit[];
     habitLogs?: HabitLog[];
     places?: PlaceVisit[];
+    milestones?: TripMilestone[];
   }
 ): TimelineItem[] {
   const todayIso = getTodayIso();
@@ -411,7 +466,13 @@ export function assembleFinanceTimeline(
     ...collectRecurringItems(recurring, todayIso, minIso, maxIso),
     ...collectTaskItems(tasks, todayIso, minIso, maxIso),
     ...collectHealthItems(tasks, todayIso, minIso, maxIso),
-    ...collectTripItems(trips, todayIso, minIso, maxIso),
+    ...collectTripItems(
+      trips,
+      todayIso,
+      minIso,
+      maxIso,
+      extra?.milestones ?? []
+    ),
     ...collectGoalItems(goals, todayIso, minIso, maxIso),
     ...collectContentItems(movies, books, albums, todayIso, minIso, maxIso),
     ...collectCarItems(
@@ -422,7 +483,13 @@ export function assembleFinanceTimeline(
       minIso,
       maxIso
     ),
-    ...collectHabitItems(extra?.habits ?? [], extra?.habitLogs ?? [], todayIso),
+    ...collectHabitItems(
+      extra?.habits ?? [],
+      extra?.habitLogs ?? [],
+      todayIso,
+      minIso,
+      maxIso
+    ),
     ...collectPlaceItems(extra?.places ?? [], todayIso, minIso, maxIso),
   ]);
 }

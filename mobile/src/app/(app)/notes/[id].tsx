@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -14,11 +15,14 @@ import {
 } from "react-native";
 
 import {
+  createNoteApi,
   deleteNoteApi,
   fetchNoteById,
+  fetchNotes,
   updateNoteApi,
 } from "@/api/notes/notes";
 import { fetchProjects } from "@/api/tasks/projects";
+import { CanvasNote } from "@/components/CanvasNote";
 import { ChipBar } from "@/components/ChipBar";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { NoteLinksSection } from "@/components/NoteLinksSection";
@@ -26,11 +30,14 @@ import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
-import { prefixLines, wrapInline } from "@/domain/notes/markdown";
+import { MERMAID_SNIPPET } from "@/domain/notes/mermaidSnippet";
+import { insertAt, prefixLines, wrapInline } from "@/domain/notes/markdown";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
+import type { Note, NoteCanvasData } from "@/types/notes";
 
 const SAVE_DELAY_MS = 800;
 const NO_PROJECT = "__none__";
@@ -46,6 +53,9 @@ export default function NoteEditorScreen() {
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [kind, setKind] = useState<"markdown" | "canvas">("markdown");
+  const [canvasData, setCanvasData] = useState<NoteCanvasData>({ elements: [] });
+  const [wikiNotes, setWikiNotes] = useState<Note[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -58,10 +68,12 @@ export default function NoteEditorScreen() {
   const loadedRef = useRef(false);
   const titleRef = useRef("");
   const contentRef = useRef("");
+  const canvasRef = useRef<NoteCanvasData>({ elements: [] });
   const projectRef = useRef<string | null>(null);
   const baselineRef = useRef({
     title: "",
     content: "",
+    canvasData: { elements: [] } as NoteCanvasData,
     projectId: null as string | null,
   });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,9 +84,10 @@ export default function NoteEditorScreen() {
 
   const load = useCallback(async () => {
     if (!noteId) throw new Error("Nota não encontrada.");
-    const [note, projectRows] = await Promise.all([
+    const [note, projectRows, notes] = await Promise.all([
       fetchNoteById(noteId),
       fetchProjects(),
+      fetchNotes(),
     ]);
     if (!note) throw new Error("Nota não encontrada.");
     setProjects(
@@ -83,32 +96,26 @@ export default function NoteEditorScreen() {
         name: project.name,
       }))
     );
-    if (note.kind === "canvas") {
-      Alert.alert(
-        "Canvas",
-        "Desenho Excalidraw fica no web nesta versão.",
-        [{ text: "OK", onPress: () => router.back() }]
-      );
-      return;
-    }
+    setWikiNotes(notes);
+    const canvas = note.canvas_data ?? { elements: [] };
     titleRef.current = note.title;
     contentRef.current = note.content;
+    canvasRef.current = canvas;
     projectRef.current = note.project_id;
     baselineRef.current = {
       title: note.title,
       content: note.content,
+      canvasData: canvas,
       projectId: note.project_id,
     };
     loadedRef.current = true;
+    setKind(note.kind);
     setTitle(note.title);
     setContent(note.content);
+    setCanvasData(canvas);
     setProjectId(note.project_id);
     setSaveState("saved");
-  }, [noteId, router]);
-
-  useEffect(() => {
-    navigation.setOptions({ title: "Nota" });
-  }, [navigation]);
+  }, [noteId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,11 +140,14 @@ export default function NoteEditorScreen() {
     const snapshot = {
       title: titleRef.current,
       content: contentRef.current,
+      canvasData: canvasRef.current,
       projectId: projectRef.current,
     };
     if (
       snapshot.title === baselineRef.current.title &&
       snapshot.content === baselineRef.current.content &&
+      JSON.stringify(snapshot.canvasData) ===
+        JSON.stringify(baselineRef.current.canvasData) &&
       snapshot.projectId === baselineRef.current.projectId
     ) {
       return;
@@ -149,7 +159,13 @@ export default function NoteEditorScreen() {
     savingRef.current = true;
     setSaveState("saving");
     try {
-      await updateNoteApi({ id: noteId, ...snapshot });
+      await updateNoteApi({
+        id: noteId,
+        title: snapshot.title,
+        content: snapshot.content,
+        projectId: snapshot.projectId,
+        canvasData: snapshot.canvasData,
+      });
       baselineRef.current = snapshot;
       setSaveState("saved");
       setError(null);
@@ -201,6 +217,12 @@ export default function NoteEditorScreen() {
     scheduleSave();
   }
 
+  function onCanvasChange(next: NoteCanvasData) {
+    canvasRef.current = next;
+    setCanvasData(next);
+    scheduleSave();
+  }
+
   function applyWrap(left: string, right?: string) {
     const next = wrapInline(contentRef.current, selectionRef.current, left, right);
     onContentChange(next.text);
@@ -209,6 +231,12 @@ export default function NoteEditorScreen() {
   function applyPrefix(prefix: string) {
     const next = prefixLines(contentRef.current, selectionRef.current, prefix);
     onContentChange(next.text);
+  }
+
+  function applyInsert(insertion: string) {
+    const next = insertAt(contentRef.current, selectionRef.current, insertion);
+    onContentChange(next.text);
+    selectionRef.current = { start: next.start, end: next.end };
   }
 
   async function onShare() {
@@ -231,7 +259,7 @@ export default function NoteEditorScreen() {
     }
   }
 
-  function onDelete() {
+  const onDelete = useCallback(() => {
     if (!noteId) return;
     Alert.alert("Excluir nota", "Essa ação não tem volta.", [
       { text: "Cancelar", style: "cancel" },
@@ -260,7 +288,18 @@ export default function NoteEditorScreen() {
         },
       },
     ]);
-  }
+  }, [noteId, router]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      title: "Nota",
+      headerRight: () => (
+        <Pressable onPress={onDelete} disabled={deleting} hitSlop={10}>
+          <Ionicons name="trash-outline" size={20} color={theme.danger} />
+        </Pressable>
+      ),
+    });
+  }, [deleting, navigation, onDelete, theme.danger]);
 
   const inputStyle = {
     color: theme.text,
@@ -329,12 +368,29 @@ export default function NoteEditorScreen() {
             value={mode}
             onChange={setMode}
           />
-          {mode === "preview" ? (
+          {kind === "canvas" ? (
+            <CanvasNote
+              data={canvasData}
+              editable={mode === "edit" && !deleting}
+              onChange={onCanvasChange}
+            />
+          ) : mode === "preview" ? (
             <ScrollView
               style={[styles.bodyInput, inputStyle]}
               contentContainerStyle={styles.preview}
             >
-              <MarkdownPreview text={content} />
+              <MarkdownPreview
+                text={content}
+                wiki={{
+                  notes: wikiNotes,
+                  onOpen: (id) => router.push(`/notes/${id}`),
+                  onCreate: (wikiTitle) => {
+                    void createNoteApi({ title: wikiTitle, content: "" }).then(
+                      (note) => router.push(`/notes/${note.id}`)
+                    );
+                  },
+                }}
+              />
             </ScrollView>
           ) : (
             <>
@@ -363,6 +419,18 @@ export default function NoteEditorScreen() {
                 >
                   <ThemedText type="smallBold">Check</ThemedText>
                 </Pressable>
+                <Pressable
+                  onPressIn={() => applyWrap("[[", "]]")}
+                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                >
+                  <ThemedText type="smallBold">[[ ]]</ThemedText>
+                </Pressable>
+                <Pressable
+                  onPressIn={() => applyInsert(`\n\n${MERMAID_SNIPPET}\n`)}
+                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                >
+                  <ThemedText type="smallBold">Diagrama</ThemedText>
+                </Pressable>
               </View>
               <TextInput
                 multiline
@@ -379,12 +447,11 @@ export default function NoteEditorScreen() {
               />
             </>
           )}
-          <Pressable disabled={deleting} onPress={() => void onShare()}>
-            <ThemedText type="linkPrimary">Compartilhar</ThemedText>
-          </Pressable>
-          <Pressable disabled={deleting} onPress={onDelete}>
-            <ThemedText style={styles.error}>Excluir nota</ThemedText>
-          </Pressable>
+          <FormButton
+            label="Compartilhar"
+            disabled={deleting}
+            onPress={() => void onShare()}
+          />
         </View>
       </KeyboardAvoidingView>
       <StringSelectModal

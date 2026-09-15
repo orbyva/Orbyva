@@ -5,6 +5,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { choiceChipColors } from "@/lib/color";
 
 export function StringSelectModal({
   visible,
@@ -84,16 +85,12 @@ export function StringSelectModal({
                     setQuery("");
                     onClose();
                   }}
-                  style={[
-                    styles.row,
-                    {
-                      backgroundColor: active
-                        ? theme.backgroundSelected
-                        : theme.backgroundElement,
-                    },
-                  ]}
+                  style={[styles.row, choiceChipColors(theme, active)]}
                 >
-                  <ThemedText type={active ? "smallBold" : "default"}>
+                  <ThemedText
+                    type={active ? "smallBold" : "default"}
+                    style={active ? { color: theme.primary } : undefined}
+                  >
                     {opt.label}
                   </ThemedText>
                 </Pressable>

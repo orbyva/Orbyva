@@ -188,3 +188,19 @@ export function getBookLibraryStats(
 export function pickRandomToReadBook(books: Book[]): Book | null {
   return pickRandomItem(books.filter((book) => book.status === "to_read"));
 }
+
+export function formatBookRating(rating: number): string {
+  return Number.isInteger(rating)
+    ? String(rating)
+    : rating.toFixed(1).replace(".", ",");
+}
+
+export function getBookRatingLabel(rating: number): string {
+  if (rating >= 9) return "Obra-prima";
+  if (rating >= 8) return "Excelente";
+  if (rating >= 7) return "Muito bom";
+  if (rating >= 6) return "Bom";
+  if (rating >= 4) return "Regular";
+  if (rating >= 2) return "Fraco";
+  return "Ruim";
+}

@@ -1,14 +1,26 @@
 import { type ReactNode } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 
+import { MermaidBlock } from "@/components/MermaidBlock";
+import {
+  indexNotesByTitle,
+  normalizeWikiTitle,
+  wikiLinkPlainSegments,
+} from "@/domain/notes/wikiLinks";
 import { useTheme } from "@/hooks/use-theme";
 
 const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
 
-function Inline({ text, color }: { text: string; color: string }) {
+export type WikiPreviewHandlers = {
+  notes: { id: string; title: string }[];
+  onOpen: (id: string) => void;
+  onCreate: (title: string) => void;
+};
+
+function Marks({ text, color }: { text: string; color: string }) {
   const parts = text.split(INLINE);
   return (
-    <Text style={[styles.body, { color }]}>
+    <>
       {parts.map((part, index) => {
         if (part.startsWith("**") && part.endsWith("**")) {
           return (
@@ -31,13 +43,63 @@ function Inline({ text, color }: { text: string; color: string }) {
             </Text>
           );
         }
-        return part;
+        return <Text key={index}>{part}</Text>;
+      })}
+    </>
+  );
+}
+
+function Inline({
+  text,
+  color,
+  wiki,
+  style,
+}: {
+  text: string;
+  color: string;
+  wiki?: WikiPreviewHandlers;
+  style?: object;
+}) {
+  if (!wiki) {
+    return (
+      <Text style={[styles.body, style, { color }]}>
+        <Marks text={text} color={color} />
+      </Text>
+    );
+  }
+  const byTitle = indexNotesByTitle(wiki.notes);
+  const segments = wikiLinkPlainSegments(text);
+  return (
+    <Text style={[styles.body, style, { color }]}>
+      {segments.map((segment, index) => {
+        if (segment.type === "text") {
+          return <Marks key={index} text={segment.value} color={color} />;
+        }
+        const id = byTitle.get(normalizeWikiTitle(segment.title));
+        return (
+          <Text
+            key={index}
+            onPress={() =>
+              id ? wiki.onOpen(id) : wiki.onCreate(segment.title)
+            }
+            style={styles.wiki}
+          >
+            {segment.title}
+            {id ? "" : " +"}
+          </Text>
+        );
       })}
     </Text>
   );
 }
 
-export function MarkdownPreview({ text }: { text: string }) {
+export function MarkdownPreview({
+  text,
+  wiki,
+}: {
+  text: string;
+  wiki?: WikiPreviewHandlers;
+}) {
   const theme = useTheme();
   const color = theme.text;
 
@@ -52,25 +114,35 @@ export function MarkdownPreview({ text }: { text: string }) {
   const blocks: { key: string; node: ReactNode }[] = [];
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   let fence = false;
+  let fenceLang: string | null = null;
   let fenceLines: string[] = [];
 
   function flushFence(key: string) {
-    blocks.push({
-      key,
-      node: (
-        <View
-          style={[
-            styles.codeWrap,
-            { backgroundColor: theme.backgroundSelected },
-          ]}
-        >
-          <Text style={[styles.codeBlock, { color }]}>
-            {fenceLines.join("\n") || " "}
-          </Text>
-        </View>
-      ),
-    });
+    const source = fenceLines.join("\n");
+    if (fenceLang === "mermaid") {
+      blocks.push({
+        key,
+        node: <MermaidBlock source={source} />,
+      });
+    } else {
+      blocks.push({
+        key,
+        node: (
+          <View
+            style={[
+              styles.codeWrap,
+              { backgroundColor: theme.backgroundSelected },
+            ]}
+          >
+            <Text style={[styles.codeBlock, { color }]}>
+              {source || " "}
+            </Text>
+          </View>
+        ),
+      });
+    }
     fenceLines = [];
+    fenceLang = null;
   }
 
   lines.forEach((line, index) => {
@@ -81,6 +153,7 @@ export function MarkdownPreview({ text }: { text: string }) {
         fence = false;
       } else {
         fence = true;
+        fenceLang = line.trimStart().slice(3).trim().toLowerCase() || null;
         fenceLines = [];
       }
       return;
@@ -96,15 +169,12 @@ export function MarkdownPreview({ text }: { text: string }) {
       blocks.push({
         key,
         node: (
-          <Text
-            style={[
-              styles.body,
-              level === 1 ? styles.h1 : level === 2 ? styles.h2 : styles.h3,
-              { color },
-            ]}
-          >
-            {heading}
-          </Text>
+          <Inline
+            text={heading}
+            color={color}
+            wiki={wiki}
+            style={level === 1 ? styles.h1 : level === 2 ? styles.h2 : styles.h3}
+          />
         ),
       });
       return;
@@ -119,7 +189,7 @@ export function MarkdownPreview({ text }: { text: string }) {
           <View style={styles.row}>
             <Text style={[styles.mark, { color }]}>{done ? "☑" : "☐"}</Text>
             <View style={styles.rowBody}>
-              <Inline text={checklist[2]} color={color} />
+              <Inline text={checklist[2]} color={color} wiki={wiki} />
             </View>
           </View>
         ),
@@ -135,7 +205,7 @@ export function MarkdownPreview({ text }: { text: string }) {
           <View style={styles.row}>
             <Text style={[styles.mark, { color }]}>•</Text>
             <View style={styles.rowBody}>
-              <Inline text={bullet[1]} color={color} />
+              <Inline text={bullet[1]} color={color} wiki={wiki} />
             </View>
           </View>
         ),
@@ -151,7 +221,7 @@ export function MarkdownPreview({ text }: { text: string }) {
           <View style={styles.row}>
             <Text style={[styles.mark, { color }]}>{numbered[1]}.</Text>
             <View style={styles.rowBody}>
-              <Inline text={numbered[2]} color={color} />
+              <Inline text={numbered[2]} color={color} wiki={wiki} />
             </View>
           </View>
         ),
@@ -166,7 +236,7 @@ export function MarkdownPreview({ text }: { text: string }) {
 
     blocks.push({
       key,
-      node: <Inline text={line} color={color} />,
+      node: <Inline text={line} color={color} wiki={wiki} />,
     });
   });
 
@@ -193,6 +263,7 @@ const styles = StyleSheet.create({
   h3: { fontSize: 16, lineHeight: 24, fontWeight: "700" },
   bold: { fontWeight: "700" },
   italic: { fontStyle: "italic" },
+  wiki: { color: "#0EA5E9", fontWeight: "700", textDecorationLine: "underline" },
   row: {
     flexDirection: "row",
     alignItems: "flex-start",

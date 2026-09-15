@@ -20,9 +20,12 @@ import {
   updateAlbum,
 } from "@/api/music/albums";
 import { CatalogSearch } from "@/components/CatalogSearch";
+import { DateField } from "@/components/DateField";
+import { RecommendField } from "@/components/RecommendField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { appendActivityDate } from "@/domain/entertainment/insights";
 import {
@@ -66,6 +69,8 @@ export default function AlbumFormScreen() {
   const [source, setSource] = useState<AlbumSource>("manual");
   const [catalogId, setCatalogId] = useState<string | null>(null);
   const [listenedDates, setListenedDates] = useState<string[]>([]);
+  const [activityDate, setActivityDate] = useState(getTodayIso());
+  const [wouldRecommend, setWouldRecommend] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,6 +117,11 @@ export default function AlbumFormScreen() {
     setListenedDates(
       (album.listened_dates ?? []).map((d) => String(d).slice(0, 10))
     );
+    setActivityDate(
+      (album.listened_dates ?? []).map((d) => String(d).slice(0, 10)).at(-1) ??
+        getTodayIso()
+    );
+    setWouldRecommend(album.would_recommend !== false);
     setManual(true);
   }
 
@@ -145,7 +155,7 @@ export default function AlbumFormScreen() {
     const parsedRating = Number.parseFloat(rating.replace(",", "."));
     const dates =
       status === "listened"
-        ? appendActivityDate(listenedDates, getTodayIso())
+        ? appendActivityDate(listenedDates, activityDate)
         : listenedDates;
     setSaving(true);
     setError(null);
@@ -165,7 +175,7 @@ export default function AlbumFormScreen() {
         ? Math.min(10, Math.max(0, parsedRating))
         : null,
       notes: notes.trim() || null,
-      would_recommend: true,
+      would_recommend: wouldRecommend,
       listened_dates: dates,
     };
     try {
@@ -247,11 +257,10 @@ export default function AlbumFormScreen() {
                 onSelect={onPickHit}
               />
               {!manual ? (
-                <Pressable onPress={() => setManual(true)}>
-                  <ThemedText type="small" style={{ color: theme.primary }}>
-                    Cadastrar na mão
-                  </ThemedText>
-                </Pressable>
+                <FormButton
+                  label="Cadastrar na mão"
+                  onPress={() => setManual(true)}
+                />
               ) : null}
             </>
           ) : null}
@@ -334,6 +343,21 @@ export default function AlbumFormScreen() {
                   onChangeText={setRating}
                 />
               </Field>
+              {status === "listened" ? (
+                <Field label="Data em que ouviu">
+                  <DateField
+                    value={activityDate}
+                    onChange={setActivityDate}
+                    style={inputStyle}
+                  />
+                </Field>
+              ) : null}
+              {status === "listened" ? (
+                <RecommendField
+                  value={wouldRecommend}
+                  onChange={setWouldRecommend}
+                />
+              ) : null}
               <Field label="Notas">
                 <TextInput
                   placeholder="Opcional"
@@ -344,24 +368,21 @@ export default function AlbumFormScreen() {
                   onChangeText={setNotes}
                 />
               </Field>
-              <Pressable
+              <FormButton
+                label={editId ? "Salvar alterações" : "Adicionar"}
+                tone="primary"
                 disabled={saving}
+                busy={saving}
                 onPress={() => void onSave()}
-                style={[styles.primary, { backgroundColor: theme.primary }]}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#0B0F1A" />
-                ) : (
-                  <ThemedText type="smallBold" style={styles.primaryLabel}>
-                    {editId ? "Salvar alterações" : "Adicionar"}
-                  </ThemedText>
-                )}
-              </Pressable>
-              {editId ? (
-                <Pressable disabled={saving} onPress={onDelete}>
-                  <ThemedText themeColor="danger">Excluir álbum</ThemedText>
-                </Pressable>
-              ) : null}
+              />
+          {editId ? (
+            <FormButton
+              label="Excluir álbum"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
+          ) : null}
             </>
           ) : null}
         </ScrollView>

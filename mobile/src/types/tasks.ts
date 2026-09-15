@@ -20,6 +20,7 @@ export interface Task {
   status: TaskStatus;
   due_date: string | null;
   due_time?: string | null;
+  estimated_duration?: number | null;
   completed_at?: string | null;
   parent_task_id: string | null;
   project_id: string | null;
@@ -86,3 +87,10 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
 
 export const PROJECT_FILTER_ALL = "all";
 export const PROJECT_FILTER_NONE = "none";
+
+export interface TaskTimeEntry {
+  id: string;
+  task_id: string;
+  started_at: string;
+  ended_at: string | null;
+}

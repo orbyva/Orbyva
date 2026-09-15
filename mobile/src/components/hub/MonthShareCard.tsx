@@ -1,13 +1,14 @@
-import { Share, Pressable, StyleSheet, View } from "react-native";
+import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 
+import { MonthShareStoryCard } from "@/components/share/MonthShareStoryCard";
+import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
 import { ThemedText } from "@/components/themed-text";
 import { Card } from "@/components/ui/Card";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { monthLabel, monthRemainingVsPlan, monthShareText } from "@/domain/monthShare";
-import { useTheme } from "@/hooks/use-theme";
-import { useFeedback } from "@/hooks/use-toast";
 import { formatBRL } from "@/lib/currency";
-import { getErrorMessage } from "@/lib/errors";
 
 export function MonthShareCard({
   year,
@@ -22,21 +23,9 @@ export function MonthShareCard({
   despesa: number;
   budgetPlanned?: number | null;
 }) {
-  const theme = useTheme();
-  const { fail, ok } = useFeedback();
+  const [open, setOpen] = useState(false);
   const leftover = monthRemainingVsPlan({ receita, despesa, budgetPlanned });
   const saldo = receita - despesa;
-
-  async function share() {
-    try {
-      await Share.share({
-        message: monthShareText({ year, month, receita, despesa, budgetPlanned }),
-      });
-      ok("Pronto para compartilhar");
-    } catch (err) {
-      fail(getErrorMessage(err, "Não foi possível compartilhar."));
-    }
-  }
 
   return (
     <Card style={styles.card}>
@@ -61,12 +50,30 @@ export function MonthShareCard({
       <ThemedText type="small" themeColor="textSecondary">
         Saldo {formatBRL(saldo)} · {leftover.label} {formatBRL(leftover.value)}
       </ThemedText>
-      <Pressable
-        onPress={() => void share()}
-        style={[styles.btn, { borderColor: theme.backgroundSelected }]}
-      >
-        <ThemedText type="smallBold">Compartilhar</ThemedText>
-      </Pressable>
+      <FormButton
+        label="Compartilhar"
+        tone="primary"
+        onPress={() => setOpen(true)}
+      />
+      <OpinionShareSheet
+        visible={open}
+        onClose={() => setOpen(false)}
+        title={monthLabel(year, month)}
+        sheetTitle="Compartilhar mês"
+        hasNotes={false}
+        message={() =>
+          monthShareText({ year, month, receita, despesa, budgetPlanned })
+        }
+        renderCard={() => (
+          <MonthShareStoryCard
+            year={year}
+            month={month}
+            receita={receita}
+            despesa={despesa}
+            budgetPlanned={budgetPlanned}
+          />
+        )}
+      />
     </Card>
   );
 }
@@ -75,12 +82,4 @@ const styles = StyleSheet.create({
   card: { gap: Spacing.two, padding: Spacing.three },
   row: { flexDirection: "row", gap: Spacing.three },
   cell: { flex: 1, gap: 2 },
-  btn: {
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 4,
-  },
 });

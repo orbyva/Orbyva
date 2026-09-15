@@ -11,18 +11,23 @@ import {
   View,
 } from "react-native";
 
-import { createNoteApi } from "@/api/notes/notes";
+import { createNoteApi, fetchNotes } from "@/api/notes/notes";
 import { fetchProjects } from "@/api/tasks/projects";
+import { CanvasNote } from "@/components/CanvasNote";
 import { ChipBar } from "@/components/ChipBar";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
+import { MERMAID_SNIPPET } from "@/domain/notes/mermaidSnippet";
+import { insertAt } from "@/domain/notes/markdown";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
+import type { Note, NoteCanvasData, NoteKind } from "@/types/notes";
 
 const NO_PROJECT = "__none__";
 
@@ -38,6 +43,9 @@ export default function NoteCreateScreen() {
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [kind, setKind] = useState<NoteKind>("markdown");
+  const [canvasData, setCanvasData] = useState<NoteCanvasData>({ elements: [] });
+  const [wikiNotes, setWikiNotes] = useState<Note[]>([]);
   const [projectId, setProjectId] = useState<string | null>(paramProjectId);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -51,8 +59,8 @@ export default function NoteCreateScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    void fetchProjects()
-      .then((rows) => {
+    void Promise.all([fetchProjects(), fetchNotes()])
+      .then(([rows, notes]) => {
         if (cancelled) return;
         setProjects(
           visibleProjects(rows).map((project) => ({
@@ -60,6 +68,7 @@ export default function NoteCreateScreen() {
             name: project.name,
           }))
         );
+        setWikiNotes(notes);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -75,8 +84,12 @@ export default function NoteCreateScreen() {
     setSaving(true);
     setError(null);
     try {
-      await createNoteApi({ title, content, projectId });
-      router.back();
+      const note = await createNoteApi(
+        kind === "canvas"
+          ? { title, projectId, kind: "canvas", canvasData }
+          : { title, content, projectId }
+      );
+      router.replace(`/notes/${note.id}`);
     } catch (err) {
       setError(getErrorMessage(err, "Não foi possível criar a nota."));
     } finally {
@@ -121,6 +134,22 @@ export default function NoteCreateScreen() {
           />
           <ChipBar
             options={[
+              { id: "markdown", label: "Texto" },
+              { id: "canvas", label: "Desenho" },
+            ]}
+            value={kind}
+            onChange={(next) => setKind(next)}
+          />
+          {kind === "canvas" ? (
+            <CanvasNote
+              data={canvasData}
+              editable
+              onChange={setCanvasData}
+            />
+          ) : (
+            <>
+          <ChipBar
+            options={[
               { id: "edit", label: "Editar" },
               { id: "preview", label: "Prévia" },
             ]}
@@ -132,32 +161,65 @@ export default function NoteCreateScreen() {
               style={[styles.bodyInput, inputStyle]}
               contentContainerStyle={styles.preview}
             >
-              <MarkdownPreview text={content} />
+              <MarkdownPreview
+                text={content}
+                wiki={{
+                  notes: wikiNotes,
+                  onOpen: (id) => router.push(`/notes/${id}`),
+                  onCreate: (wikiTitle) => {
+                    void createNoteApi({ title: wikiTitle, content: "" }).then(
+                      (note) => router.push(`/notes/${note.id}`)
+                    );
+                  },
+                }}
+              />
             </ScrollView>
           ) : (
+            <>
+              <View style={styles.tools}>
+                <Pressable
+                  onPress={() =>
+                    setContent((cur) => insertAt(cur, { start: cur.length, end: cur.length }, "[[").text)
+                  }
+                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                >
+                  <ThemedText type="smallBold">[[ ]]</ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    setContent((cur) =>
+                      insertAt(
+                        cur,
+                        { start: cur.length, end: cur.length },
+                        `\n\n${MERMAID_SNIPPET}\n`
+                      ).text
+                    )
+                  }
+                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                >
+                  <ThemedText type="smallBold">Diagrama</ThemedText>
+                </Pressable>
+              </View>
             <TextInput
               multiline
-              placeholder="Escreva em markdown…"
+              placeholder="Escreva em markdown… Use [[Título]] para linkar outra nota."
               placeholderTextColor={theme.textSecondary}
               style={[styles.bodyInput, inputStyle]}
               value={content}
               onChangeText={setContent}
               textAlignVertical="top"
             />
+            </>
           )}
-          <Pressable
+            </>
+          )}
+          <FormButton
+            label="Salvar nota"
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                Salvar nota
-              </ThemedText>
-            )}
-          </Pressable>
+          />
         </View>
       </KeyboardAvoidingView>
       <StringSelectModal
@@ -211,6 +273,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   preview: { paddingVertical: 12, paddingBottom: 24 },
+  tools: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tool: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
   primary: {
     height: 48,
     borderRadius: 999,

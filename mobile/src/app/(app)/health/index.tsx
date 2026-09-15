@@ -12,6 +12,7 @@ import {
 
 import { loadHealthHome, markDoseTaken, upsertReminderPreference } from "@/api/health/health";
 import { toggleHabitLog } from "@/api/habits/habits";
+import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -71,6 +72,7 @@ export default function HealthScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [section, setSection] = useState<"today" | "care" | "more">("today");
   const hasLoaded = useRef(false);
 
   const load = useCallback(async () => {
@@ -206,6 +208,16 @@ export default function HealthScreen() {
             />
           }
         >
+          <ChipBar
+            options={[
+              { id: "today", label: "Hoje" },
+              { id: "care", label: "Cuidados" },
+              { id: "more", label: "Mais" },
+            ]}
+            value={section}
+            onChange={setSection}
+          />
+          {section === "today" ? (
           <ModuleSection
             title="Hoje"
             icon="water-outline"
@@ -246,7 +258,9 @@ export default function HealthScreen() {
               ))
             )}
           </ModuleSection>
+          ) : null}
 
+          {section === "more" ? (
           <ModuleSection
             title="Progresso"
             icon="pulse-outline"
@@ -280,7 +294,10 @@ export default function HealthScreen() {
               );
             })}
           </ModuleSection>
+          ) : null}
 
+          {section === "care" ? (
+          <>
           <ModuleSection
             title="Medicações"
             icon="medkit-outline"
@@ -394,7 +411,10 @@ export default function HealthScreen() {
               </ThemedText>
             )}
           </ModuleSection>
+          </>
+          ) : null}
 
+          {section === "more" ? (
           <ModuleSection title="Lembretes" icon="notifications-outline" tint="#F59E0B">
             <ThemedText type="small" themeColor="textSecondary">
               Preferência no app. Push nativo ainda não entra nesta fatia.
@@ -429,6 +449,7 @@ export default function HealthScreen() {
               );
             })}
           </ModuleSection>
+          ) : null}
         </ScrollView>
       )}
     </ThemedView>

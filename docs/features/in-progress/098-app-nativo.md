@@ -374,6 +374,121 @@ biblioteca de ícone, regras regex de link.
 - [x] Tags: cor, editar, excluir. Compras: aviso de exclusão em cascata;
       abrir fornecedor/tarefa; item na categoria. Verificação: `npx tsc --noEmit`
 
+### 11 — Polimento visual (paridade com o web)
+
+- [x] Fundação: logo Orbyva + wordmark na sidebar expandida (não só o “O”). Verificação: `npx tsc --noEmit`
+- [x] Dashboard de Finanças: cores nos KPIs; remover atalhos Transações/Recorrências/Orçamento/Categorias. Verificação: `npx tsc --noEmit`
+- [x] Recorrências: destacar Receber/Pagar; trocar “Gerir”; parcelas mais claras. Verificação: `npx tsc --noEmit`
+- [x] Orçamento: destacar Gasto e teto (sempre visíveis, com cor). Verificação: `npx tsc --noEmit`
+- [x] Produtividade: tela Agenda (calendário mensal) na sidebar. Verificação: `npx tsc --noEmit`
+- [x] Hábitos: heatmap no estilo do web (células pequenas, gap, legenda). Verificação: `npx tsc --noEmit`
+- [x] Metas: cards mais claros; “Rotina” vira “Aportes mensais”. Verificação: `npx tsc --noEmit`
+- [x] Viagens: form com deslocamento ida/volta; orçamento/status/notas em Opções avançadas. Verificação: `npx tsc --noEmit`
+- [x] Cinema / Livros / Música: cards mais próximos do web (capa, nota, ação). Verificação: `npx tsc --noEmit`
+- [x] Metro resolve `@/lib/auth-user` (alias não vaza pro `src/` do Vite). Verificação: `npx tsc --noEmit`
+- [x] DateTimePicker: `onValueChange` / `onDismiss` no lugar de `onChange`. Verificação: `npx tsc --noEmit`
+- [x] Dashboard de Finanças: KPI “Saldo previsto” no lugar de “Teto do mês”. Verificação: `npx tsc --noEmit`
+- [x] Recorrências: cards de valor A receber / A pagar iguais ao web. Verificação: `npx tsc --noEmit`
+- [x] Abas de 2 opções (Lista/Projeção etc.) centralizadas e com destaque. Verificação: `npx tsc --noEmit`
+- [x] Filtros de conteúdo: menos chips, seletores compactos. Verificação: `npx tsc --noEmit`
+- [x] Conteúdo: marcar lido/assistido/ouvido abre modal de avaliação. Verificação: `npx tsc --noEmit`
+- [x] Tarefas e Metas: abas de 3 opções no mesmo segmento de Lista/Projeção. Verificação: `npx tsc --noEmit`
+
+### 12 — Fechar o meio-termo (filtros, Agenda, Live, notas, forms)
+
+UI nativa. Recap/share em canvas e push de episódio novo continuam no web.
+Canvas nativo é desenho livre compatível com o JSON do Excalidraw (ver, rabiscar),
+não o editor web completo.
+
+- [x] Tarefas/Lugares/Saúde/Notas/Compras: filtros em seletor compacto, não pilha de chips. Verificação: `npx tsc --noEmit`
+- [x] Agenda: visões Mês / Semana / Dia, com grade de horas. Verificação: `npx tsc --noEmit`
+- [x] Live: timer start/pause/stop, histórico do dia, atalho na lista e widget. Verificação: `npx tsc --noEmit`
+- [x] Notas: `[[wikilink]]` na prévia, bloco mermaid, nota-canvas (ver + desenhar). Verificação: `npx tsc --noEmit`
+- [x] Forms: opinião (recomendaria), data da atividade e duração da tarefa visíveis. Verificação: `npx tsc --noEmit`
+
+### 13 — Recap/share e aviso de episódio novo
+
+UI nativa. Card Stories (9:16) + share do sistema, no mesmo papel do canvas web.
+Push remoto (token + Edge) continua na tarefa 7 — aqui o “push de episódio”
+é o aviso no app: toggle na série + sino.
+
+- [x] Cinema / Livros / Música: recap/share no detalhe (assistido / lido / ouvido),
+      com nota, recomendaria, opinião e episódios/faixas avaliados. Verificação:
+      `npx tsc --noEmit`
+- [x] Lugares: share no detalhe (card + foto opcional da galeria). Verificação:
+      `npx tsc --noEmit`
+- [x] Série: “Avisar novos” no detalhe + próximo episódio TMDB; o sino passa a
+      listar o alerta. Verificação: `npx tsc --noEmit`
+
+### 14 — Live, viagem, forms e nota quebrada
+
+- [x] Live: dá para tirar o cronômetro da tela (dismiss) sem perder o timer
+      em andamento. Verificação: `npx tsc --noEmit`
+- [x] Viagem: escolher cidade fecha a lista e preenche o destino (como o web);
+      deslocamento ida/volta é interruptor. Verificação: `npx tsc --noEmit`
+- [x] Forms: ações (adicionar/remover/excluir) são botões, não texto solto.
+      Verificação: `npx tsc --noEmit`
+- [x] Entretenimento: nota aceita meia casa (ex.: 6,5), como no web.
+      Verificação: `npx tsc --noEmit`
+
+### 15 — Logo do share igual ao web
+
+- [x] Card Stories usa o `logo.webp` do web (órbita + ORBYVA + slogan).
+      Verificação: `npx tsc --noEmit`
+
+### 16 — Share no modelo web + botões de form
+
+O card nativo segue o canvas web (mark + wordmark + slogan), não o
+`logo.webp` (fundo branco). Ações de form (salvar / adicionar / remover /
+excluir) são `FormButton` em todos os cadastros.
+
+- [x] Card Stories no mesmo modelo do web (header/footer de marca, pôster,
+      pill, chip; sem placa branca). Verificação: `npx tsc --noEmit`
+- [x] Todos os `*form*` nativos usam `FormButton` nas ações. Verificação:
+      `npx tsc --noEmit`
+
+### 17 — Botões no mesmo desenho do web
+
+Detalhe e cadastro: botão preenchido (primário), outline (fundo da superfície)
+e perigo em outline vermelho — não texto solto.
+
+- [x] Cinema / livros / música / lugares / notas: ações do detalhe iguais ao
+      web. Verificação: `npx tsc --noEmit`
+
+### 18 — Filtros, forms, hub, extrato, agenda e vida no modelo web
+
+- [x] Filtros recolhidos mais visíveis; opção selecionada (filtro e form)
+      em azul; forms com Classificação / Detalhes. Verificação:
+      `npx tsc --noEmit`
+- [x] Hub: pontos de atenção navegam ao submódulo; ícones nos módulos;
+      timeline com atividades recentes e agendados. Verificação:
+      `npx tsc --noEmit`
+- [x] Finanças: extrato paginado; valores do mês clicado no gráfico de
+      linhas em destaque. Verificação: `npx tsc --noEmit`
+- [x] Agenda com ícones do web e detalhe só ao tocar o dia; exclusão da
+      nota fora do rodapé. Verificação: `npx tsc --noEmit`
+- [x] Lugares, viagens e veículos: fluxo de adicionar/editar (e visões
+      da frota) iguais ao web. Verificação: `npx tsc --noEmit`
+
+### 19 — Share nativo no mesmo card do web
+
+O card Stories é 1080×1920, iguais ao canvas web (header/footer de
+marca, pôster, pill, chip, mosaico). O preview é a PNG capturada, não
+uma miniatura esticada.
+
+- [x] Cinema / livros / música / lugares / mês / viagem: card de share
+      no modelo web. Verificação: `npx tsc --noEmit`
+
+### 20 — Card de share cinematográfico + mark real
+
+Fundo da 1ª foto (capa visível, blur leve, vinheta). Mark da 2ª foto
+(`logo-mark-sky.png`), no web e no nativo.
+
+- [x] Web + nativo: fundo da 1ª foto + mark da 2ª. Verificação:
+      `npx tsc --noEmit` ✓
+- [x] Nativo captura o mesmo modelo do canvas web (expo-image, mark,
+      episódios, ViewShot opaco). Verificação: `npx tsc --noEmit` ✓
+
 ## Prompts
 
 - 2026-09-10 — Eu quero criar o app do orbyva, utilizando react native para subir na App Store e Play Store. Eu vou continuar utilizando esse backend mesmo, mas só ter outro front além do Web. Como posso fazer isso? Crio um outro repo para isso ou não?
@@ -453,6 +568,107 @@ Inicie a implementação
 - 2026-09-11 — Permita que o gráfico de projeção seja clicável para filtrar
 - 2026-09-11 — Toda vez dá um novo reload. Tem como ajustar isso? Ter um efeitinho bacana ao invés do reload
 - 2026-09-11 — Ficou muito bom! Acho que esses cabeçalhos que ficam fixos do filtro e tal pode ter a opção de recolher. Para não ocupar mt espaço na tela. Principalmente a de orçamento
+- 2026-09-14 — Fundação
+  - Colocar logo do Orbyva ao expandir a Sidebar. Hoje aparece apenas o "O". Deixe igual ao web, com a escrita q a logo
+
+  Dashboard Financeiro
+  - Coloque cores nos card do Dashboard financeiro e tire os botões que aparecem acima dos cards.
+
+  Recorrências
+  - Dê mais destaque ao Receber e a Pagar
+  - Escolha outra palavra ao invés de "Gerir"
+  - Melhore o ver parcelas ali, deixe mais bonito
+  Orçamento
+  - Dê mais destaque ao Gasto e teto
+
+  Produtividade
+  - Falta a agenda
+
+  Hábitos
+  - Coloque um gráfico de heat map mais parecido com o Web
+
+  Metas
+  - Melhore essa tela
+  - Troque a palabra "Rotina" para ficar mais claro para o usuário
+
+  Viagem
+  - Deixar o formulário mais parecido com o Web, adicinando o Deslocamento de ida e volta e deixar a parte de orçamento e tal dentro de Opções avançadas, do mesmo modelo do Web
+
+  Entretenimento
+  - No módulos de Livros, Cinema e música melhorar aquele card
+- 2026-09-14 — WARN  DateTimePicker: `onChange` is deprecated. Use `onValueChange`, `onDismiss`, and `onNeutralButtonPress` instead.
+  iOS Bundling failed … Unable to resolve "@/lib/auth-user" from "src/api/habits/habits.ts"
+- 2026-09-14 — Dashboard Finanças
+  - Dashboard troque o card de teto do mês por Saldo Previsto
+  Recorrências
+  - Vc não deu o destaque para o valor a receber e a pagar que te pedi
+- 2026-09-14 — Ficou bom. Agora quero uns ajustes visuais.
+  - Em abas que tem apenas 2 botões para mudar, exemplo lista e projeção, deixe centralizado e dê um destaque
+  - Os filtros estão meio feios, sei lá, está muito simples, muito botão para filtrar principalmente nos de conteúdo
+  - Em conteúdo quando marcar como já lido, já assistido etc está indo direto, é para ir para a modal de avaliação
+- 2026-09-14 — Faça o mesmo do Projeção el lista para Tarefas, onde tem Lista, Kanban e Concluídas
+  Metas também onde tem, Todas, Ativas e Concluídas
+- 2026-09-14 — Tarefas — Lista/Kanban/Agenda funcionam; filtros ainda são pilha de chips; não tem visão de semana/hora nem Live.
+  Notas — edita e prévia markdown; sem wikilink, mermaid, canvas.
+  Conteúdo — lista, nota e modal de avaliar; recap/share e push de episódio novo continuam no web.
+  Lugares / Saúde / filtros — o mesmo padrão que o conteúdo tinha antes: muitos botões, menos densidade que o site.
+  Forms — o essencial está; opinião, data e campos raros às vezes somem ou ficam mais simples.
+
+  Implemente isso. Vamos fechar esse meio-termo
+- 2026-09-14 — Conteúdo — Implemente o  recap/share e push de episódio novo
+  Lugares também implemente o share.
+- 2026-09-14 — Live
+  - Depois que dou play em uma tarefa, não consigo tirar o crônometro da tela
+
+  Viagens
+  - Quando clico na cidade, não fecha a lista de pesquisa e não pega o destino igual no Web
+  - No incluir deslocamento, coloque aquele interruptor de on e of ao invés de só a escrita
+  Geral
+  - Em todos os forms, os botões estão meio pobres, nem parece que são botões clicáveis, veja na imagem:
+
+  Entretenimento
+  - Não consigo dar uma nota quebrada, tipo 6,5.
+- 2026-09-14 — Use a imagem que tem na versão web para o share
+- 2026-09-14 — Faça isso em todos os forms que tenham botões para ficar um negócio melhor. 
+O que eu digo do share pra vc pegar do web. É o modelo do card de compartilhamento. Olha aí como é. Quero desse jeito.
+- 2026-09-14 — ta bem esquisito mano. Cara, pega só o mesmo design que ta no web e coloca no App. Olha aí como os botões estão
+- 2026-09-15 — Geral
+  - Dê um destaque na parte de filtros quando está recolhido. As vezes passa despercebido.
+  - Na opção selecionada de filtro, form, deixe azul
+  - Nos forms coloque aquela separaçãozinha do Web de classificação e detalhes
+  Início
+  - Dashboard
+    - Ao clicar nos itens de ponto de atenção, redirecione para o submódulo de referência
+    - Coloque ícones na parte de módulos
+    -
+    - Deixe o timeline igual do web, mostrando as últimas atividades de cada módulo e os agendados, como os hábtios, parcelas etc
+  Finanças
+  - Dashboard
+    - Pagine a parte dos extratos
+    - Dê mais destaque nos valores quando clicar em mês específico do gráfico de linhas
+  Produtividade
+  - Agenda
+    - Coloque os ícones igual no web, abra o detalhe apenas quando eu clicar no dia
+  - Notas
+    - Coloque o botão de exclusão em outro local
+  Vida
+  - Lugares
+    - Deixe o fluxo de adicionar/editar visita e tal igual ao web
+  - Viagens
+    - Deixe o fluxo de adicionar e editar igual ao web
+  - Veículos
+    - Deixe o fluxo de adicionar e editar igual ao web e as visões também
+- 2026-09-15 — O share do mobile e do web está diferente. O do Web está perfeito. Já o do mobile ta paia demais. Deixe o do mobile igual ao do web
+- 2026-09-15 — Cara, eu tava vendo o card como estava antes e agora no web e está diferente. Pq alterou?
+
+Veja como está agora e como estava antes. A primeira é de agora, a segunda é de antes.
+
+Deixe igual estava antes e altere o logo do orbyva que está feio
+- 2026-09-15 — No mobile estava igual antes. Só com a logo do orbyva meio zoada ainda.
+Faça o seguinte: Deixe igual está no mobile para os 2, mas, coloque a logo do orbyva que está no share do web que está melhor
+- 2026-09-15 — Mantenha igual a primeira, mas com a logo do orbyva da segunda foto no mobile e no web.
+- 2026-09-15 — Ainda está diferente no mobile. Já o web, está perfeito. Use exatamente o mesmo modelo do Web.
+- 2026-09-15 — No mobile oculte mais uns 4 episódios no banner pra ficar menos apertado. Mas só isso. Faça mais nada
 
 ## Notas
 
@@ -662,3 +878,80 @@ Inicie a implementação
   visíveis; KPIs, busca e chips vão para `CollapsibleChrome` (orçamento
   começa fechado, com gasto/teto e estouros no hint). Na projeção o
   toggle some. `npx tsc --noEmit` ✓.
+- 2026-09-14 — Polimento visual nativo: logo+wordmark na sidebar; KPIs
+  coloridos no dashboard (sem atalhos); Recorrências com Pagar/Receber
+  em destaque, “Opções” no lugar de “Gerir” e parcelas com badge;
+  Gasto/teto sempre visíveis no orçamento; Agenda mensal em Produtividade;
+  heatmap de hábitos no estilo web; Metas com “Aportes mensais”; form de
+  viagem com ida/volta e opções avançadas; cards de cinema/livros/música
+  com capa maior e nota. `npx tsc --noEmit` ✓.
+- 2026-09-14 — Metro no `mobile/` herdava o `@/*` do `tsconfig.json` da raiz
+  (Vite `src/`). O bundle iOS falhava em `@/lib/auth-user` ao abrir hábitos.
+  `metro.config.js` trava o alias em `mobile/src` e não observa o src do web.
+  DateField/TimeField passaram para `onValueChange`/`onDismiss`. No caminho:
+  vírgula faltando em `AppSidebar` (`brandLockup`) e cast do fallback do
+  roteiro em `travel.ts`. `npx tsc --noEmit` e `npx expo export --platform ios` ✓.
+- 2026-09-14 — Dashboard nativo: “Teto do mês” vira “Saldo previsto”
+  (realizado + parcelas em aberto, igual ao web). Recorrências ganham os
+  dois cards de valor A receber / A pagar, sempre visíveis. `npx tsc --noEmit` ✓.
+- 2026-09-14 — ChipBar de 2 opções vira segmento centralizado (azul no ativo).
+  Cinema/Livros/Música/Links compactam tipo/gênero/nota/ordem em seletores.
+  Marcar assistido/lido/ouvido abre modal de nota 1–10 + recomendaria.
+  `npx tsc --noEmit` ✓.
+- 2026-09-14 — Segmento centralizado também em 3 opções: Tarefas
+  (Lista / Kanban / Concluídas) e Metas (Todas / Ativas / Concluídas).
+  `npx tsc --noEmit` ✓.
+- 2026-09-14 — Meio-termo nativo: filtros compactos (tarefas, lugares,
+  saúde em Hoje/Cuidados/Mais, notas, compras); Agenda Mês/Semana/Dia
+  com grade de horas; Live (tela, widget, atalho na lista); notas com
+  `[[wikilink]]`, mermaid e canvas de desenho livre; forms com
+  recomendaria, data da atividade e duração da tarefa. Recap/share e
+  push de episódio novo continuam no web. `npx tsc --noEmit` ✓.
+- 2026-09-14 — Recap/share nativo: card Stories (ViewShot 1080×1920) em
+  cinema/livros/música (assistido/lido/ouvido) e lugares (foto opcional).
+  Série ganha “Avisar novos” + próximo episódio; o sino usa o mesmo
+  `notify_new_episodes` do web. Push remoto OS continua na tarefa 7.
+  `npx tsc --noEmit` ✓.
+- 2026-09-14 — Live: X tira o cronômetro da tela (timer segue em Live).
+  Viagem: pick de cidade fecha a lista e preenche destino (`selectedLabel`).
+  Deslocamento ida/volta vira Switch. Forms: `FormButton` em
+  adicionar/remover/excluir. Nota de conteúdo aceita meia casa. `npx tsc --noEmit` ✓.
+- 2026-09-14 — Share nativo usa o `logo.webp` do web no rodapé do card
+  (lockup órbita + ORBYVA + slogan). Cabeçalho ganha wordmark como no canvas.
+  `npx tsc --noEmit` ✓.
+- 2026-09-14 — Share nativo copiou o modelo do canvas web (não o logo.webp):
+  mark vetorial + ORBYVA + slogan com ÓRBITA em sky. Forms: `FormButton`
+  em salvar/adicionar/remover/excluir de todos os cadastros. `npx tsc --noEmit` ✓.
+- 2026-09-14 — Botões no detalhe (cinema/livros/música/lugares/notas) no
+  mesmo desenho do web: primário preenchido, outline na superfície, perigo
+  em borda vermelha. Favorito vira coração no título. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Filtros recolhidos viram pill azul com ícone; opção ativa
+  no picker fica primária. Forms de finanças/lugares/viagens/veículos
+  ganham Classificação/Detalhes. Hub: alerta navega no `href`, módulos
+  com ícone, timeline com agendados + atividades (hábitos, parcelas,
+  marcos). Extrato paginado; mês do gráfico em card grande. Agenda só
+  abre o dia; ícones de tarefa; lixeira da nota no header. Lugares:
+  visita no detalhe. Frota: Cronograma/Manutenções/Abastecimentos/
+  Documentos. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Share nativo passou a desenhar o card em 1080×1920 (o
+  mesmo canvas do web) e capturar 1:1. A miniatura 270×480 esticada
+  saiu: preview é a PNG gerada. Mês e viagem também geram o card de
+  imagem, não só texto. `href` da timeline ganhou `/finance/recurring`
+  (já era usado no collect). `npx tsc --noEmit` ✓.
+- 2026-09-15 — O card de share do web tinha mudado de cara porque o
+  kit passou a pintar um wash cyan (opacity 0.48) + blur 48px em cima
+  do pôster — a arte sumia e virava um degradê sky. O mark também
+  deixou de ser o `logo-mark-sky.png` (fundo transparente) e virou um
+  O+órbita vetorial tosco, porque o `logo-mark.webp` tem fundo branco.
+  Restaurado: capa visível no fundo + mark real. `npx tsc --noEmit` ✓
+  (web `tsc -b` e mobile).
+- 2026-09-15 — Fundo do share voltou ao do mobile (blur 48 + wash sky +
+  vinheta) nos dois. O web não usa mais `brightness()` no canvas, que
+  era o que apagava o pôster. Mark continua o `logo-mark-sky.png`.
+  `npx tsc --noEmit` ✓.
+- 2026-09-15 — Share: fundo da 1ª foto (capa visível, blur 10, vinheta
+  sem wash cyan) + mark da 2ª (`logo-mark-sky.png`) no web e no
+  nativo. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Nativo passou a capturar o card opaco (ViewShot não
+  pegava o blur com opacity 0.02), com `expo-image` no fundo/mark e a
+  mesma regra de episódios do canvas. `npx tsc --noEmit` ✓.

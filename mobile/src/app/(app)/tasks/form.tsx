@@ -36,6 +36,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { TimeField } from "@/components/TimeField";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { FormSection } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
@@ -106,6 +107,8 @@ export default function TaskFormScreen() {
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState<string | null>(todayIsoDate());
   const [dueTime, setDueTime] = useState<string | null>(null);
+  const [isQuick, setIsQuick] = useState(false);
+  const [durationMinutes, setDurationMinutes] = useState("");
   const [projectId, setProjectId] = useState<string | null>(paramProjectId);
   const [priority, setPriority] = useState<TaskPriority | null>(null);
   const [status, setStatus] = useState<TaskStatus>("todo");
@@ -191,6 +194,10 @@ export default function TaskFormScreen() {
           setDescription(task.description ?? "");
           setDueDate(task.due_date);
           setDueTime(task.due_time ?? null);
+          setIsQuick(Boolean(task.is_quick));
+          setDurationMinutes(
+            task.estimated_duration ? String(task.estimated_duration) : ""
+          );
           setProjectId(task.project_id);
           setPriority(task.priority ?? null);
           setStatus(task.status);
@@ -317,6 +324,10 @@ export default function TaskFormScreen() {
       title: title.trim(),
       due_date: dueDate,
       due_time: dueTime,
+      estimated_duration: isQuick
+        ? null
+        : Math.max(0, Number.parseInt(durationMinutes, 10) || 0) || null,
+      is_quick: isQuick,
       description: description.trim(),
       project_id: projectId,
       priority,
@@ -801,6 +812,30 @@ export default function TaskFormScreen() {
                 {dueTime ? (
                   <TimeField value={dueTime} onChange={setDueTime} style={inputStyle} />
                 ) : null}
+                <ChipBar
+                  options={[
+                    { id: "block", label: "Bloco" },
+                    { id: "quick", label: "Pontual" },
+                  ]}
+                  value={isQuick ? "quick" : "block"}
+                  onChange={(id) => setIsQuick(id === "quick")}
+                />
+                {!isQuick ? (
+                  <TextInput
+                    keyboardType="number-pad"
+                    placeholder="Duração em minutos"
+                    placeholderTextColor={theme.textSecondary}
+                    style={inputStyle}
+                    value={durationMinutes}
+                    onChangeText={(value) =>
+                      setDurationMinutes(value.replace(/\D/g, "").slice(0, 4))
+                    }
+                  />
+                ) : (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Pontual vira bolinha na grade de horas, sem duração.
+                  </ThemedText>
+                )}
               </>
             ) : (
               <ThemedText type="small" themeColor="textSecondary">
@@ -909,19 +944,26 @@ export default function TaskFormScreen() {
                 />
                 <ColorDots value={editTagColor} onChange={setEditTagColor} />
                 <View style={styles.chipRow}>
-                  <Pressable onPress={() => void saveEditTag()}>
-                    <ThemedText type="linkPrimary">Salvar</ThemedText>
-                  </Pressable>
-                  <Pressable onPress={() => confirmDeleteTag(editingTag)}>
-                    <ThemedText type="small" themeColor="danger">
-                      Excluir
-                    </ThemedText>
-                  </Pressable>
-                  <Pressable onPress={() => setEditingTag(null)}>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      Cancelar
-                    </ThemedText>
-                  </Pressable>
+                  <FormButton
+                    label="Salvar"
+                    tone="primary"
+                    compact
+                    flex
+                    onPress={() => void saveEditTag()}
+                  />
+                  <FormButton
+                    label="Excluir"
+                    tone="danger"
+                    compact
+                    flex
+                    onPress={() => confirmDeleteTag(editingTag)}
+                  />
+                  <FormButton
+                    label="Cancelar"
+                    compact
+                    flex
+                    onPress={() => setEditingTag(null)}
+                  />
                 </View>
               </View>
             ) : null}
@@ -1108,17 +1150,15 @@ export default function TaskFormScreen() {
                           }}
                           style={inputStyle}
                         />
-                        <Pressable
+                        <FormButton
+                          label="Remover término"
+                          compact
                           onPress={() => {
                             setUntil(null);
                             setEndMode("never");
                             setRepeatDirty(true);
                           }}
-                        >
-                          <ThemedText type="small" themeColor="textSecondary">
-                            Remover término
-                          </ThemedText>
-                        </Pressable>
+                        />
                       </>
                     ) : null}
                     {endMode === "count" ? (
@@ -1178,7 +1218,10 @@ export default function TaskFormScreen() {
                       )
                     }
                   />
-                  <Pressable
+                  <FormButton
+                    label="Excluir"
+                    tone="danger"
+                    compact
                     onPress={() =>
                       setLinks((cur) =>
                         cur.length === 1
@@ -1186,12 +1229,7 @@ export default function TaskFormScreen() {
                           : cur.filter((_, rowIndex) => rowIndex !== index)
                       )
                     }
-                    hitSlop={8}
-                  >
-                    <ThemedText type="small" themeColor="danger">
-                      Excluir
-                    </ThemedText>
-                  </Pressable>
+                  />
                 </View>
                 <TextInput
                   placeholder="Comentário (opcional)"
@@ -1207,19 +1245,20 @@ export default function TaskFormScreen() {
                   }
                 />
                 {link.url.trim() ? (
-                  <Pressable onPress={() => openExternalUrl(link.url)}>
-                    <ThemedText type="linkPrimary">Abrir</ThemedText>
-                  </Pressable>
+                  <FormButton
+                    label="Abrir"
+                    compact
+                    onPress={() => openExternalUrl(link.url)}
+                  />
                 ) : null}
               </View>
             ))}
-            <Pressable
+            <FormButton
+              label="Adicionar link"
               onPress={() =>
                 setLinks((cur) => [...cur, { url: "", comment: "" }])
               }
-            >
-              <ThemedText type="linkPrimary">Adicionar link</ThemedText>
-            </Pressable>
+            />
           </Field>
           </FormSection>
 
@@ -1282,11 +1321,12 @@ export default function TaskFormScreen() {
                   }
                   returnKeyType="done"
                 />
-                <Pressable onPress={() => removeDraft(index)} hitSlop={8}>
-                  <ThemedText type="small" themeColor="danger">
-                    Excluir
-                  </ThemedText>
-                </Pressable>
+                <FormButton
+                  label="Excluir"
+                  tone="danger"
+                  compact
+                  onPress={() => removeDraft(index)}
+                />
               </View>
             ))}
             <TextInput
@@ -1320,24 +1360,21 @@ export default function TaskFormScreen() {
           </Field>
           </FormSection>
 
-          <Pressable
+          <FormButton
+            label={editId ? "Salvar alterações" : "Criar tarefa"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Criar tarefa"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
 
           {editId ? (
-            <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText themeColor="danger">Excluir tarefa</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir tarefa"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

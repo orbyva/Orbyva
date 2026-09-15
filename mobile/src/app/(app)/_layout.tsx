@@ -6,12 +6,14 @@ import { AppSidebar } from "@/components/chrome/AppSidebar";
 import { HeaderChromeRight } from "@/components/chrome/HeaderChromeRight";
 import { ModuleGuideHost } from "@/components/chrome/ModuleGuideHost";
 import { OnboardingHost } from "@/components/chrome/OnboardingHost";
+import { LiveWidget } from "@/components/chrome/LiveWidget";
 import { QuickAddFab } from "@/components/chrome/QuickAddFab";
 import { QuickAddSheet } from "@/components/chrome/QuickAddSheet";
 import { SearchSheet } from "@/components/chrome/SearchSheet";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
 import { ThemedView } from "@/components/themed-view";
 import { AppShellProvider } from "@/hooks/use-app-shell";
+import { ActiveTimerProvider } from "@/hooks/use-active-timer";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { normalizePath } from "@/lib/nav";
@@ -63,6 +65,7 @@ function AppStack() {
         <Stack.Screen name="account" options={{ title: "Conta" }} />
       </Stack>
       <QuickAddFab />
+      <LiveWidget />
       <QuickAddSheet />
       <AppSidebar />
       <AlertsSheet />
@@ -89,7 +92,9 @@ export default function AppLayout() {
 
   return (
     <AppShellProvider>
-      <AppStack />
+      <ActiveTimerProvider>
+        <AppStack />
+      </ActiveTimerProvider>
     </AppShellProvider>
   );
 }

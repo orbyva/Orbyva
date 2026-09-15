@@ -12,13 +12,14 @@ import {
 import { fetchWatchedEpisodeCounts } from "@/api/movies/episodes";
 import { fetchAllMovies, updateMovie } from "@/api/movies/movies";
 import { ChipBar } from "@/components/ChipBar";
-import { CoverThumb } from "@/components/CoverThumb";
+import { CatalogMediaCard } from "@/components/CatalogMediaCard";
+import { FilterSelect } from "@/components/FilterSelect";
 import { InsightsStrip } from "@/components/InsightsStrip";
+import { ReviewSheet } from "@/components/ReviewSheet";
 import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
 import { CATALOG_SORT_OPTIONS, sortMovies } from "@/domain/entertainment/sort";
 import {
@@ -26,6 +27,8 @@ import {
   filterMoviesByGenreAndRating,
   filterMoviesByType,
   getCinemaLibraryStats,
+  getMovieCardRating,
+  getSeriesWatchProgress,
   MOVIE_STATUS_LABELS,
   MOVIE_TYPE_LABELS,
   movieStatusUpdate,
@@ -82,6 +85,7 @@ export default function MoviesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [reviewMovie, setReviewMovie] = useState<Movie | null>(null);
   const [error, setError] = useState<string | null>(null);
   const hasLoaded = useRef(false);
 
@@ -166,17 +170,30 @@ export default function MoviesScreen() {
     typeFilter,
   ]);
 
-  async function markWatched(movie: Movie) {
+  async function markWatched(
+    movie: Movie,
+    extras: { rating: number | null; recommend: boolean }
+  ) {
     setBusyId(movie.imdb_id);
     try {
-      await updateMovie(movieStatusUpdate(movie, MovieStatus.WATCHED, getTodayIso()));
+      await updateMovie({
+        ...movieStatusUpdate(movie, MovieStatus.WATCHED, getTodayIso()),
+        rating: extras.rating,
+        would_recommend: extras.recommend,
+      });
       setMovies((cur) =>
         cur.map((row) =>
           row.imdb_id === movie.imdb_id
-            ? { ...row, status: MovieStatus.WATCHED }
+            ? {
+                ...row,
+                status: MovieStatus.WATCHED,
+                rating: extras.rating,
+                would_recommend: extras.recommend,
+              }
             : row
         )
       );
+      setReviewMovie(null);
     } catch (err) {
       fail(getErrorMessage(err, "Não foi possível atualizar o status."));
     } finally {
@@ -228,25 +245,40 @@ export default function MoviesScreen() {
             onChangeText={setSearch}
             placeholder="Buscar título, diretor ou gênero"
           />
-          <ChipBar options={TYPE_CHIPS} value={typeFilter} onChange={setTypeFilter} />
-          {genres.length > 0 ? (
-            <ChipBar
-              options={[
-                { id: "all", label: "Gêneros" },
-                ...genres.map((id) => ({ id, label: id })),
-              ]}
-              value={genre}
-              onChange={setGenre}
+          <View style={styles.filters}>
+            <FilterSelect
+              label="Tipo"
+              value={typeFilter}
+              options={TYPE_CHIPS}
+              onChange={(id) => setTypeFilter(id as MovieTypeFilter)}
             />
-          ) : null}
-          {status === "watched" ? (
-            <ChipBar
-              options={RATING_CHIPS}
-              value={ratingFloor}
-              onChange={setRatingFloor}
+            {genres.length > 0 ? (
+              <FilterSelect
+                label="Gênero"
+                value={genre}
+                options={[
+                  { id: "all", label: "Todos os gêneros" },
+                  ...genres.map((id) => ({ id, label: id })),
+                ]}
+                onChange={setGenre}
+              />
+            ) : null}
+            {status === "watched" ? (
+              <FilterSelect
+                label="Nota"
+                value={ratingFloor}
+                options={RATING_CHIPS}
+                onChange={(id) => setRatingFloor(id as MovieRatingFloor)}
+              />
+            ) : null}
+            <FilterSelect
+              label="Ordenar"
+              value={sort}
+              options={CATALOG_SORT_OPTIONS}
+              onChange={(id) =>
+                setSort(id as (typeof CATALOG_SORT_OPTIONS)[number]["id"])
+              }
             />
-          ) : null}
-          <View style={styles.row}>
             <Pressable
               onPress={() => setFavoritesOnly((cur) => !cur)}
               style={[
@@ -255,7 +287,9 @@ export default function MoviesScreen() {
                 favoritesOnly && { backgroundColor: theme.backgroundSelected },
               ]}
             >
-              <ThemedText type="smallBold">Favoritos</ThemedText>
+              <ThemedText type="smallBold">
+                {favoritesOnly ? "♥ Favoritos" : "Favoritos"}
+              </ThemedText>
             </Pressable>
             <Pressable onPress={surprise} style={styles.chip}>
               <ThemedText type="small" style={{ color: theme.primary }}>
@@ -263,11 +297,6 @@ export default function MoviesScreen() {
               </ThemedText>
             </Pressable>
           </View>
-          <ChipBar
-            options={CATALOG_SORT_OPTIONS}
-            value={sort}
-            onChange={setSort}
-          />
           {visible.length === 0 ? (
             <ThemedText themeColor="textSecondary">
               Nenhum título neste filtro.
@@ -276,47 +305,66 @@ export default function MoviesScreen() {
             visible.map((movie) => {
               const watchedEps = episodeCounts[movie.imdb_id];
               const totalEps = movie.episode_count;
+              const rating = getMovieCardRating(movie);
+              const seriesProgress =
+                movie.type === "series" && totalEps
+                  ? getSeriesWatchProgress({
+                      watched: watchedEps ?? 0,
+                      total: totalEps,
+                    })
+                  : null;
               return (
-                <Pressable key={movie.imdb_id} onPress={() => openMovie(movie.imdb_id)}>
-                  <Card style={styles.card}>
-                    <CoverThumb uri={movie.poster} fallback={movie.title} />
-                    <View style={styles.copy}>
-                      <ThemedText type="smallBold" numberOfLines={2}>
-                        {movie.title}
-                        {movie.is_favorite ? " ♥" : ""}
-                      </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {[
-                          MOVIE_TYPE_LABELS[movie.type],
-                          movie.year || null,
-                          movie.rating != null ? `${movie.rating}` : null,
-                          movie.type === "series" && totalEps
-                            ? `${watchedEps ?? 0}/${totalEps} eps`
-                            : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </ThemedText>
-                      {movie.status !== MovieStatus.WATCHED &&
-                      movie.status !== MovieStatus.ABANDONED ? (
-                        <Pressable
-                          disabled={busyId === movie.imdb_id}
-                          onPress={() => void markWatched(movie)}
-                          hitSlop={8}
-                        >
-                          <ThemedText type="small" style={{ color: theme.primary }}>
-                            Marcar assistido
-                          </ThemedText>
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  </Card>
-                </Pressable>
+                <CatalogMediaCard
+                  key={movie.imdb_id}
+                  coverUri={movie.poster}
+                  fallback={movie.title}
+                  title={movie.title}
+                  favorite={movie.is_favorite === true}
+                  rating={rating?.value}
+                  progress={
+                    movie.status === MovieStatus.WATCHING
+                      ? seriesProgress?.percent
+                      : null
+                  }
+                  meta={[
+                    MOVIE_TYPE_LABELS[movie.type],
+                    movie.year || null,
+                    movie.type === "series" && totalEps
+                      ? `${watchedEps ?? 0}/${totalEps} eps`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  actionLabel={
+                    movie.status !== MovieStatus.WATCHED &&
+                    movie.status !== MovieStatus.ABANDONED
+                      ? "Marcar assistido"
+                      : null
+                  }
+                  onAction={
+                    busyId === movie.imdb_id
+                      ? undefined
+                      : () => setReviewMovie(movie)
+                  }
+                  onPress={() => openMovie(movie.imdb_id)}
+                />
               );
             })
           )}
         </ScrollView>
       )}
+      <ReviewSheet
+        visible={reviewMovie != null}
+        title="Avaliar título"
+        itemTitle={reviewMovie?.title ?? ""}
+        confirmLabel="Marcar assistido"
+        busy={reviewMovie != null && busyId === reviewMovie.imdb_id}
+        onClose={() => setReviewMovie(null)}
+        onConfirm={(result) => {
+          if (!reviewMovie) return;
+          return markWatched(reviewMovie, result);
+        }}
+      />
     </ThemedView>
   );
 }
@@ -326,17 +374,10 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   banner: { marginHorizontal: Spacing.four, marginTop: Spacing.three },
   list: { padding: Spacing.four, gap: Spacing.three },
-  row: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  filters: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
   chip: {
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  card: {
-    padding: Spacing.three,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  copy: { flex: 1, gap: 4 },
 });

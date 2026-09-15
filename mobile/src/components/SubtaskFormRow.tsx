@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { PRIORITY_COLORS, PRIORITY_OPTIONS } from "@/domain/tasks/priority";
 import { isSubtaskDueDateValid } from "@/domain/tasks/subtasks";
@@ -74,16 +75,8 @@ export function SubtaskFormRow({
           onEndEditing={(event) => onRename(event.nativeEvent.text)}
           returnKeyType="done"
         />
-        <Pressable onPress={onOpen} hitSlop={8}>
-          <ThemedText type="small" themeColor="textSecondary">
-            Abrir
-          </ThemedText>
-        </Pressable>
-        <Pressable onPress={onDelete} hitSlop={8}>
-          <ThemedText type="small" themeColor="danger">
-            Excluir
-          </ThemedText>
-        </Pressable>
+        <FormButton label="Abrir" compact onPress={onOpen} />
+        <FormButton label="Excluir" tone="danger" compact onPress={onDelete} />
       </View>
 
       <View style={styles.meta}>

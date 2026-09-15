@@ -1,4 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,23 +12,33 @@ import {
 import { fetchAlbumById, updateAlbum } from "@/api/music/albums";
 import { fetchAlbumTracks, type AlbumTrack } from "@/api/music/catalog";
 import { CoverThumb } from "@/components/CoverThumb";
+import { ReviewSheet } from "@/components/ReviewSheet";
+import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
+import { StoryShareCard } from "@/components/share/StoryShareCard";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { ModuleSection } from "@/components/ui/ModuleSection";
 import { Spacing } from "@/constants/theme";
 import {
   ALBUM_STATUS_LABELS,
   ALBUM_TYPE_LABELS,
   albumStatusUpdate,
+  formatAlbumRating,
   formatArtists,
   formatTrackLength,
+  getAlbumRatingLabel,
+  getLatestListenedDate,
+  resolveRatedAlbumTracks,
   trackRatingKey,
 } from "@/domain/music";
+import { buildAlbumShareText, usableCoverUri } from "@/domain/share";
 import { getTodayIso } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
+import { formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import type { Album, AlbumStatus } from "@/types/music";
 
@@ -46,6 +57,8 @@ export default function AlbumDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const load = useCallback(async () => {
     const row = await fetchAlbumById(id);
@@ -138,7 +151,26 @@ export default function AlbumDetailScreen() {
             variant="square"
           />
           <View style={styles.heroCopy}>
-            <ThemedText type="smallBold">{album.title}</ThemedText>
+            <View style={styles.titleRow}>
+              <ThemedText type="smallBold" style={styles.title}>
+                {album.title}
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  album.is_favorite ? "Remover dos favoritos" : "Favoritar"
+                }
+                disabled={busy}
+                hitSlop={8}
+                onPress={() => void patch({ is_favorite: !album.is_favorite })}
+              >
+                <Ionicons
+                  name={album.is_favorite ? "heart" : "heart-outline"}
+                  size={22}
+                  color={album.is_favorite ? theme.danger : theme.textSecondary}
+                />
+              </Pressable>
+            </View>
             <ThemedText type="small" themeColor="textSecondary">
               {[
                 formatArtists(album.artists),
@@ -152,38 +184,20 @@ export default function AlbumDetailScreen() {
             </ThemedText>
           </View>
         </View>
-        <View style={styles.actions}>
-          {album.status !== "listened" ? (
-            <Pressable disabled={busy} onPress={() => void setStatus("listened")}>
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                Marcar ouvido
-              </ThemedText>
-            </Pressable>
-          ) : (
-            <Pressable disabled={busy} onPress={() => void setStatus("to_listen")}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Voltar para a fila
-              </ThemedText>
-            </Pressable>
-          )}
-          <Pressable
+        {album.status !== "listened" ? (
+          <FormButton
+            label="Marcar ouvido"
+            tone="primary"
             disabled={busy}
-            onPress={() => void patch({ is_favorite: !album.is_favorite })}
-          >
-            <ThemedText type="smallBold">
-              {album.is_favorite ? "♥ Favorito" : "Marcar favorito"}
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            disabled={busy}
-            onPress={() => void patch({ would_recommend: album.would_recommend === false })}
-          >
-            <ThemedText type="small" themeColor="textSecondary">
-              {album.would_recommend === false ? "Não recomendaria" : "Recomendaria"}
-            </ThemedText>
-          </Pressable>
-        </View>
+            onPress={() => setReviewOpen(true)}
+          />
+        ) : null}
         {album.notes ? <ThemedText type="small">{album.notes}</ThemedText> : null}
+        {album.status === "listened" ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {album.would_recommend === false ? "Não recomendaria" : "Recomendaria"}
+          </ThemedText>
+        ) : null}
 
         {tracks.length > 0 ? (
           <ModuleSection title="Faixas" icon="musical-notes-outline" tint="#F43F5E">
@@ -211,19 +225,101 @@ export default function AlbumDetailScreen() {
           </ModuleSection>
         ) : null}
 
-        <Pressable
-          onPress={() =>
-            router.push({
-              pathname: "/music/form",
-              params: { id: album.musicbrainz_id },
+        <View style={styles.footerActions}>
+          {album.status === "listened" ? (
+            <FormButton
+              label="Voltar para a fila"
+              disabled={busy}
+              onPress={() => void setStatus("to_listen")}
+            />
+          ) : null}
+          <FormButton
+            label="Editar"
+            tone={album.status === "listened" ? "primary" : "neutral"}
+            onPress={() =>
+              router.push({
+                pathname: "/music/form",
+                params: { id: album.musicbrainz_id },
+              })
+            }
+          />
+          {album.status === "listened" ? (
+            <FormButton
+              label="Compartilhar"
+              onPress={() => setShareOpen(true)}
+            />
+          ) : null}
+        </View>
+      </ScrollView>
+      <ReviewSheet
+        visible={reviewOpen}
+        title="Avaliar álbum"
+        itemTitle={album.title}
+        confirmLabel="Marcar ouvido"
+        busy={busy}
+        onClose={() => setReviewOpen(false)}
+        onConfirm={async (result) => {
+          await patch({
+            ...albumStatusUpdate(album, "listened", getTodayIso()),
+            rating: result.rating,
+            would_recommend: result.recommend,
+          });
+          setReviewOpen(false);
+        }}
+      />
+      {album.status === "listened" ? (
+        <OpinionShareSheet
+          visible={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title={album.title}
+          hasNotes={Boolean(album.notes?.trim())}
+          message={(includeNotes) =>
+            buildAlbumShareText(album, {
+              includeNotes,
+              ratedTracks: resolveRatedAlbumTracks(album.track_ratings, tracks),
             })
           }
-        >
-          <ThemedText type="small" style={{ color: theme.primary }}>
-            Editar
-          </ThemedText>
-        </Pressable>
-      </ScrollView>
+          renderCard={({ includeNotes }) => {
+            const latest = getLatestListenedDate(album.listened_dates);
+            const rated = resolveRatedAlbumTracks(
+              album.track_ratings,
+              tracks
+            );
+            return (
+              <StoryShareCard
+                coverUri={usableCoverUri(album.cover_url)}
+                coverVariant="square"
+                fallbackEmoji="💿"
+                fallbackCaption="ÁLBUM"
+                kicker={latest ? `OUVI  ·  ${formatDateBR(latest)}` : "OUVI"}
+                title={album.title}
+                subtitle={formatArtists(album.artists)}
+                score={
+                  album.rating != null && album.rating > 0
+                    ? `${formatAlbumRating(album.rating)}/10`
+                    : null
+                }
+                scoreLabel={
+                  album.rating != null && album.rating > 0
+                    ? getAlbumRatingLabel(album.rating)
+                    : null
+                }
+                recommend={album.would_recommend !== false}
+                notes={includeNotes ? album.notes?.trim() : null}
+                itemsLabel="FAIXAS"
+                items={rated.map((track) => ({
+                  index:
+                    track.disc > 1
+                      ? `${track.disc}.${track.position}`
+                      : String(track.position),
+                  title: track.title,
+                  score: formatAlbumRating(track.rating),
+                }))}
+              />
+            );
+          }}
+        />
+      ) : null}
     </ThemedView>
   );
 }
@@ -234,7 +330,9 @@ const styles = StyleSheet.create({
   body: { padding: Spacing.four, gap: Spacing.three },
   hero: { flexDirection: "row", gap: 14, alignItems: "flex-start" },
   heroCopy: { flex: 1, gap: 6, paddingTop: 4 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
+  titleRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  title: { flex: 1 },
+  footerActions: { gap: 8 },
   track: {
     flexDirection: "row",
     alignItems: "center",

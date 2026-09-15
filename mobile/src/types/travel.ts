@@ -31,6 +31,9 @@ export interface Trip {
   destination_lat?: number | null;
   destination_lng?: number | null;
   destination_place_id?: string | null;
+  origin_lat?: number | null;
+  origin_lng?: number | null;
+  origin_label?: string | null;
   created_at?: string;
   stops?: TripStop[];
 }
@@ -120,8 +123,19 @@ export interface TripItineraryActivity {
   day_id: string;
   title: string;
   activity_time?: string | null;
+  arrival_time?: string | null;
   notes?: string | null;
   sort_order: number;
+  category?: string | null;
+  transport_mode?: string | null;
+  origin_label?: string | null;
+  origin_lat?: number | null;
+  origin_lng?: number | null;
+  origin_place_id?: string | null;
+  destination_label?: string | null;
+  destination_lat?: number | null;
+  destination_lng?: number | null;
+  destination_place_id?: string | null;
 }
 
 export interface TripItineraryDay {

@@ -250,7 +250,7 @@ export default function GoalsScreen() {
       ok(`${formatBRL(monthly)} × ${months} em Recorrências`);
       setRoutineGoal(null);
     } catch (err) {
-      fail(getErrorMessage(err, "Não foi possível criar a rotina."));
+                      fail(getErrorMessage(err, "Não foi possível criar os aportes mensais."));
     } finally {
       setBusy(false);
     }
@@ -331,17 +331,30 @@ export default function GoalsScreen() {
                         params: { id: goal.id },
                       })
                     }
+                    style={styles.cardPress}
                   >
-                    <ThemedText type="smallBold">{goal.title}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {[
-                        GOAL_CATEGORY_LABELS[goal.category],
-                        formatGoalProgress(goal),
-                        goal.deadline ? formatDateBR(goal.deadline) : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </ThemedText>
+                    <View
+                      style={[
+                        styles.badge,
+                        { backgroundColor: theme.backgroundElement },
+                      ]}
+                    >
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {GOAL_CATEGORY_LABELS[goal.category]}
+                      </ThemedText>
+                    </View>
+                    <ThemedText type="subtitle">{goal.title}</ThemedText>
+                    {goal.description ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {goal.description}
+                      </ThemedText>
+                    ) : null}
+                    <View style={styles.progressRow}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {formatGoalProgress(goal)}
+                      </ThemedText>
+                      <ThemedText type="smallBold">{pct}%</ThemedText>
+                    </View>
                     <View
                       style={[
                         styles.track,
@@ -351,37 +364,64 @@ export default function GoalsScreen() {
                       <View
                         style={[
                           styles.fill,
-                          { width: `${pct}%`, backgroundColor: theme.primary },
+                          {
+                            width: `${pct}%`,
+                            backgroundColor:
+                              pct >= 100 ? theme.success : theme.primary,
+                          },
                         ]}
                       />
                     </View>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {pct}%
-                    </ThemedText>
+                    {goal.deadline ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Prazo {formatDateBR(goal.deadline)}
+                      </ThemedText>
+                    ) : null}
                   </Pressable>
                   {insight ? (
-                    <>
+                    <View
+                      style={[
+                        styles.finance,
+                        { borderColor: `${theme.primary}33` },
+                      ]}
+                    >
+                      <ThemedText type="smallBold">
+                        Meta ← saldo do mês
+                      </ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
                         {surplusFit?.summary ?? insight.suggestion}
                       </ThemedText>
                       <View style={styles.actions}>
                         {canDestinar ? (
-                          <Pressable onPress={() => openDestinar(goal)}>
-                            <ThemedText type="linkPrimary">Destinar valor</ThemedText>
+                          <Pressable
+                            onPress={() => openDestinar(goal)}
+                            style={styles.linkBtn}
+                          >
+                            <ThemedText type="linkPrimary">
+                              Destinar valor
+                            </ThemedText>
                           </Pressable>
                         ) : null}
                         {canRoutine ? (
-                          <Pressable onPress={() => openRoutine(goal)}>
-                            <ThemedText type="linkPrimary">Rotina</ThemedText>
+                          <Pressable
+                            onPress={() => openRoutine(goal)}
+                            style={styles.linkBtn}
+                          >
+                            <ThemedText type="linkPrimary">
+                              Aportes mensais
+                            </ThemedText>
                           </Pressable>
                         ) : null}
-                        <Pressable onPress={() => void onSync(goal)}>
+                        <Pressable
+                          onPress={() => void onSync(goal)}
+                          style={styles.linkBtn}
+                        >
                           <ThemedText type="small" themeColor="textSecondary">
                             Sincronizar
                           </ThemedText>
                         </Pressable>
                       </View>
-                    </>
+                    </View>
                   ) : null}
                 </Card>
               );
@@ -442,9 +482,10 @@ export default function GoalsScreen() {
             style={[styles.sheet, { backgroundColor: theme.surface }]}
             onPress={() => undefined}
           >
-            <ThemedText type="smallBold">Rotina em Recorrências</ThemedText>
+            <ThemedText type="smallBold">Aportes mensais em Recorrências</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {routineGoal?.title}
+              {routineGoal?.title}. Informe quanto guardar por mês até fechar a
+              meta.
             </ThemedText>
             <TextInput
               keyboardType="decimal-pad"
@@ -478,7 +519,7 @@ export default function GoalsScreen() {
                 <ActivityIndicator color="#0B0F1A" />
               ) : (
                 <ThemedText type="smallBold" style={styles.primaryLabel}>
-                  Criar rotina
+                  Criar aportes
                 </ThemedText>
               )}
             </Pressable>
@@ -494,10 +535,30 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   banner: { marginHorizontal: Spacing.four, marginTop: Spacing.three },
   list: { padding: Spacing.four, gap: Spacing.three },
-  card: { padding: Spacing.three, gap: 8 },
+  card: { padding: Spacing.three, gap: 10 },
+  cardPress: { gap: 8 },
+  badge: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  progressRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   track: { height: 8, borderRadius: 999, overflow: "hidden" },
   fill: { height: 8, borderRadius: 999 },
+  finance: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+    backgroundColor: "rgba(14,165,233,0.06)",
+  },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  linkBtn: { paddingVertical: 2 },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(11,15,26,0.45)",

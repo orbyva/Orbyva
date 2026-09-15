@@ -16,6 +16,7 @@ import { DateField } from "@/components/DateField";
 import { LedgerClassField } from "@/components/LedgerClassField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { useTheme } from "@/hooks/use-theme";
@@ -183,19 +184,13 @@ export default function FuelFormScreen() {
               onChangeText={setStation}
             />
           </Field>
-          <Pressable
+          <FormButton
+            label={editId ? "Salvar alterações" : "Registrar abastecimento"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Registrar abastecimento"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>

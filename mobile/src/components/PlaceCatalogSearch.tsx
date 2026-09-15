@@ -23,12 +23,16 @@ export function PlaceCatalogSearch({
   placeholder = "Buscar no Google Maps",
   scope = "all",
   requestUserLocation = true,
+  selectedLabel = null,
+  onClear,
   onPick,
 }: {
   placeholder?: string;
   scope?: "all" | "regions";
   /** Destino de viagem: não pede GPS (a cidade não é “perto de mim”). */
   requestUserLocation?: boolean;
+  selectedLabel?: string | null;
+  onClear?: () => void;
   onPick: (place: PlaceCatalogPick) => void;
 }) {
   const { bias, denied } = useUserLocationBias(requestUserLocation);
@@ -45,6 +49,8 @@ export function PlaceCatalogSearch({
         placeholder={placeholder}
         enabled
         unavailableHint="Busca de lugares indisponível."
+        selectedLabel={selectedLabel}
+        onClear={onClear}
         search={(query) =>
           searchPlaces({
             query,

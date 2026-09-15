@@ -5,7 +5,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -14,17 +13,22 @@ import {
 
 import {
   createPlace,
+  createPlaceVisitOccurrence,
   deletePlace,
   fetchPlaceById,
   updatePlace,
 } from "@/api/places/places";
 import { fetchTrips } from "@/api/travel/travel";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
 import { LedgerClassField } from "@/components/LedgerClassField";
 import { PlaceCatalogSearch } from "@/components/PlaceCatalogSearch";
+import { RecommendField } from "@/components/RecommendField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
+import { FormBlock } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { PLACE_STATUS_LABELS, PLACE_TYPE_LABELS } from "@/domain/places";
@@ -58,6 +62,7 @@ export default function PlaceFormScreen() {
   const [notes, setNotes] = useState("");
   const [tripId, setTripId] = useState<string | null>(null);
   const [rating, setRating] = useState("0");
+  const [wouldRecommend, setWouldRecommend] = useState(true);
   const [visitedDate, setVisitedDate] = useState(getTodayIso());
   const [trips, setTrips] = useState<Trip[]>([]);
   const [saving, setSaving] = useState(false);
@@ -101,6 +106,7 @@ export default function PlaceFormScreen() {
         setNotes(place.notes ?? "");
         setTripId(place.trip_id ?? null);
         setRating(place.rating != null ? String(place.rating) : "0");
+        setWouldRecommend(place.would_recommend !== false);
         setVisitedDate(place.visited_date ?? getTodayIso());
         setLat(place.lat ?? null);
         setLng(place.lng ?? null);
@@ -151,6 +157,7 @@ export default function PlaceFormScreen() {
           ? parsedRating
           : null,
       visited_date: status === "visited" ? visitedDate : null,
+      would_recommend: status === "visited" ? wouldRecommend : true,
       lat,
       lng,
       google_place_id: googlePlaceId,
@@ -160,8 +167,31 @@ export default function PlaceFormScreen() {
           : null,
     };
     try {
+      let placeId = editId;
       if (editId) await updatePlace({ id: editId, ...payload });
-      else await createPlace({ ...payload, classId: linkLedger ? classId : null });
+      else {
+        const created = await createPlace({
+          ...payload,
+          classId: linkLedger ? classId : null,
+        });
+        placeId = created.id;
+      }
+      if (status === "visited" && placeId && !editId) {
+        await createPlaceVisitOccurrence({
+          place_visit_id: placeId,
+          visited_date: visitedDate,
+          rating:
+            Number.isFinite(parsedRating) && parsedRating > 0
+              ? parsedRating
+              : null,
+          notes: notes.trim() || null,
+          amount:
+            Number.isFinite(parsedAmount) && parsedAmount > 0
+              ? parsedAmount
+              : null,
+          classId: linkLedger ? classId : null,
+        }).catch(() => undefined);
+      }
       router.back();
     } catch (err) {
       fail(getErrorMessage(err, "Não foi possível salvar o lugar."));
@@ -212,8 +242,11 @@ export default function PlaceFormScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Banner message={error} />
+          <FormBlock title="Essencial">
           <Field label="Buscar no Google">
             <PlaceCatalogSearch
+              selectedLabel={googlePlaceId ? name : null}
+              onClear={() => setGooglePlaceId(null)}
               onPick={(hit) => {
                 setName(hit.name);
                 setAddress(hit.address ?? "");
@@ -237,43 +270,30 @@ export default function PlaceFormScreen() {
           <Field label="Tipo">
             <View style={styles.chips}>
               {TYPE_CHIPS.map((chip) => (
-                <Pressable
+                <ChoiceChip
                   key={chip.id}
+                  label={chip.label}
+                  active={type === chip.id}
                   onPress={() => setType(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    type === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>
           <Field label="Status">
             <View style={styles.chips}>
               {STATUS_CHIPS.map((chip) => (
-                <Pressable
+                <ChoiceChip
                   key={chip.id}
+                  label={chip.label}
+                  active={status === chip.id}
                   onPress={() => setStatus(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    status === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>
+          </FormBlock>
           {status === "visited" ? (
-            <>
+            <FormBlock title="Visita">
               <Field label="Data da visita">
                 <DateField
                   value={visitedDate}
@@ -289,6 +309,10 @@ export default function PlaceFormScreen() {
                   onChangeText={setRating}
                 />
               </Field>
+              <RecommendField
+                value={wouldRecommend}
+                onChange={setWouldRecommend}
+              />
               <Field label="Gasto (opcional)">
                 <TextInput
                   keyboardType="decimal-pad"
@@ -307,8 +331,9 @@ export default function PlaceFormScreen() {
                   onClassIdChange={setClassId}
                 />
               ) : null}
-            </>
+            </FormBlock>
           ) : null}
+          <FormBlock title="Detalhes">
           <Field label="Endereço">
             <TextInput
               placeholder="Opcional"
@@ -320,30 +345,18 @@ export default function PlaceFormScreen() {
           </Field>
           <Field label="Viagem">
             <View style={styles.chips}>
-              <Pressable
+              <ChoiceChip
+                label="Nenhuma"
+                active={!tripId}
                 onPress={() => setTripId(null)}
-                style={[
-                  styles.chip,
-                  { backgroundColor: theme.backgroundElement },
-                  !tripId && { backgroundColor: theme.backgroundSelected },
-                ]}
-              >
-                <ThemedText type="smallBold">Nenhuma</ThemedText>
-              </Pressable>
+              />
               {trips.map((trip) => (
-                <Pressable
+                <ChoiceChip
                   key={trip.id}
+                  label={trip.title}
+                  active={tripId === trip.id}
                   onPress={() => setTripId(trip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    tripId === trip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{trip.title}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>
@@ -356,23 +369,21 @@ export default function PlaceFormScreen() {
               onChangeText={setNotes}
             />
           </Field>
-          <Pressable
+          </FormBlock>
+          <FormButton
+            label={editId ? "Salvar alterações" : "Criar lugar"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Criar lugar"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
           {editId ? (
-            <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText themeColor="danger">Excluir lugar</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir lugar"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

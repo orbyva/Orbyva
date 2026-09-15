@@ -11,22 +11,39 @@ import {
 } from "react-native";
 
 import { fetchFleetOverview } from "@/api/car/car";
+import { ChipBar } from "@/components/ChipBar";
+import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
 import { Card } from "@/components/ui/Card";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import {
   calculateFuelConsumption,
+  DOCUMENT_TYPE_LABELS,
   FUEL_TYPE_LABELS,
   getDocumentAlerts,
   getMaintenanceAlerts,
+  getMaintenanceSchedule,
+  MAINTENANCE_TYPE_LABELS,
   vehicleLabel,
 } from "@/domain/car";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
+import { formatBRL, formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import type { FuelLog, Maintenance, Vehicle, VehicleDocument } from "@/types/car";
+
+type FleetTab = "veiculos" | "cronograma" | "manutencao" | "combustivel" | "documentos";
+
+const FLEET_TABS: { id: FleetTab; label: string }[] = [
+  { id: "veiculos", label: "Veículos" },
+  { id: "cronograma", label: "Cronograma" },
+  { id: "manutencao", label: "Manutenções" },
+  { id: "combustivel", label: "Abastecimentos" },
+  { id: "documentos", label: "Documentos" },
+];
 
 export default function CarsScreen() {
   const theme = useTheme();
@@ -39,6 +56,8 @@ export default function CarsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<FleetTab>("veiculos");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const hasLoaded = useRef(false);
 
   const load = useCallback(async () => {
@@ -48,6 +67,7 @@ export default function CarsScreen() {
     setDocuments(fleet.documents);
     setMaintenances(fleet.maintenances);
     setFuelLogs(fleet.fuelLogs);
+    setSelectedId((cur) => cur ?? fleet.vehicles[0]?.id ?? null);
   }, []);
 
   useFocusEffect(
@@ -95,6 +115,19 @@ export default function CarsScreen() {
     });
   }, [vehicles, documents, maintenances, fuelLogs]);
 
+  const selected =
+    vehicles.find((row) => row.id === selectedId) ?? vehicles[0] ?? null;
+  const selectedMaint = maintenances.filter(
+    (row) => row.vehicle_id === selected?.id
+  );
+  const selectedFuel = fuelLogs.filter((row) => row.vehicle_id === selected?.id);
+  const selectedDocs = documents.filter(
+    (row) => row.vehicle_id === selected?.id
+  );
+  const schedule = selected
+    ? getMaintenanceSchedule(selected, selectedMaint)
+    : [];
+
   return (
     <ThemedView style={styles.flex}>
       <Banner message={error} style={styles.banner} />
@@ -112,6 +145,22 @@ export default function CarsScreen() {
             />
           }
         >
+          <ChipBar options={FLEET_TABS} value={tab} onChange={setTab} />
+          {tab !== "veiculos" && vehicles.length > 1 ? (
+            <FilterRow>
+              <FilterSelect
+                label="Veículo"
+                value={selected?.id ?? "all"}
+                options={vehicles.map((row) => ({
+                  id: row.id,
+                  label: vehicleLabel(row),
+                }))}
+                onChange={setSelectedId}
+              />
+            </FilterRow>
+          ) : null}
+          {tab === "veiculos" ? (
+          <>
           {vehicles.length === 0 ? (
             <ThemedText themeColor="textSecondary">
               Nenhum veículo cadastrado.
@@ -178,6 +227,176 @@ export default function CarsScreen() {
               );
             })
           )}
+          </>
+          ) : null}
+
+          {tab === "cronograma" ? (
+            !selected ? (
+              <ThemedText themeColor="textSecondary">
+                Cadastre um veículo para ver o cronograma.
+              </ThemedText>
+            ) : schedule.length === 0 ? (
+              <ThemedText themeColor="textSecondary">
+                Nenhum item no cronograma.
+              </ThemedText>
+            ) : (
+              schedule.map((item) => (
+                <Card key={item.type} style={styles.listCard}>
+                  <ThemedText type="smallBold">{item.label}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {item.message}
+                  </ThemedText>
+                </Card>
+              ))
+            )
+          ) : null}
+
+          {tab === "manutencao" ? (
+            <>
+              {selected ? (
+                <FormButton
+                  label="Registrar manutenção"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/cars/maint-form",
+                      params: { vehicleId: selected.id },
+                    })
+                  }
+                />
+              ) : null}
+              {selectedMaint.length === 0 ? (
+                <ThemedText themeColor="textSecondary">
+                  Nenhuma manutenção.
+                </ThemedText>
+              ) : (
+                selectedMaint.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/cars/maint-form",
+                        params: { vehicleId: item.vehicle_id, id: item.id },
+                      })
+                    }
+                  >
+                    <Card style={styles.listCard}>
+                      <ThemedText type="smallBold">
+                        {item.custom_type ||
+                          MAINTENANCE_TYPE_LABELS[item.type] ||
+                          item.type}
+                      </ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {[
+                          item.service_date
+                            ? formatDateBR(item.service_date)
+                            : null,
+                          item.km_at_service
+                            ? `${item.km_at_service.toLocaleString("pt-BR")} km`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </ThemedText>
+                    </Card>
+                  </Pressable>
+                ))
+              )}
+            </>
+          ) : null}
+
+          {tab === "combustivel" ? (
+            <>
+              {selected ? (
+                <FormButton
+                  label="Registrar abastecimento"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/cars/fuel-form",
+                      params: { vehicleId: selected.id },
+                    })
+                  }
+                />
+              ) : null}
+              {selectedFuel.length === 0 ? (
+                <ThemedText themeColor="textSecondary">
+                  Nenhum abastecimento.
+                </ThemedText>
+              ) : (
+                selectedFuel.map((log) => (
+                  <Pressable
+                    key={log.id}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/cars/fuel-form",
+                        params: { vehicleId: log.vehicle_id, id: log.id },
+                      })
+                    }
+                  >
+                    <Card style={styles.listCard}>
+                      <ThemedText type="smallBold">
+                        {formatDateBR(log.date)} ·{" "}
+                        {log.liters.toLocaleString("pt-BR")} L
+                      </ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {[
+                          formatBRL(Number(log.total_cost)),
+                          `${log.km.toLocaleString("pt-BR")} km`,
+                          log.station,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </ThemedText>
+                    </Card>
+                  </Pressable>
+                ))
+              )}
+            </>
+          ) : null}
+
+          {tab === "documentos" ? (
+            <>
+              {selected ? (
+                <FormButton
+                  label="Novo documento"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/cars/doc-form",
+                      params: { vehicleId: selected.id },
+                    })
+                  }
+                />
+              ) : null}
+              {selectedDocs.length === 0 ? (
+                <ThemedText themeColor="textSecondary">
+                  Nenhum documento.
+                </ThemedText>
+              ) : (
+                selectedDocs.map((doc) => (
+                  <Pressable
+                    key={doc.id}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/cars/doc-form",
+                        params: { vehicleId: doc.vehicle_id, id: doc.id },
+                      })
+                    }
+                  >
+                    <Card style={styles.listCard}>
+                      <ThemedText type="smallBold">
+                        {DOCUMENT_TYPE_LABELS[doc.type] ??
+                          doc.custom_type ??
+                          doc.type}
+                      </ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Vence {formatDateBR(doc.due_date)}
+                        {doc.paid ? " · pago" : " · em aberto"}
+                      </ThemedText>
+                    </Card>
+                  </Pressable>
+                ))
+              )}
+            </>
+          ) : null}
         </ScrollView>
       )}
     </ThemedView>
@@ -203,4 +422,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   copy: { flex: 1, gap: 2 },
+  listCard: { padding: Spacing.three, gap: Spacing.two },
 });

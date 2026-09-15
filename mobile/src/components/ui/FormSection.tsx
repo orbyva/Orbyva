@@ -7,6 +7,40 @@ import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { hapticLight } from "@/lib/haptics";
 
+/** Separação fixa no estilo web: título uppercase + linha + campos. */
+export function FormBlock({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.formBlock}>
+      <View style={styles.formBlockHead}>
+        <ThemedText type="smallBold" style={styles.formBlockTitle}>
+          {title}
+        </ThemedText>
+        {subtitle ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {subtitle}
+          </ThemedText>
+        ) : null}
+      </View>
+      <View
+        style={[
+          styles.formBlockRule,
+          { backgroundColor: theme.backgroundSelected },
+        ]}
+      />
+      <View style={styles.formBlockBody}>{children}</View>
+    </View>
+  );
+}
+
 export function FormSection({
   title,
   hint,
@@ -69,4 +103,13 @@ const styles = StyleSheet.create({
   },
   copy: { flex: 1, gap: 2 },
   body: { paddingHorizontal: 14, paddingBottom: 14, gap: Spacing.three },
+  formBlock: { gap: Spacing.two },
+  formBlockHead: { gap: 2 },
+  formBlockTitle: {
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  formBlockRule: { height: StyleSheet.hairlineWidth },
+  formBlockBody: { gap: Spacing.three },
 });

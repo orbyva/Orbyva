@@ -221,6 +221,14 @@ export async function createPlaceVisitOccurrence(input: {
   if (error) throw new Error(error.message);
 }
 
+export async function deletePlaceVisitOccurrence(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("place_visit_occurrence")
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function deletePlace(id: string): Promise<void> {
   const userId = await getCurrentUserId();
   const { error } = await supabase

@@ -18,6 +18,7 @@ export type TimelineStatus =
 export type TimelineHref =
   | "/finance"
   | "/finance/transactions"
+  | "/finance/recurring"
   | "/tasks"
   | "/habits"
   | "/health"

@@ -1,4 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,21 +18,30 @@ import {
   fetchBookNotes,
 } from "@/api/books/notes";
 import { CoverThumb } from "@/components/CoverThumb";
+import { ReviewSheet } from "@/components/ReviewSheet";
+import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
+import { StoryShareCard } from "@/components/share/StoryShareCard";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { ModuleSection } from "@/components/ui/ModuleSection";
 import { Spacing } from "@/constants/theme";
 import {
   BOOK_STATUS_LABELS,
   bookStatusUpdate,
   formatAuthors,
+  formatBookRating,
   formatBookmark,
+  getBookRatingLabel,
+  getLatestReadDate,
 } from "@/domain/books";
+import { buildBookShareText, usableCoverUri } from "@/domain/share";
 import { getTodayIso } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
+import { formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import type { Book, BookNote, BookStatus } from "@/types/books";
 
@@ -50,6 +60,8 @@ export default function BookDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const load = useCallback(async () => {
     const row = await fetchBookById(id);
@@ -173,7 +185,26 @@ export default function BookDetailScreen() {
         <View style={styles.hero}>
           <CoverThumb uri={book.cover_url} fallback={book.title} variant="hero" />
           <View style={styles.heroCopy}>
-            <ThemedText type="smallBold">{book.title}</ThemedText>
+            <View style={styles.titleRow}>
+              <ThemedText type="smallBold" style={styles.title}>
+                {book.title}
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  book.is_favorite ? "Remover dos favoritos" : "Favoritar"
+                }
+                disabled={busy}
+                hitSlop={8}
+                onPress={() => void patch({ is_favorite: !book.is_favorite })}
+              >
+                <Ionicons
+                  name={book.is_favorite ? "heart" : "heart-outline"}
+                  size={22}
+                  color={book.is_favorite ? theme.danger : theme.textSecondary}
+                />
+              </Pressable>
+            </View>
             <ThemedText type="small" themeColor="textSecondary">
               {[
                 formatAuthors(book.authors),
@@ -186,59 +217,33 @@ export default function BookDetailScreen() {
             </ThemedText>
           </View>
         </View>
-        <View style={styles.actions}>
-          {book.status === "to_read" ? (
-            <Pressable disabled={busy} onPress={() => void setStatus("reading")}>
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                Começar a ler
-              </ThemedText>
-            </Pressable>
-          ) : null}
-          {book.status !== "read" ? (
-            <Pressable disabled={busy} onPress={() => void setStatus("read")}>
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                Marcar lido
-              </ThemedText>
-            </Pressable>
-          ) : null}
-          {book.status !== "abandoned" ? (
-            <Pressable disabled={busy} onPress={() => void setStatus("abandoned")}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Abandonar
-              </ThemedText>
-            </Pressable>
-          ) : (
-            <Pressable disabled={busy} onPress={() => void setStatus("reading")}>
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                Retomar
-              </ThemedText>
-            </Pressable>
-          )}
-        </View>
-        <View style={styles.actions}>
-          <Pressable
-            disabled={busy}
-            onPress={() => void patch({ is_favorite: !book.is_favorite })}
-          >
-            <ThemedText type="smallBold">
-              {book.is_favorite ? "♥ Favorito" : "Marcar favorito"}
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            disabled={busy}
-            onPress={() => void patch({ would_recommend: book.would_recommend === false })}
-          >
-            <ThemedText type="small" themeColor="textSecondary">
-              {book.would_recommend === false ? "Não recomendaria" : "Recomendaria"}
-            </ThemedText>
-          </Pressable>
-        </View>
+        {book.status === "reading" ? (
+          <View style={styles.footerActions}>
+            <FormButton
+              label="Terminei"
+              tone="primary"
+              disabled={busy}
+              onPress={() => setReviewOpen(true)}
+            />
+            <FormButton
+              label="Abandonei"
+              tone="danger"
+              disabled={busy}
+              onPress={() => void setStatus("abandoned")}
+            />
+          </View>
+        ) : null}
         {book.description ? (
           <ThemedText type="small" themeColor="textSecondary">
             {book.description}
           </ThemedText>
         ) : null}
         {book.notes ? <ThemedText type="small">{book.notes}</ThemedText> : null}
+        {book.status === "read" ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {book.would_recommend === false ? "Não recomendaria" : "Recomendaria"}
+          </ThemedText>
+        ) : null}
 
         <ModuleSection title="Notas de leitura" icon="create-outline" tint="#F59E0B">
           <TextInput
@@ -257,11 +262,11 @@ export default function BookDetailScreen() {
             value={noteBody}
             onChangeText={setNoteBody}
           />
-          <Pressable disabled={busy} onPress={() => void addNote()}>
-            <ThemedText type="small" style={{ color: theme.primary }}>
-              Adicionar nota
-            </ThemedText>
-          </Pressable>
+          <FormButton
+            label="Adicionar nota"
+            disabled={busy}
+            onPress={() => void addNote()}
+          />
           {notes.length === 0 ? (
             <ThemedText type="small" themeColor="textSecondary">
               Nenhuma nota ainda.
@@ -278,16 +283,89 @@ export default function BookDetailScreen() {
           )}
         </ModuleSection>
 
-        <Pressable
-          onPress={() =>
-            router.push({ pathname: "/books/form", params: { id: book.google_id } })
-          }
-        >
-          <ThemedText type="small" style={{ color: theme.primary }}>
-            Editar
-          </ThemedText>
-        </Pressable>
+        <View style={styles.footerActions}>
+          {book.status === "to_read" ? (
+            <FormButton
+              label="Começar"
+              tone="primary"
+              disabled={busy}
+              onPress={() => void setStatus("reading")}
+            />
+          ) : null}
+          {book.status === "abandoned" ? (
+            <FormButton
+              label="Retomar"
+              tone="primary"
+              disabled={busy}
+              onPress={() => void setStatus("reading")}
+            />
+          ) : null}
+          <FormButton
+            label="Editar"
+            tone={book.status === "read" ? "primary" : "neutral"}
+            onPress={() =>
+              router.push({ pathname: "/books/form", params: { id: book.google_id } })
+            }
+          />
+          {book.status === "read" ? (
+            <FormButton
+              label="Compartilhar"
+              onPress={() => setShareOpen(true)}
+            />
+          ) : null}
+        </View>
       </ScrollView>
+      <ReviewSheet
+        visible={reviewOpen}
+        title="Avaliar livro"
+        itemTitle={book.title}
+        confirmLabel="Marcar lido"
+        busy={busy}
+        onClose={() => setReviewOpen(false)}
+        onConfirm={async (result) => {
+          await patch({
+            ...bookStatusUpdate(book, "read", getTodayIso()),
+            rating: result.rating,
+            would_recommend: result.recommend,
+          });
+          setReviewOpen(false);
+        }}
+      />
+      {book.status === "read" ? (
+        <OpinionShareSheet
+          visible={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title={book.title}
+          hasNotes={Boolean(book.notes?.trim())}
+          message={(includeNotes) => buildBookShareText(book, { includeNotes })}
+          renderCard={({ includeNotes }) => {
+            const latest = getLatestReadDate(book.read_dates);
+            return (
+              <StoryShareCard
+                coverUri={usableCoverUri(book.cover_url)}
+                coverVariant="book"
+                fallbackEmoji="📖"
+                fallbackCaption="LIVRO"
+                kicker={latest ? `LIDO  ·  ${formatDateBR(latest)}` : "LIDO"}
+                title={book.title}
+                subtitle={formatAuthors(book.authors)}
+                score={
+                  book.rating != null && book.rating > 0
+                    ? `${formatBookRating(book.rating)}/10`
+                    : null
+                }
+                scoreLabel={
+                  book.rating != null && book.rating > 0
+                    ? getBookRatingLabel(book.rating)
+                    : null
+                }
+                recommend={book.would_recommend !== false}
+                notes={includeNotes ? book.notes?.trim() : null}
+              />
+            );
+          }}
+        />
+      ) : null}
     </ThemedView>
   );
 }
@@ -298,7 +376,9 @@ const styles = StyleSheet.create({
   body: { padding: Spacing.four, gap: Spacing.three },
   hero: { flexDirection: "row", gap: 14, alignItems: "flex-start" },
   heroCopy: { flex: 1, gap: 6, paddingTop: 4 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
+  titleRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  title: { flex: 1 },
+  footerActions: { gap: 8 },
   input: {
     minHeight: 44,
     borderRadius: 12,

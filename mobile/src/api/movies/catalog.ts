@@ -183,7 +183,12 @@ export type TmdbEpisode = {
 
 export async function fetchTvMetaTmdb(
   tmdbTvId: number
-): Promise<{ seasons: TmdbSeasonSummary[]; episodeCount: number } | null> {
+): Promise<{
+  seasons: TmdbSeasonSummary[];
+  episodeCount: number;
+  next_episode_to_air?: TmdbAirEpisode | null;
+  last_episode_to_air?: TmdbAirEpisode | null;
+} | null> {
   if (!tmdbApiKey) return null;
   try {
     const detail = await tmdbGet<{
@@ -192,6 +197,8 @@ export async function fetchTvMetaTmdb(
         name?: string;
         episode_count?: number;
       }[];
+      next_episode_to_air?: TmdbAirEpisode | null;
+      last_episode_to_air?: TmdbAirEpisode | null;
     }>(`/tv/${tmdbTvId}`);
     const seasons = (detail.seasons ?? [])
       .filter((season) => season.season_number > 0 && (season.episode_count ?? 0) > 0)
@@ -203,6 +210,8 @@ export async function fetchTvMetaTmdb(
     return {
       seasons,
       episodeCount: seasons.reduce((sum, season) => sum + season.episode_count, 0),
+      next_episode_to_air: detail.next_episode_to_air ?? null,
+      last_episode_to_air: detail.last_episode_to_air ?? null,
     };
   } catch {
     return null;

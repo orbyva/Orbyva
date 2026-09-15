@@ -26,6 +26,7 @@ import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
 import { FormSection } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -355,40 +356,38 @@ export default function ShoppingFormScreen() {
             />
           </View>
           </FormSection>
-          <Pressable
+          <FormButton
+            label={editId ? "Salvar alterações" : "Adicionar"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Adicionar"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
           {editId && !linkedTaskId ? (
-            <Pressable disabled={saving} onPress={() => void onConvert()}>
-              <ThemedText type="linkPrimary">Criar tarefa</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Criar tarefa"
+              disabled={saving}
+              onPress={() => void onConvert()}
+            />
           ) : null}
           {linkedTaskId ? (
-            <Pressable
+            <FormButton
+              label="Abrir tarefa ligada"
               onPress={() =>
                 router.push({
                   pathname: "/tasks/form",
                   params: { id: linkedTaskId },
                 })
               }
-            >
-              <ThemedText type="linkPrimary">Abrir tarefa ligada</ThemedText>
-            </Pressable>
+            />
           ) : null}
           {editId ? (
-            <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText themeColor="danger">Excluir item</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir item"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

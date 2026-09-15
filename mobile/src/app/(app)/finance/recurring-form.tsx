@@ -25,7 +25,8 @@ import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
-import { FormSection } from "@/components/ui/FormSection";
+import { FormButton } from "@/components/ui/FormButton";
+import { FormBlock } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import {
   buildFixedYearPlan,
@@ -351,6 +352,7 @@ export default function RecurringFormScreen() {
             </Pressable>
           </View>
 
+          <FormBlock title="Classificação">
           <Field label="Categoria" required>
             <ClassSearchPicker
               dimensions={dimensions}
@@ -361,7 +363,9 @@ export default function RecurringFormScreen() {
               }
             />
           </Field>
+          </FormBlock>
 
+          <FormBlock title="Detalhes">
           <Field label="Descrição" required>
             <TextInput
               placeholder="Ex: Cartão Nubank, Aluguel..."
@@ -412,16 +416,9 @@ export default function RecurringFormScreen() {
               }}
             />
           </Field>
+          </FormBlock>
 
-          <FormSection
-            title="Agenda"
-            defaultOpen={false}
-            hint={
-              isSplit
-                ? `${rec.installment_count ?? "?"}x · dia ${rec.due_day ?? "?"}`
-                : `${normalizeFixedFrequency(rec.frequency)} · dia ${rec.due_day ?? "?"}`
-            }
-          >
+          <FormBlock title="Agenda">
           {isSplit ? (
             <Field label="Nº de parcelas" required>
               <TextInput
@@ -533,23 +530,20 @@ export default function RecurringFormScreen() {
               }}
             />
           </Field>
-          </FormSection>
+          </FormBlock>
 
-          <Pressable
+          <FormButton
+            label={isEditing ? "Salvar alterações" : "Salvar recorrência"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {isEditing ? "Salvar alterações" : "Salvar recorrência"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
           {isEditing && editId ? (
-            <Pressable
+            <FormButton
+              label="Excluir recorrência"
+              tone="danger"
+              disabled={saving}
               onPress={() =>
                 Alert.alert(
                   "Excluir recorrência?",
@@ -581,12 +575,7 @@ export default function RecurringFormScreen() {
                   ]
                 )
               }
-              style={styles.danger}
-            >
-              <ThemedText type="smallBold" style={styles.dangerLabel}>
-                Excluir recorrência
-              </ThemedText>
-            </Pressable>
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

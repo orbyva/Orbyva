@@ -1,7 +1,8 @@
-import type { Recurring, RecurringDueAlert } from "@/types/recurring";
+import { countsAsMonthlySpend } from "@/domain/finance/spendFlags";
 import { DUE_WARNING_DAYS } from "@/domain/recurring/constants";
 import { formatDueDate } from "@/domain/recurring/installments";
 import { formatYm } from "@/domain/recurring/projection";
+import type { Recurring, RecurringDueAlert } from "@/types/recurring";
 
 export function getRecurringDueAlerts(
   recurringList: Recurring[],
@@ -136,4 +137,67 @@ export function filterRecurringList(
         return true;
     }
   });
+}
+
+export interface CommittedAmounts {
+  pay: number;
+  receive: number;
+}
+
+export function calculateCommittedThisMonth(
+  recurringList: Recurring[],
+  referenceDate = new Date()
+): CommittedAmounts {
+  const year = referenceDate.getFullYear();
+  const month = referenceDate.getMonth();
+  let pay = 0;
+  let receive = 0;
+
+  for (const rec of recurringList) {
+    if (!Array.isArray(rec.installments)) continue;
+
+    const paidParcels = rec.paid_parcels || [];
+    const nature = rec.class?.type?.nature?.name;
+    const type = rec.class?.type ?? null;
+
+    for (const installment of rec.installments) {
+      if (paidParcels.includes(installment.number)) continue;
+
+      const due = new Date(`${installment.dueDate}T12:00:00`);
+      if (due.getFullYear() !== year || due.getMonth() !== month) continue;
+
+      if (nature === "Receita") receive += rec.value;
+      else if (countsAsMonthlySpend(nature, type)) pay += rec.value;
+    }
+  }
+
+  return { pay, receive };
+}
+
+export interface ProjectedMonthBalance {
+  realizedIncome: number;
+  realizedExpense: number;
+  committedPay: number;
+  committedReceive: number;
+  projectedIncome: number;
+  projectedExpense: number;
+  projectedBalance: number;
+}
+
+/** Saldo previsto do mês = realizado + parcelas/recorrentes ainda em aberto no mês. */
+export function calculateProjectedMonthBalance(
+  realized: { receita: number; despesa: number },
+  committed: CommittedAmounts
+): ProjectedMonthBalance {
+  const projectedIncome = realized.receita + committed.receive;
+  const projectedExpense = realized.despesa + committed.pay;
+  return {
+    realizedIncome: realized.receita,
+    realizedExpense: realized.despesa,
+    committedPay: committed.pay,
+    committedReceive: committed.receive,
+    projectedIncome,
+    projectedExpense,
+    projectedBalance: projectedIncome - projectedExpense,
+  };
 }

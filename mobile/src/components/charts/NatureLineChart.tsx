@@ -6,6 +6,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { monthShortLabel } from "@/domain/finance/insights";
 import { formatBRL } from "@/lib/currency";
+import { hexAlpha } from "@/lib/color";
 import type { ValueByNatureYearMonth } from "@/types/finance";
 
 import { CHART_EXPENSE, CHART_INCOME } from "./DonutChart";
@@ -138,13 +139,37 @@ export function NatureLineChart({
         )}
       </Svg>
       {selected ? (
-        <ThemedText type="small">
-          {selected.label} {selected.row.year}
-          {" · "}
-          Receita {formatBRL(selected.row.receita_total)}
-          {" · "}
-          Despesa {formatBRL(selected.row.despesa_total)}
-        </ThemedText>
+        <View
+          style={[
+            styles.selectedCard,
+            {
+              backgroundColor: hexAlpha(CHART_INCOME, 0.08),
+              borderColor: hexAlpha(CHART_EXPENSE, 0.28),
+            },
+          ]}
+        >
+          <ThemedText type="smallBold">
+            {selected.label} {selected.row.year}
+          </ThemedText>
+          <View style={styles.selectedRow}>
+            <View style={styles.selectedCol}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Receita
+              </ThemedText>
+              <ThemedText type="value" style={{ color: CHART_INCOME }}>
+                {formatBRL(selected.row.receita_total)}
+              </ThemedText>
+            </View>
+            <View style={styles.selectedCol}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Despesa
+              </ThemedText>
+              <ThemedText type="value" style={{ color: CHART_EXPENSE }}>
+                {formatBRL(selected.row.despesa_total)}
+              </ThemedText>
+            </View>
+          </View>
+        </View>
       ) : (
         <ThemedText type="small" themeColor="textSecondary">
           Toque num mês para ver os valores.
@@ -166,6 +191,15 @@ export function NatureLineChart({
 
 const styles = StyleSheet.create({
   wrap: { gap: Spacing.two },
+  selectedCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  selectedRow: { flexDirection: "row", gap: 16 },
+  selectedCol: { flex: 1, gap: 2 },
   legend: { flexDirection: "row", gap: Spacing.three },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },

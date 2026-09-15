@@ -26,6 +26,8 @@ import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
+import { FormBlock } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import {
@@ -198,6 +200,10 @@ export default function TransactionFormScreen() {
         >
           <Banner message={error} />
 
+          <FormBlock
+            title="Classificação"
+            subtitle="Natureza e subcategoria definem relatórios e orçamento."
+          >
           <Field
             label="Categoria"
             required
@@ -211,7 +217,9 @@ export default function TransactionFormScreen() {
               onChange={(opt) => setClassId(opt?.id ?? null)}
             />
           </Field>
+          </FormBlock>
 
+          <FormBlock title="Detalhes">
           <Field label="Valor" required error={fieldErrors.value}>
             <TextInput
               keyboardType="number-pad"
@@ -236,25 +244,23 @@ export default function TransactionFormScreen() {
               onChangeText={setDescription}
             />
           </Field>
+          </FormBlock>
 
-          <Pressable
+          <FormButton
+            label={isEditing ? "Salvar alterações" : "Adicionar transação"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {isEditing ? "Salvar alterações" : "Adicionar transação"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
 
           {isEditing ? (
-            <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText style={styles.error}>Excluir transação</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir transação"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>

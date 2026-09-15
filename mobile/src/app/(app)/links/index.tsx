@@ -17,6 +17,7 @@ import {
 } from "@/api/links/links";
 import { fetchTags } from "@/api/tasks/tags";
 import { ChipBar } from "@/components/ChipBar";
+import { FilterSelect } from "@/components/FilterSelect";
 import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -190,32 +191,44 @@ export default function LinksScreen() {
           }
         >
           <ChipBar options={STATUS_CHIPS} value={status} onChange={setStatus} />
-          <ChipBar options={TYPE_CHIPS} value={typeFilter} onChange={setTypeFilter} />
-          {tags.length > 0 ? (
-            <ChipBar
-              options={[
-                { id: "all", label: "Tags" },
-                ...tags.map((tag) => ({ id: tag.id, label: tag.name })),
-              ]}
-              value={tagFilter}
-              onChange={setTagFilter}
-            />
-          ) : null}
           <SearchField
             value={search}
             onChangeText={setSearch}
             placeholder="Buscar título ou URL"
           />
-          <Pressable
-            onPress={() => setFavoritesOnly((cur) => !cur)}
-            style={[
-              styles.favChip,
-              { backgroundColor: theme.backgroundElement },
-              favoritesOnly && { backgroundColor: theme.backgroundSelected },
-            ]}
-          >
-            <ThemedText type="smallBold">Favoritos</ThemedText>
-          </Pressable>
+          <View style={styles.filters}>
+            <FilterSelect
+              label="Tipo"
+              value={typeFilter}
+              options={TYPE_CHIPS}
+              onChange={(id) =>
+                setTypeFilter(id as "all" | ContentLinkType)
+              }
+            />
+            {tags.length > 0 ? (
+              <FilterSelect
+                label="Tag"
+                value={tagFilter}
+                options={[
+                  { id: "all", label: "Todas as tags" },
+                  ...tags.map((tag) => ({ id: tag.id, label: tag.name })),
+                ]}
+                onChange={setTagFilter}
+              />
+            ) : null}
+            <Pressable
+              onPress={() => setFavoritesOnly((cur) => !cur)}
+              style={[
+                styles.favChip,
+                { backgroundColor: theme.backgroundElement },
+                favoritesOnly && { backgroundColor: theme.backgroundSelected },
+              ]}
+            >
+              <ThemedText type="smallBold">
+                {favoritesOnly ? "♥ Favoritos" : "Favoritos"}
+              </ThemedText>
+            </Pressable>
+          </View>
           {visible.length === 0 ? (
             <ThemedText themeColor="textSecondary">
               Nenhum link neste filtro.
@@ -289,6 +302,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   banner: { marginHorizontal: Spacing.four, marginTop: Spacing.three },
   list: { padding: Spacing.four, gap: Spacing.three },
+  filters: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
   card: { padding: Spacing.three },
   copy: { gap: 4 },
   actions: { flexDirection: "row", gap: 16, marginTop: 4 },

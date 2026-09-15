@@ -8,12 +8,14 @@ import { sortSubtasks } from "@/domain/tasks/subtasks";
 import type { RecurrenceRule, Task, TaskPriority, TaskStatus } from "@/types/tasks";
 
 const TASK_SELECT =
-  "id, title, description, status, due_date, due_time, completed_at, parent_task_id, project_id, priority, recurrence_rule, recurrence_origin_id, linked_recurring_id, linked_shopping_item_id, linked_installment_number, tag_ids, medication_id, is_quick, is_medication, is_consultation, icon_key, icon_url";
+  "id, title, description, status, due_date, due_time, estimated_duration, completed_at, parent_task_id, project_id, priority, recurrence_rule, recurrence_origin_id, linked_recurring_id, linked_shopping_item_id, linked_installment_number, tag_ids, medication_id, dose_time, is_quick, is_medication, is_consultation, icon_key, icon_url";
 
 export type TaskWriteInput = {
   title: string;
   due_date: string | null;
   due_time?: string | null;
+  estimated_duration?: number | null;
+  is_quick?: boolean;
   description?: string;
   project_id?: string | null;
   priority?: TaskPriority | null;
@@ -135,6 +137,9 @@ export async function createTaskApi(input: TaskWriteInput): Promise<Task> {
         tag_ids: input.tag_ids ?? [],
         due_date: input.due_date,
         due_time: input.due_time ?? null,
+        estimated_duration: input.is_quick
+          ? null
+          : (input.estimated_duration ?? null),
         start_date: null,
         priority: input.priority ?? null,
         recurrence_rule: input.recurrence_rule ?? null,
@@ -142,7 +147,7 @@ export async function createTaskApi(input: TaskWriteInput): Promise<Task> {
         icon_key: null,
         icon_url: null,
         is_milestone: false,
-        is_quick: false,
+        is_quick: input.is_quick ?? false,
         is_medication: false,
         is_consultation: input.is_consultation ?? false,
         sort_order: 0,
@@ -165,6 +170,14 @@ export async function updateTaskApi(
       due_date: input.due_date,
       due_time: input.due_time ?? null,
       description: input.description ?? "",
+      ...(input.estimated_duration !== undefined || input.is_quick !== undefined
+        ? {
+            estimated_duration: input.is_quick
+              ? null
+              : (input.estimated_duration ?? null),
+            is_quick: input.is_quick ?? false,
+          }
+        : {}),
       ...(input.project_id !== undefined ? { project_id: input.project_id } : {}),
       priority: input.priority ?? null,
       ...(input.status ? { status: input.status } : {}),

@@ -5,9 +5,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   TextInput,
   View,
 } from "react-native";
@@ -16,18 +16,29 @@ import {
   createTrip,
   deleteTrip,
   fetchTripById,
+  fetchTripItinerary,
   fetchTripStops,
+  syncRoundTripTransfers,
   updateTrip,
   type TripStopDraft,
 } from "@/api/travel/travel";
 import { DateField } from "@/components/DateField";
 import { PlaceCatalogSearch } from "@/components/PlaceCatalogSearch";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { FormButton } from "@/components/ui/FormButton";
+import { FormBlock } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { TRIP_STATUS_LABELS } from "@/domain/travel";
+import {
+  TRIP_TRANSPORT_MODE_LABELS,
+  TRIP_TRANSPORT_MODES,
+  type RoundTripHome,
+  type TripTransportMode,
+} from "@/domain/travel/transportModes";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -44,6 +55,10 @@ function addDays(iso: string, days: number): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function hhmm(value: string | null | undefined): string {
+  return value?.trim().slice(0, 5) ?? "";
 }
 
 export default function TripFormScreen() {
@@ -68,6 +83,15 @@ export default function TripFormScreen() {
   const [notes, setNotes] = useState("");
   const [budget, setBudget] = useState("");
   const [stops, setStops] = useState<TripStopDraft[]>([]);
+  const [includeRoundTrip, setIncludeRoundTrip] = useState(false);
+  const [homeOrigin, setHomeOrigin] = useState<RoundTripHome | null>(null);
+  const [roundTripMode, setRoundTripMode] = useState<TripTransportMode>("car");
+  const [outboundDepart, setOutboundDepart] = useState("");
+  const [outboundArrive, setOutboundArrive] = useState("");
+  const [returnDepart, setReturnDepart] = useState("");
+  const [returnArrive, setReturnArrive] = useState("");
+  const [outboundId, setOutboundId] = useState<string | null>(null);
+  const [returnId, setReturnId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,8 +102,12 @@ export default function TripFormScreen() {
   useEffect(() => {
     if (!editId) return;
     let cancelled = false;
-    void Promise.all([fetchTripById(editId), fetchTripStops(editId)])
-      .then(([trip, nextStops]) => {
+    void Promise.all([
+      fetchTripById(editId),
+      fetchTripStops(editId),
+      fetchTripItinerary(editId).catch(() => []),
+    ])
+      .then(([trip, nextStops, itinerary]) => {
         if (cancelled) return;
         if (!trip) {
           setError("Viagem não encontrada.");
@@ -105,6 +133,53 @@ export default function TripFormScreen() {
             lng: stop.lng ?? null,
           }))
         );
+        if (trip.origin_label?.trim()) {
+          setHomeOrigin({
+            label: trip.origin_label.trim(),
+            lat: trip.origin_lat ?? null,
+            lng: trip.origin_lng ?? null,
+            place_id: null,
+          });
+        }
+        const days = [...itinerary].sort((a, b) => a.day_number - b.day_number);
+        const firstActs = (days[0]?.activities ?? []).filter(
+          (act) =>
+            (act.category ?? "").toLowerCase() === "transport" ||
+            act.title.includes("→")
+        );
+        const lastActs = (days[days.length - 1]?.activities ?? []).filter(
+          (act) =>
+            (act.category ?? "").toLowerCase() === "transport" ||
+            act.title.includes("→")
+        );
+        const outbound = firstActs[0] ?? null;
+        const returnTrip =
+          lastActs.find((act) => act.id !== outbound?.id) ??
+          (lastActs[0]?.id !== outbound?.id ? lastActs[0] : null);
+        if (outbound || returnTrip || trip.origin_label) {
+          setIncludeRoundTrip(true);
+        }
+        if (outbound) {
+          setOutboundId(outbound.id);
+          setOutboundDepart(hhmm(outbound.activity_time));
+          setOutboundArrive(hhmm(outbound.arrival_time));
+          if (outbound.transport_mode) {
+            setRoundTripMode(outbound.transport_mode as TripTransportMode);
+          }
+          if (!trip.origin_label && outbound.origin_label) {
+            setHomeOrigin({
+              label: outbound.origin_label,
+              lat: outbound.origin_lat ?? null,
+              lng: outbound.origin_lng ?? null,
+              place_id: outbound.origin_place_id ?? null,
+            });
+          }
+        }
+        if (returnTrip) {
+          setReturnId(returnTrip.id);
+          setReturnDepart(hhmm(returnTrip.activity_time));
+          setReturnArrive(hhmm(returnTrip.arrival_time));
+        }
       })
       .catch((err) => {
         if (!cancelled) {
@@ -138,8 +213,24 @@ export default function TripFormScreen() {
       fail("A data final precisa ser depois do início.");
       return;
     }
+    const namedStops = stops.filter((stop) => stop.name.trim());
+    if (includeRoundTrip && !homeOrigin?.label.trim()) {
+      fail("Informe a origem (casa / partida) dos deslocamentos.");
+      return;
+    }
     setSaving(true);
     setError(null);
+    const origin = includeRoundTrip && homeOrigin?.label.trim()
+      ? {
+          origin_label: homeOrigin.label.trim(),
+          origin_lat: homeOrigin.lat,
+          origin_lng: homeOrigin.lng,
+        }
+      : {
+          origin_label: null,
+          origin_lat: null,
+          origin_lng: null,
+        };
     const payload = {
       title: trimmed,
       destination,
@@ -152,14 +243,48 @@ export default function TripFormScreen() {
       notes,
       budget: budget.trim() ? Number(budget.replace(",", ".")) || null : null,
       stops,
+      ...origin,
     };
     try {
+      const tripId = editId
+        ? editId
+        : (await createTrip(payload)).id;
       if (editId) {
         await updateTrip({ id: editId, ...payload });
+      }
+      if (includeRoundTrip && homeOrigin?.label.trim()) {
+        const firstStop = namedStops[0] ?? {
+          name: destination.trim() || trimmed,
+          start_date: startDate,
+          end_date: endDate,
+          lat: destLat,
+          lng: destLng,
+          place_id: destPlaceId,
+        };
+        const lastStop = namedStops[namedStops.length - 1] ?? firstStop;
+        await syncRoundTripTransfers({
+          tripId,
+          home: {
+            label: homeOrigin.label.trim(),
+            lat: homeOrigin.lat,
+            lng: homeOrigin.lng,
+            place_id: homeOrigin.place_id,
+          },
+          firstStop,
+          lastStop,
+          mode: roundTripMode,
+          outboundDepart,
+          outboundArrive,
+          returnDepart,
+          returnArrive,
+          outboundId,
+          returnId,
+        }).catch(() => undefined);
+      }
+      if (editId) {
         router.back();
       } else {
-        const trip = await createTrip(payload);
-        router.replace({ pathname: "/travel/[id]", params: { id: trip.id } });
+        router.replace({ pathname: "/travel/[id]", params: { id: tripId } });
       }
     } catch (err) {
       fail(getErrorMessage(err, "Não foi possível salvar a viagem."));
@@ -207,9 +332,10 @@ export default function TripFormScreen() {
       >
         <ScrollView
           contentContainerStyle={styles.body}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
         >
           <Banner message={error} />
+          <FormBlock title="Essencial">
           <Field label="Título" required>
             <TextInput
               autoFocus={!editId}
@@ -225,6 +351,13 @@ export default function TripFormScreen() {
               placeholder="Buscar cidade"
               scope="regions"
               requestUserLocation={false}
+              selectedLabel={destPlaceId ? destination : null}
+              onClear={() => {
+                setDestination("");
+                setDestLat(null);
+                setDestLng(null);
+                setDestPlaceId(null);
+              }}
               onPick={(hit) => {
                 setDestination(hit.name);
                 setDestLat(hit.lat);
@@ -232,13 +365,15 @@ export default function TripFormScreen() {
                 setDestPlaceId(hit.google_place_id);
               }}
             />
-            <TextInput
-              placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
-              value={destination}
-              onChangeText={setDestination}
-            />
+            {!destPlaceId ? (
+              <TextInput
+                placeholder="Ou digite o nome manualmente"
+                placeholderTextColor={theme.textSecondary}
+                style={inputStyle}
+                value={destination}
+                onChangeText={setDestination}
+              />
+            ) : null}
           </Field>
           <Field label="Início">
             <DateField value={startDate} onChange={setStartDate} style={inputStyle} />
@@ -246,35 +381,8 @@ export default function TripFormScreen() {
           <Field label="Fim">
             <DateField value={endDate} onChange={setEndDate} style={inputStyle} />
           </Field>
-          <Field label="Orçamento">
-            <TextInput
-              keyboardType="decimal-pad"
-              placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
-              value={budget}
-              onChangeText={setBudget}
-            />
-          </Field>
-          <Field label="Status">
-            <View style={styles.chips}>
-              {STATUS_CHIPS.map((chip) => (
-                <Pressable
-                  key={chip.id}
-                  onPress={() => setStatus(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    status === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
-              ))}
-            </View>
-          </Field>
+          </FormBlock>
+          <FormBlock title="Destinos">
           <Field label="Paradas">
             {stops.map((stop, index) => (
               <View key={`${stop.name}-${index}`} style={styles.stop}>
@@ -282,6 +390,22 @@ export default function TripFormScreen() {
                   placeholder="Buscar parada"
                   scope="regions"
                   requestUserLocation={false}
+                  selectedLabel={stop.place_id ? stop.name : null}
+                  onClear={() =>
+                    setStops((cur) =>
+                      cur.map((row, i) =>
+                        i === index
+                          ? {
+                              ...row,
+                              name: "",
+                              place_id: null,
+                              lat: null,
+                              lng: null,
+                            }
+                          : row
+                      )
+                    )
+                  }
                   onPick={(hit) =>
                     setStops((cur) =>
                       cur.map((row, i) =>
@@ -298,19 +422,21 @@ export default function TripFormScreen() {
                     )
                   }
                 />
-                <TextInput
-                  placeholder="Cidade"
-                  placeholderTextColor={theme.textSecondary}
-                  style={inputStyle}
-                  value={stop.name}
-                  onChangeText={(value) =>
-                    setStops((cur) =>
-                      cur.map((row, i) =>
-                        i === index ? { ...row, name: value } : row
+                {!stop.place_id ? (
+                  <TextInput
+                    placeholder="Ou digite o nome manualmente"
+                    placeholderTextColor={theme.textSecondary}
+                    style={inputStyle}
+                    value={stop.name}
+                    onChangeText={(value) =>
+                      setStops((cur) =>
+                        cur.map((row, i) =>
+                          i === index ? { ...row, name: value } : row
+                        )
                       )
-                    )
-                  }
-                />
+                    }
+                  />
+                ) : null}
                 <DateField
                   value={stop.start_date}
                   onChange={(value) =>
@@ -333,52 +459,188 @@ export default function TripFormScreen() {
                   }
                   style={inputStyle}
                 />
-                <Pressable
+                <FormButton
+                  label="Remover parada"
+                  tone="danger"
                   onPress={() =>
                     setStops((cur) => cur.filter((_, i) => i !== index))
                   }
-                >
-                  <ThemedText themeColor="danger">Remover parada</ThemedText>
-                </Pressable>
+                />
               </View>
             ))}
-            <Pressable
+            <FormButton
+              label="Adicionar parada"
               onPress={() =>
                 setStops((cur) => [
                   ...cur,
                   { name: "", start_date: startDate, end_date: endDate },
                 ])
               }
-            >
-              <ThemedText type="linkPrimary">Adicionar parada</ThemedText>
-            </Pressable>
-          </Field>
-          <Field label="Notas">
-            <TextInput
-              placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
-              value={notes}
-              onChangeText={setNotes}
             />
           </Field>
-          <Pressable
-            disabled={saving}
-            onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
+          </FormBlock>
+
+          <View
+            style={[
+              styles.round,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.backgroundSelected,
+              },
+            ]}
           >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Criar viagem"}
-              </ThemedText>
-            )}
-          </Pressable>
+            <View style={styles.roundHead}>
+              <View style={styles.copy}>
+                <ThemedText type="smallBold">
+                  {editId
+                    ? "Deslocamentos de ida e volta"
+                    : "Incluir deslocamentos de ida e volta"}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Gera trechos de transporte no roteiro entre origem e paradas.
+                </ThemedText>
+              </View>
+              <Switch
+                value={includeRoundTrip}
+                onValueChange={setIncludeRoundTrip}
+                trackColor={{ false: theme.backgroundSelected, true: theme.primary }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+            {includeRoundTrip ? (
+              <View style={styles.roundBody}>
+                <Field label="Origem (casa / partida)">
+                  <PlaceCatalogSearch
+                    placeholder="Buscar origem"
+                    scope="regions"
+                    requestUserLocation={false}
+                    selectedLabel={homeOrigin?.place_id ? homeOrigin.label : null}
+                    onClear={() => setHomeOrigin(null)}
+                    onPick={(hit) =>
+                      setHomeOrigin({
+                        label: hit.name,
+                        lat: hit.lat,
+                        lng: hit.lng,
+                        place_id: hit.google_place_id,
+                      })
+                    }
+                  />
+                  {!homeOrigin?.place_id ? (
+                    <TextInput
+                      placeholder="Ou digite o nome manualmente"
+                      placeholderTextColor={theme.textSecondary}
+                      style={inputStyle}
+                      value={homeOrigin?.label ?? ""}
+                      onChangeText={(value) =>
+                        setHomeOrigin((cur) => ({
+                          label: value,
+                          lat: cur?.lat ?? null,
+                          lng: cur?.lng ?? null,
+                          place_id: cur?.place_id ?? null,
+                        }))
+                      }
+                    />
+                  ) : null}
+                </Field>
+                <Field label="Modo">
+                  <View style={styles.chips}>
+                    {TRIP_TRANSPORT_MODES.map((mode) => (
+                      <ChoiceChip
+                        key={mode}
+                        label={TRIP_TRANSPORT_MODE_LABELS[mode]}
+                        active={roundTripMode === mode}
+                        onPress={() => setRoundTripMode(mode)}
+                      />
+                    ))}
+                  </View>
+                </Field>
+                <Field label="Ida · saída">
+                  <TextInput
+                    placeholder="HH:mm"
+                    placeholderTextColor={theme.textSecondary}
+                    style={inputStyle}
+                    value={outboundDepart}
+                    onChangeText={setOutboundDepart}
+                  />
+                </Field>
+                <Field label="Ida · chegada">
+                  <TextInput
+                    placeholder="HH:mm"
+                    placeholderTextColor={theme.textSecondary}
+                    style={inputStyle}
+                    value={outboundArrive}
+                    onChangeText={setOutboundArrive}
+                  />
+                </Field>
+                <Field label="Volta · saída">
+                  <TextInput
+                    placeholder="HH:mm"
+                    placeholderTextColor={theme.textSecondary}
+                    style={inputStyle}
+                    value={returnDepart}
+                    onChangeText={setReturnDepart}
+                  />
+                </Field>
+                <Field label="Volta · chegada">
+                  <TextInput
+                    placeholder="HH:mm"
+                    placeholderTextColor={theme.textSecondary}
+                    style={inputStyle}
+                    value={returnArrive}
+                    onChangeText={setReturnArrive}
+                  />
+                </Field>
+              </View>
+            ) : null}
+          </View>
+
+          <FormBlock title="Detalhes">
+            <Field label="Orçamento">
+              <TextInput
+                keyboardType="decimal-pad"
+                placeholder="Opcional"
+                placeholderTextColor={theme.textSecondary}
+                style={inputStyle}
+                value={budget}
+                onChangeText={setBudget}
+              />
+            </Field>
+            <Field label="Status">
+              <View style={styles.chips}>
+                {STATUS_CHIPS.map((chip) => (
+                  <ChoiceChip
+                    key={chip.id}
+                    label={chip.label}
+                    active={status === chip.id}
+                    onPress={() => setStatus(chip.id)}
+                  />
+                ))}
+              </View>
+            </Field>
+            <Field label="Notas">
+              <TextInput
+                placeholder="Opcional"
+                placeholderTextColor={theme.textSecondary}
+                style={inputStyle}
+                value={notes}
+                onChangeText={setNotes}
+              />
+            </Field>
+          </FormBlock>
+          <FormButton
+            label={editId ? "Salvar alterações" : "Criar viagem"}
+            tone="primary"
+            disabled={saving}
+            busy={saving}
+            onPress={() => void onSave()}
+          />
           {editId ? (
-            <Pressable disabled={saving} onPress={onDelete}>
-              <ThemedText themeColor="danger">Excluir viagem</ThemedText>
-            </Pressable>
+            <FormButton
+              label="Excluir viagem"
+              tone="danger"
+              disabled={saving}
+              onPress={onDelete}
+            />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -426,6 +688,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
+  round: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  roundHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  copy: { flex: 1, gap: 2 },
+  roundBody: { paddingHorizontal: 14, paddingBottom: 14, gap: Spacing.three },
   primary: {
     height: 48,
     borderRadius: 999,

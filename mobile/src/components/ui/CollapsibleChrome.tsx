@@ -6,6 +6,7 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import { hapticLight } from "@/lib/haptics";
 
 export function CollapsibleChrome({
@@ -39,10 +40,42 @@ export function CollapsibleChrome({
           }}
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
-          style={styles.toggle}
+          style={[
+            styles.toggle,
+            open
+              ? {
+                  backgroundColor: theme.backgroundElement,
+                  borderColor: theme.backgroundSelected,
+                }
+              : {
+                  backgroundColor: hexAlpha(theme.primary, 0.14),
+                  borderColor: theme.primary,
+                },
+          ]}
         >
+          <View
+            style={[
+              styles.iconWell,
+              {
+                backgroundColor: open
+                  ? theme.backgroundSelected
+                  : hexAlpha(theme.primary, 0.22),
+              },
+            ]}
+          >
+            <Ionicons
+              name="funnel-outline"
+              size={16}
+              color={open ? theme.textSecondary : theme.primary}
+            />
+          </View>
           <View style={styles.copy}>
-            <ThemedText type="smallBold">{label}</ThemedText>
+            <ThemedText
+              type="smallBold"
+              style={!open ? { color: theme.primary } : undefined}
+            >
+              {label}
+            </ThemedText>
             {!open && hint ? (
               <ThemedText
                 type="small"
@@ -56,7 +89,7 @@ export function CollapsibleChrome({
           <Ionicons
             name={open ? "chevron-up" : "chevron-down"}
             size={18}
-            color={theme.textSecondary}
+            color={!open ? theme.primary : theme.textSecondary}
           />
         </Pressable>
       ) : null}
@@ -80,7 +113,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.two,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  iconWell: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   copy: { flex: 1, gap: 2 },
   body: { gap: Spacing.two },

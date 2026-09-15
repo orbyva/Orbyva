@@ -22,6 +22,7 @@ import {
 } from "@/api/finance/recurring";
 import { RecurringList } from "@/components/RecurringList";
 import { RecurringProjection } from "@/components/RecurringProjection";
+import { RecurringSummary } from "@/components/RecurringSummary";
 import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -376,6 +377,12 @@ export default function RecurringScreen() {
                 </Pressable>
               </View>
             ) : null}
+            {tab === "list" ? (
+              <RecurringSummary
+                receive={monthTotals.receive}
+                pay={monthTotals.pay}
+              />
+            ) : null}
           </>
         }
         footer={
@@ -395,13 +402,9 @@ export default function RecurringScreen() {
           </>
         }
       >
-        {tab === "list" ? (
-          <>
-            <ThemedText type="small" themeColor="textSecondary">
-              A receber {formatBRL(monthTotals.receive)} · a pagar{" "}
-              {formatBRL(monthTotals.pay)}
-            </ThemedText>
-            <TextInput
+            {tab === "list" ? (
+              <>
+                <TextInput
               placeholder="Buscar descrição, categoria..."
               placeholderTextColor={theme.textSecondary}
               value={search}
@@ -416,25 +419,42 @@ export default function RecurringScreen() {
               ]}
             />
             <View style={styles.chips}>
-              {NATURE_CHIPS.map((chip) => (
-                <Pressable
-                  key={chip.id}
-                  onPress={() => setNature(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    nature === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">
-                    {chip.label}
-                    {chip.id === "pay" ? ` · ${natureCounts.pay}` : ""}
-                    {chip.id === "receive" ? ` · ${natureCounts.receive}` : ""}
-                  </ThemedText>
-                </Pressable>
-              ))}
+              {NATURE_CHIPS.map((chip) => {
+                const on = nature === chip.id;
+                const accent =
+                  chip.id === "receive"
+                    ? theme.success
+                    : chip.id === "pay"
+                      ? theme.danger
+                      : theme.text;
+                return (
+                  <Pressable
+                    key={chip.id}
+                    onPress={() => setNature(chip.id)}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: theme.backgroundElement },
+                      on && {
+                        backgroundColor:
+                          chip.id === "all"
+                            ? theme.backgroundSelected
+                            : `${accent}22`,
+                        borderWidth: chip.id === "all" ? 0 : 1,
+                        borderColor: accent,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      type="smallBold"
+                      style={on && chip.id !== "all" ? { color: accent } : undefined}
+                    >
+                      {chip.label}
+                      {chip.id === "pay" ? ` · ${natureCounts.pay}` : ""}
+                      {chip.id === "receive" ? ` · ${natureCounts.receive}` : ""}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
             </View>
             <View style={styles.chips}>
               {STATUS_CHIPS.map((chip) => (

@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BrandLogo } from "@/components/BrandLogo";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { useAppShell } from "@/hooks/use-app-shell";
@@ -104,14 +106,11 @@ export function AppSidebar() {
           ]}
         >
           <View style={styles.brandRow}>
-            <View style={styles.mark}>
-              <ThemedText style={styles.markText}>O</ThemedText>
-            </View>
-            <Pressable onPress={() => go("/home")} style={styles.brandCopy}>
-              <ThemedText type="smallBold">Orbyva</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                sua vida em uma só órbita
-              </ThemedText>
+            <Pressable onPress={() => go("/home")} style={styles.brandLockup}>
+              <BrandLogo size={40} />
+              <View style={{ flex: 1 }}>
+                <BrandWordmark />
+              </View>
             </Pressable>
             <Pressable onPress={close} hitSlop={8} style={styles.close}>
               <Ionicons name="close" size={20} color={theme.textSecondary} />
@@ -272,16 +271,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two,
     paddingBottom: Spacing.three,
   },
-  mark: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "#0EA5E9",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  markText: { color: "#0B0F1A", fontSize: 18, fontWeight: "800" },
-  brandCopy: { flex: 1, gap: 1 },
+  brandLockup: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   close: { padding: 4 },
   scroll: { flex: 1 },
   list: { paddingHorizontal: Spacing.two, paddingBottom: Spacing.four, gap: 4 },

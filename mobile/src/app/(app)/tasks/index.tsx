@@ -19,6 +19,7 @@ import {
   setTaskStatusApi,
 } from "@/api/tasks/tasks";
 import { ChipBar } from "@/components/ChipBar";
+import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { TasksKanban } from "@/components/TasksKanban";
 import { TasksList } from "@/components/TasksList";
 import { ThemedText } from "@/components/themed-text";
@@ -43,6 +44,7 @@ import {
   visibleProjects,
 } from "@/domain/tasks/listView";
 import { useAppShell } from "@/hooks/use-app-shell";
+import { useActiveTimer } from "@/hooks/use-active-timer";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -59,6 +61,7 @@ import {
 export default function TasksScreen() {
   const theme = useTheme();
   const { fail } = useFeedback();
+  const { runningEntry, start, stop } = useActiveTimer();
   const router = useRouter();
   const { bottomInset } = useAppShell();
   const [rows, setRows] = useState<Task[]>([]);
@@ -197,6 +200,15 @@ export default function TasksScreen() {
     }
   }
 
+  async function onToggleTimer(task: Task) {
+    try {
+      if (runningEntry?.task_id === task.id) await stop();
+      else await start(task.id);
+    } catch (err) {
+      fail(getErrorMessage(err, "Não foi possível atualizar o timer."));
+    }
+  }
+
   function openTask(task: Task) {
     router.push({ pathname: "/tasks/form", params: { id: task.id } });
   }
@@ -325,42 +337,48 @@ export default function TasksScreen() {
               },
             ]}
           />
-          {projectChips.length > 2 ? (
-            <ChipBar
-              options={projectChips}
-              value={projectFilter}
-              onChange={setProjectFilter}
-            />
-          ) : null}
-          {tags.length > 0 ? (
-            <ChipBar
+          <FilterRow>
+            {projectChips.length > 2 ? (
+              <FilterSelect
+                label="Projeto"
+                value={projectFilter}
+                options={projectChips}
+                onChange={setProjectFilter}
+              />
+            ) : null}
+            {tags.length > 0 ? (
+              <FilterSelect
+                label="Tag"
+                value={tagFilter}
+                options={[
+                  { id: TAG_FILTER_ALL, label: "Todas as tags" },
+                  ...tags.map((tag) => ({ id: tag.id, label: tag.name })),
+                ]}
+                onChange={setTagFilter}
+              />
+            ) : null}
+            <FilterSelect
+              label="Prioridade"
+              value={priorityFilter}
               options={[
-                { id: TAG_FILTER_ALL, label: "Todas as tags" },
-                ...tags.map((tag) => ({ id: tag.id, label: tag.name })),
+                { id: PRIORITY_FILTER_ALL, label: "Qualquer" },
+                ...PRIORITY_OPTIONS.filter((row) => row[0]).map(([id, label]) => ({
+                  id: id as string,
+                  label,
+                })),
               ]}
-              value={tagFilter}
-              onChange={setTagFilter}
+              onChange={setPriorityFilter}
             />
-          ) : null}
-          <ChipBar
-            options={[
-              { id: PRIORITY_FILTER_ALL, label: "Prioridade" },
-              ...PRIORITY_OPTIONS.filter((row) => row[0]).map(([id, label]) => ({
-                id: id as string,
-                label,
-              })),
-            ]}
-            value={priorityFilter}
-            onChange={setPriorityFilter}
-          />
-          <ChipBar
-            options={[
-              { id: "all", label: "Agenda" },
-              { id: "today", label: "Só hoje" },
-            ]}
-            value={todayOnly ? "today" : "all"}
-            onChange={(id) => setTodayOnly(id === "today")}
-          />
+            <FilterSelect
+              label="Agenda"
+              value={todayOnly ? "today" : "all"}
+              options={[
+                { id: "all", label: "Todas" },
+                { id: "today", label: "Só hoje" },
+              ]}
+              onChange={(id) => setTodayOnly(id === "today")}
+            />
+          </FilterRow>
           {view === "kanban" ? (
             <TasksKanban
               columns={kanbanSections}
@@ -379,6 +397,8 @@ export default function TasksScreen() {
               onReopen={(task) => void onReopen(task)}
               onOpen={openTask}
               onChangeStatus={(task, status) => void onMoveStatus(task, status)}
+              onToggleTimer={(task) => void onToggleTimer(task)}
+              runningTaskId={runningEntry?.task_id ?? null}
               linksByTaskId={linksByTaskId}
               childrenByParent={childrenByParent}
               emptyTitle={

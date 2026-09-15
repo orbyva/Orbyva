@@ -174,3 +174,46 @@ export function formatTrackLength(lengthMs: number | null): string {
   const s = totalSec % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
+
+export type RatedAlbumTrack = {
+  disc: number;
+  position: string;
+  title: string;
+  rating: number;
+};
+
+export function resolveRatedAlbumTracks(
+  ratings: Record<string, number> | undefined,
+  tracks: { disc: number; position: string; title: string }[]
+): RatedAlbumTrack[] {
+  const map = ratings ?? {};
+  if (!Object.keys(map).length || !tracks.length) return [];
+  const rated: RatedAlbumTrack[] = [];
+  for (const track of tracks) {
+    const rating = map[trackRatingKey(track.disc, track.position)];
+    if (!(rating > 0)) continue;
+    rated.push({
+      disc: track.disc,
+      position: track.position,
+      title: track.title,
+      rating,
+    });
+  }
+  return rated;
+}
+
+export function formatAlbumRating(rating: number): string {
+  return Number.isInteger(rating)
+    ? String(rating)
+    : rating.toFixed(1).replace(".", ",");
+}
+
+export function getAlbumRatingLabel(rating: number): string {
+  if (rating >= 9) return "Obra-prima";
+  if (rating >= 8) return "Excelente";
+  if (rating >= 7) return "Muito bom";
+  if (rating >= 6) return "Bom";
+  if (rating >= 4) return "Regular";
+  if (rating >= 2) return "Fraco";
+  return "Ruim";
+}

@@ -15,6 +15,18 @@ export const PLACE_TYPE_LABELS: Record<PlaceType, string> = {
   other: "Outro",
 };
 
+export const PLACE_TYPE_EMOJI: Record<PlaceType, string> = {
+  restaurant: "🍽️",
+  cafe: "☕",
+  bar: "🍺",
+  attraction: "📍",
+  hotel: "🏨",
+  park: "🌳",
+  museum: "🏛️",
+  shop: "🛍️",
+  other: "📌",
+};
+
 export const PLACE_STATUS_LABELS: Record<PlaceStatus, string> = {
   to_visit: "Para visitar",
   visited: "Visitado",
@@ -139,4 +151,18 @@ export function filterPlaces<
 
     return true;
   });
+}
+
+export function formatRating(rating: number): string {
+  return Number.isInteger(rating)
+    ? String(rating)
+    : rating.toFixed(1).replace(".", ",");
+}
+
+export function getRatingLabel(rating: number): string {
+  if (rating >= 4.5) return "Excelente";
+  if (rating >= 3.5) return "Muito bom";
+  if (rating >= 2.5) return "Bom";
+  if (rating >= 1.5) return "Regular";
+  return "Ruim";
 }

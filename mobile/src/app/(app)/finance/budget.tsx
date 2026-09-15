@@ -33,6 +33,7 @@ import {
 } from "@/domain/budget/listView";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha, tintedSurface } from "@/lib/color";
 import { formatBRL } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import type {
@@ -177,6 +178,11 @@ export default function BudgetScreen() {
     (s, b) => s + getBudgetRealizedValue(b),
     0
   );
+  const overBudget = plannedExpense > 0 && spentExpense > plannedExpense;
+  const spentPct =
+    plannedExpense > 0 ? (spentExpense / plannedExpense) * 100 : 0;
+  const spentAccent = theme.danger;
+  const ceilingAccent = overBudget ? theme.danger : "#D97706";
 
   const unusedSuggestions = useMemo(() => {
     const keys = new Set(
@@ -263,10 +269,9 @@ export default function BudgetScreen() {
         label="Resumo e ações"
         defaultOpen={false}
         hint={[
-          `Gasto ${formatBRL(spentExpense)} · teto ${formatBRL(plannedExpense)}`,
           overflows.length > 0
             ? `${overflows.length} ${overflows.length === 1 ? "estouro" : "estouros"}`
-            : null,
+            : "Filtros e ações",
         ]
           .filter(Boolean)
           .join(" · ")}
@@ -303,6 +308,57 @@ export default function BudgetScreen() {
                 <ThemedText type="smallBold">›</ThemedText>
               </Pressable>
             </View>
+            <View style={styles.kpis}>
+              <View style={[styles.kpi, tintedSurface(spentAccent)]}>
+                <ThemedText
+                  type="smallBold"
+                  style={[styles.kpiLabel, { color: spentAccent }]}
+                >
+                  Gasto
+                </ThemedText>
+                <ThemedText
+                  type="smallBold"
+                  style={[styles.kpiValue, { color: spentAccent }]}
+                >
+                  {formatBRL(spentExpense)}
+                </ThemedText>
+                <View
+                  style={[
+                    styles.kpiBar,
+                    { backgroundColor: hexAlpha(spentAccent, 0.18) },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.kpiBarFill,
+                      {
+                        width: `${Math.min(100, spentPct)}%`,
+                        backgroundColor: spentAccent,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+              <View style={[styles.kpi, tintedSurface(ceilingAccent)]}>
+                <ThemedText
+                  type="smallBold"
+                  style={[styles.kpiLabel, { color: ceilingAccent }]}
+                >
+                  Teto
+                </ThemedText>
+                <ThemedText
+                  type="smallBold"
+                  style={[styles.kpiValue, { color: ceilingAccent }]}
+                >
+                  {formatBRL(plannedExpense)}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {overBudget
+                    ? `${formatBRL(spentExpense - plannedExpense)} acima`
+                    : `${formatBRL(Math.max(0, plannedExpense - spentExpense))} restantes`}
+                </ThemedText>
+              </View>
+            </View>
             {overflows.length > 0 ? (
               <ThemedText type="small" style={styles.alertTitle}>
                 {overflows.length === 1
@@ -325,18 +381,7 @@ export default function BudgetScreen() {
       >
         <View style={styles.kpis}>
           <View
-            style={[styles.kpi, { backgroundColor: theme.backgroundElement }]}
-          >
-            <ThemedText type="small" themeColor="textSecondary">
-              Gasto
-            </ThemedText>
-            <ThemedText type="smallBold">{formatBRL(spentExpense)}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Teto {formatBRL(plannedExpense)}
-            </ThemedText>
-          </View>
-          <View
-            style={[styles.kpi, { backgroundColor: theme.backgroundElement }]}
+            style={[styles.kpiMuted, { backgroundColor: theme.backgroundElement }]}
           >
             <ThemedText type="small" themeColor="textSecondary">
               Receita
@@ -536,7 +581,18 @@ const styles = StyleSheet.create({
   },
   monthTitle: { flex: 1, textAlign: "center" },
   kpis: { flexDirection: "row", gap: 8 },
-  kpi: { flex: 1, borderRadius: 12, padding: 12, gap: 2 },
+  kpi: {
+    flex: 1,
+    borderRadius: 14,
+    padding: 12,
+    gap: 4,
+    borderWidth: 1,
+  },
+  kpiLabel: { textTransform: "uppercase", letterSpacing: 0.3, fontSize: 11 },
+  kpiValue: { fontSize: 18, lineHeight: 22 },
+  kpiBar: { height: 6, borderRadius: 999, overflow: "hidden", marginTop: 4 },
+  kpiBarFill: { height: 6, borderRadius: 999 },
+  kpiMuted: { flex: 1, borderRadius: 12, padding: 12, gap: 2 },
   alert: {
     borderRadius: 12,
     padding: 12,

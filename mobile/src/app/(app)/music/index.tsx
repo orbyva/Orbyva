@@ -11,13 +11,14 @@ import {
 
 import { fetchAllAlbums, updateAlbum } from "@/api/music/albums";
 import { ChipBar } from "@/components/ChipBar";
-import { CoverThumb } from "@/components/CoverThumb";
+import { CatalogMediaCard } from "@/components/CatalogMediaCard";
+import { FilterSelect } from "@/components/FilterSelect";
 import { InsightsStrip } from "@/components/InsightsStrip";
+import { ReviewSheet } from "@/components/ReviewSheet";
 import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
 import { CATALOG_SORT_OPTIONS, sortAlbums } from "@/domain/entertainment/sort";
 import {
@@ -66,6 +67,7 @@ export default function MusicScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [reviewAlbum, setReviewAlbum] = useState<Album | null>(null);
   const [error, setError] = useState<string | null>(null);
   const hasLoaded = useRef(false);
 
@@ -131,17 +133,30 @@ export default function MusicScreen() {
     return sortAlbums(list, sort, status);
   }, [albumType, favoritesOnly, ratingFloor, search, sort, status, statusAlbums]);
 
-  async function markListened(album: Album) {
+  async function markListened(
+    album: Album,
+    extras: { rating: number | null; recommend: boolean }
+  ) {
     setBusyId(album.musicbrainz_id);
     try {
-      await updateAlbum(albumStatusUpdate(album, "listened", getTodayIso()));
+      await updateAlbum({
+        ...albumStatusUpdate(album, "listened", getTodayIso()),
+        rating: extras.rating,
+        would_recommend: extras.recommend,
+      });
       setAlbums((cur) =>
         cur.map((row) =>
           row.musicbrainz_id === album.musicbrainz_id
-            ? { ...row, status: "listened" }
+            ? {
+                ...row,
+                status: "listened",
+                rating: extras.rating,
+                would_recommend: extras.recommend,
+              }
             : row
         )
       );
+      setReviewAlbum(null);
     } catch (err) {
       fail(getErrorMessage(err, "Não foi possível atualizar o status."));
     } finally {
@@ -193,24 +208,34 @@ export default function MusicScreen() {
             onChangeText={setSearch}
             placeholder="Buscar álbum ou artista"
           />
-          {types.length > 0 ? (
-            <ChipBar
-              options={[
-                { id: "all", label: "Tipo" },
-                ...types.map((id) => ({ id, label: ALBUM_TYPE_LABELS[id] })),
-              ]}
-              value={albumType}
-              onChange={setAlbumType}
+          <View style={styles.filters}>
+            {types.length > 0 ? (
+              <FilterSelect
+                label="Tipo"
+                value={albumType}
+                options={[
+                  { id: "all", label: "Todos os tipos" },
+                  ...types.map((id) => ({ id, label: ALBUM_TYPE_LABELS[id] })),
+                ]}
+                onChange={setAlbumType}
+              />
+            ) : null}
+            {status === "listened" ? (
+              <FilterSelect
+                label="Nota"
+                value={ratingFloor}
+                options={RATING_CHIPS}
+                onChange={(id) => setRatingFloor(id as AlbumRatingFloor)}
+              />
+            ) : null}
+            <FilterSelect
+              label="Ordenar"
+              value={sort}
+              options={CATALOG_SORT_OPTIONS}
+              onChange={(id) =>
+                setSort(id as (typeof CATALOG_SORT_OPTIONS)[number]["id"])
+              }
             />
-          ) : null}
-          {status === "listened" ? (
-            <ChipBar
-              options={RATING_CHIPS}
-              value={ratingFloor}
-              onChange={setRatingFloor}
-            />
-          ) : null}
-          <View style={styles.row}>
             <Pressable
               onPress={() => setFavoritesOnly((cur) => !cur)}
               style={[
@@ -219,7 +244,9 @@ export default function MusicScreen() {
                 favoritesOnly && { backgroundColor: theme.backgroundSelected },
               ]}
             >
-              <ThemedText type="smallBold">Favoritos</ThemedText>
+              <ThemedText type="smallBold">
+                {favoritesOnly ? "♥ Favoritos" : "Favoritos"}
+              </ThemedText>
             </Pressable>
             <Pressable onPress={surprise}>
               <ThemedText type="small" style={{ color: theme.primary }}>
@@ -227,60 +254,53 @@ export default function MusicScreen() {
               </ThemedText>
             </Pressable>
           </View>
-          <ChipBar
-            options={CATALOG_SORT_OPTIONS}
-            value={sort}
-            onChange={setSort}
-          />
           {visible.length === 0 ? (
             <ThemedText themeColor="textSecondary">
               Nenhum álbum neste filtro.
             </ThemedText>
           ) : (
             visible.map((album) => (
-              <Pressable
+              <CatalogMediaCard
                 key={album.musicbrainz_id}
+                coverUri={album.cover_url}
+                fallback={album.title}
+                coverVariant="square"
+                title={album.title}
+                favorite={album.is_favorite === true}
+                rating={album.rating != null ? String(album.rating) : null}
+                meta={[
+                  formatArtists(album.artists),
+                  ALBUM_TYPE_LABELS[album.album_type],
+                  album.release_year,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+                actionLabel={
+                  album.status !== "listened" ? "Marcar ouvido" : null
+                }
+                onAction={
+                  busyId === album.musicbrainz_id
+                    ? undefined
+                    : () => setReviewAlbum(album)
+                }
                 onPress={() => openAlbum(album.musicbrainz_id)}
-              >
-                <Card style={styles.card}>
-                  <CoverThumb
-                    uri={album.cover_url}
-                    fallback={album.title}
-                    variant="square"
-                  />
-                  <View style={styles.copy}>
-                    <ThemedText type="smallBold" numberOfLines={2}>
-                      {album.title}
-                      {album.is_favorite ? " ♥" : ""}
-                    </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {[
-                        formatArtists(album.artists),
-                        ALBUM_TYPE_LABELS[album.album_type],
-                        album.release_year,
-                        album.rating != null ? `${album.rating}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </ThemedText>
-                    {album.status !== "listened" ? (
-                      <Pressable
-                        disabled={busyId === album.musicbrainz_id}
-                        onPress={() => void markListened(album)}
-                        hitSlop={8}
-                      >
-                        <ThemedText type="small" style={{ color: theme.primary }}>
-                          Marcar ouvido
-                        </ThemedText>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                </Card>
-              </Pressable>
+              />
             ))
           )}
         </ScrollView>
       )}
+      <ReviewSheet
+        visible={reviewAlbum != null}
+        title="Avaliar álbum"
+        itemTitle={reviewAlbum?.title ?? ""}
+        confirmLabel="Marcar ouvido"
+        busy={reviewAlbum != null && busyId === reviewAlbum.musicbrainz_id}
+        onClose={() => setReviewAlbum(null)}
+        onConfirm={(result) => {
+          if (!reviewAlbum) return;
+          return markListened(reviewAlbum, result);
+        }}
+      />
     </ThemedView>
   );
 }
@@ -290,17 +310,10 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   banner: { marginHorizontal: Spacing.four, marginTop: Spacing.three },
   list: { padding: Spacing.four, gap: Spacing.three },
-  row: { flexDirection: "row", alignItems: "center", gap: 16, flexWrap: "wrap" },
+  filters: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
   chip: {
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  card: {
-    padding: Spacing.three,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  copy: { flex: 1, gap: 4 },
 });

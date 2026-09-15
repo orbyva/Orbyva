@@ -140,11 +140,7 @@ export async function generateBookShareImage(
   const cover = book.cover_url ? await loadCoverImage(book.cover_url) : null;
   const latest = getLatestReadDate(book.read_dates);
 
-  paintStoryBackdrop(ctx, {
-    photo: cover,
-    washFrom: "rgba(14, 165, 233, 0.48)",
-    washTo: "rgba(2, 132, 199, 0.28)",
-  });
+  paintStoryBackdrop(ctx, { photo: cover });
 
   drawStoryHeader(ctx, "Minha opinião");
 

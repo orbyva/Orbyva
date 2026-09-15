@@ -1,5 +1,6 @@
 import { createTransaction, deleteTransaction } from "@/api/finance/transactions";
 import { enrichTrip, generateItineraryDays, tripLedgerDescription } from "@/domain/travel";
+import { transferEndpointsTitle } from "@/domain/travel/transportModes";
 import { sumTripSpent } from "@/domain/travel/spent";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { supabase } from "@/lib/supabase";
@@ -21,7 +22,7 @@ import type {
 } from "@/types/travel";
 
 const TRIP_LIST_SELECT =
-  "id, user_id, title, destination, start_date, end_date, status, notes, budget, spent, destination_lat, destination_lng, destination_place_id, created_at";
+  "id, user_id, title, destination, start_date, end_date, status, notes, budget, spent, destination_lat, destination_lng, destination_place_id, origin_label, origin_lat, origin_lng, created_at";
 
 const STOP_SELECT =
   "id, trip_id, name, place_id, lat, lng, start_date, end_date, sort_order";
@@ -185,6 +186,9 @@ export async function createTrip(input: {
   destination_lat?: number | null;
   destination_lng?: number | null;
   destination_place_id?: string | null;
+  origin_label?: string | null;
+  origin_lat?: number | null;
+  origin_lng?: number | null;
   stops?: TripStopDraft[];
 }): Promise<Trip> {
   const userId = await getCurrentUserId();
@@ -203,6 +207,9 @@ export async function createTrip(input: {
         destination_lat: input.destination_lat ?? null,
         destination_lng: input.destination_lng ?? null,
         destination_place_id: input.destination_place_id ?? null,
+        origin_label: input.origin_label?.trim() || null,
+        origin_lat: input.origin_lat ?? null,
+        origin_lng: input.origin_lng ?? null,
       },
     ])
     .select(TRIP_LIST_SELECT)
@@ -233,6 +240,9 @@ export async function updateTrip(input: {
   destination_lat?: number | null;
   destination_lng?: number | null;
   destination_place_id?: string | null;
+  origin_label?: string | null;
+  origin_lat?: number | null;
+  origin_lng?: number | null;
   stops?: TripStopDraft[];
 }): Promise<void> {
   const { error } = await supabase
@@ -248,6 +258,9 @@ export async function updateTrip(input: {
       destination_lat: input.destination_lat ?? null,
       destination_lng: input.destination_lng ?? null,
       destination_place_id: input.destination_place_id ?? null,
+      origin_label: input.origin_label?.trim() || null,
+      origin_lat: input.origin_lat ?? null,
+      origin_lng: input.origin_lng ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.id);
@@ -634,28 +647,153 @@ export async function fetchTripItinerary(
   const dayIds = days.map((day) => day.id);
   const { data: activities, error: actError } = await supabase
     .from("trip_itinerary_activity")
-    .select("id, day_id, title, activity_time, notes, sort_order")
+    .select(
+      "id, day_id, title, activity_time, arrival_time, notes, sort_order, category, transport_mode, origin_label, origin_lat, origin_lng, origin_place_id, destination_label, destination_lat, destination_lng, destination_place_id"
+    )
     .in("day_id", dayIds)
     .order("sort_order", { ascending: true });
-  if (actError) throw new Error(actError.message);
+  let rows = activities;
+  if (actError) {
+    const fallback = await supabase
+      .from("trip_itinerary_activity")
+      .select("id, day_id, title, activity_time, notes, sort_order")
+      .in("day_id", dayIds)
+      .order("sort_order", { ascending: true });
+    if (fallback.error) throw new Error(actError.message);
+    rows = fallback.data as unknown as typeof activities;
+  }
   return days.map((day) => ({
     ...(day as TripItineraryDay),
-    activities: (activities ?? []).filter((act) => act.day_id === day.id),
+    activities: (rows ?? []).filter((act) => act.day_id === day.id),
   }));
 }
 
 export async function createItineraryActivity(input: {
   day_id: string;
   title: string;
+  activity_time?: string | null;
+  arrival_time?: string | null;
+  sort_order?: number;
+  category?: string | null;
+  transport_mode?: string | null;
+  origin_label?: string | null;
+  origin_lat?: number | null;
+  origin_lng?: number | null;
+  origin_place_id?: string | null;
+  destination_label?: string | null;
+  destination_lat?: number | null;
+  destination_lng?: number | null;
+  destination_place_id?: string | null;
 }): Promise<void> {
-  const { error } = await supabase.from("trip_itinerary_activity").insert([
+  const payload: Record<string, unknown> = {
+    day_id: input.day_id,
+    title: input.title.trim(),
+    sort_order: input.sort_order ?? Date.now(),
+  };
+  if (input.activity_time !== undefined) payload.activity_time = input.activity_time;
+  if (input.arrival_time !== undefined) payload.arrival_time = input.arrival_time;
+  if (input.category !== undefined) payload.category = input.category;
+  if (input.transport_mode !== undefined) payload.transport_mode = input.transport_mode;
+  if (input.origin_label !== undefined) payload.origin_label = input.origin_label;
+  if (input.origin_lat !== undefined) payload.origin_lat = input.origin_lat;
+  if (input.origin_lng !== undefined) payload.origin_lng = input.origin_lng;
+  if (input.origin_place_id !== undefined) {
+    payload.origin_place_id = input.origin_place_id;
+  }
+  if (input.destination_label !== undefined) {
+    payload.destination_label = input.destination_label;
+  }
+  if (input.destination_lat !== undefined) payload.destination_lat = input.destination_lat;
+  if (input.destination_lng !== undefined) payload.destination_lng = input.destination_lng;
+  if (input.destination_place_id !== undefined) {
+    payload.destination_place_id = input.destination_place_id;
+  }
+  const first = await supabase.from("trip_itinerary_activity").insert([payload]);
+  if (!first.error) return;
+  const retry = await supabase.from("trip_itinerary_activity").insert([
     {
       day_id: input.day_id,
       title: input.title.trim(),
-      sort_order: Date.now(),
+      activity_time: input.activity_time ?? null,
+      sort_order: input.sort_order ?? Date.now(),
     },
   ]);
-  if (error) throw new Error(error.message);
+  if (retry.error) throw new Error(retry.error.message);
+}
+
+export async function syncRoundTripTransfers(input: {
+  tripId: string;
+  home: {
+    label: string;
+    lat: number | null;
+    lng: number | null;
+    place_id: string | null;
+  };
+  firstStop: TripStopDraft;
+  lastStop: TripStopDraft;
+  mode: string;
+  outboundDepart: string;
+  outboundArrive: string;
+  returnDepart: string;
+  returnArrive: string;
+  outboundId?: string | null;
+  returnId?: string | null;
+}): Promise<void> {
+  const itinerary = await fetchTripItinerary(input.tripId);
+  const days = [...itinerary].sort((a, b) => a.day_number - b.day_number);
+  const firstDay = days[0];
+  const lastDay = days[days.length - 1];
+  if (!firstDay || !lastDay) return;
+
+  const outboundPayload = {
+    title: transferEndpointsTitle(input.home.label, input.firstStop.name),
+    category: "transport",
+    transport_mode: input.mode,
+    activity_time: input.outboundDepart.trim() || null,
+    arrival_time: input.outboundArrive.trim() || null,
+    origin_label: input.home.label,
+    origin_lat: input.home.lat,
+    origin_lng: input.home.lng,
+    origin_place_id: input.home.place_id,
+    destination_label: input.firstStop.name,
+    destination_lat: input.firstStop.lat ?? null,
+    destination_lng: input.firstStop.lng ?? null,
+    destination_place_id: input.firstStop.place_id ?? null,
+    sort_order: 0,
+  };
+  if (input.outboundId) {
+    await updateItineraryActivity({ id: input.outboundId, ...outboundPayload });
+  } else {
+    await createItineraryActivity({
+      day_id: firstDay.id,
+      ...outboundPayload,
+    });
+  }
+
+  const returnPayload = {
+    title: transferEndpointsTitle(input.lastStop.name, input.home.label),
+    category: "transport",
+    transport_mode: input.mode,
+    activity_time: input.returnDepart.trim() || null,
+    arrival_time: input.returnArrive.trim() || null,
+    origin_label: input.lastStop.name,
+    origin_lat: input.lastStop.lat ?? null,
+    origin_lng: input.lastStop.lng ?? null,
+    origin_place_id: input.lastStop.place_id ?? null,
+    destination_label: input.home.label,
+    destination_lat: input.home.lat,
+    destination_lng: input.home.lng,
+    destination_place_id: input.home.place_id,
+    sort_order: firstDay.id === lastDay.id ? 1 : 0,
+  };
+  if (input.returnId && input.returnId !== input.outboundId) {
+    await updateItineraryActivity({ id: input.returnId, ...returnPayload });
+  } else {
+    await createItineraryActivity({
+      day_id: lastDay.id,
+      ...returnPayload,
+    });
+  }
 }
 
 export async function deleteItineraryActivity(id: string): Promise<void> {
@@ -671,7 +809,18 @@ export async function updateItineraryActivity(input: {
   title?: string;
   notes?: string | null;
   activity_time?: string | null;
+  arrival_time?: string | null;
   sort_order?: number;
+  category?: string | null;
+  transport_mode?: string | null;
+  origin_label?: string | null;
+  origin_lat?: number | null;
+  origin_lng?: number | null;
+  origin_place_id?: string | null;
+  destination_label?: string | null;
+  destination_lat?: number | null;
+  destination_lng?: number | null;
+  destination_place_id?: string | null;
 }): Promise<void> {
   const { id, ...fields } = input;
   const { error } = await supabase
@@ -701,6 +850,19 @@ export async function fetchTripMilestones(
     .from("trip_milestone")
     .select("id, trip_id, title, type, due_date, done, notes")
     .eq("trip_id", tripId)
+    .order("due_date", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as TripMilestone[];
+}
+
+export async function fetchMilestonesForTrips(
+  tripIds: string[]
+): Promise<TripMilestone[]> {
+  if (tripIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("trip_milestone")
+    .select("id, trip_id, title, type, due_date, done, notes")
+    .in("trip_id", tripIds)
     .order("due_date", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as TripMilestone[];

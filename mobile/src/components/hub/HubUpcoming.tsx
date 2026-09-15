@@ -1,22 +1,13 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { TIMELINE_MODULE_LABELS } from "@/api/timeline";
 import { ThemedText } from "@/components/themed-text";
 import { Card } from "@/components/ui/Card";
 import { ModuleColors, Spacing } from "@/constants/theme";
 import { formatShortDate } from "@/domain/timeline";
 import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import type { TimelineItem } from "@/types/timeline";
-
-function moduleLabel(module: TimelineItem["module"]): string {
-  if (module === "tasks") return "Tarefas";
-  if (module === "habits") return "Vida";
-  if (module === "goals") return "Metas";
-  if (module === "travel") return "Viagens";
-  if (module === "places") return "Lugares";
-  if (module === "car") return "Veículos";
-  if (module === "cinema") return "Conteúdo";
-  return "Finanças";
-}
 
 function moduleColor(module: TimelineItem["module"]): string {
   if (module === "tasks") return ModuleColors.productivity;
@@ -33,24 +24,89 @@ function moduleColor(module: TimelineItem["module"]): string {
   return ModuleColors.finance;
 }
 
+function TimelineRow({
+  item,
+  onOpenItem,
+  showTopBorder,
+  borderColor,
+}: {
+  item: TimelineItem;
+  onOpenItem: (item: TimelineItem) => void;
+  showTopBorder: boolean;
+  borderColor: string;
+}) {
+  const color = moduleColor(item.module);
+  return (
+    <Pressable
+      onPress={() => onOpenItem(item)}
+      style={[
+        styles.row,
+        showTopBorder && {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: borderColor,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.moduleBadge,
+          {
+            backgroundColor: hexAlpha(color, 0.12),
+            borderColor: hexAlpha(color, 0.35),
+          },
+        ]}
+      >
+        <ThemedText type="smallBold" style={[styles.moduleLabel, { color }]}>
+          {TIMELINE_MODULE_LABELS[item.module]}
+        </ThemedText>
+      </View>
+      <View style={styles.body}>
+        <ThemedText type="smallBold" numberOfLines={1}>
+          {item.title}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+          {item.subtitle ?? TIMELINE_MODULE_LABELS[item.module]}
+        </ThemedText>
+      </View>
+      <View style={styles.meta}>
+        <ThemedText type="small" themeColor="textSecondary">
+          {formatShortDate(item.date)}
+        </ThemedText>
+        {item.status === "overdue" || item.status === "today" ? (
+          <ThemedText
+            style={item.status === "overdue" ? styles.overdue : styles.today}
+          >
+            {item.status === "overdue" ? "Atrasado" : "Hoje"}
+          </ThemedText>
+        ) : item.status === "completed" ? (
+          <ThemedText style={styles.done}>Feito</ThemedText>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
 type HubUpcomingProps = {
   items: TimelineItem[];
+  recent?: TimelineItem[];
   onOpenTimeline: () => void;
   onOpenItem: (item: TimelineItem) => void;
 };
 
 export function HubUpcoming({
   items,
+  recent = [],
   onOpenTimeline,
   onOpenItem,
 }: HubUpcomingProps) {
   const theme = useTheme();
   const visible = items.slice(0, 5);
+  const recentVisible = recent.slice(0, 5);
 
   return (
     <View style={styles.block}>
       <View style={styles.head}>
-        <ThemedText type="smallBold">Próximos 7 dias</ThemedText>
+        <ThemedText type="smallBold">Agendados</ThemedText>
         <Pressable onPress={onOpenTimeline} hitSlop={8}>
           <ThemedText type="small" style={{ color: theme.primary }}>
             Timeline
@@ -73,49 +129,33 @@ export function HubUpcoming({
       ) : (
         <Card>
           {visible.map((item, index) => (
-            <Pressable
+            <TimelineRow
               key={item.id}
-              onPress={() => onOpenItem(item)}
-              style={[
-                styles.row,
-                index > 0 && {
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: theme.backgroundSelected,
-                },
-              ]}
-            >
-              <View
-                style={[styles.dot, { backgroundColor: moduleColor(item.module) }]}
-              />
-              <View style={styles.body}>
-                <ThemedText type="smallBold" numberOfLines={1}>
-                  {item.title}
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                  {moduleLabel(item.module)}
-                  {item.subtitle ? ` · ${item.subtitle}` : ""}
-                </ThemedText>
-              </View>
-              <View style={styles.meta}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {formatShortDate(item.date)}
-                </ThemedText>
-                {item.status === "overdue" || item.status === "today" ? (
-                  <ThemedText
-                    style={
-                      item.status === "overdue"
-                        ? styles.overdue
-                        : styles.today
-                    }
-                  >
-                    {item.status === "overdue" ? "Atrasado" : "Hoje"}
-                  </ThemedText>
-                ) : null}
-              </View>
-            </Pressable>
+              item={item}
+              onOpenItem={onOpenItem}
+              showTopBorder={index > 0}
+              borderColor={theme.backgroundSelected}
+            />
           ))}
         </Card>
       )}
+
+      {recentVisible.length > 0 ? (
+        <>
+          <ThemedText type="smallBold">Últimas atividades</ThemedText>
+          <Card>
+            {recentVisible.map((item, index) => (
+              <TimelineRow
+                key={item.id}
+                item={item}
+                onOpenItem={onOpenItem}
+                showTopBorder={index > 0}
+                borderColor={theme.backgroundSelected}
+              />
+            ))}
+          </Card>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -134,11 +174,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: 12,
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  moduleBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  moduleLabel: { fontSize: 10 },
   body: { flex: 1, minWidth: 0, gap: 2 },
   meta: { alignItems: "flex-end", gap: 4 },
   overdue: { color: "#E11D48", fontSize: 10, fontWeight: "700" },
   today: { color: "#D97706", fontSize: 10, fontWeight: "700" },
+  done: { color: "#64748B", fontSize: 10, fontWeight: "700" },
   empty: {
     borderWidth: 1,
     borderStyle: "dashed",

@@ -22,6 +22,7 @@ import { DateField } from "@/components/DateField";
 import { LedgerClassField } from "@/components/LedgerClassField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { EXPENSE_CATEGORY_LABELS } from "@/domain/travel";
@@ -319,7 +320,9 @@ export default function TripExpenseFormScreen() {
                 onClassIdChange={setClassId}
                 hint="Registra só a sua parte no extrato pessoal."
               />
-              <Pressable
+              <FormButton
+                label="Lançar minha fatia"
+                tone="primary"
                 onPress={() => {
                   if (!classId) {
                     fail("Escolha a categoria do extrato.");
@@ -334,24 +337,16 @@ export default function TripExpenseFormScreen() {
                       fail(getErrorMessage(err, "Não foi possível lançar a fatia."))
                     );
                 }}
-              >
-                <ThemedText type="linkPrimary">Lançar minha fatia</ThemedText>
-              </Pressable>
+              />
             </Cardish>
           ) : null}
-          <Pressable
+          <FormButton
+            label={editId ? "Salvar alterações" : "Salvar gasto"}
+            tone="primary"
             disabled={saving}
+            busy={saving}
             onPress={() => void onSave()}
-            style={[styles.primary, { backgroundColor: theme.primary }]}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0B0F1A" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.primaryLabel}>
-                {editId ? "Salvar alterações" : "Salvar gasto"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>
