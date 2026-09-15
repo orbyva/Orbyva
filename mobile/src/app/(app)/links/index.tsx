@@ -1,7 +1,10 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   Linking,
   Pressable,
   RefreshControl,
@@ -11,12 +14,14 @@ import {
 } from "react-native";
 
 import {
+  deleteContentLink,
   fetchContentLinks,
   markContentLinkConsumed,
   updateContentLink,
 } from "@/api/links/links";
 import { fetchTags } from "@/api/tasks/tags";
 import { ChipBar } from "@/components/ChipBar";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { FilterSelect } from "@/components/FilterSelect";
 import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
@@ -25,6 +30,7 @@ import { Banner } from "@/components/ui/Banner";
 import { Card } from "@/components/ui/Card";
 import { Spacing } from "@/constants/theme";
 import {
+  contentLinkFaviconUrl,
   extractContentLinkDomain,
   LINK_STATUS_LABELS,
   LINK_TYPE_LABELS,
@@ -47,6 +53,64 @@ const STATUS_CHIPS: { id: ContentLinkStatus; label: string }[] = [
   { id: "to_consume", label: LINK_STATUS_LABELS.to_consume },
   { id: "consumed", label: LINK_STATUS_LABELS.consumed },
 ];
+
+const STAR_ON = "#F59E0B";
+
+const BRAND_ICONS: {
+  roots: readonly string[];
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { roots: ["instagram.com", "instagr.am"], icon: "logo-instagram" },
+  { roots: ["youtube.com", "youtu.be"], icon: "logo-youtube" },
+  { roots: ["tiktok.com"], icon: "logo-tiktok" },
+  { roots: ["twitter.com"], icon: "logo-twitter" },
+  { roots: ["x.com"], icon: "logo-x" },
+  { roots: ["github.com"], icon: "logo-github" },
+  { roots: ["linkedin.com"], icon: "logo-linkedin" },
+  { roots: ["facebook.com", "fb.com"], icon: "logo-facebook" },
+  { roots: ["reddit.com"], icon: "logo-reddit" },
+  { roots: ["twitch.tv"], icon: "logo-twitch" },
+  { roots: ["vimeo.com"], icon: "logo-vimeo" },
+  { roots: ["pinterest.com"], icon: "logo-pinterest" },
+  { roots: ["discord.com", "discord.gg"], icon: "logo-discord" },
+  { roots: ["whatsapp.com", "wa.me"], icon: "logo-whatsapp" },
+  { roots: ["telegram.org", "t.me"], icon: "paper-plane-outline" },
+  { roots: ["medium.com"], icon: "logo-medium" },
+  { roots: ["apple.com"], icon: "logo-apple" },
+  { roots: ["google.com"], icon: "logo-google" },
+];
+
+function brandIconForDomain(
+  domain: string | null
+): keyof typeof Ionicons.glyphMap | null {
+  if (!domain) return null;
+  const host = domain.toLowerCase();
+  const hit = BRAND_ICONS.find(({ roots }) =>
+    roots.some((root) => host === root || host.endsWith(`.${root}`))
+  );
+  return hit?.icon ?? null;
+}
+
+function LinkSourceIcon({ url, color }: { url: string; color: string }) {
+  const domain = extractContentLinkDomain(url);
+  const brand = brandIconForDomain(domain);
+  const [faviconFailed, setFaviconFailed] = useState(false);
+
+  if (brand) {
+    return <Ionicons name={brand} size={20} color={color} />;
+  }
+  if (domain && !faviconFailed) {
+    return (
+      <Image
+        accessibilityIgnoresInvertColors
+        source={{ uri: contentLinkFaviconUrl(domain) }}
+        style={styles.favicon}
+        onError={() => setFaviconFailed(true)}
+      />
+    );
+  }
+  return <Ionicons name="link-outline" size={20} color={color} />;
+}
 
 export default function LinksScreen() {
   const theme = useTheme();
@@ -107,6 +171,25 @@ export default function LinksScreen() {
     } finally {
       setRefreshing(false);
     }
+  }
+
+  function confirmDelete(link: ContentLink) {
+    Alert.alert("Excluir link", link.title, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: () => {
+          void deleteContentLink(link.id)
+            .then(() =>
+              setLinks((cur) => cur.filter((row) => row.id !== link.id))
+            )
+            .catch((err) =>
+              fail(getErrorMessage(err, "Não foi possível excluir."))
+            );
+        },
+      },
+    ]);
   }
 
   const visible = useMemo(() => {
@@ -216,80 +299,116 @@ export default function LinksScreen() {
                 onChange={setTagFilter}
               />
             ) : null}
-            <Pressable
+            <ChoiceChip
+              label={favoritesOnly ? "♥ Favoritos" : "Favoritos"}
+              active={favoritesOnly}
               onPress={() => setFavoritesOnly((cur) => !cur)}
-              style={[
-                styles.favChip,
-                { backgroundColor: theme.backgroundElement },
-                favoritesOnly && { backgroundColor: theme.backgroundSelected },
-              ]}
-            >
-              <ThemedText type="smallBold">
-                {favoritesOnly ? "♥ Favoritos" : "Favoritos"}
-              </ThemedText>
-            </Pressable>
+            />
           </View>
           {visible.length === 0 ? (
             <ThemedText themeColor="textSecondary">
               Nenhum link neste filtro.
             </ThemedText>
           ) : (
-            visible.map((link) => (
-              <Pressable
-                key={link.id}
-                onPress={() =>
-                  router.push({
-                    pathname: "/links/form",
-                    params: { id: link.id },
-                  })
-                }
-              >
-                <Card style={styles.card}>
-                  <View style={styles.copy}>
-                    <ThemedText type="smallBold" numberOfLines={2}>
+            visible.map((link) => {
+              const consumed = link.status === "consumed";
+              const domain = extractContentLinkDomain(link.url);
+              return (
+                <Card key={link.id} style={styles.card}>
+                  <Pressable
+                    accessibilityLabel={
+                      consumed ? "Marcar para ver" : "Marcar como visto"
+                    }
+                    accessibilityState={{ selected: consumed }}
+                    disabled={busyId === link.id}
+                    hitSlop={6}
+                    onPress={() => void toggleConsumed(link)}
+                    style={styles.iconBtn}
+                  >
+                    <Ionicons
+                      name={consumed ? "checkmark-circle" : "ellipse-outline"}
+                      size={22}
+                      color={consumed ? theme.primary : theme.textSecondary}
+                    />
+                  </Pressable>
+                  <View style={styles.sourceIcon}>
+                    <LinkSourceIcon url={link.url} color={theme.text} />
+                  </View>
+                  <Pressable
+                    style={styles.copy}
+                    onPress={() =>
+                      router.push(
+                        {
+                          pathname: "/links/form",
+                          params: { id: link.id },
+                        },
+                        { withAnchor: true }
+                      )
+                    }
+                  >
+                    <ThemedText
+                      type="smallBold"
+                      numberOfLines={2}
+                      style={consumed ? styles.done : undefined}
+                    >
                       {link.title}
-                      {link.is_favorite ? " ♥" : ""}
                     </ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
                       {[
                         LINK_TYPE_LABELS[link.type],
-                        extractContentLinkDomain(link.url),
+                        domain,
                         ...(link.tag_ids ?? [])
-                          .map((tagId) => tags.find((tag) => tag.id === tagId)?.name)
+                          .map((tagId) =>
+                            tags.find((tag) => tag.id === tagId)?.name
+                          )
                           .filter(Boolean),
                       ]
                         .filter(Boolean)
                         .join(" · ")}
                     </ThemedText>
-                    <View style={styles.actions}>
-                      <Pressable onPress={() => void openUrl(link.url)} hitSlop={8}>
-                        <ThemedText type="small" style={{ color: theme.primary }}>
-                          Abrir
-                        </ThemedText>
-                      </Pressable>
-                      <Pressable
-                        disabled={busyId === link.id}
-                        onPress={() => void toggleFavorite(link)}
-                        hitSlop={8}
-                      >
-                        <ThemedText type="small" style={{ color: theme.primary }}>
-                          {link.is_favorite ? "Desfavoritar" : "Favoritar"}
-                        </ThemedText>
-                      </Pressable>
-                      <Pressable
-                        disabled={busyId === link.id}
-                        onPress={() => void toggleConsumed(link)}
-                        hitSlop={8}
-                      >
-                        <ThemedText type="small" style={{ color: theme.primary }}>
-                          {link.status === "consumed" ? "Marcar para ver" : "Marcar visto"}
-                        </ThemedText>
-                      </Pressable>
-                    </View>
-                  </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel={
+                      link.is_favorite ? "Remover favorito" : "Favoritar"
+                    }
+                    disabled={busyId === link.id}
+                    hitSlop={6}
+                    onPress={() => void toggleFavorite(link)}
+                    style={styles.iconBtn}
+                  >
+                    <Ionicons
+                      name={link.is_favorite ? "star" : "star-outline"}
+                      size={18}
+                      color={link.is_favorite ? STAR_ON : theme.textSecondary}
+                    />
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Abrir link"
+                    hitSlop={6}
+                    onPress={() => void openUrl(link.url)}
+                    style={styles.iconBtn}
+                  >
+                    <Ionicons
+                      name="open-outline"
+                      size={18}
+                      color={theme.textSecondary}
+                    />
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Excluir link"
+                    hitSlop={6}
+                    onPress={() => confirmDelete(link)}
+                    style={styles.iconBtn}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={theme.danger}
+                    />
+                  </Pressable>
                 </Card>
-              </Pressable>
-            ))
+              );
+            })
           )}
         </ScrollView>
       )}
@@ -303,13 +422,25 @@ const styles = StyleSheet.create({
   banner: { marginHorizontal: Spacing.four, marginTop: Spacing.three },
   list: { padding: Spacing.four, gap: Spacing.three },
   filters: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
-  card: { padding: Spacing.three },
-  copy: { gap: 4 },
-  actions: { flexDirection: "row", gap: 16, marginTop: 4 },
-  favChip: {
-    alignSelf: "flex-start",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  card: {
+    padding: Spacing.three,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
+  sourceIcon: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  favicon: { width: 18, height: 18, borderRadius: 4 },
+  copy: { flex: 1, gap: 2, minWidth: 0 },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  done: { textDecorationLine: "line-through", opacity: 0.6 },
 });

@@ -24,6 +24,7 @@ import { RecurringList } from "@/components/RecurringList";
 import { RecurringProjection } from "@/components/RecurringProjection";
 import { RecurringSummary } from "@/components/RecurringSummary";
 import { ChipBar } from "@/components/ChipBar";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -50,6 +51,7 @@ import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { shiftYearMonth } from "@/api/finance/transactions";
 import { formatBRL } from "@/lib/currency";
+import { hexAlpha } from "@/lib/color";
 import { getErrorMessage } from "@/lib/errors";
 import type { Recurring } from "@/types/recurring";
 
@@ -437,16 +439,24 @@ export default function RecurringScreen() {
                       on && {
                         backgroundColor:
                           chip.id === "all"
-                            ? theme.backgroundSelected
+                            ? hexAlpha(theme.primary, 0.16)
                             : `${accent}22`,
-                        borderWidth: chip.id === "all" ? 0 : 1,
-                        borderColor: accent,
+                        borderWidth: 1,
+                        borderColor:
+                          chip.id === "all" ? theme.primary : accent,
                       },
                     ]}
                   >
                     <ThemedText
                       type="smallBold"
-                      style={on && chip.id !== "all" ? { color: accent } : undefined}
+                      style={
+                        on
+                          ? {
+                              color:
+                                chip.id === "all" ? theme.primary : accent,
+                            }
+                          : undefined
+                      }
                     >
                       {chip.label}
                       {chip.id === "pay" ? ` · ${natureCounts.pay}` : ""}
@@ -458,37 +468,20 @@ export default function RecurringScreen() {
             </View>
             <View style={styles.chips}>
               {STATUS_CHIPS.map((chip) => (
-                <Pressable
+                <ChoiceChip
                   key={chip.id}
+                  label={chip.label}
+                  active={status === chip.id}
                   onPress={() => setStatus(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    status === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
-            <Pressable
+            <ChoiceChip
+              label={showArchived ? "Arquivadas" : "Ver arquivadas"}
+              active={showArchived}
               onPress={() => setShowArchived((cur) => !cur)}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: showArchived
-                    ? theme.backgroundSelected
-                    : theme.backgroundElement,
-                  alignSelf: "flex-start",
-                },
-              ]}
-            >
-              <ThemedText type="smallBold">
-                {showArchived ? "Arquivadas" : "Ver arquivadas"}
-              </ThemedText>
-            </Pressable>
+              style={{ alignSelf: "flex-start" }}
+            />
           </>
         ) : null}
       </CollapsibleChrome>

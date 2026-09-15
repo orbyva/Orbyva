@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { memo, useMemo, useRef } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -10,6 +10,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/themed-text";
 import { useTheme } from "@/hooks/use-theme";
+import { dragItemEntering, dragListLayout } from "@/lib/dragMotion";
 
 export const ClassDragRow = memo(function ClassDragRow({
   id,
@@ -21,6 +22,7 @@ export const ClassDragRow = memo(function ClassDragRow({
   onDragStart,
   onDragEnd,
   onMenu,
+  landed,
 }: {
   id: number;
   name: string;
@@ -31,6 +33,7 @@ export const ClassDragRow = memo(function ClassDragRow({
   onDragStart: (id: number) => void;
   onDragEnd: (id: number, x: number, y: number) => void;
   onMenu?: (id: number) => void;
+  landed?: boolean;
 }) {
   const theme = useTheme();
   const live = useSharedValue(0);
@@ -77,7 +80,11 @@ export const ClassDragRow = memo(function ClassDragRow({
   );
 
   return (
-    <View style={styles.wrap}>
+    <Animated.View
+      layout={dragListLayout}
+      entering={landed ? dragItemEntering : undefined}
+      style={styles.wrap}
+    >
       <GestureDetector gesture={pan}>
         <Animated.View
           style={[
@@ -110,7 +117,7 @@ export const ClassDragRow = memo(function ClassDragRow({
           />
         </Pressable>
       ) : null}
-    </View>
+    </Animated.View>
   );
 });
 

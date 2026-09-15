@@ -13,6 +13,7 @@ import { fetchProjectEvents } from "@/api/tasks/events";
 import { fetchProjects } from "@/api/tasks/projects";
 import { fetchTasks } from "@/api/tasks/tasks";
 import { ChipBar } from "@/components/ChipBar";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -190,18 +191,11 @@ export default function ProjectsScreen() {
             onChange={setView}
           />
           {view === "lista" ? (
-            <Pressable
+            <ChoiceChip
+              label={showArchived ? "Arquivados visíveis" : "Mostrar arquivados"}
+              active={showArchived}
               onPress={() => setShowArchived((cur) => !cur)}
-              style={[
-                styles.chip,
-                { backgroundColor: theme.backgroundElement },
-                showArchived && { backgroundColor: theme.backgroundSelected },
-              ]}
-            >
-              <ThemedText type="smallBold">
-                {showArchived ? "Arquivados visíveis" : "Mostrar arquivados"}
-              </ThemedText>
-            </Pressable>
+            />
           ) : null}
           {view === "lista" ? (
             listRows.length === 0 ? (

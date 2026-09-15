@@ -17,6 +17,7 @@ import {
   updateMaintenance,
 } from "@/api/car/car";
 import { DateField } from "@/components/DateField";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { LedgerClassField } from "@/components/LedgerClassField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -149,17 +150,12 @@ export default function MaintenanceFormScreen() {
           <Field label="Tipo">
             <View style={styles.chips}>
               {Object.entries(MAINTENANCE_TYPE_LABELS).map(([id, label]) => (
-                <Pressable
+                <ChoiceChip
                   key={id}
+                  label={label}
+                  active={type === id}
                   onPress={() => setType(id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    type === id && { backgroundColor: theme.backgroundSelected },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>

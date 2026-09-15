@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { fetchGoals } from "@/api/goals/goals";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import {
   createHabit,
   deleteHabit,
@@ -214,38 +215,24 @@ export default function HabitFormScreen() {
           <Field label="Tipo">
             <View style={styles.chips}>
               {KIND_CHIPS.map((chip) => (
-                <Pressable
+                <ChoiceChip
                   key={chip.id}
+                  label={chip.label}
+                  active={kind === chip.id}
                   onPress={() => setKind(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    kind === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>
           <Field label="Frequência">
             <View style={styles.chips}>
               {FREQ_CHIPS.map((chip) => (
-                <Pressable
+                <ChoiceChip
                   key={chip.id}
+                  label={chip.label}
+                  active={frequency === chip.id}
                   onPress={() => setFrequency(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    frequency === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
             {frequency === "weekly" ? (
@@ -268,18 +255,14 @@ export default function HabitFormScreen() {
               onChangeText={setDescription}
             />
           </Field>
-          <Pressable
+          <ChoiceChip
+            label={
+              isHealth ? "Também aparece em Saúde" : "Marcar como hábito de saúde"
+            }
+            active={isHealth}
             onPress={() => setIsHealth((cur) => !cur)}
-            style={[
-              styles.chip,
-              { backgroundColor: theme.backgroundElement, alignSelf: "flex-start" },
-              isHealth && { backgroundColor: theme.backgroundSelected },
-            ]}
-          >
-            <ThemedText type="smallBold">
-              {isHealth ? "Também aparece em Saúde" : "Marcar como hábito de saúde"}
-            </ThemedText>
-          </Pressable>
+            style={{ alignSelf: "flex-start" }}
+          />
           <FormSection
             title="Vincular a uma meta"
             hint={
@@ -289,30 +272,18 @@ export default function HabitFormScreen() {
             }
           >
             <View style={styles.chips}>
-              <Pressable
+              <ChoiceChip
+                label="Nenhuma"
+                active={!goalId}
                 onPress={() => setGoalId(null)}
-                style={[
-                  styles.chip,
-                  { backgroundColor: theme.backgroundElement },
-                  !goalId && { backgroundColor: theme.backgroundSelected },
-                ]}
-              >
-                <ThemedText type="smallBold">Nenhuma</ThemedText>
-              </Pressable>
+              />
               {goals.map((goal) => (
-                <Pressable
+                <ChoiceChip
                   key={goal.id}
+                  label={goal.title}
+                  active={goalId === goal.id}
                   onPress={() => setGoalId(goal.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    goalId === goal.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{goal.title}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
             {goalId ? (

@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
@@ -12,6 +13,7 @@ import {
 
 import {
   createTaskFromShoppingItemApi,
+  deleteShoppingItemApi,
   fetchShoppingCategories,
   fetchShoppingItems,
   fetchTaskLinksForItems,
@@ -136,6 +138,30 @@ export default function ShoppingScreen() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  function confirmDelete(item: ShoppingItem) {
+    Alert.alert("Excluir item", item.title, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: () => {
+          void deleteShoppingItemApi(item.id)
+            .then(() => {
+              setItems((cur) => cur.filter((row) => row.id !== item.id));
+              setTaskLinks((cur) => {
+                const next = new Map(cur);
+                next.delete(item.id);
+                return next;
+              });
+            })
+            .catch((err) =>
+              setError(getErrorMessage(err, "Não foi possível excluir."))
+            );
+        },
+      },
+    ]);
   }
 
   const projectChips = useMemo(
@@ -343,6 +369,19 @@ export default function ShoppingScreen() {
                             </ThemedText>
                           </Pressable>
                         ) : null}
+                        <Pressable
+                          accessibilityLabel={`Excluir ${item.title}`}
+                          disabled={busyId === item.id}
+                          hitSlop={8}
+                          onPress={() => confirmDelete(item)}
+                          style={styles.iconBtn}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={18}
+                            color={theme.danger}
+                          />
+                        </Pressable>
                       </View>
                     );
                   })}
@@ -391,6 +430,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   copy: { flex: 1, gap: 2 },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   purchased: { textDecorationLine: "line-through", opacity: 0.55 },
   empty: { gap: Spacing.one, paddingVertical: Spacing.four },
   banner: {

@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,13 +10,15 @@ import {
 } from "react-native";
 
 import { fetchWatchedEpisodeCounts } from "@/api/movies/episodes";
-import { fetchAllMovies, updateMovie } from "@/api/movies/movies";
+import { deleteMovie, fetchAllMovies, updateMovie } from "@/api/movies/movies";
 import { ChipBar } from "@/components/ChipBar";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { CatalogMediaCard } from "@/components/CatalogMediaCard";
 import { FilterSelect } from "@/components/FilterSelect";
 import { InsightsStrip } from "@/components/InsightsStrip";
 import { ReviewSheet } from "@/components/ReviewSheet";
 import { SearchField } from "@/components/SearchField";
+import { SurpriseChip } from "@/components/SurpriseChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -34,7 +36,6 @@ import {
   movieStatusUpdate,
   pickRandomToWatchMovie,
 } from "@/domain/movies";
-import { getTodayIso } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
@@ -172,23 +173,36 @@ export default function MoviesScreen() {
 
   async function markWatched(
     movie: Movie,
-    extras: { rating: number | null; recommend: boolean }
+    extras: {
+      rating: number | null;
+      recommend: boolean;
+      watchedDate: string;
+      notes: string;
+    }
   ) {
     setBusyId(movie.imdb_id);
     try {
+      const statusPatch = movieStatusUpdate(
+        movie,
+        MovieStatus.WATCHED,
+        extras.watchedDate
+      );
+      const notes = extras.notes.trim() || null;
       await updateMovie({
-        ...movieStatusUpdate(movie, MovieStatus.WATCHED, getTodayIso()),
+        ...statusPatch,
         rating: extras.rating,
         would_recommend: extras.recommend,
+        notes,
       });
       setMovies((cur) =>
         cur.map((row) =>
           row.imdb_id === movie.imdb_id
             ? {
                 ...row,
-                status: MovieStatus.WATCHED,
+                ...statusPatch,
                 rating: extras.rating,
                 would_recommend: extras.recommend,
+                notes,
               }
             : row
         )
@@ -203,6 +217,27 @@ export default function MoviesScreen() {
 
   function openMovie(id: string) {
     router.push({ pathname: "/movies/[id]", params: { id } });
+  }
+
+  function confirmDelete(movie: Movie) {
+    Alert.alert("Excluir título", movie.title, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: () => {
+          void deleteMovie(movie.imdb_id)
+            .then(() =>
+              setMovies((cur) =>
+                cur.filter((row) => row.imdb_id !== movie.imdb_id)
+              )
+            )
+            .catch((err) =>
+              fail(getErrorMessage(err, "Não foi possível excluir."))
+            );
+        },
+      },
+    ]);
   }
 
   function surprise() {
@@ -279,23 +314,12 @@ export default function MoviesScreen() {
                 setSort(id as (typeof CATALOG_SORT_OPTIONS)[number]["id"])
               }
             />
-            <Pressable
+            <ChoiceChip
+              label={favoritesOnly ? "♥ Favoritos" : "Favoritos"}
+              active={favoritesOnly}
               onPress={() => setFavoritesOnly((cur) => !cur)}
-              style={[
-                styles.chip,
-                { backgroundColor: theme.backgroundElement },
-                favoritesOnly && { backgroundColor: theme.backgroundSelected },
-              ]}
-            >
-              <ThemedText type="smallBold">
-                {favoritesOnly ? "♥ Favoritos" : "Favoritos"}
-              </ThemedText>
-            </Pressable>
-            <Pressable onPress={surprise} style={styles.chip}>
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                Me surpreenda
-              </ThemedText>
-            </Pressable>
+            />
+            <SurpriseChip onPress={surprise} />
           </View>
           {visible.length === 0 ? (
             <ThemedText themeColor="textSecondary">
@@ -313,6 +337,11 @@ export default function MoviesScreen() {
                       total: totalEps,
                     })
                   : null;
+              const showWatchProgress =
+                movie.status === MovieStatus.WATCHING && seriesProgress != null;
+              const progressLabel = showWatchProgress
+                ? `${seriesProgress.watched}/${seriesProgress.total} eps · ${seriesProgress.percent}%`
+                : null;
               return (
                 <CatalogMediaCard
                   key={movie.imdb_id}
@@ -321,24 +350,18 @@ export default function MoviesScreen() {
                   title={movie.title}
                   favorite={movie.is_favorite === true}
                   rating={rating?.value}
-                  progress={
-                    movie.status === MovieStatus.WATCHING
-                      ? seriesProgress?.percent
-                      : null
-                  }
+                  progress={showWatchProgress ? seriesProgress.percent : null}
+                  progressLabel={progressLabel}
                   meta={[
                     MOVIE_TYPE_LABELS[movie.type],
                     movie.year || null,
-                    movie.type === "series" && totalEps
-                      ? `${watchedEps ?? 0}/${totalEps} eps`
-                      : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
                   actionLabel={
                     movie.status !== MovieStatus.WATCHED &&
                     movie.status !== MovieStatus.ABANDONED
-                      ? "Marcar assistido"
+                      ? "Marcar como Assistido"
                       : null
                   }
                   onAction={
@@ -346,6 +369,7 @@ export default function MoviesScreen() {
                       ? undefined
                       : () => setReviewMovie(movie)
                   }
+                  onDelete={() => confirmDelete(movie)}
                   onPress={() => openMovie(movie.imdb_id)}
                 />
               );
@@ -357,7 +381,18 @@ export default function MoviesScreen() {
         visible={reviewMovie != null}
         title="Avaliar título"
         itemTitle={reviewMovie?.title ?? ""}
-        confirmLabel="Marcar assistido"
+        itemSubtitle={
+          reviewMovie
+            ? [MOVIE_TYPE_LABELS[reviewMovie.type], reviewMovie.year || null]
+                .filter(Boolean)
+                .join(" · ")
+            : undefined
+        }
+        coverUri={reviewMovie?.poster}
+        confirmLabel="Salvar"
+        dateLabel="Data assistida"
+        notesLabel="O que achou?"
+        notesPlaceholder="Final, atuação, vibe, spoilers livres..."
         busy={reviewMovie != null && busyId === reviewMovie.imdb_id}
         onClose={() => setReviewMovie(null)}
         onConfirm={(result) => {
@@ -375,9 +410,4 @@ const styles = StyleSheet.create({
   banner: { marginHorizontal: Spacing.four, marginTop: Spacing.three },
   list: { padding: Spacing.four, gap: Spacing.three },
   filters: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
 });

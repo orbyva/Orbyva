@@ -146,8 +146,6 @@ export default function TravelScreen() {
             </ThemedText>
           ) : (
             visible.map((trip) => {
-              const checklistTotal = trip.checklistTotal ?? 0;
-              const checklistDone = trip.checklistDone ?? 0;
               const ongoing = trip.status === "ongoing";
               return (
                 <Pressable
@@ -205,31 +203,10 @@ export default function TravelScreen() {
                         trip.spent != null && trip.spent > 0
                           ? `Gasto ${formatBRL(trip.spent)}`
                           : null,
-                        checklistTotal > 0
-                          ? `Checklist ${checklistDone}/${checklistTotal}`
-                          : null,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
                     </ThemedText>
-                    {checklistTotal > 0 ? (
-                      <View
-                        style={[
-                          styles.track,
-                          { backgroundColor: theme.backgroundElement },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.fill,
-                            {
-                              width: `${trip.checklistProgress}%`,
-                              backgroundColor: theme.primary,
-                            },
-                          ]}
-                        />
-                      </View>
-                    ) : null}
                   </Card>
                 </Pressable>
               );
@@ -251,8 +228,6 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: 4 },
   badgeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   countdown: { alignItems: "flex-end" },
-  track: { height: 6, borderRadius: 999, overflow: "hidden" },
-  fill: { height: 6, borderRadius: 999 },
   invite: {
     flexDirection: "row",
     alignItems: "center",

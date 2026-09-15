@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { HeaderChromeRight } from "@/components/chrome/HeaderChromeRight";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
 import { useTheme } from "@/hooks/use-theme";
+import { formScreenOptions } from "@/lib/formScreen";
 
 export default function FinanceStackLayout() {
   const theme = useTheme();
@@ -27,10 +28,7 @@ export default function FinanceStackLayout() {
         name="budget-form"
         options={{
           title: "Orçamento",
-          presentation: "modal",
-          headerLeft: undefined,
-          headerRight: undefined,
-          headerBackVisible: true,
+          ...formScreenOptions,
         }}
       />
       <Stack.Screen name="categories" options={{ title: "Categorias" }} />
@@ -38,30 +36,21 @@ export default function FinanceStackLayout() {
         name="form"
         options={{
           title: "Transação",
-          presentation: "modal",
-          headerLeft: undefined,
-          headerRight: undefined,
-          headerBackVisible: true,
+          ...formScreenOptions,
         }}
       />
       <Stack.Screen
         name="recurring-form"
         options={{
           title: "Nova recorrência",
-          presentation: "modal",
-          headerLeft: undefined,
-          headerRight: undefined,
-          headerBackVisible: true,
+          ...formScreenOptions,
         }}
       />
       <Stack.Screen
         name="category-form"
         options={{
           title: "Nova categoria",
-          presentation: "modal",
-          headerLeft: undefined,
-          headerRight: undefined,
-          headerBackVisible: true,
+          ...formScreenOptions,
         }}
       />
     </Stack>

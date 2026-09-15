@@ -1,4 +1,5 @@
 import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   ActivityIndicator,
   Image,
@@ -6,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   View,
 } from "react-native";
 import { captureRef } from "react-native-view-shot";
@@ -194,44 +196,139 @@ export function OpinionShareSheet({
           keyboardShouldPersistTaps="handled"
         >
           {hasNotes ? (
-            <Pressable
-              onPress={() => setIncludeNotes((cur) => !cur)}
-              style={[styles.toggle, { borderColor: theme.backgroundSelected }]}
+            <View
+              style={[
+                styles.switchCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.backgroundSelected,
+                },
+              ]}
             >
-              <View style={styles.toggleCopy}>
+              <View style={styles.switchCopy}>
                 <ThemedText type="smallBold">Exibir opinião</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   Inclui o comentário no card e no texto.
                 </ThemedText>
               </View>
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                {includeNotes ? "Sim" : "Não"}
-              </ThemedText>
-            </Pressable>
+              <Switch
+                value={includeNotes}
+                onValueChange={setIncludeNotes}
+                trackColor={{
+                  false: theme.backgroundSelected,
+                  true: theme.primary,
+                }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
           ) : null}
 
           {allowPhoto ? (
-            <Pressable
-              onPress={() => void pickPhoto()}
-              style={[styles.toggle, { borderColor: theme.backgroundSelected }]}
-            >
-              <ThemedText type="smallBold">
-                {photoUris.length
-                  ? limit > 1
-                    ? `Fotos ${photoUris.length}/${limit}`
-                    : "Trocar foto"
-                  : limit > 1
-                    ? `Anexar até ${limit} fotos`
-                    : "Anexar foto"}
-              </ThemedText>
-              {photoUris.length ? (
-                <Pressable onPress={() => setPhotoUris([])} hitSlop={8}>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Remover
+            limit > 1 ? (
+              <View
+                style={[
+                  styles.photosCard,
+                  { borderColor: theme.backgroundSelected },
+                ]}
+              >
+                <View style={styles.photosHead}>
+                  <ThemedText type="smallBold">
+                    Fotos do mosaico{" "}
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {photoUris.length}/{limit}
+                    </ThemedText>
+                  </ThemedText>
+                  {photoUris.length ? (
+                    <Pressable onPress={() => setPhotoUris([])} hitSlop={8}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Limpar
+                      </ThemedText>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <View style={styles.photoGrid}>
+                  {photoUris.map((uri, index) => (
+                    <View key={`${uri}-${index}`} style={styles.photoCell}>
+                      <Image
+                        source={{ uri }}
+                        style={styles.photoThumb}
+                        resizeMode="cover"
+                      />
+                      <Pressable
+                        onPress={() =>
+                          setPhotoUris((cur) =>
+                            cur.filter((_, itemIndex) => itemIndex !== index)
+                          )
+                        }
+                        hitSlop={6}
+                        style={[
+                          styles.photoRemove,
+                          { backgroundColor: theme.surface },
+                        ]}
+                        accessibilityLabel="Remover foto"
+                      >
+                        <Ionicons
+                          name="close"
+                          size={12}
+                          color={theme.textSecondary}
+                        />
+                      </Pressable>
+                    </View>
+                  ))}
+                  {photoUris.length < limit ? (
+                    <Pressable
+                      onPress={() => void pickPhoto()}
+                      style={[
+                        styles.photoAdd,
+                        { borderColor: theme.backgroundSelected },
+                      ]}
+                    >
+                      <Ionicons
+                        name="image-outline"
+                        size={18}
+                        color={theme.textSecondary}
+                      />
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {photoUris.length === 0 ? "Fotos" : "Mais"}
+                      </ThemedText>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <Pressable
+                  onPress={() => void pickPhoto()}
+                  disabled={photoUris.length >= limit}
+                  style={[
+                    styles.toggle,
+                    { borderColor: theme.backgroundSelected },
+                    photoUris.length >= limit ? { opacity: 0.5 } : null,
+                  ]}
+                >
+                  <ThemedText type="smallBold">
+                    {photoUris.length === 0
+                      ? `Escolher até ${limit} fotos`
+                      : photoUris.length < limit
+                        ? `Adicionar mais fotos (${photoUris.length}/${limit})`
+                        : `Limite de ${limit} fotos`}
                   </ThemedText>
                 </Pressable>
-              ) : null}
-            </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => void pickPhoto()}
+                style={[styles.toggle, { borderColor: theme.backgroundSelected }]}
+              >
+                <ThemedText type="smallBold">
+                  {photoUris.length ? "Trocar foto" : "Anexar foto"}
+                </ThemedText>
+                {photoUris.length ? (
+                  <Pressable onPress={() => setPhotoUris([])} hitSlop={8}>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Remover
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+              </Pressable>
+            )
           ) : null}
 
           <View style={styles.preview}>
@@ -308,7 +405,62 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  toggleCopy: { flex: 1, gap: 2 },
+  switchCard: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  switchCopy: { flex: 1, gap: 2 },
+  photosCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    gap: 12,
+  },
+  photosHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  photoCell: {
+    width: "23%",
+    aspectRatio: 1,
+    borderRadius: 8,
+    overflow: "hidden",
+    position: "relative",
+  },
+  photoThumb: { width: "100%", height: "100%" },
+  photoRemove: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoAdd: {
+    width: "23%",
+    aspectRatio: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
   preview: { alignItems: "center", paddingVertical: 8 },
   previewImg: {
     width: SHARE_PREVIEW_W,

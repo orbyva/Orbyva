@@ -3,10 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Linking,
-  Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -20,6 +17,7 @@ import {
   updateContentLink,
 } from "@/api/links/links";
 import { createTagApi, fetchTags } from "@/api/tasks/tags";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -200,18 +198,14 @@ export default function LinkFormScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      <KeyboardAvoidingView
+      <ScrollView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
       >
-        <ScrollView
-          contentContainerStyle={styles.body}
-          keyboardShouldPersistTaps="handled"
-        >
           <Banner message={error} />
           <Field label="Título" required>
             <TextInput
-              autoFocus={!editId}
               placeholder="Como você vai reconhecer"
               placeholderTextColor={theme.textSecondary}
               style={inputStyle}
@@ -234,38 +228,24 @@ export default function LinkFormScreen() {
           <Field label="Tipo">
             <View style={styles.chips}>
               {TYPE_CHIPS.map((chip) => (
-                <Pressable
+                <ChoiceChip
                   key={chip.id}
+                  label={chip.label}
+                  active={type === chip.id}
                   onPress={() => setType(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    type === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>
           <Field label="Status">
             <View style={styles.chips}>
               {STATUS_CHIPS.map((chip) => (
-                <Pressable
+                <ChoiceChip
                   key={chip.id}
+                  label={chip.label}
+                  active={status === chip.id}
                   onPress={() => setStatus(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    status === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>
@@ -279,23 +259,19 @@ export default function LinkFormScreen() {
               onChangeText={setNotes}
             />
           </Field>
-          <Pressable
+          <ChoiceChip
+            label={favorite ? "♥ Favorito" : "Marcar favorito"}
+            active={favorite}
             onPress={() => setFavorite((cur) => !cur)}
-            style={[
-              styles.chip,
-              { backgroundColor: theme.backgroundElement, alignSelf: "flex-start" },
-              favorite && { backgroundColor: theme.backgroundSelected },
-            ]}
-          >
-            <ThemedText type="smallBold">
-              {favorite ? "♥ Favorito" : "Marcar favorito"}
-            </ThemedText>
-          </Pressable>
+            style={{ alignSelf: "flex-start" }}
+          />
           <Field label="Tags">
             <View style={styles.chips}>
               {tags.map((tag) => (
-                <Pressable
+                <ChoiceChip
                   key={tag.id}
+                  label={tag.name}
+                  active={tagIds.includes(tag.id)}
                   onPress={() =>
                     setTagIds((cur) =>
                       cur.includes(tag.id)
@@ -303,16 +279,7 @@ export default function LinkFormScreen() {
                         : [...cur, tag.id]
                     )
                   }
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    tagIds.includes(tag.id) && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{tag.name}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
             <TextInput
@@ -373,7 +340,6 @@ export default function LinkFormScreen() {
             />
           ) : null}
         </ScrollView>
-      </KeyboardAvoidingView>
     </ThemedView>
   );
 }

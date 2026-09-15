@@ -19,6 +19,7 @@ import {
   reactivateMedication,
   updateMedication,
 } from "@/api/health/health";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
 import { TimeField } from "@/components/TimeField";
 import { ThemedText } from "@/components/themed-text";
@@ -209,19 +210,12 @@ export default function MedicationFormScreen() {
             />
             <View style={styles.chips}>
               {UNIT_CHIPS.map((unit) => (
-                <Pressable
+                <ChoiceChip
                   key={unit}
+                  label={unit}
+                  active={doseUnit === unit}
                   onPress={() => setDoseUnit(unit)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    doseUnit === unit && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{unit}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>

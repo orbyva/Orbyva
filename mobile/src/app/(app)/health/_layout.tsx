@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { HeaderChromeRight } from "@/components/chrome/HeaderChromeRight";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
 import { useTheme } from "@/hooks/use-theme";
+import { formScreenOptions } from "@/lib/formScreen";
 
 export default function HealthStackLayout() {
   const theme = useTheme();
@@ -23,30 +24,21 @@ export default function HealthStackLayout() {
         name="form"
         options={{
           title: "Nova medicação",
-          presentation: "modal",
-          headerLeft: undefined,
-          headerRight: undefined,
-          headerBackVisible: true,
+          ...formScreenOptions,
         }}
       />
       <Stack.Screen
         name="consult-form"
         options={{
           title: "Nova consulta",
-          presentation: "modal",
-          headerLeft: undefined,
-          headerRight: undefined,
-          headerBackVisible: true,
+          ...formScreenOptions,
         }}
       />
       <Stack.Screen
         name="metric-form"
         options={{
           title: "Nova medição",
-          presentation: "modal",
-          headerLeft: undefined,
-          headerRight: undefined,
-          headerBackVisible: true,
+          ...formScreenOptions,
         }}
       />
     </Stack>

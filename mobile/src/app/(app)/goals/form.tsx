@@ -18,6 +18,7 @@ import {
   fetchGoalById,
   updateGoal,
 } from "@/api/goals/goals";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -197,19 +198,12 @@ export default function GoalFormScreen() {
           <Field label="Categoria">
             <View style={styles.chips}>
               {CATEGORY_CHIPS.map((chip) => (
-                <Pressable
+                <ChoiceChip
                   key={chip.id}
+                  label={chip.label}
+                  active={category === chip.id}
                   onPress={() => setCategory(chip.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    category === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>
@@ -261,19 +255,12 @@ export default function GoalFormScreen() {
             <Field label="Status">
               <View style={styles.chips}>
                 {STATUS_CHIPS.map((chip) => (
-                  <Pressable
+                  <ChoiceChip
                     key={chip.id}
+                    label={chip.label}
+                    active={status === chip.id}
                     onPress={() => setStatus(chip.id)}
-                    style={[
-                      styles.chip,
-                      { backgroundColor: theme.backgroundElement },
-                      status === chip.id && {
-                        backgroundColor: theme.backgroundSelected,
-                      },
-                    ]}
-                  >
-                    <ThemedText type="smallBold">{chip.label}</ThemedText>
-                  </Pressable>
+                  />
                 ))}
               </View>
             </Field>

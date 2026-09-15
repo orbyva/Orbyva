@@ -29,6 +29,7 @@ import {
   updateTaskApi,
 } from "@/api/tasks/tasks";
 import { ChipBar } from "@/components/ChipBar";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { SubtaskFormRow } from "@/components/SubtaskFormRow";
@@ -56,6 +57,7 @@ import {
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { formatDateBR } from "@/lib/currency";
+import { choiceChipColors } from "@/lib/color";
 import { getErrorMessage } from "@/lib/errors";
 import { openExternalUrl } from "@/lib/url";
 import type {
@@ -755,8 +757,10 @@ export default function TaskFormScreen() {
           <Field label="Prazo">
             <View style={styles.chipRow}>
               {DUE_CHIPS.map((chip) => (
-                <Pressable
+                <ChoiceChip
                   key={chip.id}
+                  label={chip.label}
+                  active={chipId === chip.id}
                   onPress={() => {
                     if (chip.id === "none") {
                       setDueDate(null);
@@ -771,16 +775,7 @@ export default function TaskFormScreen() {
                       setDueDate(clampDueToParent(weekEnd, maxDueDate));
                     }
                   }}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    chipId === chip.id && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{chip.label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
             {dueDate ? (
@@ -792,22 +787,11 @@ export default function TaskFormScreen() {
                   style={inputStyle}
                 />
                 <View style={styles.chipRow}>
-                  <Pressable
-                    onPress={() =>
-                      setDueTime((cur) => (cur ? null : "09:00"))
-                    }
-                    style={[
-                      styles.chip,
-                      { backgroundColor: theme.backgroundElement },
-                      dueTime
-                        ? { backgroundColor: theme.backgroundSelected }
-                        : null,
-                    ]}
-                  >
-                    <ThemedText type="smallBold">
-                      {dueTime ? "Com horário" : "Sem horário"}
-                    </ThemedText>
-                  </Pressable>
+                  <ChoiceChip
+                    label={dueTime ? "Com horário" : "Sem horário"}
+                    active={Boolean(dueTime)}
+                    onPress={() => setDueTime((cur) => (cur ? null : "09:00"))}
+                  />
                 </View>
                 {dueTime ? (
                   <TimeField value={dueTime} onChange={setDueTime} style={inputStyle} />
@@ -874,19 +858,12 @@ export default function TaskFormScreen() {
             <Field label="Prioridade">
               <View style={styles.chipRow}>
                 {PRIORITY_OPTIONS.map(([value, label]) => (
-                  <Pressable
+                  <ChoiceChip
                     key={label}
+                    label={label}
+                    active={priority === value}
                     onPress={() => setPriority(value)}
-                    style={[
-                      styles.chip,
-                      { backgroundColor: theme.backgroundElement },
-                      priority === value && {
-                        backgroundColor: theme.backgroundSelected,
-                      },
-                    ]}
-                  >
-                    <ThemedText type="smallBold">{label}</ThemedText>
-                  </Pressable>
+                  />
                 ))}
               </View>
             </Field>
@@ -911,10 +888,8 @@ export default function TaskFormScreen() {
                     delayLongPress={280}
                     style={[
                       styles.chip,
-                      { backgroundColor: theme.backgroundElement },
-                      tagIds.includes(tag.id) && {
-                        backgroundColor: theme.backgroundSelected,
-                      },
+                      styles.tagChip,
+                      choiceChipColors(theme, tagIds.includes(tag.id)),
                     ]}
                   >
                     <View style={styles.tagChip}>
@@ -924,7 +899,16 @@ export default function TaskFormScreen() {
                           { backgroundColor: tag.color || "#A855F7" },
                         ]}
                       />
-                      <ThemedText type="smallBold">{tag.name}</ThemedText>
+                      <ThemedText
+                        type="smallBold"
+                        style={
+                          tagIds.includes(tag.id)
+                            ? { color: theme.primary }
+                            : undefined
+                        }
+                      >
+                        {tag.name}
+                      </ThemedText>
                     </View>
                   </Pressable>
                 ))}
@@ -996,8 +980,10 @@ export default function TaskFormScreen() {
               <>
                 <View style={styles.chipRow}>
                   {REPEAT_CHIPS.map((chip) => (
-                    <Pressable
+                    <ChoiceChip
                       key={chip.id}
+                      label={chip.label}
+                      active={repeat === chip.id}
                       onPress={() => {
                         if (chip.id !== "none" && !dueDate) setDueDate(today);
                         setRepeat(chip.id);
@@ -1011,16 +997,7 @@ export default function TaskFormScreen() {
                           setEndCount("5");
                         }
                       }}
-                      style={[
-                        styles.chip,
-                        { backgroundColor: theme.backgroundElement },
-                        repeat === chip.id && {
-                          backgroundColor: theme.backgroundSelected,
-                        },
-                      ]}
-                    >
-                      <ThemedText type="smallBold">{chip.label}</ThemedText>
-                    </Pressable>
+                    />
                   ))}
                 </View>
                 {repeat !== "none" ? (
@@ -1053,13 +1030,22 @@ export default function TaskFormScreen() {
                               }}
                               style={[
                                 styles.weekday,
-                                { backgroundColor: theme.backgroundElement },
-                                weekdays.includes(weekday) && {
-                                  backgroundColor: theme.backgroundSelected,
-                                },
+                                choiceChipColors(
+                                  theme,
+                                  weekdays.includes(weekday)
+                                ),
                               ]}
                             >
-                              <ThemedText type="smallBold">{label}</ThemedText>
+                              <ThemedText
+                                type="smallBold"
+                                style={
+                                  weekdays.includes(weekday)
+                                    ? { color: theme.primary }
+                                    : undefined
+                                }
+                              >
+                                {label}
+                              </ThemedText>
                             </Pressable>
                           ))}
                         </View>
@@ -1072,40 +1058,22 @@ export default function TaskFormScreen() {
                     ) : null}
                     {repeat === "monthly" && dueDate ? (
                       <View style={styles.chipRow}>
-                        <Pressable
+                        <ChoiceChip
+                          label={`No dia ${Number(dueDate.slice(8, 10))}`}
+                          active={monthlyMode === "day"}
                           onPress={() => {
                             setMonthlyMode("day");
                             setRepeatDirty(true);
                           }}
-                          style={[
-                            styles.chip,
-                            { backgroundColor: theme.backgroundElement },
-                            monthlyMode === "day" && {
-                              backgroundColor: theme.backgroundSelected,
-                            },
-                          ]}
-                        >
-                          <ThemedText type="smallBold">
-                            No dia {Number(dueDate.slice(8, 10))}
-                          </ThemedText>
-                        </Pressable>
-                        <Pressable
+                        />
+                        <ChoiceChip
+                          label={monthlyWeekdayLabel(dueDate)}
+                          active={monthlyMode === "weekday"}
                           onPress={() => {
                             setMonthlyMode("weekday");
                             setRepeatDirty(true);
                           }}
-                          style={[
-                            styles.chip,
-                            { backgroundColor: theme.backgroundElement },
-                            monthlyMode === "weekday" && {
-                              backgroundColor: theme.backgroundSelected,
-                            },
-                          ]}
-                        >
-                          <ThemedText type="smallBold">
-                            {monthlyWeekdayLabel(dueDate)}
-                          </ThemedText>
-                        </Pressable>
+                        />
                       </View>
                     ) : null}
                     <ThemedText type="small" themeColor="textSecondary">
@@ -1119,8 +1087,10 @@ export default function TaskFormScreen() {
                           ["count", "Depois de N"],
                         ] as const
                       ).map(([id, label]) => (
-                        <Pressable
+                        <ChoiceChip
                           key={id}
+                          label={label}
+                          active={endMode === id}
                           onPress={() => {
                             setRepeatDirty(true);
                             setEndMode(id);
@@ -1128,16 +1098,7 @@ export default function TaskFormScreen() {
                             if (id === "until") setUntil((cur) => cur ?? dueDate ?? today);
                             if (id === "count") setUntil(null);
                           }}
-                          style={[
-                            styles.chip,
-                            { backgroundColor: theme.backgroundElement },
-                            endMode === id
-                              ? { backgroundColor: theme.backgroundSelected }
-                              : null,
-                          ]}
-                        >
-                          <ThemedText type="smallBold">{label}</ThemedText>
-                        </Pressable>
+                        />
                       ))}
                     </View>
                     {endMode === "until" ? (

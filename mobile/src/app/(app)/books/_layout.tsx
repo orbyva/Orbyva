@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { HeaderChromeRight } from "@/components/chrome/HeaderChromeRight";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
 import { useTheme } from "@/hooks/use-theme";
+import { formScreenOptions } from "@/lib/formScreen";
 
 export default function BooksStackLayout() {
   const theme = useTheme();
@@ -32,10 +33,7 @@ export default function BooksStackLayout() {
         name="form"
         options={{
           title: "Novo livro",
-          presentation: "modal",
-          headerLeft: undefined,
-          headerRight: undefined,
-          headerBackVisible: true,
+          ...formScreenOptions,
         }}
       />
     </Stack>

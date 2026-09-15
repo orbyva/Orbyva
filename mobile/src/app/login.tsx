@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
+import { ChipBar } from "@/components/ChipBar";
 import { Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
@@ -178,28 +179,14 @@ export default function LoginScreen() {
                 : "Entre com a mesma conta do web."}
             </ThemedText>
 
-            <View style={styles.modeRow}>
-              <Pressable
-                onPress={() => setMode("login")}
-                style={[
-                  styles.modeChip,
-                  { backgroundColor: theme.backgroundElement },
-                  mode === "login" && { backgroundColor: theme.backgroundSelected },
-                ]}
-              >
-                <ThemedText type="smallBold">Entrar</ThemedText>
-              </Pressable>
-              <Pressable
-                onPress={() => setMode("signup")}
-                style={[
-                  styles.modeChip,
-                  { backgroundColor: theme.backgroundElement },
-                  mode === "signup" && { backgroundColor: theme.backgroundSelected },
-                ]}
-              >
-                <ThemedText type="smallBold">Criar conta</ThemedText>
-              </Pressable>
-            </View>
+            <ChipBar
+              options={[
+                { id: "login" as const, label: "Entrar" },
+                { id: "signup" as const, label: "Criar conta" },
+              ]}
+              value={mode}
+              onChange={setMode}
+            />
 
             <TextInput
               autoCapitalize="none"

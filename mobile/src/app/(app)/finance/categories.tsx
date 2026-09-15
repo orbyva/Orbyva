@@ -27,6 +27,7 @@ import {
   updateClassApi,
 } from "@/api/finance/dimensions";
 import { ClassDragRow } from "@/components/ClassDragRow";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -41,6 +42,7 @@ import {
 } from "@/domain/dimensions/listView";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
+import { useDropLanding } from "@/lib/dragMotion";
 import { getErrorMessage } from "@/lib/errors";
 import type { Dimension } from "@/types/dimensions";
 
@@ -102,6 +104,7 @@ export default function CategoriesScreen() {
   const ghostVisible = useSharedValue(0);
   const originX = useSharedValue(0);
   const originY = useSharedValue(0);
+  const { markLanded, landingKey, landedId } = useDropLanding();
 
   const ghostStyle = useAnimatedStyle(() => ({
     opacity: ghostVisible.value,
@@ -200,6 +203,7 @@ export default function CategoriesScreen() {
       const fromId = typeIdForClass(rowsRef.current, id);
       if (targetId == null || fromId == null || fromId === targetId) return;
       const snapshot = rowsRef.current;
+      markLanded(String(id));
       setRows(moveClassToType(snapshot, id, targetId));
       void updateClassApi({ id, type_id: targetId })
         .then(() => setNotice("Subcategoria movida."))
@@ -219,7 +223,7 @@ export default function CategoriesScreen() {
         if (pending === 0) finish();
       });
     }
-  }, []);
+  }, [markLanded]);
 
   async function addClass(typeId: number) {
     const name = className.trim();
@@ -379,32 +383,18 @@ export default function CategoriesScreen() {
             ]}
           />
           <View style={styles.chips}>
-            <Pressable
+            <ChoiceChip
+              label="Todas"
+              active={natureId === "all"}
               onPress={() => setNatureId("all")}
-              style={[
-                styles.chip,
-                { backgroundColor: theme.backgroundElement },
-                natureId === "all" && {
-                  backgroundColor: theme.backgroundSelected,
-                },
-              ]}
-            >
-              <ThemedText type="smallBold">Todas</ThemedText>
-            </Pressable>
+            />
             {rows.map((nature) => (
-              <Pressable
+              <ChoiceChip
                 key={nature.id}
+                label={nature.name}
+                active={natureId === nature.id}
                 onPress={() => setNatureId(nature.id)}
-                style={[
-                  styles.chip,
-                  { backgroundColor: theme.backgroundElement },
-                  natureId === nature.id && {
-                    backgroundColor: theme.backgroundSelected,
-                  },
-                ]}
-              >
-                <ThemedText type="smallBold">{nature.name}</ThemedText>
-              </Pressable>
+              />
             ))}
           </View>
         </CollapsibleChrome>
@@ -552,10 +542,11 @@ export default function CategoriesScreen() {
                               </View>
                             ) : (
                               <ClassDragRow
-                                key={cls.id}
+                                key={landingKey(String(cls.id))}
                                 id={cls.id}
                                 name={cls.name}
                                 dragging={dragging?.id === cls.id}
+                                landed={landedId === String(cls.id)}
                                 absX={absX}
                                 absY={absY}
                                 ghostVisible={ghostVisible}

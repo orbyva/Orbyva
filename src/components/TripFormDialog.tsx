@@ -35,6 +35,12 @@ import {
 } from "@/api/travel";
 import { TRIP_STATUS_LABELS } from "@/domain/travel";
 import {
+  endpointFromStop,
+  lodgingStopForDate,
+  planItineraryTransfers,
+  planTransferActivitySync,
+} from "@/domain/travel/itineraryTransfers";
+import {
   activityTimeToInput,
   findRoundTripTransfers,
   type RoundTripHome,
@@ -53,7 +59,6 @@ import {
   normalizeTripTransportMode,
   routesModeForTransport,
   transferEndpointHasCoords,
-  transferEndpointsTitle,
   transportModeHint,
   TRIP_TRANSPORT_MODE_LABELS,
   TRIP_TRANSPORT_MODES,
@@ -230,7 +235,9 @@ export function TripFormDialog({
               : await fetchTripItineraryLite(trip.id);
           if (cancelled) return;
           const first = loadedStops[0];
-          const last = loadedStops[loadedStops.length - 1];
+          const last =
+            lodgingStopForDate(loadedStops, trip.end_date) ??
+            loadedStops[loadedStops.length - 1];
           const match = findRoundTripTransfers({
             itinerary,
             firstStop: first
@@ -319,7 +326,7 @@ export function TripFormDialog({
   }
 
   const firstStopDraft = stops[0];
-  const lastStopDraft = stops[stops.length - 1] ?? firstStopDraft;
+  const namedStops = stops.filter((s) => s.name.trim());
   const homeEndpoint: TransferEndpoint | null = homeOrigin?.label.trim()
     ? {
         label: homeOrigin.label.trim(),
@@ -328,22 +335,30 @@ export function TripFormDialog({
         place_id: homeOrigin.place_id,
       }
     : null;
-  const firstEndpoint: TransferEndpoint | null = firstStopDraft?.name.trim()
-    ? {
-        label: firstStopDraft.name.trim(),
-        lat: firstStopDraft.lat ?? null,
-        lng: firstStopDraft.lng ?? null,
-        place_id: firstStopDraft.place_id ?? null,
-      }
-    : null;
-  const lastEndpoint: TransferEndpoint | null = lastStopDraft?.name.trim()
-    ? {
-        label: lastStopDraft.name.trim(),
-        lat: lastStopDraft.lat ?? null,
-        lng: lastStopDraft.lng ?? null,
-        place_id: lastStopDraft.place_id ?? null,
-      }
-    : null;
+  const plannedTransfers = planItineraryTransfers({
+    stops: namedStops,
+    startDate: form.start_date,
+    endDate: form.end_date,
+    home: homeEndpoint,
+  });
+  const outboundPlanned = plannedTransfers.find((t) => t.role === "outbound");
+  const returnPlanned = [...plannedTransfers]
+    .reverse()
+    .find((t) => t.role === "return");
+  const lastLodging = lodgingStopForDate(namedStops, form.end_date);
+  const firstEndpoint: TransferEndpoint | null =
+    outboundPlanned?.destination ??
+    (firstStopDraft?.name.trim()
+      ? {
+          label: firstStopDraft.name.trim(),
+          lat: firstStopDraft.lat ?? null,
+          lng: firstStopDraft.lng ?? null,
+          place_id: firstStopDraft.place_id ?? null,
+        }
+      : null);
+  const lastEndpoint: TransferEndpoint | null =
+    returnPlanned?.origin ??
+    (lastLodging ? endpointFromStop(lastLodging) : null);
 
   const canEstimateMode = canEstimateTransferArrival(roundTripMode);
   const outboundHasRoute =
@@ -449,15 +464,18 @@ export function TripFormDialog({
       place_id: string | null;
       lat: number | null;
       lng: number | null;
+      start_date: string;
+      end_date: string;
+      sort_order: number;
     }[],
     knownOutboundId: string | null,
     knownReturnId: string | null
   ) {
     const days = await fetchTripItineraryLite(tripId);
     const firstStop = stopPayload[0];
-    const lastStop = stopPayload[stopPayload.length - 1];
-    const firstDay = days[0];
-    const lastDay = days[days.length, 1];
+    const lastStop =
+      lodgingStopForDate(stopPayload, form.end_date) ??
+      stopPayload[stopPayload.length - 1];
 
     const fresh = findRoundTripTransfers({
       itinerary: days,
@@ -484,77 +502,34 @@ export function TripFormDialog({
       lng: homeOrigin.lng,
       place_id: homeOrigin.place_id,
     };
-    const toFirst = {
-      label: firstStop.name,
-      lat: firstStop.lat,
-      lng: firstStop.lng,
-      place_id: firstStop.place_id,
-    };
-    const fromLast = {
-      label: (lastStop ?? firstStop).name,
-      lat: (lastStop ?? firstStop).lat,
-      lng: (lastStop ?? firstStop).lng,
-      place_id: (lastStop ?? firstStop).place_id,
-    };
+    const planned = planItineraryTransfers({
+      stops: stopPayload,
+      startDate: form.start_date,
+      endDate: form.end_date,
+      home,
+    });
+    const sync = planTransferActivitySync({
+      planned,
+      days,
+      home,
+      mode: roundTripMode,
+      outboundTimes: { depart: outboundDepart, arrive: outboundArrive },
+      returnTimes: { depart: returnDepart, arrive: returnArrive },
+      knownOutboundId: outboundId,
+      knownReturnId: returnId,
+    });
 
-    const tasks: Promise<unknown>[] = [];
-
-    if (firstDay) {
-      const outboundPayload = {
-        title: transferEndpointsTitle(home.label, toFirst.label),
-        category: "transport" as const,
-        transport_mode: roundTripMode,
-        sort_order: fresh.outbound?.sort_order ?? 0,
-        activity_time: outboundDepart.trim() || null,
-        arrival_time: outboundArrive.trim() || null,
-        origin_label: home.label,
-        origin_lat: home.lat,
-        origin_lng: home.lng,
-        origin_place_id: home.place_id,
-        destination_label: toFirst.label,
-        destination_lat: toFirst.lat,
-        destination_lng: toFirst.lng,
-        destination_place_id: toFirst.place_id,
-      };
-      tasks.push(
-        outboundId
-          ? updateItineraryActivity({ id: outboundId, ...outboundPayload })
-          : createItineraryActivity({
-              day_id: firstDay.id,
-              ...outboundPayload,
-            })
-      );
-    }
-
-    if (lastDay) {
-      const sameDay = lastDay.id === firstDay?.id;
-      const returnPayload = {
-        title: transferEndpointsTitle(fromLast.label, home.label),
-        category: "transport" as const,
-        transport_mode: roundTripMode,
-        sort_order: fresh.returnTrip?.sort_order ?? (sameDay ? 1 : 0),
-        activity_time: returnDepart.trim() || null,
-        arrival_time: returnArrive.trim() || null,
-        origin_label: fromLast.label,
-        origin_lat: fromLast.lat,
-        origin_lng: fromLast.lng,
-        origin_place_id: fromLast.place_id,
-        destination_label: home.label,
-        destination_lat: home.lat,
-        destination_lng: home.lng,
-        destination_place_id: home.place_id,
-      };
-      tasks.push(
-        returnId && returnId !== outboundId
-          ? updateItineraryActivity({ id: returnId, ...returnPayload })
-          : createItineraryActivity({
-              day_id: lastDay.id,
-              ...returnPayload,
-            })
-      );
-    }
-
-    await Promise.all(tasks);
+    await Promise.all(
+      sync.update.map(({ date: _date, ...payload }) =>
+        updateItineraryActivity(payload)
+      )
+    );
+    await Promise.all(
+      sync.create.map(({ date: _date, ...payload }) =>
+        createItineraryActivity(payload)
+      )
+    );
+    await Promise.all(sync.deleteIds.map((id) => deleteItineraryActivity(id)));
   }
 
   async function handleSave() {

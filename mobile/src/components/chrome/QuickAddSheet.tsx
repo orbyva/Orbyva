@@ -55,12 +55,15 @@ export function QuickAddSheet() {
                   return;
                 }
                 if (action.params) {
-                  router.push({
-                    pathname: action.href,
-                    params: action.params,
-                  } as Href);
+                  router.push(
+                    {
+                      pathname: action.href,
+                      params: action.params,
+                    } as Href,
+                    { withAnchor: true }
+                  );
                 } else {
-                  router.push(action.href);
+                  router.push(action.href, { withAnchor: true });
                 }
               }}
               style={[

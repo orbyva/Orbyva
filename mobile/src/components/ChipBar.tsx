@@ -16,7 +16,7 @@ export function ChipBar<T extends string>({
 }) {
   const theme = useTheme();
 
-  if (options.length <= 3) {
+  if (options.length <= 4) {
     return (
       <View style={styles.segmentWrap}>
         <View
@@ -24,6 +24,7 @@ export function ChipBar<T extends string>({
             styles.segmentTrack,
             { backgroundColor: theme.backgroundElement },
             options.length === 3 && styles.segmentTrackWide,
+            options.length === 4 && styles.segmentTrackFull,
           ]}
         >
           {options.map((option) => {
@@ -37,13 +38,19 @@ export function ChipBar<T extends string>({
                 }}
                 style={[
                   styles.segment,
+                  options.length === 4 && styles.segmentTight,
                   active && { backgroundColor: theme.primary },
                 ]}
               >
                 <ThemedText
                   type="smallBold"
                   numberOfLines={1}
-                  style={{ color: active ? "#FFFFFF" : theme.textSecondary }}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  style={{
+                    color: active ? "#FFFFFF" : theme.textSecondary,
+                    textAlign: "center",
+                  }}
                 >
                   {option.label}
                 </ThemedText>
@@ -110,6 +117,7 @@ const styles = StyleSheet.create({
     maxWidth: 360,
   },
   segmentTrackWide: { maxWidth: 440 },
+  segmentTrackFull: { maxWidth: "100%" },
   segment: {
     flex: 1,
     alignItems: "center",
@@ -118,6 +126,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderRadius: 999,
   },
+  segmentTight: { paddingHorizontal: 4, paddingVertical: 9 },
   row: { flexDirection: "row", flexWrap: "nowrap", gap: 8, paddingRight: 8 },
   chip: {
     borderRadius: Radius.chip,

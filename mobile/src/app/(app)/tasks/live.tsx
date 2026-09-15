@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -319,21 +320,23 @@ export default function LiveScreen() {
                 const task = tasksById.get(entry.taskId);
                 const seconds = elapsedSeconds(entry, now);
                 return (
-                  <Pressable
+                  <View
                     key={entry.raw.id}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/tasks/form",
-                        params: { id: entry.taskId },
-                      })
-                    }
-                    onLongPress={() => confirmDelete(entry.raw.id)}
                     style={[
                       styles.row,
                       { backgroundColor: theme.backgroundElement },
                     ]}
                   >
-                    <View style={styles.copy}>
+                    <Pressable
+                      style={styles.copy}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/tasks/form",
+                          params: { id: entry.taskId },
+                        })
+                      }
+                      onLongPress={() => confirmDelete(entry.raw.id)}
+                    >
                       <ThemedText type="smallBold">
                         {task?.title ?? "Tarefa"}
                       </ThemedText>
@@ -341,8 +344,20 @@ export default function LiveScreen() {
                         {formatDuration(seconds)}
                         {entry.endedAt ? "" : " · agora"}
                       </ThemedText>
-                    </View>
-                  </Pressable>
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel="Excluir registro"
+                      hitSlop={8}
+                      onPress={() => confirmDelete(entry.raw.id)}
+                      style={styles.trash}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={18}
+                        color={theme.danger}
+                      />
+                    </Pressable>
+                  </View>
                 );
               })}
             </View>
@@ -365,6 +380,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   day: { gap: 8 },
-  row: { borderRadius: 12, padding: 12 },
-  copy: { gap: 2 },
+  row: {
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  copy: { flex: 1, gap: 2, minWidth: 0 },
+  trash: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

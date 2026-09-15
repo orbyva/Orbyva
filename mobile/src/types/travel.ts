@@ -136,7 +136,23 @@ export interface TripItineraryActivity {
   destination_lat?: number | null;
   destination_lng?: number | null;
   destination_place_id?: string | null;
+  place_visit_id?: string | null;
+  visit_status?: "pending" | "completed" | "skipped" | null;
+  completed_at?: string | null;
+  skipped_at?: string | null;
 }
+
+export type TripActivityCategory =
+  | "restaurant"
+  | "cafe"
+  | "bar"
+  | "attraction"
+  | "hotel"
+  | "park"
+  | "museum"
+  | "shop"
+  | "transport"
+  | "other";
 
 export interface TripItineraryDay {
   id: string;

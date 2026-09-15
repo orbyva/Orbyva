@@ -19,6 +19,7 @@ import {
   updateTripExpense,
 } from "@/api/travel/travel";
 import { DateField } from "@/components/DateField";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { LedgerClassField } from "@/components/LedgerClassField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -215,73 +216,43 @@ export default function TripExpenseFormScreen() {
             <View style={styles.chips}>
               {(Object.keys(EXPENSE_CATEGORY_LABELS) as TripExpenseCategory[]).map(
                 (cat) => (
-                  <Pressable
+                  <ChoiceChip
                     key={cat}
+                    label={EXPENSE_CATEGORY_LABELS[cat]}
+                    active={category === cat}
                     onPress={() => setCategory(cat)}
-                    style={[
-                      styles.chip,
-                      { backgroundColor: theme.backgroundElement },
-                      category === cat && {
-                        backgroundColor: theme.backgroundSelected,
-                      },
-                    ]}
-                  >
-                    <ThemedText type="smallBold">
-                      {EXPENSE_CATEGORY_LABELS[cat]}
-                    </ThemedText>
-                  </Pressable>
+                  />
                 )
               )}
             </View>
           </Field>
           <Field label="Quem vê">
             <View style={styles.chips}>
-              <Pressable
+              <ChoiceChip
+                label="Pessoal"
+                active={visibility === "personal"}
                 onPress={() => setVisibility("personal")}
-                style={[
-                  styles.chip,
-                  { backgroundColor: theme.backgroundElement },
-                  visibility === "personal" && {
-                    backgroundColor: theme.backgroundSelected,
-                  },
-                ]}
-              >
-                <ThemedText type="smallBold">Pessoal</ThemedText>
-              </Pressable>
-              <Pressable
+              />
+              <ChoiceChip
+                label="Conjunto"
+                active={visibility === "shared"}
                 onPress={() => setVisibility("shared")}
-                style={[
-                  styles.chip,
-                  { backgroundColor: theme.backgroundElement },
-                  visibility === "shared" && {
-                    backgroundColor: theme.backgroundSelected,
-                  },
-                ]}
-              >
-                <ThemedText type="smallBold">Conjunto</ThemedText>
-              </Pressable>
+              />
             </View>
           </Field>
           {members.length > 0 ? (
             <Field label="Quem pagou">
               <View style={styles.chips}>
                 {members.map((member) => (
-                  <Pressable
+                  <ChoiceChip
                     key={member.user_id}
+                    label={
+                      member.display_name ||
+                      (member.user_id === userId ? "Você" : "Membro")
+                    }
+                    active={payerId === member.user_id}
                     onPress={() => setPayerId(member.user_id)}
-                    style={[
-                      styles.chip,
-                      { backgroundColor: theme.backgroundElement },
-                      payerId === member.user_id && {
-                        backgroundColor: theme.backgroundSelected,
-                      },
-                    ]}
-                  >
-                    <ThemedText type="smallBold">
-                      {member.display_name ||
-                        (member.user_id === userId ? "Você" : "Membro")}
-                    </ThemedText>
-                  </Pressable>
+                  />
                 ))}
               </View>
             </Field>

@@ -49,3 +49,8 @@ export const LINK_STATUS_LABELS: Record<"to_consume" | "consumed", string> = {
   to_consume: "Para ver",
   consumed: "Visto",
 };
+
+/** Favicon público do domínio — o mesmo endpoint do web (`google.com/s2/favicons`). */
+export function contentLinkFaviconUrl(domain: string): string {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
+}

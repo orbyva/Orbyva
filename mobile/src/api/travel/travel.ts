@@ -1,6 +1,9 @@
 import { createTransaction, deleteTransaction } from "@/api/finance/transactions";
 import { enrichTrip, generateItineraryDays, tripLedgerDescription } from "@/domain/travel";
-import { transferEndpointsTitle } from "@/domain/travel/transportModes";
+import {
+  planItineraryTransfers,
+  planTransferActivitySync,
+} from "@/domain/travel/itineraryTransfers";
 import { sumTripSpent } from "@/domain/travel/spent";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { supabase } from "@/lib/supabase";
@@ -26,6 +29,39 @@ const TRIP_LIST_SELECT =
 
 const STOP_SELECT =
   "id, trip_id, name, place_id, lat, lng, start_date, end_date, sort_order";
+
+/** `sort_order` no Postgres é integer; `Date.now()` estoura o limite. */
+const PG_INT_MAX = 2_147_483_647;
+
+function nextSortOrder(currentMax?: number | null): number {
+  if (
+    typeof currentMax === "number" &&
+    Number.isFinite(currentMax) &&
+    currentMax >= 0 &&
+    currentMax < PG_INT_MAX
+  ) {
+    return Math.trunc(currentMax) + 1;
+  }
+  return 1;
+}
+
+function clampSortOrder(value: number | undefined): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  const n = Math.trunc(value);
+  if (n < 0 || n > PG_INT_MAX) return null;
+  return n;
+}
+
+async function nextActivitySortOrder(dayId: string): Promise<number> {
+  const { data } = await supabase
+    .from("trip_itinerary_activity")
+    .select("sort_order")
+    .eq("day_id", dayId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return nextSortOrder(data?.sort_order);
+}
 
 async function fetchMemberTripIds(userId: string): Promise<string[]> {
   const { data, error } = await supabase
@@ -306,6 +342,13 @@ export async function createChecklistItem(input: {
   title: string;
   category: TripChecklistCategory;
 }): Promise<TripChecklistItem> {
+  const { data: last } = await supabase
+    .from("trip_checklist_item")
+    .select("sort_order")
+    .eq("trip_id", input.trip_id)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
   const { data, error } = await supabase
     .from("trip_checklist_item")
     .insert([
@@ -314,7 +357,7 @@ export async function createChecklistItem(input: {
         title: input.title.trim(),
         category: input.category,
         done: false,
-        sort_order: Date.now(),
+        sort_order: nextSortOrder(last?.sort_order),
       },
     ])
     .select()
@@ -648,7 +691,7 @@ export async function fetchTripItinerary(
   const { data: activities, error: actError } = await supabase
     .from("trip_itinerary_activity")
     .select(
-      "id, day_id, title, activity_time, arrival_time, notes, sort_order, category, transport_mode, origin_label, origin_lat, origin_lng, origin_place_id, destination_label, destination_lat, destination_lng, destination_place_id"
+      "id, day_id, title, activity_time, arrival_time, notes, sort_order, category, transport_mode, origin_label, origin_lat, origin_lng, origin_place_id, destination_label, destination_lat, destination_lng, destination_place_id, place_visit_id, visit_status, completed_at, skipped_at"
     )
     .in("day_id", dayIds)
     .order("sort_order", { ascending: true });
@@ -684,11 +727,15 @@ export async function createItineraryActivity(input: {
   destination_lat?: number | null;
   destination_lng?: number | null;
   destination_place_id?: string | null;
+  place_visit_id?: string | null;
+  notes?: string | null;
 }): Promise<void> {
+  const sortOrder =
+    clampSortOrder(input.sort_order) ?? (await nextActivitySortOrder(input.day_id));
   const payload: Record<string, unknown> = {
     day_id: input.day_id,
     title: input.title.trim(),
-    sort_order: input.sort_order ?? Date.now(),
+    sort_order: sortOrder,
   };
   if (input.activity_time !== undefined) payload.activity_time = input.activity_time;
   if (input.arrival_time !== undefined) payload.arrival_time = input.arrival_time;
@@ -708,6 +755,8 @@ export async function createItineraryActivity(input: {
   if (input.destination_place_id !== undefined) {
     payload.destination_place_id = input.destination_place_id;
   }
+  if (input.place_visit_id !== undefined) payload.place_visit_id = input.place_visit_id;
+  if (input.notes !== undefined) payload.notes = input.notes;
   const first = await supabase.from("trip_itinerary_activity").insert([payload]);
   if (!first.error) return;
   const retry = await supabase.from("trip_itinerary_activity").insert([
@@ -715,7 +764,7 @@ export async function createItineraryActivity(input: {
       day_id: input.day_id,
       title: input.title.trim(),
       activity_time: input.activity_time ?? null,
-      sort_order: input.sort_order ?? Date.now(),
+      sort_order: sortOrder,
     },
   ]);
   if (retry.error) throw new Error(retry.error.message);
@@ -729,8 +778,9 @@ export async function syncRoundTripTransfers(input: {
     lng: number | null;
     place_id: string | null;
   };
-  firstStop: TripStopDraft;
-  lastStop: TripStopDraft;
+  stops: TripStopDraft[];
+  startDate: string;
+  endDate: string;
   mode: string;
   outboundDepart: string;
   outboundArrive: string;
@@ -741,58 +791,33 @@ export async function syncRoundTripTransfers(input: {
 }): Promise<void> {
   const itinerary = await fetchTripItinerary(input.tripId);
   const days = [...itinerary].sort((a, b) => a.day_number - b.day_number);
-  const firstDay = days[0];
-  const lastDay = days[days.length - 1];
-  if (!firstDay || !lastDay) return;
+  if (days.length === 0) return;
 
-  const outboundPayload = {
-    title: transferEndpointsTitle(input.home.label, input.firstStop.name),
-    category: "transport",
-    transport_mode: input.mode,
-    activity_time: input.outboundDepart.trim() || null,
-    arrival_time: input.outboundArrive.trim() || null,
-    origin_label: input.home.label,
-    origin_lat: input.home.lat,
-    origin_lng: input.home.lng,
-    origin_place_id: input.home.place_id,
-    destination_label: input.firstStop.name,
-    destination_lat: input.firstStop.lat ?? null,
-    destination_lng: input.firstStop.lng ?? null,
-    destination_place_id: input.firstStop.place_id ?? null,
-    sort_order: 0,
-  };
-  if (input.outboundId) {
-    await updateItineraryActivity({ id: input.outboundId, ...outboundPayload });
-  } else {
-    await createItineraryActivity({
-      day_id: firstDay.id,
-      ...outboundPayload,
-    });
+  const planned = planItineraryTransfers({
+    stops: input.stops.map((stop, i) => ({ ...stop, sort_order: i })),
+    startDate: input.startDate,
+    endDate: input.endDate,
+    home: input.home,
+  });
+  const sync = planTransferActivitySync({
+    planned,
+    days,
+    home: input.home,
+    mode: input.mode,
+    outboundTimes: { depart: input.outboundDepart, arrive: input.outboundArrive },
+    returnTimes: { depart: input.returnDepart, arrive: input.returnArrive },
+    knownOutboundId: input.outboundId,
+    knownReturnId: input.returnId,
+  });
+
+  for (const { date: _date, ...payload } of sync.update) {
+    await updateItineraryActivity(payload);
   }
-
-  const returnPayload = {
-    title: transferEndpointsTitle(input.lastStop.name, input.home.label),
-    category: "transport",
-    transport_mode: input.mode,
-    activity_time: input.returnDepart.trim() || null,
-    arrival_time: input.returnArrive.trim() || null,
-    origin_label: input.lastStop.name,
-    origin_lat: input.lastStop.lat ?? null,
-    origin_lng: input.lastStop.lng ?? null,
-    origin_place_id: input.lastStop.place_id ?? null,
-    destination_label: input.home.label,
-    destination_lat: input.home.lat,
-    destination_lng: input.home.lng,
-    destination_place_id: input.home.place_id,
-    sort_order: firstDay.id === lastDay.id ? 1 : 0,
-  };
-  if (input.returnId && input.returnId !== input.outboundId) {
-    await updateItineraryActivity({ id: input.returnId, ...returnPayload });
-  } else {
-    await createItineraryActivity({
-      day_id: lastDay.id,
-      ...returnPayload,
-    });
+  for (const { date: _date, ...payload } of sync.create) {
+    await createItineraryActivity(payload);
+  }
+  for (const id of sync.deleteIds) {
+    await deleteItineraryActivity(id);
   }
 }
 
@@ -806,6 +831,7 @@ export async function deleteItineraryActivity(id: string): Promise<void> {
 
 export async function updateItineraryActivity(input: {
   id: string;
+  day_id?: string;
   title?: string;
   notes?: string | null;
   activity_time?: string | null;
@@ -821,11 +847,45 @@ export async function updateItineraryActivity(input: {
   destination_lat?: number | null;
   destination_lng?: number | null;
   destination_place_id?: string | null;
+  place_visit_id?: string | null;
+  visit_status?: "pending" | "completed" | "skipped" | null;
+  completed_at?: string | null;
+  skipped_at?: string | null;
 }): Promise<void> {
   const { id, ...fields } = input;
   const { error } = await supabase
     .from("trip_itinerary_activity")
     .update(fields)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function setItineraryVisitStatus(
+  id: string,
+  status: "pending" | "completed" | "skipped"
+): Promise<void> {
+  const now = new Date().toISOString();
+  const patch =
+    status === "completed"
+      ? {
+          visit_status: "completed" as const,
+          completed_at: now,
+          skipped_at: null,
+        }
+      : status === "skipped"
+        ? {
+            visit_status: "skipped" as const,
+            skipped_at: now,
+            completed_at: null,
+          }
+        : {
+            visit_status: "pending" as const,
+            completed_at: null,
+            skipped_at: null,
+          };
+  const { error } = await supabase
+    .from("trip_itinerary_activity")
+    .update(patch)
     .eq("id", id);
   if (error) throw new Error(error.message);
 }

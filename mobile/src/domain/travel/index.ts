@@ -1,4 +1,11 @@
-import type { Trip, TripStatus, TripWithChecklist } from "@/types/travel";
+import { PLACE_TYPE_LABELS } from "@/domain/places";
+import type { PlaceType } from "@/types/places";
+import type {
+  Trip,
+  TripActivityCategory,
+  TripStatus,
+  TripWithChecklist,
+} from "@/types/travel";
 
 export const TRIP_STATUS_LABELS: Record<TripStatus, string> = {
   planning: "Planejando",
@@ -134,3 +141,27 @@ export function generateItineraryDays(
 }
 
 export { tripLedgerDescription } from "./ledger";
+
+export const ACTIVITY_CATEGORY_LABELS: Record<TripActivityCategory, string> = {
+  ...PLACE_TYPE_LABELS,
+  transport: "Deslocamento",
+};
+
+const LEGACY_ACTIVITY_CATEGORY: Record<string, TripActivityCategory> = {
+  flight: "transport",
+  activity: "attraction",
+};
+
+export function normalizeTripActivityCategory(
+  value: string | null | undefined
+): TripActivityCategory {
+  if (!value) return "attraction";
+  if (value in LEGACY_ACTIVITY_CATEGORY) {
+    return LEGACY_ACTIVITY_CATEGORY[value]!;
+  }
+  if (value === "transport") return "transport";
+  if (value in PLACE_TYPE_LABELS) {
+    return value as PlaceType;
+  }
+  return "attraction";
+}

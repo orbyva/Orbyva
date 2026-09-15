@@ -31,6 +31,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
 import { FormButton } from "@/components/ui/FormButton";
+import { FormSection } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import { MERMAID_SNIPPET } from "@/domain/notes/mermaidSnippet";
 import { insertAt, prefixLines, wrapInline } from "@/domain/notes/markdown";
@@ -341,17 +342,23 @@ export default function NoteEditorScreen() {
               {statusLabel}
             </ThemedText>
           ) : null}
-          <Pressable
-            onPress={() => setPickerOpen(true)}
-            disabled={deleting}
-            style={[styles.project, inputStyle]}
+          <FormSection
+            title="Projeto e vínculos"
+            hint={projectName}
+            defaultOpen={false}
           >
-            <ThemedText type="small" themeColor="textSecondary">
-              Projeto
-            </ThemedText>
-            <ThemedText>{projectName}</ThemedText>
-          </Pressable>
-          {noteId ? <NoteLinksSection noteId={noteId} /> : null}
+            <Pressable
+              onPress={() => setPickerOpen(true)}
+              disabled={deleting}
+              style={[styles.project, inputStyle]}
+            >
+              <ThemedText type="small" themeColor="textSecondary">
+                Projeto
+              </ThemedText>
+              <ThemedText>{projectName}</ThemedText>
+            </Pressable>
+            {noteId ? <NoteLinksSection noteId={noteId} /> : null}
+          </FormSection>
           <TextInput
             placeholder="Título"
             placeholderTextColor={theme.textSecondary}

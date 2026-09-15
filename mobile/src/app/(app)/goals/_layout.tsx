@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { HeaderChromeRight } from "@/components/chrome/HeaderChromeRight";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
 import { useTheme } from "@/hooks/use-theme";
+import { formScreenOptions } from "@/lib/formScreen";
 
 export default function GoalsStackLayout() {
   const theme = useTheme();
@@ -23,10 +24,7 @@ export default function GoalsStackLayout() {
         name="form"
         options={{
           title: "Nova meta",
-          presentation: "modal",
-          headerLeft: undefined,
-          headerRight: undefined,
-          headerBackVisible: true,
+          ...formScreenOptions,
         }}
       />
     </Stack>

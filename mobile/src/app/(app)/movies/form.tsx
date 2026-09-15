@@ -25,6 +25,7 @@ import {
   updateMovie,
 } from "@/api/movies/movies";
 import { CatalogSearch } from "@/components/CatalogSearch";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
 import { RecommendField } from "@/components/RecommendField";
 import { ThemedText } from "@/components/themed-text";
@@ -319,38 +320,24 @@ export default function MovieFormScreen() {
               <Field label="Tipo">
                 <View style={styles.chips}>
                   {TYPE_CHIPS.map((chip) => (
-                    <Pressable
+                    <ChoiceChip
                       key={chip.id}
+                      label={chip.label}
+                      active={type === chip.id}
                       onPress={() => setType(chip.id)}
-                      style={[
-                        styles.chip,
-                        { backgroundColor: theme.backgroundElement },
-                        type === chip.id && {
-                          backgroundColor: theme.backgroundSelected,
-                        },
-                      ]}
-                    >
-                      <ThemedText type="smallBold">{chip.label}</ThemedText>
-                    </Pressable>
+                    />
                   ))}
                 </View>
               </Field>
               <Field label="Status">
                 <View style={styles.chips}>
                   {STATUS_CHIPS.map((chip) => (
-                    <Pressable
+                    <ChoiceChip
                       key={chip.id}
+                      label={chip.label}
+                      active={status === chip.id}
                       onPress={() => setStatus(chip.id)}
-                      style={[
-                        styles.chip,
-                        { backgroundColor: theme.backgroundElement },
-                        status === chip.id && {
-                          backgroundColor: theme.backgroundSelected,
-                        },
-                      ]}
-                    >
-                      <ThemedText type="smallBold">{chip.label}</ThemedText>
-                    </Pressable>
+                    />
                   ))}
                 </View>
               </Field>

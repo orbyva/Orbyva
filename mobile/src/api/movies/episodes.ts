@@ -34,6 +34,8 @@ export async function markEpisodeWatched(params: {
   tmdbEpisodeId?: number | null;
   episodeName?: string | null;
   airDate?: string | null;
+  rating?: number | null;
+  notes?: string | null;
 }): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   await upsertEpisode({
@@ -45,6 +47,8 @@ export async function markEpisodeWatched(params: {
     air_date: params.airDate ?? null,
     status: "watched",
     watched_at: today,
+    rating: params.rating ?? null,
+    notes: params.notes?.trim() || null,
   });
 }
 
@@ -59,6 +63,8 @@ export async function markEpisodeUnwatched(params: {
     episode_number: params.episode,
     status: "unwatched",
     watched_at: null,
+    rating: null,
+    notes: null,
   });
 }
 
@@ -89,6 +95,28 @@ export async function markSeasonWatched(params: {
       air_date: ep.airDate ?? null,
       status: "watched",
       watched_at: today,
+      updated_at: now,
+    })),
+    { onConflict: "user_id,imdb_id,season_number,episode_number" }
+  );
+  if (error) throw new Error(error.message);
+}
+
+export async function markSeasonUnwatched(params: {
+  imdbId: string;
+  episodes: Array<{ season: number; episode: number }>;
+}): Promise<void> {
+  if (params.episodes.length === 0) return;
+  const userId = await getCurrentUserId();
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("movie_episode").upsert(
+    params.episodes.map((ep) => ({
+      user_id: userId,
+      imdb_id: params.imdbId,
+      season_number: ep.season,
+      episode_number: ep.episode,
+      status: "unwatched",
+      watched_at: null,
       updated_at: now,
     })),
     { onConflict: "user_id,imdb_id,season_number,episode_number" }

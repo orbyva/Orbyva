@@ -339,6 +339,7 @@ export default function PlaceDetailScreen() {
           title={place.name}
           hasNotes={Boolean(place.notes?.trim())}
           allowPhoto
+          maxPhotos={4}
           message={(includeNotes) =>
             buildPlaceShareText(place, { includeNotes })
           }

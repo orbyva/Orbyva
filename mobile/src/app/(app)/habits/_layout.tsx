@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { HeaderChromeRight } from "@/components/chrome/HeaderChromeRight";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
 import { useTheme } from "@/hooks/use-theme";
+import { formScreenOptions } from "@/lib/formScreen";
 
 export default function HabitsStackLayout() {
   const theme = useTheme();
@@ -24,10 +25,7 @@ export default function HabitsStackLayout() {
         name="form"
         options={{
           title: "Novo hábito",
-          presentation: "modal",
-          headerLeft: undefined,
-          headerRight: undefined,
-          headerBackVisible: true,
+          ...formScreenOptions,
         }}
       />
     </Stack>

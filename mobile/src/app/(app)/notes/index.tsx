@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
@@ -201,34 +202,50 @@ export default function NotesScreen() {
                 : null;
               return (
                 <Card key={note.id}>
-                  <Pressable
-                    onPress={() => openNote(note)}
-                    onLongPress={() => confirmDelete(note)}
-                    style={styles.card}
-                  >
-                  <ThemedText type="smallBold" numberOfLines={1}>
-                    {note.title}
-                  </ThemedText>
-                  {excerpt ? (
-                    <ThemedText
-                      type="small"
-                      themeColor="textSecondary"
-                      numberOfLines={2}
+                  <View style={styles.card}>
+                    <View style={styles.cardHead}>
+                      <Pressable
+                        onPress={() => openNote(note)}
+                        onLongPress={() => confirmDelete(note)}
+                        style={styles.cardCopy}
+                      >
+                        <ThemedText type="smallBold" numberOfLines={1}>
+                          {note.title}
+                        </ThemedText>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => confirmDelete(note)}
+                        hitSlop={8}
+                        style={styles.trash}
+                        accessibilityLabel="Excluir nota"
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color={theme.danger}
+                        />
+                      </Pressable>
+                    </View>
+                    <Pressable
+                      onPress={() => openNote(note)}
+                      onLongPress={() => confirmDelete(note)}
                     >
-                      {excerpt}
-                    </ThemedText>
-                  ) : null}
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {[projectName, formatDateBR(note.updated_at)]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </ThemedText>
-                  <Pressable onPress={() => confirmDelete(note)} hitSlop={8}>
-                    <ThemedText type="small" themeColor="danger">
-                      Excluir
-                    </ThemedText>
-                  </Pressable>
-                </Pressable>
+                      {excerpt ? (
+                        <ThemedText
+                          type="small"
+                          themeColor="textSecondary"
+                          numberOfLines={2}
+                        >
+                          {excerpt}
+                        </ThemedText>
+                      ) : null}
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {[projectName, formatDateBR(note.updated_at)]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
                 </Card>
               );
             })
@@ -258,6 +275,18 @@ const styles = StyleSheet.create({
   card: {
     padding: Spacing.three,
     gap: 4,
+  },
+  cardHead: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  cardCopy: { flex: 1, minWidth: 0 },
+  trash: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
   },
   empty: { gap: Spacing.one, paddingVertical: Spacing.four },
   banner: {

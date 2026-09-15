@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 
 import { recordHealthMetric } from "@/api/health/health";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -83,19 +83,12 @@ export default function MetricFormScreen() {
           <Field label="Tipo">
             <View style={styles.chips}>
               {METRIC_TYPES.map((type) => (
-                <Pressable
+                <ChoiceChip
                   key={type}
+                  label={METRIC_LABEL[type]}
+                  active={metricType === type}
                   onPress={() => setMetricType(type)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    metricType === type && {
-                      backgroundColor: theme.backgroundSelected,
-                    },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{METRIC_LABEL[type]}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>
@@ -173,11 +166,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
   primary: {
     height: 48,
     borderRadius: 999,

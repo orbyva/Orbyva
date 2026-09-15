@@ -186,7 +186,7 @@ export default function AlbumDetailScreen() {
         </View>
         {album.status !== "listened" ? (
           <FormButton
-            label="Marcar ouvido"
+            label="Marcar como Ouvido"
             tone="primary"
             disabled={busy}
             onPress={() => setReviewOpen(true)}
@@ -255,7 +255,16 @@ export default function AlbumDetailScreen() {
         visible={reviewOpen}
         title="Avaliar álbum"
         itemTitle={album.title}
-        confirmLabel="Marcar ouvido"
+        itemSubtitle={[
+          formatArtists(album.artists),
+          ALBUM_TYPE_LABELS[album.album_type],
+          album.release_year,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        coverUri={album.cover_url}
+        coverVariant="square"
+        confirmLabel="Marcar como Ouvido"
         busy={busy}
         onClose={() => setReviewOpen(false)}
         onConfirm={async (result) => {

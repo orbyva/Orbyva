@@ -1,7 +1,9 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,7 +11,7 @@ import {
   View,
 } from "react-native";
 
-import { fetchPlaces } from "@/api/places/places";
+import { deletePlace, fetchPlaces } from "@/api/places/places";
 import { ChipBar } from "@/components/ChipBar";
 import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { SearchField } from "@/components/SearchField";
@@ -120,6 +122,25 @@ export default function PlacesScreen() {
     }
   }
 
+  function confirmDelete(place: PlaceVisit) {
+    Alert.alert("Excluir lugar", place.name, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: () => {
+          void deletePlace(place.id)
+            .then(() =>
+              setPlaces((cur) => cur.filter((row) => row.id !== place.id))
+            )
+            .catch((err) =>
+              setError(getErrorMessage(err, "Não foi possível excluir."))
+            );
+        },
+      },
+    ]);
+  }
+
   const visible = useMemo(
     () =>
       filterPlaces(places, {
@@ -212,14 +233,19 @@ export default function PlacesScreen() {
             visible.map((place) => {
               const tone = placeTypeMeta(place.type);
               return (
-                <Pressable
-                  key={place.id}
-                  onPress={() =>
-                    router.push({ pathname: "/places/[id]", params: { id: place.id } })
-                  }
-                >
-                  <Card style={styles.card}>
-                    <View style={[styles.iconWell, { backgroundColor: tone.bg }]}>
+                <Card key={place.id} style={styles.card}>
+                  <Pressable
+                    style={styles.cardMain}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/places/[id]",
+                        params: { id: place.id },
+                      })
+                    }
+                  >
+                    <View
+                      style={[styles.iconWell, { backgroundColor: tone.bg }]}
+                    >
                       <TypeIcon name={tone.icon} color={tone.fg} size={16} />
                     </View>
                     <View style={styles.copy}>
@@ -237,8 +263,20 @@ export default function PlacesScreen() {
                           .join(" · ")}
                       </ThemedText>
                     </View>
-                  </Card>
-                </Pressable>
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Excluir lugar"
+                    hitSlop={8}
+                    onPress={() => confirmDelete(place)}
+                    style={styles.trash}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={theme.danger}
+                    />
+                  </Pressable>
+                </Card>
               );
             })
           )}
@@ -257,7 +295,14 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
+  },
+  cardMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
+    minWidth: 0,
   },
   iconWell: {
     width: 40,
@@ -267,4 +312,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   copy: { flex: 1, gap: 2 },
+  trash: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

@@ -15,6 +15,7 @@ import { Radius, Spacing } from "@/constants/theme";
 import { PRIORITY_COLORS } from "@/domain/tasks/priority";
 import { taskScheduleMeta, todayIsoDate } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
+import { dragItemEntering, dragListLayout, useDropLanding } from "@/lib/dragMotion";
 import type { Task, TaskStatus } from "@/types/tasks";
 import { TASK_STATUS_LABELS } from "@/types/tasks";
 
@@ -67,6 +68,7 @@ export function TasksKanban({
   const columnsRef = useRef(columns);
   columnsRef.current = columns;
   const [dragging, setDragging] = useState<Task | null>(null);
+  const { markLanded, landingKey, landedId } = useDropLanding();
 
   const absX = useSharedValue(0);
   const absY = useSharedValue(0);
@@ -116,6 +118,7 @@ export function TasksKanban({
       const finish = () => {
         const target = statusAtPoint(rects, x, y);
         if (!target || target === task.status) return;
+        markLanded(task.id);
         onMoveStatus(task, target);
       };
 
@@ -127,7 +130,7 @@ export function TasksKanban({
         });
       }
     },
-    [onMoveStatus]
+    [markLanded, onMoveStatus]
   );
 
   const registerColumn = useCallback((status: TaskStatus, node: View | null) => {
@@ -172,9 +175,10 @@ export function TasksKanban({
                 ) : (
                   column.items.map((task) => (
                     <KanbanCard
-                      key={task.id}
+                      key={landingKey(task.id)}
                       task={task}
                       dragging={dragging?.id === task.id}
+                      landed={landedId === task.id}
                       busyId={busyId}
                       absX={absX}
                       absY={absY}
@@ -215,6 +219,7 @@ export function TasksKanban({
 const KanbanCard = memo(function KanbanCard({
   task,
   dragging,
+  landed,
   busyId,
   absX,
   absY,
@@ -228,6 +233,7 @@ const KanbanCard = memo(function KanbanCard({
 }: {
   task: Task;
   dragging: boolean;
+  landed: boolean;
   busyId: string | null;
   absX: SharedValue<number>;
   absY: SharedValue<number>;
@@ -290,7 +296,9 @@ const KanbanCard = memo(function KanbanCard({
   );
 
   return (
-    <View
+    <Animated.View
+      layout={dragListLayout}
+      entering={landed ? dragItemEntering : undefined}
       style={[
         styles.card,
         {
@@ -418,7 +426,7 @@ const KanbanCard = memo(function KanbanCard({
           </View>
         );
       })}
-    </View>
+    </Animated.View>
   );
 });
 

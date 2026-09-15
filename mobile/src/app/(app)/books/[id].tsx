@@ -319,7 +319,11 @@ export default function BookDetailScreen() {
         visible={reviewOpen}
         title="Avaliar livro"
         itemTitle={book.title}
-        confirmLabel="Marcar lido"
+        itemSubtitle={[formatAuthors(book.authors), book.published_year]
+          .filter(Boolean)
+          .join(" · ")}
+        coverUri={book.cover_url}
+        confirmLabel="Marcar como Lido"
         busy={busy}
         onClose={() => setReviewOpen(false)}
         onConfirm={async (result) => {

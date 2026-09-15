@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 import { DateField } from "@/components/DateField";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
 import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
@@ -89,7 +90,7 @@ export function SubtaskFormRow({
           />
         ) : null}
         <View style={styles.chips}>
-          <Chip
+          <ChoiceChip
             label="Hoje"
             active={task.due_date === todayIso}
             onPress={() =>
@@ -99,13 +100,11 @@ export function SubtaskFormRow({
                   : todayIso
               )
             }
-            theme={theme}
           />
-          <Chip
+          <ChoiceChip
             label="Sem prazo"
             active={task.due_date == null}
             onPress={() => onDueChange(null)}
-            theme={theme}
           />
         </View>
       </View>
@@ -135,41 +134,15 @@ export function SubtaskFormRow({
 
       <View style={styles.chips}>
         {PRIORITY_OPTIONS.map(([value, label]) => (
-          <Chip
+          <ChoiceChip
             key={label}
             label={label}
             active={(task.priority ?? null) === value}
             onPress={() => onPriorityChange(value)}
-            theme={theme}
           />
         ))}
       </View>
     </View>
-  );
-}
-
-function Chip({
-  label,
-  active,
-  onPress,
-  theme,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  theme: { backgroundElement: string; backgroundSelected: string };
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.chip,
-        { backgroundColor: theme.backgroundElement },
-        active ? { backgroundColor: theme.backgroundSelected } : null,
-      ]}
-    >
-      <ThemedText type="smallBold">{label}</ThemedText>
-    </Pressable>
   );
 }
 
@@ -194,11 +167,6 @@ const styles = StyleSheet.create({
   meta: { flexDirection: "row", alignItems: "center", gap: 8 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, flex: 1 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
   date: {
     minHeight: 44,
     borderRadius: 12,

@@ -263,9 +263,10 @@ export function quickAddActionsForPath(pathname: string): QuickAddItem[] {
   if (path.startsWith("/places")) {
     return [{ id: "place", label: "Novo lugar", href: "/places/form" }];
   }
-  if (path.startsWith("/travel")) {
+  if (path === "/travel" || path === "/travel/") {
     return [{ id: "trip", label: "Nova viagem", href: "/travel/form" }];
   }
+  if (path.startsWith("/travel/")) return [];
   if (/^\/cars\/[^/]+$/.test(path)) {
     const vehicleId = path.split("/")[2];
     return [

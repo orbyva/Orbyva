@@ -18,6 +18,7 @@ import {
   updateDocumentPaid,
 } from "@/api/car/car";
 import { DateField } from "@/components/DateField";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { FormButton } from "@/components/ui/FormButton";
@@ -132,17 +133,12 @@ export default function DocumentFormScreen() {
           <Field label="Tipo">
             <View style={styles.chips}>
               {Object.entries(DOCUMENT_TYPE_LABELS).map(([id, label]) => (
-                <Pressable
+                <ChoiceChip
                   key={id}
+                  label={label}
+                  active={type === id}
                   onPress={() => setType(id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.backgroundElement },
-                    type === id && { backgroundColor: theme.backgroundSelected },
-                  ]}
-                >
-                  <ThemedText type="smallBold">{label}</ThemedText>
-                </Pressable>
+                />
               ))}
             </View>
           </Field>
@@ -158,14 +154,12 @@ export default function DocumentFormScreen() {
           <Field label="Vencimento">
             <DateField value={dueDate} onChange={setDueDate} style={inputStyle} />
           </Field>
-          <Pressable
+          <ChoiceChip
+            label={paid ? "Pago" : "Em aberto"}
+            active={paid}
             onPress={() => setPaid((cur) => !cur)}
-            style={[styles.chip, { backgroundColor: theme.backgroundElement }]}
-          >
-            <ThemedText type="smallBold">
-              {paid ? "Pago" : "Em aberto"}
-            </ThemedText>
-          </Pressable>
+            style={{ alignSelf: "flex-start" }}
+          />
           <FormButton
             label={editId ? "Salvar alterações" : "Salvar documento"}
             tone="primary"

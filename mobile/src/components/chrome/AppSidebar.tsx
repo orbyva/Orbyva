@@ -40,7 +40,7 @@ export function AppSidebar() {
   const { sidebarOpen, setSidebarOpen } = useAppShell();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const panelWidth = Math.min(340, Math.round(windowWidth * 0.84));
+  const panelWidth = Math.min(268, Math.round(windowWidth * 0.68));
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Início:
       path.startsWith("/home") || path === "/" || path.startsWith("/timeline"),
@@ -107,7 +107,7 @@ export function AppSidebar() {
         >
           <View style={styles.brandRow}>
             <Pressable onPress={() => go("/home")} style={styles.brandLockup}>
-              <BrandLogo size={40} />
+              <BrandLogo size={32} />
               <View style={{ flex: 1 }}>
                 <BrandWordmark />
               </View>
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two,
     paddingBottom: Spacing.three,
   },
-  brandLockup: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
+  brandLockup: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
   close: { padding: 4 },
   scroll: { flex: 1 },
   list: { paddingHorizontal: Spacing.two, paddingBottom: Spacing.four, gap: 4 },

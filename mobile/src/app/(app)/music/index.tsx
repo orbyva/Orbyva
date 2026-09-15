@@ -2,20 +2,22 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
 
-import { fetchAllAlbums, updateAlbum } from "@/api/music/albums";
+import { deleteAlbum, fetchAllAlbums, updateAlbum } from "@/api/music/albums";
 import { ChipBar } from "@/components/ChipBar";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { CatalogMediaCard } from "@/components/CatalogMediaCard";
 import { FilterSelect } from "@/components/FilterSelect";
 import { InsightsStrip } from "@/components/InsightsStrip";
 import { ReviewSheet } from "@/components/ReviewSheet";
 import { SearchField } from "@/components/SearchField";
+import { SurpriseChip } from "@/components/SurpriseChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -168,6 +170,27 @@ export default function MusicScreen() {
     router.push({ pathname: "/music/[id]", params: { id } });
   }
 
+  function confirmDelete(album: Album) {
+    Alert.alert("Excluir álbum", album.title, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: () => {
+          void deleteAlbum(album.musicbrainz_id)
+            .then(() =>
+              setAlbums((cur) =>
+                cur.filter((row) => row.musicbrainz_id !== album.musicbrainz_id)
+              )
+            )
+            .catch((err) =>
+              fail(getErrorMessage(err, "Não foi possível excluir."))
+            );
+        },
+      },
+    ]);
+  }
+
   function surprise() {
     const pick = pickRandomToListenAlbum(albums);
     if (!pick) {
@@ -236,23 +259,12 @@ export default function MusicScreen() {
                 setSort(id as (typeof CATALOG_SORT_OPTIONS)[number]["id"])
               }
             />
-            <Pressable
+            <ChoiceChip
+              label={favoritesOnly ? "♥ Favoritos" : "Favoritos"}
+              active={favoritesOnly}
               onPress={() => setFavoritesOnly((cur) => !cur)}
-              style={[
-                styles.chip,
-                { backgroundColor: theme.backgroundElement },
-                favoritesOnly && { backgroundColor: theme.backgroundSelected },
-              ]}
-            >
-              <ThemedText type="smallBold">
-                {favoritesOnly ? "♥ Favoritos" : "Favoritos"}
-              </ThemedText>
-            </Pressable>
-            <Pressable onPress={surprise}>
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                Me surpreenda
-              </ThemedText>
-            </Pressable>
+            />
+            <SurpriseChip onPress={surprise} />
           </View>
           {visible.length === 0 ? (
             <ThemedText themeColor="textSecondary">
@@ -276,13 +288,14 @@ export default function MusicScreen() {
                   .filter(Boolean)
                   .join(" · ")}
                 actionLabel={
-                  album.status !== "listened" ? "Marcar ouvido" : null
+                  album.status !== "listened" ? "Marcar como Ouvido" : null
                 }
                 onAction={
                   busyId === album.musicbrainz_id
                     ? undefined
                     : () => setReviewAlbum(album)
                 }
+                onDelete={() => confirmDelete(album)}
                 onPress={() => openAlbum(album.musicbrainz_id)}
               />
             ))
@@ -293,7 +306,20 @@ export default function MusicScreen() {
         visible={reviewAlbum != null}
         title="Avaliar álbum"
         itemTitle={reviewAlbum?.title ?? ""}
-        confirmLabel="Marcar ouvido"
+        itemSubtitle={
+          reviewAlbum
+            ? [
+                formatArtists(reviewAlbum.artists),
+                ALBUM_TYPE_LABELS[reviewAlbum.album_type],
+                reviewAlbum.release_year,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : undefined
+        }
+        coverUri={reviewAlbum?.cover_url}
+        coverVariant="square"
+        confirmLabel="Marcar como Ouvido"
         busy={reviewAlbum != null && busyId === reviewAlbum.musicbrainz_id}
         onClose={() => setReviewAlbum(null)}
         onConfirm={(result) => {

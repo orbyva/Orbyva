@@ -179,6 +179,7 @@ export type TmdbEpisode = {
   episode_number: number;
   name: string;
   air_date?: string | null;
+  overview?: string | null;
 };
 
 export async function fetchTvMetaTmdb(
@@ -231,6 +232,7 @@ export async function fetchTvSeasonEpisodesTmdb(
         episode_number: number;
         name?: string;
         air_date?: string | null;
+        overview?: string | null;
       }[];
     }>(`/tv/${tmdbTvId}/season/${seasonNumber}`);
     return (data.episodes ?? []).map((episode) => ({
@@ -239,6 +241,7 @@ export async function fetchTvSeasonEpisodesTmdb(
       episode_number: episode.episode_number,
       name: episode.name?.trim() || `Episódio ${episode.episode_number}`,
       air_date: episode.air_date ?? null,
+      overview: episode.overview?.trim() || null,
     }));
   } catch {
     return [];

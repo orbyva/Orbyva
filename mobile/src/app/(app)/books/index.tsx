@@ -2,20 +2,22 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
 
-import { fetchAllBooks, updateBook } from "@/api/books/books";
+import { deleteBook, fetchAllBooks, updateBook } from "@/api/books/books";
 import { ChipBar } from "@/components/ChipBar";
+import { ChoiceChip } from "@/components/ChoiceChip";
 import { CatalogMediaCard } from "@/components/CatalogMediaCard";
 import { FilterSelect } from "@/components/FilterSelect";
 import { InsightsStrip } from "@/components/InsightsStrip";
 import { ReviewSheet } from "@/components/ReviewSheet";
 import { SearchField } from "@/components/SearchField";
+import { SurpriseChip } from "@/components/SurpriseChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -173,6 +175,27 @@ export default function BooksScreen() {
     router.push({ pathname: "/books/[id]", params: { id } });
   }
 
+  function confirmDelete(book: Book) {
+    Alert.alert("Excluir livro", book.title, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: () => {
+          void deleteBook(book.google_id)
+            .then(() =>
+              setBooks((cur) =>
+                cur.filter((row) => row.google_id !== book.google_id)
+              )
+            )
+            .catch((err) =>
+              fail(getErrorMessage(err, "Não foi possível excluir."))
+            );
+        },
+      },
+    ]);
+  }
+
   function surprise() {
     const pick = pickRandomToReadBook(books);
     if (!pick) {
@@ -246,23 +269,12 @@ export default function BooksScreen() {
                 setSort(id as (typeof CATALOG_SORT_OPTIONS)[number]["id"])
               }
             />
-            <Pressable
+            <ChoiceChip
+              label={favoritesOnly ? "♥ Favoritos" : "Favoritos"}
+              active={favoritesOnly}
               onPress={() => setFavoritesOnly((cur) => !cur)}
-              style={[
-                styles.chip,
-                { backgroundColor: theme.backgroundElement },
-                favoritesOnly && { backgroundColor: theme.backgroundSelected },
-              ]}
-            >
-              <ThemedText type="smallBold">
-                {favoritesOnly ? "♥ Favoritos" : "Favoritos"}
-              </ThemedText>
-            </Pressable>
-            <Pressable onPress={surprise}>
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                Me surpreenda
-              </ThemedText>
-            </Pressable>
+            />
+            <SurpriseChip onPress={surprise} />
           </View>
           {visible.length === 0 ? (
             <ThemedText themeColor="textSecondary">
@@ -286,7 +298,7 @@ export default function BooksScreen() {
                   .join(" · ")}
                 actionLabel={
                   book.status !== "read" && book.status !== "abandoned"
-                    ? "Marcar lido"
+                    ? "Marcar como Lido"
                     : null
                 }
                 onAction={
@@ -294,6 +306,7 @@ export default function BooksScreen() {
                     ? undefined
                     : () => setReviewBook(book)
                 }
+                onDelete={() => confirmDelete(book)}
                 onPress={() => openBook(book.google_id)}
               />
             ))
@@ -304,7 +317,15 @@ export default function BooksScreen() {
         visible={reviewBook != null}
         title="Avaliar livro"
         itemTitle={reviewBook?.title ?? ""}
-        confirmLabel="Marcar lido"
+        itemSubtitle={
+          reviewBook
+            ? [formatAuthors(reviewBook.authors), reviewBook.published_year]
+                .filter(Boolean)
+                .join(" · ")
+            : undefined
+        }
+        coverUri={reviewBook?.cover_url}
+        confirmLabel="Marcar como Lido"
         busy={reviewBook != null && busyId === reviewBook.google_id}
         onClose={() => setReviewBook(null)}
         onConfirm={(result) => {

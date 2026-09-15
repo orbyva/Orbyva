@@ -489,6 +489,164 @@ Fundo da 1ª foto (capa visível, blur leve, vinheta). Mark da 2ª foto
 - [x] Nativo captura o mesmo modelo do canvas web (expo-image, mark,
       episódios, ViewShot opaco). Verificação: `npx tsc --noEmit` ✓
 
+### 21 — Notas: lixeira, contexto recolhível e vínculo direto
+
+- [x] Lista: excluir vira lixeira, fora do texto do card. Verificação:
+      `npx tsc --noEmit`
+- [x] Editor: projeto e vínculos recolhíveis; vincular escolhe o item
+      direto, sem marcar tipo e depois confirmar. Verificação:
+      `npx tsc --noEmit`
+
+### 22 — Lugares: share com até 4 fotos e interruptor de opinião
+
+- [x] Share de lugar aceita até 4 fotos, mosaico igual ao web.
+      Verificação: `npx tsc --noEmit`
+- [x] “Exibir opinião” usa o mesmo interruptor do form de viagens.
+      Verificação: `npx tsc --noEmit`
+
+### 23 — Chip selecionado em azul em todos os forms
+
+- [x] Chips de escolha (medição, forms, filtros extras) usam o mesmo
+      destaque azul do `ChoiceChip`. Verificação: `npx tsc --noEmit`
+
+### 24 — Cadastro novo abre em sheet, como transação
+
+- [x] Forms de criar/editar sobem por cima da lista (não tela
+      empilhada). `formSheet` no iOS some ao focar o teclado —
+      os forms usam `modal` + slide de baixo. Verificação:
+      `npx tsc --noEmit`
+
+### 25 — Viagens: paradas, estimar ida/volta, resumo e roteiro
+
+Formulário sem Destino (destino sai das paradas). Estimar ida/volta
+pela rota a partir da saída ou da chegada. Resumo com ícones
+(editar/compartilhar, clima/mala, convites e prazos — essas duas
+saem da ChipBar). Roteiro mais perto do web, com visita de verdade
+(`place_visit_id`), não só nota.
+
+- [x] Form: remove Destino; destino deriva das paradas; estimar
+      ida/volta via Google Routes. Verificação: `npx tsc --noEmit` ✓
+- [x] Resumo: ícones de editar/compartilhar; clima e mala com
+      ícones; convites e prazos nesta aba (fora da ChipBar).
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Roteiro: adicionar visita (catálogo + `createPlace`) e
+      deslocamento; UI mais próxima do web. Verificação:
+      `npx tsc --noEmit` ✓
+- [x] Roteiro: cada dia tem Adicionar visita (não Nota como
+      atividade). Verificação: `npx tsc --noEmit` ✓
+- [x] Roteiro: sort_order da visita cabe em integer (não
+      `Date.now()`). Verificação: `npx tsc --noEmit` ✓
+
+### 26 — Conteúdo: status no segmento da Saúde
+
+Cinema, livros, música e links usam o mesmo seletor de
+classificação da Saúde (trilho + azul no ativo), não chips soltos.
+
+- [x] ChipBar de até 4 opções (Para assistir / Assistindo / …)
+      vira o segmento da Saúde. Verificação: `npx tsc --noEmit` ✓
+
+### 27 — Roteiro: nota da visita, deslocamento, ordem e conclusão; lixeira em lugares
+
+Nota só na visita (sem “Anotação do dia”). Deslocamento com o
+destaque do web. Reordenar não deixa horário invertido. Visita
+marca concluída (`visit_status`). Lista de lugares tem lixeira
+(inclui Para visitar).
+
+- [x] Roteiro: remove anotação do dia; nota fica na visita.
+      Destaque de deslocamento; ordem respeita horário; marcar
+      visita concluída. Verificação: `npx tsc --noEmit` ✓
+- [x] Lugares: lixeira na lista para excluir (Para visitar).
+      Verificação: `npx tsc --noEmit` ✓
+
+### 28 — Links: ícone da origem e ações em ícone
+
+Ícone conforme o conteúdo (Instagram, YouTube, favicon do
+domínio — igual ao web). Abrir, favoritar e marcar como visto
+viram ícones, não texto.
+
+- [x] Lista de links: ícone da origem + ações em ícone.
+      Verificação: `npx tsc --noEmit` ✓
+- [x] FAB “Adicionar link” abre o form (âncora no índice para o
+      formSheet não montar sozinho). Verificação: `npx tsc --noEmit` ✓
+- [x] FormSheet de link mostra os campos (altura do conteúdo não
+      pode ser 0). Verificação: `npx tsc --noEmit` ✓
+- [x] Focar campo no form de link não apaga o conteúdo (teclado
+      no formSheet). Verificação: `npx tsc --noEmit` ✓
+- [x] Lista de links: lixeira no card para excluir.
+      Verificação: `npx tsc --noEmit` ✓
+
+### 29 — Live: lixeira no registro
+
+Histórico do timer com lixeira visível, igual nas listas de
+notas/links — não só no long press.
+
+- [x] Live: lixeira em cada registro de tempo.
+      Verificação: `npx tsc --noEmit` ✓
+
+### 30 — Chrome: fechar à esquerda, sidebar mais estreita; Cinema: surpresa, avaliação e episódios
+
+Fechar de formulário/sheet sempre à esquerda (Cancel iOS). Sidebar
+mais estreita. Cinema: surpreenda-me visível; avaliar com capa,
+data e observação; temporada com seta; nomenclatura clara.
+
+- [x] Fechar do form/sheet à esquerda; sidebar mais estreita.
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Cinema: surpreenda-me, avaliação com capa/data/nota,
+      temporada expansível e nomenclatura. Verificação: `npx tsc --noEmit` ✓
+
+### 31 — Cinema: avaliar e comentar episódio
+
+Cada episódio da série tem nota e comentário, igual no web.
+
+- [x] Detalhe da série: expandir episódio para nota e comentário.
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Episódios no estilo do web (T1/T2, card, check).
+      Verificação: `npx tsc --noEmit` ✓
+
+### 32 — Cinema: progresso na capa do card
+
+Série em Assistindo mostra na capa o mesmo indicador do web
+(`110/140 eps · 82%` + barra).
+
+- [x] Card de cinema: progresso na capa (eps e %).
+      Verificação: `npx tsc --noEmit` ✓
+
+### 33 — Viagens: roteiro, prazos, gastos e FAB
+
+Arrastar visita pela alça (regra de horário). Parada no título do
+dia. Prazos em aba. Sem checklist. Excluir e gastos visíveis.
+Sem `+` dentro da viagem.
+
+- [x] Roteiro: arraste, parada no dia, prazos, gastos, excluir, FAB.
+      Verificação: `npx tsc --noEmit` ✓
+
+### 34 — Conteúdo e compras: marcar e excluir na lista
+
+Cinema: “Marcar como Assistido” + lixeira. O mesmo em livros e
+música. Lista de compras com lixeira no item.
+
+- [x] Cards de cinema/livros/música e itens da lista de compras.
+      Verificação: `npx tsc --noEmit` ✓
+
+### 35 — Viagens: deslocamentos seguem a hospedagem dos dias seguintes
+
+Passeio no meio da viagem (ex.: Alto Paraíso → São Jorge no mesmo dia)
+volta para a cidade em que o roteiro continua, não para o ponto de
+origem. Origem só entra no último dia, se for o último local.
+
+- [x] Planejar trechos pelas paradas: hospedagem do dia, passeio
+      ida/volta, retorno à origem só no encerramento. Verificação:
+      `npx vitest run src/domain/travel/__tests__/itineraryTransfers.test.ts` ✓
+      e `npx tsc --noEmit` (web + mobile) ✓.
+
+### 36 — Arraste: fantasma no roteiro e pouso nos 3
+
+Roteiro com o mesmo fantasma de categorias/kanban. Nos três, o item
+entra no destino com mola.
+
+- [x] Fantasma no roteiro; entering + layout em roteiro, categorias e
+      kanban. Verificação: `npx tsc --noEmit` ✓
+
 ## Prompts
 
 - 2026-09-10 — Eu quero criar o app do orbyva, utilizando react native para subir na App Store e Play Store. Eu vou continuar utilizando esse backend mesmo, mas só ter outro front além do Web. Como posso fazer isso? Crio um outro repo para isso ou não?
@@ -669,6 +827,28 @@ Faça o seguinte: Deixe igual está no mobile para os 2, mas, coloque a logo do 
 - 2026-09-15 — Mantenha igual a primeira, mas com a logo do orbyva da segunda foto no mobile e no web.
 - 2026-09-15 — Ainda está diferente no mobile. Já o web, está perfeito. Use exatamente o mesmo modelo do Web.
 - 2026-09-15 — No mobile oculte mais uns 4 episódios no banner pra ficar menos apertado. Mas só isso. Faça mais nada
+- 2026-09-15 — Nessa tela de notas, coloque o excluir em outro local e o represente por uma lixeira
+- Ao clicar em uma nota, permita que as informações de Projeto, Vinculos possa ser recolhido, para que não atrapalhe na hora de redigir a nota.
+- Melhore essa parte de vínculos que aparece de Vincular tarefa, vincular projeto, Vincular meta. Porque o usuário tem que marcar um pra depois clicar no botão pra vincular, ta meio estranho
+- 2026-09-15 — Lugares
+- O share deve permitir adicionar até 4 fotos. Igual ao Web
+- O exibir opinião ali coloque o interruptor igual ao que tem no form de viagens
+- 2026-09-15 — Geral
+- Ali perceba que está marcado, mas coloque o destaque em azul. Faça isso em todos os casos desse tipo
+- 2026-09-15 — Aqui quando clica para cadastrar novo, entra em uma tela que pega a tela toda do celular, faça que abra o formulário da mesma forma que abre o de transações
+
+- 2026-09-15 — `formSheet` no iOS (SDK 57) some o conteúdo ao focar
+  um TextInput: o native redimensiona o sheet e a altura cai a 0.
+  Os cadastros usam `modal` + `slide_from_bottom` no lugar.
+- 2026-09-15 — Corrija a lógica de geração dos deslocamentos do roteiro da viagem.
+  Considere este cenário: O local de partida da viagem é Valparaíso.
+  No dia 17/09, estarei em Alto Paraíso e farei um passeio em São Jorge,
+  e irei e voltarei no mesmo dia. Após o passeio, retornarei para Alto
+  Paraíso, pois no dia 18/09 ainda permanecerei em Alto Paraíso. O
+  roteiro do dia 17/09 deve apresentar Alto Paraíso → São Jorge e
+  São Jorge → Alto Paraíso, não São Jorge → Valparaíso. O deslocamento
+  de volta para o local de origem só deve ser gerado quando realmente
+  for o encerramento da viagem.
 
 ## Notas
 
@@ -955,3 +1135,118 @@ Faça o seguinte: Deixe igual está no mobile para os 2, mas, coloque a logo do 
 - 2026-09-15 — Nativo passou a capturar o card opaco (ViewShot não
   pegava o blur com opacity 0.02), com `expo-image` no fundo/mark e a
   mesma regra de episódios do canvas. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Lista de notas: lixeira no canto do card. Editor: projeto
+  e vínculos recolhidos por padrão. Vincular abre um sheet; escolher o
+  item já cria o vínculo. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Share de lugares: até 4 fotos (mosaico + galeria múltipla)
+  e “Exibir opinião” com o mesmo Switch do form de viagens.
+  `npx tsc --noEmit` ✓.
+- 2026-09-15 — Chip selecionado (Peso, tipos, status, tags, favoritos
+  etc.) passou a usar o azul do `ChoiceChip` em vez do cinza.
+  `npx tsc --noEmit` ✓.
+- 2026-09-15 — Cadastro novo (hábito, transação e os outros forms) abre
+  em sheet por cima da lista, com puxador e Fechar — não ocupa a tela
+  inteira. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Viagens
+  - Não tem aquela funcionalidade de estimar ida/volta pelo horário de saída ou de chegada ao destino
+  - No formulário não tem pq ter esse campo de destino, já que os destinos serão colocados na parte de paradas
+    - Resumo
+      - Melhore o front dessa aba, para as funções de Editar e compartilhar, coloque ícones para isso e coloque em outro lugar
+      - Clima e mala, melhore também colocando ícones etc deixando mais agradável a visulização
+      - Coloque as partes que falam de Convites e prazo nessa parte, representando também por ícones e retire daquela navegação na parte superior da tela
+    - Roteiro
+      - Também melhore o front e adicione coisas que não tem no mobile ainda deixando mais parecido com o Web que está completinho
+      - Não consigo adicionar uma visita, apenas uma nota (?)
+  Form sem Destino (destino sai das paradas); estimar ida/volta pela
+  rota; Resumo com ícones (editar/compartilhar, clima/mala, prazos e
+  convites fora da ChipBar); Roteiro com visita (`place_visit_id`) e
+  deslocamento. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Na parte de conteúdo onde tem ali aquelas classificações de Para assistir, Assistindo, Assistido e abandonei coloque igual está na parte de saúde, com o mesmo visual. Faça isso para todos de conteúdo que tem navegações desse tipo
+  Cinema, livros, música e links usam o mesmo trilho da Saúde (azul
+  no ativo). `npx tsc --noEmit` ✓.
+- 2026-09-15 — Em viagens na parte de roteiro ainda está aquilo de Nota. Tem que ser para adicionar visita
+  Cada dia do roteiro tem Adicionar visita (+ deslocamento), sem
+  criar atividade-nota. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Fui cadastrar uma visita e deu isso
+  (`value "1789485917915" is out of range for type integer`)
+  sort_order da visita/checklist deixa de usar `Date.now()`.
+  `npx tsc --noEmit` ✓.
+- 2026-09-15 — Permita adicionar uma nota só na visita, igual no web, não no dia todo
+  Dê destaque no deslocamento igual no Web
+  Não permita ordenar uma visita na qual os horários saiam de ordem. Exemplo, se eu tenho um deslocamento que é 14:00 -> 17:00 e tenho uma visita 17:30, não permita colocar essa visita de 17:30 acima do do deslocamento. Funciona assim no Web.
+  Eu não consigo marcar uma visita como concluída igual no web
+  Lugares
+  - Não consigo excluir um lugar que está "Para Visitar", coloque uma lixeirinha do lado para que permita o usuário excluir
+  Roteiro: nota só na visita; deslocamento com destaque sky; ordem
+  pelo horário; visita concluída no ícone. Lista de lugares com
+  lixeira. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Conteúdo
+  - Links
+    - Coloque o ícone dependendo do link do conteúdo, igual ao web. Se é um vídeo do instagram, aparece o ícone do instagram
+    - Coloque as interações de abrir, favoritar e marcar como visto como ícones
+  Ícone da origem (Instagram/YouTube/favicon) e ações em ícone.
+  `npx tsc --noEmit` ✓.
+- 2026-09-15 — Quando clico em adicionar link não abre o form
+  O + carrega a lista por baixo do sheet (`withAnchor`) para o
+  formSheet aparecer. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Está assim
+  Sheet abria vazio: o conteúdo do formSheet media 0. Agora a
+  altura é a da janela. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Quando clico em algum campo do formulário volta a ficar assim do jeito que te mandei
+  formSheet no iOS zera o conteúdo ao abrir o teclado. Cadastros
+  passam a `modal` + slide de baixo. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Coloque a lixeira no link caso eu queira excluir, para que fique mais fácil
+  Lixeira no card da lista, com confirmação. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Do live tb
+  Lixeira no histórico do Live, com o mesmo confirmDelete do long press. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Geral
+  - Há casos em que o botão de fechar do form é do lado esquerdo (Transações) e outros casos é do lado direito (Cinema quando clica em já assistido), padronize da maneira que o especialista UI/UX achar melhor
+  - Diminua a largura da sidebar
+  Conteúdo
+  - Ontem tem o surpreenda-me, deixe esse botão mais bonito
+  - Quando clico em marcar como assistido, aparece o formulário para avaliar, mas falta a data assistida e o campo de observação e deixe o formulário mais bonito, ta muito genérico, deixe parecido com o web, onde aparece a capa do filme nome etc.
+  - Nas séries de controle de episódio tem que clicar na temporada, mas quem é novo não vai conseguir descobrir isso, coloque tipo uma setinha para expandir e recolher
+  - Deixe mais claro também o marcar como assistido do episódio
+  - Melhore as nomenclaturas. Está como Marcar temporada, Marcar assistido, melhore isso
+  Fechar à esquerda (HIG). Sidebar ~268px. Avaliação com capa/data/nota.
+  Temporada com chevron. `npx tsc --noEmit` ✓.
+- 2026-09-15 — No cinema não consigo avaliar o episódio nem comentar ele
+  Episódio expande para nota e comentário, igual no web. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Não é válido deixar nesse mesmo estilo no mobile?
+  Episódios no layout do web: chips T1/T2, card com check, nota e comentário. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Coloque esse indicador de progresso na capa igual ao web no card
+  Capa do card com `110/140 eps · 82%`, % no canto e barra. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Viagens
+  - Permita arrastar pela alça os lugares do roteiro de um dia para o outro ou ordenar pelo dia, mas com aquela regra do horário
+  - Coloque o botão de excluir viagem mais a vista
+  - Deixa os prazos em uma abinha separada mesmo, melhor.
+  - Na parte de roteiro, coloque a parada que está naquele dia, igual no web que está no anexo
+  - Tire essa parte de checklist
+  - Deixe o botão de Gastos mais bonito
+  - Quando to dentro de uma viagem, não faz sentido existir o botão +
+  Alça no roteiro (dia ou ordem, horário manda). Prazos em aba. Dia com
+  parada (`Dia 3 · São Jorge`). Sem checklist. Excluir no resumo. Gastos
+  com CTA. Sem `+` dentro da viagem. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Entretenime
+  - Trocar o Já assisti para Marcar como Assistido e coloque a lixeira para poder excluir o filme. Faça o mesmo para livros e música
+
+  Produtividade
+  - Lista de compras coloque a lixeira para poder excluir o item
+  Lista: “Marcar como Assistido/Lido/Ouvido” + lixeira no card.
+  Compras: lixeira no item. `npx tsc --noEmit` ✓.
+- 2026-09-15 — Corrija a lógica de geração dos deslocamentos do roteiro da viagem.
+  Considere este cenário: O local de partida da viagem é Valparaíso.
+  No dia 17/09, estarei em Alto Paraíso e farei um passeio em São Jorge,
+  e irei e voltarei no mesmo dia. Após o passeio, retornarei para Alto
+  Paraíso, pois no dia 18/09 ainda permanecerei em Alto Paraíso. O
+  roteiro do dia 17/09 deve apresentar Alto Paraíso → São Jorge e
+  São Jorge → Alto Paraíso, não São Jorge → Valparaíso. O deslocamento
+  de volta para o local de origem só deve ser gerado quando realmente
+  for o encerramento da viagem.
+  Trechos saem das paradas + hospedagem do dia; origem só no último dia.
+  `npx vitest run src/domain/travel/__tests__/itineraryTransfers.test.ts` e
+  `npx tsc --noEmit` (web + mobile) ✓.
+- 2026-09-15 — Coloque uma animação de arraste de roteiro. Igual ao de categorias e kanban. 
+  E nesses 3 que possam arrastar, coloque a animação do item entrando no local para que foi arrastado para ficar bonitinho
+  Roteiro com fantasma (long-press + segue o dedo). Destino com mola
+  no roteiro, categorias e kanban. `npx tsc --noEmit` ✓.

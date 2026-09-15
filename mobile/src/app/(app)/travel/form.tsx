@@ -34,13 +34,26 @@ import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { TRIP_STATUS_LABELS } from "@/domain/travel";
 import {
+  destinationFieldsFromStops,
+  validateTripStops,
+} from "@/domain/travel/tripStops";
+import {
+  endpointFromStop,
+  lodgingStopForDate,
+  planItineraryTransfers,
+} from "@/domain/travel/itineraryTransfers";
+import {
   TRIP_TRANSPORT_MODE_LABELS,
   TRIP_TRANSPORT_MODES,
+  canEstimateTransferArrival,
+  transferEndpointHasCoords,
+  transportModeHint,
   type RoundTripHome,
   type TripTransportMode,
 } from "@/domain/travel/transportModes";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
+import { estimateTransferTimes } from "@/lib/estimateTripLeg";
 import { getErrorMessage } from "@/lib/errors";
 import type { TripStatus } from "@/types/travel";
 
@@ -73,10 +86,6 @@ export default function TripFormScreen() {
   const today = getTodayIso();
   const [loading, setLoading] = useState(Boolean(editId));
   const [title, setTitle] = useState("");
-  const [destination, setDestination] = useState("");
-  const [destLat, setDestLat] = useState<number | null>(null);
-  const [destLng, setDestLng] = useState<number | null>(null);
-  const [destPlaceId, setDestPlaceId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(addDays(today, 3));
   const [status, setStatus] = useState<TripStatus>("planning");
@@ -92,6 +101,15 @@ export default function TripFormScreen() {
   const [returnArrive, setReturnArrive] = useState("");
   const [outboundId, setOutboundId] = useState<string | null>(null);
   const [returnId, setReturnId] = useState<string | null>(null);
+  const [outboundEstimateNote, setOutboundEstimateNote] = useState<string | null>(
+    null
+  );
+  const [returnEstimateNote, setReturnEstimateNote] = useState<string | null>(
+    null
+  );
+  const [estimatingLeg, setEstimatingLeg] = useState<"outbound" | "return" | null>(
+    null
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,24 +132,33 @@ export default function TripFormScreen() {
           return;
         }
         setTitle(trip.title);
-        setDestination(trip.destination ?? "");
-        setDestLat(trip.destination_lat ?? null);
-        setDestLng(trip.destination_lng ?? null);
-        setDestPlaceId(trip.destination_place_id ?? null);
         setStartDate(trip.start_date);
         setEndDate(trip.end_date);
         setStatus(trip.status);
         setNotes(trip.notes ?? "");
         setBudget(trip.budget != null ? String(trip.budget) : "");
         setStops(
-          nextStops.map((stop) => ({
-            name: stop.name,
-            start_date: stop.start_date,
-            end_date: stop.end_date,
-            place_id: stop.place_id ?? null,
-            lat: stop.lat ?? null,
-            lng: stop.lng ?? null,
-          }))
+          nextStops.length > 0
+            ? nextStops.map((stop) => ({
+                name: stop.name,
+                start_date: stop.start_date,
+                end_date: stop.end_date,
+                place_id: stop.place_id ?? null,
+                lat: stop.lat ?? null,
+                lng: stop.lng ?? null,
+              }))
+            : trip.destination?.trim()
+              ? [
+                  {
+                    name: trip.destination.trim(),
+                    start_date: trip.start_date,
+                    end_date: trip.end_date,
+                    place_id: trip.destination_place_id ?? null,
+                    lat: trip.destination_lat ?? null,
+                    lng: trip.destination_lng ?? null,
+                  },
+                ]
+              : []
         );
         if (trip.origin_label?.trim()) {
           setHomeOrigin({
@@ -214,54 +241,52 @@ export default function TripFormScreen() {
       return;
     }
     const namedStops = stops.filter((stop) => stop.name.trim());
+    const stopError = validateTripStops(namedStops, startDate, endDate);
+    if (stopError) {
+      fail(stopError);
+      return;
+    }
     if (includeRoundTrip && !homeOrigin?.label.trim()) {
       fail("Informe a origem (casa / partida) dos deslocamentos.");
       return;
     }
     setSaving(true);
     setError(null);
-    const origin = includeRoundTrip && homeOrigin?.label.trim()
-      ? {
-          origin_label: homeOrigin.label.trim(),
-          origin_lat: homeOrigin.lat,
-          origin_lng: homeOrigin.lng,
-        }
-      : {
-          origin_label: null,
-          origin_lat: null,
-          origin_lng: null,
-        };
+    const origin =
+      includeRoundTrip && homeOrigin?.label.trim()
+        ? {
+            origin_label: homeOrigin.label.trim(),
+            origin_lat: homeOrigin.lat,
+            origin_lng: homeOrigin.lng,
+          }
+        : {
+            origin_label: null,
+            origin_lat: null,
+            origin_lng: null,
+          };
+    const dest = destinationFieldsFromStops(
+      namedStops.map((stop, i) => ({ ...stop, sort_order: i }))
+    );
     const payload = {
       title: trimmed,
-      destination,
-      destination_lat: destLat,
-      destination_lng: destLng,
-      destination_place_id: destPlaceId,
+      destination: dest.destination,
+      destination_lat: dest.destination_lat,
+      destination_lng: dest.destination_lng,
+      destination_place_id: dest.destination_place_id,
       start_date: startDate,
       end_date: endDate,
       status,
       notes,
       budget: budget.trim() ? Number(budget.replace(",", ".")) || null : null,
-      stops,
+      stops: namedStops,
       ...origin,
     };
     try {
-      const tripId = editId
-        ? editId
-        : (await createTrip(payload)).id;
+      const tripId = editId ? editId : (await createTrip(payload)).id;
       if (editId) {
         await updateTrip({ id: editId, ...payload });
       }
       if (includeRoundTrip && homeOrigin?.label.trim()) {
-        const firstStop = namedStops[0] ?? {
-          name: destination.trim() || trimmed,
-          start_date: startDate,
-          end_date: endDate,
-          lat: destLat,
-          lng: destLng,
-          place_id: destPlaceId,
-        };
-        const lastStop = namedStops[namedStops.length - 1] ?? firstStop;
         await syncRoundTripTransfers({
           tripId,
           home: {
@@ -270,8 +295,9 @@ export default function TripFormScreen() {
             lng: homeOrigin.lng,
             place_id: homeOrigin.place_id,
           },
-          firstStop,
-          lastStop,
+          stops: namedStops,
+          startDate,
+          endDate,
           mode: roundTripMode,
           outboundDepart,
           outboundArrive,
@@ -290,6 +316,72 @@ export default function TripFormScreen() {
       fail(getErrorMessage(err, "Não foi possível salvar a viagem."));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleEstimateLeg(leg: "outbound" | "return") {
+    if (estimatingLeg) return;
+    const namedStops = stops.filter((stop) => stop.name.trim());
+    const firstStop = namedStops[0];
+    const homeEndpoint = homeOrigin?.label.trim()
+      ? {
+          label: homeOrigin.label.trim(),
+          lat: homeOrigin.lat,
+          lng: homeOrigin.lng,
+          place_id: homeOrigin.place_id,
+        }
+      : null;
+    const planned = planItineraryTransfers({
+      stops: namedStops.map((stop, i) => ({ ...stop, sort_order: i })),
+      startDate,
+      endDate,
+      home: homeEndpoint,
+    });
+    const outboundPlanned = planned.find((t) => t.role === "outbound");
+    const returnPlanned = [...planned]
+      .reverse()
+      .find((t) => t.role === "return");
+    const lastLodging = lodgingStopForDate(namedStops, endDate);
+    const firstEndpoint = outboundPlanned?.destination
+      ? outboundPlanned.destination
+      : firstStop
+        ? {
+            label: firstStop.name.trim(),
+            lat: firstStop.lat ?? null,
+            lng: firstStop.lng ?? null,
+            place_id: firstStop.place_id ?? null,
+          }
+        : null;
+    const lastEndpoint = returnPlanned?.origin
+      ? returnPlanned.origin
+      : lastLodging
+        ? endpointFromStop(lastLodging)
+        : null;
+    const isOutbound = leg === "outbound";
+    setEstimatingLeg(leg);
+    try {
+      const result = await estimateTransferTimes({
+        mode: roundTripMode,
+        origin: isOutbound ? homeEndpoint : lastEndpoint,
+        destination: isOutbound ? firstEndpoint : homeEndpoint,
+        depart: isOutbound ? outboundDepart : returnDepart,
+        arrive: isOutbound ? outboundArrive : returnArrive,
+      });
+      if (isOutbound) {
+        setOutboundDepart(result.depart);
+        setOutboundArrive(result.arrive);
+        setOutboundEstimateNote(result.note);
+      } else {
+        setReturnDepart(result.depart);
+        setReturnArrive(result.arrive);
+        setReturnEstimateNote(result.note);
+      }
+    } catch (err) {
+      const note = getErrorMessage(err, "Não foi possível estimar o horário.");
+      if (isOutbound) setOutboundEstimateNote(note);
+      else setReturnEstimateNote(note);
+    } finally {
+      setEstimatingLeg(null);
     }
   }
 
@@ -346,35 +438,6 @@ export default function TripFormScreen() {
               onChangeText={setTitle}
             />
           </Field>
-          <Field label="Destino">
-            <PlaceCatalogSearch
-              placeholder="Buscar cidade"
-              scope="regions"
-              requestUserLocation={false}
-              selectedLabel={destPlaceId ? destination : null}
-              onClear={() => {
-                setDestination("");
-                setDestLat(null);
-                setDestLng(null);
-                setDestPlaceId(null);
-              }}
-              onPick={(hit) => {
-                setDestination(hit.name);
-                setDestLat(hit.lat);
-                setDestLng(hit.lng);
-                setDestPlaceId(hit.google_place_id);
-              }}
-            />
-            {!destPlaceId ? (
-              <TextInput
-                placeholder="Ou digite o nome manualmente"
-                placeholderTextColor={theme.textSecondary}
-                style={inputStyle}
-                value={destination}
-                onChangeText={setDestination}
-              />
-            ) : null}
-          </Field>
           <Field label="Início">
             <DateField value={startDate} onChange={setStartDate} style={inputStyle} />
           </Field>
@@ -382,7 +445,11 @@ export default function TripFormScreen() {
             <DateField value={endDate} onChange={setEndDate} style={inputStyle} />
           </Field>
           </FormBlock>
-          <FormBlock title="Destinos">
+          <FormBlock title="Paradas">
+          <ThemedText type="small" themeColor="textSecondary">
+            Cidades, estados ou países do roteiro — o destino da viagem sai
+            daqui.
+          </ThemedText>
           <Field label="Paradas">
             {stops.map((stop, index) => (
               <View key={`${stop.name}-${index}`} style={styles.stop}>
@@ -560,7 +627,10 @@ export default function TripFormScreen() {
                     placeholderTextColor={theme.textSecondary}
                     style={inputStyle}
                     value={outboundDepart}
-                    onChangeText={setOutboundDepart}
+                    onChangeText={(value) => {
+                      setOutboundDepart(value);
+                      setOutboundEstimateNote(null);
+                    }}
                   />
                 </Field>
                 <Field label="Ida · chegada">
@@ -569,16 +639,66 @@ export default function TripFormScreen() {
                     placeholderTextColor={theme.textSecondary}
                     style={inputStyle}
                     value={outboundArrive}
-                    onChangeText={setOutboundArrive}
+                    onChangeText={(value) => {
+                      setOutboundArrive(value);
+                      setOutboundEstimateNote(null);
+                    }}
                   />
                 </Field>
+                {canEstimateTransferArrival(roundTripMode) ? (
+                  <View style={styles.field}>
+                    <FormButton
+                      label={
+                        estimatingLeg === "outbound"
+                          ? "Estimando ida…"
+                          : "Estimar ida pela rota"
+                      }
+                      compact
+                      disabled={
+                        estimatingLeg != null ||
+                        (!outboundDepart.trim() && !outboundArrive.trim())
+                      }
+                      busy={estimatingLeg === "outbound"}
+                      onPress={() => void handleEstimateLeg("outbound")}
+                    />
+                    {!transferEndpointHasCoords(homeOrigin) ||
+                    !stops.some(
+                      (stop) =>
+                        stop.name.trim() &&
+                        transferEndpointHasCoords({
+                          lat: stop.lat ?? null,
+                          lng: stop.lng ?? null,
+                        })
+                    ) ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Origem e 1ª parada precisam de coordenadas.
+                      </ThemedText>
+                    ) : null}
+                    {outboundEstimateNote ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {outboundEstimateNote}
+                      </ThemedText>
+                    ) : (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {transportModeHint(roundTripMode)}
+                      </ThemedText>
+                    )}
+                  </View>
+                ) : (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {transportModeHint(roundTripMode)}
+                  </ThemedText>
+                )}
                 <Field label="Volta · saída">
                   <TextInput
                     placeholder="HH:mm"
                     placeholderTextColor={theme.textSecondary}
                     style={inputStyle}
                     value={returnDepart}
-                    onChangeText={setReturnDepart}
+                    onChangeText={(value) => {
+                      setReturnDepart(value);
+                      setReturnEstimateNote(null);
+                    }}
                   />
                 </Field>
                 <Field label="Volta · chegada">
@@ -587,9 +707,35 @@ export default function TripFormScreen() {
                     placeholderTextColor={theme.textSecondary}
                     style={inputStyle}
                     value={returnArrive}
-                    onChangeText={setReturnArrive}
+                    onChangeText={(value) => {
+                      setReturnArrive(value);
+                      setReturnEstimateNote(null);
+                    }}
                   />
                 </Field>
+                {canEstimateTransferArrival(roundTripMode) ? (
+                  <View style={styles.field}>
+                    <FormButton
+                      label={
+                        estimatingLeg === "return"
+                          ? "Estimando volta…"
+                          : "Estimar volta pela rota"
+                      }
+                      compact
+                      disabled={
+                        estimatingLeg != null ||
+                        (!returnDepart.trim() && !returnArrive.trim())
+                      }
+                      busy={estimatingLeg === "return"}
+                      onPress={() => void handleEstimateLeg("return")}
+                    />
+                    {returnEstimateNote ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {returnEstimateNote}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                ) : null}
               </View>
             ) : null}
           </View>

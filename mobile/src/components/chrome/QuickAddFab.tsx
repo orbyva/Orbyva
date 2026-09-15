@@ -28,12 +28,15 @@ export function QuickAddFab() {
         setAlertsOpen(false);
         if (direct?.href) {
           if (direct.params) {
-            router.push({
-              pathname: direct.href,
-              params: direct.params,
-            } as Href);
+            router.push(
+              {
+                pathname: direct.href,
+                params: direct.params,
+              } as Href,
+              { withAnchor: true }
+            );
           } else {
-            router.push(direct.href);
+            router.push(direct.href, { withAnchor: true });
           }
           return;
         }
