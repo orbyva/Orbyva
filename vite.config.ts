@@ -316,17 +316,32 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "node",
-    // Testes de componente (`.test.tsx`) precisam de DOM real (render, click, assert em nós) —
-    // `environmentMatchGlobs` mantém o resto da suíte (`.test.ts`, lógica pura) em "node", mais
-    // rápido e sem custo de jsdom.
-    environmentMatchGlobs: [["src/**/*.test.tsx", "jsdom"]],
     setupFiles: ["./src/test/setup-timezone.ts", "./src/test/setup-jsdom.ts"],
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     env: {
       TZ: "America/Sao_Paulo",
       VITE_SUPABASE_URL: "https://example.supabase.co",
       VITE_SUPABASE_ANON_KEY: "test-anon-key",
     },
+    // Vitest 4 removeu `environmentMatchGlobs`. Dois projetos herdam o restante do config:
+    // `.test.ts` em node (lógica pura); `.test.tsx` em jsdom (componentes). Arquivos `.ts`
+    // que precisam de DOM continuam com `// @vitest-environment jsdom` no topo.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "node",
+          include: ["src/**/*.test.ts"],
+          environment: "node",
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "jsdom",
+          include: ["src/**/*.test.tsx"],
+          environment: "jsdom",
+        },
+      },
+    ],
   },
 });

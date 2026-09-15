@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { landingShouldDeferToApp } from "@/lib/landingAuthHint";
 
 /**
- * `.test.ts` roda em node (ver `environmentMatchGlobs`). A hint lê `window.location` e
+ * `.test.ts` roda em node (ver `test.projects` em `vite.config.ts`). A hint lê `window.location` e
  * `localStorage` — o mesmo molde de `taskSortPreference.test.ts`, com `key`/`length` porque
  * a varredura das chaves `sb-*-auth-token` não usa só getItem.
  */

@@ -6,7 +6,7 @@ import {
 } from "@/lib/taskProjectFilterPreference";
 
 /** `localStorage` de mentira, no mesmo molde de `taskSortPreference.test.ts`: os `.test.ts` rodam
- * em ambiente "node" (ver `environmentMatchGlobs`), onde ele não existe. */
+ * em ambiente "node" (ver `test.projects` em `vite.config.ts`), onde ele não existe. */
 function mockBrowserStorage() {
   const store = new Map<string, string>();
   vi.stubGlobal("localStorage", {
