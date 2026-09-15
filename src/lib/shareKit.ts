@@ -21,9 +21,36 @@ export const SHARE_BRAND = {
   font: '"Plus Jakarta Sans", system-ui, -apple-system, sans-serif',
 } as const;
 
-/** No-op mantido para os geradores (marca é vetorial nos shares). */
+const SHARE_MARK_ASPECT = 763 / 548;
+
+let shareMarkImg: HTMLImageElement | null = null;
+let shareMarkLoading: Promise<HTMLImageElement | null> | null = null;
+
+function loadShareMarkImage(): Promise<HTMLImageElement | null> {
+  if (shareMarkImg) return Promise.resolve(shareMarkImg);
+  if (shareMarkLoading) return shareMarkLoading;
+  shareMarkLoading = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      shareMarkImg = img;
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = BRAND.logoMarkSky;
+  });
+  return shareMarkLoading;
+}
+
+/** Carrega o mark real (`logo-mark-sky.png`) pra header/footer do card. */
 export async function ensureShareBrandAssets(): Promise<void> {
-  /* mark desenhado via drawBrandMark, sem asset com fundo branco */
+  await loadShareMarkImage();
+}
+
+function shareMarkBox(height: number): { w: number; h: number } {
+  const aspect = shareMarkImg
+    ? shareMarkImg.naturalWidth / shareMarkImg.naturalHeight
+    : SHARE_MARK_ASPECT;
+  return { w: height * aspect, h: height };
 }
 
 /** Wordmark ORBYVA, O/A em sky, RBYV em paper (como na logo). */
@@ -84,7 +111,11 @@ function drawShareMark(
   cy: number,
   size: number
 ) {
-  // Vetorial: o logo-mark.webp tem fundo branco e vira um quadrado no card.
+  const { w, h } = shareMarkBox(size);
+  if (shareMarkImg) {
+    ctx.drawImage(shareMarkImg, cx - w / 2, cy - h / 2, w, h);
+    return;
+  }
   drawBrandMark(ctx, cx, cy, size);
 }
 
@@ -152,19 +183,20 @@ export function drawShareHeader(
   ctx: CanvasRenderingContext2D,
   eyebrow: string
 ) {
-  const markCx = 88;
-  const markCy = 100;
-  const markSize = 40;
-  drawShareMark(ctx, markCx, markCy, markSize);
+  const markH = 46;
+  const { w: markW } = shareMarkBox(markH);
+  const markLeft = 64;
+  const markCy = 102;
+  drawShareMark(ctx, markLeft + markW / 2, markCy, markH);
 
-  const textX = markCx + markSize * 0.75;
-  drawOrbyvaWordmark(ctx, textX, markCy + 10, 32);
+  const textX = markLeft + markW + 14;
+  drawOrbyvaWordmark(ctx, textX, markCy + 8, 32);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "rgba(248, 250, 252, 0.55)";
   ctx.font = `500 20px ${SHARE_BRAND.font}`;
-  ctx.fillText(eyebrow.toUpperCase(), textX, markCy + 40);
+  ctx.fillText(eyebrow.toUpperCase(), textX, markCy + 38);
 }
 
 export function drawShareFooter(ctx: CanvasRenderingContext2D) {
@@ -176,15 +208,15 @@ export function drawShareFooter(ctx: CanvasRenderingContext2D) {
   ctx.lineTo(SHARE_W - 160, footerY - 48);
   ctx.stroke();
 
-  const markSize = 28;
+  const markH = 34;
+  const { w: markW } = shareMarkBox(markH);
   ctx.font = `800 28px ${SHARE_BRAND.font}`;
   const nameW = ctx.measureText("ORBYVA").width;
-  const gap = 12;
-  const markSpan = markSize * 1.1;
-  const totalW = markSpan + gap + nameW;
+  const gap = 14;
+  const totalW = markW + gap + nameW;
   const left = SHARE_W / 2 - totalW / 2;
-  drawShareMark(ctx, left + markSpan / 2, footerY - 6, markSize);
-  drawOrbyvaWordmark(ctx, left + markSpan + gap, footerY + 4, 28);
+  drawShareMark(ctx, left + markW / 2, footerY - 6, markH);
+  drawOrbyvaWordmark(ctx, left + markW + gap, footerY + 4, 28);
   drawLogoSlogan(ctx, SHARE_W / 2, footerY + 42, 17);
 }
 export function roundSharePath(

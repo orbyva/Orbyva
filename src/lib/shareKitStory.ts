@@ -33,13 +33,16 @@ export const STORY_HERO_ILLUSTRATED = {
   radius: 36,
 } as const;
 
-/** Backdrop estilo cinema: ink + blur da foto + wash + vinheta. */
+/**
+ * Fundo da 1ª foto: capa visível, blur leve, vinheta escura.
+ * Sem wash cyan — isso vira o degradê da 2ª foto e apaga o pôster.
+ */
 export function paintStoryBackdrop(
   ctx: CanvasRenderingContext2D,
   options: {
     photo?: HTMLImageElement | null;
-    washFrom: string;
-    washTo: string;
+    washFrom?: string;
+    washTo?: string;
   }
 ) {
   ctx.fillStyle = SHARE_BRAND.ink;
@@ -47,23 +50,16 @@ export function paintStoryBackdrop(
 
   if (options.photo) {
     ctx.save();
-    ctx.filter = "blur(48px) saturate(1.2) brightness(0.5)";
-    drawImageCover(ctx, options.photo, -80, -80, SHARE_W + 160, SHARE_H + 160);
+    ctx.filter = "blur(10px) saturate(1.15)";
+    drawImageCover(ctx, options.photo, -40, -40, SHARE_W + 80, SHARE_H + 80);
     ctx.restore();
   }
 
-  const wash = ctx.createLinearGradient(0, 0, SHARE_W, SHARE_H);
-  wash.addColorStop(0, options.washFrom);
-  wash.addColorStop(0.45, "rgba(11, 15, 26, 0.4)");
-  wash.addColorStop(1, options.washTo);
-  ctx.fillStyle = wash;
-  ctx.fillRect(0, 0, SHARE_W, SHARE_H);
-
-  const vignette = ctx.createLinearGradient(0, SHARE_H * 0.42, 0, SHARE_H);
-  vignette.addColorStop(0, "rgba(11, 15, 26, 0)");
-  vignette.addColorStop(0.5, "rgba(11, 15, 26, 0.7)");
-  vignette.addColorStop(1, "rgba(11, 15, 26, 0.96)");
-  ctx.fillStyle = vignette;
+  const scrim = ctx.createLinearGradient(0, 0, 0, SHARE_H);
+  scrim.addColorStop(0, "rgba(11, 15, 26, 0.22)");
+  scrim.addColorStop(0.35, "rgba(11, 15, 26, 0.38)");
+  scrim.addColorStop(1, "rgba(11, 15, 26, 0.88)");
+  ctx.fillStyle = scrim;
   ctx.fillRect(0, 0, SHARE_W, SHARE_H);
 }
 

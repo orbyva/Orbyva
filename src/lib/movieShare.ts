@@ -10,6 +10,7 @@ import {
   drawShareFooter,
   drawShareHeader,
   ensureShareBrandAssets,
+  paintStoryBackdrop,
 } from "@/lib/shareKit";
 
 const BRAND = {
@@ -426,34 +427,7 @@ export async function generateMovieShareImage(
   const posterUrl = movie.poster && movie.poster !== "N/A" ? movie.poster : null;
   const poster = posterUrl ? await loadImage(posterUrl) : null;
 
-  // ── Fundo atmosférico ──────────────────────────────────────────────
-  ctx.fillStyle = BRAND.ink;
-  ctx.fillRect(0, 0, STORY_W, STORY_H);
-
-  if (poster) {
-    ctx.save();
-    ctx.filter = "blur(48px) saturate(1.25) brightness(0.55)";
-    drawCover(ctx, poster, -80, -80, STORY_W + 160, STORY_H + 160);
-    ctx.restore();
-  }
-
-  // Overlay de marca (sky → ink)
-  const wash = ctx.createLinearGradient(0, 0, STORY_W, STORY_H);
-  wash.addColorStop(0, "rgba(14, 165, 233, 0.48)");
-  wash.addColorStop(0.45, "rgba(11, 15, 26, 0.35)");
-  wash.addColorStop(1, "rgba(2, 132, 199, 0.32)");
-  ctx.fillStyle = wash;
-  ctx.fillRect(0, 0, STORY_W, STORY_H);
-
-  // Vinheta inferior para tipografia
-  const vignette = ctx.createLinearGradient(0, STORY_H * 0.45, 0, STORY_H);
-  vignette.addColorStop(0, "rgba(11, 15, 26, 0)");
-  vignette.addColorStop(0.55, "rgba(11, 15, 26, 0.72)");
-  vignette.addColorStop(1, "rgba(11, 15, 26, 0.96)");
-  ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, STORY_W, STORY_H);
-
-  // ── Header da marca ────────────────────────────────────────────────
+  paintStoryBackdrop(ctx, { photo: poster });
   drawShareHeader(ctx, "Minha opinião");
 
   // ── Pôster principal (menor quando há episódios avaliados) ─────────
