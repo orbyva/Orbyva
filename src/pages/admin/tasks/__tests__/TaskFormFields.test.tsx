@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { TaskFormFields } from "@/pages/admin/tasks/TaskFormFields";
 import { emptyTask } from "@/domain/tasks/taskDraft";
-import { dueDateForShortcut } from "@/domain/tasks/agenda";
+import { DUE_DATE_SHORTCUTS, dueDateForShortcut } from "@/domain/tasks/agenda";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR } from "@/lib/currency";
 import { uploadIconAsset } from "@/api/tasks";
@@ -879,13 +879,24 @@ describe("TaskFormFields — atalhos de prazo (feature 083)", () => {
     // 2) "e aí sim o botão do calendário": abre e permite escolher um dia qualquer.
     await user.click(screen.getByRole("button", { name: "Data limite" }));
     const grid = await screen.findByRole("grid");
-    const day15 = within(grid)
-      .getAllByRole("button")
-      .find((b) => b.textContent?.trim() === "15") as HTMLElement;
-    await user.click(day15);
+    // Não clicar num dia que *é* a data de um atalho (hoje / sábado / fim do mês): nesse caso
+    // o pressionado é correto, não "por engano". O dia 15 falha todo dia 15 do mês.
+    const today = todayIso();
+    const shortcutDates = new Set(
+      DUE_DATE_SHORTCUTS.map((s) => dueDateForShortcut(s, today))
+    );
+    const cell = within(grid)
+      .getAllByRole("gridcell")
+      .find((el) => {
+        const iso = el.getAttribute("data-day");
+        return Boolean(iso && !el.hasAttribute("data-outside") && !shortcutDates.has(iso));
+      });
+    expect(cell).toBeTruthy();
+    const picked = cell!.getAttribute("data-day")!;
+    await user.click(within(cell!).getByRole("button"));
 
-    expect(currentForm().due_date?.slice(-2)).toBe("15");
+    expect(currentForm().due_date).toBe(picked);
     // E a escolha manual não deixa nenhum atalho pressionado por engano.
-    expect(screen.queryAllByRole("button", { pressed: true })).toHaveLength(0);
+    expect(within(group).queryAllByRole("button", { pressed: true })).toHaveLength(0);
   });
 });

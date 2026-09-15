@@ -3,6 +3,7 @@ import { enrichTrip, generateItineraryDays, tripLedgerDescription } from "@/doma
 import {
   planItineraryTransfers,
   planTransferActivitySync,
+  toItineraryActivityInput,
 } from "@/domain/travel/itineraryTransfers";
 import { sumTripSpent } from "@/domain/travel/spent";
 import { getCurrentUserId } from "@/lib/auth-user";
@@ -810,11 +811,11 @@ export async function syncRoundTripTransfers(input: {
     knownReturnId: input.returnId,
   });
 
-  for (const { date: _date, ...payload } of sync.update) {
-    await updateItineraryActivity(payload);
+  for (const item of sync.update) {
+    await updateItineraryActivity(toItineraryActivityInput(item));
   }
-  for (const { date: _date, ...payload } of sync.create) {
-    await createItineraryActivity(payload);
+  for (const item of sync.create) {
+    await createItineraryActivity(toItineraryActivityInput(item));
   }
   for (const id of sync.deleteIds) {
     await deleteItineraryActivity(id);

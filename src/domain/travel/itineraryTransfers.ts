@@ -68,6 +68,15 @@ export type TransferActivitySyncPlan = {
   deleteIds: string[];
 };
 
+/** `date` is planner metadata — the itinerary activity APIs don't have that column. */
+export function toItineraryActivityInput<T extends TransferActivityDraft>(
+  draft: T
+): Omit<T, "date"> {
+  const { date, ...payload } = draft;
+  void date;
+  return payload;
+}
+
 function eachIsoDate(startDate: string, endDate: string): string[] {
   const start = startDate.slice(0, 10);
   const end = endDate.slice(0, 10);

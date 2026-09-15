@@ -39,6 +39,7 @@ import {
   lodgingStopForDate,
   planItineraryTransfers,
   planTransferActivitySync,
+  toItineraryActivityInput,
 } from "@/domain/travel/itineraryTransfers";
 import {
   activityTimeToInput,
@@ -520,13 +521,13 @@ export function TripFormDialog({
     });
 
     await Promise.all(
-      sync.update.map(({ date: _date, ...payload }) =>
-        updateItineraryActivity(payload)
+      sync.update.map((item) =>
+        updateItineraryActivity(toItineraryActivityInput(item))
       )
     );
     await Promise.all(
-      sync.create.map(({ date: _date, ...payload }) =>
-        createItineraryActivity(payload)
+      sync.create.map((item) =>
+        createItineraryActivity(toItineraryActivityInput(item))
       )
     );
     await Promise.all(sync.deleteIds.map((id) => deleteItineraryActivity(id)));

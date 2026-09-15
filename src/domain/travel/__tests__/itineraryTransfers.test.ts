@@ -3,6 +3,7 @@ import {
   lodgingStopForDate,
   planItineraryTransfers,
   planTransferActivitySync,
+  toItineraryActivityInput,
   type StopLike,
   type TransferActivityLike,
   type TransferDayLike,
@@ -183,5 +184,6 @@ describe("planTransferActivitySync", () => {
       "2026-09-18:Alto Paraíso de Goiás → Valparaíso",
     ]);
     expect(sync.deleteIds).toEqual([]);
+    expect("date" in toItineraryActivityInput(sync.create[0]!)).toBe(false);
   });
 });
