@@ -697,9 +697,36 @@ export async function fetchPlaceVisitOccurrences(
 }
 
 export async function createPlaceVisitOccurrence(
-  input: import("@/types/places").PlaceVisitOccurrenceCreateRequest
+  input: import("@/types/places").PlaceVisitOccurrenceCreateRequest,
+  options?: {
+    transaction?: TransactionCreateRequest | null;
+  }
 ): Promise<import("@/types/places").PlaceVisitOccurrence> {
   const userId = await getCurrentUserId();
+  const place = await fetchPlaceById(input.place_visit_id);
+  if (!place) throw new Error("Lugar não encontrado.");
+
+  const amount =
+    input.amount != null && input.amount > 0 ? input.amount : null;
+  let transactionId: number | null = input.transaction_id ?? null;
+
+  if (
+    options?.transaction &&
+    options.transaction.class_id > 0 &&
+    options.transaction.value > 0 &&
+    amount != null
+  ) {
+    transactionId = await insertTransaction({
+      ...options.transaction,
+      value: amount,
+    });
+  } else if (!transactionId && place.transaction_id) {
+    const existing = await fetchPlaceVisitOccurrences(input.place_visit_id);
+    if (existing.length === 0) {
+      transactionId = place.transaction_id;
+    }
+  }
+
   const { data, error } = await supabase
     .from("place_visit_occurrence")
     .insert([
@@ -709,9 +736,9 @@ export async function createPlaceVisitOccurrence(
         visited_date: input.visited_date,
         rating: input.rating ?? null,
         notes: input.notes?.trim() || null,
-        amount: input.amount ?? null,
+        amount,
         would_recommend: input.would_recommend ?? true,
-        transaction_id: input.transaction_id ?? null,
+        transaction_id: transactionId,
       },
     ])
     .select(OCCURRENCE_SELECT)
