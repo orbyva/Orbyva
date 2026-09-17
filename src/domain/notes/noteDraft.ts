@@ -9,7 +9,8 @@ export const NOTE_TITLE_MAX = 120;
 
 /**
  * Deixa o rascunho pronto para ir ao banco: título sem espaço sobrando, nunca vazio e nunca maior
- * que `NOTE_TITLE_MAX`; `project_id` vazio vira `null` (é FK nullable, `""` não é id de nada).
+ * que `NOTE_TITLE_MAX`; `project_id`/`folder_id` vazios viram `null` (são FK nullable, `""` não é
+ * id de nada).
  * O `content` passa intacto — é Markdown cru, e cortar espaço nele mudaria o que o usuário
  * escreveu (indentação de bloco de código, por exemplo).
  *
@@ -24,6 +25,7 @@ export function normalizeNoteDraft(draft: NoteDraft): NormalizedNoteDraft {
     title: title || UNTITLED_NOTE_TITLE,
     content: draft.content,
     project_id: draft.project_id ? draft.project_id : null,
+    folder_id: draft.folder_id ? draft.folder_id : null,
     kind,
     canvas_data: kind === "canvas" ? (draft.canvas_data ?? null) : null,
   };

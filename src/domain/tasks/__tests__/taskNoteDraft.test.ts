@@ -41,8 +41,10 @@ describe("buildTaskNoteDraft", () => {
     });
   });
 
-  it("sem kind explícito, é nota markdown", () => {
-    expect(buildTaskNoteDraft(makeTask()).kind).toBe("markdown");
+  it("sem kind explícito, é nota markdown na raiz", () => {
+    const draft = buildTaskNoteDraft(makeTask());
+    expect(draft.kind).toBe("markdown");
+    expect(draft.folder_id).toBeNull();
   });
 
   it("canvas sai com kind canvas e a cena vazia", () => {

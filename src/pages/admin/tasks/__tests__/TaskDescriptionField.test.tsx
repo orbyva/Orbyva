@@ -19,6 +19,7 @@ function makeNote(overrides: Partial<Note> = {}): Note {
     title: "Pauta",
     content: "",
     project_id: null,
+    folder_id: null,
     kind: "markdown",
     canvas_data: null,
     ...overrides,

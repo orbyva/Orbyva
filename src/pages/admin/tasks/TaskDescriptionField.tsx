@@ -55,7 +55,12 @@ export function TaskDescriptionField({
   const handleCreateLinkedNote = useCallback(
     async (title: string): Promise<Note | null> => {
       try {
-        const created = await createNote({ title, content: "", project_id: null });
+        const created = await createNote({
+          title,
+          content: "",
+          project_id: null,
+          folder_id: null,
+        });
         setNotes((prev) => [created, ...prev]);
         return created;
       } catch (error) {

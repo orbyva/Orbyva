@@ -849,6 +849,7 @@ describe("TaskViews — wiki-link na descrição do card", () => {
       title: "Atividades Finatec",
       content: "",
       project_id: null,
+      folder_id: null,
       kind: "markdown",
       canvas_data: null,
       ...overrides,

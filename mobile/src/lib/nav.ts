@@ -18,6 +18,7 @@ export type AppHref =
   | "/tasks/projects/form"
   | "/notes"
   | "/notes/form"
+  | "/notes/folder-form"
   | "/shopping"
   | "/shopping/form"
   | "/shopping/category-form"
@@ -188,6 +189,11 @@ export function quickAddActionsForPath(pathname: string): QuickAddItem[] {
         id: "note",
         label: "Nova nota",
         href: "/notes/form",
+      },
+      {
+        id: "folder",
+        label: "Nova pasta",
+        href: "/notes/folder-form",
       },
     ];
   }

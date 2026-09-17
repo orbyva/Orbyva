@@ -11,23 +11,27 @@ import {
   View,
 } from "react-native";
 
+import { fetchNoteFolders } from "@/api/notes/folders";
 import { createNoteApi, fetchNotes } from "@/api/notes/notes";
 import { fetchProjects } from "@/api/tasks/projects";
 import { CanvasNote } from "@/components/CanvasNote";
 import { ChipBar } from "@/components/ChipBar";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
+import { NoteFolderPicker } from "@/components/NoteFolderPicker";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
 import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
+import { INBOX_FOLDER } from "@/domain/notes/folders";
 import { MERMAID_SNIPPET } from "@/domain/notes/mermaidSnippet";
 import { insertAt } from "@/domain/notes/markdown";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
-import type { Note, NoteCanvasData, NoteKind } from "@/types/notes";
+import { getNoteFolderNav } from "@/lib/noteFolderNav";
+import type { Note, NoteCanvasData, NoteFolder, NoteKind } from "@/types/notes";
 
 const NO_PROJECT = "__none__";
 
@@ -47,6 +51,8 @@ export default function NoteCreateScreen() {
   const [canvasData, setCanvasData] = useState<NoteCanvasData>({ elements: [] });
   const [wikiNotes, setWikiNotes] = useState<Note[]>([]);
   const [projectId, setProjectId] = useState<string | null>(paramProjectId);
+  const [folderId, setFolderId] = useState<string | null>(null);
+  const [folders, setFolders] = useState<NoteFolder[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [mode, setMode] = useState<"edit" | "preview">("edit");
@@ -59,8 +65,8 @@ export default function NoteCreateScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([fetchProjects(), fetchNotes()])
-      .then(([rows, notes]) => {
+    void Promise.all([fetchProjects(), fetchNotes(), fetchNoteFolders()])
+      .then(([rows, notes, folderRows]) => {
         if (cancelled) return;
         setProjects(
           visibleProjects(rows).map((project) => ({
@@ -69,6 +75,16 @@ export default function NoteCreateScreen() {
           }))
         );
         setWikiNotes(notes);
+        setFolders(folderRows);
+        // Create a partir do projeto nasce na raiz. Na lista, a pasta aberta
+        // preenche folder_id (e o project_id da pasta, se houver).
+        if (paramProjectId) return;
+        const nav = getNoteFolderNav();
+        if (typeof nav !== "string" || nav === INBOX_FOLDER) return;
+        const open = folderRows.find((folder) => folder.id === nav);
+        if (!open) return;
+        setFolderId(open.id);
+        setProjectId(open.project_id);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -78,7 +94,7 @@ export default function NoteCreateScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [paramProjectId]);
 
   async function onSave() {
     setSaving(true);
@@ -86,8 +102,8 @@ export default function NoteCreateScreen() {
     try {
       const note = await createNoteApi(
         kind === "canvas"
-          ? { title, projectId, kind: "canvas", canvasData }
-          : { title, content, projectId }
+          ? { title, projectId, folderId, kind: "canvas", canvasData }
+          : { title, content, projectId, folderId }
       );
       router.replace(`/notes/${note.id}`);
     } catch (err) {
@@ -124,6 +140,12 @@ export default function NoteCreateScreen() {
             </ThemedText>
             <ThemedText>{projectName}</ThemedText>
           </Pressable>
+          <NoteFolderPicker
+            folders={folders}
+            value={folderId}
+            onChange={setFolderId}
+            style={[styles.project, inputStyle]}
+          />
           <TextInput
             autoFocus
             placeholder="Título"
@@ -167,7 +189,7 @@ export default function NoteCreateScreen() {
                   notes: wikiNotes,
                   onOpen: (id) => router.push(`/notes/${id}`),
                   onCreate: (wikiTitle) => {
-                    void createNoteApi({ title: wikiTitle, content: "" }).then(
+                    void createNoteApi({ title: wikiTitle, content: "", folderId: null }).then(
                       (note) => router.push(`/notes/${note.id}`)
                     );
                   },

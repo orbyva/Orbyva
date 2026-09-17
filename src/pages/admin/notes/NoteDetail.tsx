@@ -7,11 +7,12 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { createNote, deleteNote, fetchNote, fetchNotes } from "@/api/notes/notes";
+import { fetchNoteFolders } from "@/api/notes/folders";
 import { fetchProjects } from "@/api/tasks/projects";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
-import type { Note } from "@/types/notes";
+import type { Note, NoteFolder } from "@/types/notes";
 import type { Project } from "@/types/tasks";
 import { NoteEditor } from "./NoteEditor";
 import { CanvasEditor } from "./CanvasEditor";
@@ -27,6 +28,7 @@ export default function NoteDetail() {
   const { id } = useParams<{ id: string }>();
   const [note, setNote] = useState<Note | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [folders, setFolders] = useState<NoteFolder[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -43,13 +45,15 @@ export default function NoteDetail() {
     try {
       // A lista inteira vem junto porque é o dicionário dos wiki-links: resolve `[[Título]]` e
       // alimenta o autocomplete de `[[`. Uma consulta a mais aqui evita uma por ocorrência.
-      const [found, noteList, projectList] = await Promise.all([
+      const [found, noteList, folderList, projectList] = await Promise.all([
         fetchNote(id),
         fetchNotes(),
+        fetchNoteFolders(),
         fetchProjects(),
       ]);
       setNote(found);
       setNotes(noteList);
+      setFolders(folderList);
       setProjects(projectList);
     } catch (error) {
       toast({
@@ -73,7 +77,12 @@ export default function NoteDetail() {
    */
   async function handleCreateLinkedNote(title: string) {
     try {
-      const created = await createNote({ title, content: "", project_id: null });
+      const created = await createNote({
+        title,
+        content: "",
+        project_id: null,
+        folder_id: null,
+      });
       navigate(`/notes/${created.id}`);
     } catch (error) {
       toast({
@@ -149,6 +158,7 @@ export default function NoteDetail() {
         <CanvasEditor
           note={note}
           projects={projects}
+          folders={folders}
           onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}
         />
       ) : (
@@ -160,6 +170,7 @@ export default function NoteDetail() {
           <NoteEditor
             note={note}
             projects={projects}
+            folders={folders}
             notes={notes}
             onCreateNote={handleCreateLinkedNote}
             onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}

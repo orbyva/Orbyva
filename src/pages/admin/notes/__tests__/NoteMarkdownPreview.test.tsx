@@ -34,7 +34,15 @@ vi.mock("@/components/MarkdownCodeEditor", () => ({
  */
 
 function note(id: string, title: string): Note {
-  return { id, title, content: "", project_id: null, kind: "markdown", canvas_data: null };
+  return {
+    id,
+    title,
+    content: "",
+    project_id: null,
+    folder_id: null,
+    kind: "markdown",
+    canvas_data: null,
+  };
 }
 
 function renderPreview(
@@ -188,7 +196,15 @@ describe("NoteMarkdownPreview — checklist interativa", () => {
   });
 
   function noteWith(content: string): Note {
-    return { id: "n1", title: "Compras", content, project_id: null, kind: "markdown", canvas_data: null };
+    return {
+      id: "n1",
+      title: "Compras",
+      content,
+      project_id: null,
+      folder_id: null,
+      kind: "markdown",
+      canvas_data: null,
+    };
   }
 
   async function renderEditorPreview(content: string) {

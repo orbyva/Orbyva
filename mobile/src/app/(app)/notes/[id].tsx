@@ -21,10 +21,12 @@ import {
   fetchNotes,
   updateNoteApi,
 } from "@/api/notes/notes";
+import { fetchNoteFolders } from "@/api/notes/folders";
 import { fetchProjects } from "@/api/tasks/projects";
 import { CanvasNote } from "@/components/CanvasNote";
 import { ChipBar } from "@/components/ChipBar";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
+import { NoteFolderPicker } from "@/components/NoteFolderPicker";
 import { NoteLinksSection } from "@/components/NoteLinksSection";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
@@ -38,7 +40,7 @@ import { insertAt, prefixLines, wrapInline } from "@/domain/notes/markdown";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
-import type { Note, NoteCanvasData } from "@/types/notes";
+import type { Note, NoteCanvasData, NoteFolder } from "@/types/notes";
 
 const SAVE_DELAY_MS = 800;
 const NO_PROJECT = "__none__";
@@ -58,6 +60,8 @@ export default function NoteEditorScreen() {
   const [canvasData, setCanvasData] = useState<NoteCanvasData>({ elements: [] });
   const [wikiNotes, setWikiNotes] = useState<Note[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [folderId, setFolderId] = useState<string | null>(null);
+  const [folders, setFolders] = useState<NoteFolder[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [mode, setMode] = useState<"edit" | "preview">("edit");
@@ -71,11 +75,13 @@ export default function NoteEditorScreen() {
   const contentRef = useRef("");
   const canvasRef = useRef<NoteCanvasData>({ elements: [] });
   const projectRef = useRef<string | null>(null);
+  const folderRef = useRef<string | null>(null);
   const baselineRef = useRef({
     title: "",
     content: "",
     canvasData: { elements: [] } as NoteCanvasData,
     projectId: null as string | null,
+    folderId: null as string | null,
   });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
@@ -85,10 +91,11 @@ export default function NoteEditorScreen() {
 
   const load = useCallback(async () => {
     if (!noteId) throw new Error("Nota não encontrada.");
-    const [note, projectRows, notes] = await Promise.all([
+    const [note, projectRows, notes, folderRows] = await Promise.all([
       fetchNoteById(noteId),
       fetchProjects(),
       fetchNotes(),
+      fetchNoteFolders(),
     ]);
     if (!note) throw new Error("Nota não encontrada.");
     setProjects(
@@ -98,16 +105,19 @@ export default function NoteEditorScreen() {
       }))
     );
     setWikiNotes(notes);
+    setFolders(folderRows);
     const canvas = note.canvas_data ?? { elements: [] };
     titleRef.current = note.title;
     contentRef.current = note.content;
     canvasRef.current = canvas;
     projectRef.current = note.project_id;
+    folderRef.current = note.folder_id;
     baselineRef.current = {
       title: note.title,
       content: note.content,
       canvasData: canvas,
       projectId: note.project_id,
+      folderId: note.folder_id,
     };
     loadedRef.current = true;
     setKind(note.kind);
@@ -115,6 +125,7 @@ export default function NoteEditorScreen() {
     setContent(note.content);
     setCanvasData(canvas);
     setProjectId(note.project_id);
+    setFolderId(note.folder_id);
     setSaveState("saved");
   }, [noteId]);
 
@@ -143,13 +154,15 @@ export default function NoteEditorScreen() {
       content: contentRef.current,
       canvasData: canvasRef.current,
       projectId: projectRef.current,
+      folderId: folderRef.current,
     };
     if (
       snapshot.title === baselineRef.current.title &&
       snapshot.content === baselineRef.current.content &&
       JSON.stringify(snapshot.canvasData) ===
         JSON.stringify(baselineRef.current.canvasData) &&
-      snapshot.projectId === baselineRef.current.projectId
+      snapshot.projectId === baselineRef.current.projectId &&
+      snapshot.folderId === baselineRef.current.folderId
     ) {
       return;
     }
@@ -165,6 +178,7 @@ export default function NoteEditorScreen() {
         title: snapshot.title,
         content: snapshot.content,
         projectId: snapshot.projectId,
+        folderId: snapshot.folderId,
         canvasData: snapshot.canvasData,
       });
       baselineRef.current = snapshot;
@@ -215,6 +229,12 @@ export default function NoteEditorScreen() {
   function onProjectChange(id: string | null) {
     projectRef.current = id;
     setProjectId(id);
+    scheduleSave();
+  }
+
+  function onFolderChange(id: string | null) {
+    folderRef.current = id;
+    setFolderId(id);
     scheduleSave();
   }
 
@@ -311,6 +331,10 @@ export default function NoteEditorScreen() {
     projectId == null
       ? "Sem projeto"
       : (projects.find((project) => project.id === projectId)?.name ?? "Projeto");
+  const folderName =
+    folderId == null
+      ? "Sem pasta"
+      : (folders.find((folder) => folder.id === folderId)?.name ?? "Pasta");
 
   const statusLabel =
     saveState === "saving"
@@ -344,7 +368,7 @@ export default function NoteEditorScreen() {
           ) : null}
           <FormSection
             title="Projeto e vínculos"
-            hint={projectName}
+            hint={`${folderName} · ${projectName}`}
             defaultOpen={false}
           >
             <Pressable
@@ -357,6 +381,13 @@ export default function NoteEditorScreen() {
               </ThemedText>
               <ThemedText>{projectName}</ThemedText>
             </Pressable>
+            <NoteFolderPicker
+              folders={folders}
+              value={folderId}
+              onChange={onFolderChange}
+              disabled={deleting}
+              style={[styles.project, inputStyle]}
+            />
             {noteId ? <NoteLinksSection noteId={noteId} /> : null}
           </FormSection>
           <TextInput
@@ -392,7 +423,7 @@ export default function NoteEditorScreen() {
                   notes: wikiNotes,
                   onOpen: (id) => router.push(`/notes/${id}`),
                   onCreate: (wikiTitle) => {
-                    void createNoteApi({ title: wikiTitle, content: "" }).then(
+                    void createNoteApi({ title: wikiTitle, content: "", folderId: null }).then(
                       (note) => router.push(`/notes/${note.id}`)
                     );
                   },

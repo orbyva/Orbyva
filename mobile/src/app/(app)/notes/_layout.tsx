@@ -29,6 +29,13 @@ export default function NotesStackLayout() {
         }}
       />
       <Stack.Screen
+        name="folder-form"
+        options={{
+          title: "Pasta",
+          ...formScreenOptions,
+        }}
+      />
+      <Stack.Screen
         name="[id]"
         options={{
           title: "Nota",

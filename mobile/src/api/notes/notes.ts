@@ -3,7 +3,8 @@ import { supabase } from "@/lib/supabase";
 import { normalizeNoteTitle } from "@/domain/notes/listView";
 import type { Note, NoteCanvasData, NoteKind } from "@/types/notes";
 
-const NOTE_SELECT = "id, title, content, kind, canvas_data, project_id, updated_at";
+const NOTE_SELECT =
+  "id, title, content, kind, canvas_data, project_id, folder_id, updated_at";
 
 export async function fetchNotes(): Promise<Note[]> {
   const userId = await getCurrentUserId();
@@ -32,6 +33,7 @@ export async function createNoteApi(input: {
   title: string;
   content?: string;
   projectId?: string | null;
+  folderId?: string | null;
   kind?: NoteKind;
   canvasData?: NoteCanvasData | null;
 }): Promise<Note> {
@@ -45,6 +47,7 @@ export async function createNoteApi(input: {
         title: normalizeNoteTitle(input.title),
         content: kind === "canvas" ? "" : (input.content ?? ""),
         project_id: input.projectId ?? null,
+        folder_id: input.folderId ?? null,
         kind,
         canvas_data: kind === "canvas" ? (input.canvasData ?? { elements: [] }) : null,
       },
@@ -60,6 +63,7 @@ export async function updateNoteApi(input: {
   title: string;
   content?: string;
   projectId?: string | null;
+  folderId?: string | null;
   canvasData?: NoteCanvasData | null;
 }): Promise<void> {
   const userId = await getCurrentUserId();
@@ -69,6 +73,7 @@ export async function updateNoteApi(input: {
       title: normalizeNoteTitle(input.title),
       ...(input.content !== undefined ? { content: input.content } : {}),
       ...(input.projectId !== undefined ? { project_id: input.projectId } : {}),
+      ...(input.folderId !== undefined ? { folder_id: input.folderId } : {}),
       ...(input.canvasData !== undefined ? { canvas_data: input.canvasData } : {}),
       updated_at: new Date().toISOString(),
     })

@@ -54,6 +54,7 @@ function makeNote(overrides: Partial<Note> = {}): Note {
     title: "Escrever a pauta",
     content: "",
     project_id: "project-1",
+    folder_id: null,
     kind: "markdown",
     canvas_data: null,
     ...overrides,
