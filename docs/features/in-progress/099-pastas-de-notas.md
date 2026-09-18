@@ -42,15 +42,17 @@ projeto nem tag.
   também preenche `note.project_id` — é atalho de formulário (a nota já nasceria "daquele projeto"
   se o usuário tivesse escolhido no picker), não um vínculo contínuo. Create em "Todas"/"Sem pasta"
   deixa os dois nulos. Tag da pasta **não** é copiada para a nota (nota não tem tag nesta feature).
-- **Aninhamento com teto de 3 níveis.** `parent_id` aponta para outra pasta do mesmo usuário;
-  `parent_id <> id`; ciclo é recusado no domínio. Descartado árvore sem teto: a sidebar da lista
-  viraria finder. Apagar pasta: notas vão para "Sem pasta" (`on delete set null` em
-  `note.folder_id`); subpastas sobem um nível (a API reparenta para o `parent_id` da pasta apagada
-  **antes** do delete). `parent_id` no banco fica `on delete cascade` só como rede de segurança do
-  wipe — a UI nunca dispara esse cascade porque reparenta primeiro.
+- **Aninhamento com teto de 5 níveis.** `parent_id` aponta para outra pasta do mesmo usuário;
+  `parent_id <> id`; ciclo é recusado no domínio. O teto começou em 3; em 2026-09-18 o usuário
+  pediu a árvore empresa → clientes → Finatec → demandas (4 níveis), então o cap subiu para 5
+  — cabe o exemplo e sobra um. Sem teto a sidebar viraria finder. Apagar pasta: notas vão para
+  "Sem pasta" (`on delete set null` em `note.folder_id`); subpastas sobem um nível (a API
+  reparenta para o `parent_id` da pasta apagada **antes** do delete). `parent_id` no banco fica
+  `on delete cascade` só como rede de segurança do wipe — a UI nunca dispara esse cascade
+  porque reparenta primeiro.
 - **Web primeiro, mobile depois.** A árvore nativa ficou de fora na v1; `folder_id` nullable
   deixava o Expo criar/editar nota como antes. **2026-09-17:** o usuário pediu para replicar no
-  mobile agora — mesma regra (lugar, teto 3, mover só `folder_id`, create na pasta aberta copia
+  mobile agora — mesma regra (lugar, teto 5, mover só `folder_id`, create na pasta aberta copia
   `project_id` da pasta). Sem drag-and-drop no nativo (o gesto de toque da lista já abre a nota);
   mover é o picker no editor. Recolher fica em memória da sessão (sem `localStorage`).
 - **Navegação na própria página `/notes`, não rota nova.** Coluna de pastas (Todas / Sem pasta /
@@ -59,8 +61,8 @@ projeto nem tag.
   local e aplica **depois** do recorte por pasta. Clicar uma pasta mostra só as notas com aquele
   `folder_id`, não as das subpastas — subpasta se abre na árvore, como o Notes do iPhone.
 - **Fora de escopo:** tag na nota; smart folder que lista `note.project_id` (já existe na página do
-  projeto); herança contínua pasta→nota depois do create; drag-and-drop para reordenar pastas;
-  "folder note" do Obsidian; drag-and-drop de nota→pasta no Expo.
+  projeto); herança contínua pasta→nota depois do create; reordenar irmãs (o drag de pasta só
+  aninha, não muda a ordem entre iguais); "folder note" do Obsidian; drag-and-drop no Expo.
 
 ## Tarefas
 
@@ -163,6 +165,15 @@ projeto nem tag.
       com a pasta aberta grava `folder_id` (e `project_id` da pasta, se houver); editor e
       `notes/form` têm picker de pasta; create a partir do projeto / wiki-link quebrado
       nascem na raiz. Sem drag. Verificação: `cd mobile && npx tsc --noEmit`.
+- [x] Arrastar pasta da árvore para dentro de outra: só troca `parent_id` se `canMoveFolder`
+      (teto 5 + sem ciclo). Destino inválido recusa com toast. Notas da pasta **não** mudam de
+      `folder_id`. "Todas" e "Sem pasta" não recebem pasta (Sem pasta é lugar de nota). Web
+      (`sm:`); Expo continua pelo formulário. Verificação: `NoteFolderTree.test.tsx` +
+      `Notes.folders.flow.test.tsx`.
+- [x] Teto de aninhamento 5 (o exemplo IDEA → Clientes → Finatec → Demandas pede 4). Constante
+      `NOTE_FOLDER_MAX_DEPTH` no domínio web e Expo; mensagens da API/toast/form usam a constante.
+      Testes de domínio, API e fluxo cobrem criar o 6º nível e mover uma subárvore que estouraria.
+      Verificação: `npm test` nos arquivos de pasta; `cd mobile && npx tsc --noEmit`.
 - [ ] **Migration aplicada pelo usuário** — só depois de confirmação explícita: `supabase db push`.
       Pendência de fumaça na conta real fica em `## Notas` (abrir `/notes`, criar pasta com
       etiqueta, criar nota dentro, mover, apagar a pasta).
@@ -218,6 +229,28 @@ Como vai saber qual o projeto e qual a etiqueta agora?
 Ficou bom. Replique para o Mobile agora
 ```
 
+- 2026-09-18 — pedido no meio da implementação, verbatim:
+
+```
+- Até quantos níveis de pasta dentro de pasta posso ter? 
+- Permita arrastas as pastas para dentro outras pastas
+```
+
+- 2026-09-18 — pedido no meio da implementação, verbatim:
+
+```
+Eu queria que tivesse mais. Pois, por exemplo. Trabalho em uma empresa chamada idea, que nela tem projetos de clientes, como finatec, e coisas internas. Queria separar assim:
+- IDEA
+  - Clientes
+    - Finatec
+      - Demandas Sap x Conveniar dia tal
+      - Demandas BI 
+- Interno
+  - Plataforma não sei oq
+    - Alinhamento dia 23/09/2026
+      - Brainstorming
+```
+
 ## Notas
 
 - Não encaixa na 055 (núcleo, `done/`) nem na 058 (canvas, `in-progress/`): pasta é eixo novo, e
@@ -247,3 +280,9 @@ Ficou bom. Replique para o Mobile agora
   `cd mobile && npx tsc --noEmit` passou. Fumaça no aparelho ainda depende do `db push`.
 - `CanvasEditor.test` “renomear grava o título”: o `waitFor` pegava o autosave do espaço
   (`"Arquitetura "`) quando o debounce ganhava do `user.type`. Passou a esperar o título fechado.
+- Arraste de pasta (2026-09-18): soltar em outra pasta troca só `parent_id`. Ciclo ou mais de
+  5 níveis vira toast. Notas de dentro não mudam de lugar. Sem pasta / Todas não recebem pasta.
+  `NoteFolderTree.test` + `Notes.folders.flow.test` passaram.
+- Teto 5 (2026-09-18): o exemplo IDEA → Clientes → Finatec → Demandas pede 4 níveis; o cap
+  subiu de 3 para 5. Sem migration — o limite é só no domínio. Testes de pasta + `tsc` mobile
+  passaram.

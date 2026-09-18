@@ -1,10 +1,16 @@
 import type { Note, NoteFolder } from "@/types/notes";
 
 /**
- * Teto da árvore de pastas (feature 099). Três níveis: raiz, filha, neta. Sem teto a sidebar da
- * lista viraria um finder.
+ * Teto da árvore de pastas (feature 099). Cinco níveis cabem empresa → clientes → cliente →
+ * demandas (o exemplo da IDEA) e ainda sobra um. Sem teto a sidebar viraria um finder.
  */
-export const NOTE_FOLDER_MAX_DEPTH = 3;
+export const NOTE_FOLDER_MAX_DEPTH = 5;
+
+export function folderDepthLimitMessage(kind: "create" | "move"): string {
+  return kind === "move"
+    ? `Essa mudança deixaria a pasta com mais de ${NOTE_FOLDER_MAX_DEPTH} níveis.`
+    : `A pasta não pode ter mais de ${NOTE_FOLDER_MAX_DEPTH} níveis.`;
+}
 
 /** Valor de `?folder=` e do filtro da lista para notas sem pasta. */
 export const INBOX_FOLDER = "inbox" as const;

@@ -17,7 +17,7 @@ import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { createNote, deleteNote, fetchNotes, updateNote } from "@/api/notes/notes";
-import { deleteNoteFolder, fetchNoteFolders } from "@/api/notes/folders";
+import { deleteNoteFolder, fetchNoteFolders, updateNoteFolder } from "@/api/notes/folders";
 import { fetchProjects } from "@/api/tasks/projects";
 import { createTag, fetchTags } from "@/api/tasks/tags";
 import { filterNotes } from "@/domain/notes/filters";
@@ -25,6 +25,8 @@ import { noteExcerpt } from "@/domain/notes/noteDraft";
 import { canvasElementCount } from "@/domain/notes/canvasScene";
 import {
   INBOX_FOLDER,
+  NOTE_FOLDER_MAX_DEPTH,
+  canMoveFolder,
   flattenFolderTree,
   folderIdFromDropZone,
   notesInFolder,
@@ -55,8 +57,10 @@ export default function Notes() {
   const [editingFolder, setEditingFolder] = useState<NoteFolder | null>(null);
   const [defaultParentId, setDefaultParentId] = useState<string | null>(null);
   const [dragNoteId, setDragNoteId] = useState<string | null>(null);
+  const [dragFolderId, setDragFolderId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const dragNoteIdRef = useRef<string | null>(null);
+  const dragFolderIdRef = useRef<string | null>(null);
   const skipOpenAfterDrag = useRef(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -204,7 +208,9 @@ export default function Notes() {
 
   function endDrag() {
     dragNoteIdRef.current = null;
+    dragFolderIdRef.current = null;
     setDragNoteId(null);
+    setDragFolderId(null);
     setDropTarget(null);
   }
 
@@ -234,6 +240,45 @@ export default function Notes() {
         variant: "destructive",
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível mover a nota."),
+      });
+    }
+  }
+
+  /** Aninhar pasta: só `parent_id`. Notas de dentro não mudam de lugar. */
+  async function handleMoveFolder(folderId: string, nextParentId: string) {
+    const folder = folders.find((item) => item.id === folderId);
+    if (!folder || folder.id === nextParentId || folder.parent_id === nextParentId) {
+      endDrag();
+      return;
+    }
+    if (!canMoveFolder(folders, folderId, nextParentId)) {
+      endDrag();
+      toast({
+        variant: "destructive",
+        title: "Não dá para mover",
+        description: `A pasta não pode ter mais de ${NOTE_FOLDER_MAX_DEPTH} níveis, nem ir para dentro de si mesma.`,
+      });
+      return;
+    }
+    const previous = folder.parent_id;
+    setFolders((prev) =>
+      prev.map((item) =>
+        item.id === folderId ? { ...item, parent_id: nextParentId } : item
+      )
+    );
+    endDrag();
+    try {
+      await updateNoteFolder({ id: folderId, parent_id: nextParentId });
+    } catch (error) {
+      setFolders((prev) =>
+        prev.map((item) =>
+          item.id === folderId ? { ...item, parent_id: previous } : item
+        )
+      );
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível mover a pasta."),
       });
     }
   }
@@ -356,6 +401,7 @@ export default function Notes() {
               selected={folderNav}
               dropTarget={dropTarget}
               draggingNote={dragNoteId != null}
+              draggingFolderId={dragFolderId}
               onSelect={setFolderNav}
               onCreate={openCreateFolder}
               onEdit={(folder) => {
@@ -365,9 +411,20 @@ export default function Notes() {
               onDelete={(folder) => void handleDeleteFolder(folder)}
               onDragOverTarget={setDropTarget}
               onDropNote={(folderId) => {
+                if (dragFolderIdRef.current) return;
                 const noteId = dragNoteIdRef.current;
                 if (!noteId) return;
                 void handleMoveNote(noteId, folderId);
+              }}
+              onDragFolderStart={(folderId) => {
+                dragFolderIdRef.current = folderId;
+                setDragFolderId(folderId);
+              }}
+              onDragFolderEnd={endDrag}
+              onDropFolder={(parentId) => {
+                const folderId = dragFolderIdRef.current;
+                if (!folderId) return;
+                void handleMoveFolder(folderId, parentId);
               }}
             />
           </aside>

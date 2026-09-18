@@ -39,9 +39,11 @@ function note(over: Partial<Note> & Pick<Note, "id" | "title">): Note {
 const raiz = folder({ id: "a", name: "Casa" });
 const filha = folder({ id: "b", name: "Obra", parent_id: "a" });
 const neta = folder({ id: "c", name: "Banheiro", parent_id: "b" });
+const bisneta = folder({ id: "e", name: "Azulejo", parent_id: "c" });
+const tataraneta = folder({ id: "f", name: "Rejunte", parent_id: "e" });
 const outra = folder({ id: "d", name: "Saúde" });
 
-const tree = [raiz, filha, neta, outra];
+const tree = [raiz, filha, neta, bisneta, tataraneta, outra];
 
 describe("buildFolderTree", () => {
   it("agrupa por pai e ordena pelo nome", () => {
@@ -49,6 +51,7 @@ describe("buildFolderTree", () => {
     expect(nodes.map((n) => n.id)).toEqual(["a", "d"]);
     expect(nodes[0].children.map((n) => n.id)).toEqual(["b"]);
     expect(nodes[0].children[0].children.map((n) => n.id)).toEqual(["c"]);
+    expect(nodes[0].children[0].children[0].children.map((n) => n.id)).toEqual(["e"]);
     expect(nodes[1].children).toEqual([]);
   });
 
@@ -66,6 +69,8 @@ describe("flattenFolderTree / folderDepth", () => {
       ["a", 1],
       ["b", 2],
       ["c", 3],
+      ["e", 4],
+      ["f", 5],
       ["d", 1],
     ]);
   });
@@ -74,6 +79,7 @@ describe("flattenFolderTree / folderDepth", () => {
     expect(folderDepth(tree, null)).toBe(0);
     expect(folderDepth(tree, "a")).toBe(1);
     expect(folderDepth(tree, "c")).toBe(3);
+    expect(folderDepth(tree, "f")).toBe(5);
   });
 });
 
@@ -85,18 +91,19 @@ describe("ciclo e teto de profundidade", () => {
     expect(wouldCreateCycle(tree, "a", null)).toBe(false);
   });
 
-  it("não deixa criar pasta abaixo do nível 3", () => {
-    expect(NOTE_FOLDER_MAX_DEPTH).toBe(3);
+  it("não deixa criar pasta abaixo do nível 5", () => {
+    expect(NOTE_FOLDER_MAX_DEPTH).toBe(5);
     expect(canNestUnder(tree, null)).toBe(true);
     expect(canNestUnder(tree, "a")).toBe(true);
-    expect(canNestUnder(tree, "b")).toBe(true);
-    expect(canNestUnder(tree, "c")).toBe(false);
+    expect(canNestUnder(tree, "c")).toBe(true);
+    expect(canNestUnder(tree, "e")).toBe(true);
+    expect(canNestUnder(tree, "f")).toBe(false);
   });
 
   it("mover uma subárvore não pode estourar o teto", () => {
-    expect(subtreeHeight(tree, "c")).toBe(1);
-    expect(subtreeHeight(tree, "a")).toBe(3);
-    // `a` tem altura 3: não cabe debaixo de `d` (que já é nível 1).
+    expect(subtreeHeight(tree, "f")).toBe(1);
+    expect(subtreeHeight(tree, "a")).toBe(5);
+    // `a` tem altura 5: não cabe debaixo de `d` (que já é nível 1).
     expect(canMoveFolder(tree, "a", "d")).toBe(false);
     expect(canMoveFolder(tree, "c", "d")).toBe(true);
     expect(canMoveFolder(tree, "a", "c")).toBe(false);

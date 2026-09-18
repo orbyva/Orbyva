@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Notes from "@/pages/admin/notes/Notes";
 import NoteDetail from "@/pages/admin/notes/NoteDetail";
 import { normalizeNoteDraft } from "@/domain/notes/noteDraft";
-import { reparentChildren } from "@/domain/notes/folders";
+import { canMoveFolder, folderDepthLimitMessage, reparentChildren } from "@/domain/notes/folders";
 import type {
   Note,
   NoteDraft,
@@ -99,7 +99,14 @@ vi.mock("@/api/notes/folders", () => ({
   }),
   updateNoteFolder: vi.fn(async ({ id, ...fields }: NoteFolderUpdateRequest) => {
     const target = store.folders.find((f) => f.id === id);
-    if (target) Object.assign(target, fields);
+    if (!target) return;
+    if (fields.parent_id !== undefined) {
+      const nextParent = fields.parent_id ? fields.parent_id : null;
+      if (!canMoveFolder(store.folders, id, nextParent)) {
+        throw new Error(folderDepthLimitMessage("move"));
+      }
+    }
+    Object.assign(target, fields);
   }),
   deleteNoteFolder: vi.fn(async (id: string) => {
     const patch = reparentChildren(store.folders, id);
@@ -396,5 +403,54 @@ describe("Notas — pastas", () => {
 
     await waitFor(() => expect(store.notes[0].folder_id).toBeNull());
     expect(store.notes[0].project_id).toBe("p1");
+  });
+
+  it("arrastar uma pasta para dentro de outra só troca parent_id", async () => {
+    store.folders = [
+      {
+        id: "f1",
+        name: "Obra",
+        parent_id: null,
+        project_id: "p1",
+        tag_id: null,
+      },
+      {
+        id: "f2",
+        name: "Saúde",
+        parent_id: null,
+        project_id: null,
+        tag_id: null,
+      },
+    ];
+    renderApp("/notes");
+    expect(await screen.findByRole("button", { name: "Pasta Saúde" })).toBeInTheDocument();
+
+    fireEvent.dragStart(document.querySelector('[data-drop-zone="note-folder|f2"]')!);
+    fireEvent.drop(document.querySelector('[data-drop-zone="note-folder|f1"]')!);
+
+    await waitFor(() => expect(store.folders.find((f) => f.id === "f2")?.parent_id).toBe("f1"));
+  });
+
+  it("recusa aninhar se estourar os 5 níveis", async () => {
+    store.folders = [
+      { id: "a", name: "Casa", parent_id: null, project_id: null, tag_id: null },
+      { id: "b", name: "Obra", parent_id: "a", project_id: null, tag_id: null },
+      { id: "c", name: "Banheiro", parent_id: "b", project_id: null, tag_id: null },
+      { id: "e", name: "Azulejo", parent_id: "c", project_id: null, tag_id: null },
+      { id: "f", name: "Rejunte", parent_id: "e", project_id: null, tag_id: null },
+      { id: "d", name: "Saúde", parent_id: null, project_id: null, tag_id: null },
+    ];
+    renderApp("/notes");
+    expect(await screen.findByRole("button", { name: "Pasta Casa" })).toBeInTheDocument();
+
+    fireEvent.dragStart(document.querySelector('[data-drop-zone="note-folder|a"]')!);
+    fireEvent.drop(document.querySelector('[data-drop-zone="note-folder|d"]')!);
+
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Não dá para mover" })
+      )
+    );
+    expect(store.folders.find((f) => f.id === "a")?.parent_id).toBeNull();
   });
 });

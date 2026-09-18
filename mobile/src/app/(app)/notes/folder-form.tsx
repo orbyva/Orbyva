@@ -27,10 +27,10 @@ import { FormButton } from "@/components/ui/FormButton";
 import { Spacing } from "@/constants/theme";
 import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
 import {
+  folderDepthLimitMessage,
   canMoveFolder,
   canNestUnder,
   flattenFolderTree,
-  NOTE_FOLDER_MAX_DEPTH,
 } from "@/domain/notes/folders";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
@@ -133,11 +133,11 @@ export default function NoteFolderFormScreen() {
     }
     if (editId) {
       if (!canMoveFolder(folders, editId, parentId)) {
-        setError("Essa mudança deixaria a pasta com mais de 3 níveis.");
+        setError(folderDepthLimitMessage("move"));
         return;
       }
     } else if (!canNestUnder(folders, parentId)) {
-      setError(`A pasta não pode ter mais de ${NOTE_FOLDER_MAX_DEPTH} níveis.`);
+      setError(folderDepthLimitMessage("create"));
       return;
     }
     setSaving(true);

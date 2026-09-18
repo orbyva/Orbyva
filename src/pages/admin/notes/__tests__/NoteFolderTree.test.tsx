@@ -161,6 +161,34 @@ describe("NoteFolderTree", () => {
     ).toBeNull();
   });
 
+  it("arrastar uma pasta e soltar em outra dispara onDropFolder, não onDropNote em Sem pasta", () => {
+    const onDropFolder = vi.fn();
+    const onDropNote = vi.fn();
+    const extra = folder({ id: "f3", name: "Saúde" });
+    render(
+      <NoteFolderTree
+        folders={[...folders, extra]}
+        notes={notes}
+        projects={projects}
+        tags={tags}
+        selected={null}
+        draggingFolderId="f3"
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onDropNote={onDropNote}
+        onDropFolder={onDropFolder}
+      />
+    );
+    fireEvent.dragStart(screen.getByRole("button", { name: "Pasta Saúde" }));
+    fireEvent.drop(document.querySelector('[data-drop-zone="note-folder|f1"]')!);
+    expect(onDropFolder).toHaveBeenCalledWith("f1");
+    onDropFolder.mockClear();
+    fireEvent.drop(document.querySelector('[data-drop-zone="note-folder|inbox"]')!);
+    expect(onDropFolder).not.toHaveBeenCalled();
+  });
+
   it("recolhe e expande as subpastas pelo chevron", async () => {
     const user = userEvent.setup();
     render(

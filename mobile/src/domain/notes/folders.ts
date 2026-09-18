@@ -4,7 +4,13 @@ import type { Note, NoteFolder } from "@/types/notes";
  * Espelho de `src/domain/notes/folders.ts` (feature 099). Sem drop zone HTML5 — no Expo o
  * movimento da nota é o picker do editor.
  */
-export const NOTE_FOLDER_MAX_DEPTH = 3;
+export const NOTE_FOLDER_MAX_DEPTH = 5;
+
+export function folderDepthLimitMessage(kind: "create" | "move"): string {
+  return kind === "move"
+    ? `Essa mudança deixaria a pasta com mais de ${NOTE_FOLDER_MAX_DEPTH} níveis.`
+    : `A pasta não pode ter mais de ${NOTE_FOLDER_MAX_DEPTH} níveis.`;
+}
 
 export const INBOX_FOLDER = "inbox" as const;
 

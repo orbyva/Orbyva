@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import {
   canMoveFolder,
   canNestUnder,
+  folderDepthLimitMessage,
   reparentChildren,
 } from "@/domain/notes/folders";
 import type {
@@ -42,7 +43,7 @@ export async function createNoteFolderApi(
   const payload = normalizeFolderDraft(draft);
   const folders = await fetchNoteFolders();
   if (!canNestUnder(folders, payload.parent_id)) {
-    throw new Error("A pasta não pode ter mais de 3 níveis.");
+    throw new Error(folderDepthLimitMessage("create"));
   }
   const { data, error } = await supabase
     .from("note_folder")
@@ -78,7 +79,7 @@ export async function updateNoteFolderApi(
     const folders = await fetchNoteFolders();
     const nextParent = fields.parent_id ? fields.parent_id : null;
     if (!canMoveFolder(folders, id, nextParent)) {
-      throw new Error("Essa mudança deixaria a pasta com mais de 3 níveis.");
+      throw new Error(folderDepthLimitMessage("move"));
     }
   }
 

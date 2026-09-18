@@ -5,6 +5,7 @@ import {
   fetchNoteFolders,
   updateNoteFolder,
 } from "@/api/notes/folders";
+import { folderDepthLimitMessage } from "@/domain/notes/folders";
 import type { NoteFolder } from "@/types/notes";
 
 /**
@@ -117,6 +118,20 @@ const neta: NoteFolder = {
   project_id: null,
   tag_id: null,
 };
+const nivel4: NoteFolder = {
+  id: "e",
+  name: "Azulejo",
+  parent_id: "c",
+  project_id: null,
+  tag_id: null,
+};
+const nivel5: NoteFolder = {
+  id: "f",
+  name: "Rejunte",
+  parent_id: "e",
+  project_id: null,
+  tag_id: null,
+};
 
 describe("api/notes/folders", () => {
   it("fetchNoteFolders lê note_folder do usuário, por nome", async () => {
@@ -159,16 +174,16 @@ describe("api/notes/folders", () => {
     expect(insert?.single).toBe(true);
   });
 
-  it("createNoteFolder recusa um quarto nível", async () => {
-    results = [{ data: [raiz, filha, neta], error: null }];
+  it("createNoteFolder recusa um sexto nível", async () => {
+    results = [{ data: [raiz, filha, neta, nivel4, nivel5], error: null }];
     await expect(
       createNoteFolder({
-        name: "Azulejo",
-        parent_id: "c",
+        name: "Sexta",
+        parent_id: "f",
         project_id: null,
         tag_id: null,
       })
-    ).rejects.toThrow("A pasta não pode ter mais de 3 níveis.");
+    ).rejects.toThrow(folderDepthLimitMessage("create"));
     expect(calls.some((c) => c.op === "insert")).toBe(false);
   });
 
@@ -185,10 +200,10 @@ describe("api/notes/folders", () => {
   });
 
   it("updateNoteFolder recusa ciclo / teto antes de gravar", async () => {
-    results = [{ data: [raiz, filha, neta], error: null }];
+    results = [{ data: [raiz, filha, neta, nivel4, nivel5], error: null }];
     await expect(
       updateNoteFolder({ id: "a", parent_id: "c" })
-    ).rejects.toThrow("Essa mudança deixaria a pasta com mais de 3 níveis.");
+    ).rejects.toThrow(folderDepthLimitMessage("move"));
     expect(calls.some((c) => c.op === "update")).toBe(false);
   });
 

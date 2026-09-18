@@ -23,6 +23,7 @@ import {
   NOTE_FOLDER_DROP_KIND,
   NOTE_FOLDER_MAX_DEPTH,
   buildFolderTree,
+  canMoveFolder,
   folderAncestorIds,
   notesInFolder,
   type FolderNav,
@@ -57,12 +58,13 @@ function writeCollapsedIds(ids: Set<string>) {
   }
 }
 
-function acceptNoteDrop(
+function acceptDrop(
   event: DragEvent,
   folderId: string | null,
   onDragOverTarget?: (target: string | null) => void
 ) {
   event.preventDefault();
+  event.stopPropagation();
   if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
   onDragOverTarget?.(folderId === null ? INBOX_FOLDER : folderId);
 }
@@ -78,23 +80,24 @@ function Count({ value }: { value: number }) {
 function FolderActions({
   name,
   canNest,
-  draggingNote,
+  dragging,
   onCreateChild,
   onEdit,
   onDelete,
 }: {
   name: string;
   canNest: boolean;
-  draggingNote: boolean;
+  dragging: boolean;
   onCreateChild: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   return (
     <div
+      data-no-folder-drag
       className={cn(
         "absolute right-0.5 top-1.5 flex rounded-md bg-background/90 opacity-0 pointer-events-none shadow-sm ring-1 ring-border/60 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
-        draggingNote && "pointer-events-none"
+        dragging && "pointer-events-none"
       )}
     >
       {canNest && (
@@ -141,12 +144,14 @@ function FolderActions({
 function FolderRow({
   node,
   depth,
+  folders,
   notes,
   projects,
   tags,
   selected,
   dropTarget,
   draggingNote,
+  draggingFolderId,
   collapsed,
   onToggleCollapsed,
   onSelect,
@@ -155,15 +160,20 @@ function FolderRow({
   onDelete,
   onDragOverTarget,
   onDropNote,
+  onDragFolderStart,
+  onDragFolderEnd,
+  onDropFolder,
 }: {
   node: FolderNode;
   depth: number;
+  folders: NoteFolder[];
   notes: Note[];
   projects: Project[];
   tags: Tag[];
   selected: FolderNav;
   dropTarget: string | null;
   draggingNote: boolean;
+  draggingFolderId: string | null;
   collapsed: Set<string>;
   onToggleCollapsed: (id: string, nextCollapsed: boolean) => void;
   onSelect: (nav: FolderNav) => void;
@@ -172,10 +182,19 @@ function FolderRow({
   onDelete: (folder: NoteFolder) => void;
   onDragOverTarget?: (target: string | null) => void;
   onDropNote?: (folderId: string | null) => void;
+  onDragFolderStart?: (folderId: string) => void;
+  onDragFolderEnd?: () => void;
+  onDropFolder?: (parentId: string) => void;
 }) {
   const count = notesInFolder(notes, node.id).length;
   const active = selected === node.id;
   const isDrop = dropTarget === node.id;
+  const dragging = draggingNote || draggingFolderId != null;
+  const acceptingFolder =
+    draggingFolderId != null &&
+    draggingFolderId !== node.id &&
+    canMoveFolder(folders, draggingFolderId, node.id);
+  const showDrop = isDrop && (draggingNote || acceptingFolder);
   const project = projects.find((p) => p.id === node.project_id);
   const tag = tags.find((t) => t.id === node.tag_id);
   const hasChildren = node.children.length > 0;
@@ -185,14 +204,41 @@ function FolderRow({
   return (
     <li>
       <div
+        draggable
         className={cn(
-          "group relative rounded-lg",
+          "group relative cursor-grab rounded-lg active:cursor-grabbing",
           active && "bg-primary/10",
-          draggingNote && isDrop && "bg-primary/15 ring-1 ring-primary/40"
+          draggingFolderId === node.id && "opacity-60",
+          showDrop && "bg-primary/15 ring-1 ring-primary/40"
         )}
-        onDragOver={(event) => acceptNoteDrop(event, node.id, onDragOverTarget)}
+        onDragStart={(event) => {
+          if (
+            (event.target as HTMLElement).closest("[data-no-folder-drag]")
+          ) {
+            event.preventDefault();
+            return;
+          }
+          event.stopPropagation();
+          if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", node.id);
+          }
+          onDragFolderStart?.(node.id);
+        }}
+        onDragEnd={(event) => {
+          event.stopPropagation();
+          onDragFolderEnd?.();
+        }}
+        onDragOver={(event) => {
+          if (draggingFolderId === node.id) return;
+          if (draggingFolderId && !acceptingFolder) return;
+          acceptDrop(event, node.id, onDragOverTarget);
+        }}
         onDrop={(event) => {
           event.preventDefault();
+          event.stopPropagation();
+          onToggleCollapsed(node.id, false);
+          onDropFolder?.(node.id);
           onDropNote?.(node.id);
         }}
         {...dropZoneAttrs(NOTE_FOLDER_DROP_KIND, node.id)}
@@ -204,6 +250,7 @@ function FolderRow({
               variant="ghost"
               size="icon"
               className="mt-0.5 h-6 w-6 shrink-0 text-muted-foreground"
+              data-no-folder-drag
               aria-expanded={expanded}
               aria-label={
                 expanded ? `Recolher ${node.name}` : `Expandir ${node.name}`
@@ -272,7 +319,7 @@ function FolderRow({
         <FolderActions
           name={node.name}
           canNest={depth < NOTE_FOLDER_MAX_DEPTH}
-          draggingNote={draggingNote}
+          dragging={dragging}
           onCreateChild={() => {
             onToggleCollapsed(node.id, false);
             onCreateChild(node.id);
@@ -288,12 +335,14 @@ function FolderRow({
               key={child.id}
               node={child}
               depth={depth + 1}
+              folders={folders}
               notes={notes}
               projects={projects}
               tags={tags}
               selected={selected}
               dropTarget={dropTarget}
               draggingNote={draggingNote}
+              draggingFolderId={draggingFolderId}
               collapsed={collapsed}
               onToggleCollapsed={onToggleCollapsed}
               onSelect={onSelect}
@@ -302,6 +351,9 @@ function FolderRow({
               onDelete={onDelete}
               onDragOverTarget={onDragOverTarget}
               onDropNote={onDropNote}
+              onDragFolderStart={onDragFolderStart}
+              onDragFolderEnd={onDragFolderEnd}
+              onDropFolder={onDropFolder}
             />
           ))}
         </ul>
@@ -318,12 +370,16 @@ export function NoteFolderTree({
   selected,
   dropTarget = null,
   draggingNote = false,
+  draggingFolderId = null,
   onSelect,
   onCreate,
   onEdit,
   onDelete,
   onDragOverTarget,
   onDropNote,
+  onDragFolderStart,
+  onDragFolderEnd,
+  onDropFolder,
 }: {
   folders: NoteFolder[];
   notes: Note[];
@@ -332,17 +388,22 @@ export function NoteFolderTree({
   selected: FolderNav;
   dropTarget?: string | null;
   draggingNote?: boolean;
+  draggingFolderId?: string | null;
   onSelect: (nav: FolderNav) => void;
   onCreate: (parentId: string | null) => void;
   onEdit: (folder: NoteFolder) => void;
   onDelete: (folder: NoteFolder) => void;
   onDragOverTarget?: (target: string | null) => void;
   onDropNote?: (folderId: string | null) => void;
+  onDragFolderStart?: (folderId: string) => void;
+  onDragFolderEnd?: () => void;
+  onDropFolder?: (parentId: string) => void;
 }) {
   const tree = buildFolderTree(folders);
   const allCount = notes.length;
   const inboxCount = notesInFolder(notes, INBOX_FOLDER).length;
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsedIds);
+  const dragging = draggingNote || draggingFolderId != null;
 
   function setCollapsedIds(next: Set<string>) {
     setCollapsed(next);
@@ -376,7 +437,11 @@ export function NoteFolderTree({
   }, [selected, folders]);
 
   return (
-    <nav aria-label="Pastas" className="space-y-2" title="Arraste uma nota para a pasta">
+    <nav
+      aria-label="Pastas"
+      className="space-y-2"
+      title="Arraste uma nota ou uma pasta"
+    >
       <div className="flex items-center justify-between gap-2 px-1">
         <p className="text-xs font-medium text-muted-foreground">Pastas</p>
         <Button
@@ -390,9 +455,11 @@ export function NoteFolderTree({
           <FolderPlus className="h-3.5 w-3.5" />
         </Button>
       </div>
-      {draggingNote && (
+      {dragging && (
         <p className="px-1 text-[11px] text-muted-foreground">
-          Solte na pasta de destino.
+          {draggingFolderId
+            ? "Solte em outra pasta para aninhar."
+            : "Solte na pasta de destino."}
         </p>
       )}
       <ul className="space-y-0.5">
@@ -424,7 +491,10 @@ export function NoteFolderTree({
                 dropTarget === INBOX_FOLDER &&
                 "bg-primary/15 ring-1 ring-primary/40"
             )}
-            onDragOver={(event) => acceptNoteDrop(event, null, onDragOverTarget)}
+            onDragOver={(event) => {
+              if (draggingFolderId) return;
+              acceptDrop(event, null, onDragOverTarget);
+            }}
             onDrop={(event) => {
               event.preventDefault();
               onDropNote?.(null);
@@ -459,12 +529,14 @@ export function NoteFolderTree({
               key={node.id}
               node={node}
               depth={1}
+              folders={folders}
               notes={notes}
               projects={projects}
               tags={tags}
               selected={selected}
               dropTarget={dropTarget}
               draggingNote={draggingNote}
+              draggingFolderId={draggingFolderId}
               collapsed={collapsed}
               onToggleCollapsed={handleToggleCollapsed}
               onSelect={onSelect}
@@ -473,6 +545,9 @@ export function NoteFolderTree({
               onDelete={onDelete}
               onDragOverTarget={onDragOverTarget}
               onDropNote={onDropNote}
+              onDragFolderStart={onDragFolderStart}
+              onDragFolderEnd={onDragFolderEnd}
+              onDropFolder={onDropFolder}
             />
           ))}
         </ul>
