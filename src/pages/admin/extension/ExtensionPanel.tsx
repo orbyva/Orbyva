@@ -154,6 +154,7 @@ export default function ExtensionPanel() {
     title: "Painel",
     description: "Painel do Orbyva no navegador.",
     path: "/ext",
+    noIndex: true,
   });
 
   const { user, loading: authLoading } = useAuth();

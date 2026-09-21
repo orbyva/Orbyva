@@ -10,6 +10,7 @@ export default function LoginPage() {
     title: "Entrar",
     description: "Acesse sua conta Orbyva: finanças e life OS na mesma órbita.",
     path: "/login",
+    noIndex: true,
   });
 
   return (

@@ -77,6 +77,25 @@ const PrivacyPage = lazy(() =>
   import("./pages/legal/LegalPages").then((m) => ({ default: m.PrivacyPage }))
 );
 const AboutPage = lazy(() => import("./pages/About"));
+const FinancasPessoaisPage = lazy(
+  () => import("./pages/marketing/FinancasPessoais")
+);
+const MetasPage = lazy(() => import("./pages/marketing/Metas"));
+const OrganizacaoPessoalPage = lazy(
+  () => import("./pages/marketing/OrganizacaoPessoal")
+);
+const LifeOsPage = lazy(() => import("./pages/marketing/LifeOs"));
+const ControleFinanceiroPage = lazy(
+  () => import("./pages/marketing/ControleFinanceiro")
+);
+const PlanejamentoPessoalPage = lazy(
+  () => import("./pages/marketing/PlanejamentoPessoal")
+);
+const AppOrganizacaoPessoalPage = lazy(
+  () => import("./pages/marketing/AppOrganizacaoPessoal")
+);
+const BlogIndexPage = lazy(() => import("./pages/marketing/BlogIndex"));
+const BlogPostPage = lazy(() => import("./pages/marketing/BlogPost"));
 const InviteAccept = lazy(() => import("./pages/InviteAccept"));
 // Convite de evento (feature 076): rota **pública** de propósito — o link chega por e-mail para
 // alguém que pode não ter sessão, e um redirect do ProtectedRoute perderia o token. A própria tela
@@ -110,6 +129,42 @@ export const appRoutes: RouteObject[] = [
   {
     path: "/about",
     element: withSuspense(<AboutPage />),
+  },
+  {
+    path: "/financas-pessoais",
+    element: withSuspense(<FinancasPessoaisPage />),
+  },
+  {
+    path: "/metas",
+    element: withSuspense(<MetasPage />),
+  },
+  {
+    path: "/organizacao-pessoal",
+    element: withSuspense(<OrganizacaoPessoalPage />),
+  },
+  {
+    path: "/life-os",
+    element: withSuspense(<LifeOsPage />),
+  },
+  {
+    path: "/controle-financeiro",
+    element: withSuspense(<ControleFinanceiroPage />),
+  },
+  {
+    path: "/planejamento-pessoal",
+    element: withSuspense(<PlanejamentoPessoalPage />),
+  },
+  {
+    path: "/app-organizacao-pessoal",
+    element: withSuspense(<AppOrganizacaoPessoalPage />),
+  },
+  {
+    path: "/blog",
+    element: withSuspense(<BlogIndexPage />),
+  },
+  {
+    path: "/blog/:slug",
+    element: withSuspense(<BlogPostPage />),
   },
   {
     path: "/terms",
