@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,7 +16,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 
-import { fetchPlaces } from "@/api/places/places";
+import { fetchPlaces, linkPlaceToTrip } from "@/api/places/places";
 import {
   leaveTrip,
   listTripMembers,
@@ -24,6 +24,7 @@ import {
 } from "@/api/travel/members";
 import {
   createTripInvite,
+  createItineraryActivity,
   createTripMilestone,
   deleteItineraryActivity,
   deleteTrip,
@@ -49,6 +50,10 @@ import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { TripItineraryComposer } from "@/components/travel/TripItineraryComposer";
+import {
+  ItinerarySavedPlaceSuggestions,
+  parseSavedPlaceDragId,
+} from "@/components/travel/ItinerarySavedPlaceSuggestions";
 import { VisitDragHandle } from "@/components/travel/VisitDragHandle";
 import { TypeIcon } from "@/components/TypeIcon";
 import { Banner } from "@/components/ui/Banner";
@@ -63,7 +68,7 @@ import {
   type ClothingIconKey,
 } from "@/domain/travel/clothing";
 import { getTodayIso } from "@/domain/habits";
-import { PLACE_TYPE_META } from "@/domain/places";
+import { PLACE_TYPE_META, normalizePlaceStatus } from "@/domain/places";
 import { formatDurationFriendly } from "@/domain/itinerary/duration";
 import {
   describeDayOffset,
@@ -86,6 +91,12 @@ import {
   type TripTransportMode,
 } from "@/domain/travel/transportModes";
 import { stopForDate } from "@/domain/travel/tripStops";
+import {
+  collectItineraryPlaceIds,
+  suggestionAnchorForDay,
+  suggestionsForAnchor,
+  type GeoAnchor,
+} from "@/domain/travel/savedPlaceSuggestions";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
@@ -93,6 +104,10 @@ import { hexAlpha } from "@/lib/color";
 import { dragListLayout, useDropLanding } from "@/lib/dragMotion";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  persistDismissedSuggestionCity,
+  readDismissedSuggestionCities,
+} from "@/lib/savedPlaceSuggestionDismiss";
 import { fetchTravelRoutes, type RouteLegResult } from "@/lib/googleRoutes";
 import { fetchDailyForecast, type WeatherForecast } from "@/lib/googleWeather";
 import { getTripAccess, type TripAccess } from "@/lib/tripAccess";
@@ -221,6 +236,9 @@ export default function TripDetailScreen() {
   const [milestoneDate, setMilestoneDate] = useState(getTodayIso());
   const [shareOpen, setShareOpen] = useState(false);
   const [tripPlaces, setTripPlaces] = useState<PlaceVisit[]>([]);
+  const [savedPlaces, setSavedPlaces] = useState<PlaceVisit[]>([]);
+  const [dismissedCities, setDismissedCities] = useState<GeoAnchor[]>([]);
+  const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const dayNodes = useRef(new Map<string, View>());
   const activityNodes = useRef(new Map<string, View>());
@@ -250,6 +268,48 @@ export default function TripDetailScreen() {
     }
     return null;
   }, [days, draggingId]);
+
+  const draggingSavedPlace = useMemo(() => {
+    const savedId = parseSavedPlaceDragId(draggingId);
+    if (!savedId) return null;
+    return (
+      savedPlaces.find((place) => place.id === savedId) ??
+      tripPlaces.find((place) => place.id === savedId) ??
+      null
+    );
+  }, [draggingId, savedPlaces, tripPlaces]);
+
+  const itineraryPlaceIds = useMemo(
+    () => collectItineraryPlaceIds(days),
+    [days]
+  );
+  const destinationFallback = useMemo(
+    () =>
+      trip?.destination_lat != null && trip.destination_lng != null
+        ? {
+            name: trip.destination ?? "",
+            lat: trip.destination_lat,
+            lng: trip.destination_lng,
+            place_id: trip.destination_place_id ?? null,
+          }
+        : null,
+    [
+      trip?.destination,
+      trip?.destination_lat,
+      trip?.destination_lng,
+      trip?.destination_place_id,
+    ]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void readDismissedSuggestionCities(id).then((rows) => {
+      if (!cancelled) setDismissedCities(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const load = useCallback(async () => {
     const [
@@ -282,6 +342,13 @@ export default function TripDetailScreen() {
     setMilestones(nextMilestones);
     setAccess(nextAccess);
     setTripPlaces(nextPlaces.filter((place) => place.trip_id === id));
+    setSavedPlaces(
+      nextPlaces.filter(
+        (place) =>
+          !place.trip_id &&
+          normalizePlaceStatus(place.status, place.visited_date) === "to_visit"
+      )
+    );
     navigation.setOptions({ title: row?.title ?? "Viagem" });
     if (!row) setError("Viagem não encontrada.");
 
@@ -508,6 +575,46 @@ export default function TripDetailScreen() {
     });
   }
 
+  async function addSavedPlaceToDay(place: PlaceVisit, dayId: string) {
+    if (addingPlaceId) return;
+    setAddingPlaceId(place.id);
+    try {
+      if (place.trip_id !== id) {
+        await linkPlaceToTrip(place.id, id);
+        const linked = { ...place, trip_id: id };
+        setTripPlaces((cur) => [
+          linked,
+          ...cur.filter((item) => item.id !== place.id),
+        ]);
+        setSavedPlaces((cur) => cur.filter((item) => item.id !== place.id));
+      }
+      const day = daysRef.current.find((item) => item.id === dayId);
+      await createItineraryActivity({
+        day_id: dayId,
+        title: place.name.trim(),
+        notes: place.notes?.trim() || null,
+        category: place.type,
+        place_visit_id: place.id,
+        sort_order:
+          Math.max(
+            0,
+            ...(day?.activities ?? []).map((act) => act.sort_order)
+          ) + 1,
+      });
+      const next = await fetchTripItinerary(id);
+      setDays(next);
+      ok("Adicionado ao roteiro");
+    } catch (err) {
+      fail(getErrorMessage(err, "Não foi possível adicionar o lugar."));
+    } finally {
+      setAddingPlaceId(null);
+    }
+  }
+
+  function dismissCity(city: GeoAnchor) {
+    void persistDismissedSuggestionCity(id, city).then(setDismissedCities);
+  }
+
   function onDragStart(actId: string) {
     setDraggingId(actId);
     rootRef.current?.measureInWindow((x, y) => {
@@ -535,6 +642,14 @@ export default function TripDetailScreen() {
           y <= rect.y + rect.h
         )?.[0] ?? null;
       if (!targetDayId) return;
+      const savedId = parseSavedPlaceDragId(actId);
+      if (savedId) {
+        const place =
+          savedPlaces.find((item) => item.id === savedId) ??
+          tripPlaces.find((item) => item.id === savedId);
+        if (place) void addSavedPlaceToDay(place, targetDayId);
+        return;
+      }
       const acts = sortVisitsForDay(
         daysRef.current.find((day) => day.id === targetDayId)?.activities ?? []
       ).filter((activity) => activity.id !== actId);
@@ -936,6 +1051,20 @@ export default function TripDetailScreen() {
                 const heading = [dayTitle || `Dia ${day.day_number}`, stopName]
                   .filter(Boolean)
                   .join(" · ");
+                const suggestionAnchor = suggestionAnchorForDay({
+                  date: day.date,
+                  stops,
+                  fallback: destinationFallback,
+                });
+                const suggestedPlaces = suggestionAnchor
+                  ? suggestionsForAnchor({
+                      candidates: [...tripPlaces, ...savedPlaces],
+                      anchor: suggestionAnchor,
+                      tripId: id,
+                      itineraryPlaceIds,
+                      dismissed: dismissedCities,
+                    })
+                  : [];
                 return (
                 <View
                   key={day.id}
@@ -997,6 +1126,21 @@ export default function TripDetailScreen() {
                       </ThemedText>
                     </View>
                   </View>
+                  {suggestionAnchor && suggestedPlaces.length > 0 ? (
+                    <ItinerarySavedPlaceSuggestions
+                      tripId={id}
+                      city={suggestionAnchor}
+                      places={suggestedPlaces}
+                      addingPlaceId={addingPlaceId}
+                      absX={absX}
+                      absY={absY}
+                      ghostVisible={ghostVisible}
+                      onDragStart={onDragStart}
+                      onDragEnd={onDragEnd}
+                      onAdd={(place) => void addSavedPlaceToDay(place, day.id)}
+                      onDismiss={dismissCity}
+                    />
+                  ) : null}
                   {(day.activities ?? []).length === 0 ? (
                     <ThemedText type="small" themeColor="textSecondary">
                       Nenhuma visita neste dia.
@@ -1672,7 +1816,7 @@ export default function TripDetailScreen() {
         ]}
       >
         <ThemedText type="smallBold" numberOfLines={2}>
-          {draggingAct?.title ?? "Visita"}
+          {draggingAct?.title ?? draggingSavedPlace?.name ?? "Visita"}
         </ThemedText>
       </Animated.View>
       {trip ? (

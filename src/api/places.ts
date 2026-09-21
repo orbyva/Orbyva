@@ -190,6 +190,22 @@ export async function fetchPlaces(
   return normalizeRows(data as unknown as PlaceVisit[]);
 }
 
+/** Wishlist do usuário ainda sem viagem, com mapa — candidatos a sugerir no roteiro. */
+export async function fetchUnlinkedToVisitPlaces(): Promise<PlaceVisit[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("place_visit")
+    .select(PLACE_LIST_SELECT)
+    .eq("user_id", userId)
+    .is("trip_id", null)
+    .not("lat", "is", null)
+    .not("lng", "is", null);
+  if (error) throw new Error(error.message);
+  return normalizeRows(data as unknown as PlaceVisit[]).filter(
+    (place) => (place.status ?? "to_visit") === "to_visit"
+  );
+}
+
 /** Contagem leve para hub, sem baixar visitas. */
 export async function fetchPlacesCount(): Promise<number> {
   const userId = await getCurrentUserId();

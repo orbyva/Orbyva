@@ -31,7 +31,7 @@ import {
   updateTripMilestone,
 } from "@/api/travel";
 import { ensureTripOwnerMember } from "@/api/tripMembers";
-import { createPlace, deletePlace, enrichPlacesWithOpinions, updatePlace } from "@/api/places";
+import { createPlace, deletePlace, enrichPlacesWithOpinions, fetchUnlinkedToVisitPlaces, updatePlace } from "@/api/places";
 import { fetchTransactionClassMeta } from "@/api/finance";
 import { useDimensions } from "@/hooks/useDimensions";
 import { useAuth } from "@/hooks/useAuth";
@@ -116,6 +116,7 @@ export default function TripDetail() {
   const navigate = useNavigate();
   const [trip, setTrip] = useState<TripFull | null>(null);
   const [places, setPlaces] = useState<PlaceVisit[]>([]);
+  const [savedPlaces, setSavedPlaces] = useState<PlaceVisit[]>([]);
   const [loading, setLoading] = useState(true);
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [registerExpense, setRegisterExpense] = useState(false);
@@ -179,10 +180,14 @@ export default function TripDetail() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const bundle = await fetchTripDetailBundle(id);
+      const [bundle, unlinked] = await Promise.all([
+        fetchTripDetailBundle(id),
+        fetchUnlinkedToVisitPlaces().catch(() => [] as PlaceVisit[]),
+      ]);
       if (!bundle) {
         setTrip(null);
         setPlaces([]);
+        setSavedPlaces([]);
         setMembers([]);
         setLoading(false);
         return;
@@ -191,6 +196,7 @@ export default function TripDetail() {
       // First paint: viagem + lugares + membros (sem opiniões / ensure).
       setTrip(bundle.trip);
       setPlaces(bundle.places);
+      setSavedPlaces(unlinked);
       setMembers(bundle.members);
       setLoading(false);
 
@@ -950,6 +956,57 @@ export default function TripDetail() {
     });
   }
 
+  async function handleAddSavedPlaceToDay(place: PlaceVisit, dayId: string) {
+    if (!trip) return;
+    try {
+      if (place.trip_id !== trip.id) {
+        await updatePlace({ id: place.id, trip_id: trip.id });
+        const linked = { ...place, trip_id: trip.id };
+        setPlaces((prev) => [
+          linked,
+          ...prev.filter((item) => item.id !== place.id),
+        ]);
+        setSavedPlaces((prev) => prev.filter((item) => item.id !== place.id));
+      }
+      const day = trip.itinerary.find((item) => item.id === dayId);
+      const created = await createItineraryActivity({
+        day_id: dayId,
+        title: place.name.trim(),
+        activity_time: null,
+        notes: place.notes?.trim() || null,
+        link_url: null,
+        is_reserved: false,
+        category: normalizeTripActivityCategory(place.type),
+        place_visit_id: place.id,
+        sort_order: (day?.activities?.length ?? 0) + 1,
+      });
+      setTrip((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          itinerary: prev.itinerary.map((item) =>
+            item.id !== dayId
+              ? item
+              : {
+                  ...item,
+                  activities: [...(item.activities ?? []), created],
+                }
+          ),
+        };
+      });
+      toast({ title: "Adicionado ao roteiro", duration: 2000 });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(
+          error,
+          "Não foi possível adicionar o lugar."
+        ),
+        variant: "destructive",
+      });
+    }
+  }
+
   function moveVisitToDay(
     actId: string,
     targetDayId: string,
@@ -1321,8 +1378,10 @@ export default function TripDetail() {
         </TabsList>
 
         <TripItineraryTab
+          tripId={trip.id}
           itinerary={trip.itinerary}
           places={places}
+          savedPlaces={savedPlaces}
           members={members}
           user={user}
           tripOrigin={
@@ -1333,6 +1392,8 @@ export default function TripDetail() {
           originLabel={trip.origin_label}
           destinationLat={trip.destination_lat}
           destinationLng={trip.destination_lng}
+          destinationName={trip.destination}
+          destinationPlaceId={trip.destination_place_id}
           stops={trip.stops}
           disableRoutes={tripFinished}
           onEditDay={openDayEdit}
@@ -1344,6 +1405,7 @@ export default function TripDetail() {
           onBeforeCompleteVisit={handleBeforeCompleteVisit}
           onActivityDeleted={patchActivityDeletedLocal}
           onMoveVisit={moveVisitToDay}
+          onAddSavedPlace={handleAddSavedPlaceToDay}
         />
 
         <TripExpensesTab

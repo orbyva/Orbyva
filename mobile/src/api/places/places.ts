@@ -165,6 +165,20 @@ export async function updatePlace(input: {
   if (error) throw new Error(error.message);
 }
 
+/** Vincula um lugar salvo (sem viagem) a esta viagem. */
+export async function linkPlaceToTrip(
+  placeId: string,
+  tripId: string
+): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("place_visit")
+    .update({ trip_id: tripId })
+    .eq("id", placeId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
 export async function fetchPlaceVisitOccurrences(
   placeVisitId: string
 ): Promise<PlaceVisitOccurrence[]> {
