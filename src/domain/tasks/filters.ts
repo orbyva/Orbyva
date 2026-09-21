@@ -14,6 +14,38 @@ interface FilterableTask {
   priority?: TaskPriority | null;
 }
 
+
+/**
+ * Busca textual da lista de tarefas (feature 100).
+ *
+ * Sem acento e sem caixa: quem digita "reuniao" tem que achar "Reunião" — a busca do app não pode
+ * ser mais exigente que a memória de quem procura. O mesmo texto chega pela URL (`?q=`), que é como
+ * a Orb aplica uma pesquisa ao abrir a tela.
+ */
+export function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+export interface SearchableTask {
+  title: string;
+  description?: string | null;
+}
+
+export function filterTasksBySearch<T extends SearchableTask>(tasks: T[], term: string): T[] {
+  const alvo = normalizeSearchText(term);
+  if (!alvo) return tasks;
+  return tasks.filter((task) => {
+    const titulo = normalizeSearchText(task.title ?? "");
+    if (titulo.includes(alvo)) return true;
+    const descricao = task.description ? normalizeSearchText(task.description) : "";
+    return descricao.includes(alvo);
+  });
+}
+
 export function filterTasks<T extends FilterableTask>(
   tasks: T[],
   filter: TaskFilter

@@ -125,3 +125,30 @@ escopo ao `signInWithOAuth` existente força re-consentimento de todos os usuár
 ## Prompts
 
 ## Notas
+
+- 2026-09-18 — **A esteira perguntou e a resposta foi "espera".** A `/pipeline` levou a pergunta ao
+  usuário (seguir com a API do Google, ou arquivar por ora e medir depois que o `.ics` da 076
+  estiver de pé) com a segunda como recomendada, e o minuto de timeout passou sem resposta. Vale a
+  recomendada: a 077 **fica em `todo/`, parada**, até que (a) a 076 esteja publicada e testada de
+  ponta a ponta e (b) o usuário diga se o clique único do `.ics` já resolve o pedido original. Não é
+  descarte — é sequenciamento: implementar OAuth do Google antes de saber se ele é necessário é o
+  tipo de trabalho que fica pronto e não serve para nada.
+- 2026-09-18 — **Implementação não iniciada: as duas primeiras tarefas são portões que não abriram.**
+  Uma sessão da esteira pegou esta feature e parou antes de escrever qualquer código, exatamente como
+  as tarefas 1 e 2 mandam. Nada foi implementado, nenhuma migration foi criada e o arquivo continua em
+  `todo/`.
+  - **Portão 1 — confirmação do usuário (não obtida).** A tarefa 1 exige um "sim" explícito de que se
+    quer a integração via API do Google, com tudo que ela arrasta: projeto no Google Cloud, tela de
+    consentimento, verificação do app pelo Google (`calendar.events` é *sensitive scope* — sem revisão
+    o app fica em "testing", limitado a 100 usuários) e guarda de refresh token de terceiro no nosso
+    banco. Nenhuma dessas é decisão de código.
+  - **Portão 2 — a `076` não está em `done/` (verificado).**
+    `docs/features/in-progress/076-enviar-convite-para-um-evento.md` ainda tem uma `- [ ]`: publicar a
+    Edge Function `event-invite-email` (`supabase functions deploy event-invite-email`). Enquanto ela
+    não sobe, o convite é criado mas **nenhum e-mail sai** — e é justamente o anexo `.ics` desse
+    e-mail que já cumpre "em caso de ela ter conta no google também cria" com um clique do convidado.
+    Vale medir o valor real da `077` **depois** que esse caminho estiver de pé: pode ser que o `.ics`
+    já resolva o prompt e a integração via API deixe de valer o custo de verificação do Google.
+  - Ordem correta para destravar: publicar a `event-invite-email` → fazer o teste ponta a ponta da
+    `076` com duas contas reais → mover a `076` para `done/` → só então perguntar ao usuário se ainda
+    quer a `077`.

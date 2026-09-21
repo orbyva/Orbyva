@@ -209,9 +209,24 @@ A feature `todo/087` (ícones por regex) consome os links criados aqui; esta nã
       gzip intacto). Migration validada à parte:
       `bash supabase/tests/task_external_links/run.sh` → "OK: 20260823100000_task_external_links.sql
       validada em Postgres 16."
-- [ ] **AGUARDA O USUÁRIO — aplicar a migration.** `supabase db push` é do usuário (aplica em
-      produção; ver `CLAUDE.md`), então a `20260823100000_task_external_links.sql` está escrita e
-      validada em Postgres 16 descartável, mas **não aplicada**.
+- [x] **Migration aplicada e conferida no remoto (2026-09-20).** A
+      `20260823100000_task_external_links.sql` **está no banco remoto** — `supabase migration list
+      --linked` devolve `local=20260823100000 remote=20260823100000`, e o histórico inteiro (97
+      migrations) está em sincronia, sem nenhuma pendente. O push foi feito pelo usuário em algum
+      momento entre a nota de 2026-09-18 (que dizia o contrário) e hoje; a nota envelheceu, o banco
+      não. Conferência (a)/(b) executada **por esta sessão** via `supabase db query` (só `select`):
+      (b) — a consulta de órfãos veio **vazia**: toda `external_url` legada tem linha
+      correspondente em `task_external_link`. **Cópia íntegra.**
+      (a) — os números **não** batem, e isso é esperado: `task` com `external_url` não vazia = **4**,
+      `count(distinct task_id)` em `task_external_link` = **7**. A quebra é por dado novo, não por
+      falha: agrupando por origem, são **4 links em tarefas que tinham `external_url`** (os legados,
+      copiados pela migration) e **3 links em tarefas sem `external_url`** (criados depois, pela UI
+      nova da própria 085). A checagem (a) foi escrita supondo comparação imediata pós-push; como o
+      push é de semanas atrás e a tela está em uso, o lado direito cresce sozinho. O invariante que
+      continua valendo — e que é o que de fato prova a migração — é o (b).
+      Resta só o (c), visual, que é do usuário.
+      ~~`supabase db push` é do usuário (aplica em produção; ver `CLAUDE.md`), então a migration está
+      escrita e validada em Postgres 16 descartável, mas **não aplicada**.~~
       **Antes do push** (para ter com o que comparar depois):
       `select count(*) from task where external_url is not null and btrim(external_url) <> '';`
       **Rodar**: `supabase db push`.
@@ -223,7 +238,25 @@ A feature `todo/087` (ícones por regex) consome os links criados aqui; esta nã
       (c) abrir no app uma tarefa que tinha link e conferir que ele está na seção "Links externos",
       com o campo de comentário vazio ao lado (o dado antigo não tinha comentário).
       Enquanto isso não acontece, a tela funciona mas nenhum link é gravado: a tabela não existe.
-- [ ] **BLOQUEADA — dropar `task.external_url` e `task.external_provider`.** Só depois de: (1) o
+- [x] **APLICADA EM 2026-09-21 — `task.external_url` e `task.external_provider` removidas.**
+      As duas condições foram cumpridas e conferidas no banco real antes de qualquer drop:
+      (1) a migration da feature está no remoto; (2) a consulta de órfãos veio **vazia** — toda
+      `external_url` legada tem linha em `task_external_link`. O usuário autorizou criar e aplicar.
+      Migration `supabase/migrations/20260921110000_task_drop_external_columns.sql`, **uma instrução
+      por coluna** como esta tarefa pedia (para um erro em qualquer uma aparecer sozinho no log, e
+      não escondido num `alter` composto), validada em Postgres 16 descartável por
+      `bash supabase/tests/drop_legacy_columns/run.sh` — que afirma, entre outras coisas, que
+      `task_external_link` sai intacta, já que ela passa a ser a única fonte do link.
+      `supabase db push` aplicado ao remoto.
+      **Conferência pós-push:** nenhuma das duas colunas existe mais (0 em
+      `information_schema.columns`); as 87 tarefas continuam 87 e os 7 links continuam 7.
+      `npm run build`, `npm run lint` (0 erros), `npm run check:mcp` e a suíte completa
+      (**264 arquivos / 2913 testes / 0 falhas**) passaram com as colunas já fora do banco — o que
+      era esperado, porque o app não as lê desde a 085: `src/types/tasks.ts:150` só as cita num
+      comentário explicando a ausência, e os testes de formulário afirmam que elas não entram no
+      payload de `createTask`/`updateTask`. Nenhuma view, índice ou constraint dependia delas
+      (conferido em `pg_depend` e `pg_index` antes do drop).
+      ~~**BLOQUEADA.** Só depois de: (1) o~~
       usuário rodar `supabase db push` com a migration desta feature e confirmar; (2) o usuário
       abrir tarefas que tinham link e confirmar que os links estão na seção nova. Conferência:
       `select count(*) from task where external_url is not null` tem de bater com
@@ -270,6 +303,13 @@ A feature `todo/087` (ícones por regex) consome os links criados aqui; esta nã
 
 ## Notas
 
+- **2026-09-18 — a esteira perguntou e NÃO aplicou.** A `/pipeline` apresentou a decisão do
+  `supabase db push` com a aplicação como recomendada e esperou o minuto de timeout sem resposta.
+  Diferente dos outros bloqueios, aqui a esteira **não** executa a recomendada sozinha: a CLAUDE.md
+  manda confirmar com o usuário antes de qualquer `db push` (o banco é remoto, não há Supabase
+  local), e essa regra ganha da regra de timeout. A feature fica em `in-progress/` até a palavra do
+  usuário. Enquanto o push não roda, a tela de links funciona mas nada é gravado: a tabela
+  `task_external_link` não existe no remoto.
 - Migration nomeada `20260823100000_task_external_links.sql` — timestamp conferido contra
   `ls supabase/migrations/` (o último era `20260820140000_task_sort_order.sql`), sem colisão.
 - A cópia do dado antigo filtra também `btrim(external_url) <> ''`, além de `is not null` como a
@@ -301,6 +341,12 @@ A feature `todo/087` (ícones por regex) consome os links criados aqui; esta nã
   caminho da gestão de ícones fica visível de onde o usuário está olhando os links, e a `087` só
   precisa tirar o `disabled` e apontar para `/tasks/link-icons` — omitir deixaria a 087 ter de
   descobrir sozinha onde o botão deveria nascer.
+  - **Estado de hoje (posterior a esta feature)**: a `087` entrou e fez exatamente isso — o botão
+    está **habilitado** e abre `/tasks/link-icons` em outra aba (navegar por cima do formulário
+    descartaria o que ainda não foi salvo), e a prévia de cada linha passou a resolver por
+    `resolveLinkAppearance(url, rules)` em vez de `describeExternalLink` direto, para não mentir
+    justamente quando a regra é nova. Anotado aqui porque a decisão acima descreve o dia em que foi
+    tomada, não o código de agora.
 - **`AgendaGrid.tsx` (terceiro call site do formulário): fiado igual às outras duas telas**, não
   com a seção desabilitada. A Agenda edita tarefas que já existem; uma seção que abrisse vazia numa
   tarefa com links e perdesse a edição ao salvar seria pior do que não existir. O que **continua
@@ -322,6 +368,17 @@ A feature `todo/087` (ícones por regex) consome os links criados aqui; esta nã
   corrigida aqui** por ser de outra feature: essa lista perdeu `note_link`, `note_canvas` e
   `task_shopping_item_link` quando a `20260816230000_medication.sql` a redefiniu sem eles — hoje
   essas três tabelas só somem no wipe pelo `on delete cascade` das FKs.
+- **2026-09-18 — `TaskList.external-links.test.tsx` era intermitente na suíte completa** (passava
+  8/8 sozinho, estourava o teto padrão de 5s quando os workers do Vitest disputam CPU). Não era
+  regressão do código da feature: o arquivo monta a `TaskList` inteira em cada caso e **digitava**
+  URLs de ~40 caracteres, e cada tecla remontava o painel denso. Endurecido em duas frentes, sem
+  mexer no comportamento afirmado: (1) as escritas passaram a ser `click` + `paste` num helper
+  `fill()` — que também é o que se faz de verdade com uma URL, e o que a tela observa é o mesmo
+  (`change` com o valor final + `blur`); (2) `vi.setConfig({ testTimeout: 20_000 })` no arquivo,
+  como folga para a variação de carga. O arquivo caiu de ~2,7s para ~1,5s e o caso mais pesado de
+  ~1,4s para ~0,5s. Quem precisa provar comportamento **por tecla** (o aviso de protocolo que não
+  pode acusar no meio da digitação) é o `TaskExternalLinksField.test.tsx`, que continua usando
+  `type` e não foi tocado.
 
 ### Checagem de satisfação (2026-08-23)
 
@@ -342,3 +399,173 @@ Suíte completa depois de tudo: **222 arquivos / 2385 testes / 0 falhas**.
 O arquivo **não vai para `done/`**: sobram duas tarefas que não são minhas — aplicar a migration
 (`supabase db push` é do usuário) e o `drop column` bloqueado que só acontece depois da conferência.
 Mesmo desfecho da `058` com `project.notes`.
+
+### Reverificação (2026-09-18)
+
+Rodada de manutenção: endurecimento do `TaskList.external-links.test.tsx` (ver Notas) e a seção
+`## Como testar`, que faltava no arquivo, escrita e com a parte automatizada **executada como está
+escrita lá**.
+
+| Comando | Resultado |
+| --- | --- |
+| `npx vitest run src/domain/tasks/__tests__/externalLink.test.ts` | 25/25 |
+| `npx vitest run src/api/__tests__/taskExternalLinks.test.ts` | 12/12 |
+| `npx vitest run src/pages/admin/tasks/__tests__/TaskExternalLinksField.test.tsx` | 18/18 |
+| `npx vitest run src/pages/admin/tasks/__tests__/TaskList.external-links.test.tsx` | 8/8 |
+| `npx vitest run src/pages/admin/tasks/__tests__/ProjectDetail.external-links.test.tsx` | 4/4 |
+| `npx vitest run src/pages/admin/tasks/__tests__/TaskFormFields.test.tsx` | 50/50 |
+| `npx vitest run src/pages/admin/tasks/__tests__/TaskViews.test.tsx -t "ExternalLinkChip"` | 8 passaram, 36 pulados |
+| `npx vitest run src/pages/admin/tasks/__tests__/AgendaGrid.test.tsx -t "links"` | 2 passaram, 19 pulados |
+| `bash supabase/tests/task_external_links/run.sh` | `OK: 20260823100000_task_external_links.sql validada em Postgres 16.` |
+| `npm run build` | OK (`built in 17.52s`) |
+| `npm run lint` | 0 erros, 88 avisos — todos `react-refresh/only-export-components` pré-existentes, nenhum em arquivo desta feature |
+| `npm test` (suíte inteira) | **263 arquivos / 2899 testes / 0 falhas** |
+| `npm run check:bundle` | `Bundle budget OK` |
+
+Correção na linha "…gestão de ícones" da tabela acima: a `087` entrou desde então, então o botão
+"Configurar ícones" **não está mais desabilitado** — ele abre `/tasks/link-icons` em outra aba
+(`TaskExternalLinksField.test.tsx` → "o botão de configurar ícones leva à tela de regras, em outra
+aba"), e tanto o chip do card quanto a prévia da linha resolvem por `resolveLinkAppearance(url,
+rules)`, com `describeExternalLink` como o ramo "nenhuma regra casa" — exatamente o contrato
+previsto em Decisões. O pedido "gestão de ícones" deixou de ser parcial.
+
+O desfecho não muda: o arquivo **continua fora de `done/`** enquanto as duas tarefas do usuário
+(aplicar a migration e, só depois da conferência, o `drop column`) não forem feitas. Sem o
+`supabase db push`, a tabela `task_external_link` não existe no banco remoto e a verificação manual
+do roteiro abaixo não tem como rodar.
+
+## Como testar
+
+### 1. Pré-requisitos
+
+- **A migration desta feature ainda NÃO está aplicada.** `20260823100000_task_external_links.sql`
+  está escrita e validada em Postgres 16 descartável, mas `supabase db push` é do usuário (aplica no
+  banco remoto). **Enquanto ela não for aplicada, só a "Verificação automatizada" abaixo roda**: no
+  app a seção aparece e é editável, mas nada é gravado e nenhum chip aparece — a tabela
+  `task_external_link` não existe. Isso é o estado esperado, não defeito.
+- Para a parte do banco: **Docker rodando** (`docker info` responde). O `run.sh` sobe um
+  `postgres:16` descartável chamado `orbyva-task-external-links-pg` e o remove no fim; ele **não
+  toca** no banco remoto.
+- Para a parte manual: `npm run dev`, logado com um usuário qualquer, e a migration já aplicada.
+  Tenha pelo menos **uma tarefa existente** (`/tasks`) e **um projeto com tarefas**
+  (`/tasks/projects` → abrir um).
+- A feature `087` (regras de ícone) não é pré-requisito: se a tabela `link_icon_rule` não existir,
+  `useLinkIconRules` cai para lista vazia e todo link usa o rótulo por host (`describeExternalLink`).
+  O que muda é só a aparência do ícone.
+
+### 2. Verificação automatizada
+
+Um comando por linha. "Passou" = `Test Files 1 passed` / `0 failed` em cada um.
+
+```
+npx vitest run src/domain/tasks/__tests__/externalLink.test.ts
+npx vitest run src/api/__tests__/taskExternalLinks.test.ts
+npx vitest run src/pages/admin/tasks/__tests__/TaskExternalLinksField.test.tsx
+npx vitest run src/pages/admin/tasks/__tests__/TaskList.external-links.test.tsx
+npx vitest run src/pages/admin/tasks/__tests__/ProjectDetail.external-links.test.tsx
+npx vitest run src/pages/admin/tasks/__tests__/TaskViews.test.tsx -t "ExternalLinkChip"
+npx vitest run src/pages/admin/tasks/__tests__/TaskFormFields.test.tsx
+npx vitest run src/pages/admin/tasks/__tests__/AgendaGrid.test.tsx -t "links"
+bash supabase/tests/task_external_links/run.sh
+npm run build && npm run lint && npm test
+```
+
+O que cada um significa:
+
+- `externalLink.test.ts` — as regras puras: `normalizeExternalLinkDrafts` (linha vazia sai, comentário
+  sem URL sai, espaços aparados, `position` renumerada, duplicata reportada) e `describeExternalLink`
+  (issue/PR do GitHub → `owner/repo#N`, resto → host sem `www.`, rótulo longo cortado com `…`).
+- `taskExternalLinks.test.ts` — o I/O: **uma** consulta no lote, agrupamento por `task_id`, `user_id`
+  em toda consulta, e `saveExternalLinksForTask` apagando só o que saiu e inserindo só o que entrou.
+- `TaskExternalLinksField.test.tsx` — a lista editável: adicionar/remover/reordenar, aviso de
+  protocolo **no blur** (e não no meio da digitação), aviso de duplicata na segunda linha, prévia do
+  chip por linha e o botão "Configurar ícones".
+- `TaskList.external-links.test.tsx` e `ProjectDetail.external-links.test.tsx` — o fluxo ponta a
+  ponta nas duas telas: gravar **depois** do `createTask`, carregar os links ao editar, salvar a
+  lista final sem o removido, e a falha da consulta em lote caindo para "sem chips" sem derrubar a
+  página.
+- `TaskViews.test.tsx -t "ExternalLinkChip"` — os chips do card: 1 link → 1 chip; 3 links → 3 chips
+  com rótulo e `title` próprios; 5 links → 3 chips + `+2`; 0 links → nenhum chip; subtarefa mostra os
+  links dela, não os da mãe.
+- `TaskFormFields.test.tsx` — a seção no painel: fechada por padrão, resumo do gatilho ("N links" ou
+  o rótulo do único), o campo antigo de link único **não existe mais**, e a ordem dos blocos com
+  `Links externos` entre Tags e Subtarefas.
+- `AgendaGrid.test.tsx -t "links"` — o terceiro call site do formulário (Agenda) carrega e grava a
+  lista igual às outras duas telas.
+- `run.sh` — imprime `OK: 20260823100000_task_external_links.sql validada em Postgres 16.` no fim.
+  Ele prova, num Postgres descartável: schema + `unique (task_id, url)` + índice + FKs + as 4
+  policies de RLS; a cópia do link antigo trazendo **exatamente** as tarefas com `external_url` não
+  vazia; reaplicar a migration não duplicar; `wipe_own_data` apagando os links do usuário; e um
+  controle negativo mostrando que antes da migration a tabela não existia (`undefined_table`).
+- `npm test` — a suíte inteira, para garantir que nada adjacente quebrou.
+
+### 3. Verificação manual, passo a passo
+
+Só depois de `supabase db push` (ver tarefa "AGUARDA O USUÁRIO").
+
+1. `/tasks` → **Nova tarefa**. O painel abre. Entre "Tags" e "Subtarefas" há o gatilho
+   **"Links externos"**, fechado, sem resumo. *Esperado*: não existe mais nenhum campo solto "Link
+   externo" no meio do formulário.
+2. Clique no gatilho. *Esperado*: abre com o texto "Nenhum link ainda. Adicione o primeiro para
+   guardar o endereço e por que ele importa." e um botão **"Adicionar link"**.
+3. Clique em "Adicionar link", cole `https://github.com/owner/repo/issues/7` no campo de URL e saia
+   do campo (Tab). *Esperado*: à direita da linha a prévia mostra o ícone do GitHub e o rótulo
+   **`owner/repo#7`**; o gatilho da seção passa a resumir `owner/repo#7`.
+4. No campo **Comentário** da mesma linha escreva `issue de origem`. *Esperado*: escreve livremente,
+   sem validação nenhuma — é campo livre.
+5. "Adicionar link" de novo, cole `https://docs.google.com/x`, Tab. *Esperado*: prévia
+   `docs.google.com`; o resumo do gatilho vira **"2 links"**.
+6. Dê título à tarefa e **Criar tarefa**. *Esperado*: a tarefa aparece na lista com **dois chips**
+   ao lado do título — `owner/repo#7` e `docs.google.com`. Passar o mouse no primeiro mostra
+   `issue de origem` (o comentário vai no `title`).
+7. Clique no chip `owner/repo#7`. *Esperado*: abre a URL em outra aba e **não** abre o formulário da
+   tarefa.
+8. Abra a tarefa (clique no título) e abra "Links externos". *Esperado*: as duas linhas voltam com
+   URL, comentário e na mesma ordem.
+9. Use a seta **↑** da segunda linha. *Esperado*: as linhas trocam de lugar, as prévias vão junto com
+   os links, e o foco fica na seta ↑ da **linha que se moveu** (apertar ↑ de novo não move o vizinho).
+   Salve e confira que o chip que aparece primeiro no card é o de cima.
+10. Remova uma linha (ícone ×) e **Salvar alterações**. *Esperado*: só aquele chip some do card; o
+    outro continua, com o comentário dele.
+11. Adicione 5 links numa tarefa e salve. *Esperado*: o card mostra **3 chips** e um **`+2`** no fim;
+    o `title` do `+2` lista os rótulos que ficaram de fora.
+12. Repita os passos 1–6 dentro de um projeto (`/tasks/projects` → abrir → nova tarefa) e na Agenda
+    (`/tasks/agenda` → abrir uma tarefa existente). *Esperado*: mesma seção, mesmo salvamento. Na
+    Agenda o **chip não aparece** nos itens do calendário — isso é decisão da feature, não falta.
+13. No rodapé da seção, **"Configurar ícones"**. *Esperado*: abre `/tasks/link-icons` em **outra
+    aba**, preservando o que está sendo editado.
+
+### 4. Casos de borda e caminhos negativos
+
+| Caso | O que fazer | Esperado |
+| --- | --- | --- |
+| URL sem protocolo | escreva `github.com/x` e saia do campo | aparece `Comece com https://` embaixo da linha; a prévia **continua**, só apagada. Voltar a digitar limpa o aviso |
+| Aviso prematuro | comece a digitar `ht` e **não** saia do campo | nenhum aviso enquanto digita — a checagem é só no blur |
+| URL repetida | cole a mesma URL em duas linhas | a **segunda** linha acusa `Este link já está na lista.`; a primeira fica limpa. Salvar mesmo assim grava **uma** vez (a primeira ocorrência) — o `unique (task_id, url)` não estoura |
+| Linha em branco esquecida | "Adicionar link" e salvar sem preencher | a linha é descartada em silêncio; nenhum link vazio é gravado |
+| Comentário sem URL | preencha só o comentário de uma linha | descartado junto com a URL vazia — comentário é atributo do link |
+| Lista vazia | remova todos os links e salve | some o último chip do card; a seção volta ao estado "Nenhum link ainda" |
+| Tarefa apagada | apague uma tarefa com links | os links somem junto (`on delete cascade`); conferível por `select count(*) from task_external_link where task_id = '<id>'` → 0 |
+| Escopo de usuário | outro usuário abrindo a mesma lista | não vê nem grava link alheio — RLS por `user_id` nas 4 operações, coberto por `03_assert_behavior.sql` |
+| Setas nas pontas | primeira linha / última linha | ↑ da primeira e ↓ da última ficam desabilitadas |
+| Tabela fora do ar | (simulável só com a migration ausente) | a lista de tarefas **continua de pé**, sem chips e sem toast de erro — a falha do lote cai para mapa vazio |
+
+### 5. Sinais de que quebrou
+
+- **Nenhum chip em card nenhum, em todas as telas** → a migration não foi aplicada (a tabela não
+  existe) ou a consulta em lote está falhando. Confira o console: a falha do lote é engolida de
+  propósito, então ela **não** vira toast — o sintoma é a ausência silenciosa de chips.
+- **A lista de tarefas some ou fica em branco ao carregar** → a falha do lote deixou de ser tolerada;
+  é regressão da decisão "falha na consulta não derruba a lista".
+- **Links somem ao salvar, ou salvam duplicados** → `saveExternalLinksForTask` está reescrevendo
+  tudo em vez de aplicar o diff; olhe a ordem das chamadas (delete → insert → update).
+- **Os links aparecem gravados mas sem `task_id`, ou erro "null value in column task_id"** ao criar
+  tarefa nova → a gravação está acontecendo **antes** do `createTask`.
+- **Abrir a tarefa B mostra os links da tarefa A** → o `openEdit` não está zerando/recarregando o
+  rascunho.
+- **A prévia treme a cada tecla, ou a prévia da linha 1 aparece na linha 2** → o estado paralelo
+  `RowUiState[]` saiu de sincronia com a lista controlada.
+- **O painel voltou a ter um campo "Link externo" solto** → a troca pelo `CollapsibleField` foi
+  desfeita.
+- **`run.sh` falha com "Cannot connect to the Docker daemon"** → é ambiente, não a feature: suba o
+  Docker e rode de novo.

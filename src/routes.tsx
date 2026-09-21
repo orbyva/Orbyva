@@ -53,6 +53,7 @@ const TasksLinkIcons = lazy(() => import("./pages/admin/tasks/LinkIconRules"));
 const ShoppingList = lazy(() => import("./pages/admin/shopping/ShoppingList"));
 const Notes = lazy(() => import("./pages/admin/notes/Notes"));
 const NoteDetail = lazy(() => import("./pages/admin/notes/NoteDetail"));
+const Orb = lazy(() => import("./pages/admin/orb/Orb"));
 
 const withSuspense = (Component: React.ReactNode) => (
   <Suspense fallback={<LoadingFallback />}>{Component}</Suspense>
@@ -142,6 +143,9 @@ export const appRoutes: RouteObject[] = [
             children: [
               { path: "home", element: <LifeDashboard /> },
               { path: "timeline", element: <Timeline /> },
+              // Orb (feature 098) — rota própria em vez de sheet global: a conversa é a tela, e o
+              // sheet pode vir depois reusando o mesmo `OrbChat`.
+              { path: "orb", element: <Orb /> },
               // Sub-módulo Vida > Saúde (feature 060) — hub de primeiro nível, não uma aba do
               // dashboard de Vida, para as telas de 061-064 terem deep-link próprio.
               { path: "life/health", element: <HealthDashboard /> },

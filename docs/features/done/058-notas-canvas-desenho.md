@@ -228,8 +228,41 @@ dentro de uma nota markdown). Independente da 056.
       locales); helper isolado em `vite-runtime`; `globIgnores` cobre os nomes novos; guarda no
       `check-bundle-budget.mjs` falha se o entry do `index.html` importar o canvas. Verificar:
       `npm run build && npm run check:bundle`; servir `dist` e confirmar que a landing hidrata.
-- [ ] **BLOQUEADA — remoção da coluna `project.notes`, herdada da 055. Última tarefa do módulo.**
-      Estado em **2026-08-23**: **Condição 1 cumprida, Condição 2 ainda não** — a tarefa continua
+- [x] **APLICADA EM 2026-09-21 — coluna `project.notes` removida. Última tarefa do módulo, fechada.**
+      O usuário autorizou criar e aplicar. Migration
+      `supabase/migrations/20260921100000_project_drop_notes.sql`, uma única instrução
+      (`alter table public.project drop column if exists notes`), validada antes em Postgres 16
+      descartável por `bash supabase/tests/drop_legacy_columns/run.sh` — harness novo, com controle
+      negativo (as colunas **têm** de existir antes, senão a assertiva de ausência passaria por
+      vacuidade), prova de idempotência na reaplicação e, principalmente, a assertiva de que
+      `project_event` e `project.status` **não** são arrastados junto, que era o risco escrito nesta
+      tarefa. `supabase db push` aplicado ao remoto.
+      **Conferência pós-push:** `project.notes` não existe mais (0 em `information_schema.columns`);
+      os 11 projetos continuam 11; `project.status` de pé; `note`, `icon_asset` e `link_icon_rule`
+      intactas. `npm run build`, `npm run lint` (0 erros), `npm run check:mcp` e a suíte completa
+      (**264 arquivos / 2913 testes / 0 falhas**) passaram com a coluna já fora do banco.
+      **Ressalva honesta:** a tarefa pedia comparar `count(*) from project_event` antes × depois e o
+      "antes" **não foi capturado** — está em 0 agora. O que sustenta que a migration não o afetou
+      não é a estatística (o `pg_stat_user_tables` do projeto está obsoleto: diz 0 linhas vivas em
+      `project`, que tem 11), e sim o mecanismo: `drop column` em `project` não tem como apagar
+      linha de `project_event`; o único caminho seria o `on delete cascade` de `project_id`, que
+      exige deletar um **projeto** — e nenhum foi deletado (11 antes, 11 depois). A tabela está
+      vazia porque não há evento de agenda, não porque algo a esvaziou.
+      **Condição 2 verificada nesta sessão**, por `supabase db query --linked` (só `select`), e com
+      resultado mais forte do que a conferência previa: **a coluna está inteiramente vazia.** Dos
+      **11** projetos, 8 têm `notes` não-nulo e **todos os 8 guardam string vazia** —
+      `count(*) filter (where notes is not null and notes <> '')` = **0** e
+      `max(length(notes))` = **0**. Não há um caractere na coluna.
+      Os dois `count` do roteiro da 055 batem (ambos **0**: nenhuma nota `'Notas do projeto'`,
+      nenhum projeto com `notes` preenchida) e a consulta de divergência veio **vazia**. A leitura
+      correta não é "a cópia saiu íntegra" e sim "**nunca houve o que copiar**": a 055 migrou um
+      conjunto vazio, então dropar a coluna não pode perder dado de ninguém. Isso substitui a
+      conferência visual no módulo de Notas, que existia para proteger dado que, verificado agora,
+      não existe.
+      **O que ainda falta é só a decisão do usuário**, e não por incerteza sobre o dado: criar o
+      arquivo de migration **é** o gatilho (o próximo `supabase db push` o aplica), então ele não
+      foi criado por conta própria. Com o "pode" do usuário, é um arquivo de uma instrução.
+      ~~Estado em **2026-08-23**: **Condição 1 cumprida, Condição 2 ainda não**~~ — a tarefa continua
       aberta e **a migration ainda não existe** (ver Notas: criar o arquivo antes da liberação faria
       o próximo `supabase db push` do usuário dropar a coluna sem que ninguém tivesse confirmado
       nada — o arquivo *é* o gatilho).
@@ -244,9 +277,12 @@ dentro de uma nota markdown). Independente da 056.
       de vir vazia, mais a conferência visual das notas "Notas do projeto" no módulo novo. A cópia
       foi feita pela 055 com `insert ... select`, e a coluna original continua viva de propósito,
       como rede de segurança; ela ficar viva **não é bug**.
-      Ao liberar: migration nova (timestamp único — `20260816190000` **já foi usado** pela 061; o
-      maior aplicado hoje é `20260820140000`, então use algo como `20260823100000`, e confira com
-      `ls supabase/migrations/` antes) contendo **uma única instrução**,
+      Ao liberar: migration nova (timestamp único — `20260816190000` **já foi usado** pela 061 e
+      `20260823100000`, sugerido aqui na revisão de 2026-08-23, **também já foi tomado** desde então
+      por `20260823100000_task_external_links.sql`; em **2026-09-18** o maior arquivo é
+      `20260831153000_project_status_planned.sql`, então use algo como `20260918100000` — e
+      **confira com `ls supabase/migrations/` na hora**, porque esta sugestão envelhece do mesmo
+      jeito que a anterior) contendo **uma única instrução**,
       `alter table public.project drop column if exists notes`.
       Nada de tocar em `project_event`, nas policies ou no `status` — a migration da feature 006
       (`20260806130000_project_notes_status_events.sql`) criou a coluna `notes` **e** a tabela
@@ -282,6 +318,14 @@ não hidratou.)
 
 ## Notas
 
+- **2026-09-18 — a esteira perguntou e seguiu em frente.** A `/pipeline` apresentou as três opções
+  (conferir e dropar / manter a coluna e fechar a feature como dívida / dropar sem conferir) com a
+  primeira como recomendada, e o minuto de timeout passou sem resposta. Como a opção recomendada
+  depende de uma ação que só o usuário executa — rodar as três consultas de conferência no SQL
+  editor do projeto remoto —, a esteira **não** tinha como "executar a recomendada" sozinha: a 058
+  fica em `in-progress/` e a fila seguiu para a 076. As consultas de conferência estão na tarefa
+  bloqueada; assim que os dois `count(*)` baterem e o `join` de divergência vier vazio, o que falta
+  é uma migration de uma linha.
 - **Por que a feature está em `in-progress/` e não em `done/` (revisado em 2026-08-23).** Sobra
   exatamente uma `- [ ]`: o `drop column` de `project.notes`, bloqueado por duas condições que só o
   usuário pode satisfazer. **A primeira caiu em 2026-08-23** — o usuário rodou `supabase db push` e
@@ -387,3 +431,233 @@ não hidratou.)
   Excalidraw para `0.18.0`. Override `lodash`/`lodash-es` → `4.18.1` no `package.json` (já havia
   overrides para o mesmo tipo de coisa). O `_.template` vulnerável não é API nossa — o canvas não
   passa input de usuário para template do lodash.
+- **2026-09-18: o timestamp sugerido para a migration do `drop column` tinha caducado.** A revisão
+  de 2026-08-23 sugeria `20260823100000`; esse nome foi tomado desde então por
+  `20260823100000_task_external_links.sql`. Como migration com timestamp repetido já causou um bug
+  real de bookkeeping do CLI neste projeto, a sugestão foi atualizada para `20260918100000` (o
+  maior arquivo hoje é `20260831153000`). A migration **continua sem ser criada** — a Condição 2
+  segue em aberto.
+- **2026-09-18: `## Como testar` escrita nesta sessão.** A feature é anterior ao campo obrigatório
+  da skill `next` e não tinha o roteiro. Escrita agora a partir do **código entregue** (não do
+  plano), com os comandos rodados de verdade nesta sessão — os números abaixo são medição, não
+  estimativa. Não foi mexido em tarefa nenhuma; a única `- [ ]` continua bloqueada no usuário.
+- **2026-09-18: a suíte completa acusou 1 falha, e ela é flaky por carga, não regressão.**
+  `npm test` deu 2898/2899 com `TaskList.external-links.test.tsx` (feature 085) estourando o
+  `testTimeout` de 5 s — a rodada foi concorrente com o `npm run lint` e com o Postgres do harness
+  em Docker. Rodada isolada: `npx vitest run src/pages/admin/tasks/__tests__/TaskList.external-links.test.tsx`
+  → **8/8 passando em 2,95 s**. Nada de 058 encosta em `TaskList`. As 2 falhas de
+  `currency.test.ts` registradas pela 055/056/057 **não aparecem mais** — foram consertadas por
+  outra feature no meio do caminho.
+
+## Como testar
+
+Roteiro de avaliação da 058 (canvas de desenho livre). O módulo de Notas inteiro é 055 → 056 →
+057 → 058; aqui só o que **esta** feature entregou.
+
+### 1. Pré-requisitos
+
+- **Migrations do módulo aplicadas no banco remoto**: `20260816160000_notes_core.sql`,
+  `20260816170000_note_links.sql` e `20260816180000_note_canvas.sql`. O usuário rodou
+  `supabase db push` e confirmou em 2026-08-23. Sem a terceira não existem `note.kind` nem
+  `note.canvas_data`, e todo canvas quebra na criação.
+- **Logado com conta própria.** A RLS de `public.note` é por `user_id`: canvas de outra conta não
+  volta da consulta (é esse o caminho negativo do embed, mais abaixo).
+- **Online na primeira vez que abrir um canvas.** Os chunks do Excalidraw ficam **fora** do
+  precache do PWA de propósito (`globIgnores: ["**/excalidraw-*.js", …]` em `vite.config.ts`),
+  senão todo usuário baixaria 4,7 MB na instalação. Offline, o editor fica no esqueleto.
+- As fontes à mão livre vêm do CDN do próprio Excalidraw (`EXCALIDRAW_ASSET_PATH` no default). Sem
+  acesso ao CDN o desenho **continua funcionando**, com fonte de sistema — isso não é defeito.
+- **Docker rodando** — só para a verificação da migration. O harness sobe um Postgres 16
+  descartável e **não toca no banco remoto**.
+- Ter ao menos 1 projeto cadastrado, para testar o vínculo canvas ↔ projeto.
+
+### 2. Verificação automatizada
+
+Um comando por linha, todos rodados em 2026-09-18 com os resultados abaixo.
+
+```
+npx vitest run src/domain/notes/__tests__/canvasScene.test.ts
+```
+→ **14 testes**. O que entra e o que sai do `jsonb`: leitura de `canvas_data` nulo/quebrado, a
+assinatura que ignora movimento que não mudou nada, e o fence ` ```orbyva-canvas ` reconhecido por
+`parseBlockLanguage` (ou seja: o que o botão "Copiar referência" copia é o que o registry sabe
+desenhar).
+
+```
+npx vitest run src/domain/notes/__tests__/noteDraft.test.ts
+```
+→ **16 testes**. Rascunho sem `kind` vira `markdown` com `canvas_data` nulo; rascunho de canvas
+preserva os dois; desenho mandado numa nota markdown é descartado (seria dado órfão).
+
+```
+npx vitest run src/api/notes/__tests__/notes-api.test.ts
+```
+→ **19 testes**. O payload real do `insert` leva `kind: "canvas"` + `canvas_data` no canvas e
+`kind: "markdown"` na nota comum.
+
+```
+npx vitest run src/api/__tests__/search-notes.test.ts
+```
+→ **6 testes**. A busca global acha um canvas pelo título, leva para o editor dele e mostra o
+subtítulo **"Canvas"** (canvas não tem `content` de onde tirar excerpt).
+
+```
+npx vitest run src/pages/admin/notes/__tests__/CanvasEditor.test.tsx
+```
+→ **10 testes**. Esqueleto durante o `React.lazy`; desenho salvo chega ao canvas; canvas novo abre
+em branco; desenhar grava `canvas_data` com `Salvando…` → `Salvo`; **o `onChange` de montagem não
+grava**; três movimentos viram uma gravação só; renomear não reescreve o desenho; erro vira toast
+`destructive` + `Não salvo` sem perder a tela; o tema segue a classe `dark`; "Copiar referência"
+escreve `"```orbyva-canvas\n<id>\n```\n"` no `navigator.clipboard` e o rótulo vira "Copiado".
+
+```
+npx vitest run src/components/__tests__/CanvasBlock.test.tsx
+```
+→ **9 testes**. O id do fence vira `fetchNote(...)` e o desenho aparece; `<script>`, `onclick`,
+`href="javascript:"` e `<foreignObject>` **não** entram na página e o `<rect>` sobrevive; o link
+aponta para `/notes/<id>`; canvas em branco nem chama o Excalidraw; id inexistente e nota de texto
+viram caixa `role="alert"`; falha ao desenhar não derruba o resto da nota.
+
+```
+npx vitest run src/components/__tests__/sanitizeSvg.test.tsx
+```
+→ **10 testes** (3 de `sanitizeSvgElement`, a variante que limpa o **nó** antes de ele entrar no
+documento — é o que dispensa `dangerouslySetInnerHTML`).
+
+```
+npx vitest run src/pages/admin/notes/__tests__/Notes.flow.test.tsx
+```
+→ **21 testes**, entre eles o fluxo de ponta a ponta "criar canvas → desenhar → copiar a
+referência → colar numa nota → ver o desenho → chegar no canvas" e "nota antiga, sem kind gravado,
+continua abrindo no editor de markdown".
+
+```
+bash supabase/tests/note_canvas/run.sh
+```
+→ termina em `OK: 20260816180000_note_canvas.sql validada em Postgres 16.` Afirma, sobre notas
+semeadas **antes** da migration: `kind` é `text not null default 'markdown'`, `canvas_data` é
+`jsonb` nullable, as notas antigas ficaram markdown sem update nenhum, `kind` inválido dá
+`check_violation`, o JSON do Excalidraw faz round-trip, a RLS da 055 continua barrando nota alheia
+e `wipe_own_data` leva o canvas junto. Idempotente (roda a migration duas vezes).
+
+```
+npm run lint
+```
+→ **0 erros**, 88 warnings de `react-refresh/only-export-components`, todos pré-existentes e em
+arquivos de outros módulos.
+
+```
+npm run build && npm run check:bundle
+```
+→ `Bundle budget OK.` Os números que importam: `NoteDetail` **10,1 KB** gzip e `Notes` **2,4 KB**
+(eram 8,4 e 1,9 antes do canvas — 4,7 MB de lib com ~2 KB de crescimento de rota é a prova de que o
+`React.lazy` funcionou); `NoteMarkdownPreview` 83,4 KB; o canvas em dois chunks classe `canvas`
+(`subset-shared.chunk` 719,7 KB e `percentages-BXMCSKIN` 341,9 KB, teto 1.600 KB) mais os locales;
+`ExcalidrawCanvas` 0,4 KB. Precache do PWA em 14.026 KiB — os chunks do canvas ficaram de fora.
+O `check:bundle` também **falha de propósito** se o entry do `index.html` importar qualquer chunk
+`canvas` (a guarda do hotfix de 2026-08-31).
+
+```
+npm test
+```
+→ suíte inteira. Em 2026-09-18: **2898 passando / 1 falhando**, e a falha é
+`TaskList.external-links.test.tsx` (feature 085) estourando o timeout de 5 s sob carga — passa
+8/8 em rodada isolada. Nenhuma falha em código de 058.
+
+### 3. Verificação manual, passo a passo
+
+1. Ir em **`/notes`**. Na barra de ações existem **dois** botões lado a lado: "Novo canvas" (com
+   ícone de caneta, variante `outline`) e "Nova nota".
+2. Clicar em **"Novo canvas"**. Esperado: navega para `/notes/<id>` e monta o **editor de desenho** —
+   campo "Título", botão "Copiar referência", bloco "Desenho" com a barra de ferramentas do
+   Excalidraw (altura fixa de 70vh), seletor "Projeto" e os painéis de vínculos e backlinks.
+   **Não** aparecem as abas "Escrever"/"Visualizar" (essas são do editor markdown).
+3. Enquanto o chunk do Excalidraw não chega, o lugar do desenho é um esqueleto cinza com
+   `aria-label="Carregando o canvas"`. Ele some quando a lib carrega.
+4. Desenhar um retângulo. Esperado: ao lado do rótulo "Título" aparece **"Salvando…"** (com
+   spinner) e, ~1,5 s depois de parar de mexer, **"Salvo"** (com check). Não existe botão Salvar.
+5. Escrever um título ("Arquitetura") no campo. Esperado: mesmo ciclo "Salvando…" → "Salvo", numa
+   gravação só junto com o desenho.
+6. **Recarregar a página (F5)** na mesma URL. Esperado: o retângulo volta na tela e o título
+   continua "Arquitetura".
+7. Voltar para `/notes`. Esperado: o item aparece com **ícone de caneta** (`aria-label="Canvas"`) e,
+   no lugar do excerpt, **"Canvas · 1 elemento"**. Uma nota de texto na mesma lista continua com o
+   ícone de caderno (`aria-label="Nota"`) e o excerpt de sempre. Com 2+ traços vira "N elementos".
+8. Abrir o canvas de novo e clicar em **"Copiar referência"**. Esperado: o rótulo do botão vira
+   **"Copiado"** por ~2 s, sai o toast "Referência copiada / Cole numa nota para embutir este
+   desenho", e a área de transferência fica com exatamente:
+
+   ````
+   ```orbyva-canvas
+   <id-da-nota-canvas>
+   ```
+   ````
+
+9. `/notes` → **"Nova nota"** → colar esse bloco no corpo (pode pôr um `# Título` e um parágrafo em
+   volta) → abrir a aba **"Visualizar"**. Esperado: o desenho aparece **dentro** da nota, numa
+   caixa com borda, e embaixo o link "**Abrir canvas: Arquitetura**". O título e o parágrafo em
+   volta continuam renderizados normalmente.
+10. Clicar em "Abrir canvas: Arquitetura". Esperado: vai para `/notes/<id>` do canvas, com o
+    desenho carregado.
+11. No editor do canvas, escolher um projeto em "Projeto". Esperado: grava (indicador "Salvo") e,
+    de volta em `/notes`, o item do canvas ganha o badge com o nome do projeto — o mesmo
+    comportamento da nota de texto, porque canvas **é** uma nota.
+12. Busca global (o campo de busca do app): procurar por "Arquitetura". Esperado: o hit aparece com
+    o subtítulo **"Canvas"** e clicar nele abre o editor de desenho.
+13. Abrir uma nota de texto **criada antes desta feature**. Esperado: continua abrindo no editor de
+    markdown, com as abas Escrever/Visualizar e nenhum canvas. Nada de `kind` vazou.
+14. Alternar o tema do app (claro ↔ escuro) com o canvas aberto. Esperado: o Excalidraw acompanha
+    o tema sem recarregar.
+
+### 4. Casos de borda e caminhos negativos
+
+- **Canvas recém-criado, sem traço nenhum**: na lista sai "**Canvas vazio**" (não "0 elementos").
+  Embutido numa nota, a caixa mostra "**Este canvas ainda está em branco.**" e o link "Abrir
+  canvas" continua lá — e o Excalidraw **nem é baixado** nesse caso.
+- **Bloco ` ```orbyva-canvas ` com o fence vazio** (sem id): caixa vermelha `role="alert"` com
+  "Canvas indisponível" e "Bloco de canvas sem id. Use a ação “Copiar referência” na página do
+  canvas." Não há consulta ao banco.
+- **Id que não existe, ou de outra conta** (a RLS devolve nada, os dois casos são iguais na tela):
+  "Canvas não encontrado — ele pode ter sido excluído."
+- **Id de uma nota de texto**: "“<título>” é uma nota de texto, não um canvas."
+- **Desenho com texto malicioso** (escrever `<script>alert(1)</script>` dentro do canvas, ou um
+  elemento com link `javascript:`): ao embutir, nada executa — o `SVGSVGElement` do `exportToSvg`
+  passa por `sanitizeSvgElement` **antes** de entrar no documento, e `<script>`, atributos `on*`,
+  `href="javascript:"` e `<foreignObject>` são removidos. As formas continuam desenhadas.
+- **Falha ao salvar** (derrubar a rede e mexer no desenho): indicador vira **"Não salvo"** em
+  vermelho + toast destrutivo "Não foi possível salvar o canvas". **O desenho não some da tela** —
+  voltando a rede, o próximo traço regrava.
+- **Só abrir um canvas, sem editar nada**: a lista **não** pode se reordenar. O `onChange` que o
+  Excalidraw dispara ao montar é ignorado por assinatura, então `updated_at` não é carimbado.
+- **Renomear o canvas sem desenhar**: grava só o título; o `canvas_data` não vai no payload.
+- **Excluir o projeto vinculado**: o canvas continua existindo, só perde o vínculo
+  (`on delete set null`, herdado da 055).
+- **Excluir a nota-canvas com o embed ainda colado em outra nota**: a outra nota passa a mostrar
+  "Canvas não encontrado — ele pode ter sido excluído." e o resto dela continua renderizando.
+- **Offline no primeiro acesso a um canvas**: o esqueleto "Carregando o canvas" não sai — é a
+  contrapartida documentada do `globIgnores`, não bug.
+
+### 5. Sinais de que quebrou
+
+- **Landing em branco** (`#boot`: fundo `#070b14`, só o wordmark ORBYVɅ, zero React) → o Excalidraw
+  vazou para o chunk de entrada. É exatamente o incidente de 2026-08-31; o console mostra
+  `TypeError: $ is not a function`. `npm run check:bundle` acusa antes, com
+  "Entry index-….js importa o canvas no boot".
+- **`npm run check:bundle` reprovando um chunk de rota** (acima de 160 KB gzip) → import estático
+  do Excalidraw em arquivo de rota. Se for só tipo, `import type` resolve sem trazer runtime.
+- **Precache do PWA saltando de ~14 MB para ~19 MB no `npm run build`** → o `globIgnores` dos
+  chunks do canvas saiu do `vite.config.ts`; todo usuário passaria a baixar 4,7 MB na instalação.
+- **Lista de notas se reordenando sozinha só de abrir um canvas** → a guarda do `onChange` de
+  montagem (`canvasSceneSignature`) quebrou; cada abertura está gravando por cima.
+- **Gravação por movimento do ponteiro** (dezenas de `update` na aba de rede ao arrastar) → o
+  debounce de 1,5 s (`CANVAS_AUTOSAVE_DEBOUNCE_MS`) saiu do caminho.
+- **O bloco `orbyva-canvas` aparecendo como bloco de código cru na pré-visualização** → ele não
+  está registrado no `blockRegistry` (057), ou o `rehypeSkipRegisteredBlocks` parou de desembrulhar
+  o `<pre>`.
+- **Desenho some depois do F5** → o `canvas_data` não chegou ao banco; olhar se o indicador chegou
+  a dizer "Salvo" e se o `update` foi com `kind = 'canvas'`.
+- **`check_violation` no insert/update de nota** → algum caminho está mandando `kind` fora de
+  `('markdown','canvas')`; o `check` do banco e o `NoteKind` de `src/types/notes.ts` têm de andar
+  juntos.
+- **Canvas aparecendo na busca global sem subtítulo** → `src/api/search.ts` voltou a montar o
+  subtítulo só com `noteExcerpt(content)`, e canvas não tem `content`.

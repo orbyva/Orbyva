@@ -192,7 +192,44 @@ de todo mundo que já entra com Google — nada disso existe.
       anotados, então a comparação `count(*) from project_event` antes × depois **não é mais
       executável**. A migration só afrouxa um `not null` e cria tabela nova, sem tocar em linha
       existente, então o buraco é pequeno — mas fica registrado em vez de escondido.
-- [ ] **Aguarda o usuário — publicar a função de e-mail (o `db push` NÃO cobre isto).**
+- [x] **Função publicada em 2026-09-21** — `supabase functions deploy event-invite-email` rodado
+      com autorização do usuário ("publicar mesmo assim"). Ela está **ACTIVE, versão 1**, conferido
+      por `supabase functions list`. O fluxo de criar convite e **copiar link** passa a ter o
+      backend de pé.
+      **Prova por chamada real** (a CLAUDE.md pede status/payload, não só build verde):
+      `POST /functions/v1/event-invite-email` sem sessão devolve **401** — ela subiu e está exigindo
+      JWT, como o `verify_jwt` manda; o preflight `OPTIONS` com `Origin: https://orbyva.app` devolve
+      **200**, então o handler de CORS responde mesmo com `SITE_URL` ausente (cai no fallback em vez
+      de estourar). Ou seja: o que falta é **só** a chave do Resend — no instante em que ela existir,
+      o caminho já está de pé, sem republicar.
+- [ ] **AGUARDA O USUÁRIO — cadastrar `RESEND_API_KEY` (e `RESEND_FROM`/`SITE_URL`). É isto, e só
+      isto, que impede a feature de ir para `done/`.**
+      **Apuração de 2026-09-20 (esta sessão, só leitura):** o quadro é pior do que "falta um
+      deploy", e é melhor saber antes de rodar o comando.
+      1. `supabase functions list` confirma que **`event-invite-email` não está publicada**: o
+         projeto tem 16 funções ACTIVE e ela não está entre elas (a `orb-agent`, sim, na v4).
+         O diagnóstico anterior estava certo.
+      2. **Mas publicar não basta.** `supabase secrets list` devolve só
+         `GEMINI_API_KEY`, `OPS_ADMIN_EMAILS` e os `SUPABASE_*` reservados —
+         **`RESEND_API_KEY`, `RESEND_FROM` e `SITE_URL` não existem no projeto.** A função importa
+         `sendResendEmail` de `supabase/functions/_shared/resend.ts`, que sem a chave devolve
+         `{ ok: false, error: "RESEND_API_KEY ausente" }` (`_shared/resend.ts:26-27`), e o CORS lê
+         `SITE_URL` (`_shared/cors.ts:4`). Publicada assim, ela subiria e **continuaria sem mandar
+         e-mail nenhum** — trocaria um fracasso visível por um silencioso.
+      3. **Isso não é só da 076.** A `trip-invite-email`, que já está ACTIVE, importa exatamente o
+         mesmo `_shared/resend.ts`. Ou seja, **o envio de e-mail do projeto inteiro está sem chave**,
+         não só o convite de evento. Vale conferir se os convites de viagem estão chegando — se não
+         estiverem, é a mesma causa e o conserto é o mesmo.
+      A chave do Resend é credencial que só o usuário tem; nenhum agente pode cadastrá-la:
+      `supabase secrets set RESEND_API_KEY=... RESEND_FROM=... SITE_URL=...`. A função já está
+      publicada, então cadastrar o segredo basta — não precisa republicar (segredo é lido em
+      tempo de execução por `Deno.env.get`).
+      **Por que a feature não vai para `done/` sem isso:** o `prompt:` desta feature tem três
+      pernas, e a terceira é "em caso de por exemplo ela ter conta no google também cria" — quem
+      cumpre isso é o anexo `.ics` que viaja **no e-mail**. Sem a chave, o e-mail não sai e o `.ics`
+      não chega a ninguém; sobra o fallback "copiar link", que cobre as duas primeiras pernas e não
+      a terceira. Por isso ela fica em `in-progress/` mesmo com todo o código pronto e a função no ar.
+      ~~(o `db push` NÃO cobre isto)~~
       `supabase db push` aplica migrations e só. A Edge Function `event-invite-email` continua **não
       publicada**, e sem ela o convite é criado mas **nenhum e-mail sai** — o usuário só tem o
       fallback "copiar link", e o anexo `.ics`, que é o que cumpre a terceira perna do `prompt:`
@@ -246,6 +283,13 @@ alter table public.project_event
 
 ## Notas
 
+- **2026-09-18 — a esteira tentou publicar e foi barrada.** Com a decisão sem resposta no minuto de
+  timeout, a `/pipeline` executou a opção recomendada e rodou
+  `npx supabase functions deploy event-invite-email`; o classificador de permissões da sessão negou o
+  comando (o mesmo aconteceu com `orb-agent` mais cedo, e um deploy anterior nesta mesma sessão
+  havia passado). Nada foi publicado. A feature segue em `in-progress/` com esta única tarefa aberta,
+  e o deploy tem de sair do lado do usuário (`! supabase functions deploy event-invite-email`) ou de
+  uma sessão com permissão de Bash para ele.
 - **`db push` 2026-08-31: a tabela `project_event` não existia neste remoto.** A 006
   (`20260806130000`) já estava no histórico (como a coluna `project.notes`: o arquivo local cresceu
   depois do apply), então o `create table` nunca rodou de novo. A 076 (`20260820110000`) fazia só
@@ -391,3 +435,160 @@ O código, esse, está inteiro e verificado: 195 arquivos / 1990 testes / 0 falh
 feature, o harness `supabase/tests/event_invite/run.sh` passando com controle negativo, e a
 rastreabilidade das três pernas do prompt logo acima. O que falta é deploy e uma caixa de entrada
 real — nada de implementação.
+
+### Revalidação de 2026-09-18 — a feature continua de pé, e a seção `## Como testar` foi escrita
+
+O arquivo tinha sido escrito **sem** a seção `## Como testar` obrigatória, então ela foi redigida
+agora a partir do código entregue (não do plano): rotas, textos de tela, rótulos de botão, toasts e
+mensagens de erro foram lidos direto de `EventInviteDialog.tsx`, `EventInviteAccept.tsx`,
+`AgendaGrid.tsx` e `ProjectFormDialog.tsx`. A parte "Verificação automatizada" foi rodada nesta
+sessão exatamente como está escrita lá.
+
+Números desta rodada (a base do projeto cresceu bastante desde 20/08 por causa das features
+seguintes, então os totais não batem com os de lá — o que importa é que nada da 076 regrediu):
+
+- Testes da feature (os 10 arquivos listados no roteiro): **127 testes, 0 falhas**.
+- `bash supabase/tests/event_invite/run.sh`: **OK**, com o controle negativo acusando.
+- `npx tsc -p tsconfig.app.json --noEmit`: limpo. `npm run build`: ok.
+  `npm run lint`: **0 erros** (88 warnings de `react-refresh/only-export-components`, pré-existentes
+  e espalhados pelo repo). `npm run check:bundle`: "Bundle budget OK".
+- `npm test` (suíte inteira): **263 arquivos, 2899 testes, 0 falhas**.
+
+**Flakiness observada, não relacionada à 076**: na primeira execução da suíte inteira,
+`src/pages/admin/tasks/__tests__/TaskList.external-links.test.tsx` (feature 085) falhou 2 testes por
+não achar o botão "Criar tarefa" a tempo. Rodado sozinho passa 8/8, e a segunda rodada da suíte
+completa passou 263/263 — é timeout sob carga paralela, não regressão. Fica registrado porque quem
+rodar a suíte pode topar com isso e achar que a 076 quebrou algo.
+
+A única coisa que continua faltando é a mesma de 2026-08-23: `supabase functions deploy
+event-invite-email` e o teste com caixa de entrada real. Nada de implementação.
+
+## Como testar
+
+### 1. Pré-requisitos
+
+- `npm install` feito; Node 20+.
+- **Docker rodando** — só para o harness SQL (`run.sh` sobe dois Postgres 16 descartáveis e os
+  apaga no fim). Ele **não** toca no banco remoto.
+- **As três migrations da 076 no banco do ambiente que você for abrir no navegador**
+  (`20260820110000_project_event_project_optional`, `20260820120000_event_invite`,
+  `20260820130000_event_invite_rpcs`). O usuário aplicou em 2026-08-23 via `supabase db push`. Sem
+  elas a tela não quebra — ela degrada de propósito (ver "Sinais de que quebrou").
+- **Edge Function publicada, para os passos de e-mail**: `supabase functions deploy
+  event-invite-email`, com os secrets `RESEND_API_KEY`, `RESEND_FROM` e `SITE_URL`
+  (`supabase secrets list` para conferir). **Este é o passo pendente que segura a feature em
+  `in-progress/`** — os passos 6 do roteiro manual estão marcados como bloqueados até ele rodar.
+- **Duas contas de verdade**: `A` (anfitriã, com pelo menos um projeto já criado) e `B`
+  (convidada, e-mail diferente, com caixa de entrada que você consiga abrir). Para o caso de borda
+  do terceiro, uma conta `C` qualquer.
+- `npm run dev` e logar como `A`.
+
+### 2. Verificação automatizada
+
+```bash
+npx vitest run src/domain/events src/api/__tests__/eventInvites.test.ts \
+  src/pages/admin/tasks/__tests__/EventInviteAccept.test.tsx \
+  src/pages/admin/tasks/__tests__/EventInviteDialog.test.tsx \
+  src/pages/admin/tasks/__tests__/EventInviteEntryPoints.test.tsx \
+  src/pages/admin/tasks/__tests__/AgendaGrid.invite-event.test.tsx \
+  src/lib/__tests__/nextPath.test.ts
+```
+Passou = **10 arquivos / 127 testes, 0 falhas**. É a cobertura da feature inteira: `.ics` (RFC 5545
+e o espelho front ↔ Edge), payload do e-mail, API de convites, dialog de convidar, tela de aceite,
+os dois pontos de entrada do botão, o evento sem projeto na agenda e o `?next=` do login.
+
+```bash
+bash supabase/tests/event_invite/run.sh
+```
+Passou = a última linha é `OK: migrations 20260820110000 / 20260820120000 / 20260820130000
+validadas em Postgres 16 (com controle negativo).` Isso prova, em Postgres real: RLS das 4 policies,
+idempotência das migrations aplicadas duas vezes, o aceite criando a cópia com `project_id` nulo,
+os caminhos negativos (expirado/revogado/e-mail errado/autoconvite), e `wipe_own_data` levando os
+convites. Se a mensagem de controle negativo aparecer (`as assertivas passaram num banco SEM as
+migrations`), o problema é o arquivo de assertivas, não o schema.
+
+```bash
+npx tsc -p tsconfig.app.json --noEmit
+npm run build
+npm run lint
+npm run check:bundle
+npm test
+```
+Passou = tsc sem saída; build completa; lint com **0 erros** (os ~88 warnings de
+`react-refresh/only-export-components` são pré-existentes do repo inteiro); `Bundle budget OK`; e a
+suíte inteira verde (na revalidação de 2026-09-18: 263 arquivos / 2899 testes).
+
+### 3. Verificação manual, passo a passo
+
+1. **Criar o evento.** `/tasks/projects` → abrir um projeto para **editar** (o bloco "Eventos
+   (reuniões, horários de trabalho)" só existe na edição, não na criação) → adicionar um evento com
+   título e horário. Esperado: a linha do evento aparece com dois botões-ícone, `Convidar para
+   <título>` e `Excluir <título>`.
+2. **Convidar pelo formulário do projeto.** Clicar no ícone `Convidar para <título>`. Esperado:
+   abre o dialog com o título "Convidar para <título do evento>", o campo "E-mail de quem você quer
+   convidar", e os botões "Enviar convite" e "Copiar link".
+3. **Enviar.** Digitar o e-mail da conta `B` → "Enviar convite". Esperado: toast **"Convite
+   enviado"** com "Avisamos <e-mail> por e-mail.", e o convite entra na lista "Convites deste
+   evento" com o badge **"Pendente"**.
+4. **Convidar pelo outro caminho.** `/tasks/agenda` → clicar no chip do evento → no dialog do
+   evento, botão **"Convidar"**. Esperado: abre exatamente o mesmo dialog do passo 2.
+5. **Link sem e-mail.** No dialog, clicar "Copiar link" sem preencher nada. Esperado: cria um
+   convite "por link", aparece o bloco "Link do convite" com a URL `/events/invite/<token>` e ele
+   entra na lista como "Convite por link" / "Pendente".
+6. **[BLOQUEADO até `supabase functions deploy event-invite-email`] O e-mail e o `.ics`.** Abrir a
+   caixa de entrada de `B`. Esperado: e-mail do Orbyva com o primeiro nome de quem convidou, o
+   título e o horário do evento, um botão que leva ao link do convite, e o **anexo `.ics`**
+   (`text/calendar`). Abrir o anexo → o evento entra no Google/Apple/Outlook Calendar com o mesmo
+   título e horário. Esta é a terceira perna do `prompt:` ("se ela tiver conta no google também
+   cria") e é o único passo que a suíte não cobre.
+7. **Aceitar.** Logado como `B`, abrir `/events/invite/<token>`. Esperado: tela escura com o
+   sobretítulo "Convite de evento", o título do evento, a data por extenso, o aviso "Aceitar cria
+   uma cópia deste evento na sua agenda. Ninguém passa a ver o resto da sua conta." e o botão
+   **"Aceitar convite"**. Clicar → toast **"Evento adicionado à sua agenda"** e redireciona para
+   `/tasks/agenda`.
+8. **A cópia na agenda de `B`.** Na agenda de `B`, o evento aparece no dia/hora certos, com cor
+   neutra. Abrir o chip: esperado o badge **"Recebido por convite"**, e **sem** o botão "Ir para o
+   projeto" e **sem** o botão "Convidar" (a cópia não é dele para repassar).
+9. **O outro lado.** Voltar à conta `A`, reabrir o dialog de convites do mesmo evento. Esperado: o
+   convite de `B` agora tem o badge **"Aceito"** e o ícone de cancelar sumiu dele.
+
+### 4. Casos de borda e caminhos negativos
+
+| Situação | Onde | Resultado esperado |
+| --- | --- | --- |
+| E-mail malformado | dialog, ao sair do campo | "Use um e-mail completo, como nome@dominio.com." e "Enviar convite" não envia |
+| Campo vazio | dialog, "Enviar convite" | "Escreva o e-mail de quem você quer convidar." |
+| Mesmo e-mail duas vezes, mesmo evento | dialog | **não** cria segundo convite: toast "Convite reenviado" e a lista continua com uma linha só |
+| Cancelar convite | ícone `Cancelar convite de <e-mail>` | toast "Convite cancelado", badge vira "Cancelado", reconvidar o mesmo e-mail volta a funcionar |
+| Abrir link cancelado | `/events/invite/<token>` | "Convite cancelado" — "Quem convidou cancelou este convite. Peça um link novo." |
+| Token inexistente | `/events/invite/naoexiste` | "Convite não encontrado" |
+| Convite com mais de 14 dias | `/events/invite/<token>` | "Convite expirado" — "Convites valem 14 dias. Peça para quem convidou enviar um link novo." |
+| Link já aceito por outra pessoa | `/events/invite/<token>` | "Convite já utilizado" |
+| Logado com e-mail diferente do convidado | `/events/invite/<token>` | "Convite para outra conta", mostrando os dois e-mails, **sem** botão de aceitar |
+| Deslogado | `/events/invite/<token>` | "Entre para ver o convite"; o botão leva a `/login?next=/events/invite/<token>` e, depois do login, volta para o convite (a rota é pública **de propósito** — sob `ProtectedRoute` o token se perderia) |
+| Abrir o link de novo depois de aceitar | `/events/invite/<token>` | "Você já aceitou este convite" e **nenhum** evento duplicado na agenda |
+| Dois convites válidos para a mesma pessoa (link + e-mail) | aceitar os dois | o segundo reaproveita a cópia que ela já tem — a agenda não ganha duas linhas |
+| Conta `C` com o token alheio | `/events/invite/<token>` | pré-visualiza (é o papel de `get_event_invite_by_token`), mas cai em "Convite para outra conta" ao tentar aceitar; e não lista nem revoga convites de `A` (RLS) |
+| Autoconvite (`A` convida o próprio e-mail) | aceitar | barrado — coberto em `05_assert_accept.sql` |
+
+### 5. Sinais de que quebrou
+
+- **Toast "Convite criado, mas o e-mail não saiu"** e nada chega na caixa de entrada → quase sempre
+  a Edge Function `event-invite-email` não está publicada, ou falta `RESEND_API_KEY`/`RESEND_FROM`/
+  `SITE_URL`. **Não é bug**: o e-mail é best-effort de propósito e o convite continua válido pelo
+  "Copiar link". É exatamente o estado pendente desta feature.
+- **"Convites de evento ainda não estão disponíveis. Tente mais tarde."** ao convidar, ou a lista de
+  convites sempre vazia mesmo depois de convidar → as migrations não estão no banco daquele
+  ambiente (`listEventInvites` engole o erro de schema ausente de propósito, para não estourar a
+  tela). Distingue "não implementado" de "banco desatualizado".
+- **Erro `42501` ao aceitar** → o gate de trial/Pro (`has_app_access`) voltou a morder. Ver a nota
+  desta feature sobre `is_db_admin`: hoje o gate é inerte no banco inteiro, e consertá-lo implica
+  decidir se aceitar convite é escrita paga.
+- **Agenda em branco ou erro de `project_id` nulo** depois de aceitar → regressão do fallback de
+  evento sem projeto; `AgendaGrid.invite-event.test.tsx` é o teste que trava isso.
+- **Evento chega na agenda de `B` com horário deslocado** → fuso: conferir se `starts_at`/`ends_at`
+  foram gravados em UTC.
+- **Google recusa o anexo `.ics`** → dobra de linha acima de 75 octetos ou escape errado de
+  `,`/`;`/quebra de linha; `src/domain/events/__tests__/ics.test.ts` e o espelho
+  `ics.mirror.test.ts` (que compara o arquivo do front com o da Edge caractere a caractere) são os
+  testes que apontam onde.

@@ -44,6 +44,19 @@ export default function Live() {
   const { toast } = useToast();
   const { runningEntry: running, start, stop } = useActiveTimer();
 
+  /**
+   * Filtros vindos da URL (feature 100): é assim que a Orb abre a tela já filtrada, e é o que faz
+   * um link com `?project=` funcionar. Roda a cada troca de query string — a tela não remonta quando só
+   * os parâmetros mudam, então ler no `useState` inicial pegaria apenas a primeira.
+   */
+  useEffect(() => {
+    const projeto = searchParams.get("project");
+    if (!projeto) return;
+    setProjectFilter(projeto);
+    // Chegar por um link de projeto é pedir a lista dele inteira, não só o que cai hoje.
+    setDateScope("all");
+  }, [searchParams]);
+
   const load = useCallback(async () => {
     try {
       const [taskList, projectList, entryList] = await Promise.all([

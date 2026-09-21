@@ -85,6 +85,18 @@ export default function Places() {
 
   useEffect(() => { load(); }, [load]);
 
+  /**
+   * Filtros vindos da URL (feature 100): é assim que a Orb abre a tela já filtrada, e é o que faz
+   * um link com `?q=&status=` funcionar. Roda a cada troca de query string — a tela não remonta quando só
+   * os parâmetros mudam, então ler no `useState` inicial pegaria apenas a primeira.
+   */
+  useEffect(() => {
+    const busca = searchParams.get("q");
+    if (busca !== null) setSearch(busca);
+    const status = searchParams.get("status");
+    if (status === "to_visit" || status === "visited") setStatusFilter(status);
+  }, [searchParams]);
+
   useEffect(() => {
     if (searchParams.get("new") !== "1") return;
     setCreateOpen(true);

@@ -1,0 +1,24 @@
+-- Feature 058 (dívida herdada da 055): remove `project.notes`.
+--
+-- A 055 moveu as notas de projeto para o módulo de Notas com um `insert ... select` e deixou a
+-- coluna de origem viva de propósito, como rede de segurança, até alguém conferir a cópia. Esta
+-- migration é o fim dessa espera.
+--
+-- Conferência que autorizou o drop (2026-09-20, `supabase db query --linked`, só `select`):
+--   select count(*) from public.note where title = 'Notas do projeto';              -- 0
+--   select count(*) from public.project
+--    where notes is not null and btrim(notes, E' \t\r\n') <> '';                    -- 0
+--   select p.id from public.project p
+--     join public.note n on n.project_id = p.id and n.title = 'Notas do projeto'
+--    where n.content is distinct from p.notes;                                      -- 0 linhas
+--   select count(*) filter (where notes is not null and notes <> ''),
+--          max(length(notes)) from public.project;                                  -- 0 e 0
+-- Dos 11 projetos, 8 tinham `notes` não-nulo e os 8 guardavam string vazia. A leitura correta não
+-- é "a cópia saiu íntegra" e sim que **nunca houve o que copiar**: o conjunto migrado era vazio.
+-- Nenhuma view, índice ou constraint depende da coluna (conferido em pg_depend e pg_index).
+--
+-- Escopo deliberadamente mínimo: a migration da 006 (`20260806130000_project_notes_status_events`)
+-- criou `notes` **e** a tabela `project_event` no mesmo arquivo, então é fácil arrastar junto o que
+-- não deve sair. Aqui é uma instrução e nada mais — `project_event`, as policies e `status` ficam
+-- exatamente como estão.
+alter table public.project drop column if exists notes;

@@ -1,4 +1,4 @@
-import { useEffect, Suspense } from "react"
+import { useEffect, lazy, Suspense } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
   Breadcrumb,
@@ -21,6 +21,7 @@ import { OnboardingDialog } from "@/components/OnboardingDialog"
 import { QuickAddExpenseFab } from "@/components/QuickAddExpenseFab"
 import { QuickAddHost } from "@/components/QuickAddHost"
 import { QuickAddProvider } from "@/hooks/useQuickAdd"
+import { OrbProvider, useOrbContext } from "@/hooks/useOrb"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { AlertsBell } from "@/components/AlertsBell"
 import { MobileBottomNav } from "@/components/MobileBottomNav"
@@ -38,6 +39,25 @@ import {
 import { ActiveTimerProvider } from "@/hooks/useActiveTimer"
 import LoadingFallback from "@/components/LoadingFallback"
 import { PageSkeleton } from "@/components/PageSkeleton"
+
+/**
+ * O tray de confirmação da Orb (feature 100, Onda 5) entra por `lazy`: ele arrasta o
+ * `src/api/orbActions` — e com ele as funções de gravação de tarefa, nota, compra e projeto — e
+ * este layout é carregado em TODA página. Enquanto não existe proposta pendente, o chunk nem é
+ * baixado.
+ */
+const OrbProposalTray = lazy(() => import("@/components/orb/OrbProposalTray"))
+
+function OrbProposalTrayHost() {
+  const orb = useOrbContext()
+  // Só a existência de proposta decide o carregamento do chunk; ONDE o tray aparece é regra dele.
+  if (!orb || orb.pendingProposals.length === 0) return null
+  return (
+    <Suspense fallback={null}>
+      <OrbProposalTray />
+    </Suspense>
+  )
+}
 
 function breadcrumbLabel(segment: string, override: string | null): string {
   if (override) return override
@@ -171,6 +191,9 @@ export default function AdminLayout() {
 
   return (
     <QuickAddProvider>
+    {/* A conversa da Orb vive ACIMA do `Outlet` (feature 100): ela navega, e um estado dentro da
+        página seria destruído pela navegação que ela mesma pediu. */}
+    <OrbProvider>
     <SidebarProvider>
       <AppSidebar />
       <SidebarMobileCloser />
@@ -235,10 +258,12 @@ export default function AdminLayout() {
           </div>
           {hasAccess ? <MobileBottomNav /> : null}
           {hasAccess ? <LiveWidget /> : null}
+          {hasAccess ? <OrbProposalTrayHost /> : null}
         </SidebarInset>
       </ActiveTimerProvider>
       </BreadcrumbTitleProvider>
     </SidebarProvider>
+    </OrbProvider>
     </QuickAddProvider>
   )
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { NotebookPen, PenTool, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,19 @@ export default function Notes() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState("");
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  /**
+   * Filtros vindos da URL (feature 100): é assim que a Orb abre a tela já filtrada, e é o que faz
+   * um link com `?q` funcionar. Roda a cada troca de query string — a tela não remonta
+   * quando só os parâmetros mudam, então ler no `useState` inicial pegaria apenas a primeira.
+   */
+  useEffect(() => {
+    const busca = searchParams.get("q");
+    if (busca !== null) setQuery(busca);
+  }, [searchParams]);
 
   const load = useCallback(async () => {
     try {

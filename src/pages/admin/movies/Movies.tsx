@@ -196,6 +196,20 @@ export default function Movies() {
     };
   }, [pageMovies]);
 
+  /**
+   * Filtros vindos da URL (feature 100): é assim que a Orb abre a tela já filtrada, e é o que faz
+   * um link com `?q=&status=` funcionar. Roda a cada troca de query string — a tela não remonta quando só
+   * os parâmetros mudam, então ler no `useState` inicial pegaria apenas a primeira.
+   */
+  useEffect(() => {
+    const busca = searchParams.get("q");
+    if (busca !== null) setSearchTerm(busca);
+    const status = searchParams.get("status");
+    if (status === "to_watch" || status === "watching" || status === "watched" || status === "abandoned") {
+      setFilter(status);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (searchParams.get("new") !== "1") return;
     setAddOpen(true);

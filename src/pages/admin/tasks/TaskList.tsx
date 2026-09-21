@@ -1,4 +1,4 @@
-import { ListTodo, Tag as TagIcon, Timer, X } from "lucide-react";
+import { ListTodo, Search, Tag as TagIcon, Timer, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   DndContext,
@@ -17,6 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -78,6 +79,7 @@ import {
   bucketForDueDate,
   collapseRecurringSeries,
   filterTasks,
+  filterTasksBySearch,
   filterTasksByStatusView,
   findSeriesTasks,
   type TaskDeleteOption,
@@ -155,6 +157,9 @@ export default function TaskList() {
     return TASK_VIEW_MODES.includes(requested as TaskViewMode) ? (requested as TaskViewMode) : "lista";
   });
   const [tagFilter, setTagFilter] = useState("");
+  /** Busca textual (feature 100). Vale para as quatro abas, como o filtro de projeto: procurar uma
+   * tarefa é procurar na lista inteira, não dentro da visão em que a pessoa parou. */
+  const [search, setSearch] = useState("");
   /** Recorte por projeto, compartilhado pelas quatro abas e pela `ProjectsRail` (feature 097).
    * Nasce da preferência salva no navegador; sem nada salvo, "todos os projetos". */
   const [projectFilter, setProjectFilter] = useState<string>(() => readTaskProjectFilter());
@@ -263,16 +268,19 @@ export default function TaskList() {
         : projectFilter === PROJECT_FILTER_NONE
           ? null
           : projectFilter;
-    const filtered = filterTasks(tasks, {
-      tagId: tagFilter || undefined,
-      projectId,
-    });
+    const filtered = filterTasksBySearch(
+      filterTasks(tasks, {
+        tagId: tagFilter || undefined,
+        projectId,
+      }),
+      search
+    );
     return filtered.filter(
       (t) =>
         !t.parent_task_id &&
         !(t.linked_recurring_id && t.linked_installment_number == null)
     );
-  }, [tasks, tagFilter, projectFilter]);
+  }, [tasks, tagFilter, projectFilter, search]);
 
   const showPending = statusView === "pending" || statusView === "all";
   const showDone = statusView === "done" || statusView === "all";
@@ -307,6 +315,38 @@ export default function TaskList() {
       writeTaskProjectFilter(valid);
     }
   }, [loading, projects, projectFilter]);
+
+  /**
+   * Filtros vindos da URL (feature 100) — é por aqui que a Orb "abre a tela já filtrada".
+   *
+   * Roda a cada mudança de query string, e não só na montagem: navegar de `/tasks?project=A` para
+   * `?project=B` não remonta esta tela, então um inicializador de `useState` (como o de `?view=`,
+   * que continua ali por outro motivo) só pegaria a primeira. Parâmetro ausente NÃO limpa o filtro
+   * atual: quem chega por link pede um recorte, não a faxina dos outros.
+   */
+  useEffect(() => {
+    const projeto = searchParams.get("project");
+    if (projeto) handleProjectFilterChange(projeto);
+
+    const busca = searchParams.get("q");
+    if (busca !== null) setSearch(busca);
+
+    const status = searchParams.get("status");
+    if (status === "pending" || status === "done" || status === "all") setStatusView(status);
+
+    const visao = searchParams.get("view");
+    if (TASK_VIEW_MODES.includes(visao as TaskViewMode)) setViewMode(visao as TaskViewMode);
+
+    const prioridade = searchParams.get("priority");
+    if (prioridade === "low" || prioridade === "medium" || prioridade === "high") {
+      setPriorityFilter(prioridade);
+    }
+
+    const etiqueta = searchParams.get("tag");
+    if (etiqueta) setTagFilter(etiqueta);
+
+    if (searchParams.get("today") === "1") setTodayOnly(true);
+  }, [searchParams, handleProjectFilterChange]);
 
   /** Prazo "congelado" desta tarefa (o do último `load()`, enquanto o popover de prazo dela está
    * aberto) ou o prazo vivo, quando não há nada congelado. */
@@ -401,10 +441,19 @@ export default function TaskList() {
         : projectFilter === PROJECT_FILTER_NONE
           ? null
           : projectFilter;
-    return filterTasks(tasks, { tagId: tagFilter || undefined, projectId }).filter(
+    const base = filterTasks(tasks, { tagId: tagFilter || undefined, projectId }).filter(
       (t) => !(t.linked_recurring_id && t.linked_installment_number == null)
     );
-  }, [tasks, tagFilter, projectFilter]);
+    if (!search.trim()) return base;
+    // A busca também vale aqui, mas o Gantt hierarquiza pai→filho: uma subtarefa que casa sozinha
+    // ficaria órfã na barra. Os pais das que casaram voltam para a lista por isso, não por gosto.
+    const encontrados = filterTasksBySearch(base, search);
+    const achados = new Set(encontrados.map((t) => t.id));
+    const pais = new Set(
+      encontrados.map((t) => t.parent_task_id).filter((id): id is string => Boolean(id))
+    );
+    return base.filter((t) => achados.has(t.id) || pais.has(t.id));
+  }, [tasks, tagFilter, projectFilter, search]);
 
   /** Colunas do Kanban. Cada uma respeita o mesmo `sortKey` da Lista (feature 079) — antes elas
    * herdavam a ordem crua do `fetchTasks` (`due_date` asc), que as materializações já bagunçavam
@@ -873,6 +922,29 @@ export default function TaskList() {
               trabalhando no projeto X" é do usuário, não da visão. O de **Tag** continua fora da
               Agenda, que não filtra por tag em lugar nenhum (seria um controle que não faz nada). */}
           <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar tarefa"
+                aria-label="Buscar tarefa"
+                className="h-9 w-44 pl-8"
+              />
+              {search ? (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Limpar busca"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
             <Select value={projectFilter} onValueChange={handleProjectFilterChange}>
               {/* Com um valor escolhido o `placeholder` some, e o gatilho ficava sem nome
                   acessível nenhum — o `aria-label` é o nome estável do controle. */}

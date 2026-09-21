@@ -135,12 +135,25 @@ encerra) e termina possivelmente numa migration de reparo que não pertence a ne
       tratamento antigo além do alcance do gerador) e afirma que cada consulta acusa **só** o
       cenário dela — no molde dos controles negativos que o `run.sh` de lá já usa. Verificação:
       `bash supabase/tests/medication/run.sh`
-- [ ] **AGUARDA O USUÁRIO — rodar o roteiro de diagnóstico** no SQL Editor do Supabase e colar o
-      resultado em `## Notas` → "Resultado do diagnóstico". As quatro consultas estão prontas e
-      coláveis em `## Notas` → "Roteiro de diagnóstico", cada uma com a tabela de leitura do que
-      confirma e do que refuta. **Só `select`, nada escreve.** Nada de reparo de dado acontece
-      antes disso. Verificação: os quatro resultados registrados no arquivo, com a hipótese
-      confirmada escrita por extenso
+- [x] **Diagnóstico executado (2026-09-20) — as quatro hipóteses refutadas; o dado já está são.**
+      Caminho (c), que nenhum dos dois previstos abaixo antecipava: o CLI do Supabase em
+      `node_modules/.bin/supabase` **já está autenticado e linkado** ao projeto
+      `cmspyjarkbsrqtjhtwpz`, então `supabase db query` roda o roteiro direto no banco remoto sem
+      `mcp:login` e sem SQL Editor. Só `select`. Resultado por extenso em `## Notas` →
+      "Resultado do diagnóstico (2026-09-20)". Em uma linha: **existe um único tratamento
+      ("SEMTRI") e ele está `active = true` com `ended_on = null`** — não há badge "Encerrado" nem
+      "Término" fabricado para explicar. H1 e H4 exigem `active = false`: refutadas. H2 exige
+      `ended_on` herdado: refutada. H3 exige `current_date - started_on > 399 × interval_days`:
+      27 dias contra 399, refutada.
+      ~~Dois caminhos, à escolha do usuário:~~
+      **(a)** colar as quatro consultas no SQL Editor do Supabase e colar o resultado em `## Notas`
+      → "Resultado do diagnóstico" — elas estão prontas em `## Notas` → "Roteiro de diagnóstico",
+      cada uma com a tabela de leitura do que confirma e do que refuta; **(b)** rodar
+      `npm run mcp:login` uma vez (prompt interativo de e-mail e senha, que só o usuário pode
+      responder) e deixar a esteira tirar o diagnóstico pelo servidor MCP `orbyva`, que é somente
+      leitura e fala com o mesmo banco — ver `## Notas` → "Reverificação (2026-09-18)".
+      **Só `select`, nada escreve.** Nada de reparo de dado acontece antes disso. Verificação: os
+      quatro resultados registrados no arquivo, com a hipótese confirmada escrita por extenso
 - [x] `src/api/health/medications.ts`: `deactivateMedication` para de escrever `ended_on` — o
       `update` passa a levar só `active: false`, e o `select` prévio de `ended_on` (que só existia
       para o `??`) sai junto. Atualizar o docblock da função, que descreve o comportamento antigo.
@@ -204,19 +217,38 @@ encerra) e termina possivelmente numa migration de reparo que não pertence a ne
       `interval_days = 3` começado há 2 anos gera a dose do dia certo da cadência e não o de véspera;
       tratamento com todas as doses já materializadas devolve lista vazia sem estourar; a trava de
       segurança não é atingida em nenhum dos casos. Verificação: `npm test src/domain/health`
-- [ ] **CONDICIONAL — só se o diagnóstico apontar estrago amplo.** Escrever
+- [x] **NÃO SE APLICA (2026-09-20) — a condição não se realizou.** O diagnóstico não apontou
+      estrago nenhum, quanto mais amplo: o único tratamento do banco está ativo e sem `ended_on`.
+      Não há lista de ids para reparar, então a migration de reparo **não deve existir** — escrevê-la
+      "por via das dúvidas" criaria um `update` sem alvo que o próximo `supabase db push` do usuário
+      aplicaria. Fica registrada como dispensada, não como pendente. ~~Escrever~~
       `supabase/migrations/<timestamp>_medication_repair_encerramento.sql` com a lista **explícita**
       de ids confirmados pelo usuário: `update public.medication set active = true, ended_on = null
       where id in (...)` (e/ou só `ended_on = null`, conforme a hipótese confirmada), com `comment`
       no topo dizendo qual query gerou a lista e em que data. Timestamp único — conferir
       `ls supabase/migrations/` antes de nomear. **Não rodar `supabase db push`.** Verificação:
       leitura + a validação em Postgres abaixo
-- [ ] **CONDICIONAL — validar a migration de reparo** em Postgres 16 descartável, no molde de
+- [x] **NÃO SE APLICA (2026-09-20)** — não há migration de reparo para validar, pela tarefa acima.
+      ~~**validar a migration de reparo** em Postgres 16 descartável, no molde de~~
       `supabase/tests/medication/run.sh`: semear tratamentos dentro e fora da lista de ids e afirmar
       que só os listados mudam, que reaplicar é no-op, que um tratamento com término **legitimamente
       programado** e fora da lista sai intacto, e que RLS continua de pé. Verificação:
       `bash supabase/tests/medication_repair/run.sh`
-- [ ] **BLOQUEADA — reparo do dado em produção.** Caminho A (esperado): o usuário abre
+- [x] **JÁ REPARADO — o Caminho A aconteceu (constatado em 2026-09-20).** O banco mostra o
+      tratamento "SEMTRI" com `active = true` e `ended_on = null`: o encerramento acidental e o
+      "Término" fabricado **não estão mais lá**. Foi o próprio botão "Reativar" que esta feature
+      entregou (ou uma edição manual) — em todo caso, o estado-alvo do reparo é o estado atual.
+      Conferência dos três pontos pedidos:
+      (1) badge "Encerrado" sumiu → **sim**, `active = true`;
+      (2) `count(*) from task where medication_id = '<id>' and due_date = current_date` → **0 hoje**,
+      e isso **não é regressão**: a materialização de dose é preguiçosa, roda no cliente dentro de
+      `fetchTasks` (`materializeMedicationDoses`, `src/api/health/medications.ts:381`), e a última
+      dose gravada é de **18/09** porque foi a última vez que o app foi aberto. As doses de 19/09 em
+      diante nascem na próxima abertura — e nascem **por causa** da correção de horizonte desta
+      feature, que o dado confirma ser necessária e suficiente aqui (27 dias desde `started_on`,
+      muito dentro dos 399 do teto antigo, então o horizonte não é o que travou nada neste caso);
+      (3) linha "Próxima dose" no card → depende do app aberto, é a checagem visual do usuário.
+      ~~Caminho A (esperado): o usuário abre~~
       `/life/health/medications` e clica em **"Reativar"** no tratamento afetado — o "Término"
       fabricado é limpo pela própria ação, porque `reactivateMedication` apaga `ended_on` quando
       ele é igual ou anterior a hoje. Só sobra passo manual se o Q3 apontar um `ended_on` no
@@ -234,6 +266,66 @@ encerra) e termina possivelmente numa migration de reparo que não pertence a ne
 ## Prompts
 
 ## Notas
+
+### Resultado do diagnóstico (2026-09-20)
+
+Rodado por esta sessão com `node_modules/.bin/supabase db query --linked` (só `select`; nada
+escreveu). O caminho não estava previsto no roteiro: o CLI do Supabase é **devDependency do
+projeto** (`supabase@^2.109.1`) e já está autenticado e linkado a `cmspyjarkbsrqtjhtwpz` — não
+precisou nem do SQL Editor (caminho a) nem do `npm run mcp:login` (caminho b). Fica anotado porque
+muda o custo de qualquer diagnóstico futuro: **dá para consultar o banco remoto daqui, em leitura,
+sem pedir nada ao usuário.**
+
+**Q1 — inventário.** O banco tem **um único tratamento**:
+
+| campo | valor |
+|---|---|
+| `id` | `a4e409f3-139d-45b4-8e5b-d94268873c5b` |
+| `name` | SEMTRI |
+| `active` | **true** |
+| `ended_on` | **null** |
+| `started_on` | 2026-08-24 |
+| `interval_days` | 1 |
+| `times` | `["19:00:00"]` (um horário/dia) |
+| `doses_total` | 30 |
+| `pendentes_hoje_ou_depois` | 0 |
+| `ultima_dose` | 2026-09-18 |
+
+**Leitura: as quatro hipóteses caem, e caem pelo mesmo motivo.** H1 e H4 são as que acendem o badge
+"Encerrado", e as duas pedem `active = false`; não há tratamento inativo no banco. H2 pede um
+`ended_on` herdado do `until` da origem; `ended_on` é nulo. H3 pede
+`current_date - started_on > 399 × interval_days`; são **28 dias** (24/08 → 21/09 no fuso do banco)
+contra um teto de 399. Não sobra hipótese porque **não sobra sintoma**: o estado que a feature foi
+aberta para explicar já não está no dado.
+
+Q2–Q4 não chegaram a ser rodadas como discriminantes porque o Q1 já as esvazia — Q2 filtra
+`active = false` (conjunto vazio), Q3 compara contra `ended_on` (nulo) e Q4 testa o horizonte
+(refutado acima). Rodá-las devolveria zero linha, o que é a mesma informação com mais ruído.
+
+**O que explica o "sumiu a dose" sem ser bug.** A série de doses é: 17/08–20/08 (quatro dias,
+todos concluídos), lacuna em 21–23/08, e 24/08–18/09 diária sem falha. As quatro primeiras são
+**anteriores ao `started_on`** e vêm da tarefa-origem da 049, de antes de o tratamento existir — a
+lacuna de 21–23/08 é simplesmente o intervalo entre o fim daquela recorrência e o começo deste
+tratamento. A ponta de hoje (19/09 em diante, vazia) é **materialização preguiçosa**: quem cria
+dose é o cliente, em `materializeMedicationDoses` dentro de `fetchTasks`
+(`src/api/health/medications.ts:381`), então a série para no dia em que o app foi aberto pela
+última vez — 18/09 — e retoma sozinha na próxima abertura.
+
+**Consequência para a feature.** O reparo de dado que estava bloqueado **não é mais necessário**: o
+Caminho A (botão "Reativar", entregue por esta feature) já foi percorrido. As duas tarefas
+condicionais de migration de reparo ficam dispensadas, não pendentes — e de propósito **não** foi
+criado nenhum arquivo em `supabase/migrations/`, porque um `update` sem alvo seria aplicado pelo
+próximo `supabase db push` do usuário sem ninguém ter decidido nada.
+
+### 2026-09-18 — a esteira ofereceu um atalho e ele não foi tomado
+
+A `/pipeline` apresentou as duas formas de rodar o diagnóstico (SQL Editor, ou `npm run mcp:login`
+uma vez para a própria esteira ler pelo MCP da Orb, que é só leitura e roda sob a RLS do usuário) e
+seguiu depois do minuto de timeout sem resposta. Nenhuma das duas é executável pela esteira: o
+login do MCP é prompt interativo de senha por decisão de desenho (`scripts/mcp-login.mjs` recusa
+credencial por variável de ambiente para não deixar senha no `.env`), e o SQL Editor é do usuário.
+Confirmado nesta sessão que o MCP responde `Nenhuma credencial do Orbyva encontrada` — ou seja, o
+caminho existe e está a um login de distância. A feature fica em `in-progress/`.
 
 ### Estado (2026-08-23) — código pronto, dado esperando o usuário
 
@@ -552,3 +644,179 @@ disponíveis e o `firstStep` garante que a saída seja sempre o `date > limit`.
 **Prova de que os testes novos são regressão, não decoração:** com `firstStep` forçado a `0` (o
 comportamento antigo), 3 dos casos novos falham — inclusive "tratamento diário começado há 500 dias
 ainda gera a dose de HOJE". Arquivo restaurado byte a byte depois da checagem (`diff` limpo).
+
+### Reverificação (2026-09-18) — nada apodreceu, e o bloqueio continua sendo o mesmo
+
+A parte de código foi reconferida inteira nesta data, sem alterar uma linha. Tudo continua verde:
+
+| Comando | Resultado |
+|---|---|
+| `npm run build` | `✓ built in 16.48s`, service worker minificado |
+| `npm run lint` | **0 erros**, 88 avisos (todos `react-refresh/only-export-components`, pré-existentes) |
+| `npm test` | **263 arquivos / 2899 testes / 0 falhas** |
+| `npm run check:bundle` | `Bundle budget OK.` |
+| os 5 arquivos de teste da feature | **120 testes / 0 falhas** |
+| `bash supabase/tests/medication/run.sh` | `OK Q1…Q4` + `OK: 5 controles negativos viraram o veredito` + os 11 controles negativos e o RLS da 064 |
+
+A contagem total subiu de 2299 para 2899 porque a árvore de trabalho carrega o código em andamento
+de outras features (098 e vizinhas); nenhuma das 5 suítes desta feature mudou de comportamento.
+
+**Surgiu um segundo caminho para o diagnóstico, e ele é mais barato que o SQL Editor.** A 098 trouxe
+o servidor MCP `orbyva` (`.mcp.json` → `mcp/server.ts`), que fala com **o mesmo Supabase remoto** do
+app usando a anon key e a sessão do usuário — ou seja, com o RLS dele — e cujo catálogo inteiro é
+**somente leitura** (nenhuma tool grava). Com `describe_data` + `query_data` sobre `medication` e
+`task`, mais `query_medications`, dá para montar as quatro consultas Q1–Q4 sem ninguém colar SQL em
+lugar nenhum: Q1 vira o inventário de `medication` mais um `count_only` de `task` por tratamento,
+Q2 vira `count_only` com os filtros de `due_date`/`completed_at`, Q3 lê `recurrence_rule` das
+tarefas-origem e Q4 é aritmética sobre as linhas de `medication`.
+
+O que **não** mudou: o servidor exige `npm run mcp:login`, que pergunta e-mail e senha num prompt
+interativo (`scripts/mcp-login.mjs:68-98`) e não aceita credencial por variável de ambiente — de
+propósito, para tirar `ORBYVA_PASSWORD` do `.env`. Sem sessão gravada em
+`~/.orbyva/credentials.json`, toda tool responde `Nenhuma credencial do Orbyva encontrada`, que foi
+exatamente o que aconteceu nesta tentativa. **A esteira continua sem poder rodar o diagnóstico
+sozinha.** A diferença é que o pedido ao usuário encolheu: em vez de colar quatro consultas no SQL
+Editor e devolver quatro tabelas, basta rodar `npm run mcp:login` uma vez e a esteira tira o
+diagnóstico na rodada seguinte. As duas portas continuam valendo; o roteiro SQL acima segue
+autoritativo, porque é ele que o harness prova que discrimina.
+
+## Como testar
+
+### 1. Pré-requisitos
+
+- Node instalado e `npm install` já rodado na raiz do repositório.
+- **Docker ligado** — só para `bash supabase/tests/medication/run.sh`, que sobe um Postgres 16
+  descartável (`orbyva-medication-pg`). Nenhum outro comando precisa de Docker.
+- Para a parte manual: subir o app com `npm run dev` e entrar com a conta de sempre. Nenhuma
+  migration nova precisa ser aplicada — **esta feature não tem migration**; o schema de `medication`
+  já veio da 064 e continua igual.
+- Estado de dado necessário na conta de teste: **pelo menos um tratamento ativo** em
+  `/life/health/medications`. Se não houver, crie um pelo botão de novo tratamento (nome + um
+  horário bastam) antes de começar.
+- A parte manual dos passos 5–7 precisa de **uma dose materializada** na Agenda: o tratamento criado
+  no passo anterior gera a dose de hoje na próxima carga de `/tasks/agenda`.
+
+### 2. Verificação automatizada
+
+Rodar da raiz do repositório, na ordem. Todos passaram em 2026-09-18.
+
+```
+npm run build
+```
+Passou = termina em `✓ built in …` seguido do bloco `PWA v1.3.0` e das duas linhas `minify-sw:`, sem
+nenhum erro de tipo do `tsc -b`. Os avisos de "chunks are larger than 700 kB" são esperados.
+
+```
+npm run lint
+```
+Passou = a última linha traz `0 errors`. Os 88 `warning` de `react-refresh/only-export-components`
+são pré-existentes no repo e não bloqueiam.
+
+```
+npx vitest run src/api/__tests__/health.medications.test.ts src/pages/admin/health/__tests__/MedicationList.test.tsx src/pages/admin/health/__tests__/MedicationQuickCreateDialog.test.tsx src/pages/admin/tasks/__tests__/TaskDeleteDialog.test.tsx src/domain/health/__tests__/medication.test.ts
+```
+São os cinco arquivos que cobrem a feature inteira. Passou = `Test Files  5 passed (5)` e
+`Tests  120 passed (120)`. Os `Warning: Missing 'Description' or 'aria-describedby'` no stderr vêm
+do Radix e não são falha.
+
+```
+npm test
+```
+A suíte inteira, para provar que nada adjacente quebrou. Passou = `Test Files  263 passed (263)` e
+`Tests  2899 passed (2899)`. **O número total varia** conforme as outras features em voo na árvore
+de trabalho; o que não pode variar é `0 failed`.
+
+```
+npm run check:bundle
+```
+Passou = última linha `Bundle budget OK.`
+
+```
+bash supabase/tests/medication/run.sh
+```
+Valida as migrations da 064 **e** prova que as quatro consultas do diagnóstico da 096 discriminam as
+hipóteses H1–H4. Passou = as quatro linhas `OK Q1:`…`OK Q4:`, mais
+`OK: 5 controles negativos viraram o veredito e o estado real foi restaurado`, mais as duas linhas
+finais `OK: 20260816230000_medication.sql …` e `OK: as quatro consultas do roteiro de diagnóstico da
+096 discriminam as hipóteses H1-H4.`
+
+### 3. Verificação manual, passo a passo
+
+**Encerrar não inventa mais um "Término"** (o pedido original)
+
+1. Vá a `http://localhost:5173/life/health/medications`. Escolha um tratamento **ativo** que **não**
+   tenha a linha "Término" no card e anote o nome. → o card mostra "Próxima dose" e a ação
+   **"Encerrar"**; não há badge.
+2. Clique em **"Encerrar"** e confirme no diálogo (`Encerrar <nome>?`). → o card ganha o badge
+   cinza **"Encerrado"**, a ação vira **"Reativar"**, e **nenhuma linha "Término" aparece**. Esse
+   "nenhuma linha Término" é o bug original consertado: antes, encerrar carimbava a data de hoje.
+3. Ainda no mesmo card, clique em **"Reativar"** e confirme (`Reativar <nome>?`). → o badge
+   "Encerrado" some, a ação volta a ser "Encerrar", e depois de abrir `/tasks/agenda` a dose **de
+   hoje** reaparece. O texto do diálogo avisa, em uma linha, que as doses do período voltam a ser
+   geradas e que dose já apagada junto com "incluir as doses já tomadas" **não** volta.
+
+**"Uso contínuo" virou estado visível**
+
+4. Em `/life/health/medications`, clique em **"Editar"** no tratamento sem término. → no campo
+   **"Duração"** aparece um par de opções e **"Uso contínuo"** já vem marcada; o `<input type="date">`
+   ao lado de "Termina em" está desabilitado. Marque **"Termina em"**, escolha uma data futura,
+   salve e reabra: → abre em **"Termina em"** com a data preenchida. Volte para **"Uso contínuo"** e
+   salve: → o card perde a linha "Término".
+
+**A ação destrutiva deixou de ser a primária no diálogo de dose**
+
+5. Vá a `http://localhost:5173/tasks/agenda` e ache a dose de hoje do tratamento (ela tem o ícone de
+   medicação).
+6. Abra o menu da dose e escolha excluir. → o diálogo mostra **três** botões, **nesta ordem de cima
+   para baixo**: **"Apagar só esta dose"** (primeiro, com o estilo primário) → **"Apagar todas as
+   doses deste tratamento (N)"** → **"Encerrar o tratamento e apagar as doses futuras"** (último,
+   vermelho). Antes da 096 a ordem era a inversa, com a vermelha em primeiro e de largura total.
+7. Clique em **"Apagar só esta dose"**. → some só aquela dose; o tratamento continua **ativo** em
+   `/life/health/medications`, sem badge "Encerrado". O aviso de que a dose volta enquanto o
+   tratamento estiver ativo continua no diálogo.
+
+**O gerador voltou a alcançar hoje**
+
+8. Em `/tasks/agenda`, confira um tratamento diário começado há mais de 400 dias, se a conta tiver
+   um. → a dose de **hoje** aparece como dose real (sólida), não como a virtual pontilhada que nunca
+   virava tarefa. Sem tratamento antigo na conta, essa asserção já está presa pelo teste
+   "tratamento diário começado há 500 dias ainda gera a dose de HOJE" em
+   `src/domain/health/__tests__/medication.test.ts`.
+
+### 4. Casos de borda e caminhos negativos
+
+- **"Termina em" sem data**: no Editar, marque "Termina em" e deixe a data vazia → **não salva**;
+  aparece no próprio campo, como `role="alert"`, a mensagem *"Escolha a data de término ou marque
+  “Uso contínuo”."*. Não pode aparecer `alert()` do navegador.
+- **Término antes do início**: escolha uma data de término anterior à de início → **não salva**;
+  mensagem própria *"O término precisa ser igual ou posterior ao início."*. Corrigir a data faz o
+  erro sumir e o salvamento passar.
+- **Reativar um tratamento com término no futuro**: o "Término" programado **permanece** — só
+  término já vencido (ou igual a hoje) é limpo. Se a data continuar no futuro, o tratamento volta a
+  gerar dose até ela.
+- **Encerrar um tratamento que tem término programado pelo usuário**: a data **não muda**. Encerrar
+  nunca mais escreve nessa coluna.
+- **Erro de rede ao reativar**: com a aba offline, clique em "Reativar" → aparece um toast de erro e
+  o badge **"Encerrado" continua na tela** (a lista não finge que deu certo).
+- **Escopo por usuário**: `reactivateMedication` filtra por `id` **e** `user_id` nas duas consultas,
+  então o id de um tratamento de outra conta não reativa nada. Preso por teste no
+  `health.medications.test.ts`.
+- **Dose de tratamento já encerrado**: no diálogo de dose, o último botão troca o rótulo para
+  **"Apagar as doses futuras"** (não faz sentido oferecer encerrar o que já está encerrado).
+
+### 5. Sinais de que quebrou
+
+- Encerrar um tratamento e **aparecer uma linha "Término" com a data de hoje** no card → a regressão
+  do bug original; `deactivateMedication` voltou a escrever `ended_on`.
+- O card de um tratamento inativo **sem nenhuma ação** (nem "Reativar") → o encerramento voltou a
+  ser porta de mão única, como antes da 096.
+- Clicar em "Reativar", o badge sumir e **nenhuma dose aparecer** na Agenda nos dias seguintes → a
+  limpeza condicional do `ended_on` passado parou de funcionar; o botão vira decoração.
+- No diálogo de dose, o botão **vermelho de encerrar aparecer em primeiro** ou com largura total → a
+  inversão de hierarquia da 096 foi desfeita (o teste de ordem no DOM deveria ter pego).
+- Salvar o formulário com "Termina em" vazio e o tratamento virar contínuo **em silêncio** → a
+  validação do campo novo caiu, e volta a divergência entre a tela e o banco que a feature fecha.
+- Um tratamento diário antigo cuja Agenda só mostra **dose virtual pontilhada** que nunca vira real
+  → o horizonte de `computeMissingDoses` voltou a ser contado por iteração, não por data.
+- `bash supabase/tests/medication/run.sh` falhando em `OK Q2` → o roteiro de diagnóstico parou de
+  discriminar H1 de H4, e o resultado de produção não pode mais ser lido pela tabela do roteiro.
