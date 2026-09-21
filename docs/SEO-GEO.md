@@ -35,22 +35,21 @@ Documentação da auditoria e da implementação de SEO tradicional + GEO
 
 ### Estratégia de renderização
 
-**Prerender pós-build com Playwright** (`scripts/prerender.mjs`):
+**Prerender estático pós-build** (`scripts/prerender.mjs`):
 
 1. `vite build` gera a SPA
-2. Preview local + Chromium visita rotas públicas com `window.__ORBYVA_PRERENDER__ = true`
-3. HTML capturado em `dist/<rota>/index.html` (home → `dist/index.html`)
+2. O script injeta title/description/canonical/OG e um bloco `#seo-noscript` por rota
+3. HTML em `dist/<rota>/index.html` (home → `dist/index.html`)
 4. Na Vercel, arquivo estático tem precedência sobre o rewrite SPA
 
-Flag de prerender: landing pinta below-the-fold imediatamente e pula handoff de sessão.
-
-Fallback sem JS: bloco `#seo-noscript` no `index.html` (removido quando o React sobe / no HTML prerenderizado).
+Não usa Playwright/Chromium no deploy: o ambiente Vercel não tem libs do sistema
+(`libnspr4.so`). O shell estático cobre crawlers sem JS; o React hidrata a UI completa.
 
 Scripts:
 
-- `npm run build`: build + prerender (produção / Vercel)
+- `npm run build`: build + prerender estático (produção / Vercel)
 - `npm run build:app`: build sem prerender (e2e local mais rápido)
-- `npm run prerender`: só o passo Playwright
+- `npm run prerender`: só o passo de shells
 
 ### Metadata
 

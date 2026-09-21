@@ -36,6 +36,6 @@ e cobertura completa de robots para rotas privadas.
 
 ## Notas
 - Feature criada já em in-progress após aprovação do design em chat.
-- Prerender auto-instala Chromium se ausente (`npx playwright install chromium`).
+- Prerender estático (sem Playwright) para funcionar na Vercel; Playwright quebrava por falta de `libnspr4.so`.
 - Comparações Notion/Organizze ficam só em scaffold até pesquisa factual.
-- `npm run build:app` = build sem prerender (e2e local); `npm run build` inclui prerender.
+- `npm run build:app` = build sem prerender (e2e local); `npm run build` inclui prerender estático.
