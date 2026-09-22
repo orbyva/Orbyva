@@ -10,6 +10,10 @@ import { BRAND } from "@/lib/brand";
 import { supabase } from "@/lib/supabase";
 import { track } from "@/lib/analytics";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  EXISTING_ACCOUNT_SIGNUP_MESSAGE,
+  isDuplicateEmailSignUp,
+} from "@/lib/authSignup";
 import { authCallbackUrl, safeNextPath } from "@/lib/nextPath";
 
 type AuthMode = "login" | "signup" | "forgot" | "recovery";
@@ -228,6 +232,11 @@ export function LoginForm({
       if (signUpError) throw signUpError;
       if (data.session) {
         navigate(nextPath, { replace: true });
+        return;
+      }
+      // E-mail já cadastrado: Supabase não envia confirmação e devolve identities [].
+      if (isDuplicateEmailSignUp(data)) {
+        setError(EXISTING_ACCOUNT_SIGNUP_MESSAGE);
         return;
       }
       setMessage(

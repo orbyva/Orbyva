@@ -28,6 +28,10 @@ import {
   googleRedirectConfigHint,
   urlLooksLikeWebsiteFallback,
 } from "@/lib/auth-session";
+import {
+  EXISTING_ACCOUNT_SIGNUP_MESSAGE,
+  isDuplicateEmailSignUp,
+} from "@/lib/auth-signup";
 import { getErrorMessage } from "@/lib/errors";
 import { supabase } from "@/lib/supabase";
 
@@ -85,11 +89,13 @@ export default function LoginScreen() {
         options: { emailRedirectTo: authRedirectUri() },
       });
       if (signUpError) throw signUpError;
-      if (!data.session) {
-        setMessage(
-          "Conta criada. Confirme o e-mail que acabamos de enviar para entrar."
-        );
+      if (data.session) return;
+      if (isDuplicateEmailSignUp(data)) {
+        throw new Error(EXISTING_ACCOUNT_SIGNUP_MESSAGE);
       }
+      setMessage(
+        "Conta criada. Confirme o e-mail que acabamos de enviar para entrar."
+      );
     });
   }
 
