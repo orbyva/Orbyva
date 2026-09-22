@@ -174,6 +174,23 @@ export function parseFolderParam(raw: string | null): FolderNav {
   return raw;
 }
 
+/** Lista de notas com o contexto de pasta na query (feature 099). */
+export function notesListHref(folderNav: FolderNav): string {
+  if (folderNav == null) return "/notes";
+  return `/notes?folder=${encodeURIComponent(folderNav)}`;
+}
+
+/** Detalhe da nota preservando `?folder=` da lista (contexto ao voltar / highlight na árvore). */
+export function notesDetailHref(noteId: string, folderNav: FolderNav): string {
+  if (folderNav == null) return `/notes/${noteId}`;
+  return `/notes/${noteId}?folder=${encodeURIComponent(folderNav)}`;
+}
+
+/** Lugar da nota na lista: Sem pasta → inbox; pasta → o id. */
+export function folderNavForNote(folderId: string | null): FolderNav {
+  return folderId ?? INBOX_FOLDER;
+}
+
 /** Pais, avós, … da pasta — do mais próximo à raiz. Pasta raiz devolve `[]`. */
 export function folderAncestorIds(
   folders: NoteFolder[],

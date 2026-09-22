@@ -162,3 +162,14 @@ export function folderAncestorIds(
   }
   return ancestors;
 }
+
+/** Lista de notas com o contexto de pasta (espelho do web). */
+export function notesListHref(folderNav: FolderNav): string {
+  if (folderNav == null) return "/notes";
+  return `/notes?folder=${encodeURIComponent(folderNav)}`;
+}
+
+/** Lugar da nota na lista: Sem pasta → inbox; pasta → o id. */
+export function folderNavForNote(folderId: string | null): FolderNav {
+  return folderId ?? INBOX_FOLDER;
+}

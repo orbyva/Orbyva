@@ -36,7 +36,7 @@ import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
-import { setNoteFolderNav } from "@/lib/noteFolderNav";
+import { setNoteFolderNav, getNoteFolderNav } from "@/lib/noteFolderNav";
 import type { Note, NoteFolder } from "@/types/notes";
 import type { Project, Tag } from "@/types/tasks";
 
@@ -50,7 +50,7 @@ export default function NotesScreen() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState(NOTE_PROJECT_ALL);
-  const [folderNav, setFolderNav] = useState<FolderNav>(null);
+  const [folderNav, setFolderNav] = useState<FolderNav>(() => getNoteFolderNav());
   const [loading, setLoading] = useState(true);
   const hasLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,6 +73,7 @@ export default function NotesScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      setFolderNav(getNoteFolderNav());
       if (!hasLoaded.current) setLoading(true);
       void load()
         .catch((err) => {

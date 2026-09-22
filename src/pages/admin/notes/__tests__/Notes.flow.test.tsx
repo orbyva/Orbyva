@@ -301,7 +301,7 @@ describe("Notas — fluxo fim a fim", () => {
     await waitFor(() => expect(store.notes[0].project_id).toBe("p1"), AUTOSAVE);
 
     // De volta à lista, o vínculo aparece no card.
-    await user.click(screen.getByRole("button", { name: /Todas as notas/ }));
+    await user.click(screen.getByRole("link", { name: /Todas as notas/ }));
     const card = (await screen.findByText("Materiais")).closest("article") as HTMLElement;
     expect(within(card).getByText("Obra da casa")).toBeInTheDocument();
     expect(within(card).getByText("cimento e areia")).toBeInTheDocument();

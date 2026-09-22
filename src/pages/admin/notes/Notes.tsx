@@ -29,6 +29,7 @@ import {
   canMoveFolder,
   flattenFolderTree,
   folderIdFromDropZone,
+  notesDetailHref,
   notesInFolder,
   parseFolderParam,
   type FolderNav,
@@ -151,7 +152,7 @@ export default function Notes() {
         kind,
         canvas_data: kind === "canvas" ? { elements: [] } : null,
       });
-      navigate(`/notes/${note.id}`);
+      navigate(notesDetailHref(note.id, folderNav));
     } catch (error) {
       toast({
         variant: "destructive",
@@ -521,7 +522,7 @@ export default function Notes() {
                               skipOpenAfterDrag.current = false;
                               return;
                             }
-                            navigate(`/notes/${note.id}`);
+                            navigate(notesDetailHref(note.id, folderNav));
                           }}
                         >
                           <div className="flex flex-wrap items-center gap-2">

@@ -37,9 +37,11 @@ import { FormSection } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
 import { MERMAID_SNIPPET } from "@/domain/notes/mermaidSnippet";
 import { insertAt, prefixLines, wrapInline } from "@/domain/notes/markdown";
+import { folderNavForNote } from "@/domain/notes/folders";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
+import { setNoteFolderNav } from "@/lib/noteFolderNav";
 import type { Note, NoteCanvasData, NoteFolder } from "@/types/notes";
 
 const SAVE_DELAY_MS = 800;
@@ -366,6 +368,30 @@ export default function NoteEditorScreen() {
               {statusLabel}
             </ThemedText>
           ) : null}
+          <Pressable
+            onPress={() => {
+              setNoteFolderNav(folderNavForNote(folderId));
+              router.replace("/notes");
+            }}
+            disabled={deleting}
+            style={[styles.folderChip, inputStyle]}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir lista na pasta ${folderName}`}
+          >
+            <Ionicons
+              name="folder-outline"
+              size={16}
+              color={theme.textSecondary}
+            />
+            <ThemedText type="small" numberOfLines={1} style={styles.folderChipLabel}>
+              {folderName}
+            </ThemedText>
+            <Ionicons
+              name="chevron-forward"
+              size={14}
+              color={theme.textSecondary}
+            />
+          </Pressable>
           <FormSection
             title="Projeto e vínculos"
             hint={`${folderName} · ${projectName}`}
@@ -526,6 +552,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     justifyContent: "center",
   },
+  folderChip: {
+    minHeight: 40,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+  },
+  folderChipLabel: { flexShrink: 1 },
   title: {
     minHeight: 48,
     borderRadius: 12,

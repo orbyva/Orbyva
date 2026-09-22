@@ -87,6 +87,11 @@ vi.mock("@/api/notes/folders", () => ({
   deleteNoteFolder: vi.fn(),
 }));
 
+vi.mock("@/api/tasks/tags", () => ({
+  fetchTags: vi.fn(async () => []),
+  createTag: vi.fn(),
+}));
+
 vi.mock("@/api/search", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/search")>();
   return { ...actual, searchGlobal: vi.fn(async () => []) };

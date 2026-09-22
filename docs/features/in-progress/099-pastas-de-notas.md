@@ -165,6 +165,13 @@ projeto nem tag.
       com a pasta aberta grava `folder_id` (e `project_id` da pasta, se houver); editor e
       `notes/form` têm picker de pasta; create a partir do projeto / wiki-link quebrado
       nascem na raiz. Sem drag. Verificação: `cd mobile && npx tsc --noEmit`.
+- [x] Web: em `/notes/:id` manter a coluna de pastas (desktop). Clicar uma pasta **troca o
+      filtro e volta à lista** (`/notes?folder=…`); não altera `folder_id` da nota. Abrir nota
+      a partir da lista e "Todas as notas" preservam o `?folder=`. Verificação:
+      `NoteDetail.folders.test.tsx` + hrefs em `folders.test.ts` verdes.
+- [x] Expo: na tela da nota, chip/breadcrumb da pasta da nota (não a árvore inteira). Toque
+      volta à lista já recortada nessa pasta (`setNoteFolderNav` + `/notes`; a lista lê o
+      nav no `useFocusEffect`). Verificação: `cd mobile && npx tsc --noEmit`.
 - [x] Arrastar pasta da árvore para dentro de outra: só troca `parent_id` se `canMoveFolder`
       (teto 5 + sem ciclo). Destino inválido recusa com toast. Notas da pasta **não** mudam de
       `folder_id`. "Todas" e "Sem pasta" não recebem pasta (Sem pasta é lugar de nota). Web
@@ -251,6 +258,19 @@ Eu queria que tivesse mais. Pois, por exemplo. Trabalho em uma empresa chamada i
       - Brainstorming
 ```
 
+- 2026-09-22 — pedido no meio da implementação, verbatim:
+
+```
+Na parte de notas, o que acha de manter a barra das pastinhas ali ao abrir uma nota
+```
+
+- 2026-09-22 — decisão do usuário, verbatim:
+
+```
+Vou seguir sua recomendação do web e do app. 
+Troca o filtro e volta à lista.
+```
+
 ## Notas
 
 - Não encaixa na 055 (núcleo, `done/`) nem na 058 (canvas, `in-progress/`): pasta é eixo novo, e
@@ -277,7 +297,11 @@ Eu queria que tivesse mais. Pois, por exemplo. Trabalho em uma empresa chamada i
 - Expo (2026-09-17): mesma regra do web. Árvore na lista com recolhe só na sessão; criar/editar
   pasta em `notes/folder-form`; picker no editor e no create; `+` oferece "Nova pasta". Mover é
   o picker (sem drag). Create a partir do projeto ou de wiki-link quebrado nasce na raiz.
-  `cd mobile && npx tsc --noEmit` passou. Fumaça no aparelho ainda depende do `db push`.
+- Expo (2026-09-22): na nota aberta, chip da pasta (não a árvore). Toque aplica
+  `folderNavForNote` + lista (a lista sincroniza no `useFocusEffect`). Web: sidebar de pastas
+  sticky em `/notes/:id`; clicar pasta **volta à lista** com o filtro (`/notes?folder=…`);
+  `folder_id` da nota não muda. `NoteDetail.folders.test` + `folders.test` + `tsc` mobile.
+  Fumaça no aparelho ainda depende do `db push`.
 - `CanvasEditor.test` “renomear grava o título”: o `waitFor` pegava o autosave do espaço
   (`"Arquitetura "`) quando o debounce ganhava do `user.type`. Passou a esperar o título fechado.
 - Arraste de pasta (2026-09-18): soltar em outra pasta troca só `parent_id`. Ciclo ou mais de

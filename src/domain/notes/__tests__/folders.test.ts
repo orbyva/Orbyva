@@ -7,9 +7,12 @@ import {
   canNestUnder,
   flattenFolderTree,
   folderDepth,
+  notesDetailHref,
   notesInFolder,
+  notesListHref,
   folderAncestorIds,
   folderIdFromDropZone,
+  folderNavForNote,
   parseFolderParam,
   reparentChildren,
   subtreeHeight,
@@ -151,6 +154,25 @@ describe("parseFolderParam", () => {
     expect(parseFolderParam("")).toBeNull();
     expect(parseFolderParam("inbox")).toBe("inbox");
     expect(parseFolderParam("f1")).toBe("f1");
+  });
+});
+
+describe("notesListHref / notesDetailHref", () => {
+  it("lista: Todas sem query; inbox e uuid com ?folder=", () => {
+    expect(notesListHref(null)).toBe("/notes");
+    expect(notesListHref("inbox")).toBe("/notes?folder=inbox");
+    expect(notesListHref("f1")).toBe("/notes?folder=f1");
+  });
+
+  it("detalhe preserva o contexto de pasta na query", () => {
+    expect(notesDetailHref("n1", null)).toBe("/notes/n1");
+    expect(notesDetailHref("n1", "inbox")).toBe("/notes/n1?folder=inbox");
+    expect(notesDetailHref("n1", "f1")).toBe("/notes/n1?folder=f1");
+  });
+
+  it("folderNavForNote: sem pasta vira inbox; pasta vira o id", () => {
+    expect(folderNavForNote(null)).toBe("inbox");
+    expect(folderNavForNote("f1")).toBe("f1");
   });
 });
 
