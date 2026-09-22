@@ -1,5 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
+import { escapeLikeValue } from "@/lib/likePattern";
+import { TASK_REF_SCHEME } from "@/domain/tasks/taskRefs";
 import {
   computeMissingLinkedInstallments,
   computeMissingOccurrences,
@@ -196,6 +198,37 @@ export async function fetchTaskById(id: string): Promise<Task | null> {
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data;
+}
+
+/**
+ * Candidatas a "Referenciada em" de uma tarefa: **outras** tarefas cuja `description` traz a marca
+ * `[Rótulo](orbyva-task:<id>)` (feature 106).
+ *
+ * Irmã de `fetchNotesMentioningTask` (`src/api/notes/notes.ts`), e com a mesma divisão de trabalho:
+ * o `ilike` é **prefiltro**, e quem decide o que é menção de verdade é `mentionsTaskId` (domínio,
+ * feature 103) — a marca escrita dentro de bloco de código não conta.
+ *
+ * O `neq` tira a própria tarefa da lista: uma descrição que referencia ela mesma não é menção útil,
+ * é ruído — mesmo tratamento que o `excludeNoteId` de `fetchNotesMentioning`.
+ *
+ * Não passa por materialização de recorrência/medicação de propósito: aqui interessa a linha que
+ * **tem o texto gravado**, e ocorrência materializada nasce a partir da origem.
+ */
+export async function fetchTasksMentioningTask(taskId: string): Promise<Task[]> {
+  const target = taskId.trim();
+  if (!target) return [];
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("task")
+    .select("*")
+    .eq("user_id", userId)
+    .neq("id", target)
+    // O id é uuid e não tem curinga, mas escapar é o que mantém isto correto no dia em que a marca
+    // aceitar outra coisa — confiar no formato do id seria o atalho que envelhece mal.
+    .ilike("description", `%${escapeLikeValue(`${TASK_REF_SCHEME}${target}`)}%`)
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
 
 export async function createTask(task: TaskCreateRequest): Promise<Task> {

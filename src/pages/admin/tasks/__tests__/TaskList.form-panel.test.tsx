@@ -33,6 +33,8 @@ vi.mock("@/components/ModuleGuide", () => ({
 }));
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 106: o formulário em edição procura quem cita a tarefa ("Referenciada em").
+  fetchTasksMentioningTask: vi.fn(async () => []),
   // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
@@ -87,6 +89,8 @@ vi.mock("@/components/MarkdownCodeEditor", () => ({
 }));
 
 vi.mock("@/api/notes/notes", () => ({
+  // Feature 106: a outra metade de "Referenciada em".
+  fetchNotesMentioningTask: vi.fn(async () => []),
   fetchNotes: vi.fn().mockResolvedValue([]),
   createNote: vi.fn(),
 }));

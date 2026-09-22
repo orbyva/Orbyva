@@ -17,6 +17,7 @@ import { NoteOutline } from "@/pages/admin/notes/NoteOutline";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
 import { NoteLinksPanel } from "@/pages/admin/notes/NoteLinksPanel";
 import { BacklinksPanel } from "@/pages/admin/notes/BacklinksPanel";
+import { useTaskRefExtensions } from "@/hooks/useTaskRefExtensions";
 import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
 import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
@@ -117,6 +118,19 @@ export function NoteEditor({
    */
   const [cursorLine, setCursorLine] = useState(1);
 
+  /**
+   * A `EditorView` viva, quando existe. A aba "Visualizar" desmonta o CodeMirror, então isto é um
+   * ref (não estado): a barra pergunta no clique, e o que interessa é a view do instante do clique.
+   */
+  const viewRef = useRef<EditorView | null>(null);
+
+  const [title, setTitle] = useState(note.title);
+  const [content, setContent] = useState(note.content);
+  const [projectId, setProjectId] = useState<string | null>(note.project_id);
+
+  /** Feature 104 — as extensões do `TASK->`, montadas depois do projeto porque dependem dele. */
+  const taskRefExtensions = useTaskRefExtensions(projectId);
+
   const editorExtensions = useMemo(
     () => [
       wikiLinkAutocomplete(() =>
@@ -144,19 +158,14 @@ export function NoteEditor({
         // não custa render nenhum.
         setCursorLine(line);
       }),
+      // O `TASK->` da 104: popup de vincular/criar tarefa e a marca clicável. A tarefa criada
+      // herda o projeto **da nota aberta** — o do seletor abaixo, não o gravado, para valer já na
+      // troca que ainda não foi salva.
+      ...taskRefExtensions,
     ],
-    [note.id, navigate]
+    [note.id, navigate, taskRefExtensions]
   );
 
-  /**
-   * A `EditorView` viva, quando existe. A aba "Visualizar" desmonta o CodeMirror, então isto é um
-   * ref (não estado): a barra pergunta no clique, e o que interessa é a view do instante do clique.
-   */
-  const viewRef = useRef<EditorView | null>(null);
-
-  const [title, setTitle] = useState(note.title);
-  const [content, setContent] = useState(note.content);
-  const [projectId, setProjectId] = useState<string | null>(note.project_id);
   const [tab, setTab] = useState<NoteEditorTab>("write");
   /**
    * `lg` do Tailwind. O modo "Dividido" só existe daqui para cima — abaixo disso o split é pior
@@ -309,7 +318,7 @@ export function NoteEditor({
           viewRef.current = view;
         }}
         className="min-h-[45vh] [&_.cm-editor]:min-h-[45vh]"
-        placeholder="Markdown na veia — digite / para inserir título, tabela, código, fórmula…"
+        placeholder="Markdown na veia — / para inserir, [[ para vincular uma nota, TASK-> para vincular uma tarefa…"
         extensions={editorExtensions}
       />
     </>

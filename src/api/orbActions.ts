@@ -63,7 +63,10 @@ export async function executeOrbProposal(proposal: OrbProposal): Promise<OrbProp
       });
       return {
         message: "Tarefa criada.",
-        link: `/tasks?q=${encodeURIComponent(tarefa.title)}`,
+        // Feature 102: agora existe destino por id. O link por título (`?q=`) era busca textual —
+        // ele abre a tarefa errada quando o título se repete, e recorrência materializa dezenas de
+        // tarefas com o mesmo nome.
+        link: `/tasks?task=${encodeURIComponent(tarefa.id)}`,
       };
     }
 

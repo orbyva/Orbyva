@@ -34,6 +34,7 @@ const CAMPOS_DE_FILTRO: OrbNavField[] = [
   "nature",
   "tab",
   "today",
+  "task",
 ];
 
 /** Recusa filtro que a tela não lê, dizendo o que ela aceita — o modelo corrige na rodada seguinte. */
@@ -118,6 +119,12 @@ export const openScreen: OrbTool = {
         type: "boolean",
         description: "true abre a lista de tarefas já no recorte de hoje/atrasadas.",
       },
+      task: {
+        type: "string",
+        description:
+          "Id (uuid) de uma tarefa, na lista de tarefas: abre AQUELA tarefa para edição em vez de " +
+          "filtrar a lista. Use o id que veio de uma consulta — nunca o título.",
+      },
     },
     required: ["screen"],
     additionalProperties: false,
@@ -139,7 +146,8 @@ export const openScreen: OrbTool = {
 
     const busca = str(input, "search");
     if (busca) valores.search = busca;
-    for (const campo of ["status", "view", "priority", "nature", "tab"] as const) {
+    // `task` entra aqui como id puro: é o destino da tela, não um nome a resolver no banco.
+    for (const campo of ["status", "view", "priority", "nature", "tab", "task"] as const) {
       const valor = str(input, campo);
       if (valor) valores[campo] = valor;
     }

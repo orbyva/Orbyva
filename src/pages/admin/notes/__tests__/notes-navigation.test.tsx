@@ -106,7 +106,13 @@ describe("rotas /notes e /notes/:id", () => {
 
   it("o elemento casado com /notes/:id monta o editor da nota", async () => {
     renderMatched("/notes/n1", "/notes/:id");
-    expect(await screen.findByLabelText("Título")).toHaveValue("Pauta da reunião");
+    // Timeout explícito: a rota é `lazy()`, então o `findBy` espera o chunk inteiro do editor de
+    // notas ser importado e transformado. O padrão de 1 s ficou apertado quando a 104 somou os
+    // módulos do `TASK->` ao grafo (medido isolado: 848 ms antes, ~1,04 s depois) e, sob a suíte
+    // inteira em paralelo, estourava. A assertiva é a mesma; só a janela de espera mudou.
+    expect(
+      await screen.findByLabelText("Título", undefined, { timeout: 5000 })
+    ).toHaveValue("Pauta da reunião");
     expect(screen.getByLabelText("Conteúdo")).toBeInTheDocument();
   });
 });

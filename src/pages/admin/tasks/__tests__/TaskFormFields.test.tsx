@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { TaskFormFields } from "@/pages/admin/tasks/TaskFormFields";
@@ -8,7 +8,9 @@ import { emptyTask } from "@/domain/tasks/taskDraft";
 import { dueDateForShortcut } from "@/domain/tasks/agenda";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR } from "@/lib/currency";
-import { uploadIconAsset } from "@/api/tasks";
+import { fetchTasksMentioningTask, uploadIconAsset } from "@/api/tasks";
+import { fetchNotesMentioningTask } from "@/api/notes/notes";
+import type { Note } from "@/types/notes";
 import type {
   Project,
   SubtaskDraft,
@@ -25,6 +27,8 @@ import type {
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 106: o formulário em edição procura quem cita a tarefa ("Referenciada em").
+  fetchTasksMentioningTask: vi.fn(async () => []),
   // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
@@ -50,6 +54,8 @@ vi.mock("@/api/notes/noteLinks", () => ({
 }));
 
 vi.mock("@/api/notes/notes", () => ({
+  // Feature 106: a outra metade de "Referenciada em".
+  fetchNotesMentioningTask: vi.fn(async () => []),
   createNote: vi.fn(),
   fetchNotes: vi.fn().mockResolvedValue([]),
 }));
@@ -887,5 +893,65 @@ describe("TaskFormFields — atalhos de prazo (feature 083)", () => {
     expect(currentForm().due_date?.slice(-2)).toBe("15");
     // E a escolha manual não deixa nenhum atalho pressionado por engano.
     expect(screen.queryAllByRole("button", { pressed: true })).toHaveLength(0);
+  });
+});
+
+/**
+ * Feature 106 — "Referenciada em" dentro do formulário. O comportamento da seção em si está em
+ * `TaskMentionsSection.test.tsx`; aqui se prova só o encaixe: ela existe em tarefa que já existe e
+ * **não** existe em "Nova tarefa", onde não há id para procurar.
+ */
+describe("TaskFormFields — Referenciada em (feature 106)", () => {
+  // Id de verdade: o parser da 103 só reconhece a marca com uuid, então "task-1" nunca casaria.
+  const TASK_REF_ID = "11111111-2222-4333-8444-555555555555";
+
+  function makeNote(): Note {
+    return {
+      id: "note-9",
+      project_id: null,
+      title: "Reforma da sala",
+      content: `Depende de [subir painel](orbyva-task:${TASK_REF_ID})`,
+      kind: "markdown",
+      canvas_data: null,
+    };
+  }
+
+  beforeEach(() => {
+    vi.mocked(fetchNotesMentioningTask).mockClear().mockResolvedValue([]);
+    vi.mocked(fetchTasksMentioningTask).mockClear().mockResolvedValue([]);
+  });
+
+  it("em tarefa que já existe, lista quem cita a tarefa", async () => {
+    vi.mocked(fetchNotesMentioningTask).mockResolvedValue([makeNote()]);
+
+    render(<Harness editing={makeTask({ id: TASK_REF_ID })} projects={[makeProject()]} />);
+
+    expect(await screen.findByText("Referenciada em")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Reforma da sala" })).toHaveAttribute(
+      "href",
+      "/notes/note-9"
+    );
+    expect(fetchNotesMentioningTask).toHaveBeenCalledWith(TASK_REF_ID);
+    expect(fetchTasksMentioningTask).toHaveBeenCalledWith(TASK_REF_ID);
+  });
+
+  it("em 'Nova tarefa' a seção não aparece e nem consulta nada (não há id)", async () => {
+    render(<Harness projects={[makeProject()]} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Descrição/ })).toBeInTheDocument()
+    );
+    expect(screen.queryByText("Referenciada em")).not.toBeInTheDocument();
+    expect(fetchNotesMentioningTask).not.toHaveBeenCalled();
+    expect(fetchTasksMentioningTask).not.toHaveBeenCalled();
+  });
+
+  it("tarefa que ninguém cita não ganha seção nenhuma no formulário", async () => {
+    render(<Harness editing={makeTask({ id: TASK_REF_ID })} projects={[makeProject()]} />);
+
+    await waitFor(() => expect(fetchNotesMentioningTask).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.queryByText("Referenciada em")).not.toBeInTheDocument()
+    );
   });
 });

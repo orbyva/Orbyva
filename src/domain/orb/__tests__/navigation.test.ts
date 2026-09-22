@@ -201,3 +201,55 @@ describe("tool open_screen", () => {
     expect(ok).toBe(false);
   });
 });
+
+/**
+ * Feature 102 — `task` é o único parâmetro da tela de tarefas que NÃO recorta a lista: ele aponta
+ * uma tarefa. É o que tira a Orb do `/tasks?q=<título>`, busca textual que erra quando o título se
+ * repete (e recorrência materializa dezenas de tarefas com o mesmo nome).
+ */
+describe("`task` — destino por id na tela de tarefas (feature 102)", () => {
+  const UUID = "6f1c2d3a-4b5e-4c7d-8e9f-0a1b2c3d4e5f";
+
+  it("a tela de tarefas declara `task`, em texto livre e no FIM da lista", () => {
+    const tarefas = findOrbScreen("tasks")!;
+    const filtro = tarefas.filters.find((f) => f.field === "task");
+    expect(filtro?.param).toBe("task");
+    // Sem conjunto fechado: é um id, não um vocabulário.
+    expect(filtro?.values).toBeUndefined();
+    // Último da lista — inserir no meio muda o prefixo cacheado do prompt (regra de `registry.ts`).
+    expect(tarefas.filters[tarefas.filters.length - 1].field).toBe("task");
+    // E a descrição diz ao modelo que é id, e que abre em vez de filtrar.
+    expect(filtro?.description).toMatch(/id/i);
+    expect(filtro?.description).toMatch(/abre/i);
+  });
+
+  it("`open_screen` com o id monta `/tasks?task=<uuid>`", async () => {
+    const db = fakeDb({});
+    const { ok, result } = await runOrbTool("open_screen", { screen: "tasks", task: UUID }, ctx(db));
+
+    expect(ok).toBe(true);
+    expect(result).toMatchObject({ path: `/tasks?task=${UUID}`, screen: "tasks", label: "Tarefas" });
+    // E o caminho que a tool montou passa pela validação do client, que é quem chama `navigate()`.
+    expect(isOrbNavigablePath((result as { path: string }).path)).toBe(true);
+  });
+
+  it("o id soma com o recorte de projeto em vez de substituí-lo", async () => {
+    const db = fakeDb({ project: [{ id: "p-7", name: "Sacada" }] });
+    const { ok, result } = await runOrbTool(
+      "open_screen",
+      { screen: "tasks", project: "sacada", task: UUID },
+      ctx(db)
+    );
+
+    expect(ok).toBe(true);
+    expect(result).toMatchObject({ path: `/tasks?project=p-7&task=${UUID}` });
+  });
+
+  it("nenhuma outra tela aceita `task`", async () => {
+    const db = fakeDb({});
+    const { ok, result } = await runOrbTool("open_screen", { screen: "notes", task: UUID }, ctx(db));
+
+    expect(ok).toBe(false);
+    expect(String((result as { error: string }).error)).toContain("não filtra por");
+  });
+});

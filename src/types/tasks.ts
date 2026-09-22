@@ -213,6 +213,21 @@ export type TaskCreateRequest = Omit<
 
 export type TaskUpdateRequest = Partial<TaskCreateRequest> & { id: string };
 
+/**
+ * O mínimo que uma **referência de tarefa** no texto (`[Rótulo](orbyva-task:<id>)`, feature 103)
+ * precisa saber para virar chip fora do editor (feature 105): título atual, estado e prazo.
+ *
+ * É recorte de `Task` de propósito — o chip resolve por id e mostra o estado **atual**, então
+ * carregar a linha inteira (recorrência, ícones, vínculos) por chip na tela seria pagar caro por
+ * três campos.
+ */
+export interface TaskRefSummary {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  due_date: string | null;
+}
+
 export interface TaskDependency {
   task_id: string;
   depends_on_task_id: string;

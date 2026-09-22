@@ -282,6 +282,16 @@ alter table public.project_event
 ```
 
 ## Notas
+- **2026-09-22 — a esteira perguntou e NÃO tinha como agir.** A `/pipeline` apresentou ao usuário a
+  pendência dos secrets do Resend como decisão, com a recomendada "esperar o usuário", e o minuto de
+  timeout passou sem resposta. Executar a recomendada aqui é literalmente não fazer nada: a chave do
+  Resend é credencial de terceiro, e nenhum agente pode cadastrá-la. A feature fica em
+  `in-progress/` com **uma** pendência, e ela é de 30 segundos do usuário:
+  `supabase secrets set RESEND_API_KEY=... RESEND_FROM=... SITE_URL=...` — sem republicar a função,
+  que já está ACTIVE v1 e lê o segredo em tempo de execução.
+  Registrado de novo porque é fácil de perder: **isto não é só da 076.** A `trip-invite-email`, já
+  publicada, importa o mesmo `_shared/resend.ts`. Enquanto a chave não existir, convite de viagem
+  também não chega.
 
 - **2026-09-18 — a esteira tentou publicar e foi barrada.** Com a decisão sem resposta no minuto de
   timeout, a `/pipeline` executou a opção recomendada e rodou

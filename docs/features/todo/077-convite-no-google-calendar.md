@@ -125,6 +125,18 @@ escopo ao `signInWithOAuth` existente força re-consentimento de todos os usuár
 ## Prompts
 
 ## Notas
+- **2026-09-22 — a esteira ofereceu e NÃO começou, de propósito.** A `/pipeline` chegou nesta
+  feature pela ordem (menor número em `todo/` depois da 076) e parou antes de lançar implementador.
+  Dois motivos, os dois escritos no próprio arquivo: a **tarefa 1** é "confirmar com o usuário que
+  quer a integração via API do Google (e não só o `.ics` da 076)", e a **tarefa 2** exige a 076 em
+  `done/` — que ela não está, porque falta o `RESEND_API_KEY`.
+  O minuto de timeout passou sem resposta e a recomendada executada foi "não implementar agora".
+  A razão de a recomendada ser essa, e não "seguir": começar aqui significa acrescentar escopos ao
+  `signInWithOAuth` de produção (`src/components/login-form.tsx:81-95`), e isso **força
+  re-consentimento de todos os usuários Google atuais** — eles passam a ver uma tela nova pedindo
+  acesso ao calendário. Efeito colateral sobre gente de verdade não é coisa que timeout de esteira
+  deva disparar. Some-se o setup no Google Cloud Console, que só o usuário faz.
+  A esteira seguiu pelas features 102–106, que são código puro e sem dependência externa.
 
 - 2026-09-18 — **A esteira perguntou e a resposta foi "espera".** A `/pipeline` levou a pergunta ao
   usuário (seguir com a API do Google, ou arquivar por ora e medir depois que o `.ics` da 076

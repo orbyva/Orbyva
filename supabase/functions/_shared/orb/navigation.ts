@@ -26,7 +26,9 @@ export type OrbNavField =
   | "tag"
   | "nature"
   | "tab"
-  | "today";
+  | "today"
+  // Acrescentado no FIM pelo mesmo motivo das telas: a ordem faz parte do prefixo cacheado.
+  | "task";
 
 export interface OrbScreenFilter {
   /** Campo da tool que alimenta este parâmetro. */
@@ -124,6 +126,16 @@ export const ORB_SCREENS: readonly OrbScreen[] = [
         param: "today",
         description: "true mostra só o que vence hoje ou está atrasado.",
         values: ["1"],
+      },
+      // Feature 102 — o único parâmetro desta tela que NÃO é filtro, e por isso entra por último
+      // (acrescentar no meio quebraria o prefixo cacheado do prompt, regra do topo de `registry.ts`).
+      {
+        field: "task",
+        param: "task",
+        description:
+          "Id (uuid) de UMA tarefa. Não recorta a lista: abre aquela tarefa para edição. " +
+          "Use quando a pessoa pedir para abrir/ver uma tarefa específica cujo id você já tem de " +
+          "uma consulta — é mais preciso que busca por título, que repete em recorrências.",
       },
     ],
   },

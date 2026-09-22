@@ -67,6 +67,7 @@ import {
   fetchExternalLinksForTasks,
   fetchProjects,
   fetchTags,
+  fetchTaskById,
   fetchTasks,
   saveExternalLinksForTask,
   updateTask,
@@ -147,11 +148,23 @@ export default function TaskList() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [form, setForm] = useState(emptyTask());
+  /**
+   * Id vindo de `?task=` (feature 102): a tarefa que a URL manda ABRIR. Diferente dos outros
+   * parâmetros, `task` não recorta a lista — ele só aponta o Dialog.
+   *
+   * Fica em estado, e não é resolvido dentro do próprio efeito da query string, porque a resolução
+   * precisa esperar a lista carregar: aquele efeito não pode ganhar `tasks` como dependência sem
+   * reaplicar os filtros da URL por cima do que a pessoa mexeu na barra depois de chegar pelo link.
+   */
+  const [urlTaskId, setUrlTaskId] = useState<string | null>(null);
+  /** A busca por id de `?task=` está em voo (feature 102). Vira um aviso na tela: sem ele o link
+   * de uma tarefa que não está na lista carregada pareceria não ter feito nada. */
+  const [openingUrlTask, setOpeningUrlTask] = useState(false);
   // `?view=` só é lido na primeira renderização (redirecionamento de `/tasks/gantt`, removido na
   // feature 044 por ser redundante com esta aba — ver Notas): não sincroniza de volta pra URL a
   // cada troca de aba, então navegar pelas abas depois não deixa `?view=` desatualizado na barra
   // de endereço, de propósito — mesma convenção "estado local" já usada pelas outras abas aqui.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<TaskViewMode>(() => {
     const requested = searchParams.get("view");
     return TASK_VIEW_MODES.includes(requested as TaskViewMode) ? (requested as TaskViewMode) : "lista";
@@ -214,6 +227,15 @@ export default function TaskList() {
    * (`handleDueOpenChange`), então o card cai na caixa certa na hora — feature 081, que reverteu
    * pela metade a decisão da 029 (congelar até o próximo `load()` real). */
   const frozenDueDatesRef = useRef<Map<string, string | null>>(new Map());
+
+  /** Último id de `?task=` já resolvido (feature 102). Sem ele, cada `load()` — salvar, concluir,
+   * arrastar — reabriria o Dialog por cima do que a pessoa estivesse fazendo. */
+  const resolvedUrlTaskRef = useRef<string | null>(null);
+  /** `openEdit` é recriado a cada render; o efeito de `?task=` chama a versão atual por aqui em vez
+   * de declará-la como dependência, o que o faria correr toda vez. Mesmo padrão de
+   * `TaskDescriptionField`. */
+  const openEditRef = useRef<(task: Task) => void>(() => {});
+  openEditRef.current = openEdit;
 
   const load = useCallback(async () => {
     try {
@@ -300,6 +322,44 @@ export default function TaskList() {
     writeTaskProjectFilter(value);
   }, []);
 
+  /**
+   * Tira só a chave `task` da query (feature 102), preservando o resto: `?project=X&task=Y` vira
+   * `?project=X`. `replace` em vez de `push` para fechar o Dialog não virar uma parada no
+   * histórico — voltar tem que sair da tela, não reabrir a tarefa.
+   */
+  const clearUrlTaskParam = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("task");
+        return next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
+
+  /**
+   * Fecha o Dialog de tarefa e tira o `?task=` junto (feature 102). Sem isso a barra de endereço
+   * mentiria sobre o estado da tela: recarregar reabriria a tarefa que a pessoa acabou de fechar.
+   *
+   * Passa por aqui tanto o fechar "à mão" (Esc, X, clique fora) quanto o fechar depois de salvar —
+   * os dois deixam a tela sem Dialog, então os dois têm que deixar a URL sem `task`.
+   */
+  const closeTaskDialog = useCallback(() => {
+    setOpen(false);
+    // Só navega quando o parâmetro está mesmo lá: fechar "Nova tarefa" não pode virar um `replace`
+    // à toa, que reexecutaria o efeito da query string sem motivo.
+    if (searchParams.has("task")) clearUrlTaskParam();
+  }, [searchParams, clearUrlTaskParam]);
+
+  const handleTaskDialogOpenChange = useCallback(
+    (next: boolean) => {
+      if (next) setOpen(true);
+      else closeTaskDialog();
+    },
+    [closeTaskDialog]
+  );
+
   /** A preferência salva pode apontar para um projeto apagado desde a última sessão — sem esta
    * conferência a tela abriria filtrada por um projeto que nem aparece no `<Select>`, parecendo
    * vazia sem motivo. Só roda depois que `loading` vira `false`: lista de projetos vazia enquanto
@@ -346,7 +406,70 @@ export default function TaskList() {
     if (etiqueta) setTagFilter(etiqueta);
 
     if (searchParams.get("today") === "1") setTodayOnly(true);
+
+    // Feature 102: `task` não é filtro, então fica fora da regra de "parâmetro ausente não faz
+    // faxina" — ele some da URL quando o Dialog fecha, e some do estado junto.
+    setUrlTaskId(searchParams.get("task"));
   }, [searchParams, handleProjectFilterChange]);
+
+  /**
+   * `?task=<id>` (feature 102): abre o Dialog de edição naquela tarefa.
+   *
+   * Só corre com `loading === false`: procurar o id numa lista ainda vazia responderia "não achei"
+   * para toda tarefa. O ref segura o último id já resolvido — voltar a `null` o rearma, para colar
+   * o mesmo `?task=` de novo depois de fechar voltar a abrir.
+   */
+  useEffect(() => {
+    if (!urlTaskId) {
+      resolvedUrlTaskRef.current = null;
+      return;
+    }
+    if (loading) return;
+    if (resolvedUrlTaskRef.current === urlTaskId) return;
+    resolvedUrlTaskRef.current = urlTaskId;
+
+    const naLista = tasks.find((t) => t.id === urlTaskId);
+    if (naLista) {
+      openEditRef.current(naLista);
+      return;
+    }
+
+    // A tarefa pode estar fora da lista carregada sem estar errada: concluída com o filtro em
+    // "pendentes", ou de outro projeto que o recorte atual exclui. Buscar pelo id é o que separa
+    // "o filtro escondeu a linha" de "essa tarefa não existe".
+    const naoEncontrada = () => {
+      toast({
+        title: "Tarefa não encontrada",
+        description: "O link aponta para uma tarefa que não existe mais, ou que não é sua.",
+        variant: "destructive",
+      });
+      // Sem tirar o parâmetro, recarregar a página repetiria o toast para sempre.
+      clearUrlTaskParam();
+    };
+
+    void (async () => {
+      setOpeningUrlTask(true);
+      try {
+        const encontrada = await fetchTaskById(urlTaskId);
+        // A URL pode ter mudado enquanto a busca corria — o resultado velho não abre nada.
+        if (resolvedUrlTaskRef.current !== urlTaskId) return;
+        if (encontrada) {
+          openEditRef.current(encontrada);
+          return;
+        }
+        // Id que não existe, e também id de OUTRA conta: `fetchTaskById` filtra por `user_id`, então
+        // devolve `null` em vez do dado alheio. Para quem está na tela, os dois são a mesma coisa.
+        naoEncontrada();
+      } catch {
+        // Id malformado (o banco recusa o uuid) cai aqui. Tela quebrada seria o pior desfecho de um
+        // link colado errado; o certo é a lista normal com o aviso.
+        if (resolvedUrlTaskRef.current !== urlTaskId) return;
+        naoEncontrada();
+      } finally {
+        setOpeningUrlTask(false);
+      }
+    })();
+  }, [urlTaskId, loading, tasks, toast, clearUrlTaskParam]);
 
   /** Prazo "congelado" desta tarefa (o do último `load()`, enquanto o popover de prazo dela está
    * aberto) ou o prazo vivo, quando não há nada congelado. */
@@ -663,7 +786,7 @@ export default function TaskList() {
         if (links.length > 0) await saveExternalLinksForTask(created.id, links);
       }
       toast({ title: "Tarefa salva!", duration: 2000 });
-      setOpen(false);
+      closeTaskDialog();
       load();
     } catch (error) {
       toast({
@@ -910,6 +1033,13 @@ export default function TaskList() {
       }
     >
       <ModuleGuide moduleId="tasks" />
+      {/* Feature 102: a resolução de `?task=` pode ir ao banco (tarefa fora da lista carregada).
+          Sem este aviso a tela ficaria parada, como se o link não tivesse feito nada. */}
+      {openingUrlTask ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          Abrindo a tarefa…
+        </p>
+      ) : null}
       <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as TaskViewMode)}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <TabsList>
@@ -1284,7 +1414,7 @@ export default function TaskList() {
         onClose={() => setSeriesTask(null)}
       />
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={handleTaskDialogOpenChange}>
         <DialogContent className={FORM_DIALOG_CONTENT_CLASS_LG}>
           <DialogHeader>
             <DialogTitle>{editing ? "Editar tarefa" : "Nova tarefa"}</DialogTitle>
