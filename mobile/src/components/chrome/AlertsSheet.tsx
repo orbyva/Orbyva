@@ -83,7 +83,7 @@ export function AlertsSheet() {
   return (
     <Modal
       visible={alertsOpen}
-      animationType="fade"
+      animationType="none"
       transparent
       onRequestClose={close}
     >

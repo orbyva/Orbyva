@@ -23,12 +23,10 @@ export function QuickAddSheet() {
     setQuickAddOpen(false);
   }
 
-  if (!quickAddOpen) return null;
-
   return (
     <Modal
       visible={quickAddOpen}
-      animationType="fade"
+      animationType="none"
       transparent
       presentationStyle="overFullScreen"
       statusBarTranslucent

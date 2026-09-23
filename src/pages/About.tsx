@@ -7,8 +7,8 @@ import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 const MODULES = [
   {
-    title: "Início e timeline",
-    body: "Resumo do dia, alertas, hábitos, saldo e o que vem a seguir, mais um feed de eventos de todos os módulos.",
+    title: "Início",
+    body: "Resumo do dia, alertas, hábitos, saldo e o que vem a seguir nos módulos.",
   },
   {
     title: "Finanças",

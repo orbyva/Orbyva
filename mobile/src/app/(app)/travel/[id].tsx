@@ -765,7 +765,7 @@ export default function TripDetailScreen() {
                     ]}
                   >
                     <Ionicons
-                      name="pencil-outline"
+                      name="create-outline"
                       size={18}
                       color={theme.primary}
                     />
@@ -1435,7 +1435,7 @@ export default function TripDetailScreen() {
               <Card style={styles.card}>
                 <View style={styles.sectionHead}>
                   <Ionicons
-                    name="pencil-outline"
+                    name="create-outline"
                     size={18}
                     color={theme.primary}
                   />

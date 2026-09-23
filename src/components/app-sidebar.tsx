@@ -35,10 +35,7 @@ const NAV_INICIO: NavItem = {
   color: moduleColors.hub,
   url: "#",
   icon: LayoutDashboard,
-  items: [
-    { title: "Dashboard", url: "/home" },
-    { title: "Timeline", url: "/timeline" },
-  ],
+  items: [{ title: "Dashboard", url: "/home" }],
 }
 
 const NAV_FINANCE: NavItem = {

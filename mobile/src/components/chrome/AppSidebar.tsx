@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { usePathname, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Modal,
@@ -10,6 +10,13 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandLogo } from "@/components/BrandLogo";
@@ -21,6 +28,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useThemePreference } from "@/hooks/use-theme-preference";
 import { isNavActive, NAV_GROUPS, normalizePath, type AppHref } from "@/lib/nav";
+
+const OPEN_MS = 200;
+const CLOSE_MS = 160;
 
 function hexAlpha(hex: string, alpha: number): string {
   const n = hex.replace("#", "");
@@ -41,9 +51,10 @@ export function AppSidebar() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const panelWidth = Math.min(268, Math.round(windowWidth * 0.68));
+  const [mounted, setMounted] = useState(false);
+  const progress = useSharedValue(0);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    Início:
-      path.startsWith("/home") || path === "/" || path.startsWith("/timeline"),
+    Início: path.startsWith("/home") || path === "/",
     Finanças: path.startsWith("/finance"),
     Produtividade:
       path.startsWith("/tasks") ||
@@ -63,6 +74,24 @@ export function AppSidebar() {
       path.startsWith("/links"),
   });
 
+  useEffect(() => {
+    if (sidebarOpen) {
+      setMounted(true);
+      progress.value = withTiming(1, {
+        duration: OPEN_MS,
+        easing: Easing.out(Easing.cubic),
+      });
+      return;
+    }
+    progress.value = withTiming(
+      0,
+      { duration: CLOSE_MS, easing: Easing.in(Easing.cubic) },
+      (finished) => {
+        if (finished) runOnJS(setMounted)(false);
+      }
+    );
+  }, [progress, sidebarOpen]);
+
   function close() {
     setSidebarOpen(false);
   }
@@ -72,30 +101,46 @@ export function AppSidebar() {
       Alert.alert("Em breve", "Esse módulo ainda não está no app.");
       return;
     }
-    close();
-    if (isNavActive(path, href)) return;
+    if (isNavActive(path, href)) {
+      close();
+      return;
+    }
     router.navigate(href);
+    close();
   }
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: progress.value * 0.5,
+  }));
+
+  const panelStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: (progress.value - 1) * panelWidth }],
+  }));
 
   return (
     <Modal
-      visible={sidebarOpen}
-      animationType="fade"
+      visible={mounted}
+      animationType="none"
       transparent
       presentationStyle="overFullScreen"
       statusBarTranslucent
       onRequestClose={close}
     >
       <View style={styles.overlay}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.backdrop, backdropStyle]}
+        />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Fechar menu"
           onPress={close}
-          style={styles.backdrop}
+          style={styles.backdropHit}
         />
-        <View
+        <Animated.View
           style={[
             styles.panel,
+            panelStyle,
             {
               width: panelWidth,
               backgroundColor: theme.background,
@@ -239,7 +284,7 @@ export function AppSidebar() {
               </View>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -249,7 +294,10 @@ const styles = StyleSheet.create({
   overlay: { flex: 1 },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(11,15,26,0.5)",
+    backgroundColor: "#0B0F1A",
+  },
+  backdropHit: {
+    ...StyleSheet.absoluteFill,
   },
   panel: {
     position: "absolute",

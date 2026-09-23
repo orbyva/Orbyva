@@ -150,7 +150,6 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
 export const PRIVATE_PATH_PREFIXES = [
   "/home",
   "/account",
-  "/timeline",
   "/goals",
   "/habits",
   "/travel",

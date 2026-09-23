@@ -179,6 +179,7 @@ export default function GoalFormScreen() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
       >
         <ScrollView
           contentContainerStyle={styles.body}

@@ -162,7 +162,11 @@ export function RecurringList({
                     paidInMonth ? undefined : { color: "#FFFFFF", fontSize: 15 }
                   }
                 >
-                  {paidInMonth ? "Desfazer" : copy.action}
+                  {paidInMonth
+                    ? copy.isReceive
+                      ? "Desfazer recebimento"
+                      : "Desfazer pagamento"
+                    : copy.action}
                 </ThemedText>
               </Pressable>
             ) : null}
@@ -301,7 +305,11 @@ export function RecurringList({
                             type="smallBold"
                             style={{ color: paid ? theme.text : actionColor }}
                           >
-                            {paid ? "Desfazer" : copy.action}
+                            {paid
+                              ? copy.isReceive
+                                ? "Desfazer recebimento"
+                                : "Desfazer pagamento"
+                              : copy.action}
                           </ThemedText>
                         </Pressable>
                       </View>

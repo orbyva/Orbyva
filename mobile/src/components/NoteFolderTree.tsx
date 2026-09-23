@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
@@ -20,6 +20,17 @@ import type { Project, Tag } from "@/types/tasks";
 
 const DELETE_MESSAGE =
   "As notas desta pasta vão para Sem pasta. Subpastas sobem um nível.";
+
+/** Pastas com filhos — começam recolhidas na árvore. */
+function folderIdsWithChildren(nodes: FolderNode[]): string[] {
+  const ids: string[] = [];
+  for (const node of nodes) {
+    if (node.children.length > 0) {
+      ids.push(node.id, ...folderIdsWithChildren(node.children));
+    }
+  }
+  return ids;
+}
 
 export function NoteFolderTree({
   folders,
@@ -44,17 +55,41 @@ export function NoteFolderTree({
 }) {
   const theme = useTheme();
   const tree = buildFolderTree(folders);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string> | null>(null);
+  const knownExpandable = useRef<Set<string>>(new Set());
+  const defaultCollapsed = useMemo(
+    () => new Set(folderIdsWithChildren(tree)),
+    [folders]
+  );
+  const effectiveCollapsed = collapsed ?? defaultCollapsed;
   const allCount = notes.length;
   const inboxCount = notesInFolder(notes, INBOX_FOLDER).length;
+
+  useEffect(() => {
+    const expandable = folderIdsWithChildren(buildFolderTree(folders));
+    setCollapsed((prev) => {
+      const base = prev ?? new Set(expandable);
+      const next = new Set(base);
+      let changed = prev == null;
+      for (const id of expandable) {
+        if (!knownExpandable.current.has(id)) {
+          knownExpandable.current.add(id);
+          next.add(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [folders]);
 
   useEffect(() => {
     if (typeof selected !== "string" || selected === INBOX_FOLDER) return;
     const ancestors = folderAncestorIds(folders, selected);
     if (ancestors.length === 0) return;
     setCollapsed((prev) => {
+      const base = prev ?? new Set(folderIdsWithChildren(buildFolderTree(folders)));
       let changed = false;
-      const next = new Set(prev);
+      const next = new Set(base);
       for (const id of ancestors) {
         if (next.has(id)) {
           next.delete(id);
@@ -68,7 +103,8 @@ export function NoteFolderTree({
   function toggleCollapsed(id: string, nextCollapsed: boolean) {
     void hapticLight();
     setCollapsed((prev) => {
-      const next = new Set(prev);
+      const base = prev ?? new Set(folderIdsWithChildren(buildFolderTree(folders)));
+      const next = new Set(base);
       if (nextCollapsed) next.add(id);
       else next.delete(id);
       return next;
@@ -117,7 +153,7 @@ export function NoteFolderTree({
               projects={projects}
               tags={tags}
               selected={selected}
-              collapsed={collapsed}
+              collapsed={effectiveCollapsed}
               onToggleCollapsed={toggleCollapsed}
               onSelect={onSelect}
               onCreateChild={(parentId) => {

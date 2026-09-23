@@ -474,7 +474,7 @@ export default function CategoriesScreen() {
                               }
                             >
                               <Ionicons
-                                name="pencil-outline"
+                                name="create-outline"
                                 size={18}
                                 color={theme.textSecondary}
                               />

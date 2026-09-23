@@ -106,7 +106,7 @@ export function TransactionsList({
                   hitSlop={8}
                   style={styles.actionBtn}
                 >
-                  <Ionicons name="pencil-outline" size={18} color={theme.text} />
+                  <Ionicons name="create-outline" size={18} color={theme.text} />
                 </Pressable>
                 <Pressable
                   accessibilityLabel="Excluir transação"

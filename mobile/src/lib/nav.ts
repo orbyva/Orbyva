@@ -1,6 +1,5 @@
 export type AppHref =
   | "/home"
-  | "/timeline"
   | "/finance"
   | "/finance/transactions"
   | "/finance/form"
@@ -67,10 +66,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: "Início",
     color: "#6B7CFA",
     icon: "home-outline",
-    items: [
-      { title: "Dashboard", href: "/home" },
-      { title: "Timeline", href: "/timeline" },
-    ],
+    items: [{ title: "Dashboard", href: "/home" }],
   },
   {
     title: "Finanças",
@@ -323,12 +319,7 @@ export function quickAddActionsForPath(pathname: string): QuickAddItem[] {
   if (path === "/finance" || path === "/finance/") {
     return liveQuickAdd(FINANCE_QUICK_ADD);
   }
-  if (
-    path === "/" ||
-    path === "/home" ||
-    path.startsWith("/home/") ||
-    path.startsWith("/timeline")
-  ) {
+  if (path === "/" || path === "/home" || path.startsWith("/home/")) {
     return liveQuickAdd(HOME_QUICK_ADD);
   }
   return [];

@@ -235,7 +235,6 @@ export default function HomeScreen() {
         <HubUpcoming
           items={bundle?.upcoming ?? []}
           recent={bundle?.recent ?? []}
-          onOpenTimeline={() => router.navigate("/timeline")}
           onOpenItem={openItem}
         />
 

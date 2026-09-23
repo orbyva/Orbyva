@@ -379,12 +379,6 @@ export default function RecurringScreen() {
                 </Pressable>
               </View>
             ) : null}
-            {tab === "list" ? (
-              <RecurringSummary
-                receive={monthTotals.receive}
-                pay={monthTotals.pay}
-              />
-            ) : null}
           </>
         }
         footer={
@@ -406,6 +400,10 @@ export default function RecurringScreen() {
       >
             {tab === "list" ? (
               <>
+                <RecurringSummary
+                  receive={monthTotals.receive}
+                  pay={monthTotals.pay}
+                />
                 <TextInput
               placeholder="Buscar descrição, categoria..."
               placeholderTextColor={theme.textSecondary}

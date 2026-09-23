@@ -44,10 +44,11 @@ function AppStack() {
           headerLeft: hideChrome ? undefined : AppHeaderLeft,
           headerRight: hideChrome ? undefined : AppHeaderRight,
           headerBackVisible: false,
+          animation: "fade_from_bottom",
+          animationDuration: 180,
         }}
       >
         <Stack.Screen name="home" options={{ title: "Início" }} />
-        <Stack.Screen name="timeline" options={{ title: "Timeline" }} />
         <Stack.Screen name="finance" options={{ headerShown: false }} />
         <Stack.Screen name="tasks" options={{ headerShown: false }} />
         <Stack.Screen name="notes" options={{ headerShown: false }} />

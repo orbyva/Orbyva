@@ -22,7 +22,6 @@ const Music = lazy(() => import("./pages/admin/music/Music"));
 const Car = lazy(() => import("./pages/admin/car/Car"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const LifeDashboard = lazy(() => import("./pages/admin/life/LifeDashboard"));
-const Timeline = lazy(() => import("./pages/admin/life/Timeline"));
 const HealthDashboard = lazy(
   () => import("./pages/admin/life/HealthDashboard")
 );
@@ -202,7 +201,6 @@ export const appRoutes: RouteObject[] = [
             element: withSuspense(<AdminLayout />),
             children: [
               { path: "home", element: <LifeDashboard /> },
-              { path: "timeline", element: <Timeline /> },
               // Sub-módulo Vida > Saúde (feature 060) — hub de primeiro nível, não uma aba do
               // dashboard de Vida, para as telas de 061-064 terem deep-link próprio.
               { path: "life/health", element: <HealthDashboard /> },

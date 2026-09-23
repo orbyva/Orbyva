@@ -647,6 +647,41 @@ entra no destino com mola.
 - [x] Fantasma no roteiro; entering + layout em roteiro, categorias e
       kanban. Verificação: `npx tsc --noEmit` ✓
 
+### 37 — Polimento mobile: chrome, login, densidade e copy
+
+Feedback de uso no telefone: Timeline sobra; abertura de tela/sidebar/
+modal demora no toque; login parece web; teclado cobre forms/notas;
+listas (recorrências/orçamento/notas) perdem área útil; labels
+ambíguas (Desfazer, Criar, Link); Live em tarefa de saúde; nota sem
+PDF.
+
+- [x] Timeline fora da sidebar e das rotas no mobile e no web (hub
+      continua com atividades recentes). Verificação: `npx tsc --noEmit`
+      (mobile) ✓; vitest sidebar ✓; navegação sem `/timeline`
+- [x] Abertura mais rápida: sidebar/modal/stack respondem no toque
+      (abrir UI primeiro; trabalho pesado depois; animações curtas).
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Ícone de editar (`pencil-outline`) trocado por um mais legível
+      nas listas. Verificação: `npx tsc --noEmit` ✓
+- [x] Teclado: forms e editor de nota sobem/scrollam o campo focado
+      (KeyboardAvoiding + scrollIntoView / inset). Verificação:
+      `npx tsc --noEmit` ✓
+- [x] Login nativo: logo + wordmark Orbyva; sem texto de Redirect URL
+      do Supabase; CTA “Enviar link mágico” evidente; sem “Sem cartão
+      no início”; botão Google mais claro. Verificação: `npx tsc --noEmit` ✓
+- [x] Recorrências: pago → “Desfazer pagamento” (receber → “Desfazer
+      recebimento”); chrome recolhido por padrão / mais área de lista.
+      Verificação: `npx tsc --noEmit` ✓
+- [x] Orçamento: mais área de lista (chrome recolhido / menos padding
+      fixo). Verificação: `npx tsc --noEmit` ✓
+- [x] Tarefas: sem Live em `is_medication` / `is_consultation` /
+      `medication_id`. Verificação: `npx tsc --noEmit` ✓
+- [x] Notas: exportar PDF (print/share) + editor/lista com mais área
+      útil. Verificação: `npx tsc --noEmit` ✓
+- [x] Compras: “Link” vira ícone `open-outline` (como Conteúdo); alerta
+      “Criar” deixa explícito que cria tarefa. Verificação:
+      `npx tsc --noEmit` ✓
+
 ## Prompts
 
 - 2026-09-10 — Eu quero criar o app do orbyva, utilizando react native para subir na App Store e Play Store. Eu vou continuar utilizando esse backend mesmo, mas só ter outro front além do Web. Como posso fazer isso? Crio um outro repo para isso ou não?
@@ -849,6 +884,33 @@ Faça o seguinte: Deixe igual está no mobile para os 2, mas, coloque a logo do 
   São Jorge → Alto Paraíso, não São Jorge → Valparaíso. O deslocamento
   de volta para o local de origem só deve ser gerado quando realmente
   for o encerramento da viagem.
+
+- 2026-09-23 — Features mobile:
+  - Geral
+    - Retirar essa parte de Timeline, meio nada haver (este ponto pode retirar do web também)
+    - A troca de tela ta meio demorada, para abrir sidebar tb, abrir uma modal tb
+    - Troque o lápis da edição, coloque um melhorzinho
+    - Em vários momentos, o teclado atrapalha a utilização, cadastro de algo ou escrever uma nota.
+  - Tela de Login:
+    - Melhorar tela de login, deixar mais parecido com mobile
+    - Requisitos mínimos: Ter a logo e forma de escrita que tem em todo o app
+    - Tirar esse No supabase...
+    - Deixar mais evidente esse: "Enviar link mágico"
+    - Tirar esse "Sem cartão no início"
+    - Melhore esse botão de entrar com google
+  - Recorrências
+    - Quando está pago fica o botão como "Desfazer", deixe mais claro, coloque como: "Desfazer pagamento"
+    - Otimize essa tela para ter mais espaço ali para ver os itens
+  - Orçamento
+    - Otimize essa tela para ter mais espaço ali para ver os itens
+  - Tarefas
+    - Quando for uma coisa advinda de saúde, não tem pq ter o live ali
+  - Nota
+    - Coloque a função de exportar pdf e otimize essa tela para ter mais espaço ali para ver a nota e tal
+  - Lista de compras
+    - Ao invés de ter a palavra "Link" ali, coloque o ícone igual de conteúdo
+    - No "criar" especifique mais, já que vai criar uma tarefa
+  (clarificação: ao clicar, demora um pouco pra abrir)
 
 ## Notas
 
@@ -1250,3 +1312,33 @@ Faça o seguinte: Deixe igual está no mobile para os 2, mas, coloque a logo do 
   E nesses 3 que possam arrastar, coloque a animação do item entrando no local para que foi arrastado para ficar bonitinho
   Roteiro com fantasma (long-press + segue o dedo). Destino com mola
   no roteiro, categorias e kanban. `npx tsc --noEmit` ✓.
+- 2026-09-23 — Features mobile:
+  - Geral
+    - Retirar essa parte de Timeline, meio nada haver (este ponto pode retirar do web também)
+    - A troca de tela ta meio demorada, para abrir sidebar tb, abrir uma modal tb
+    - Troque o lápis da edição, coloque um melhorzinho
+    - Em vários momentos, o teclado atrapalha a utilização, cadastro de algo ou escrever uma nota.
+  - Tela de Login:
+    - Melhorar tela de login, deixar mais parecido com mobile
+    - Requisitos mínimos: Ter a logo e forma de escrita que tem em todo o app
+    - Tirar esse No supabase...
+    - Deixar mais evidente esse: "Enviar link mágico"
+    - Tirar esse "Sem cartão no início"
+    - Melhore esse botão de entrar com google
+  - Recorrências
+    - Quando está pago fica o botão como "Desfazer", deixe mais claro, coloque como: "Desfazer pagamento"
+    - Otimize essa tela para ter mais espaço ali para ver os itens
+  - Orçamento
+    - Otimize essa tela para ter mais espaço ali para ver os itens
+  - Tarefas
+    - Quando for uma coisa advinda de saúde, não tem pq ter o live ali
+  - Nota
+    - Coloque a função de exportar pdf e otimize essa tela para ter mais espaço ali para ver a nota e tal
+  - Lista de compras
+    - Ao invés de ter a palavra "Link" ali, coloque o ícone igual de conteúdo
+    - No "criar" especifique mais, já que vai criar uma tarefa
+  (clarificação: ao clicar, demora um pouco pra abrir)
+  Fatia 37: Timeline fora (mobile+web); chrome abre sem fade;
+  stack/forms mais rápidos; login com marca; teclado com offset;
+  densidade em recorrências/orçamento/notas; PDF; copy e Live.
+  `npx tsc --noEmit` (mobile) ✓; vitest sidebar ✓; `npm run lint` ✓.

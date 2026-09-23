@@ -6,13 +6,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from "react-native";
 import { Redirect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
+import { BrandLogo } from "@/components/BrandLogo";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -176,12 +180,20 @@ export default function LoginScreen() {
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={12}
         >
-          <View style={styles.body}>
-            <ThemedText type="title">Orbyva</ThemedText>
-            <ThemedText themeColor="textSecondary">
+          <ScrollView
+            contentContainerStyle={styles.body}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.brand}>
+              <BrandLogo size={56} />
+              <BrandWordmark />
+            </View>
+            <ThemedText themeColor="textSecondary" style={styles.subtitle}>
               {mode === "signup"
-                ? "7 dias grátis com tudo liberado. Sem cartão no início."
+                ? "7 dias grátis com tudo liberado."
                 : "Entre com a mesma conta do web."}
             </ThemedText>
 
@@ -193,6 +205,48 @@ export default function LoginScreen() {
               value={mode}
               onChange={setMode}
             />
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={() => void handleGoogle()}
+              style={[
+                styles.google,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.backgroundSelected,
+                },
+              ]}
+            >
+              <Ionicons name="logo-google" size={18} color={theme.text} />
+              <ThemedText type="smallBold">Continuar com Google</ThemedText>
+            </Pressable>
+
+            {appleAvailable ? (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={
+                  scheme === "dark"
+                    ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                    : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                }
+                cornerRadius={12}
+                style={styles.apple}
+                onPress={() => void handleApple()}
+              />
+            ) : null}
+
+            <View style={styles.divider}>
+              <View
+                style={[styles.dividerLine, { backgroundColor: theme.backgroundSelected }]}
+              />
+              <ThemedText type="small" themeColor="textSecondary">
+                ou
+              </ThemedText>
+              <View
+                style={[styles.dividerLine, { backgroundColor: theme.backgroundSelected }]}
+              />
+            </View>
 
             <TextInput
               autoCapitalize="none"
@@ -235,43 +289,24 @@ export default function LoginScreen() {
               )}
             </Pressable>
 
-            <Pressable disabled={busy} onPress={() => void handleMagicLink()}>
-              <ThemedText type="linkPrimary">Enviar link mágico</ThemedText>
-            </Pressable>
-
             <Pressable
+              accessibilityRole="button"
               disabled={busy}
-              onPress={() => void handleGoogle()}
+              onPress={() => void handleMagicLink()}
               style={[
-                styles.secondary,
-                { borderColor: theme.backgroundSelected },
+                styles.magic,
+                {
+                  backgroundColor: theme.backgroundElement,
+                  borderColor: theme.primary,
+                },
               ]}
             >
-              <ThemedText type="smallBold">Continuar com Google</ThemedText>
+              <Ionicons name="mail-outline" size={18} color={theme.primary} />
+              <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                Enviar link mágico
+              </ThemedText>
             </Pressable>
-
-            <ThemedText type="small" themeColor="textSecondary" selectable>
-              No Supabase, Redirect URLs (não mude o Site URL):
-              {"\n"}
-              orbyva://auth/callback
-              {"\n"}
-              orbyva://**
-            </ThemedText>
-
-            {appleAvailable ? (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={
-                  scheme === "dark"
-                    ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                    : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                }
-                cornerRadius={12}
-                style={styles.apple}
-                onPress={() => void handleApple()}
-              />
-            ) : null}
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
@@ -281,18 +316,17 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   body: {
-    flex: 1,
+    flexGrow: 1,
     padding: Spacing.four,
     gap: Spacing.three,
     justifyContent: "center",
   },
-  modeRow: { flexDirection: "row", gap: Spacing.two },
-  modeChip: {
-    flex: 1,
+  brand: {
     alignItems: "center",
-    paddingVertical: 10,
-    borderRadius: 999,
+    gap: Spacing.two,
+    marginBottom: Spacing.two,
   },
+  subtitle: { textAlign: "center" },
   input: {
     height: 48,
     borderRadius: 12,
@@ -302,18 +336,35 @@ const styles = StyleSheet.create({
   },
   primary: {
     height: 48,
-    borderRadius: 999,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   primaryLabel: { color: "#0B0F1A" },
-  secondary: {
+  magic: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  google: {
     height: 48,
     borderRadius: 12,
     borderWidth: 1,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 10,
   },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
+    marginVertical: 2,
+  },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
   apple: { height: 48, width: "100%" },
-  error: { color: "#E11D48" },
 });

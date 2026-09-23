@@ -94,6 +94,7 @@ export function ReviewSheet({
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
         >
           <View style={styles.head}>
             <FormCloseButton onPress={onClose} disabled={busy} />

@@ -13,6 +13,8 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 
 import {
   createNoteApi,
@@ -38,9 +40,11 @@ import { Spacing } from "@/constants/theme";
 import { MERMAID_SNIPPET } from "@/domain/notes/mermaidSnippet";
 import { insertAt, prefixLines, wrapInline } from "@/domain/notes/markdown";
 import { folderNavForNote } from "@/domain/notes/folders";
+import { buildNotePrintHtml } from "@/domain/notes/printNote";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
+import { useFeedback } from "@/hooks/use-toast";
 import { setNoteFolderNav } from "@/lib/noteFolderNav";
 import type { Note, NoteCanvasData, NoteFolder } from "@/types/notes";
 
@@ -53,6 +57,7 @@ export default function NoteEditorScreen() {
   const theme = useTheme();
   const router = useRouter();
   const navigation = useNavigation();
+  const { fail } = useFeedback();
   const params = useLocalSearchParams<{ id?: string }>();
   const noteId = typeof params.id === "string" ? params.id : "";
 
@@ -282,6 +287,31 @@ export default function NoteEditorScreen() {
     }
   }
 
+  async function onExportPdf() {
+    const title = titleRef.current.trim() || "Nota";
+    const body = contentRef.current;
+    if (!title && !body.trim()) {
+      Alert.alert("Nota vazia", "Escreva algo para exportar.");
+      return;
+    }
+    try {
+      await persist();
+      const html = buildNotePrintHtml(title, body);
+      const { uri } = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "application/pdf",
+          UTI: "com.adobe.pdf",
+          dialogTitle: "Exportar PDF",
+        });
+      } else {
+        await Print.printAsync({ html });
+      }
+    } catch (err) {
+      fail(getErrorMessage(err, "Não foi possível exportar o PDF."));
+    }
+  }
+
   const onDelete = useCallback(() => {
     if (!noteId) return;
     Alert.alert("Excluir nota", "Essa ação não tem volta.", [
@@ -360,8 +390,14 @@ export default function NoteEditorScreen() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
       >
-        <View style={styles.body}>
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
           <Banner message={error} />
           {statusLabel ? (
             <ThemedText type="small" themeColor="textSecondary">
@@ -439,10 +475,7 @@ export default function NoteEditorScreen() {
               onChange={onCanvasChange}
             />
           ) : mode === "preview" ? (
-            <ScrollView
-              style={[styles.bodyInput, inputStyle]}
-              contentContainerStyle={styles.preview}
-            >
+            <View style={[styles.bodyInput, inputStyle, styles.previewBox]}>
               <MarkdownPreview
                 text={content}
                 wiki={{
@@ -455,7 +488,7 @@ export default function NoteEditorScreen() {
                   },
                 }}
               />
-            </ScrollView>
+            </View>
           ) : (
             <>
               <View style={styles.toolbar}>
@@ -508,15 +541,27 @@ export default function NoteEditorScreen() {
                 }}
                 textAlignVertical="top"
                 editable={!deleting}
+                scrollEnabled={false}
               />
             </>
           )}
-          <FormButton
-            label="Compartilhar"
-            disabled={deleting}
-            onPress={() => void onShare()}
-          />
-        </View>
+          <View style={styles.actions}>
+            <FormButton
+              label="Exportar PDF"
+              tone="neutral"
+              flex
+              disabled={deleting || kind === "canvas"}
+              onPress={() => void onExportPdf()}
+            />
+            <FormButton
+              label="Compartilhar"
+              tone="primary"
+              flex
+              disabled={deleting}
+              onPress={() => void onShare()}
+            />
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
       <StringSelectModal
         visible={pickerOpen}
@@ -541,8 +586,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: {
-    flex: 1,
-    padding: Spacing.four,
+    flexGrow: 1,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.four,
     gap: Spacing.two,
   },
   project: {
@@ -553,7 +600,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   folderChip: {
-    minHeight: 40,
+    minHeight: 36,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 12,
@@ -565,7 +612,7 @@ const styles = StyleSheet.create({
   },
   folderChipLabel: { flexShrink: 1 },
   title: {
-    minHeight: 48,
+    minHeight: 44,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 14,
@@ -573,20 +620,22 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   bodyInput: {
-    flex: 1,
+    minHeight: 280,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingTop: 12,
+    paddingBottom: 12,
     fontSize: 16,
     lineHeight: 24,
   },
-  preview: { paddingVertical: 12, paddingBottom: 24 },
+  previewBox: { paddingVertical: 12 },
   toolbar: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   tool: {
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  actions: { flexDirection: "row", gap: Spacing.two, marginTop: Spacing.two },
   error: { color: "#E11D48", textAlign: "center" },
 });

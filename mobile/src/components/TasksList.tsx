@@ -150,7 +150,11 @@ export function TasksList({
                         {meta}
                       </ThemedText>
                     </Pressable>
-                    {onToggleTimer && !done ? (
+                    {onToggleTimer &&
+                    !done &&
+                    !task.is_medication &&
+                    !task.is_consultation &&
+                    !task.medication_id ? (
                       <Pressable
                         onPress={() => onToggleTimer(task)}
                         hitSlop={8}

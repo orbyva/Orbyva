@@ -343,11 +343,11 @@ export default function ShoppingScreen() {
                             onPress={() =>
                               Alert.alert(
                                 "Criar tarefa",
-                                `Criar “Comprar ${item.title}”?`,
+                                `Criar a tarefa “Comprar ${item.title}”?`,
                                 [
                                   { text: "Cancelar", style: "cancel" },
                                   {
-                                    text: "Criar",
+                                    text: "Criar tarefa",
                                     onPress: () => void onConvert(item),
                                   },
                                 ]
@@ -355,18 +355,22 @@ export default function ShoppingScreen() {
                             }
                           >
                             <ThemedText type="small" themeColor="textSecondary">
-                              Criar
+                              Criar tarefa
                             </ThemedText>
                           </Pressable>
                         )}
                         {item.provider_link ? (
                           <Pressable
+                            accessibilityLabel="Abrir link"
                             onPress={() => openExternalUrl(item.provider_link as string)}
                             hitSlop={8}
+                            style={styles.iconBtn}
                           >
-                            <ThemedText type="small" themeColor="textSecondary">
-                              Link
-                            </ThemedText>
+                            <Ionicons
+                              name="open-outline"
+                              size={18}
+                              color={theme.textSecondary}
+                            />
                           </Pressable>
                         ) : null}
                         <Pressable

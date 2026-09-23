@@ -89,14 +89,12 @@ function TimelineRow({
 type HubUpcomingProps = {
   items: TimelineItem[];
   recent?: TimelineItem[];
-  onOpenTimeline: () => void;
   onOpenItem: (item: TimelineItem) => void;
 };
 
 export function HubUpcoming({
   items,
   recent = [],
-  onOpenTimeline,
   onOpenItem,
 }: HubUpcomingProps) {
   const theme = useTheme();
@@ -107,11 +105,6 @@ export function HubUpcoming({
     <View style={styles.block}>
       <View style={styles.head}>
         <ThemedText type="smallBold">Agendados</ThemedText>
-        <Pressable onPress={onOpenTimeline} hitSlop={8}>
-          <ThemedText type="small" style={{ color: theme.primary }}>
-            Timeline
-          </ThemedText>
-        </Pressable>
       </View>
 
       {visible.length === 0 ? (

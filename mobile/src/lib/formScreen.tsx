@@ -14,6 +14,7 @@ import { FormCloseButton } from "@/components/chrome/FormCloseButton";
 export const formScreenOptions = {
   presentation: "modal" as const,
   animation: "slide_from_bottom" as const,
+  animationDuration: 220,
   gestureDirection: "vertical" as const,
   headerLeft: () => <FormCloseButton />,
   headerRight: () => null,
