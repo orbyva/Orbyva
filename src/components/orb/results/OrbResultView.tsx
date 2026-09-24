@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type {
   OrbBadge,
   OrbBadgeTone,
+  OrbBarGroup,
   OrbBarItem,
   OrbCardItem,
   OrbPosterItem,
@@ -16,9 +17,9 @@ import type {
 /**
  * O desenho dos resultados da Orb (feature 100).
  *
- * Quatro formas cobrem o catálogo inteiro — cartão, carrossel, linha e barra —, e a tradução de
- * cada tool para uma delas mora em `@/domain/orb/results`, que é código puro e testado. Aqui só
- * tem pixel: qualquer regra sobre O QUE mostrar está do outro lado.
+ * Cinco formas cobrem o catálogo — cartão, carrossel, linha, barra e barras agrupadas —, e a
+ * tradução de cada tool para uma delas mora em `@/domain/orb/results`, que é código puro e
+ * testado. Aqui só tem pixel: qualquer regra sobre O QUE mostrar está do outro lado.
  */
 
 const TOM: Record<OrbBadgeTone, string> = {
@@ -214,6 +215,22 @@ function Barras({ items }: { items: OrbBarItem[] }) {
   );
 }
 
+/** Nível (título) → subníveis (barras), como na tela de Orçamento. */
+function BarrasAgrupadas({ groups }: { groups: OrbBarGroup[] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {groups.map((grupo) => (
+        <div key={grupo.id} className="flex flex-col gap-1.5">
+          <p className="px-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {grupo.title}
+          </p>
+          <Barras items={grupo.items} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * `memo` pelo mesmo motivo do `OrbMessageBubble`: cada token do stream troca a lista de mensagens
  * inteira, e sem ele 30 pôsteres seriam remontados a cada chunk de texto.
@@ -225,6 +242,7 @@ export const OrbResultView = memo(function OrbResultView({ view }: { view: Visao
       {view.kind === "carousel" ? <Carrossel items={view.items} /> : null}
       {view.kind === "rows" ? <Linhas items={view.items} /> : null}
       {view.kind === "bars" ? <Barras items={view.items} /> : null}
+      {view.kind === "grouped_bars" ? <BarrasAgrupadas groups={view.groups} /> : null}
       {view.note ? <p className="px-1 text-[11px] text-muted-foreground">{view.note}</p> : null}
     </div>
   );

@@ -15,11 +15,14 @@ const AREA_FAB_CLASS: Record<AppArea, string> = {
 
 /**
  * Atalho desktop para adicionar algo na área atual (mobile usa o + na bottom nav).
+ * Na `/orb` some: o composer já ocupa a base da tela e o FAB só atrapalha.
  */
 export function QuickAddExpenseFab({ className }: { className?: string }) {
   const location = useLocation();
   const area = resolveAppArea(location.pathname);
   const [open, setOpen] = useState(false);
+
+  if (location.pathname.startsWith("/orb")) return null;
 
   return (
     <QuickAddMenu

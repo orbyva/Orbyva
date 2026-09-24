@@ -116,7 +116,7 @@ export const OrbMessageBubble = memo(function OrbMessageBubble({
 
     return (
       <div className="group flex flex-col items-end gap-1">
-        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground sm:max-w-[75%]">
+        <div className="max-w-[92%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground sm:max-w-[85%]">
           {message.content}
         </div>
         {/* Mesma barra da resposta: escondida até o hover/foco no mouse, sempre visível no toque. */}
@@ -170,6 +170,24 @@ export const OrbMessageBubble = memo(function OrbMessageBubble({
     .filter((tool) => isOrbProposal(tool.summary))
     .map((tool) => ({ id: tool.id, proposal: tool.summary as never }));
 
+  /**
+   * Criação que falhou (faltou campo, categoria inexistente…): a barra amarela colapsada esconde
+   * o motivo. Sem isto, a pessoa só vê "Criar (com confirmação)" em 0ms e acha que a Orb não cria.
+   */
+  const falhasDeCriacao = (message.tools ?? [])
+    .filter((tool) => tool.name === ORB_CREATE_TOOL_NAME && tool.status === "error")
+    .map((tool) => {
+      const summary = tool.summary;
+      const mensagem =
+        summary &&
+        typeof summary === "object" &&
+        !Array.isArray(summary) &&
+        typeof (summary as { error?: unknown }).error === "string"
+          ? (summary as { error: string }).error
+          : "Não consegui preparar essa criação.";
+      return { id: tool.id, mensagem };
+    });
+
   const showThinking = message.pending && !message.content;
   const podeTentarDeNovo = !message.pending && (message.failed || message.interrupted);
   const sessaoCaiu = message.failed && message.errorKind === "session";
@@ -218,6 +236,20 @@ export const OrbMessageBubble = memo(function OrbMessageBubble({
         <div className="flex flex-col gap-2">
           {propostas.map((item) => (
             <OrbActionCard key={item.id} callId={item.id} proposal={item.proposal} />
+          ))}
+        </div>
+      ) : null}
+
+      {falhasDeCriacao.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {falhasDeCriacao.map((item) => (
+            <div
+              key={item.id}
+              className="flex gap-2 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2 text-[12px] text-foreground"
+            >
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
+              <p className="min-w-0 flex-1 break-words">{item.mensagem}</p>
+            </div>
           ))}
         </div>
       ) : null}
@@ -348,7 +380,7 @@ function OrbQuestionEditor({
         salvar();
       }}
     >
-      <div className="w-full max-w-[85%] rounded-2xl rounded-br-sm border bg-card p-2 shadow-sm focus-within:border-ring/50 sm:max-w-[75%]">
+      <div className="w-full max-w-[92%] rounded-2xl rounded-br-sm border bg-card p-2 shadow-sm focus-within:border-ring/50 sm:max-w-[85%]">
         <textarea
           ref={textareaRef}
           value={draft}

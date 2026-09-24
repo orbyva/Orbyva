@@ -3,7 +3,7 @@
  *
  * A Orb consultava e a tela mostrava a mesma tabela genérica para tudo — 12 tarefas, 30 filmes e um
  * orçamento estourado saíam com a mesma cara de dump. Aqui cada tool ganha um adaptador que traduz
- * o resultado para uma das quatro formas visuais (`cards`, `carousel`, `rows`, `bars`), e o
+ * o resultado para uma das formas visuais (`cards`, `carousel`, `rows`, `bars`, `grouped_bars`), e o
  * componente desenha.
  *
  * Duas regras que valem para todo adaptador:
@@ -68,7 +68,15 @@ export type OrbResultView =
   | { kind: "cards"; items: OrbCardItem[]; note?: string }
   | { kind: "carousel"; items: OrbPosterItem[]; note?: string }
   | { kind: "rows"; items: OrbRowItem[]; note?: string }
-  | { kind: "bars"; items: OrbBarItem[]; note?: string };
+  | { kind: "bars"; items: OrbBarItem[]; note?: string }
+  /** Barras agrupadas — nível (título do grupo) e subnível (cada barra). Orçamento: type → class. */
+  | { kind: "grouped_bars"; groups: OrbBarGroup[]; note?: string };
+
+export interface OrbBarGroup {
+  id: string;
+  title: string;
+  items: OrbBarItem[];
+}
 
 type Registro = Record<string, unknown>;
 
@@ -296,23 +304,31 @@ const ADAPTADORES: Record<string, (resultado: unknown) => OrbResultView | null> 
   query_budget_status: (resultado) => {
     const orcamentos = lista(resultado, "budgets");
     if (!orcamentos) return null;
+
+    const grupos = new Map<string, { title: string; items: OrbBarItem[] }>();
+    for (const [indice, linha] of orcamentos.entries()) {
+      const nivel = texto(linha, "type_name") ?? "Outros";
+      const planejado = numero(linha, "planned_value") ?? 0;
+      const gasto = numero(linha, "spent_value") ?? 0;
+      const percentual = numero(linha, "percentage_used");
+      const status = texto(linha, "status");
+      const barra: OrbBarItem = {
+        id: idDe(linha, indice, "class_name", "type_name"),
+        label: texto(linha, "class_name") ?? texto(linha, "type_name") ?? "Categoria",
+        value: `${formatBRL(gasto)} de ${formatBRL(planejado)}`,
+        ratio: planejado > 0 ? gasto / planejado : percentual ? percentual / 100 : 0,
+        tone:
+          status === "ESTOUROU" ? "erro" : status === "ATENÇÃO" || status === "QUASE" ? "atencao" : "ok",
+        hint: status ?? undefined,
+      };
+      const existente = grupos.get(nivel);
+      if (existente) existente.items.push(barra);
+      else grupos.set(nivel, { title: nivel, items: [barra] });
+    }
+
     return {
-      kind: "bars",
-      items: orcamentos.map((linha, indice) => {
-        const planejado = numero(linha, "planned_value") ?? 0;
-        const gasto = numero(linha, "spent_value") ?? 0;
-        const percentual = numero(linha, "percentage_used");
-        const status = texto(linha, "status");
-        return {
-          id: idDe(linha, indice, "class_name", "type_name"),
-          label: texto(linha, "class_name") ?? texto(linha, "type_name") ?? "Categoria",
-          value: `${formatBRL(gasto)} de ${formatBRL(planejado)}`,
-          ratio: planejado > 0 ? gasto / planejado : percentual ? percentual / 100 : 0,
-          tone:
-            status === "ESTOUROU" ? "erro" : status === "ATENÇÃO" || status === "QUASE" ? "atencao" : "ok",
-          hint: status ?? undefined,
-        };
-      }),
+      kind: "grouped_bars" as const,
+      groups: [...grupos.entries()].map(([id, grupo]) => ({ id, title: grupo.title, items: grupo.items })),
     };
   },
 
@@ -541,7 +557,10 @@ export function orbResultView(toolName: string, resultado: unknown): OrbResultVi
   if (!adaptador) return null;
   try {
     const visao = adaptador(resultado);
-    if (!visao || visao.items.length === 0) return null;
+    if (!visao) return null;
+    const vazio =
+      visao.kind === "grouped_bars" ? visao.groups.length === 0 : visao.items.length === 0;
+    if (vazio) return null;
     return visao;
   } catch {
     // Adaptador é código de apresentação sobre dado que veio da rede: uma exceção aqui não pode

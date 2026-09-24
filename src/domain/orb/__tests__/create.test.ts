@@ -153,13 +153,25 @@ describe("propose_create", () => {
     expect(proposta.fields.find((campo) => campo.label === "Quando")?.value).toContain("14:00");
   });
 
-  it("exige data e hora no evento", async () => {
-    const { ok } = await runOrbTool(
+  it("evento sem horário falha pedindo a hora — não inventa 09:00", async () => {
+    const { ok, result } = await runOrbTool(
+      "propose_create",
+      { kind: "event", title: "Jogo do Flamengo", date: "2026-09-27" },
+      ctx(fakeDb({}))
+    );
+
+    expect(ok).toBe(false);
+    expect(String((result as { error: string }).error)).toMatch(/time|hora|Pergunte/i);
+  });
+
+  it("evento ainda exige a data", async () => {
+    const { ok, result } = await runOrbTool(
       "propose_create",
       { kind: "event", title: "Dentista" },
       ctx(fakeDb({}))
     );
     expect(ok).toBe(false);
+    expect(String((result as { error: string }).error)).toMatch(/date/i);
   });
 
   it("recusa data fora do formato", async () => {

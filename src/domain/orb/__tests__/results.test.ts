@@ -49,9 +49,44 @@ describe("orbResultView", () => {
         { class_name: "Mercado", planned_value: 800, spent_value: 950, percentage_used: 118, status: "ESTOUROU" },
       ],
     });
-    if (view?.kind !== "bars") throw new Error("esperava barras");
-    expect(view.items[0].tone).toBe("erro");
-    expect(view.items[0].ratio).toBeGreaterThan(1);
+    if (view?.kind !== "grouped_bars") throw new Error("esperava barras agrupadas");
+    expect(view.groups[0].items[0].tone).toBe("erro");
+    expect(view.groups[0].items[0].ratio).toBeGreaterThan(1);
+  });
+
+  it("agrupa o orçamento por nível (type) com subnível (class)", () => {
+    const view = orbResultView("query_budget_status", {
+      month: "2026-09",
+      budgets: [
+        {
+          type_name: "Alimentação",
+          class_name: "Mercado",
+          planned_value: 800,
+          spent_value: 400,
+          status: "OK",
+        },
+        {
+          type_name: "Alimentação",
+          class_name: "Delivery",
+          planned_value: 200,
+          spent_value: 50,
+          status: "OK",
+        },
+        {
+          type_name: "Moradia",
+          class_name: "Aluguel",
+          planned_value: 2000,
+          spent_value: 2000,
+          status: "OK",
+        },
+      ],
+    });
+    if (view?.kind !== "grouped_bars") throw new Error("esperava barras agrupadas");
+    expect(view.groups).toHaveLength(2);
+    expect(view.groups[0]).toMatchObject({ title: "Alimentação" });
+    expect(view.groups[0].items.map((item) => item.label)).toEqual(["Mercado", "Delivery"]);
+    expect(view.groups[1]).toMatchObject({ title: "Moradia" });
+    expect(view.groups[1].items[0].label).toBe("Aluguel");
   });
 
   it("separa receita de despesa pelo tom do valor", () => {

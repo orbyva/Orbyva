@@ -247,7 +247,7 @@ export default function AdminLayout() {
               </div>
             </div>
           </header>
-          <div className="flex flex-1 flex-col gap-1.5 pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] sm:gap-4 md:pb-6">
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] sm:gap-4 md:pb-6">
             <Toaster />
             {hasAccess ? <OnboardingDialog /> : null}
             {hasAccess ? <QuickAddExpenseFab /> : null}

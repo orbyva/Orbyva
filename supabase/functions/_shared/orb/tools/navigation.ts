@@ -70,9 +70,12 @@ export const openScreen: OrbTool = {
   title: "Abrir tela",
   description:
     "Leva a pessoa para uma tela do Orbyva AGORA, já com filtro e busca aplicados — é navegação de verdade, a tela troca na frente dela. " +
-    "Use quando o pedido for para ver, abrir, mostrar ou conferir algo numa tela ('me mostra as tarefas do Sacada', 'abre meus gastos com mercado'). " +
-    "Para responder um número ou uma lista dentro da conversa, use as tools de consulta — esta não devolve dado. " +
-    "Pode ser chamada junto com uma consulta no mesmo turno: consulte para responder e abra a tela para a pessoa continuar de lá.\n\n" +
+    "Use SÓ quando (1) o pedido for explicitamente para abrir, mostrar, levar ou ir a uma tela " +
+    "('me mostra as tarefas do Sacada', 'abre meus gastos com mercado'), ou (2) você não consegue " +
+    "fazer a ação e precisa entregar a pessoa na tela certa depois de explicar. " +
+    "NÃO use depois de uma consulta ou indicação que já respondeu no chat ('me indica um filme', " +
+    "'quanto gastei'): aí a resposta é o texto; no máximo sugira o módulo em palavras. " +
+    "Esta tool não devolve dado — para número ou lista, use as tools de consulta.\n\n" +
     "Telas:\n" +
     describeOrbScreens(),
   inputSchema: {

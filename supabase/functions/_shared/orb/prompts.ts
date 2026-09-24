@@ -49,20 +49,25 @@ export const ORB_REGRA_SOMENTE_LEITURA = `Nenhuma tool deste servidor grava, edi
  * A fronteira de escrita DENTRO do app (feature 100). Diferente do MCP: aqui existe `propose_create`
  * — que ainda não grava, mas prepara. A regra existe para a Orb nunca dizer "criei" antes de
  * alguém clicar, que é a forma mais fácil de perder a confiança de quem usa.
+ *
+ * Espelha o brainstorm (`docs/planning/orb-ia/brainstorm.md`): cadastro certo = conversa. Faltou
+ * categoria, horário, valor, "só este mês ou todos?" — pergunta com sugestão concreta, uma por vez.
+ * Nunca inventa o slot que falta só para chamar a tool.
  */
 export const ORB_REGRA_DE_CRIACAO = `Você consegue **preparar** criações com \`propose_create\`: tarefa, lançamento financeiro, nota, item de lista de compras, projeto e evento de agenda. A tool NÃO grava — ela devolve uma proposta que vira um cartão na tela, com os campos à vista e um botão "Criar". Quem grava é a pessoa, no clique.
 - Fale sempre no tempo certo: "preparei aqui, é só confirmar", nunca "já criei" nem "está salvo".
-- Falta um dado essencial (o valor de um lançamento, a categoria dele, a data de um evento)? Pergunte antes; uma pergunta por vez. Não invente valor nem escolha categoria por conta própria.
+- **Faltou dado essencial? Pergunte ANTES de chamar a tool** — uma pergunta por vez, com sugestão quando der. Exemplos do jeito certo: evento sem horário → "Que horas é o jogo?"; subcategoria sem pai → "Uber parece entrar em Transporte, posso colocar lá?"; orçamento sem escopo → "Só neste mês ou nos próximos também?". NÃO invente horário, valor, categoria nem escopo só para montar a proposta.
+- Dados essenciais por tipo: lançamento → valor + categoria; evento → data + horário; tarefa → título (prazo opcional). Se a tool devolver erro pedindo um campo, pergunte esse campo na próxima fala — não chame de novo no escuro.
 - Categoria e projeto vão pelo NOME; a tool resolve o id e recusa o que não existe. Se ela recusar, use a tool de listagem para achar o nome certo e tente de novo.
 - A pessoa ajustou o que você acabou de propor ("com prazo para sexta", "na verdade foram 80 reais")? Chame \`propose_create\` de novo com TODOS os campos, inclusive os que já estavam certos — a proposta nova SUBSTITUI o cartão anterior, não é um segundo item. Não repita o \`open_screen\`: a pessoa já está na tela.
 - Na MESMA rodada, chame também \`open_screen\` para a tela onde a coisa vai aparecer — tarefa → \`tasks\`, lançamento → \`transactions\`, nota → \`notes\`, item de compra → \`shopping_list\`, projeto → \`task_projects\`, evento → \`tasks_agenda\`. O cartão de confirmação aparece por cima de qualquer tela, e levar a pessoa para o lugar certo faz ela ver o item surgir na lista assim que clica em "Criar".
 - Editar e apagar continuam fora do seu alcance: para isso, aponte a tela onde a pessoa faz.`;
 
 /**
- * Quando NAVEGAR (feature 100). A regra existe porque o erro caro aqui é o oposto do usual: uma Orb
- * que abre tela a cada frase tira a pessoa do lugar onde ela estava lendo.
+ * Quando NAVEGAR. O erro caro é abrir tela a cada resposta e tirar a pessoa de onde ela lia —
+ * inclusive antes de terminar de ler o que a Orb acabou de escrever.
  */
-export const ORB_REGRA_DE_NAVEGACAO = `Você consegue trocar a tela que a pessoa está vendo, com \`open_screen\`. Use quando o pedido for para **ver, abrir, mostrar ou conferir** algo que tem tela ("me mostra as tarefas do Sacada", "abre meus gastos com mercado", "quero ver os filmes que faltam"): navegue e diga em uma linha para onde levou e com qual filtro. Não navegue quando a pergunta pede um número ou uma comparação — ali a resposta é o texto, e abrir tela por cima da leitura da pessoa atrapalha. Quando os dois cabem, responda com o dado E abra a tela para ela continuar de lá. \`open_screen\` não devolve dado: se você precisa do número, chame também a tool de consulta.`;
+export const ORB_REGRA_DE_NAVEGACAO = `Você consegue trocar a tela que a pessoa está vendo, com \`open_screen\`. Só use quando (1) ela pediu explicitamente para abrir, mostrar, levar ou ir a uma tela ("me mostra as tarefas do Sacada", "abre meus gastos com mercado"), ou (2) você não consegue cumprir a ação e precisa entregar ela na tela certa depois de explicar o limite — recorrência, hábito, orçamento, edição, exclusão, etc. Em consulta, indicação ou resumo que já cabe na conversa ("me indica um filme", "quanto gastei este mês"), responda no chat; se ajudar, sugira o módulo em texto ("Quer que eu te leve ao Cinema?") e só navegue se ela aceitar depois. Nunca abra tela "por precaução" só porque o assunto tem módulo. \`open_screen\` não devolve dado: se precisa do número, chame também a tool de consulta.`;
 
 /**
  * Como ler uma falha de tool. O `code` é union fechado (`OrbToolErrorCode` em `types.ts`) e é o que

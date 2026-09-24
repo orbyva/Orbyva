@@ -20,6 +20,12 @@ const TEXTO_INTERROMPIDA = "Resposta interrompida.";
 const TEXTO_SEM_RESPOSTA = "A Orb terminou sem escrever nada. Tente de novo.";
 const TEXTO_FALHA = "A Orb não conseguiu responder agora.";
 
+/**
+ * Folga depois do turno fechar antes de trocar de tela: o último token precisa pintar, senão a
+ * pessoa só vê a rota nova e acha que a Orb não respondeu.
+ */
+const PAUSA_ANTES_DE_NAVEGAR_MS = 400;
+
 /** Sessão caída pede "Entrar de novo"; o resto pede "Tentar de novo". */
 const ERRO_DE_SESSAO = /sess[ãa]o expirada|not authenticated|jwt|unauthorized/i;
 
@@ -144,12 +150,21 @@ export function useOrbChat({ onNavigate }: UseOrbChatOptions = {}) {
   const messagesRef = useRef<OrbMessage[]>([]);
   const streamingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const navegacaoTimeoutRef = useRef<number | null>(null);
   // Numa `ref` porque o handler do stream é montado uma vez por turno: preso à closure, ele
   // navegaria com o callback de um render antigo (e com o `navigate` de outra rota).
   const navegarRef = useRef(onNavigate);
   useEffect(() => {
     navegarRef.current = onNavigate;
   }, [onNavigate]);
+
+  const cancelarNavegacaoAgendada = useCallback(() => {
+    if (navegacaoTimeoutRef.current === null) return;
+    window.clearTimeout(navegacaoTimeoutRef.current);
+    navegacaoTimeoutRef.current = null;
+  }, []);
+
+  useEffect(() => () => cancelarNavegacaoAgendada(), [cancelarNavegacaoAgendada]);
 
   /** Ref e estado andam juntos: quem chama logo em seguida já lê a lista nova. */
   const atualizar = useCallback((mudanca: (atual: OrbMessage[]) => OrbMessage[]) => {
@@ -159,9 +174,10 @@ export function useOrbChat({ onNavigate }: UseOrbChatOptions = {}) {
   }, []);
 
   const stop = useCallback(() => {
+    cancelarNavegacaoAgendada();
     abortRef.current?.abort();
     abortRef.current = null;
-  }, []);
+  }, [cancelarNavegacaoAgendada]);
 
   const reset = useCallback(() => {
     stop();
@@ -177,6 +193,7 @@ export function useOrbChat({ onNavigate }: UseOrbChatOptions = {}) {
    */
   const rodarTurno = useCallback(
     async (historico: OrbMessage[]) => {
+      cancelarNavegacaoAgendada();
       const replyId = nextId();
       atualizar(() => [
         ...historico,
@@ -187,6 +204,8 @@ export function useOrbChat({ onNavigate }: UseOrbChatOptions = {}) {
 
       const controller = new AbortController();
       abortRef.current = controller;
+      /** Destino pedido por `open_screen` neste turno — só navega depois da resposta terminar. */
+      let destinoPendente: OrbNavigationTarget | null = null;
 
       const patchReply = (patch: (mensagem: OrbMessage) => OrbMessage) => {
         atualizar((atual) =>
@@ -195,12 +214,21 @@ export function useOrbChat({ onNavigate }: UseOrbChatOptions = {}) {
       };
 
       const marcarInterrompida = () => {
+        destinoPendente = null;
         patchReply((mensagem) => ({
           ...encerrarToolsAbertas(mensagem),
           pending: false,
           interrupted: true,
           content: mensagem.content || TEXTO_INTERROMPIDA,
         }));
+      };
+
+      const agendarNavegacao = (destino: OrbNavigationTarget) => {
+        cancelarNavegacaoAgendada();
+        navegacaoTimeoutRef.current = window.setTimeout(() => {
+          navegacaoTimeoutRef.current = null;
+          navegarRef.current?.(destino);
+        }, PAUSA_ANTES_DE_NAVEGAR_MS);
       };
 
       try {
@@ -221,12 +249,13 @@ export function useOrbChat({ onNavigate }: UseOrbChatOptions = {}) {
                 event.ok !== false &&
                 isOrbNavigationTarget(event.summary)
               ) {
-                navegarRef.current?.(event.summary);
+                destinoPendente = event.summary;
               }
             } else if (event.type === "done") {
               const usage = event.usage;
               if (isOrbUsage(usage)) patchReply((mensagem) => ({ ...mensagem, usage }));
             } else if (event.type === "error") {
+              destinoPendente = null;
               patchReply((mensagem) => ({
                 ...encerrarToolsAbertas(mensagem),
                 pending: false,
@@ -252,8 +281,10 @@ export function useOrbChat({ onNavigate }: UseOrbChatOptions = {}) {
             // ainda parece bug de renderização. Vira falha explícita, sempre.
             return { ...fechada, failed: true, errorKind: "generic", content: TEXTO_SEM_RESPOSTA };
           });
+          if (destinoPendente) agendarNavegacao(destinoPendente);
         }
       } catch (error) {
+        destinoPendente = null;
         if (controller.signal.aborted) {
           // Parada pedida pelo usuário: o que já chegou fica na tela, sem virar erro.
           marcarInterrompida();
@@ -272,7 +303,7 @@ export function useOrbChat({ onNavigate }: UseOrbChatOptions = {}) {
         setIsStreaming(false);
       }
     },
-    [atualizar]
+    [atualizar, cancelarNavegacaoAgendada]
   );
 
   const send = useCallback(

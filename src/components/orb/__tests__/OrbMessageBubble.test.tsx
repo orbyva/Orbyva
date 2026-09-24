@@ -218,4 +218,56 @@ describe("OrbMessageBubble — editar a pergunta", () => {
     // Copiar continua valendo na pergunta mesmo sem edição.
     expect(screen.getByRole("button", { name: /copiar/i })).toBeInTheDocument();
   });
+
+  it("mostra o cartão Criar quando propose_create deu certo", () => {
+    renderizar(
+      resposta({
+        tools: [
+          {
+            id: "c1",
+            name: "propose_create",
+            status: "ok",
+            summary: {
+              kind: "event",
+              label: "Novo evento",
+              fields: [
+                { label: "Evento", value: "Jogo do Flamengo" },
+                { label: "Quando", value: "27/09/2026 às 09:00" },
+              ],
+              payload: {
+                title: "Jogo do Flamengo",
+                starts_at: "2026-09-27T12:00:00.000Z",
+              },
+              status: "aguardando_confirmacao",
+              note: "Nada foi gravado.",
+            },
+          },
+        ],
+      })
+    );
+
+    expect(screen.getByRole("button", { name: /^Criar$/i })).toBeInTheDocument();
+    expect(screen.getByText("Jogo do Flamengo")).toBeInTheDocument();
+  });
+
+  it("mostra o erro da criação fora da barra amarela colapsada", () => {
+    renderizar(
+      resposta({
+        tools: [
+          {
+            id: "c1",
+            name: "propose_create",
+            status: "error",
+            summary: {
+              error: 'Para criar novo evento falta "date". Pergunte ao usuário e chame de novo.',
+              code: "input_invalido",
+            },
+          },
+        ],
+      })
+    );
+
+    expect(screen.getByText(/falta "date"/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Criar$/i })).not.toBeInTheDocument();
+  });
 });

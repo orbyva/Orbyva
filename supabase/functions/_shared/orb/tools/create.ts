@@ -28,9 +28,13 @@ const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function exigir(valor: string | undefined, campo: string, kind: string): string {
   if (!valor) {
-    throw new OrbToolError(
-      `Para criar ${ORB_CREATE_LABELS[kind as OrbCreateKind]?.toLowerCase() ?? kind} falta "${campo}". Pergunte ao usuário e chame de novo.`
-    );
+    const dica =
+      campo === "time" && kind === "event"
+        ? 'Para criar um evento falta o horário. Pergunte ao usuário ("Que horas?") e só então chame de novo com "time" em HH:MM.'
+        : campo === "date" && kind === "event"
+          ? 'Para criar um evento falta a data. Pergunte ao usuário e só então chame de novo com "date" em YYYY-MM-DD.'
+          : `Para criar ${ORB_CREATE_LABELS[kind as OrbCreateKind]?.toLowerCase() ?? kind} falta "${campo}". Pergunte ao usuário e chame de novo.`;
+    throw new OrbToolError(dica);
   }
   return valor;
 }
@@ -101,7 +105,11 @@ export const proposeCreate: OrbTool = {
       },
       project: { type: "string", description: "Nome do projeto ao qual isto pertence." },
       date: { type: "string", description: "Data em YYYY-MM-DD: prazo da tarefa, dia do lançamento ou do evento." },
-      time: { type: "string", description: "Hora em HH:MM: da tarefa ou do evento." },
+      time: {
+        type: "string",
+        description:
+          "Hora em HH:MM: da tarefa ou do evento. No evento é OBRIGATÓRIA — se a pessoa não disse, NÃO chame a tool: pergunte o horário antes.",
+      },
       end_time: { type: "string", description: "Hora de término do evento (HH:MM)." },
       priority: { type: "string", enum: ["low", "medium", "high"], description: "Prioridade da tarefa." },
       duration_minutes: { type: "number", description: "Duração estimada da tarefa, em minutos." },

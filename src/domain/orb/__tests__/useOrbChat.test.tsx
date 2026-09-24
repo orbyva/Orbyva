@@ -408,6 +408,9 @@ describe("useOrbChat — histórico enviado", () => {
 /**
  * A navegação da Orb (feature 100). O caminho vem pelo stream, e o hook só o entrega a quem navega
  * depois de passar pela whitelist do catálogo — este bloco é o que garante que essa peneira exista.
+ *
+ * Navegar no `tool done` no meio do stream tirava a pessoa da conversa antes de ler a resposta.
+ * O alvo fica guardado e só dispara depois do turno fechar.
  */
 describe("useOrbChat — navegação", () => {
   const alvo = {
@@ -417,7 +420,7 @@ describe("useOrbChat — navegação", () => {
     applied: ["project: Sacada"],
   };
 
-  it("avisa quem navega quando a tool de tela termina", async () => {
+  it("não navega no meio do stream — só depois do turno fechar", async () => {
     const onNavigate = vi.fn();
     const { result } = renderHook(() => useOrbChat({ onNavigate }));
     await iniciarTurno(() => void result.current.send("me mostra as tarefas do Sacada"));
@@ -425,9 +428,37 @@ describe("useOrbChat — navegação", () => {
     act(() => {
       ultimo().emitir({ type: "tool", id: "1", name: "open_screen", phase: "start" });
       ultimo().emitir({ type: "tool", id: "1", name: "open_screen", phase: "done", ok: true, summary: alvo });
+      ultimo().emitir({ type: "text", text: "Levei você às tarefas do Sacada." });
     });
 
-    expect(onNavigate).toHaveBeenCalledWith(alvo);
+    expect(onNavigate).not.toHaveBeenCalled();
+
+    await act(async () => {
+      ultimo().concluir();
+    });
+
+    await waitFor(() => expect(onNavigate).toHaveBeenCalledWith(alvo));
+  });
+
+  it("não navega se a pessoa parou o stream", async () => {
+    const onNavigate = vi.fn();
+    const { result } = renderHook(() => useOrbChat({ onNavigate }));
+    await iniciarTurno(() => void result.current.send("abre cinema"));
+
+    act(() => {
+      ultimo().emitir({ type: "tool", id: "1", name: "open_screen", phase: "done", ok: true, summary: alvo });
+    });
+    expect(onNavigate).not.toHaveBeenCalled();
+
+    await act(async () => {
+      result.current.stop();
+    });
+
+    // Dá tempo do timeout de navegação (se existisse) disparar — e confirma que não dispara.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 500));
+    });
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 
   it("ignora caminho fora do catálogo e tool que falhou", async () => {
@@ -456,6 +487,13 @@ describe("useOrbChat — navegação", () => {
       ultimo().emitir({ type: "tool", id: "3", name: "query_tasks", phase: "done", ok: true, summary: alvo });
     });
 
+    await act(async () => {
+      ultimo().concluir();
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 500));
+    });
     expect(onNavigate).not.toHaveBeenCalled();
   });
 });
