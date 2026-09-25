@@ -115,7 +115,7 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
       js/ts/json/css/html/sql/python/bash. Verificação: `npm run build && npm run check:bundle` —
       o chunk `codemirror` **não** pode crescer (as gramáticas têm que sair em chunks lazy); anotar
       em Notas os dois tamanhos.
-- [ ] Ampliar `src/components/codemirror/livePreview.ts` para decorar também link, lista, citação e
+- [x] Ampliar `src/components/codemirror/livePreview.ts` para decorar também link, lista, citação e
       linha de fence (fundo sutil), mantendo a invariante já testada de que as decorações são
       view-only e o documento não muda. Verificação: casos novos em `livePreview.test.ts`,
       incluindo um que reassere "o documento continua idêntico".
@@ -230,6 +230,7 @@ npx vitest run src/pages/admin/notes/__tests__/NoteEditorToolbar.test.tsx
 npx vitest run src/pages/admin/notes/__tests__/NoteEditor.split.test.tsx
 npx vitest run src/components/codemirror/__tests__/slashCommands.test.ts
 npx vitest run src/components/codemirror/__tests__/markdownLanguage.test.ts
+npx vitest run src/components/codemirror/__tests__/livePreview.test.ts
 npx vitest run src/pages/admin/notes/__tests__/Notes.flow.test.tsx
 npm run build
 npm run lint
@@ -255,6 +256,9 @@ npm run check:bundle
   `bash`…) resolvem, linguagem desconhecida continua sem cor e sem erro, e depois de a gramática
   carregar o miolo de um ```js vira `VariableDefinition`/`Number` na árvore de sintaxe — que é de
   onde o realce sai.
+- `livePreview.test.ts` prova as decorações novas (link, URL, marcador de lista, citação e fundo do
+  fence) **e** a invariante que sustenta o editor: mesmo com todas elas, `state.doc` continua byte a
+  byte o que o usuário escreveu.
 - `npm run check:bundle` também precisa listar os `cm-lang-*.js` como **lazy** (e não como `entry`
   nem `route`) e o `codemirror-*.js` abaixo de 200 KB — é o que prova que nenhuma gramática entrou
   no caminho crítico do editor.
@@ -281,7 +285,10 @@ npm run check:bundle
 8. Escreva um bloco ` ```ts ` com `const total = 1 + 2;` dentro. No **editor** (não no preview), a
    palavra `const` e o número saem coloridos depois de um instante — a gramática é baixada sob
    demanda (aba de rede: `cm-lang-javascript-*.js`). Um ` ```brainfuck ` continua sem cor, sem erro.
-9. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
+9. Ainda no editor: link sai colorido com a URL sublinhada em cinza, `-`/`1.` de lista saem em
+   destaque, citação ganha barra à esquerda em todas as linhas e o bloco de código ganha fundo
+   cinza de ponta a ponta — tudo **sem** o texto mudar (os `>` e `-` continuam lá).
+10. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
    e o **Inserir diagrama** que já existia. Passe o mouse em cada um: o `title` mostra o atalho.
    Clique em **Tabela** no fim de um parágrafo: entra o esqueleto GFM em bloco próprio, com o
    cabeçalho pronto para ser trocado. Vá para **Visualizar**: a barra some.

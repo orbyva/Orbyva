@@ -25,6 +25,25 @@ const CONTENT_CLASS: Record<string, string> = {
   Emphasis: "cm-md-em",
   Strikethrough: "cm-md-strike",
   InlineCode: "cm-md-code",
+  /**
+   * Acrescentados na 070. Link, lista, citação e fence são o que uma nota de verdade tem em toda
+   * página — sem eles o "live preview" formatava só ênfase e título, e o resto ficava texto cru.
+   */
+  Link: "cm-md-link",
+  URL: "cm-md-url",
+  ListMark: "cm-md-list-mark",
+  QuoteMark: "cm-md-quote-mark",
+  CodeInfo: "cm-md-code-info",
+};
+
+/**
+ * Nós de **bloco** que pintam a linha inteira, e não um trecho: fundo sutil no bloco de código e
+ * barra à esquerda na citação. `Decoration.line` existe exatamente para isso — uma `mark` num nó de
+ * várias linhas pinta só o texto, deixando o fundo furado onde a linha é mais curta.
+ */
+const LINE_CLASS: Record<string, string> = {
+  FencedCode: "cm-md-fence-line",
+  Blockquote: "cm-md-quote-line",
 };
 
 /**
@@ -65,10 +84,31 @@ export function buildLivePreviewDecorations(
 ): DecorationSet {
   const decorations: Range<Decoration>[] = [];
 
+  /** Evita pintar a mesma linha duas vezes (citação dentro de citação, fence dentro de lista). */
+  const linesDone = new Set<string>();
+
   syntaxTree(state).iterate({
     from: 0,
     to: state.doc.length,
     enter: (node) => {
+      const lineClass = LINE_CLASS[node.name];
+      if (lineClass) {
+        let pos = node.from;
+        // `while` em vez de `for` de linhas: o nó pode terminar no meio da última linha.
+        for (;;) {
+          const line = state.doc.lineAt(pos);
+          const key = `${lineClass}@${line.from}`;
+          if (!linesDone.has(key)) {
+            linesDone.add(key);
+            decorations.push(Decoration.line({ class: lineClass }).range(line.from));
+          }
+          if (line.to >= node.to) break;
+          pos = line.to + 1;
+        }
+        // Sem `return`: o conteúdo do bloco continua ganhando as decorações dele (ênfase dentro da
+        // citação, marcação do fence).
+      }
+
       const contentClass = CONTENT_CLASS[node.name];
       if (contentClass && node.to > node.from) {
         decorations.push(
@@ -130,6 +170,22 @@ const livePreviewTheme = EditorView.baseTheme({
     backgroundColor: "hsl(var(--muted))",
     borderRadius: "3px",
     padding: "0 3px",
+  },
+  /* Feature 070 — link, lista, citação e bloco de código no editor. */
+  ".cm-md-link": { color: "hsl(var(--primary))" },
+  ".cm-md-url": { color: "hsl(var(--muted-foreground))", textDecoration: "underline" },
+  ".cm-md-list-mark": { color: "hsl(var(--primary))", fontWeight: "600" },
+  ".cm-md-quote-mark": { color: "hsl(var(--muted-foreground))" },
+  ".cm-md-code-info": { color: "hsl(var(--muted-foreground))", fontSize: "0.85em" },
+  ".cm-md-fence-line": {
+    backgroundColor: "hsl(var(--muted) / 0.6)",
+    // O fundo vai de ponta a ponta da linha, mesmo onde não há texto.
+    display: "block",
+  },
+  ".cm-md-quote-line": {
+    borderLeft: "3px solid hsl(var(--border))",
+    paddingLeft: "0.5rem",
+    color: "hsl(var(--muted-foreground))",
   },
 });
 
