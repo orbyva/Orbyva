@@ -144,7 +144,7 @@ de bolinhas não pode roubar nem perder cliques para eles. E `AgendaHourGrid` é
       tarefa pontual pela Agenda apagaria a pontualidade dela. Verificação: teste abrindo o form a
       partir de uma tarefa pontual e conferindo que salvar sem mexer em nada mantém
       `estimated_duration: 0`.
-- [ ] `src/api/health/medications.ts`: doses novas passam a nascer com `estimated_duration: 0`
+- [x] `src/api/health/medications.ts`: doses novas passam a nascer com `estimated_duration: 0`
       explícito, para que a segunda cláusula do `isPointTask` seja só rede de segurança das doses
       antigas. Verificação: `tasks.medication-materialization.test.ts` assere o campo nas linhas
       inseridas.

@@ -236,6 +236,10 @@ export async function materializeMedicationDoses(
     // leem. `dose_time` é o mesmo horário do lado do tratamento, e é a chave de deduplicação.
     due_time: slot.time,
     dose_time: slot.time,
+    // Dose é uma tarefa **pontual** (feature 072): acontece num instante, então na Agenda ela é
+    // bolinha marcável em vez de bloco de 30 min. Gravar `0` explícito deixa a cláusula
+    // `is_medication` de `isPointTask` como rede de segurança só das doses antigas.
+    estimated_duration: 0,
     recurrence_rule: null,
     recurrence_origin_id: null,
     is_medication: true,

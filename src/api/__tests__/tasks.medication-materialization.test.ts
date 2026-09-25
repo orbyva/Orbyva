@@ -140,6 +140,9 @@ describe("materializeMedicationDoses dentro de fetchTasks", () => {
       // `due_time` continua preenchido: é o que a Agenda e `isDoseLate` (049) leem.
       expect(row.due_time).toBe(row.dose_time);
       expect(row.recurrence_rule).toBeNull();
+      // Feature 072: a dose nasce pontual (`estimated_duration: 0`), então a Agenda a desenha
+      // como bolinha marcável em vez de inventar um bloco de 30 min.
+      expect(row.estimated_duration).toBe(0);
     }
     expect(tasks).toHaveLength(4);
   });
