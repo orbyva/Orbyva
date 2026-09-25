@@ -1,6 +1,9 @@
-import { createElement, useEffect, useState } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Root, RootContent } from "hast";
+import { Check, Copy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 
 /**
  * # Bloco de código colorido — ` ```ts ` (feature 069)
@@ -40,6 +43,7 @@ export function CodeBlock({
     <div className="markdown-code" data-testid="markdown-code">
       <div className="markdown-code-header">
         <span className="markdown-code-language">{language ?? ""}</span>
+        <CopyCodeButton code={code} />
       </div>
       <pre>
         <code className={language ? `language-${language}` : undefined}>
@@ -49,6 +53,59 @@ export function CodeBlock({
     </div>
   );
 }
+
+/**
+ * "Copiar" no cabeçalho. É a affordance que separa "mostra código" de "trabalha com código", e o
+ * que ela copia é **o texto-fonte**, não o DOM colorido — colar num editor tem que devolver
+ * exatamente o que estava escrito na nota.
+ *
+ * A área de transferência pode ser negada (permissão, contexto inseguro, navegador antigo): nesse
+ * caso o erro vira `toast`, e o bloco continua exatamente como estava. Copiar que falha não pode
+ * derrubar a leitura da nota.
+ */
+function CopyCodeButton({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+  const resetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resetRef.current) clearTimeout(resetRef.current);
+    };
+  }, []);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      if (resetRef.current) clearTimeout(resetRef.current);
+      resetRef.current = setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
+    } catch (error) {
+      toast({
+        title: getErrorMessage(error, "Não foi possível copiar o código."),
+        variant: "destructive",
+      });
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="markdown-code-copy"
+      onClick={() => void copy()}
+    >
+      {copied ? (
+        <Check className="h-3 w-3" aria-hidden="true" />
+      ) : (
+        <Copy className="h-3 w-3" aria-hidden="true" />
+      )}
+      {copied ? "Copiado" : "Copiar"}
+    </button>
+  );
+}
+
+/** Tempo do "Copiado" na tela: o bastante para ser lido, curto o bastante para não virar estado. */
+const COPIED_FEEDBACK_MS = 2000;
 
 /**
  * A árvore colorida, ou `null` enquanto ela não existe — e `null` é um estado final legítimo

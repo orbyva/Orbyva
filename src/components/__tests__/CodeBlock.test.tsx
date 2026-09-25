@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 
 /**
@@ -43,9 +43,34 @@ vi.mock("lowlight", () => ({
   common: {},
 }));
 
+/**
+ * O `toast` é o canal de erro do app; aqui ele é espionado para provar o caminho negativo.
+ * `vi.hoisted` porque `vi.mock` sobe para o topo do arquivo e precisa do espião já criado.
+ */
+const { toast } = vi.hoisted(() => ({ toast: vi.fn() }));
+
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast, dismiss: vi.fn(), toasts: [] }),
+  toast,
+}));
+
+/** jsdom não tem área de transferência: ela é montada aqui, controlável por teste. */
+const writeText = vi.fn<(text: string) => Promise<void>>();
+
 beforeEach(() => {
   lowlightIndisponivel = false;
   highlight.mockClear();
+  toast.mockClear();
+  writeText.mockReset();
+  writeText.mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText },
+    configurable: true,
+  });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("CodeBlock — realce", () => {
@@ -150,5 +175,64 @@ describe("CodeBlock — realce", () => {
       );
     });
     expect(container.querySelector("img")).toBeNull();
+  });
+});
+
+describe("CodeBlock — copiar", () => {
+  const FONTE = "const a = 1;\nconst b = 2;";
+  const MARKDOWN = `\`\`\`ts\n${FONTE}\n\`\`\``;
+
+  it("copia o texto-fonte do bloco, não o DOM colorido", async () => {
+    const { container } = render(<MarkdownPreview content={MARKDOWN} />);
+    // Espera o realce entrar: é justamente depois dele que o DOM deixa de ser o texto puro.
+    await waitFor(() =>
+      expect(container.querySelector(".hljs-keyword")).not.toBeNull()
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /copiar/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(FONTE));
+  });
+
+  it("mostra 'Copiado' e volta para 'Copiar' depois de 2s", async () => {
+    vi.useFakeTimers();
+    render(<MarkdownPreview content={MARKDOWN} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /copiar/i }));
+    // Solta as microtarefas do `await writeText` sem avançar o relógio.
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(screen.getByRole("button", { name: /copiado/i })).toBeInTheDocument();
+
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(screen.getByRole("button", { name: /copiar/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /copiado/i })).toBeNull();
+  });
+
+  it("área de transferência negada vira toast e não derruba o bloco", async () => {
+    writeText.mockRejectedValue(new Error("NotAllowedError"));
+    const { container } = render(<MarkdownPreview content={MARKDOWN} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /copiar/i }));
+
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(toast.mock.calls[0][0]).toMatchObject({ variant: "destructive" });
+    // O bloco continua inteiro na tela, e o botão volta a oferecer "Copiar".
+    expect(container.querySelector("pre > code")).toHaveTextContent(
+      "const a = 1;"
+    );
+    expect(screen.getByRole("button", { name: /copiar/i })).toBeInTheDocument();
+  });
+
+  it("navegador sem área de transferência não quebra a nota", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+    });
+    render(<MarkdownPreview content={MARKDOWN} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /copiar/i }));
+
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: /copiar/i })).toBeInTheDocument();
   });
 });

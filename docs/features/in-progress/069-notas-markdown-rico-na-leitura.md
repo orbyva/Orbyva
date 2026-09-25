@@ -132,7 +132,7 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
 - [x] Mapear as cores do highlight para tokens do tema em `.markdown-body` (classes `hljs-*` →
       `hsl(var(--…))`), cobrindo claro e escuro. Verificação: `npm run build`; inspeção do CSS —
       nenhuma cor literal fora de token.
-- [ ] Botão "Copiar" no cabeçalho do `CodeBlock` (`navigator.clipboard.writeText`), com feedback
+- [x] Botão "Copiar" no cabeçalho do `CodeBlock` (`navigator.clipboard.writeText`), com feedback
       "Copiado" por 2s e `toast` de erro via `getErrorMessage` quando a área de transferência é
       negada. Verificação: teste em `src/components/__tests__/CodeBlock.test.tsx` — copia o
       **texto-fonte** (não o HTML colorido), mostra o feedback, e o caminho de erro não derruba o
@@ -339,10 +339,13 @@ npm run check:bundle
      desconhecida não é erro;
    - o fence sem linguagem sai na moldura, sem nome e sem cor;
    - nenhum deles perde um caractere do código.
-6. Ainda na leitura: o marcador `1` da nota de rodapé sai sobrescrito e clicável; clicar leva à
+6. Clique em **Copiar** no cabeçalho de um bloco: o botão vira **Copiado** por ~2 segundos e volta.
+   Cole num editor de texto: vem o código **como foi escrito** (duas linhas, com a quebra), sem
+   marcação nem cor.
+7. Ainda na leitura: o marcador `1` da nota de rodapé sai sobrescrito e clicável; clicar leva à
    seção do fim (separada por uma linha, em fonte menor), a linha de destino se acende, e o `↩`
    volta para o ponto do texto.
-7. Alterne o tema (claro/escuro) com os callouts na tela: as cores acompanham o tema, sem nenhuma
+8. Alterne o tema (claro/escuro) com os callouts na tela: as cores acompanham o tema, sem nenhuma
    caixa ficando ilegível (tudo sai de token `hsl(var(--…))`, não de cor literal).
 
 ### 4. Casos de borda e caminhos negativos
@@ -361,6 +364,9 @@ npm run check:bundle
 - Abrir a nota **offline**, sem o chunk do KaTeX em cache: a fórmula aparece como o texto-fonte em
   monoespaçada (`E = mc^2`), sem caixa de erro — biblioteca que não chegou não é erro de quem
   escreveu.
+- Copiar com a área de transferência negada (navegador em contexto inseguro, ou permissão
+  bloqueada): aparece um toast vermelho de "não foi possível copiar" e o bloco continua inteiro —
+  nada de tela branca.
 
 ### 5. Sinais de que quebrou
 
