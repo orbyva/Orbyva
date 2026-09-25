@@ -100,17 +100,17 @@ de bolinhas não pode roubar nem perder cliques para eles. E `AgendaHourGrid` é
 - [ ] `splitTimedItems`/`layoutTimedItems` deixam de receber itens pontuais (filtro na entrada do
       `AgendaHourGrid`, não dentro das funções puras, que continuam genéricas). Verificação: teste
       provando que 3 pontuais no mesmo horário **não** dividem a largura da coluna do dia.
-- [ ] Criar `src/pages/admin/tasks/PointTaskDots.tsx`: fileira de bolinhas com `role="group"`, cada
+- [x] Criar `src/pages/admin/tasks/PointTaskDots.tsx`: fileira de bolinhas com `role="group"`, cada
       bolinha um `<button>` com `aria-pressed`, `aria-label` `"Concluir: <título> (HH:mm)"` /
       `"Reabrir: …"`, tooltip com título + horário, e as classes de `--success` da Decisão.
       Recebe `items`, `onToggle?` e `onOverflowClick?`. Verificação: `npm run build && npm run lint`.
-- [ ] Estados da bolinha no mesmo componente: pendente (vazada), concluída (verde com `Check`),
+- [x] Estados da bolinha no mesmo componente: pendente (vazada), concluída (verde com `Check`),
       virtual (vazada, `disabled`, `opacity-60`, tooltip "ocorrência futura"), e sem `onToggle`
       (somente leitura, sem `hover`, usado pelo Gantt). Verificação: testes em
       `src/pages/admin/tasks/__tests__/PointTaskDots.test.tsx` cobrindo os quatro.
-- [ ] Overflow: acima de 8 bolinhas na fileira, mostrar 8 + botão "+N", que chama `onOverflowClick`.
+- [x] Overflow: acima de 8 bolinhas na fileira, mostrar 8 + botão "+N", que chama `onOverflowClick`.
       Verificação: teste com 12 itens — 8 bolinhas e o rótulo "+4", e o clique dispara o handler.
-- [ ] Teclado e foco: `Enter`/`Espaço` alternam, `Tab` percorre as bolinhas na ordem do horário, e o
+- [x] Teclado e foco: `Enter`/`Espaço` alternam, `Tab` percorre as bolinhas na ordem do horário, e o
       foco não é perdido depois do toggle (a lista re-renderiza). Verificação: testes de teclado no
       mesmo arquivo.
 - [ ] `AgendaHourGrid.tsx`: aceitar `onToggleTaskDone?` (opcional — `GanttChart.tsx:669` não passa)
