@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Pill } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,14 +8,14 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { PAGE_HEADER_ACTIONS_CLASS } from "@/components/FormLabel";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import { MedicationQuickCreateDialog } from "@/pages/admin/tasks/MedicationQuickCreateDialog";
+import { MedicationQuickCreateDialog } from "@/pages/admin/health/MedicationQuickCreateDialog";
 import {
   deactivateMedication,
   fetchDosesSince,
   fetchMedications,
 } from "@/api/health/medications";
 import { computeAdherence, formatRate } from "@/domain/health/adherence";
-import { formatPosology } from "@/domain/health/medication";
+import { formatPosology, nextDoseSlot } from "@/domain/health/medication";
 import { formatDateBR } from "@/lib/currency";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { getErrorMessage } from "@/lib/errors";
@@ -158,6 +159,7 @@ export default function MedicationList() {
           <ul className="divide-y">
             {ordered.map((medication) => {
               const adherence = adherenceById.get(medication.id);
+              const next = nextDoseSlot(medication, new Date());
               return (
                 <li
                   key={medication.id}
@@ -179,6 +181,17 @@ export default function MedicationList() {
                         {medication.instructions}
                       </p>
                     ) : null}
+                    {/* O vínculo remédio → tarefa aparecendo onde o remédio é gerenciado: a dose
+                        é uma tarefa na agenda, e daqui dá para ir vê-la. Tratamento encerrado não
+                        tem próxima dose — prometer uma seria mentira. */}
+                    {next ? (
+                      <p
+                        className="text-xs text-muted-foreground"
+                        data-testid={`next-dose-${medication.id}`}
+                      >
+                        Próxima dose: {formatDateBR(next.date)} às {next.time}
+                      </p>
+                    ) : null}
                     <p className="text-xs text-muted-foreground">
                       {/* A adesão só existe se houve dose vencida na janela — "0%" para quem
                           acabou de cadastrar seria uma acusação falsa. */}
@@ -197,6 +210,13 @@ export default function MedicationList() {
                         Término: {formatDateBR(medication.ended_on)}
                       </p>
                     ) : null}
+                    <Link
+                      to="/tasks/agenda"
+                      aria-label={`Ver doses de ${medication.name} na agenda`}
+                      className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      Ver doses na agenda
+                    </Link>
                   </div>
 
                   <div className="flex shrink-0 gap-2">

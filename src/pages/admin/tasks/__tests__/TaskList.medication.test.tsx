@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import TaskList from "@/pages/admin/tasks/TaskList";
 import {
@@ -9,24 +8,22 @@ import {
   fetchTags,
   fetchTasks,
 } from "@/api/tasks";
-import { createMedicationWithDoses } from "@/api/health/medications";
 import { fetchRecurringTransactions } from "@/api/recurring";
 import type { Task } from "@/types/tasks";
 
 /**
- * Atalho "Nova medicação" (features 049 e 064) — cobre a abertura do dialog a partir do header e
- * do botão que aparece no `EmptyState` (lista vazia), e que criar com sucesso recarrega a lista
- * (novo `fetchTasks`) e fecha o dialog. O conteúdo do form em si (validação, payload) já é coberto
- * isoladamente em `MedicationQuickCreateDialog.test.tsx`.
+ * O **oposto** do que este arquivo assegurava até 2026-08-18: a tela de Tarefas não oferece mais o
+ * atalho "Nova medicação".
  *
- * Desde a 064 o dialog grava numa `medication` (`createMedicationWithDoses`), não mais numa tarefa
- * recorrente — daí o mock de `@/api/health/medications` no lugar do de `createTask`.
+ * Reabertura da feature 064 — medicação é assunto de Vida > Saúde, e o cadastro vive em
+ * `/life/health/medications` (com item próprio na sidebar, coberto por
+ * `src/pages/admin/life/__tests__/health-navigation.test.tsx`). Os botões foram **removidos**, não
+ * escondidos: um atalho que sobrevive "por precaução" é uma quarta entrada para o mesmo dialog.
+ *
+ * O que continua sendo comportamento de tarefa — a dose aparecendo na lista, o dialog
+ * "Ocorrências de..." — segue coberto por `TaskList.medication-occurrences.test.tsx` e
+ * `ProjectDetail.medication-occurrences.test.tsx`, que não mudaram.
  */
-
-vi.mock("@/api/health/medications", () => ({
-  createMedicationWithDoses: vi.fn(async () => ({ id: "med-1" })),
-  updateMedication: vi.fn(),
-}));
 
 vi.mock("@/api/tasks", () => ({
   fetchTasks: vi.fn(),
@@ -61,7 +58,6 @@ const mockedFetchProjects = vi.mocked(fetchProjects);
 const mockedFetchTags = vi.mocked(fetchTags);
 const mockedFetchDependencies = vi.mocked(fetchDependencies);
 const mockedFetchRecurringTransactions = vi.mocked(fetchRecurringTransactions);
-const mockedCreateMedication = vi.mocked(createMedicationWithDoses);
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -90,15 +86,13 @@ function mockLoad(tasks: Task[]) {
   mockedFetchRecurringTransactions.mockResolvedValue([]);
 }
 
-describe("TaskList — atalho Nova medicação", () => {
+describe("TaskList — sem atalho de medicação", () => {
   beforeEach(() => {
     toastMock.mockReset();
     mockedFetchTasks.mockReset();
-    mockedCreateMedication.mockClear();
   });
 
-  it("clicar em 'Nova medicação' no header abre o MedicationQuickCreateDialog", async () => {
-    const user = userEvent.setup();
+  it("o cabeçalho não oferece 'Nova medicação'", async () => {
     mockLoad([makeTask()]);
     render(
       <MemoryRouter>
@@ -107,12 +101,12 @@ describe("TaskList — atalho Nova medicação", () => {
     );
     await screen.findByText("Minha tarefa");
 
-    await user.click(screen.getAllByRole("button", { name: "Nova medicação" })[0]);
-
-    expect(screen.getByText("Nova medicação", { selector: "h2" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Nova medicação" })).toBeNull();
+    // Controle: a tela renderizou mesmo — a ausência acima não é de página vazia.
+    expect(screen.getByRole("button", { name: "Nova tarefa" })).toBeInTheDocument();
   });
 
-  it("lista vazia mostra o botão 'Nova medicação' no EmptyState também", async () => {
+  it("o EmptyState da lista vazia também não oferece 'Nova medicação'", async () => {
     mockLoad([]);
     render(
       <MemoryRouter>
@@ -121,11 +115,14 @@ describe("TaskList — atalho Nova medicação", () => {
     );
     await screen.findByText("Nenhuma tarefa");
 
-    expect(screen.getAllByRole("button", { name: "Nova medicação" }).length).toBeGreaterThan(1);
+    expect(screen.queryByRole("button", { name: "Nova medicação" })).toBeNull();
+    // A ação que sobrou no EmptyState é a de tarefa, e ela continua lá.
+    expect(
+      screen.getAllByRole("button", { name: "Nova tarefa" }).length
+    ).toBeGreaterThan(0);
   });
 
-  it("criar medicação com sucesso recarrega a lista e fecha o dialog", async () => {
-    const user = userEvent.setup();
+  it("nenhum dialog de medicação é montado a partir desta tela", async () => {
     mockLoad([makeTask()]);
     render(
       <MemoryRouter>
@@ -134,14 +131,8 @@ describe("TaskList — atalho Nova medicação", () => {
     );
     await screen.findByText("Minha tarefa");
 
-    await user.click(screen.getAllByRole("button", { name: "Nova medicação" })[0]);
-    const dialog = within(screen.getByRole("dialog"));
-    await user.type(dialog.getByLabelText(/Nome do remédio/), "Losartana");
-    await user.type(dialog.getByLabelText("Horário 1"), "08:00");
-    await user.click(dialog.getByRole("button", { name: "Criar" }));
-
-    await waitFor(() => expect(mockedCreateMedication).toHaveBeenCalled());
-    await waitFor(() => expect(mockedFetchTasks).toHaveBeenCalledTimes(2));
-    expect(screen.queryByText("Nova medicação", { selector: "h2" })).not.toBeInTheDocument();
+    // Título do `MedicationQuickCreateDialog`, que antes ficava montado (fechado) aqui.
+    expect(screen.queryByText("Nova medicação", { selector: "h2" })).toBeNull();
+    expect(screen.queryByLabelText(/Nome do remédio/)).toBeNull();
   });
 });

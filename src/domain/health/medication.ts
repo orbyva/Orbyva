@@ -119,6 +119,59 @@ export function computeMissingDoses(
   return missing;
 }
 
+/** Soma dias a uma data ISO, pelo meio-dia local (imune a horário de verão). */
+function addDays(iso: string, days: number): string {
+  const date = parseIso(iso);
+  date.setDate(date.getDate() + days);
+  return toIso(date);
+}
+
+/**
+ * A próxima dose do tratamento em ou depois de `now` — data e horário.
+ *
+ * Sai do **tratamento**, não das tarefas já materializadas: a materialização só cria doses até
+ * hoje, então perguntar às tasks responderia "a mais antiga ainda não tomada", que não é a próxima.
+ * Devolve `null` para tratamento encerrado (`active = false`), sem horários, ou cujo `ended_on` já
+ * passou — nesses casos não existe próxima dose, e exibir uma seria mentira.
+ *
+ * O salto até a data corrente é aritmético (não um laço dia a dia): um tratamento diário começado
+ * há três anos tem de responder na mesma velocidade que um começado ontem.
+ */
+export function nextDoseSlot(medication: Medication, now: Date): DoseSlot | null {
+  if (!medication.active) return null;
+
+  const times = medicationTimes(medication);
+  if (times.length === 0) return null;
+
+  const start = medication.started_on;
+  if (!start) return null;
+
+  const interval = Math.max(1, Math.trunc(medication.interval_days || 1));
+  const today = toIso(now);
+  const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(
+    now.getMinutes()
+  ).padStart(2, "0")}`;
+
+  // Primeira data do tratamento em ou depois de hoje, respeitando a cadência a partir do início.
+  let date = start;
+  if (start < today) {
+    const elapsedDays = Math.round(
+      (parseIso(today).getTime() - parseIso(start).getTime()) / 86_400_000
+    );
+    date = addDays(start, Math.ceil(elapsedDays / interval) * interval);
+  }
+
+  // No próprio dia de hoje só vale horário que ainda não passou; senão, pula para a data seguinte.
+  let time = times.find((candidate) => date > today || candidate >= nowTime);
+  if (!time) {
+    date = addDays(date, interval);
+    time = times[0]!;
+  }
+
+  if (medication.ended_on && date > medication.ended_on) return null;
+  return { date, time };
+}
+
 /**
  * Título da dose que vai para `task.title` — "Losartana 2 comprimidos", "Losartana 500 mg",
  * ou só "Losartana" quando não há posologia registrada (o caso das medicações migradas da 049,

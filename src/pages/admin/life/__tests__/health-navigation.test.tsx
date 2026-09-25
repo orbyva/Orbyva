@@ -5,6 +5,8 @@ import { Suspense } from "react";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, matchRoutes } from "react-router-dom";
 import { appRoutes } from "@/routes";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { HubModulesGrid } from "@/pages/admin/life/HubModulesGrid";
 import { HOME_MODULES, MODULE_DOT } from "@/pages/admin/life/hubMeta";
 import { moduleColors } from "@/lib/design-tokens";
@@ -35,7 +37,26 @@ vi.mock("@/hooks/use-toast", () => ({
   toast: toastMock,
 }));
 
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({
+    user: { email: "eu@example.com", user_metadata: { full_name: "Eu" } },
+    loading: false,
+  }),
+}));
+
 beforeEach(() => {
+  if (!window.matchMedia) {
+    window.matchMedia = ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+  }
   vi.mocked(loadHealthSummary).mockResolvedValue({
     nextMedicationDose: null,
     nextConsultation: null,
@@ -160,4 +181,56 @@ describe("rota /life/health/medications (feature 064)", () => {
       )
     ).toBeInTheDocument();
   }, 15_000);
+});
+
+/**
+ * Reabertura de 2026-08-18 ("adicione na seção vida->saúde"): antes disto, chegar em medicações
+ * exigia passar pelo dashboard de Vida — Saúde existia como card no hub, mas não na sidebar.
+ */
+describe("sidebar — Saúde no grupo Vida", () => {
+  function renderSidebar(pathname: string) {
+    return render(
+      <MemoryRouter initialEntries={[pathname]}>
+        <SidebarProvider>
+          <AppSidebar />
+        </SidebarProvider>
+      </MemoryRouter>
+    );
+  }
+
+  it("lista 'Saúde' apontando para /life/health", () => {
+    renderSidebar("/life/health");
+    expect(screen.getByRole("link", { name: "Saúde" })).toHaveAttribute(
+      "href",
+      "/life/health"
+    );
+  });
+
+  it("'Saúde' vem logo depois de 'Hábitos', como no hub", () => {
+    renderSidebar("/life/health");
+    const titles = screen
+      .getAllByRole("link")
+      .map((link) => link.textContent?.trim());
+    expect(titles[titles.indexOf("Saúde") - 1]).toBe("Hábitos");
+  });
+
+  it("fica ativo em /life/health e também em /life/health/medications (prefixo)", () => {
+    const { unmount } = renderSidebar("/life/health");
+    expect(screen.getByRole("link", { name: "Saúde" })).toHaveAttribute(
+      "data-active",
+      "true"
+    );
+    unmount();
+
+    renderSidebar("/life/health/medications");
+    expect(screen.getByRole("link", { name: "Saúde" })).toHaveAttribute(
+      "data-active",
+      "true"
+    );
+    // Controle negativo: o vizinho do mesmo grupo não acende junto.
+    expect(screen.getByRole("link", { name: "Hábitos" })).toHaveAttribute(
+      "data-active",
+      "false"
+    );
+  });
 });

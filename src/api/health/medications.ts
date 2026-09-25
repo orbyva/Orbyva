@@ -83,25 +83,38 @@ export async function createMedication(
   return data as Medication;
 }
 
+/** O tratamento recém-criado e as doses que já nasceram como tarefa junto com ele. */
+export interface CreatedMedication {
+  medication: Medication;
+  /** Linhas de `task` inseridas agora. Vazio quando nenhuma dose venceu ainda. */
+  doses: Task[];
+}
+
 /**
  * Cria o tratamento e já materializa as doses que ele deveria ter gerado até hoje, para o remédio
  * aparecer no calendário na mesma hora em vez de só na próxima carga de tarefas.
  *
+ * Devolve as doses criadas (reabertura de 2026-08-18): é o que permite à tela dizer quantas doses
+ * viraram tarefa. Sem esse retorno, o usuário cadastra um remédio e não tem como saber que ele
+ * entrou na agenda — que é justamente o que o pedido chama de "integração com as tarefas".
+ *
  * Falhar na materialização não pode virar erro na tela: o tratamento **foi** criado, e as doses
  * saem na próxima `fetchTasks` de qualquer jeito. Mesmo tratamento das sincronizações de
- * `updateTask` (`src/api/tasks/tasks.ts`).
+ * `updateTask` (`src/api/tasks/tasks.ts`) — e, nesse caso, a contagem devolvida é 0, que é a
+ * verdade do que aconteceu agora.
  */
 export async function createMedicationWithDoses(
   input: MedicationCreateRequest
-): Promise<Medication> {
+): Promise<CreatedMedication> {
   const medication = await createMedication(input);
   try {
     const userId = await getCurrentUserId();
-    await materializeMedicationDoses(medication, [], userId);
+    const doses = await materializeMedicationDoses(medication, [], userId);
+    return { medication, doses };
   } catch (error) {
     console.error("Falha ao materializar as doses da medicação:", error);
+    return { medication, doses: [] };
   }
-  return medication;
 }
 
 export async function updateMedication(

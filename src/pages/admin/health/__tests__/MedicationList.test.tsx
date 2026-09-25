@@ -100,6 +100,37 @@ describe("MedicationList", () => {
     expect(screen.getByRole("button", { name: "Nova medicação" })).toBeInTheDocument();
   });
 
+  // Reabertura de 2026-08-18: esta tela virou o **único** destino do cadastro (o atalho saiu de
+  // `/tasks`), então ela precisa abrir o dialog sozinha nos dois estados — com e sem tratamento.
+  it("o CTA do EmptyState abre o dialog de cadastro", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("Nenhuma medicação cadastrada");
+    await user.click(screen.getByRole("button", { name: "Nova medicação" }));
+
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Nova medicação", { selector: "h2" })).toBeInTheDocument();
+    expect(dialog.getByLabelText(/Nome do remédio/)).toBeInTheDocument();
+  });
+
+  it("com tratamento na lista, o botão do cabeçalho abre o mesmo dialog", async () => {
+    const user = userEvent.setup();
+    mockedFetchMedications.mockResolvedValue([medication()]);
+    renderPage();
+
+    await screen.findByRole("listitem", { name: "Losartana" });
+    // Sem EmptyState, o CTA é o do cabeçalho — não há dois botões iguais competindo na tela.
+    const buttons = screen.getAllByRole("button", { name: "Nova medicação" });
+    expect(buttons).toHaveLength(1);
+    await user.click(buttons[0]!);
+
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Nova medicação", { selector: "h2" })).toBeInTheDocument();
+    // Cadastro, não edição: os campos vêm vazios mesmo com um tratamento na lista.
+    expect(dialog.getByLabelText(/Nome do remédio/)).toHaveValue("");
+  });
+
   it("mostra posologia, horários e cadência do tratamento", async () => {
     mockedFetchMedications.mockResolvedValue([medication()]);
     renderPage();
@@ -146,6 +177,46 @@ describe("MedicationList", () => {
       await screen.findByText("Sem doses vencidas nos últimos 30 dias")
     ).toBeInTheDocument();
     expect(screen.queryByTestId("adherence-med-1")).toBeNull();
+  });
+
+  // Reabertura de 2026-08-18: o elo remédio → tarefa tem de aparecer onde o remédio é gerenciado.
+  it("mostra a próxima dose com data e horário, e o link para a agenda", async () => {
+    mockedFetchMedications.mockResolvedValue([medication()]);
+    renderPage();
+
+    const row = within(await screen.findByRole("listitem", { name: "Losartana" }));
+    // Agora são 12:00 de 17/08 e o tratamento é 08:00 + 20:00 → a próxima é hoje às 20:00.
+    expect(row.getByTestId("next-dose-med-1")).toHaveTextContent(
+      "Próxima dose: 17/08/2026 às 20:00"
+    );
+    expect(
+      row.getByRole("link", { name: "Ver doses de Losartana na agenda" })
+    ).toHaveAttribute("href", "/tasks/agenda");
+  });
+
+  it("passado o último horário do dia, a próxima dose é a de amanhã", async () => {
+    vi.setSystemTime(new Date(2026, 7, 17, 21, 0, 0));
+    mockedFetchMedications.mockResolvedValue([medication()]);
+    renderPage();
+
+    const row = within(await screen.findByRole("listitem", { name: "Losartana" }));
+    expect(row.getByTestId("next-dose-med-1")).toHaveTextContent(
+      "Próxima dose: 18/08/2026 às 08:00"
+    );
+  });
+
+  it("tratamento encerrado não anuncia próxima dose, mas mantém o link da agenda", async () => {
+    mockedFetchMedications.mockResolvedValue([
+      medication({ active: false, ended_on: "2026-08-12" }),
+    ]);
+    renderPage();
+
+    const row = within(await screen.findByRole("listitem", { name: "Losartana" }));
+    expect(row.queryByTestId("next-dose-med-1")).toBeNull();
+    // O histórico de doses continua na agenda — o link não some com o encerramento.
+    expect(
+      row.getByRole("link", { name: "Ver doses de Losartana na agenda" })
+    ).toHaveAttribute("href", "/tasks/agenda");
   });
 
   it("tratamento encerrado aparece com badge e sem ação de encerrar", async () => {

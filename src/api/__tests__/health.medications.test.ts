@@ -179,12 +179,23 @@ describe("createMedication", () => {
 
 describe("createMedicationWithDoses", () => {
   it("cria o tratamento e já materializa as doses vencidas", async () => {
-    await createMedicationWithDoses({
+    const result = await createMedicationWithDoses({
       name: "Losartana",
       times: ["08:00", "20:00"],
       interval_days: 1,
       started_on: "2026-08-16",
     });
+
+    // Contrato da reabertura de 2026-08-18: as doses criadas voltam para quem chamou — é daqui
+    // que sai a contagem que o toast mostra ("2 doses já entraram na sua agenda").
+    expect(result.medication.id).toBe(store.medication[0].id);
+    expect(result.doses).toHaveLength(4);
+    expect(result.doses.map((dose) => `${dose.due_date} ${dose.dose_time}`)).toEqual([
+      "2026-08-16 08:00",
+      "2026-08-16 20:00",
+      "2026-08-17 08:00",
+      "2026-08-17 20:00",
+    ]);
 
     expect(store.medication).toHaveLength(1);
     // 16/08 (08:00 e 20:00) e 17/08 (08:00 e 20:00) — hoje é 17/08 09:00, mas a dose das 20:00 de

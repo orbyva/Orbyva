@@ -17,7 +17,7 @@ import { HealthHabitQuickCreateDialog } from "@/pages/admin/habits/HealthHabitQu
 import { RecordMetricDialog } from "@/pages/admin/life/RecordMetricDialog";
 import { ReminderPreferencesDialog } from "@/pages/admin/life/ReminderPreferencesDialog";
 import { ConsultationQuickCreateDialog } from "@/pages/admin/tasks/ConsultationQuickCreateDialog";
-import { MedicationQuickCreateDialog } from "@/pages/admin/tasks/MedicationQuickCreateDialog";
+import { MedicationQuickCreateDialog } from "@/pages/admin/health/MedicationQuickCreateDialog";
 import {
   fetchHealthHabitsToday,
   loadHealthSummary,

@@ -1,4 +1,4 @@
-import { ListTodo, Pill, Tag as TagIcon, Timer } from "lucide-react";
+import { ListTodo, Tag as TagIcon, Timer } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   DndContext,
@@ -53,7 +53,6 @@ import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { GanttChart } from "./GanttChart";
 import { AgendaGrid } from "./AgendaGrid";
-import { MedicationQuickCreateDialog } from "./MedicationQuickCreateDialog";
 import { SeriesOccurrencesDialog } from "./SeriesOccurrencesDialog";
 import {
   createTag,
@@ -119,7 +118,6 @@ export default function TaskList() {
   const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [medicationDialogOpen, setMedicationDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [formTab, setFormTab] = useState<TaskFormTab>("geral");
   const [form, setForm] = useState(emptyTask());
@@ -614,10 +612,9 @@ export default function TaskList() {
               Tags
             </Link>
           </Button>
-          <Button variant="outline" onClick={() => setMedicationDialogOpen(true)}>
-            <Pill className="h-4 w-4" />
-            Nova medicação
-          </Button>
+          {/* "Nova medicação" saiu daqui na reabertura da 064: medicação é assunto de Vida >
+              Saúde (`/life/health/medications`), que agora tem item próprio na sidebar. A dose
+              continua sendo tarefa e continua aparecendo nesta tela. */}
           <Button onClick={openCreate}>Nova tarefa</Button>
         </>
       }
@@ -728,15 +725,7 @@ export default function TaskList() {
               icon={ListTodo}
               title="Nenhuma tarefa"
               description="Crie sua primeira tarefa."
-              action={
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button variant="outline" onClick={() => setMedicationDialogOpen(true)}>
-                    <Pill className="h-4 w-4" />
-                    Nova medicação
-                  </Button>
-                  <Button onClick={openCreate}>Nova tarefa</Button>
-                </div>
-              }
+              action={<Button onClick={openCreate}>Nova tarefa</Button>}
             />
           ) : (
             <div className="space-y-5">
@@ -983,11 +972,6 @@ export default function TaskList() {
         </DialogContent>
       </Dialog>
 
-      <MedicationQuickCreateDialog
-        open={medicationDialogOpen}
-        onOpenChange={setMedicationDialogOpen}
-        onCreated={load}
-      />
     </PageShell>
   );
 }

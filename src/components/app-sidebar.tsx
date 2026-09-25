@@ -75,6 +75,9 @@ const NAV_VIDA: NavItem = {
   icon: Target,
   items: [
     { title: "Hábitos", url: "/habits" },
+    // Mesma posição do card em `HOME_MODULES` (logo depois de "Hábitos"). `isNavItemActive` casa
+    // por prefixo, então o item fica ativo também em `/life/health/medications`.
+    { title: "Saúde", url: "/life/health" },
     { title: "Lugares", url: "/places" },
     { title: "Metas", url: "/goals" },
     { title: "Veículos", url: "/car" },
