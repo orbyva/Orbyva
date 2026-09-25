@@ -66,6 +66,13 @@ describe("normalizeNoteDraft", () => {
     expect(normalizeNoteDraft(draft({ project_id: null })).project_id).toBeNull();
     expect(normalizeNoteDraft(draft({ project_id: "p1" })).project_id).toBe("p1");
   });
+
+  it("folder_id omitido ou vazio vira null, id de verdade passa intacto", () => {
+    expect(normalizeNoteDraft(draft()).folder_id).toBeNull();
+    expect(normalizeNoteDraft(draft({ folder_id: "" })).folder_id).toBeNull();
+    expect(normalizeNoteDraft(draft({ folder_id: null })).folder_id).toBeNull();
+    expect(normalizeNoteDraft(draft({ folder_id: "f1" })).folder_id).toBe("f1");
+  });
 });
 
 describe("noteExcerpt", () => {

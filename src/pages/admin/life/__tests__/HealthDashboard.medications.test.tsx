@@ -36,10 +36,15 @@ vi.mock("@/api/health", () => ({
   })),
 }));
 
-vi.mock("@/api/tasks", () => ({ createTask: vi.fn() }));
+vi.mock("@/api/tasks", () => ({
+  createTask: vi.fn(),
+  updateTask: vi.fn(),
+  deleteTask: vi.fn(),
+}));
 vi.mock("@/api/health/medications", () => ({
   createMedicationWithDoses: vi.fn(),
   updateMedication: vi.fn(),
+  deactivateMedication: vi.fn(),
 }));
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));

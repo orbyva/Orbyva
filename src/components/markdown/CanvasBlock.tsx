@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ExternalLink, TriangleAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +22,10 @@ import { getErrorMessage } from "@/lib/errors";
  * `dangerouslySetInnerHTML` aqui reabriria o vetor que as três features anteriores fecharam — o
  * conteúdo do desenho, inclusive o texto livre dentro dele, é dado do usuário.
  *
+ * O anexo é no **callback do ref** (fase de commit), não num `useEffect`: o host e o SVG entram
+ * no documento no mesmo paint. Anexar no efeito deixava um quadro com o `div` vazio — e, na
+ * suíte de testes, `findByTestId("canvas-drawing")` ganhava essa corrida.
+ *
  * O `await import()` é obrigatório pelo mesmo motivo do `CanvasEditor`: 2,7 MB não podem entrar no
  * chunk da rota de notas.
  */
@@ -29,7 +33,6 @@ export function CanvasBlock({ code }: { code: string }) {
   const noteId = parseCanvasReference(code);
   const [state, setState] = useState<CanvasBlockState>({ status: "loading" });
   const [title, setTitle] = useState<string>("");
-  const hostRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!noteId) {
@@ -93,17 +96,6 @@ export function CanvasBlock({ code }: { code: string }) {
     };
   }, [noteId]);
 
-  /**
-   * O SVG é anexado por efeito, e não por JSX, porque ele é um **nó** e não um elemento de React —
-   * é justamente isso que dispensa `dangerouslySetInnerHTML`.
-   */
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host || state.status !== "ready") return;
-    host.replaceChildren(state.svg);
-    return () => host.replaceChildren();
-  }, [state]);
-
   if (state.status === "error") {
     return (
       <div
@@ -139,7 +131,10 @@ export function CanvasBlock({ code }: { code: string }) {
         </p>
       ) : (
         <div
-          ref={hostRef}
+          ref={(node) => {
+            if (!node) return;
+            node.replaceChildren(state.svg);
+          }}
           data-testid="canvas-drawing"
           className="overflow-x-auto [&_svg]:h-auto [&_svg]:max-w-full"
         />

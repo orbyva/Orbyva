@@ -1,9 +1,7 @@
 import { Link } from "react-router-dom";
-import { CalendarDays } from "lucide-react";
 import { MODULE_LABELS } from "@/api/timeline";
 import type { TimelineItem } from "@/types/timeline";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { MODULE_DOT, formatShortDate } from "../hubMeta";
 
 type HubUpcomingProps = {
@@ -17,12 +15,6 @@ export function HubUpcoming({ upcoming }: HubUpcomingProps) {
         <h2 className="text-base font-semibold tracking-tight sm:text-lg">
           Próximos 7 dias
         </h2>
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" asChild>
-          <Link to="/timeline">
-            <CalendarDays className="mr-1 h-3.5 w-3.5" />
-            Timeline
-          </Link>
-        </Button>
       </div>
       {upcoming.length > 0 ? (
         <ul className="overflow-hidden rounded-[1.25rem] border bg-card/80 shadow-sm divide-y backdrop-blur">
@@ -78,11 +70,6 @@ export function HubUpcoming({ upcoming }: HubUpcomingProps) {
           </p>
         </div>
       )}
-      {upcoming.length > 5 ? (
-        <Button variant="ghost" size="sm" className="w-full" asChild>
-          <Link to="/timeline">Ver timeline completa</Link>
-        </Button>
-      ) : null}
     </section>
   );
 }

@@ -80,6 +80,18 @@ vi.mock("@/api/tasks/projects", () => ({
   fetchProjects: vi.fn(async () => store.projects.map((p) => ({ ...p }))),
 }));
 
+vi.mock("@/api/notes/folders", () => ({
+  fetchNoteFolders: vi.fn(async () => []),
+  createNoteFolder: vi.fn(),
+  updateNoteFolder: vi.fn(),
+  deleteNoteFolder: vi.fn(),
+}));
+
+vi.mock("@/api/tasks/tags", () => ({
+  fetchTags: vi.fn(async () => []),
+  createTag: vi.fn(),
+}));
+
 vi.mock("@/api/search", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/search")>();
   return { ...actual, searchGlobal: vi.fn(async () => []) };
@@ -241,6 +253,7 @@ describe("A nota da tarefa na aba 'Notas' do projeto (feature 069)", () => {
     await user.click(await screen.findByRole("button", { name: "Criar nova nota" }));
     await screen.findByLabelText("Título");
     expect(store.notes[0].project_id).toBeNull();
+    expect(store.notes[0].folder_id).toBeNull();
 
     cleanup();
     renderProjectNotes("p1");

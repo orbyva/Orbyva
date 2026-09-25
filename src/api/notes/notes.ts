@@ -12,6 +12,11 @@ export interface FetchNotesOptions {
    * (mesma regra de `fetchShoppingCategories`).
    */
   projectId?: string | null;
+  /**
+   * Recorte por pasta (feature 099). Uuid filtra `folder_id`; `"inbox"` filtra `folder_id is null`;
+   * omitido/nulo = sem filtro. Independente de `projectId`.
+   */
+  folderId?: string | null | "inbox";
 }
 
 /** Notas do usuário, editada mais recentemente primeiro — a ordem que `note_user_updated_idx` cobre. */
@@ -21,6 +26,11 @@ export async function fetchNotes(
   const userId = await getCurrentUserId();
   let query = supabase.from("note").select("*").eq("user_id", userId);
   if (options.projectId) query = query.eq("project_id", options.projectId);
+  if (options.folderId === "inbox") {
+    query = query.is("folder_id", null);
+  } else if (options.folderId) {
+    query = query.eq("folder_id", options.folderId);
+  }
   const { data, error } = await query.order("updated_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -86,6 +96,9 @@ export async function updateNote(request: NoteUpdateRequest): Promise<void> {
   }
   if (fields.project_id !== undefined) {
     patch.project_id = fields.project_id ? fields.project_id : null;
+  }
+  if (fields.folder_id !== undefined) {
+    patch.folder_id = fields.folder_id ? fields.folder_id : null;
   }
   const { error } = await supabase
     .from("note")

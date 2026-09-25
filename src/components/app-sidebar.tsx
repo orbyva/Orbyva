@@ -41,7 +41,6 @@ const NAV_INICIO: NavItem = {
     // Orb (feature 098). Entra como item de "Início", e não como grupo próprio, porque todo item de
     // primeiro nível aqui é um `Collapsible` — uma folha sem sub-itens não navegaria.
     { title: "Orb", url: "/orb" },
-    { title: "Timeline", url: "/timeline" },
   ],
 }
 

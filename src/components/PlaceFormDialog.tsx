@@ -339,7 +339,7 @@ export function PlaceFormDialog({
 
   const isControlled = controlledOpen !== undefined;
   const showLedgerToggle =
-    status === "visited" &&
+    (status === "visited" || intent === "register_visit") &&
     hasAmount &&
     !linkedToLedger &&
     dimensions.length > 0;
@@ -420,7 +420,7 @@ export function PlaceFormDialog({
         ) : null}
 
         {onVisitasTab ? (
-          <PlaceVisitsPanel placeVisitId={place.id} onChanged={onSaved} />
+          <PlaceVisitsPanel place={place} onChanged={onSaved} />
         ) : (
           <>
             {!lockStatus && intent !== "edit" ? (
@@ -676,7 +676,7 @@ export function PlaceFormDialog({
               </FormSection>
             ) : null}
 
-            {status === "visited" &&
+            {(status === "visited" || intent === "register_visit") &&
             hasAmount &&
             Boolean(form.trip_id) &&
             !linkedToLedger ? (

@@ -17,9 +17,15 @@ export interface Note {
   /**
    * Projeto ao qual a nota está vinculada. Nulo = nota solta, que é o caso normal — o vínculo é
    * opcional de propósito. Excluir o projeto não apaga a nota, só zera esta coluna
-   * (`on delete set null`).
+   * (`on delete set null`). Continua sendo o vínculo primário da 055: independente de
+   * `folder_id` (lugar) e do `project_id` da pasta.
    */
   project_id: string | null;
+  /**
+   * Pasta em que a nota mora (feature 099). Nulo = raiz ("Sem pasta"). É o lugar, não a faceta:
+   * mover a nota só troca esta coluna, nunca `project_id`.
+   */
+  folder_id: string | null;
   title: string;
   /** Markdown cru. Nunca `null`: a coluna é `not null default ''`. Vazio numa nota-canvas. */
   content: string;
@@ -57,6 +63,8 @@ export type NoteDraft = {
   title: string;
   content: string;
   project_id: string | null;
+  /** Omitido vira `null` em `normalizeNoteDraft` — nota na raiz. */
+  folder_id?: string | null;
   kind?: NoteKind;
   canvas_data?: NoteCanvasData | null;
 };
@@ -117,3 +125,26 @@ export type NoteLinkDraft = {
   entity_id: string;
   label?: string | null;
 };
+
+/**
+ * Pasta de notas (feature 099). Espelha `public.note_folder`. Projeto e etiqueta são atributos
+ * da pasta (0 ou 1 cada), não da nota.
+ */
+export interface NoteFolder {
+  id: string;
+  user_id?: string;
+  name: string;
+  parent_id: string | null;
+  project_id: string | null;
+  tag_id: string | null;
+  created_at?: string;
+}
+
+export type NoteFolderDraft = {
+  name: string;
+  parent_id: string | null;
+  project_id: string | null;
+  tag_id: string | null;
+};
+
+export type NoteFolderUpdateRequest = Partial<NoteFolderDraft> & { id: string };

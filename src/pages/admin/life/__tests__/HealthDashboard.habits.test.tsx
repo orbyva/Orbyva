@@ -54,6 +54,14 @@ vi.mock("@/api/habits", () => ({
     store.habits.push(created);
     return created;
   }),
+  updateHabit: vi.fn(async (data: { id: string; name?: string; frequency?: Habit["frequency"]; target_per_week?: number }) => {
+    const row = store.habits.find((habit) => habit.id === data.id);
+    if (row) Object.assign(row, data);
+  }),
+  deleteHabit: vi.fn(async (id: string) => {
+    store.habits = store.habits.filter((habit) => habit.id !== id);
+    store.todayLogs.delete(id);
+  }),
   toggleHabitLog: vi.fn(async (habitId: string, date: string, completed: boolean) => {
     if (store.failNextToggle) {
       const error = store.failNextToggle;
@@ -256,16 +264,18 @@ describe("Health Dashboard — hábitos de água e alimentação", () => {
     expect(store.habits[0]!.is_health).toBe(true);
   });
 
-  it("com hábitos de saúde, o atalho fica no cabeçalho da página", async () => {
+  it("com hábitos de saúde, o atalho fica no cabeçalho da seção Hoje", async () => {
     store.habits = [healthHabit({ id: "agua", name: "Beber água" })];
     renderPage();
 
     await screen.findByText("Beber água");
-    // Só um CTA por vez: o estado vazio sumiu, o botão do header ficou.
     expect(screen.queryByText("Nenhum hábito de saúde")).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Novo hábito de saúde" })
+      within(todaySection()).getByRole("button", { name: "Novo hábito de saúde" })
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Novo hábito de saúde" })
+    ).toHaveLength(1);
   });
 
   it("hábito comum (sem is_health) não aparece na seção Hoje", async () => {
@@ -279,5 +289,32 @@ describe("Health Dashboard — hábitos de água e alimentação", () => {
     expect(await screen.findByText("Beber água")).toBeInTheDocument();
     expect(screen.queryByText("Ler 20 páginas")).toBeNull();
     expect(screen.getByText("0 de 1 concluídos")).toBeInTheDocument();
+  });
+
+  it("editar o hábito pelo ícone atualiza o nome na seção Hoje", async () => {
+    const user = userEvent.setup();
+    store.habits = [healthHabit({ id: "agua", name: "Beber água" })];
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Editar Beber água" }));
+    const nameInput = await screen.findByLabelText(/Nome do hábito/);
+    await user.clear(nameInput);
+    await user.type(nameInput, "Beber 2L de água");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    expect(await screen.findByText("Beber 2L de água")).toBeInTheDocument();
+    expect(store.habits[0]!.name).toBe("Beber 2L de água");
+  });
+
+  it("excluir o hábito pede confirmação e tira a linha da seção", async () => {
+    const user = userEvent.setup();
+    store.habits = [healthHabit({ id: "agua", name: "Beber água" })];
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Excluir Beber água" }));
+    await user.click(screen.getByRole("button", { name: "Excluir" }));
+
+    expect(await screen.findByText("Nenhum hábito de saúde")).toBeInTheDocument();
+    expect(store.habits).toHaveLength(0);
   });
 });

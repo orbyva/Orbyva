@@ -34,6 +34,7 @@ function canvasNote(over: Partial<Note> = {}): Note {
     title: "Arquitetura",
     content: "",
     project_id: null,
+    folder_id: null,
     kind: "canvas",
     canvas_data: { elements: [{ id: "r1", type: "rectangle" }] },
     ...over,
@@ -66,7 +67,9 @@ describe("CanvasBlock", () => {
 
     const host = await screen.findByTestId("canvas-drawing");
     expect(fetchNote).toHaveBeenCalledWith("c1");
-    expect(host.querySelector("svg")).not.toBeNull();
+    await waitFor(() => {
+      expect(host.querySelector("svg")).not.toBeNull();
+    });
     // O que foi desenhado é a cena da nota, não o fence.
     expect(excalidrawMock.exportToSvg).toHaveBeenCalledWith(
       expect.objectContaining({ elements: [{ id: "r1", type: "rectangle" }] })
@@ -83,8 +86,11 @@ describe("CanvasBlock", () => {
     renderBlock("c1");
 
     const host = await screen.findByTestId("canvas-drawing");
-    const svg = host.querySelector("svg");
-    expect(svg).not.toBeNull();
+    const svg = await waitFor(() => {
+      const node = host.querySelector("svg");
+      expect(node).not.toBeNull();
+      return node;
+    });
     expect(svg?.querySelector("script")).toBeNull();
     expect(svg?.querySelector("foreignObject")).toBeNull();
     expect(svg?.querySelector("rect")?.getAttribute("onclick")).toBeNull();

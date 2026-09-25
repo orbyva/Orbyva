@@ -70,6 +70,8 @@
   --m-travel: #2bcabd;
   --m-cinema: #dc6eed;
   --m-car: #fa802e;
+  --m-health: #f43e5c;
+  --m-productivity: #8033e6;
 
   --ok: #23d163;
   --warn: #f6a823;
@@ -1091,6 +1093,47 @@ body {
   font-weight: 500;
   font-size: 21px;
   color: var(--mut);
+}
+
+.lcol .it.gone .nm {
+  text-decoration: line-through;
+  color: var(--mut);
+}
+
+/* Kanban de Tarefas (TaskViews.tsx) */
+.kboard {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.kcol {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--faint);
+  border-radius: 16px;
+  padding: 16px 14px 18px;
+}
+
+.kcol > h3 {
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mut);
+  padding: 4px 8px 14px;
+}
+
+.kcard {
+  background: var(--surf);
+  border: 2px solid var(--surf-line);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.s-paper .kcard {
+  background: #fff;
 }
 
 /* constelação: mark ao centro, módulos em órbita

@@ -6,6 +6,7 @@ const note = (over: Partial<Note> & { id: string }): Note => ({
   title: "",
   content: "",
   project_id: null,
+  folder_id: null,
   kind: "markdown",
   canvas_data: null,
   ...over,

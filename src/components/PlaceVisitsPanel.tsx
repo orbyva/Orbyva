@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/DatePicker";
+import { ExpenseCategoryPicker } from "@/components/ExpenseCategoryPicker";
+import { FormField } from "@/components/FormField";
 import { FormLabel } from "@/components/FormLabel";
+import { FormDisclosure } from "@/components/FormSection";
 import { MoneyInput } from "@/components/MoneyInput";
 import { StarRating } from "@/components/StarRating";
 import { Input } from "@/components/ui/input";
@@ -11,17 +14,20 @@ import {
   deletePlaceVisitOccurrence,
   fetchPlaceVisitOccurrences,
 } from "@/api/places";
-import { formatDateBR } from "@/lib/currency";
+import { placeLedgerDescription } from "@/domain/places";
+import { useDimensions } from "@/hooks/useDimensions";
+import { formatBRL, formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
-import type { PlaceVisitOccurrence } from "@/types/places";
+import type { PlaceVisit, PlaceVisitOccurrence } from "@/types/places";
 
 type Props = {
-  placeVisitId: string;
+  place: PlaceVisit;
   onChanged?: () => void;
 };
 
-export function PlaceVisitsPanel({ placeVisitId, onChanged }: Props) {
+export function PlaceVisitsPanel({ place, onChanged }: Props) {
+  const placeVisitId = place.id;
   const { toast } = useToast();
   const [items, setItems] = useState<PlaceVisitOccurrence[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +38,13 @@ export function PlaceVisitsPanel({ placeVisitId, onChanged }: Props) {
   const [draftRating, setDraftRating] = useState<number | null>(null);
   const [draftNotes, setDraftNotes] = useState("");
   const [draftAmount, setDraftAmount] = useState<number | null>(null);
+  const [registerExpense, setRegisterExpense] = useState(false);
+  const [selectedType, setSelectedType] = useState<number | null>(null);
+  const [classId, setClassId] = useState(0);
   const [saving, setSaving] = useState(false);
+  const { dimensions } = useDimensions({ enabled: adding });
+  const hasAmount = draftAmount != null && draftAmount > 0;
+  const showLedgerToggle = hasAmount && dimensions.length > 0;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,23 +70,54 @@ export function PlaceVisitsPanel({ placeVisitId, onChanged }: Props) {
       toast({ title: "Informe a data da visita", variant: "destructive" });
       return;
     }
+    const amount = hasAmount ? draftAmount : null;
+    const wantsLedger = registerExpense && amount != null;
+    if (wantsLedger && !classId) {
+      toast({
+        title: "Selecione a subcategoria da despesa",
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
-      await createPlaceVisitOccurrence({
-        place_visit_id: placeVisitId,
-        visited_date: draftDate,
-        rating: draftRating,
-        notes: draftNotes.trim() || null,
-        amount: draftAmount != null && draftAmount > 0 ? draftAmount : null,
-        would_recommend: true,
-      });
+      const transactionAt = new Date(`${draftDate}T12:00:00`).toISOString();
+      await createPlaceVisitOccurrence(
+        {
+          place_visit_id: placeVisitId,
+          visited_date: draftDate,
+          rating: draftRating,
+          notes: draftNotes.trim() || null,
+          amount,
+          would_recommend: true,
+        },
+        {
+          transaction: wantsLedger
+            ? {
+                class_id: classId,
+                value: amount!,
+                description: placeLedgerDescription(
+                  { name: place.name, type: place.type },
+                  place.trip?.title
+                ),
+                transaction_at: transactionAt,
+              }
+            : null,
+        }
+      );
       setAdding(false);
       setDraftNotes("");
       setDraftRating(null);
       setDraftAmount(null);
+      setRegisterExpense(false);
+      setSelectedType(null);
+      setClassId(0);
       await load();
       onChanged?.();
-      toast({ title: "Visita adicionada", duration: 2000 });
+      toast({
+        title: wantsLedger ? "Visita e despesa registradas" : "Visita adicionada",
+        duration: 2000,
+      });
     } catch (error) {
       toast({
         title: "Erro",
@@ -150,7 +193,11 @@ export function PlaceVisitsPanel({ placeVisitId, onChanged }: Props) {
             <FormLabel optional>Valor</FormLabel>
             <MoneyInput
               value={draftAmount ?? ""}
-              onChange={(v) => setDraftAmount(v === "" ? null : v)}
+              onChange={(v) => {
+                const next = v === "" ? null : v;
+                setDraftAmount(next);
+                if (next == null || next <= 0) setRegisterExpense(false);
+              }}
             />
           </div>
           <div>
@@ -161,6 +208,26 @@ export function PlaceVisitsPanel({ placeVisitId, onChanged }: Props) {
               placeholder="Pratos, ambiente..."
             />
           </div>
+          {showLedgerToggle ? (
+            <FormDisclosure
+              title="Registrar em Finanças"
+              description="Cria um lançamento no extrato com o valor desta visita."
+              open={registerExpense}
+              onOpenChange={setRegisterExpense}
+              variant="toggle"
+            >
+              <FormField label="Categoria" required>
+                <ExpenseCategoryPicker
+                  dimensions={dimensions}
+                  selectedType={selectedType}
+                  classId={classId}
+                  onTypeChange={setSelectedType}
+                  onClassChange={setClassId}
+                  hideLabel
+                />
+              </FormField>
+            </FormDisclosure>
+          ) : null}
           <Button
             type="button"
             className="w-full"
@@ -182,6 +249,11 @@ export function PlaceVisitsPanel({ placeVisitId, onChanged }: Props) {
               <p className="text-sm font-medium tabular-nums">
                 {formatDateBR(visit.visited_date)}
                 {visit.rating != null ? ` · ${visit.rating}★` : null}
+                {visit.amount != null && visit.amount > 0
+                  ? ` · ${formatBRL(visit.amount)}${
+                      visit.transaction_id != null ? " · extrato" : ""
+                    }`
+                  : null}
               </p>
               {visit.notes ? (
                 <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">

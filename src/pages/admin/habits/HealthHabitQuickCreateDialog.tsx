@@ -10,10 +10,11 @@ import {
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS } from "@/components/FormLabel";
-import { createHabit } from "@/api/habits";
+import { createHabit, updateHabit } from "@/api/habits";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import type { Habit } from "@/types/habits";
 
 type FrequencyOption = "daily" | "weekly";
 
@@ -31,8 +32,10 @@ const SUGGESTIONS = [
 interface HealthHabitQuickCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Chamado depois que o hábito é criado com sucesso — quem chama recarrega a lista. */
+  /** Chamado depois que o hábito é salvo — quem chama recarrega a lista. */
   onCreated: () => void;
+  /** Presente = modo edição. Ausente = criação. Remontar com `key` ao trocar o alvo. */
+  habit?: Habit | null;
 }
 
 /**
@@ -46,12 +49,18 @@ export function HealthHabitQuickCreateDialog({
   open,
   onOpenChange,
   onCreated,
+  habit = null,
 }: HealthHabitQuickCreateDialogProps) {
-  const [name, setName] = useState("");
-  const [frequency, setFrequency] = useState<FrequencyOption>("daily");
+  const editing = habit != null;
+  const [name, setName] = useState(habit?.name ?? "");
+  const [frequency, setFrequency] = useState<FrequencyOption>(
+    habit?.frequency ?? "daily"
+  );
   // String (não number) pra não clampar durante a digitação — mesmo motivo documentado em
   // `MedicationQuickCreateDialog.tsx`.
-  const [timesPerWeek, setTimesPerWeek] = useState("3");
+  const [timesPerWeek, setTimesPerWeek] = useState(
+    habit?.frequency === "weekly" ? String(habit.target_per_week) : "3"
+  );
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -73,28 +82,45 @@ export function HealthHabitQuickCreateDialog({
     if (!canSave) return;
     setSaving(true);
     try {
-      await createHabit({
-        name: name.trim(),
-        description: "",
-        frequency,
-        target_per_week:
-          frequency === "daily"
-            ? 7
-            : Math.max(1, Math.min(7, parseInt(timesPerWeek, 10) || 1)),
-        kind: "build",
-        goal_id: null,
-        goal_increment: null,
-        color: null,
-        is_health: true,
-      });
-      toast({ title: "Hábito de saúde criado!", duration: 2000 });
-      reset();
+      const targetPerWeek =
+        frequency === "daily"
+          ? 7
+          : Math.max(1, Math.min(7, parseInt(timesPerWeek, 10) || 1));
+      if (editing) {
+        await updateHabit({
+          id: habit.id,
+          name: name.trim(),
+          frequency,
+          target_per_week: targetPerWeek,
+          is_health: true,
+        });
+        toast({ title: "Hábito atualizado!", duration: 2000 });
+      } else {
+        await createHabit({
+          name: name.trim(),
+          description: "",
+          frequency,
+          target_per_week: targetPerWeek,
+          kind: "build",
+          goal_id: null,
+          goal_increment: null,
+          color: null,
+          is_health: true,
+        });
+        toast({ title: "Hábito de saúde criado!", duration: 2000 });
+        reset();
+      }
       onOpenChange(false);
       onCreated();
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error, "Não foi possível criar o hábito."),
+        description: getErrorMessage(
+          error,
+          editing
+            ? "Não foi possível salvar o hábito."
+            : "Não foi possível criar o hábito."
+        ),
         variant: "destructive",
       });
     } finally {
@@ -106,15 +132,18 @@ export function HealthHabitQuickCreateDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) reset();
+        if (!next && !editing) reset();
         onOpenChange(next);
       }}
     >
       <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
         <DialogHeader>
-          <DialogTitle>Novo hábito de saúde</DialogTitle>
+          <DialogTitle>
+            {editing ? "Editar hábito de saúde" : "Novo hábito de saúde"}
+          </DialogTitle>
         </DialogHeader>
         <div className={FORM_FIELDS_CLASS}>
+          {editing ? null : (
           <div>
             <FormLabel>Sugestões</FormLabel>
             <div className="flex flex-wrap gap-2">
@@ -136,6 +165,7 @@ export function HealthHabitQuickCreateDialog({
               ))}
             </div>
           </div>
+          )}
           <div>
             <FormLabel required htmlFor="health-habit-name">
               Nome do hábito
@@ -178,7 +208,13 @@ export function HealthHabitQuickCreateDialog({
             </div>
           )}
           <Button onClick={handleSave} disabled={!canSave || saving} className="w-full">
-            {saving ? "Criando..." : "Criar hábito"}
+            {saving
+              ? editing
+                ? "Salvando..."
+                : "Criando..."
+              : editing
+                ? "Salvar"
+                : "Criar hábito"}
           </Button>
         </div>
       </DialogContent>

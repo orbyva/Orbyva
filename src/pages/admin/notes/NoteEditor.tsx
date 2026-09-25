@@ -17,8 +17,8 @@ import { NoteOutline } from "@/pages/admin/notes/NoteOutline";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
 import { NoteLinksPanel } from "@/pages/admin/notes/NoteLinksPanel";
 import { BacklinksPanel } from "@/pages/admin/notes/BacklinksPanel";
-import { useTaskRefExtensions } from "@/hooks/useTaskRefExtensions";
 import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
+import { NoteFolderPicker } from "@/pages/admin/notes/NoteFolderPicker";
 import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
 import { indexNotesByTitle, normalizeWikiTitle } from "@/domain/notes/wikiLinks";
@@ -29,7 +29,7 @@ import type { NoteHeading } from "@/domain/notes/outline";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
-import type { Note } from "@/types/notes";
+import type { Note, NoteFolder } from "@/types/notes";
 import type { Project } from "@/types/tasks";
 
 /** Janela do autosave. Curta o bastante para não perder nada, longa para não gravar por tecla. */
@@ -87,6 +87,7 @@ function SaveIndicator({ state }: { state: SaveState }) {
 export function NoteEditor({
   note,
   projects,
+  folders = [],
   notes = [],
   onSaved,
   onCreateNote,
@@ -94,6 +95,7 @@ export function NoteEditor({
 }: {
   note: Note;
   projects: Project[];
+  folders?: NoteFolder[];
   /** Todas as notas do usuário — é o dicionário que resolve `[[Título]]` para `/notes/<id>`. */
   notes?: readonly Note[];
   /** Avisa a página de cima do estado recém-gravado (para o título do header acompanhar). */
@@ -117,19 +119,6 @@ export function NoteEditor({
    * aba "Escrever" não existe HTML nem `id` para observar, existe texto e cursor.
    */
   const [cursorLine, setCursorLine] = useState(1);
-
-  /**
-   * A `EditorView` viva, quando existe. A aba "Visualizar" desmonta o CodeMirror, então isto é um
-   * ref (não estado): a barra pergunta no clique, e o que interessa é a view do instante do clique.
-   */
-  const viewRef = useRef<EditorView | null>(null);
-
-  const [title, setTitle] = useState(note.title);
-  const [content, setContent] = useState(note.content);
-  const [projectId, setProjectId] = useState<string | null>(note.project_id);
-
-  /** Feature 104 — as extensões do `TASK->`, montadas depois do projeto porque dependem dele. */
-  const taskRefExtensions = useTaskRefExtensions(projectId);
 
   const editorExtensions = useMemo(
     () => [
@@ -158,14 +147,20 @@ export function NoteEditor({
         // não custa render nenhum.
         setCursorLine(line);
       }),
-      // O `TASK->` da 104: popup de vincular/criar tarefa e a marca clicável. A tarefa criada
-      // herda o projeto **da nota aberta** — o do seletor abaixo, não o gravado, para valer já na
-      // troca que ainda não foi salva.
-      ...taskRefExtensions,
     ],
-    [note.id, navigate, taskRefExtensions]
+    [note.id, navigate]
   );
 
+  /**
+   * A `EditorView` viva, quando existe. A aba "Visualizar" desmonta o CodeMirror, então isto é um
+   * ref (não estado): a barra pergunta no clique, e o que interessa é a view do instante do clique.
+   */
+  const viewRef = useRef<EditorView | null>(null);
+
+  const [title, setTitle] = useState(note.title);
+  const [content, setContent] = useState(note.content);
+  const [projectId, setProjectId] = useState<string | null>(note.project_id);
+  const [folderId, setFolderId] = useState<string | null>(note.folder_id);
   const [tab, setTab] = useState<NoteEditorTab>("write");
   /**
    * `lg` do Tailwind. O modo "Dividido" só existe daqui para cima — abaixo disso o split é pior
@@ -191,6 +186,7 @@ export function NoteEditor({
     setTitle(note.title);
     setContent(note.content);
     setProjectId(note.project_id);
+    setFolderId(note.folder_id);
     setSaveState("idle");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
@@ -262,10 +258,16 @@ export function NoteEditor({
   saveRef.current = async () => {
     setSaveState("saving");
     try {
-      await updateNote({ id: note.id, title, content, project_id: projectId });
+      await updateNote({
+        id: note.id,
+        title,
+        content,
+        project_id: projectId,
+        folder_id: folderId,
+      });
       pendingToggle.current = null;
       setSaveState("saved");
-      onSaved?.({ ...note, title, content, project_id: projectId });
+      onSaved?.({ ...note, title, content, project_id: projectId, folder_id: folderId });
     } catch (error) {
       setSaveState("error");
       const toggle = pendingToggle.current;
@@ -292,7 +294,7 @@ export function NoteEditor({
     setSaveState("saving");
     const timer = setTimeout(() => void saveRef.current(), debounceMs);
     return () => clearTimeout(timer);
-  }, [title, content, projectId, debounceMs]);
+  }, [title, content, projectId, folderId, debounceMs]);
 
   /**
    * As duas metades do modo "Dividido" são as mesmas do "Escrever" e do "Visualizar" — declaradas
@@ -318,7 +320,7 @@ export function NoteEditor({
           viewRef.current = view;
         }}
         className="min-h-[45vh] [&_.cm-editor]:min-h-[45vh]"
-        placeholder="Markdown na veia — / para inserir, [[ para vincular uma nota, TASK-> para vincular uma tarefa…"
+        placeholder="Markdown na veia — digite / para inserir título, tabela, código, fórmula…"
         extensions={editorExtensions}
       />
     </>
@@ -421,6 +423,15 @@ export function NoteEditor({
           projects={projects}
           value={projectId}
           onChange={setProjectId}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <FormLabel>Pasta</FormLabel>
+        <NoteFolderPicker
+          folders={folders}
+          value={folderId}
+          onChange={setFolderId}
         />
       </div>
 

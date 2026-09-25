@@ -25,13 +25,14 @@ vi.mock("@/api/notes/notes", () => ({
   fetchNotes: vi.fn(async ({ projectId }: { projectId?: string | null } = {}) =>
     store.notes
       .filter((n) => (projectId ? n.project_id === projectId : true))
-      .map((n): Note => ({ kind: "markdown", canvas_data: null, ...n }))
+      .map((n): Note => ({ kind: "markdown", canvas_data: null, folder_id: null, ...n }))
   ),
   createNote: vi.fn(async (draft: NoteDraft) => {
     const created: Note = {
       id: `n${++store.seq}`,
       kind: "markdown",
       canvas_data: null,
+      folder_id: null,
       ...draft,
       title: "Sem título",
     };

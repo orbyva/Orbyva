@@ -7,6 +7,7 @@ import { FormLabel } from "@/components/FormLabel";
 import { NoteLinksPanel } from "@/pages/admin/notes/NoteLinksPanel";
 import { BacklinksPanel } from "@/pages/admin/notes/BacklinksPanel";
 import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
+import { NoteFolderPicker } from "@/pages/admin/notes/NoteFolderPicker";
 import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
 import {
@@ -18,7 +19,7 @@ import {
 import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
-import type { Note, NoteCanvasData } from "@/types/notes";
+import type { Note, NoteCanvasData, NoteFolder } from "@/types/notes";
 import type { Project } from "@/types/tasks";
 
 /**
@@ -81,16 +82,19 @@ function SaveIndicator({ state }: { state: SaveState }) {
 export function CanvasEditor({
   note,
   projects,
+  folders = [],
   onSaved,
   debounceMs = CANVAS_AUTOSAVE_DEBOUNCE_MS,
 }: {
   note: Note;
   projects: Project[];
+  folders?: NoteFolder[];
   onSaved?: (note: Note) => void;
   debounceMs?: number;
 }) {
   const [title, setTitle] = useState(note.title);
   const [projectId, setProjectId] = useState<string | null>(note.project_id);
+  const [folderId, setFolderId] = useState<string | null>(note.folder_id);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [copied, setCopied] = useState(false);
   const isDark = useIsDarkTheme();
@@ -131,6 +135,7 @@ export function CanvasEditor({
         id: note.id,
         title,
         project_id: projectId,
+        folder_id: folderId,
         // Só manda o desenho quando o usuário mexeu nele: renomear a nota não pode reescrever a
         // cena com o que o `onChange` ainda não entregou.
         ...(sceneRef.current ? { canvas_data: sceneRef.current } : {}),
@@ -140,6 +145,7 @@ export function CanvasEditor({
         ...note,
         title,
         project_id: projectId,
+        folder_id: folderId,
         canvas_data: sceneRef.current ?? note.canvas_data,
       });
     } catch (error) {
@@ -173,6 +179,7 @@ export function CanvasEditor({
     );
     setTitle(note.title);
     setProjectId(note.project_id);
+    setFolderId(note.folder_id);
     setSaveState("idle");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
@@ -188,7 +195,7 @@ export function CanvasEditor({
       if (timerRef.current) clearTimeout(timerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, projectId, debounceMs]);
+  }, [title, projectId, folderId, debounceMs]);
 
   useEffect(
     () => () => {
@@ -286,6 +293,15 @@ export function CanvasEditor({
           projects={projects}
           value={projectId}
           onChange={setProjectId}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <FormLabel>Pasta</FormLabel>
+        <NoteFolderPicker
+          folders={folders}
+          value={folderId}
+          onChange={setFolderId}
         />
       </div>
 

@@ -29,7 +29,6 @@ beforeEach(() => {
 
 const SIDEBAR_HREFS = [
   "/home",
-  "/timeline",
   "/finance/dashboard",
   "/finance/transactions",
   "/finance/recurring",

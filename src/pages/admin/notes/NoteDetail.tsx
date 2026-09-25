@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, FileDown, NotebookPen, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
@@ -7,30 +7,46 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { createNote, deleteNote, fetchNote, fetchNotes } from "@/api/notes/notes";
+import { deleteNoteFolder, fetchNoteFolders } from "@/api/notes/folders";
 import { fetchProjects } from "@/api/tasks/projects";
+import { createTag, fetchTags } from "@/api/tasks/tags";
+import {
+  notesListHref,
+  parseFolderParam,
+} from "@/domain/notes/folders";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
-import type { Note } from "@/types/notes";
-import type { Project } from "@/types/tasks";
+import type { Note, NoteFolder } from "@/types/notes";
+import type { Project, Tag } from "@/types/tasks";
 import { NoteEditor } from "./NoteEditor";
 import { CanvasEditor } from "./CanvasEditor";
+import { NoteFolderDialog } from "./NoteFolderDialog";
+import { NoteFolderTree } from "./NoteFolderTree";
 import { NoteMarkdownPreview } from "./NoteMarkdownPreview";
 import { printNote } from "@/domain/notes/printNote";
 
 /**
  * Página de uma nota (`/notes/:id`) — carrega e monta o editor que corresponde ao `kind`: markdown
  * vai para o `NoteEditor` (055), canvas para o `CanvasEditor` (058). Os dois cuidam do próprio
- * autosave.
+ * autosave. No desktop a coluna de pastas fica ao lado: clicar uma pasta **troca o filtro e
+ * volta à lista** (`/notes?folder=…`). Não mexe no `folder_id` da nota (feature 099).
  */
 export default function NoteDetail() {
   const { id } = useParams<{ id: string }>();
   const [note, setNote] = useState<Note | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [folders, setFolders] = useState<NoteFolder[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<NoteFolder | null>(null);
+  const [defaultParentId, setDefaultParentId] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const folderNav = parseFolderParam(searchParams.get("folder"));
   useBreadcrumbTitle(note?.title);
 
   const load = useCallback(async () => {
@@ -43,14 +59,18 @@ export default function NoteDetail() {
     try {
       // A lista inteira vem junto porque é o dicionário dos wiki-links: resolve `[[Título]]` e
       // alimenta o autocomplete de `[[`. Uma consulta a mais aqui evita uma por ocorrência.
-      const [found, noteList, projectList] = await Promise.all([
+      const [found, noteList, folderList, projectList, tagList] = await Promise.all([
         fetchNote(id),
         fetchNotes(),
+        fetchNoteFolders(),
         fetchProjects(),
+        fetchTags(),
       ]);
       setNote(found);
       setNotes(noteList);
+      setFolders(folderList);
       setProjects(projectList);
+      setTags(tagList);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -73,7 +93,12 @@ export default function NoteDetail() {
    */
   async function handleCreateLinkedNote(title: string) {
     try {
-      const created = await createNote({ title, content: "", project_id: null });
+      const created = await createNote({
+        title,
+        content: "",
+        project_id: null,
+        folder_id: null,
+      });
       navigate(`/notes/${created.id}`);
     } catch (error) {
       toast({
@@ -89,7 +114,7 @@ export default function NoteDetail() {
     try {
       await deleteNote(note.id);
       toast({ title: "Nota excluída", duration: 2000 });
-      navigate("/notes");
+      navigate(notesListHref(folderNav));
     } catch (error) {
       toast({
         variant: "destructive",
@@ -99,15 +124,85 @@ export default function NoteDetail() {
     }
   }
 
+  async function handleDeleteFolder(folder: NoteFolder) {
+    try {
+      await deleteNoteFolder(folder.id);
+      setNotes((prev) =>
+        prev.map((item) =>
+          item.folder_id === folder.id ? { ...item, folder_id: null } : item
+        )
+      );
+      setNote((prev) =>
+        prev && prev.folder_id === folder.id ? { ...prev, folder_id: null } : prev
+      );
+      const parentId = folder.parent_id;
+      setFolders((prev) =>
+        prev
+          .filter((item) => item.id !== folder.id)
+          .map((item) =>
+            item.parent_id === folder.id ? { ...item, parent_id: parentId } : item
+          )
+      );
+      if (folderNav === folder.id) {
+        navigate(notesListHref(null), { replace: true });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível excluir a pasta."),
+      });
+    }
+  }
+
+  async function handleCreateTag(name: string, color: string): Promise<Tag> {
+    const tag = await createTag({ name, color });
+    setTags((prev) => [...prev, tag]);
+    return tag;
+  }
+
+  function openCreateFolder(parentId: string | null) {
+    setEditingFolder(null);
+    setDefaultParentId(parentId);
+    setFolderDialogOpen(true);
+  }
+
+  const editor =
+    !note ? null : note.kind === "canvas" ? (
+      <CanvasEditor
+        note={note}
+        projects={projects}
+        folders={folders}
+        onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}
+      />
+    ) : (
+      <>
+        <div id="note-print-root" hidden>
+          <h1 className="note-print-title">{note.title}</h1>
+          <NoteMarkdownPreview content={note.content} notes={notes} />
+        </div>
+        <NoteEditor
+          note={note}
+          projects={projects}
+          folders={folders}
+          notes={notes}
+          onCreateNote={handleCreateLinkedNote}
+          onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}
+        />
+      </>
+    );
+
   return (
     <PageShell
       eyebrow="Produtividade"
       title={note?.title || "Nota"}
       actions={
         <>
-          <Button variant="outline" onClick={() => navigate("/notes")}>
-            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-            Todas as notas
+          <Button variant="outline" asChild>
+            <Link to={notesListHref(folderNav)}>
+              <ArrowLeft className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              Todas as notas
+            </Link>
           </Button>
           {note && note.kind !== "canvas" && (
             <Button
@@ -136,6 +231,18 @@ export default function NoteDetail() {
         </>
       }
     >
+      <NoteFolderDialog
+        open={folderDialogOpen}
+        onOpenChange={setFolderDialogOpen}
+        folder={editingFolder}
+        folders={folders}
+        projects={projects}
+        tags={tags}
+        defaultParentId={defaultParentId}
+        onCreateTag={handleCreateTag}
+        onSaved={() => void load()}
+      />
+
       {loading ? (
         <TableLoadingSkeleton rows={4} />
       ) : !note ? (
@@ -143,28 +250,32 @@ export default function NoteDetail() {
           icon={NotebookPen}
           title="Nota não encontrada"
           description="Ela pode ter sido excluída."
-          action={<Button onClick={() => navigate("/notes")}>Voltar para as notas</Button>}
-        />
-      ) : note.kind === "canvas" ? (
-        <CanvasEditor
-          note={note}
-          projects={projects}
-          onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}
+          action={
+            <Button asChild>
+              <Link to={notesListHref(folderNav)}>Voltar para as notas</Link>
+            </Button>
+          }
         />
       ) : (
-        <>
-          <div id="note-print-root" hidden>
-            <h1 className="note-print-title">{note.title}</h1>
-            <NoteMarkdownPreview content={note.content} notes={notes} />
-          </div>
-          <NoteEditor
-            note={note}
-            projects={projects}
-            notes={notes}
-            onCreateNote={handleCreateLinkedNote}
-            onSaved={(saved) => setNote((prev) => (prev ? { ...prev, ...saved } : prev))}
-          />
-        </>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <aside className="hidden sm:block sm:w-64 sm:shrink-0 sm:sticky sm:top-4">
+            <NoteFolderTree
+              folders={folders}
+              notes={notes}
+              projects={projects}
+              tags={tags}
+              selected={folderNav}
+              onSelect={(next) => navigate(notesListHref(next))}
+              onCreate={openCreateFolder}
+              onEdit={(folder) => {
+                setEditingFolder(folder);
+                setFolderDialogOpen(true);
+              }}
+              onDelete={(folder) => void handleDeleteFolder(folder)}
+            />
+          </aside>
+          <div className="min-w-0 flex-1">{editor}</div>
+        </div>
       )}
     </PageShell>
   );

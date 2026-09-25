@@ -10,8 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/DatePicker";
 import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS } from "@/components/FormLabel";
 import { createMedicationWithDoses, updateMedication } from "@/api/health/medications";
+import { formatDateBR } from "@/lib/currency";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
@@ -114,10 +116,10 @@ export function MedicationQuickCreateDialog({
    * o formulário decidindo por conta própria que o tratamento é contínuo, exatamente o tipo de
    * divergência entre a tela e o banco que a 096 existe para fechar.
    */
-  function endedOnProblem(): string | null {
+  function endedOnProblem(until = endedOn): string | null {
     if (duration !== "until") return null;
-    if (!endedOn) return "Escolha a data de término ou marque “Uso contínuo”.";
-    if (startedOn && endedOn < startedOn) {
+    if (!until) return "Escolha a data de término ou marque “Uso contínuo”.";
+    if (startedOn && until < startedOn) {
       return "O término precisa ser igual ou posterior ao início.";
     }
     return null;
@@ -312,15 +314,12 @@ export function MedicationQuickCreateDialog({
           )}
 
           <div>
-            <FormLabel required htmlFor="medication-started-on">
-              Início
-            </FormLabel>
-            <Input
-              id="medication-started-on"
-              type="date"
+            <FormLabel required>Início</FormLabel>
+            <DatePicker
               className="sm:max-w-[14rem]"
-              value={startedOn}
-              onChange={(e) => setStartedOn(e.target.value)}
+              date={startedOn ? new Date(`${startedOn}T12:00:00`) : undefined}
+              ariaLabel={startedOn ? `Início — ${formatDateBR(startedOn)}` : "Início"}
+              onSelect={(d) => setStartedOn(d ? formatLocalIsoDate(d) : "")}
             />
           </div>
 
@@ -356,21 +355,21 @@ export function MedicationQuickCreateDialog({
                 Termina em
               </label>
               {duration === "until" ? (
-                <Input
-                  id="medication-ended-on"
-                  type="date"
-                  aria-label="Data de término"
+                <DatePicker
                   className="sm:max-w-[14rem]"
-                  value={endedOn}
+                  clearable
+                  date={endedOn ? new Date(`${endedOn}T12:00:00`) : undefined}
+                  ariaLabel={
+                    endedOn ? `Data de término — ${formatDateBR(endedOn)}` : "Data de término"
+                  }
                   aria-invalid={endedOnError != null}
                   aria-describedby={endedOnError ? "medication-ended-on-error" : undefined}
-                  onChange={(e) => {
-                    setEndedOn(e.target.value);
-                    if (endedOnError) setEndedOnError(null);
+                  onSelect={(d) => {
+                    const next = d ? formatLocalIsoDate(d) : "";
+                    setEndedOn(next);
+                    // Vazio só é erro no submit — Limpar não deve acusar no ato.
+                    setEndedOnError(next ? endedOnProblem(next) : null);
                   }}
-                  // Validação no blur, não a cada tecla: uma data pela metade não é um erro do
-                  // usuário, é uma data pela metade.
-                  onBlur={() => setEndedOnError(endedOnProblem())}
                 />
               ) : null}
             </div>

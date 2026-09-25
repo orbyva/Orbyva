@@ -76,6 +76,43 @@ describe("buildGanttNodes", () => {
     expect(nodes.find((n) => n.id === "child")?.open).toBe(false);
   });
 
+  it("subtarefas irmãs saem por prazo, depois prioridade, depois criação", () => {
+    const { nodes } = buildGanttNodes(
+      [],
+      [
+        task({ id: "parent", title: "Pai", due_date: "2026-09-30" }),
+        task({
+          id: "undated-high",
+          title: "Alta",
+          parent_task_id: "parent",
+          due_date: null,
+          priority: "high",
+        }),
+        task({
+          id: "dated-late",
+          title: "Prazo tarde",
+          parent_task_id: "parent",
+          due_date: "2026-09-20",
+        }),
+        task({
+          id: "dated-soon",
+          title: "Prazo cedo",
+          parent_task_id: "parent",
+          due_date: "2026-09-10",
+        }),
+        task({
+          id: "undated-old",
+          title: "Antiga",
+          parent_task_id: "parent",
+          due_date: null,
+          created_at: "2026-01-01T00:00:00Z",
+        }),
+      ]
+    );
+    const childIds = nodes.filter((n) => n.parent === "parent").map((n) => n.id);
+    expect(childIds).toEqual(["dated-soon", "dated-late", "undated-high", "undated-old"]);
+  });
+
   it("tarefa sem nenhuma data aparece com data-âncora (hoje até amanhã, 1 dia de largura real) e hasPlannedDate:false", () => {
     const { nodes } = buildGanttNodes([], [task({ id: "1", title: "Sem data" })]);
     expect(nodes).toHaveLength(1);

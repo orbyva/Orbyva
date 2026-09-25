@@ -24,6 +24,19 @@ vi.mock("@/api/health", () => ({
   // A lista de tratamentos carrega as preferências de lembrete junto (atalho "Lembretes" da 071).
   fetchReminderPreferences: vi.fn(async () => []),
   upsertReminderPreference: vi.fn(),
+  fetchConsultationTasks: vi.fn(async () => []),
+  fetchHealthMetrics: vi.fn(async () => []),
+  fetchHealthHabitsToday: vi.fn(async () => []),
+  deleteHealthMetric: vi.fn(),
+}));
+
+vi.mock("@/api/tasks", () => ({
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  createTask: vi.fn(),
+  updateTask: vi.fn(),
+  deleteTask: vi.fn(),
 }));
 
 // A lista de tratamentos (064) é montada de verdade pela rota — a API é mockada para o teste ser
@@ -78,6 +91,9 @@ beforeEach(() => {
       onTimeRate: 0,
     },
     activeMedicationCount: 0,
+    todayDoses: [],
+    upcomingConsultations: [],
+    medications: [],
   });
 });
 
@@ -239,6 +255,64 @@ describe("rota /life/health/medications (feature 064)", () => {
       await screen.findByRole(
         "heading",
         { name: "Medicações", level: 1 },
+        { timeout: 10_000 }
+      )
+    ).toBeInTheDocument();
+  }, 15_000);
+});
+
+describe("rota /life/health/consultations", () => {
+  it("a URL resolve para uma rota registrada, e não para o 404", () => {
+    const matches = matchRoutes(appRoutes, "/life/health/consultations");
+    expect(matches).not.toBeNull();
+    const paths = matches!.map((m) => m.route.path);
+    expect(paths).toContain("life/health/consultations");
+    expect(paths).not.toContain("*");
+  });
+
+  it("o elemento casado renderiza a lista de consultas", async () => {
+    const matches = matchRoutes(appRoutes, "/life/health/consultations")!;
+    const element = matches[matches.length - 1].route.element;
+
+    render(
+      <MemoryRouter initialEntries={["/life/health/consultations"]}>
+        <Suspense fallback={<p>carregando</p>}>{element}</Suspense>
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByRole(
+        "heading",
+        { name: "Consultas", level: 1 },
+        { timeout: 10_000 }
+      )
+    ).toBeInTheDocument();
+  }, 15_000);
+});
+
+describe("rota /life/health/progress", () => {
+  it("a URL resolve para uma rota registrada, e não para o 404", () => {
+    const matches = matchRoutes(appRoutes, "/life/health/progress");
+    expect(matches).not.toBeNull();
+    const paths = matches!.map((m) => m.route.path);
+    expect(paths).toContain("life/health/progress");
+    expect(paths).not.toContain("*");
+  });
+
+  it("o elemento casado renderiza o histórico de medições", async () => {
+    const matches = matchRoutes(appRoutes, "/life/health/progress")!;
+    const element = matches[matches.length - 1].route.element;
+
+    render(
+      <MemoryRouter initialEntries={["/life/health/progress"]}>
+        <Suspense fallback={<p>carregando</p>}>{element}</Suspense>
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByRole(
+        "heading",
+        { name: "Progresso", level: 1 },
         { timeout: 10_000 }
       )
     ).toBeInTheDocument();

@@ -14,3 +14,20 @@ export function buildConsultationTitle(specialty: string, professional?: string 
   if (!left) return right;
   return `${left} — ${right}`;
 }
+
+/**
+ * Recupera especialidade e profissional do `title` que `buildConsultationTitle` gravou.
+ * Sem travessão, o título inteiro é a especialidade — o mesmo formato da criação sem profissional.
+ */
+export function splitConsultationTitle(title: string): {
+  specialty: string;
+  professional: string;
+} {
+  const sep = " — ";
+  const index = title.indexOf(sep);
+  if (index === -1) return { specialty: title.trim(), professional: "" };
+  return {
+    specialty: title.slice(0, index).trim(),
+    professional: title.slice(index + sep.length).trim(),
+  };
+}
