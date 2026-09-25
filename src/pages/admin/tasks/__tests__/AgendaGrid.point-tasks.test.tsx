@@ -170,11 +170,14 @@ describe("AgendaGrid — visão Mês: bolinhas fora da contagem de chips (featur
     await renderLoaded();
 
     const fileira = screen.getByRole("group", { name: /^Tarefas pontuais/ });
-    expect(within(fileira).getAllByRole("button")).toHaveLength(4);
+    expect(within(fileira).getAllByRole("button", { name: /^Concluir: Remédio/ })).toHaveLength(4);
     for (let i = 0; i < 3; i++) {
       expect(screen.getByText(`Tarefa comum ${i}`)).toBeInTheDocument();
     }
+    // Nenhum "+N mais" de chip: as 4 bolinhas não gastaram nenhum dos 3 chips do dia.
     expect(screen.queryByText(/mais$/)).toBeNull();
+    // O rótulo da fileira é o caminho para abrir a tarefa (a bolinha só conclui).
+    expect(within(fileira).getByText("4 pontuais")).toBeInTheDocument();
   });
 
   it("com 4 pontuais e 5 tarefas comuns, o '+N mais' conta só as comuns que sobraram", async () => {
@@ -237,5 +240,50 @@ describe("AgendaGrid — visão Semana/Dia também marca a bolinha (feature 072)
     await user.click(screen.getByRole("button", { name: "Concluir: Remédio (08:00)" }));
 
     expect(mockedUpdateTask).toHaveBeenCalledWith({ id: "med-1", status: "done" });
+  });
+});
+
+describe("AgendaGrid — editar uma tarefa pontual não apaga a pontualidade (feature 072)", () => {
+  /** A bolinha só conclui; quem abre o form é o rótulo da fileira -> dialog do dia -> chip. */
+  async function abrirFormDoPontual(user: ReturnType<typeof userEvent.setup>) {
+    await renderLoaded();
+    await user.click(screen.getByText("1 pontuais"));
+    await user.click(await screen.findByRole("button", { name: /Remédio/ }));
+    return screen.findByRole("button", { name: "Salvar alterações" });
+  }
+
+  it("salvar sem mexer em nada mantém estimated_duration 0 (e as flags de medicação/consulta)", async () => {
+    const user = userEvent.setup();
+    mockedFetchTasks.mockResolvedValue([
+      pointTask({ id: "med-1", title: "Remédio", is_medication: true }),
+    ]);
+
+    const salvar = await abrirFormDoPontual(user);
+    await user.click(salvar);
+
+    expect(mockedUpdateTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "med-1",
+        estimated_duration: 0,
+        is_medication: true,
+        is_consultation: false,
+      })
+    );
+  });
+
+  it("tarefa comum aberta pelo mesmo caminho continua com estimated_duration null", async () => {
+    const user = userEvent.setup();
+    mockedFetchTasks.mockResolvedValue([
+      pointTask({ id: "med-1", title: "Remédio" }),
+      makeTask({ id: "comum-1", title: "Revisar contrato", due_time: "14:00" }),
+    ]);
+
+    await renderLoaded();
+    await user.click(screen.getByText("Revisar contrato"));
+    await user.click(await screen.findByRole("button", { name: "Salvar alterações" }));
+
+    expect(mockedUpdateTask).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "comum-1", estimated_duration: null })
+    );
   });
 });

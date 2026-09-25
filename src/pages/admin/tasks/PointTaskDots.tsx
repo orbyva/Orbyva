@@ -90,22 +90,25 @@ export function PointTaskDots({
           </button>
         );
       })}
-      {overflow > 0 &&
-        (onOverflowClick ? (
-          <button
-            type="button"
-            onClick={onOverflowClick}
-            className="shrink-0 rounded px-0.5 text-[10px] leading-none text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            +{overflow}
-          </button>
-        ) : (
-          // Sem para onde levar (o Gantt e as grades de hora não têm dialog de dia), o excedente
-          // vira só informação — botão morto seria pior que rótulo.
+      {/* Rótulo final da fileira: com `onOverflowClick` ele existe **sempre**, porque é o único
+          caminho para abrir a tarefa a partir da bolinha (a bolinha só conclui). "+N" quando
+          sobrou gente de fora, "N pontuais" quando todas couberam. Sem o handler (Gantt, grades
+          de hora), só informa o excedente — botão morto seria pior que rótulo. */}
+      {onOverflowClick ? (
+        <button
+          type="button"
+          onClick={onOverflowClick}
+          className="shrink-0 rounded px-0.5 text-[10px] leading-none text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          {overflow > 0 ? `+${overflow}` : `${items.length} pontuais`}
+        </button>
+      ) : (
+        overflow > 0 && (
           <span className="shrink-0 px-0.5 text-[10px] leading-none text-muted-foreground">
             +{overflow}
           </span>
-        ))}
+        )
+      )}
     </div>
   );
 }

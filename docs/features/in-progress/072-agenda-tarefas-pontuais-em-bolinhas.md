@@ -139,7 +139,7 @@ de bolinhas não pode roubar nem perder cliques para eles. E `AgendaHourGrid` é
 - [x] `TaskDurationQuickPick.tsx`: opção "Pontual" gravando `estimated_duration = 0`, e
       `formatEstimatedDuration(0)` (`src/domain/tasks/duration.ts`) passando a devolver "Pontual".
       Verificação: caso novo em `duration.test.ts` + teste do quick pick escolhendo "Pontual".
-- [ ] Corrigir `AgendaGrid.openTaskFromChip` (`:414-437`), que hoje **não** copia
+- [x] Corrigir `AgendaGrid.openTaskFromChip` (`:414-437`), que hoje **não** copia
       `estimated_duration`, `is_medication` nem `is_consultation` para o form: sem isso, editar uma
       tarefa pontual pela Agenda apagaria a pontualidade dela. Verificação: teste abrindo o form a
       partir de uma tarefa pontual e conferindo que salvar sem mexer em nada mantém
@@ -169,3 +169,15 @@ de bolinhas não pode roubar nem perder cliques para eles. E `AgendaHourGrid` é
   status. Agora ela é bolinha. O caso foi reescrito preservando o que a 061 cobre (medicação não
   ganha o marcador de consulta) e afirmando a realidade nova: `getByRole("button", { name:
   "Concluir: Losartana" })` existe e `queryByText("Losartana")` não — o título virou `aria-label`.
+- Desvio do texto de `## Tarefas` (não pedido pelo usuário), a favor do que a seção `## Decisões`
+  declara: o rótulo final da fileira **não** aparece só no overflow. Com `onOverflowClick` presente
+  (visão Mês) ele existe sempre — "+N" quando sobrou gente de fora, "N pontuais" quando todas
+  couberam. Sem isso a bolinha seria um beco sem saída: ela só conclui, e uma tarefa pontual criada
+  com título/horário errado não teria nenhum caminho para o form na Agenda. Nas grades de hora e no
+  Gantt (sem handler) o rótulo continua só informando o excedente.
+- A correção de `openTaskFromChip` era mais necessária do que o planning supôs, e por outro motivo:
+  `updateTask` só grava as colunas presentes no payload, então a ausência de `estimated_duration` não
+  apagava nada no banco por si. O caminho real de perda é `TaskRecurrenceField`, que devolve
+  `estimated_duration` junto com as datas no seu `onChange` — mexer na data de uma tarefa pontual
+  escrevia `estimated_duration: undefined` no form e no estado local. Copiar o campo na abertura do
+  form fecha os dois casos.

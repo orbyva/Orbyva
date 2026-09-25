@@ -127,6 +127,20 @@ describe("PointTaskDots — overflow", () => {
     render(<PointTaskDots items={doze.slice(0, 8)} onToggle={vi.fn()} onOverflowClick={vi.fn()} />);
     expect(screen.queryByText(/^\+\d/)).toBeNull();
   });
+
+  it("sem overflow, o rótulo final continua existindo como 'N pontuais' — é o caminho para abrir a tarefa", async () => {
+    const onOverflowClick = vi.fn();
+    render(<PointTaskDots items={doze.slice(0, 3)} onToggle={vi.fn()} onOverflowClick={onOverflowClick} />);
+
+    await userEvent.click(screen.getByText("3 pontuais"));
+    expect(onOverflowClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("sem onOverflowClick não existe rótulo nenhum quando tudo cabe (Gantt, grade de horas)", () => {
+    render(<PointTaskDots items={doze.slice(0, 3)} onToggle={vi.fn()} />);
+    expect(screen.queryByText(/pontuais$/)).toBeNull();
+    expect(screen.queryByText(/^\+\d/)).toBeNull();
+  });
 });
 
 /** Harness com estado: a fileira é controlada pelo pai (a Agenda), então o toggle só se prova de

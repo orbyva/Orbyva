@@ -437,6 +437,13 @@ export function AgendaGrid() {
       icon_key: task.icon_key ?? null,
       icon_url: task.icon_url ?? null,
       is_milestone: task.is_milestone ?? false,
+      // Campos que o form não mostra mas que precisam sobreviver ao salvar (feature 072):
+      // `estimated_duration` é o que define a tarefa pontual (`0`), e `TaskRecurrenceField` devolve
+      // esse campo no `onChange` — sem copiá-lo aqui, mexer na data zeraria a pontualidade.
+      // `is_medication`/`is_consultation` seguem pelo mesmo motivo.
+      estimated_duration: task.estimated_duration ?? null,
+      is_medication: task.is_medication ?? false,
+      is_consultation: task.is_consultation ?? false,
     });
     setFormTab("geral");
   }
