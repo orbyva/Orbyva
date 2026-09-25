@@ -142,15 +142,15 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
       070 apontarem para algum lugar. A função de slug vai para `src/domain/notes/headings.ts`
       (pura). Verificação: testes de `slugifyHeading` (acentos, pontuação, colisão, string vazia) +
       teste de render conferindo `id` e âncora.
-- [ ] Guardar a invariante de segurança: acrescentar a `MarkdownPreview.blocks.test.tsx` (ou ao
+- [x] Guardar a invariante de segurança: acrescentar a `MarkdownPreview.blocks.test.tsx` (ou ao
       arquivo novo) um caso por recurso novo provando que HTML cru **continua** não interpretado —
       dentro de callout, dentro de math e dentro de fence com linguagem `html`. Verificação:
       `npm test`.
-- [ ] Passada final: `npm run build`, `npm run lint`, `npm run check:bundle` e a suíte completa
+- [x] Passada final: `npm run build`, `npm run lint`, `npm run check:bundle` e a suíte completa
       (`npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`, forma já usada nas
       Notas da 050 por instabilidade do `npm test` puro nesta máquina). Registrar em Notas o
       tamanho do chunk de `/notes` antes e depois.
-- [ ] Checagem de satisfação do `prompt:` ("nível sofisticado de escrita", lado leitura), com
+- [x] Checagem de satisfação do `prompt:` ("nível sofisticado de escrita", lado leitura), com
       artefato por item, sem navegador: código colorido → `CodeBlock.test.tsx`; math →
       `MathBlock.test.tsx`; callout → `remarkCallout.test.ts` + teste de render; tipografia
       completa e footnote → `MarkdownPreview.typography.test.tsx`; portabilidade da sintaxe →
@@ -227,6 +227,40 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
   acessível de todo título vira "Seção Link para esta seção" — o texto do link entra na composição
   do nome do título. Foi bug de verdade: dez testes de outras features quebraram procurando o
   título pelo nome, o que é exatamente o que um leitor de tela teria ouvido.
+- 2026-09-25 — **Passada final, medida.** Chunks da rota de Notas, gzip, antes (commit `09faaea`,
+  com as 4 primeiras tarefas prontas) e depois da feature inteira: `Notes` **3,0 KB → 3,0 KB** e
+  `NoteDetail` **10,3 KB → 10,3 KB** — zero crescimento, que era a condição do plano. O que cresceu
+  foi só o que carrega sob demanda: `katex-*.js` 75,8 KB (já existia, via mermaid) e
+  `lowlight-*.js` 51,3 KB (novo), ambos `lazy`. O chunk compartilhado `MarkdownPreview-*.js`
+  terminou em 53,5 KB (react-markdown + os plugins); a medida dele **antes** da feature não foi
+  capturada — o plano pedia o chunk da rota, e é esse que está medido nas duas pontas. Suíte
+  completa: 166 arquivos, 1.562 testes, tudo passando. `npm run lint`: 0 erros (18 warnings
+  pré-existentes de `react-refresh`). `npm run check:bundle`: `Bundle budget OK.`
+- 2026-09-25 — **Checagem de satisfação do `prompt:`**, artefato por requisito (portão
+  `feature-satisfied` rodado: `TYPESAFE_API_KEY` ausente → UNAVAILABLE, vale a regra escrita da
+  skill `next`):
+  - *"sofisticação do markdown"* — **callout**: `remarkCallout.test.ts`, 15 testes passando (os 5
+    tipos anotam, tipo desconhecido não some, marcador no meio não conta, aninhados) + o describe
+    "callouts" em `MarkdownPreview.typography.test.tsx`; **math**: `MathBlock.test.tsx`, 10 testes
+    (inline vs. display, `throwOnError`, fórmula inválida mostra fonte + mensagem, KaTeX ausente
+    cai no texto-fonte, `R$ 10` não vira fórmula); **código colorido + copiar**:
+    `CodeBlock.test.tsx`, 12 testes (realce em árvore React, linguagem desconhecida sem cor,
+    lowlight ausente sem erro, copiar manda o texto-fonte e o clipboard negado vira toast);
+    **tipografia, footnote, tabela, âncora**: `MarkdownPreview.typography.test.tsx`, 36 testes, e
+    `headings.test.ts`, 13 testes.
+  - *"procure referências, bases abertas"* — o que entrou em código é o ecossistema aberto
+    unified/remark/rehype (`remark-gfm` + `remarkCallout` local + `remark-math`, e o array novo
+    `MARKDOWN_REHYPE_PLUGINS` com `rehypeHeadingIds`), todos exercitados pelos testes acima.
+  - *"sdkjs"* — avaliado e descartado nas Decisões, com motivo escrito (editor OOXML de vários MB
+    que não renderiza markdown). Não é lacuna: é a resposta à referência que o prompt citou.
+  - *portabilidade* — nenhum teste escreve sintaxe inventada: só `> [!NOTE]`, `$…$`/`$$…$$`,
+    ` ```math `, `[^1]` e ` ```lang `, todas de GitHub/Obsidian.
+  - *segurança* — `MarkdownPreview.blocks.test.tsx`, 12 testes, com o describe novo usando **KaTeX
+    e lowlight reais** (sem mock): `<img src=x onerror=alert(1)>` dentro de callout, de fórmula, de
+    fence `html` e de título nunca vira elemento.
+  - *metade de **escrita** do mesmo bullet* (editor, atalhos, menu `/`, preview lado a lado,
+    sumário) — **fora do escopo desta feature por decisão do planning**: o Contexto diz que a
+    entrada é a 070. O que esta entrega é a leitura, inteira.
 - 2026-09-25 — Cores do realce: só 4 matizes e o cinza, todos de token já existente. Verde e
   vermelho vão onde a cor **é** o significado (linha adicionada/removida no diff); nome de função e
   título saem em peso, não em cor, porque a paleta do app não tem hue de editor sobrando e inventar
