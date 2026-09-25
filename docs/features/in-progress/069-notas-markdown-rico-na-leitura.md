@@ -112,16 +112,16 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
       teste de render conferindo `[data-callout="warning"]` no DOM e o texto preservado; o teste
       existente "o array central de plugins remark está ligado (GFM continua valendo)" precisa
       continuar passando.
-- [ ] Adicionar `remark-math` ao `package.json` e ao `MARKDOWN_REMARK_PLUGINS`, sem renderer ainda
+- [x] Adicionar `remark-math` ao `package.json` e ao `MARKDOWN_REMARK_PLUGINS`, sem renderer ainda
       (nesta etapa `$x$` vira um nó `inlineMath`/`math` inerte). Verificação: `npm run build` e
       `npm run check:bundle` — confirma que o parser sozinho não estoura orçamento.
-- [ ] Criar `src/components/markdown/MathBlock.tsx` (bloco `$$…$$`) e `InlineMath` (`$…$`), ambos
+- [x] Criar `src/components/markdown/MathBlock.tsx` (bloco `$$…$$`) e `InlineMath` (`$…$`), ambos
       com `await import("katex")` dinâmico + import do CSS do KaTeX dentro do próprio módulo lazy,
       estado de carregamento (o texto-fonte, sem "pisca") e estado de erro mostrando fonte +
       mensagem do KaTeX. Ligar os dois em `MarkdownPreview` pelos overrides de componente.
       Verificação: `npm run build && npm run check:bundle` (o chunk da rota `/notes` não pode
       crescer — katex precisa cair num chunk lazy).
-- [ ] Testes de `MathBlock`/`InlineMath` em `src/components/__tests__/MathBlock.test.tsx`, com
+- [x] Testes de `MathBlock`/`InlineMath` em `src/components/__tests__/MathBlock.test.tsx`, com
       `katex` mockado: fórmula válida renderiza, fórmula inválida mostra a fonte e a mensagem de
       erro (não some), falha do `import()` cai para texto puro. Verificação: `npm test`.
 - [ ] Adicionar `lowlight` ao `package.json` e criar `src/components/markdown/CodeBlock.tsx`:
@@ -186,6 +186,26 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
   `unist-util-visit`: o pacote só existe aqui como dependência transitiva do `react-markdown`, e a
   Decisão da feature era "sem dependência nova". Alcança callout aninhado em lista e em outro
   callout (coberto por teste).
+- 2026-09-25 — `katex` entrou como dependência **direta** no `package.json` (na versão exata que já
+  estava resolvida no lock, `0.16.47`), em vez de continuar só transitiva via mermaid. Não muda uma
+  linha do bundle — o chunk `katex-*.js` já existia e continua com 75,8 KB gzip — mas tira o risco
+  de uma atualização do mermaid derrubar a renderização de fórmula sem ninguém notar. A Decisão
+  ("KaTeX já está no lock transitivamente") continua verdadeira; isto só torna a dependência
+  explícita.
+- 2026-09-25 — `MathBlock` desenha com `katex.render(fonte, elemento, opções)`, que monta **nós de
+  DOM**, em vez de `renderToString` + `dangerouslySetInnerHTML`. É a mesma razão que a Decisão dá
+  para o highlight usar `lowlight`: nenhum `innerHTML` no caminho do preview. O elemento hospedeiro
+  é renderizado sempre vazio pelo React, então o React não reconcilia o que o KaTeX pôs lá dentro.
+- 2026-09-25 — `math` foi registrado no `blockRegistry` (além do `$$…$$`, o fence ` ```math ` passa
+  a renderizar, como no GitHub) — o `remark-math` entrega os dois pelo mesmo caminho de fence. Só o
+  `$…$` inline é desviado à mão no override de `code` do `MarkdownPreview`, porque lá a linguagem
+  também é `math` e o bloco de display quebraria a linha no meio da frase.
+- 2026-09-25 — Custo medido do KaTeX no PWA: o precache do service worker foi de 384 entradas /
+  11.203,85 KiB para 404 / 11.490,38 KiB (+286 KiB, +2,6%) — são as fontes `.woff2` do KaTeX, que o
+  `globPatterns` do `vite-plugin-pwa` recolhe. É exatamente o custo que a Decisão previu ("o custo
+  real é o CSS/fonte, não o JS") e fica **duas ordens de grandeza** abaixo do que motivou tirar o
+  excalidraw do precache (4,7 MB). Chunk de rota não mexeu: `NoteDetail` 10,3 KB gzip antes e
+  depois.
 
 ## Como testar
 
@@ -203,16 +223,18 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
 npx vitest run src/components/markdown/__tests__/remarkCallout.test.ts
 npx vitest run src/components/__tests__/MarkdownPreview.typography.test.tsx
 npx vitest run src/components/__tests__/MarkdownPreview.blocks.test.tsx
+npx vitest run src/components/__tests__/MathBlock.test.tsx
 npm run build
 npm run lint
 npm run check:bundle
 ```
 
-- Os três `vitest run` precisam terminar com `Test Files 1 passed` e nenhum teste pulado.
-  `remarkCallout.test.ts` prova o parser (marcador vira atributo, tipo desconhecido não some);
-  `MarkdownPreview.typography.test.tsx` prova o que chega ao DOM (tags que a folha estiliza,
+- Cada `vitest run` precisa terminar com `Test Files 1 passed` e nenhum teste pulado.
+  `remarkCallout.test.ts` prova o parser de callout (marcador vira atributo, tipo desconhecido não
+  some); `MarkdownPreview.typography.test.tsx` prova o que chega ao DOM (tags que a folha estiliza,
   footnote, callout); `MarkdownPreview.blocks.test.tsx` prova que o registry de blocos e o array
-  central de plugins continuam ligados.
+  central de plugins continuam ligados; `MathBlock.test.tsx` prova a fórmula (KaTeX mockado: modo
+  inline vs. display, fórmula inválida, KaTeX que não carrega).
 - `npm run build` precisa terminar sem erro de `tsc -b` (ele compila os testes também).
 - `npm run lint` precisa terminar com `0 errors` (os warnings de `react-refresh` são
   pré-existentes).
@@ -250,6 +272,16 @@ npm run check:bundle
        > [!FOO]
        > tipo que nao existe
 
+       Uma formula no meio da frase: $E = mc^2$, e outra em bloco:
+
+       $$
+       \int_0^1 x^2 \, dx = \frac{1}{3}
+       $$
+
+       Formula errada de proposito: $\naoexiste{x}$
+
+       Custou R$ 10 e sobrou troco.
+
        Texto com nota de rodape[^1].
 
        [^1]: o texto da nota.
@@ -261,10 +293,18 @@ npm run check:bundle
    - o texto `[!NOTE]`, `[!TIP]`… **não** aparece em lugar nenhum da tela;
    - `> [!FOO]` continua uma citação cinza comum, **com o texto `[!FOO]` visível** — nada some;
    - `> uma citacao comum` continua citação cinza, sem caixa nem rótulo.
-3. Ainda na leitura: o marcador `1` da nota de rodapé sai sobrescrito e clicável; clicar leva à
+3. Ainda na leitura, as fórmulas:
+   - `$E = mc^2$` sai tipografada **na própria linha do texto**, sem quebrar o parágrafo;
+   - a integral sai centralizada em bloco, em corpo maior;
+   - `$\naoexiste{x}$` sai numa caixinha vermelha com **o que foi escrito** mais a mensagem do
+     KaTeX (`Undefined control sequence`) — a fórmula nunca some da tela;
+   - `Custou R$ 10` continua texto normal: cifrão solto não vira fórmula.
+4. Fórmula longa (ex.: uma matriz larga) rola dentro do próprio bloco; a **página** não ganha
+   scroll horizontal.
+5. Ainda na leitura: o marcador `1` da nota de rodapé sai sobrescrito e clicável; clicar leva à
    seção do fim (separada por uma linha, em fonte menor), a linha de destino se acende, e o `↩`
    volta para o ponto do texto.
-4. Alterne o tema (claro/escuro) com os callouts na tela: as cores acompanham o tema, sem nenhuma
+6. Alterne o tema (claro/escuro) com os callouts na tela: as cores acompanham o tema, sem nenhuma
    caixa ficando ilegível (tudo sai de token `hsl(var(--…))`, não de cor literal).
 
 ### 4. Casos de borda e caminhos negativos
@@ -277,6 +317,12 @@ npm run check:bundle
 - Callout dentro de item de lista e callout dentro de callout: os dois são reconhecidos.
 - `> [!CAUTION]` com `<img src=x onerror=alert(1)>` no corpo: o HTML sai **como texto**, nenhuma
   tag é criada — a invariante da 055 (sem `rehype-raw`) continua valendo dentro de callout.
+- Fence ` ```math ` (em vez de `$$`): renderiza como fórmula em bloco, igual ao GitHub.
+- `$$<img src=x onerror=alert(1)>$$`: o KaTeX recebe isso como **texto de fórmula**; nenhuma tag
+  `<img>` aparece no DOM.
+- Abrir a nota **offline**, sem o chunk do KaTeX em cache: a fórmula aparece como o texto-fonte em
+  monoespaçada (`E = mc^2`), sem caixa de erro — biblioteca que não chegou não é erro de quem
+  escreveu.
 
 ### 5. Sinais de que quebrou
 
@@ -286,5 +332,9 @@ npm run check:bundle
   (`src/index.css`) se perdeu.
 - Callout vazio, sem o texto que foi escrito → regressão no corte do marcador em
   `remarkCallout.ts`; `remarkCallout.test.ts` falharia junto.
+- Fórmula aparecendo como `$E = mc^2$` com os cifrões → o `remark-math` saiu do array de plugins.
+- Fórmula ficando **eternamente** em monoespaçada, sem erro nenhum → o `import("katex")` está
+  falhando; olhe a aba de rede atrás do chunk `katex-*.js`.
+- Símbolos da fórmula empilhados/desalinhados → o CSS do KaTeX não carregou (`katex-*.css`).
 - `npm run check:bundle` imprimindo `FAIL` numa linha `route` → alguma dependência nova entrou no
   chunk da rota em vez de ficar no `import()` dinâmico.

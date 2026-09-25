@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { MermaidBlock } from "@/components/markdown/MermaidBlock";
 import { CanvasBlock } from "@/components/markdown/CanvasBlock";
+import { MathBlock } from "@/components/markdown/MathBlock";
 import { parseBlockLanguage } from "@/domain/notes/blockLanguage";
 import { CANVAS_BLOCK_LANGUAGE } from "@/domain/notes/canvasScene";
 
@@ -39,6 +40,13 @@ export const blockRenderers: Record<string, BlockRenderer> = {
   mermaid: MermaidBlock,
   // ```orbyva-canvas com o id de uma nota-canvas → o desenho da 058, em modo leitura.
   [CANVAS_BLOCK_LANGUAGE]: CanvasBlock,
+  /**
+   * `math` cobre dois caminhos de uma vez (feature 069): o fence ` ```math ` (que o GitHub também
+   * renderiza) e o `$$…$$`, porque o `remark-math` entrega justamente
+   * ` <pre><code class="language-math math-display"> ` ao hast. O `$…$` **não** passa por aqui — é
+   * código inline, e quem o desvia para o `InlineMath` é o override de `code` do `MarkdownPreview`.
+   */
+  math: MathBlock,
 };
 
 /**

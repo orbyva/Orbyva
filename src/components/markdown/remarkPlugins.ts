@@ -1,4 +1,5 @@
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import type { PluggableList } from "unified";
 import { remarkCallout } from "@/components/markdown/remarkCallout";
 
@@ -16,8 +17,20 @@ import { remarkCallout } from "@/components/markdown/remarkCallout";
  * com `> [!NOTE]` — o desenho dos cinco tipos mora em `.markdown-body [data-callout]`
  * (`src/index.css`).
  *
+ * `remark-math` (feature 069) só **parseia** `$…$` e `$$…$$`; ele não desenha nada. O que ele
+ * entrega ao hast é ` <code class="language-math math-inline"> ` (inline) e
+ * ` <pre><code class="language-math math-display"> ` (bloco) — ou seja, cai no mesmo caminho de
+ * fence que o registry de blocos já conhece, e é por lá que `MathBlock`/`InlineMath` entram. Sem
+ * eles, uma fórmula degrada para o código-fonte em monoespaçada: legível, nunca em branco.
+ * Note que o **rendering** é `katex`, carregado por `import()` dinâmico dentro do componente — não
+ * aqui, senão ele entraria no chunk da rota.
+ *
  * **Cuidado com plugins que produzem HTML cru**: sem `rehype-raw` o `react-markdown` ignora HTML, e
  * é assim que o preview fica livre de XSS sem sanitizador (decisão da 055). Plugin que dependa de
  * HTML cru para funcionar exige `rehype-sanitize` no mesmo passo.
  */
-export const MARKDOWN_REMARK_PLUGINS: PluggableList = [remarkGfm, remarkCallout];
+export const MARKDOWN_REMARK_PLUGINS: PluggableList = [
+  remarkGfm,
+  remarkCallout,
+  remarkMath,
+];

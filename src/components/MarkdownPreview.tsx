@@ -4,6 +4,7 @@ import type { Element } from "hast";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import { findBlockRenderer } from "@/components/markdown/blockRegistry";
+import { InlineMath } from "@/components/markdown/MathBlock";
 import { MARKDOWN_REMARK_PLUGINS } from "@/components/markdown/remarkPlugins";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +91,14 @@ const REMARK_REHYPE_OPTIONS = {
  */
 const BLOCK_REGISTRY_COMPONENTS: Components = {
   code(props) {
+    /**
+     * `$…$` chega como código **inline** com a classe `math-inline` (feature 069). Ele precisa ser
+     * desviado antes do registry: lá dentro a linguagem também é `math`, e o bloco de display
+     * quebraria a linha no meio da frase.
+     */
+    if (isInlineMath(props.className)) {
+      return <InlineMath code={blockCode(props.children)} />;
+    }
     const Renderer = findBlockRenderer(props.className);
     if (!Renderer) {
       const { children, ...rest } = withoutNode(props);
@@ -128,6 +137,17 @@ const TYPOGRAPHY_COMPONENTS: Components = {
     );
   },
 };
+
+/**
+ * A classe que o `remark-math` põe no `$…$`. É dele, não nossa — por isso a constante mora ao lado
+ * de quem a lê, com o nome do plugin no comentário.
+ */
+const MATH_INLINE_CLASS = "math-inline";
+
+function isInlineMath(className?: string): boolean {
+  if (!className) return false;
+  return className.split(/\s+/).includes(MATH_INLINE_CLASS);
+}
 
 /** `node` é o nó do hast, não um atributo de DOM — repassá-lo ao elemento vira warning do React. */
 function withoutNode<T extends { node?: Element }>(props: T): Omit<T, "node"> {
