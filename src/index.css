@@ -268,6 +268,25 @@
     margin-top: 1.25rem;
   }
 
+  /*
+   * Âncora `#` do título (feature 069). Fica invisível até o hover, mas **ocupa o lugar**
+   * (`opacity`, não `display`), senão o título dança quando o mouse passa. Ela é `aria-hidden`
+   * (ver `MarkdownPreview`), então não há estado de foco a desenhar: quem não usa mouse chega na
+   * seção pela URL, que é o que a âncora serve para descobrir.
+   */
+  .markdown-body .markdown-heading-anchor {
+    margin-left: 0.375rem;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground));
+    text-decoration-line: none;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .markdown-body :is(h1, h2, h3, h4, h5, h6):hover .markdown-heading-anchor {
+    opacity: 1;
+  }
+
   .markdown-body a {
     color: hsl(var(--primary));
     text-decoration-line: underline;

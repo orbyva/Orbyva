@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import {
   MARKDOWN_PREVIEW_CLASS,
   MarkdownPreview,
@@ -95,7 +95,8 @@ describe("MarkdownPreview — tipografia", () => {
   it("link vira <a> com href preservado", () => {
     const root = renderDocumento(DOCUMENTO);
 
-    const link = root.querySelector("a");
+    // `a` genérico pegaria a âncora `#` dos títulos, que também é um link (feature 069).
+    const link = root.querySelector("a:not(.markdown-heading-anchor)");
     expect(link).toHaveAttribute("href", "https://exemplo.com");
     expect(link).toHaveTextContent("um link");
   });
@@ -290,5 +291,75 @@ describe("MarkdownPreview — callouts", () => {
     expect(callout).not.toBeNull();
     expect(root.querySelector("img")).toBeNull();
     expect(callout?.textContent).toContain("<img");
+  });
+});
+
+/**
+ * `id` de título é o que permite apontar para **dentro** de uma nota (`[[nota#seção]]`, da 056, e o
+ * sumário da 070). Sem teste, uma regressão aqui não aparece em lugar nenhum: a nota continua
+ * bonita na tela e só os links param de levar a algum lugar.
+ */
+describe("MarkdownPreview — âncora de título", () => {
+  it("cada nível de título ganha id derivado do texto", () => {
+    const root = renderDocumento(
+      "# Introdução\n\n## Como Rodar o Café?\n\n### Ação e reação"
+    );
+
+    expect(root.querySelector("h1")?.id).toBe("introducao");
+    expect(root.querySelector("h2")?.id).toBe("como-rodar-o-cafe");
+    expect(root.querySelector("h3")?.id).toBe("acao-e-reacao");
+  });
+
+  it("títulos repetidos numeram a partir do segundo", () => {
+    const root = renderDocumento("## Notas\n\ntexto\n\n## Notas");
+
+    const ids = [...root.querySelectorAll("h2")].map((h) => h.id);
+    expect(ids).toEqual(["notas", "notas-2"]);
+  });
+
+  it("a âncora aponta para o próprio título e não sai do lugar", () => {
+    const root = renderDocumento("## Uma seção");
+
+    const heading = root.querySelector("h2");
+    const anchor = heading?.querySelector<HTMLAnchorElement>(
+      "a.markdown-heading-anchor"
+    );
+    expect(anchor).not.toBeNull();
+    expect(anchor?.getAttribute("href")).toBe("#uma-secao");
+    expect(anchor).toHaveTextContent("#");
+    // Continua sendo um link normal: rola a página, não abre aba.
+    expect(anchor).not.toHaveAttribute("target");
+  });
+
+  it("a âncora fica fora da árvore de acessibilidade (o título continua se chamando só o texto)", () => {
+    const root = renderDocumento("## Uma seção");
+
+    const anchor = root.querySelector("a.markdown-heading-anchor");
+    expect(anchor).toHaveAttribute("aria-hidden", "true");
+    expect(anchor).toHaveAttribute("tabindex", "-1");
+    expect(
+      screen.getByRole("heading", { name: "Uma seção" })
+    ).toBeInTheDocument();
+  });
+
+  it("o texto do título não ganha o # (só o link ao lado ganha)", () => {
+    const root = renderDocumento("## Uma seção");
+
+    const heading = root.querySelector("h2");
+    expect(heading?.firstChild?.textContent).toBe("Uma seção");
+  });
+
+  it("o rótulo invisível da seção de rodapé mantém o id do GFM e não ganha âncora", () => {
+    const root = renderDocumento("texto[^1]\n\n[^1]: nota");
+
+    const label = root.querySelector("#footnote-label");
+    expect(label).not.toBeNull();
+    expect(label?.querySelector(".markdown-heading-anchor")).toBeNull();
+  });
+
+  it("título formatado usa o texto, não a marcação", () => {
+    const root = renderDocumento("## Um **título** com `código`");
+
+    expect(root.querySelector("h2")?.id).toBe("um-titulo-com-codigo");
   });
 });

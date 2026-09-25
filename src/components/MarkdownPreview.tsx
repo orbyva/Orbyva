@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import type { ReactNode } from "react";
+import { createElement, useMemo } from "react";
+import type { JSX, ReactNode } from "react";
 import type { Element } from "hast";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
@@ -7,6 +7,7 @@ import { findBlockRenderer } from "@/components/markdown/blockRegistry";
 import { CodeBlock } from "@/components/markdown/CodeBlock";
 import { InlineMath } from "@/components/markdown/MathBlock";
 import { parseBlockLanguage } from "@/domain/notes/blockLanguage";
+import { MARKDOWN_REHYPE_PLUGINS } from "@/components/markdown/rehypePlugins";
 import { MARKDOWN_REMARK_PLUGINS } from "@/components/markdown/remarkPlugins";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +67,7 @@ export function MarkdownPreview({
     <div className={cn(MARKDOWN_PREVIEW_CLASS, className)}>
       <ReactMarkdown
         remarkPlugins={MARKDOWN_REMARK_PLUGINS}
+        rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
         remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
         components={merged}
         urlTransform={urlTransform}
@@ -134,6 +136,12 @@ const BLOCK_REGISTRY_COMPONENTS: Components = {
  * O resto da folha mora em `.markdown-body`, em `src/index.css`.
  */
 const TYPOGRAPHY_COMPONENTS: Components = {
+  h1: headingComponent("h1"),
+  h2: headingComponent("h2"),
+  h3: headingComponent("h3"),
+  h4: headingComponent("h4"),
+  h5: headingComponent("h5"),
+  h6: headingComponent("h6"),
   /**
    * Tabela larga rola dentro de si, nunca na página. Sem este embrulho, uma tabela de nota com
    * muitas colunas empurra o layout inteiro e cria scroll horizontal no `body` — que, além de feio,
@@ -149,6 +157,54 @@ const TYPOGRAPHY_COMPONENTS: Components = {
     );
   },
 };
+
+/**
+ * Título com âncora `#` ao lado (feature 069). O `id` já vem no nó, posto por `rehypeHeadingIds`
+ * (que é quem enxerga a nota inteira e desempata títulos repetidos); aqui só se desenha o link
+ * para ele.
+ *
+ * A âncora é escrita **em JSX**, e não posta na árvore pelo plugin, porque um `<a>` vindo da
+ * árvore passaria pelo override de `a` de quem consome o preview — no módulo de Notas, o do
+ * wiki-link (056), que manda link externo abrir em outra aba. Âncora de seção tem que rolar a
+ * página, não abrir aba.
+ *
+ * Título da seção de rodapé (`id="footnote-label"`, invisível) não ganha `#`: ele não é um lugar
+ * para onde alguém queira mandar link.
+ */
+function headingComponent(tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
+  return function Heading(props: JSX.IntrinsicElements[typeof tag] & { node?: Element }) {
+    const { children, ...rest } = withoutNode(props);
+    const id = typeof rest.id === "string" ? rest.id : undefined;
+    const anchored = id && id !== FOOTNOTE_LABEL_ID;
+
+    return createElement(
+      tag,
+      rest,
+      children,
+      anchored ? (
+        <a
+          key="anchor"
+          className="markdown-heading-anchor"
+          href={`#${id}`}
+          /**
+           * Fora da árvore de acessibilidade, como o GitHub faz. O nome acessível de um título
+           * inclui o texto dos descendentes: sem isto, todo `<h2>Seção</h2>` passaria a se chamar
+           * "Seção Link para esta seção" para um leitor de tela — e para os testes que procuram o
+           * título pelo nome. `tabIndex={-1}` acompanha, porque elemento focável escondido do leitor
+           * de tela é armadilha de acessibilidade, não recurso.
+           */
+          aria-hidden="true"
+          tabIndex={-1}
+        >
+          #
+        </a>
+      ) : null
+    );
+  };
+}
+
+/** O `remark-gfm` põe este `id` no rótulo invisível da seção de notas de rodapé. */
+const FOOTNOTE_LABEL_ID = "footnote-label";
 
 /**
  * A classe que o `remark-math` põe no `$…$`. É dele, não nossa — por isso a constante mora ao lado

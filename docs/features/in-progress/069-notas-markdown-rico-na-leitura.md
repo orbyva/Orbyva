@@ -137,7 +137,7 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
       negada. Verificação: teste em `src/components/__tests__/CodeBlock.test.tsx` — copia o
       **texto-fonte** (não o HTML colorido), mostra o feedback, e o caminho de erro não derruba o
       bloco.
-- [ ] `id` estável em h1–h6 (slug do texto, com sufixo `-2`, `-3` em colisão) via override de
+- [x] `id` estável em h1–h6 (slug do texto, com sufixo `-2`, `-3` em colisão) via override de
       componente, mais âncora `#` visível no hover. É o que permite `[[nota#seção]]` e o sumário da
       070 apontarem para algum lugar. A função de slug vai para `src/domain/notes/headings.ts`
       (pura). Verificação: testes de `slugifyHeading` (acentos, pontuação, colisão, string vazia) +
@@ -216,6 +216,17 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
   classificava como **chunk de entrada do app**, dando a ele o teto de 380 KB — o oposto da falha
   ruidosa que aquele arquivo documenta querer. Com o nome: `lowlight-*.js`, 51,3 KB gzip, classe
   `lazy` (teto 200 KB). Foi só `common` (~37 linguagens); `all` (~190) multiplicaria isso.
+- 2026-09-25 — O `id` de título saiu de um plugin **rehype** local (`rehypeHeadingIds`, mais o array
+  central novo `rehypePlugins.ts`), não do override de componente que a tarefa supunha. Motivo:
+  unicidade. Dois títulos iguais precisam virar `secao` e `secao-2`, e um componente de título não
+  enxerga os irmãos — geraria o mesmo `id` duas vezes e o link levaria sempre ao primeiro. A âncora
+  `#`, essa sim, é override de componente: um `<a>` posto na árvore passaria pelo override de `a`
+  do consumidor (no módulo de Notas, o do wiki-link da 056, que manda link externo abrir em outra
+  aba).
+- 2026-09-25 — A âncora `#` é `aria-hidden` + `tabIndex={-1}`, como no GitHub. Sem isso o nome
+  acessível de todo título vira "Seção Link para esta seção" — o texto do link entra na composição
+  do nome do título. Foi bug de verdade: dez testes de outras features quebraram procurando o
+  título pelo nome, o que é exatamente o que um leitor de tela teria ouvido.
 - 2026-09-25 — Cores do realce: só 4 matizes e o cinza, todos de token já existente. Verde e
   vermelho vão onde a cor **é** o significado (linha adicionada/removida no diff); nome de função e
   título saem em peso, não em cor, porque a paleta do app não tem hue de editor sobrando e inventar
@@ -239,6 +250,7 @@ npx vitest run src/components/__tests__/MarkdownPreview.typography.test.tsx
 npx vitest run src/components/__tests__/MarkdownPreview.blocks.test.tsx
 npx vitest run src/components/__tests__/MathBlock.test.tsx
 npx vitest run src/components/__tests__/CodeBlock.test.tsx
+npx vitest run src/domain/notes/__tests__/headings.test.ts
 npm run build
 npm run lint
 npm run check:bundle
@@ -251,7 +263,8 @@ npm run check:bundle
   central de plugins continuam ligados; `MathBlock.test.tsx` prova a fórmula (KaTeX mockado: modo
   inline vs. display, fórmula inválida, KaTeX que não carrega); `CodeBlock.test.tsx` prova o realce
   (lowlight mockado: linguagem conhecida colore, desconhecida não, lowlight que não carrega não
-  quebra nada).
+  quebra nada); `headings.test.ts` prova o slug do `id` de título (acento, pontuação, colisão,
+  título sem letra nenhuma).
 - `npm run check:bundle` também precisa listar `lowlight-*.js` como `lazy` (e **não** como `entry`)
   e o `katex-*.js` como `lazy` — é o que prova que nenhum dos dois entrou no caminho da rota.
 - `npm run build` precisa terminar sem erro de `tsc -b` (ele compila os testes também).
@@ -342,10 +355,13 @@ npm run check:bundle
 6. Clique em **Copiar** no cabeçalho de um bloco: o botão vira **Copiado** por ~2 segundos e volta.
    Cole num editor de texto: vem o código **como foi escrito** (duas linhas, com a quebra), sem
    marcação nem cor.
-7. Ainda na leitura: o marcador `1` da nota de rodapé sai sobrescrito e clicável; clicar leva à
+7. Passe o mouse sobre **## Secao**: aparece um `#` discreto ao lado. Clique: a URL ganha
+   `#secao` e a página rola até o título. Um segundo `## Secao` na mesma nota vira `#secao-2` —
+   é o que faz `[[nota#seção]]` (056) e o sumário da 070 terem alvo.
+8. Ainda na leitura: o marcador `1` da nota de rodapé sai sobrescrito e clicável; clicar leva à
    seção do fim (separada por uma linha, em fonte menor), a linha de destino se acende, e o `↩`
    volta para o ponto do texto.
-8. Alterne o tema (claro/escuro) com os callouts na tela: as cores acompanham o tema, sem nenhuma
+9. Alterne o tema (claro/escuro) com os callouts na tela: as cores acompanham o tema, sem nenhuma
    caixa ficando ilegível (tudo sai de token `hsl(var(--…))`, não de cor literal).
 
 ### 4. Casos de borda e caminhos negativos
@@ -364,6 +380,8 @@ npm run check:bundle
 - Abrir a nota **offline**, sem o chunk do KaTeX em cache: a fórmula aparece como o texto-fonte em
   monoespaçada (`E = mc^2`), sem caixa de erro — biblioteca que não chegou não é erro de quem
   escreveu.
+- Dois títulos com o mesmo texto: o segundo vira `-2`; um título só de emoji (`## 🚀`) ainda ganha
+  um alvo (`#secao`), em vez de `id` vazio.
 - Copiar com a área de transferência negada (navegador em contexto inseguro, ou permissão
   bloqueada): aparece um toast vermelho de "não foi possível copiar" e o bloco continua inteiro —
   nada de tela branca.
