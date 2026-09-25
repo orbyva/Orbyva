@@ -99,15 +99,15 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
       existente, com `aria-label` e `title` mostrando o atalho), chamando os mesmos comandos.
       Verificação: teste novo `NoteEditorToolbar.test.tsx` — cada botão produz a transformação
       esperada no texto; toolbar não aparece no modo "Visualizar".
-- [ ] Criar `src/components/codemirror/slashCommands.ts`: fonte de autocomplete disparada por `/`
+- [x] Criar `src/components/codemirror/slashCommands.ts`: fonte de autocomplete disparada por `/`
       em início de linha, com os itens da Decisão, cada um inserindo um snippet e posicionando o
       cursor. Não dispara dentro de fence nem de código inline (reusar a detecção que
       `wikiLinks.ts:34-90` já faz). Verificação: `npm run build`.
-- [ ] Testes em `src/components/codemirror/__tests__/slashCommands.test.ts`: dispara em início de
+- [x] Testes em `src/components/codemirror/__tests__/slashCommands.test.ts`: dispara em início de
       linha, **não** dispara no meio de uma palavra nem depois de `http:/`, não dispara dentro de
       fence, filtra por texto digitado e o snippet escolhido entra com o cursor no lugar certo.
       Verificação: `npm test`.
-- [ ] Ligar `slashCommands` em `NoteEditor.tsx` junto de `wikiLinkCompletion`, dentro do mesmo
+- [x] Ligar `slashCommands` em `NoteEditor.tsx` junto de `wikiLinkCompletion`, dentro do mesmo
       `useMemo` de extensões (identidade estável — ver Decisões). Verificação: `npm run build`;
       teste de fumaça em `Notes.flow.test.tsx` de que digitar `[[` continua completando notas.
 - [ ] Reativar highlight dentro de fences: `markdownLanguage.ts` passa a usar `markdown({ base,
@@ -198,6 +198,8 @@ npx vitest run src/domain/notes/__tests__/markdownCommands.test.ts
 npx vitest run src/components/__tests__/MarkdownCodeEditor.test.tsx
 npx vitest run src/pages/admin/notes/__tests__/NoteEditorToolbar.test.tsx
 npx vitest run src/pages/admin/notes/__tests__/NoteEditor.split.test.tsx
+npx vitest run src/components/codemirror/__tests__/slashCommands.test.ts
+npx vitest run src/pages/admin/notes/__tests__/Notes.flow.test.tsx
 npm run build
 npm run lint
 npm run check:bundle
@@ -213,6 +215,11 @@ npm run check:bundle
   conferindo o documento resultante (inclusive o esqueleto de tabela com linha em branco antes).
 - `NoteEditor.split.test.tsx` prova que a barra de formatação some no modo "Visualizar" e volta no
   "Escrever".
+- `slashCommands.test.ts` prova o menu `/`: abre só em início de linha (não em `http:/`, não em
+  `12/`, não dentro de fence nem de código inline), filtra por rótulo e por palavra-chave sem
+  acento, e cada item insere o esqueleto certo com o cursor no lugar.
+- `Notes.flow.test.tsx` é o fluxo fim a fim do módulo: os dois popups do editor (`[[` e `/`) abrem
+  no editor real e o que fica **gravado no banco falso** é markdown cru, sem a barra do menu.
 - `npm run build` sem erro de `tsc -b`; `npm run lint` com `0 errors` (os 18 warnings de
   `react-refresh` são pré-existentes); `npm run check:bundle` imprimindo `Bundle budget OK.`
 
@@ -228,7 +235,12 @@ npm run check:bundle
    vira `### …` (troca de nível, não empilha `#`). Tecle `Ctrl/Cmd+3` de novo: o título some.
 5. Selecione duas linhas e tecle `Ctrl/Cmd+Shift+8`: viram `- linha`. Tecle `Ctrl/Cmd+Shift+7`:
    viram `1. linha` / `2. linha`.
-6. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
+6. Digite `/` no começo de uma linha vazia: abre a lista de blocos (Título, Lista, Lista de
+   tarefas, Tabela, Citação, Callout, Bloco de código, Fórmula, Diagrama, Canvas, Data de hoje,
+   Link de nota). Digite `tab` para filtrar até **Tabela** e tecle Enter: entra o esqueleto com
+   linha em branco antes e o nome da primeira coluna **selecionado** — digite para trocá-lo.
+7. Escolha **Link de nota**: entra `[[]]` com o cursor no meio e o popup de notas já aberto.
+8. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
    e o **Inserir diagrama** que já existia. Passe o mouse em cada um: o `title` mostra o atalho.
    Clique em **Tabela** no fim de um parágrafo: entra o esqueleto GFM em bloco próprio, com o
    cabeçalho pronto para ser trocado. Vá para **Visualizar**: a barra some.
@@ -240,6 +252,9 @@ npm run check:bundle
 - Seleção arrastada de trás para frente (fim → começo): o resultado é o mesmo da seleção normal.
 - `Ctrl+Shift+8` numa seleção que inclui linha em branco: a linha em branco **não** ganha marcador.
 - Item indentado (`  - filho`) virando tarefa mantém os dois espaços de indentação.
+- `/` no **meio** de uma palavra, depois de `http:/`, em `12/05` ou dentro de um bloco de código
+  não abre o menu — é `/` de conteúdo.
+- `/zzz` (nada casa) fecha o menu em vez de mostrar lista vazia.
 
 ### 5. Sinais de que quebrou
 
@@ -249,3 +264,5 @@ npm run check:bundle
   `formattingKeymap.ts` se perdeu.
 - Atalho de título empilhando `## ## Título` → regressão em `toggleHeading`; o teste
   "troca de nível em vez de empilhar `#`" falharia junto.
+- O menu `/` abrindo dentro de bloco de código, ou a barra `/` sobrando no texto depois de escolher
+  um item → regressão em `slashCommands.ts` (`isInsideCode` ou o `from` do resultado).

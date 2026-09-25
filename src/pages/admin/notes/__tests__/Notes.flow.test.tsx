@@ -383,6 +383,37 @@ describe("Notas — fluxo fim a fim", () => {
     );
   });
 
+  it("digitar `/` no começo da linha abre o menu de blocos e insere o esqueleto", async () => {
+    const user = userEvent.setup();
+    store.notes = [
+      { id: "n1", title: "Rascunho", content: "", project_id: null, updated_at: stamp() },
+    ];
+    renderApp("/notes/n1");
+
+    await user.click(await screen.findByLabelText("Conteúdo"));
+    await user.keyboard("/tab");
+
+    const tooltip = await waitFor(
+      () => {
+        const found = document.querySelector(".cm-tooltip-autocomplete");
+        expect(found).not.toBeNull();
+        return found as HTMLElement;
+      },
+      { timeout: 3000 }
+    );
+    expect(tooltip.textContent).toContain("Tabela");
+
+    // Mesmo `interactionDelay` do popup de `[[`: o CodeMirror ignora o Enter nos primeiros 75 ms.
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    await user.keyboard("{Enter}");
+    await waitFor(
+      () => expect(store.notes[0].content).toContain("| --- | --- |"),
+      AUTOSAVE
+    );
+    // A barra do menu não pode sobrar no texto gravado.
+    expect(store.notes[0].content).not.toContain("/tab");
+  });
+
   it("um wiki-link resolvido no preview leva para a outra nota", async () => {
     const user = userEvent.setup();
     store.notes = [

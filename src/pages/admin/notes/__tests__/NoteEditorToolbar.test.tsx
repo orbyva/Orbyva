@@ -58,7 +58,7 @@ describe("NoteEditorToolbar", () => {
     for (const label of [
       "Negrito",
       "Itálico",
-      "Título",
+      "Título de seção",
       "Link",
       "Lista",
       "Tarefa",
@@ -95,10 +95,10 @@ describe("NoteEditorToolbar", () => {
     render(<Harness initial="Introducao" />);
 
     await selectAll(user);
-    await user.click(screen.getByRole("button", { name: "Título" }));
+    await user.click(screen.getByRole("button", { name: "Título de seção" }));
     expect(doc()).toBe("## Introducao");
 
-    await user.click(screen.getByRole("button", { name: "Título" }));
+    await user.click(screen.getByRole("button", { name: "Título de seção" }));
     expect(doc()).toBe("Introducao");
   });
 

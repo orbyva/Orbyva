@@ -51,7 +51,17 @@ function actions(mod: string): ToolbarAction[] {
   return [
     { label: "Negrito", shortcut: `${mod}B`, icon: Bold, command: toggleBold },
     { label: "Itálico", shortcut: `${mod}I`, icon: Italic, command: toggleItalic },
-    { label: "Título", shortcut: `${mod}2`, icon: Heading2, command: headingCommand(2) },
+    /**
+     * "Título de seção", e não só "Título": a nota tem um campo **Título** logo acima, e dois
+     * controles com o mesmo nome acessível na mesma tela é ambiguidade para leitor de tela (e foi
+     * ambiguidade real para os testes, que passaram a achar dois elementos).
+     */
+    {
+      label: "Título de seção",
+      shortcut: `${mod}2`,
+      icon: Heading2,
+      command: headingCommand(2),
+    },
     { label: "Link", shortcut: `${mod}K`, icon: LinkIcon, command: insertMarkdownLink },
     { label: "Lista", shortcut: `${mod}⇧8`, icon: List, command: toggleBulletList },
     { label: "Tarefa", shortcut: "", icon: ListTodo, command: toggleTaskList },

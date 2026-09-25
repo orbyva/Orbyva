@@ -90,6 +90,18 @@ function inlineCodeRanges(line: string): [number, number][] {
 }
 
 /**
+ * O offset cai dentro de código (bloco cercado ou inline)?
+ *
+ * Exportado porque a regra "aqui é código, não markdown" vale para mais gente que o wiki-link: o
+ * menu `/` do editor (feature 070) não pode disparar dentro de um fence, e o checkbox clicável do
+ * preview não pode contar `- [ ]` escrito dentro de um exemplo de código. Uma segunda
+ * implementação dessa varredura seria a chance de os dois discordarem.
+ */
+export function isInsideCode(content: string, offset: number): boolean {
+  return codeRanges(content).some(([from, to]) => offset >= from && offset < to);
+}
+
+/**
  * Todos os `[[wiki-links]]` do conteúdo, na ordem em que aparecem — vários por linha inclusive.
  * Ocorrências dentro de código (bloco ou inline) ficam de fora, e `[[   ]]` (título vazio) também.
  */

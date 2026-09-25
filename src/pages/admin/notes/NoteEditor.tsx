@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormLabel } from "@/components/FormLabel";
 import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
 import { wikiLinkAutocomplete } from "@/components/codemirror/wikiLinkCompletion";
+import { slashCommandAutocomplete } from "@/components/codemirror/slashCommands";
 import { NoteEditorToolbar } from "@/pages/admin/notes/NoteEditorToolbar";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
 import { NoteLinksPanel } from "@/pages/admin/notes/NoteLinksPanel";
@@ -95,6 +96,8 @@ export function NoteEditor({
           .filter((candidate) => candidate.id !== note.id)
           .map((candidate) => candidate.title)
       ),
+      // Segunda fonte do mesmo `autocompletion` (feature 070): `/` no começo da linha.
+      slashCommandAutocomplete(),
     ],
     [note.id]
   );
