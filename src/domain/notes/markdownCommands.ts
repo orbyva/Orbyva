@@ -1,3 +1,5 @@
+import { isInsideCode } from "@/domain/notes/wikiLinks";
+
 /**
  * # Transformações de Markdown — o miolo puro dos atalhos e da barra de ferramentas (feature 070)
  *
@@ -268,4 +270,38 @@ export function insertLink(
     return { text, selection: { from: urlStart, to: urlStart + url.length } };
   }
   return { text, selection: { from: from + 1, to: from + 1 } };
+}
+
+/**
+ * Marca/desmarca a **n-ésima** caixa de tarefa do documento (0-based), devolvendo o markdown novo.
+ *
+ * O índice é a **ordem de ocorrência** no texto porque é a única chave que o preview também tem: o
+ * `react-markdown` entrega o `<input type="checkbox">` sem posição no documento (não há
+ * `sourcepos`), então quem clica no terceiro checkbox da tela está clicando no terceiro do texto.
+ *
+ * Caixa dentro de bloco de código **não conta** — lá é exemplo de sintaxe, e ela nem vira caixa na
+ * tela. Índice fora do intervalo devolve o texto intacto, em vez de lançar: é uma ação de clique,
+ * não vale derrubar a tela por uma contagem dessincronizada.
+ */
+export function toggleTaskListItem(markdown: string, index: number): string {
+  if (index < 0) return markdown;
+
+  // `-`, `*`, `+` ou `1.`/`1)` seguido de `[ ]`/`[x]` — a sintaxe de tarefa do GFM, em qualquer lista.
+  const TASK_RE = /^([ \t]*(?:[-*+]|\d+[.)])[ \t]+\[)([ xX])(\])/gm;
+  let match: RegExpExecArray | null;
+  let seen = 0;
+
+  while ((match = TASK_RE.exec(markdown)) !== null) {
+    if (isInsideCode(markdown, match.index)) continue;
+    if (seen === index) {
+      const at = match.index + match[1].length;
+      const next = match[2] === " " ? "x" : " ";
+      // Troca **um** caractere: a indentação, o marcador e o texto do item ficam exatamente como
+      // estavam. Reescrever a linha inteira é como se perde `- [ ]   texto   alinhado`.
+      return markdown.slice(0, at) + next + markdown.slice(at + 1);
+    }
+    seen += 1;
+  }
+
+  return markdown;
 }

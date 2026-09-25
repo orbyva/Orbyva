@@ -20,7 +20,9 @@ import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
 import { appendMermaidSnippet } from "@/domain/notes/mermaidSnippet";
 import type { NoteHeading } from "@/domain/notes/headings";
+import { toggleTaskListItem } from "@/domain/notes/markdownCommands";
 import { proportionalScrollTop } from "@/domain/notes/scrollSync";
+import { countWords } from "@/domain/notes/wordCount";
 import { VIEW_PARAM, parseViewMode } from "@/domain/notes/viewMode";
 import type { ViewMode } from "@/domain/notes/viewMode";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -61,6 +63,24 @@ function SaveIndicator({ state }: { state: SaveState }) {
         className={state === "saving" ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"}
       />
       {SAVE_LABEL[state]}
+    </p>
+  );
+}
+
+/**
+ * Rodapé do editor: quanto já foi escrito e quanto dá de leitura.
+ *
+ * Mede o **texto**, não a marcação (ver `countWords`). Nota vazia não mostra nada: "0 palavras ·
+ * 0 caracteres" em folha em branco é ruído, não informação.
+ */
+function NoteCountFooter({ content }: { content: string }) {
+  const { words, characters, minutes } = useMemo(() => countWords(content), [content]);
+  if (words === 0) return null;
+  return (
+    <p className="px-1 text-right text-[11px] text-muted-foreground">
+      {words === 1 ? "1 palavra" : `${words} palavras`} ·{" "}
+      {characters === 1 ? "1 caractere" : `${characters} caracteres`} · {minutes} min de
+      leitura
     </p>
   );
 }
@@ -266,15 +286,18 @@ export function NoteEditor({
    * forma clássica de os dois caminhos divergirem com o tempo.
    */
   const editorNode = (
-    <MarkdownCodeEditor
-      label="Conteúdo"
-      value={content}
-      onChange={setContent}
-      onCreateEditor={handleCreateEditor}
-      className="min-h-[45vh] [&_.cm-editor]:min-h-[45vh]"
-      placeholder="Markdown na veia — # títulos, listas, **negrito**, [[links]] entre notas…"
-      extensions={editorExtensions}
-    />
+    <div className="space-y-1">
+      <MarkdownCodeEditor
+        label="Conteúdo"
+        value={content}
+        onChange={setContent}
+        onCreateEditor={handleCreateEditor}
+        className="min-h-[45vh] [&_.cm-editor]:min-h-[45vh]"
+        placeholder="Markdown na veia — # títulos, listas, **negrito**, [[links]] entre notas…"
+        extensions={editorExtensions}
+      />
+      <NoteCountFooter content={content} />
+    </div>
   );
 
   const previewNode = content.trim() ? (
@@ -282,6 +305,11 @@ export function NoteEditor({
       content={content}
       notes={notes}
       onCreateNote={onCreateNote}
+      /* Metade do uso de nota é checklist: marcar a caixa no preview escreve no markdown e cai no
+         mesmo autosave de sempre. Preview de leitura (fora do editor) não recebe isto. */
+      onToggleTask={(index) =>
+        setContent((current) => toggleTaskListItem(current, index))
+      }
       className="min-h-[45vh]"
     />
   ) : (

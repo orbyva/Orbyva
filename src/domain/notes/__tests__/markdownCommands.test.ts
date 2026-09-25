@@ -4,6 +4,7 @@ import {
   toggleHeading,
   toggleList,
   toggleQuote,
+  toggleTaskListItem,
   toggleWrap,
 } from "@/domain/notes/markdownCommands";
 
@@ -189,5 +190,67 @@ describe("insertLink", () => {
   it("aceita seleção invertida (arrastada de trás para frente)", () => {
     const edit = insertLink("veja o site aqui", { from: 11, to: 7 });
     expect(edit.text).toBe("veja o [site]() aqui");
+  });
+});
+
+/**
+ * `toggleTaskListItem` — o checkbox clicável do preview (feature 070). O índice é a ordem de
+ * ocorrência no texto, que é a única chave que o `react-markdown` também tem.
+ */
+describe("toggleTaskListItem", () => {
+  const LISTA = ["- [ ] comprar pão", "- [x] pagar conta", "- [ ] ligar para a Ana"].join("\n");
+
+  it("marca a caixa pedida, sem tocar nas outras", () => {
+    expect(toggleTaskListItem(LISTA, 0)).toBe(
+      ["- [x] comprar pão", "- [x] pagar conta", "- [ ] ligar para a Ana"].join("\n")
+    );
+    expect(toggleTaskListItem(LISTA, 2)).toBe(
+      ["- [ ] comprar pão", "- [x] pagar conta", "- [x] ligar para a Ana"].join("\n")
+    );
+  });
+
+  it("desmarca caixa já marcada, em qualquer caixa", () => {
+    expect(toggleTaskListItem(LISTA, 1)).toBe(
+      ["- [ ] comprar pão", "- [ ] pagar conta", "- [ ] ligar para a Ana"].join("\n")
+    );
+    expect(toggleTaskListItem("- [X] maiúsculo", 0)).toBe("- [ ] maiúsculo");
+  });
+
+  it("índice fora do intervalo devolve o texto intacto — clique não derruba a tela", () => {
+    expect(toggleTaskListItem(LISTA, 9)).toBe(LISTA);
+    expect(toggleTaskListItem(LISTA, -1)).toBe(LISTA);
+    expect(toggleTaskListItem("sem tarefa nenhuma", 0)).toBe("sem tarefa nenhuma");
+  });
+
+  it("caixa dentro de bloco de código não conta na numeração", () => {
+    const doc = [
+      "```md",
+      "- [ ] exemplo de sintaxe",
+      "```",
+      "",
+      "- [ ] tarefa de verdade",
+    ].join("\n");
+    // Índice 0 é a **primeira de verdade**, não a do exemplo.
+    expect(toggleTaskListItem(doc, 0)).toBe(
+      ["```md", "- [ ] exemplo de sintaxe", "```", "", "- [x] tarefa de verdade"].join("\n")
+    );
+    // E a do exemplo continua intocada em qualquer índice.
+    expect(toggleTaskListItem(doc, 1)).toBe(doc);
+  });
+
+  it("preserva indentação, marcador e espaçamento do item", () => {
+    expect(toggleTaskListItem("    * [ ]   item  recuado", 0)).toBe(
+      "    * [x]   item  recuado"
+    );
+    expect(toggleTaskListItem("1. [ ] em lista numerada", 0)).toBe(
+      "1. [x] em lista numerada"
+    );
+  });
+
+  it("não confunde link de colchete com caixa de tarefa", () => {
+    const doc = "- [link](https://a.b) não é caixa\n- [ ] esta é";
+    expect(toggleTaskListItem(doc, 0)).toBe(
+      "- [link](https://a.b) não é caixa\n- [x] esta é"
+    );
   });
 });

@@ -29,6 +29,7 @@ export function NoteMarkdownPreview({
   content,
   notes,
   onCreateNote,
+  onToggleTask,
   className,
 }: {
   content: string;
@@ -36,6 +37,11 @@ export function NoteMarkdownPreview({
   notes: readonly Note[];
   /** Chamado pelo chip de link quebrado, com o título que falta. */
   onCreateNote?: (title: string) => void;
+  /**
+   * Repassado ao `MarkdownPreview`: com ele, o checkbox de `- [ ]` fica clicável (feature 070).
+   * Só o editor da nota passa — em preview de leitura a caixa continua desabilitada.
+   */
+  onToggleTask?: (index: number) => void;
   className?: string;
 }) {
   const resolved = useMemo(() => {
@@ -111,6 +117,7 @@ export function NoteMarkdownPreview({
       content={resolved}
       className={className}
       components={components}
+      onToggleTask={onToggleTask}
       urlTransform={(url) =>
         url.startsWith(WIKI_LINK_MISSING_SCHEME) ? url : defaultUrlTransform(url)
       }

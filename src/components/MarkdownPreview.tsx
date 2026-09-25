@@ -9,6 +9,7 @@ import { InlineMath } from "@/components/markdown/MathBlock";
 import { parseBlockLanguage } from "@/domain/notes/blockLanguage";
 import { MARKDOWN_REHYPE_PLUGINS } from "@/components/markdown/rehypePlugins";
 import { MARKDOWN_REMARK_PLUGINS } from "@/components/markdown/remarkPlugins";
+import { TASK_INDEX_ATTR } from "@/components/markdown/rehypeTaskIndex";
 import { cn } from "@/lib/utils";
 
 /**
@@ -34,6 +35,7 @@ export function MarkdownPreview({
   className,
   components,
   urlTransform,
+  onToggleTask,
 }: {
   content: string;
   className?: string;
@@ -49,6 +51,12 @@ export function MarkdownPreview({
    * exceção para esquemas próprios conhecidos — ver `NoteMarkdownPreview`.
    */
   urlTransform?: (url: string) => string;
+  /**
+   * Torna o checkbox de `- [ ]` **clicável** (feature 070), recebendo o índice da caixa na ordem do
+   * documento. Sem este callback o checkbox continua `disabled`, como o `react-markdown` o entrega:
+   * marcar tarefa é edição, e a maioria dos previews do app é só leitura.
+   */
+  onToggleTask?: (index: number) => void;
 }) {
   /**
    * Os renderers do registry entram **antes** dos do consumidor: quem passa `components` continua
@@ -58,9 +66,10 @@ export function MarkdownPreview({
     () => ({
       ...BLOCK_REGISTRY_COMPONENTS,
       ...TYPOGRAPHY_COMPONENTS,
+      ...(onToggleTask ? taskCheckboxComponents(onToggleTask) : null),
       ...components,
     }),
-    [components]
+    [components, onToggleTask]
   );
 
   return (
@@ -201,6 +210,46 @@ function headingComponent(tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
       ) : null
     );
   };
+}
+
+/**
+ * Checkbox de tarefa clicável. O índice vem do `rehypeTaskIndex`, que numerou as caixas na mesma
+ * ordem em que `toggleTaskListItem` as conta no texto.
+ *
+ * O `<input>` continua **controlado pelo markdown**: `checked` vem do documento e o clique só
+ * avisa quem edita o texto. Se a escrita de volta falhar, a caixa volta sozinha para o que está
+ * escrito, em vez de mentir na tela.
+ *
+ * Sem `readOnly` de propósito, mesmo a caixa não sendo editável pelo DOM: o `@testing-library/
+ * user-event` se recusa a clicar em campo `readOnly` (e um clique que o teste não consegue dar é um
+ * clique que ninguém garante). O `onChange` já basta para o React não reclamar de campo controlado.
+ */
+function taskCheckboxComponents(onToggleTask: (index: number) => void): Components {
+  return {
+    input(props) {
+      const { node, ...rest } = props;
+      const index = readTaskIndex(node);
+      if (rest.type !== "checkbox" || index === null) {
+        return <input {...rest} />;
+      }
+      return (
+        <input
+          {...rest}
+          disabled={false}
+          aria-label={`Tarefa ${index + 1}`}
+          className="cursor-pointer"
+          onChange={() => onToggleTask(index)}
+        />
+      );
+    },
+  };
+}
+
+function readTaskIndex(node: Element | undefined): number | null {
+  const value = node?.properties?.[TASK_INDEX_ATTR];
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value !== "") return Number(value);
+  return null;
 }
 
 /** O `remark-gfm` põe este `id` no rótulo invisível da seção de notas de rodapé. */

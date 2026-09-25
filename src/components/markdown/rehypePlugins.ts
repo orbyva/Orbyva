@@ -1,5 +1,6 @@
 import type { PluggableList } from "unified";
 import { rehypeHeadingIds } from "@/components/markdown/rehypeHeadingIds";
+import { rehypeTaskIndex } from "@/components/markdown/rehypeTaskIndex";
 
 /**
  * Plugins rehype do Markdown do app — o irmão de `remarkPlugins.ts`, do outro lado da ponte.
@@ -12,4 +13,4 @@ import { rehypeHeadingIds } from "@/components/markdown/rehypeHeadingIds";
  * escrito na nota. Quem quiser ligá-lo tem que trazer `rehype-sanitize` no mesmo passo — invariante
  * da 055, repetida aqui porque este arquivo é exatamente o lugar onde alguém tentaria.
  */
-export const MARKDOWN_REHYPE_PLUGINS: PluggableList = [rehypeHeadingIds];
+export const MARKDOWN_REHYPE_PLUGINS: PluggableList = [rehypeHeadingIds, rehypeTaskIndex];

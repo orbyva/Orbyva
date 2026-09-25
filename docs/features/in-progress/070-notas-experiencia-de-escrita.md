@@ -136,15 +136,15 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
       Escrever/Dividir e usa a âncora no modo Visualizar; `EmptyState` curto ("Sem títulos ainda")
       quando a nota não tem nenhum. Verificação: teste `NoteOutlinePanel.test.tsx` — lista, hierarquia,
       clique chama o scroll com a linha certa, e estado vazio.
-- [ ] Contagem de palavras, caracteres e tempo de leitura no rodapé do editor, a partir de função
+- [x] Contagem de palavras, caracteres e tempo de leitura no rodapé do editor, a partir de função
       pura `countWords(markdown)` que desconta fences e marcadores (reusar `stripMarkdown` de
       `src/lib/markdown.ts`). Verificação: testes de `countWords` (texto vazio, só código, acentos,
       múltiplos espaços) + teste de que o rodapé exibe os três números.
-- [ ] Criar `toggleTaskListItem(markdown, index)` em `src/domain/notes/markdownCommands.ts` (puro):
+- [x] Criar `toggleTaskListItem(markdown, index)` em `src/domain/notes/markdownCommands.ts` (puro):
       alterna o n-ésimo `- [ ]`/`- [x]` do documento, ignorando checkbox dentro de fence.
       Verificação: testes — marcar, desmarcar, índice fora do intervalo devolve o texto intacto,
       checkbox em bloco de código não conta, indentação preservada.
-- [ ] Tornar o checkbox clicável no preview quando o `MarkdownPreview` receber `onToggleTask`
+- [x] Tornar o checkbox clicável no preview quando o `MarkdownPreview` receber `onToggleTask`
       (opcional); `NoteEditor` passa o handler e escreve o resultado no documento; demais usos
       (`TaskDescriptionField`, previews read-only) continuam com o checkbox `disabled`.
       Verificação: teste clicando o segundo checkbox de uma nota e conferindo o markdown resultante,

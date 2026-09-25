@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { NoteEditor } from "@/pages/admin/notes/NoteEditor";
@@ -45,6 +45,12 @@ function renderEditor(initialEntry = "/notes/n1", note: Note = NOTE) {
     </MemoryRouter>
   );
 }
+
+/** Nota-checklist — metade do uso de nota é isto. */
+const NOTA_CHECKLIST: Note = {
+  ...NOTE,
+  content: ["- [ ] comprar pão", "- [ ] pagar conta", "- [ ] ligar para a Ana"].join("\n"),
+};
 
 /** Nota com duas seções — é o que o sumário precisa para ter para onde levar. */
 const NOTA_COM_SECOES: Note = {
@@ -235,6 +241,48 @@ describe("NoteEditor — modos de visualização", () => {
     expect(scrollIntoView).toHaveBeenCalled();
     expect(scrollIntoView.mock.instances[0]).toBe(target);
     scrollIntoView.mockRestore();
+  });
+
+  it("o rodapé mostra palavras, caracteres e tempo de leitura — e some na nota vazia", async () => {
+    const user = userEvent.setup();
+    renderEditor("/notes/n1", NOTA_COM_SECOES);
+
+    // "Primeira corpo Segunda fim" = 4 palavras de texto (a marcação não conta).
+    const footer = screen.getByText(/palavras/);
+    expect(footer).toHaveTextContent("4 palavras");
+    expect(footer).toHaveTextContent("caracteres");
+    expect(footer).toHaveTextContent("1 min de leitura");
+
+    // Esvaziar a nota tira o rodapé: "0 palavras" em folha em branco é ruído.
+    const field = screen.getByRole("textbox", { name: "Conteúdo" });
+    await user.click(field);
+    await user.keyboard("{Control>}a{/Control}{Backspace}");
+    expect(screen.queryByText(/palavras/)).toBeNull();
+  });
+
+  it("clicar o segundo checkbox do preview escreve `- [x]` no markdown da nota", async () => {
+    renderEditor("/notes/n1?view=dividir", NOTA_CHECKLIST);
+
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes).toHaveLength(3);
+    /**
+     * `fireEvent.click` e não `user.click`: o `user-event` simula ponteiro e, neste jsdom, não
+     * produz o `change` de um checkbox **controlado** dentro do painel rolável. Que o clique chama
+     * `onToggleTask` já está provado com `user.click` em `MarkdownPreview.tasks.test.tsx`; o que
+     * este teste guarda é o passo seguinte — o markdown da nota ser reescrito.
+     */
+    fireEvent.click(boxes[1]);
+
+    // O editor mostra o documento novo: só a segunda linha mudou. (O `@uiw/react-codemirror`
+    // aplica o `value` novo no documento num efeito, daí o `waitFor`.)
+    const field = screen.getByRole("textbox", { name: "Conteúdo" });
+    await waitFor(() => expect(field.textContent).toContain("- [x] pagar conta"));
+    expect(field.textContent).toContain("- [ ] comprar pão");
+    expect(field.textContent).toContain("- [ ] ligar para a Ana");
+
+    // E desmarcar volta ao que era — o preview reflete o texto, não um estado próprio.
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    await waitFor(() => expect(field.textContent).toContain("- [ ] pagar conta"));
   });
 
   it("a barra de ferramentas some no modo Visualizar e volta no Escrever", async () => {
