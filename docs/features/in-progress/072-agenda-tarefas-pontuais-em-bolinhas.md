@@ -97,7 +97,7 @@ de bolinhas não pode roubar nem perder cliques para eles. E `AgendaHourGrid` é
       Verificação: os testes existentes "tarefa com due_time sem estimated_duration usa a duração
       default" e "tarefa sem due_time não entra na grade" continuam passando, mais um caso novo para
       o pontual.
-- [ ] `splitTimedItems`/`layoutTimedItems` deixam de receber itens pontuais (filtro na entrada do
+- [x] `splitTimedItems`/`layoutTimedItems` deixam de receber itens pontuais (filtro na entrada do
       `AgendaHourGrid`, não dentro das funções puras, que continuam genéricas). Verificação: teste
       provando que 3 pontuais no mesmo horário **não** dividem a largura da coluna do dia.
 - [x] Criar `src/pages/admin/tasks/PointTaskDots.tsx`: fileira de bolinhas com `role="group"`, cada
@@ -113,12 +113,12 @@ de bolinhas não pode roubar nem perder cliques para eles. E `AgendaHourGrid` é
 - [x] Teclado e foco: `Enter`/`Espaço` alternam, `Tab` percorre as bolinhas na ordem do horário, e o
       foco não é perdido depois do toggle (a lista re-renderiza). Verificação: testes de teclado no
       mesmo arquivo.
-- [ ] `AgendaHourGrid.tsx`: aceitar `onToggleTaskDone?` (opcional — `GanttChart.tsx:669` não passa)
+- [x] `AgendaHourGrid.tsx`: aceitar `onToggleTaskDone?` (opcional — `GanttChart.tsx:669` não passa)
       e renderizar, para cada dia, as fileiras de `groupPointItems` posicionadas por
       `topPercent` do horário, com altura fixa, acima da camada dos blocos e **abaixo** de nada que
       roube clique dos alvos de "novo slot" das 066/067. Verificação: `npm run build`; teste
       conferindo que clicar numa bolinha **não** abre o dialog de criar evento.
-- [ ] `AgendaHourGrid.tsx`: pontuais sem horário entram na `UntimedStrip` como bolinhas (e não como
+- [x] `AgendaHourGrid.tsx`: pontuais sem horário entram na `UntimedStrip` como bolinhas (e não como
       `TaskChip`). Verificação: caso novo em `AgendaHourGrid.test.tsx`.
 - [ ] `AgendaGrid.tsx` (visão mês): antes dos chips da célula do dia, renderizar uma linha única de
       bolinhas com os pontuais daquele dia; os pontuais saem da contagem de

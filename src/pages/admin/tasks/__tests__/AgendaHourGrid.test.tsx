@@ -71,6 +71,7 @@ function renderGrid({
   onOpenTask = vi.fn(),
   onOpenEvent = vi.fn(),
   onCreateAt,
+  onToggleTaskDone,
 }: {
   days?: Date[];
   tasks?: Task[];
@@ -84,6 +85,8 @@ function renderGrid({
   onOpenEvent?: (event: ProjectEvent) => void;
   /** Feature 067 — quando omitido, a grade continua só leitura (sem alvos de criação). */
   onCreateAt?: (day: Date, hour: number) => void;
+  /** Feature 072 — quando omitido, as bolinhas pontuais ficam só de leitura (caso do Gantt). */
+  onToggleTaskDone?: (task: Task) => void;
 } = {}) {
   const itemsByDay = groupCalendarItemsByDay(tasks, events);
   const projectById = new Map(projects.map((p) => [p.id, p]));
@@ -97,9 +100,10 @@ function renderGrid({
       onOpenTask={onOpenTask}
       onOpenEvent={onOpenEvent}
       onCreateAt={onCreateAt}
+      onToggleTaskDone={onToggleTaskDone}
     />
   );
-  return { ...utils, onOpenTask, onOpenEvent, onCreateAt };
+  return { ...utils, onOpenTask, onOpenEvent, onCreateAt, onToggleTaskDone };
 }
 
 /** Encontra o `div` posicionado de forma absoluta (top/height/left/width) que embrulha o bloco
@@ -371,5 +375,124 @@ describe("AgendaHourGrid — subtarefa com prazo próprio (feature 048)", () => 
 
     const button = screen.getByRole("button", { name: /Tarefa de topo/ });
     expect(button.getAttribute("title")).toBe("Tarefa de topo");
+  });
+});
+
+
+/**
+ * Feature 072 — tarefa pontual (`estimated_duration === 0` ou dose de medicação sem duração) sai
+ * do algoritmo de colunas e vira fileira de bolinhas marcáveis no horário marcado.
+ */
+describe("AgendaHourGrid — tarefas pontuais em bolinhas (feature 072)", () => {
+  function pointTask(overrides: Partial<Task> = {}): Task {
+    return makeTask({ estimated_duration: 0, ...overrides });
+  }
+
+  it("3 pontuais no mesmo horário NÃO dividem a largura da coluna — viram uma fileira só", () => {
+    const tasks = [
+      pointTask({ id: "p1", title: "Remédio A", due_time: "08:00" }),
+      pointTask({ id: "p2", title: "Remédio B", due_time: "08:00" }),
+      pointTask({ id: "p3", title: "Remédio C", due_time: "08:00" }),
+    ];
+    renderGrid({ tasks, onToggleTaskDone: vi.fn() });
+
+    // Nenhum bloco retangular foi criado (o bloco carrega o wrapper absoluto com width).
+    for (const title of ["Remédio A", "Remédio B", "Remédio C"]) {
+      const dot = screen.getByRole("button", { name: `Concluir: ${title} (08:00)` });
+      expect(dot.className).toContain("rounded-full");
+    }
+
+    const fileira = screen.getByRole("group", { name: /^Tarefas pontuais às 08:00/ });
+    expect(within(fileira).getAllByRole("button")).toHaveLength(3);
+    // Uma fileira só, ocupando a coluna inteira: nada de 33% de largura por item.
+    const wrapper = fileira.parentElement as HTMLElement;
+    expect(wrapper.style.width).toBe("");
+    expect(wrapper.className).toContain("inset-x-0");
+  });
+
+  it("a fileira é posicionada pelo horário (top em % do dia), como os blocos", () => {
+    renderGrid({ tasks: [pointTask({ due_time: "06:00", title: "Remédio" })] });
+
+    const fileira = screen.getByRole("group", { name: /^Tarefas pontuais às 06:00/ });
+    const wrapper = fileira.parentElement as HTMLElement;
+    // 06:00 = 360 de 1440 minutos = 25% do dia
+    expect(wrapper.style.top).toBe("25%");
+  });
+
+  it("uma fileira por horário: 08:00 e 09:00 não se misturam", () => {
+    renderGrid({
+      tasks: [
+        pointTask({ id: "p1", title: "Manhã", due_time: "08:00" }),
+        pointTask({ id: "p2", title: "Depois", due_time: "09:00" }),
+      ],
+    });
+
+    expect(
+      within(screen.getByRole("group", { name: /^Tarefas pontuais às 08:00/ })).getAllByRole("button")
+    ).toHaveLength(1);
+    expect(
+      within(screen.getByRole("group", { name: /^Tarefas pontuais às 09:00/ })).getAllByRole("button")
+    ).toHaveLength(1);
+  });
+
+  it("clicar numa bolinha chama onToggleTaskDone e NÃO dispara onCreateAt (feature 067)", async () => {
+    const user = userEvent.setup();
+    const onCreateAt = vi.fn();
+    const onToggleTaskDone = vi.fn();
+    const task = pointTask({ title: "Remédio", due_time: "08:00" });
+    renderGrid({ tasks: [task], onCreateAt, onToggleTaskDone });
+
+    await user.click(screen.getByRole("button", { name: "Concluir: Remédio (08:00)" }));
+
+    expect(onToggleTaskDone).toHaveBeenCalledTimes(1);
+    expect(onToggleTaskDone).toHaveBeenCalledWith(task);
+    expect(onCreateAt).not.toHaveBeenCalled();
+  });
+
+  it("sem onToggleTaskDone (Gantt) as bolinhas ficam desabilitadas, mas continuam visíveis", () => {
+    renderGrid({ tasks: [pointTask({ title: "Remédio", due_time: "08:00", status: "done" })] });
+
+    expect(screen.getByRole("button", { name: "Remédio (08:00)" })).toBeDisabled();
+  });
+
+  it("dose de medicação sem duração informada também vira bolinha", () => {
+    renderGrid({
+      tasks: [makeTask({ title: "Dose 1", due_time: "08:00", is_medication: true })],
+      onToggleTaskDone: vi.fn(),
+    });
+
+    expect(screen.getByRole("button", { name: "Concluir: Dose 1 (08:00)" })).toBeInTheDocument();
+  });
+
+  it("tarefa comum sem duração continua sendo bloco de 30 min, não bolinha", () => {
+    renderGrid({ tasks: [makeTask({ title: "Reunião", due_time: "08:00" })] });
+
+    expect(screen.queryByRole("group", { name: /^Tarefas pontuais/ })).not.toBeInTheDocument();
+    const wrapper = absoluteWrapperOf(screen.getByRole("button", { name: /Reunião/ }));
+    expect(wrapper.style.width).toBe("100%");
+  });
+
+  it("pontual SEM horário entra na faixa 'Sem horário' como bolinha, não como chip", async () => {
+    const user = userEvent.setup();
+    const onToggleTaskDone = vi.fn();
+    const onOpenTask = vi.fn();
+    const task = pointTask({ title: "Trocar lençol", due_time: null });
+    renderGrid({ tasks: [task], onToggleTaskDone, onOpenTask });
+
+    expect(screen.getByText("Sem horário")).toBeInTheDocument();
+    const fileira = screen.getByRole("group", { name: /^Tarefas pontuais sem horário/ });
+    const dot = within(fileira).getByRole("button", { name: "Concluir: Trocar lençol" });
+    expect(dot.className).toContain("rounded-full");
+
+    await user.click(dot);
+    expect(onToggleTaskDone).toHaveBeenCalledWith(task);
+    // A bolinha é a única ação dela: não abre o form da tarefa.
+    expect(onOpenTask).not.toHaveBeenCalled();
+  });
+
+  it("a faixa 'Sem horário' aparece mesmo quando o dia só tem pontuais sem horário", () => {
+    renderGrid({ tasks: [pointTask({ title: "Trocar escova", due_time: null })] });
+
+    expect(screen.getByText("Sem horário")).toBeInTheDocument();
   });
 });

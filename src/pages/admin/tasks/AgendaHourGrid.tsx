@@ -3,10 +3,12 @@ import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DollarSign } from "lucide-react";
 import {
+  groupPointItems,
   layoutTimedItems,
   resolveEventProjectId,
   splitTimedItems,
   type CalendarItem,
+  type PointItemGroup,
 } from "@/domain/tasks";
 import type { Project, ProjectEvent, Task } from "@/types/tasks";
 import { cn } from "@/lib/utils";
@@ -19,6 +21,7 @@ import {
   SubtaskLinkIcon,
   TaskChip,
 } from "./AgendaGrid";
+import { PointTaskDots } from "./PointTaskDots";
 import { TaskIconBadge } from "./TaskIconBadge";
 
 /** Altura de cada linha de hora, em px — 24 linhas = altura total do canvas rolável. */
@@ -27,6 +30,10 @@ const HOURS = Array.from({ length: 24 }, (_, h) => h);
 /** Hora pra onde a grade rola automaticamente quando a hora atual está fora da janela "útil"
  * (bem cedo ou bem tarde) — mesma ideia de calendários que abrem perto do início do dia útil. */
 const FALLBACK_SCROLL_HOUR = 7;
+/** Altura da fileira de bolinhas posicionada no canvas — fixa em px (não proporcional à duração,
+ * que é 0 por definição numa tarefa pontual, feature 072). */
+const POINT_ROW_PX = 16;
+const MINUTES_PER_DAY = 24 * 60;
 
 interface AgendaHourGridProps {
   /** 1 dia (visão "day") ou 7 dias (visão "week") — a grade se adapta ao número de colunas. */
@@ -41,6 +48,22 @@ interface AgendaHourGridProps {
   /** Clique numa linha de hora vazia (feature 067) — `hour` é a hora cheia clicada naquele dia.
    * Opcional: sem ela a grade continua sendo só leitura, como era até a 066. */
   onCreateAt?: (day: Date, hour: number) => void;
+  /** Clique numa bolinha de tarefa pontual (feature 072) — alterna `todo`/`done`. Opcional: o
+   * Gantt (`GanttChart.tsx`, "Focar dia") não passa, e lá as bolinhas ficam só de leitura. */
+  onToggleTaskDone?: (task: Task) => void;
+}
+
+/** As tarefas de um grupo pontual — `groupPointItems` só põe tarefa em grupo (evento nunca é
+ * pontual), então o `flatMap` é um estreitamento de tipo, não um filtro de verdade. */
+function pointTasksOf(group: PointItemGroup<Task, ProjectEvent>): Task[] {
+  return group.items.flatMap((item) => (item.kind === "task" ? [item.task] : []));
+}
+
+/** Rótulo `HH:mm` de um horário em minutos desde a meia-noite. */
+function minutesLabel(startMinutes: number): string {
+  const h = Math.floor(startMinutes / 60);
+  const m = startMinutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 function itemKey(item: CalendarItem<Task, ProjectEvent>): string {
@@ -154,7 +177,9 @@ function TimedEventBlock({
 
 /** Faixa "Sem horário" acima do canvas de horas — tarefas com `due_date` mas sem `due_time` não
  * têm o que posicionar numa linha do tempo, então ficam aqui, reaproveitando o chip de
- * mês/semana (`TaskChip`/`EventChip`). Some quando nenhum dia visível tem item sem horário. */
+ * mês/semana (`TaskChip`/`EventChip`). Tarefa **pontual** sem horário ("trocar lençol") entra
+ * aqui como bolinha marcável, não como chip (feature 072). Some quando nenhum dia visível tem
+ * item sem horário. */
 function UntimedStrip({
   days,
   itemsByDay,
@@ -162,9 +187,20 @@ function UntimedStrip({
   taskById,
   onOpenTask,
   onOpenEvent,
-}: Pick<AgendaHourGridProps, "days" | "itemsByDay" | "projectById" | "taskById" | "onOpenTask" | "onOpenEvent">) {
-  const untimedByDay = days.map((day) => splitTimedItems(itemsByDay.get(dayKey(day)) ?? []).untimed);
-  const hasAny = untimedByDay.some((list) => list.length > 0);
+  onToggleTaskDone,
+}: Pick<
+  AgendaHourGridProps,
+  "days" | "itemsByDay" | "projectById" | "taskById" | "onOpenTask" | "onOpenEvent" | "onToggleTaskDone"
+>) {
+  const untimedByDay = days.map((day) => {
+    // Pontuais saem antes de `splitTimedItems`: eles nunca viram chip nem bloco.
+    const { groups, rest } = groupPointItems(itemsByDay.get(dayKey(day)) ?? []);
+    return {
+      chips: splitTimedItems(rest).untimed,
+      dots: groups.filter((g) => g.startMinutes === null).flatMap(pointTasksOf),
+    };
+  });
+  const hasAny = untimedByDay.some(({ chips, dots }) => chips.length > 0 || dots.length > 0);
   if (!hasAny) return null;
 
   return (
@@ -173,10 +209,15 @@ function UntimedStrip({
         Sem horário
       </div>
       {days.map((day, i) => {
-        const items = untimedByDay[i];
+        const { chips, dots } = untimedByDay[i];
         return (
           <div key={dayKey(day)} className="min-w-0 flex-1 space-y-0.5 border-l p-1 first:border-l-0">
-            {items.map((item) =>
+            <PointTaskDots
+              items={dots}
+              onToggle={onToggleTaskDone}
+              label={`Tarefas pontuais sem horário — ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
+            />
+            {chips.map((item) =>
               item.kind === "task" ? (
                 <TaskChip
                   key={item.task.id}
@@ -212,6 +253,7 @@ export function AgendaHourGrid({
   onOpenTask,
   onOpenEvent,
   onCreateAt,
+  onToggleTaskDone,
 }: AgendaHourGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const today = new Date();
@@ -259,6 +301,7 @@ export function AgendaHourGrid({
         taskById={taskById}
         onOpenTask={onOpenTask}
         onOpenEvent={onOpenEvent}
+        onToggleTaskDone={onToggleTaskDone}
       />
 
       <div ref={scrollRef} className="flex max-h-[600px] overflow-y-auto">
@@ -276,7 +319,12 @@ export function AgendaHourGrid({
         {days.map((day) => {
           const key = dayKey(day);
           const items = itemsByDay.get(key) ?? [];
-          const { timed } = layoutTimedItems(items);
+          // Pontuais saem da entrada do algoritmo de colunas (feature 072): sem isso, N bolinhas
+          // no mesmo minuto se "sobrepõem" e voltariam a dividir a largura da coluna do dia.
+          // `splitTimedItems`/`layoutTimedItems` continuam genéricos — quem filtra é o chamador.
+          const { groups, rest } = groupPointItems(items);
+          const { timed } = layoutTimedItems(rest);
+          const pointRows = groups.filter((g) => g.startMinutes !== null);
           return (
             <div
               key={key}
@@ -338,6 +386,32 @@ export function AgendaHourGrid({
                   </div>
                 );
               })}
+              {/* Fileiras de bolinhas (feature 072), por último no DOM: como tudo aqui é
+                  absoluto, o que vem depois fica por cima, e a bolinha precisa ganhar o clique de
+                  qualquer bloco que passe pelo mesmo horário. A fileira em si é
+                  `pointer-events-none` — só as bolinhas capturam clique, o resto da linha deixa
+                  passar para o bloco ou para o alvo de "novo evento" que estiver embaixo. */}
+              {pointRows.map((group) => (
+                <div
+                  key={`point-${group.startMinutes}`}
+                  className="absolute inset-x-0 flex items-center px-0.5"
+                  style={{
+                    top: `${((group.startMinutes ?? 0) / MINUTES_PER_DAY) * 100}%`,
+                    height: POINT_ROW_PX,
+                  }}
+                >
+                  <PointTaskDots
+                    items={pointTasksOf(group)}
+                    onToggle={onToggleTaskDone}
+                    className="pointer-events-none [&>*]:pointer-events-auto"
+                    label={`Tarefas pontuais às ${minutesLabel(group.startMinutes ?? 0)} — ${format(
+                      day,
+                      "d 'de' MMMM",
+                      { locale: ptBR }
+                    )}`}
+                  />
+                </div>
+              ))}
             </div>
           );
         })}
