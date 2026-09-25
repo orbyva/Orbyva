@@ -65,7 +65,7 @@ código.
       do query param `?tab=` com `useSearchParams` (padrão de `Recurring.tsx`), mantendo os três
       valores atuais e caindo em `kanban` para valor desconhecido. Verificação: `npm run build`;
       os 4 testes de `ProjectDetail.*.test.tsx` continuam passando (todos montam a aba padrão).
-- [ ] Teste novo `src/pages/admin/tasks/__tests__/ProjectDetail.tabs.test.tsx`: abrir com
+- [x] Teste novo `src/pages/admin/tasks/__tests__/ProjectDetail.tabs.test.tsx`: abrir com
       `?tab=lista` já renderiza a Lista; abrir com `?tab=inexistente` cai no Kanban; trocar de aba
       escreve o parâmetro na URL; voltar para Kanban **remove** o parâmetro. Verificação: `npm test`.
 - [ ] `ProjectDetail.tsx`: acrescentar os `TabsTrigger` "Compras" e "Notas" depois de "Gantt" e
@@ -102,3 +102,84 @@ código.
 - 2026-08-18 — "- na visualização de um projeto, não coloque as compras ou as notas do projeto dessa maneira, pode ser abas separadas. preciso do espaço para poder visualizar as tarefas"
 
 ## Notas
+
+## Como testar
+
+### 1. Pré-requisitos
+
+- Nenhuma migration nova: a feature é só de layout/roteamento de front.
+- `npm install` feito; app subido com `npm run dev` (`http://localhost:5173`).
+- Logado com um usuário que tenha **pelo menos um projeto**, e nesse projeto:
+  - uma **categoria de compras vinculada ao projeto** com 1-2 itens (módulo Produtividade >
+    Lista de Compras > categoria com "Projeto" preenchido — feature 052);
+  - pelo menos uma **nota vinculada ao projeto** (feature 055);
+  - pelo menos uma tarefa, para o Kanban/Lista não ficarem vazios.
+- A tela é `/tasks/projects/<id do projeto>`.
+
+### 2. Verificação automatizada
+
+```
+npx vitest run src/pages/admin/tasks/__tests__/ProjectDetail.tabs.test.tsx
+```
+Passou = as 5 abas existem, `?tab=` roteia (inclusive valor inválido caindo no Kanban) e, com o
+Kanban ativo, nem Compras nem Notas estão no DOM nem chamam a API.
+
+```
+npx vitest run src/pages/admin/tasks/__tests__/ProjectDetail.edit-project.test.tsx src/pages/admin/tasks/__tests__/ProjectDetail.subtask-edit.test.tsx src/pages/admin/tasks/__tests__/ProjectDetail.consultation-occurrences.test.tsx src/pages/admin/tasks/__tests__/ProjectDetail.medication-occurrences.test.tsx
+```
+Passou = as quatro telas antigas de `ProjectDetail` continuam íntegras depois da troca de
+`useState` por `?tab=`.
+
+```
+npx vitest run src/pages/admin/shopping/__tests__/ProjectShoppingSection.test.tsx src/pages/admin/notes/__tests__/ProjectNotesSection.test.tsx
+```
+Passou = as duas seções não mudaram de contrato (mesmo `<h2>`, mesmo `aria-labelledby`) ao irem
+para dentro da aba.
+
+```
+npm test
+npm run lint
+npm run build
+npm run check:bundle
+```
+Passou = suíte inteira verde, sem erro de lint/tipo e sem estourar o orçamento de bundle.
+
+### 3. Verificação manual, passo a passo
+
+1. Abra `/tasks/projects/<id>`. **Esperado:** cinco abas na ordem
+   **Kanban | Lista | Gantt | Compras | Notas**; o Kanban está ativo; **abaixo do Kanban não há
+   mais** os blocos "Compras do projeto" e "Notas do projeto" — a página termina no conteúdo da
+   aba, e as tarefas ocupam a tela.
+2. A URL continua `/tasks/projects/<id>`, **sem** `?tab=`.
+3. Clique em **Lista**. **Esperado:** a URL vira `/tasks/projects/<id>?tab=lista` e a lista de
+   tarefas aparece.
+4. Dê **F5** nessa URL. **Esperado:** volta direto na aba Lista (não no Kanban).
+5. Clique em **Compras**. **Esperado:** URL `?tab=compras`; aparece "Compras do projeto" com as
+   categorias do projeto e o botão "Ver na Lista de Compras".
+6. Clique em **Notas**. **Esperado:** URL `?tab=notas`; aparece "Notas do projeto" com a lista de
+   notas e o botão "Nova nota". Clicar numa nota abre `/notes/<id>`.
+7. Volte para **Kanban**. **Esperado:** o `?tab=` **some** da URL (fica
+   `/tasks/projects/<id>`), e Compras/Notas somem da tela.
+8. Use o **voltar do navegador** depois de trocar de aba 2-3 vezes. **Esperado:** volta para a
+   página anterior à do projeto, não desfaz aba por aba (a escrita é `replace`).
+
+### 4. Casos de borda e caminhos negativos
+
+- `/tasks/projects/<id>?tab=inexistente` → abre no **Kanban**, sem tela em branco e sem erro.
+- `/tasks/projects/<id>?tab=lista&foo=bar` → abre na Lista e, ao trocar de aba, `foo=bar`
+  **continua** na URL.
+- Projeto **sem** categoria de compras vinculada → aba Compras mostra o estado vazio próprio da
+  seção ("Nenhuma categoria de compras neste projeto"), não uma tela branca.
+- Projeto **sem** nota → aba Notas mostra "Nenhuma nota neste projeto" com o botão "Nova nota".
+- Com a aba Kanban ativa, abra o DevTools > Network e recarregue: **não** deve haver requisição
+  para `shopping_category`/`shopping_item`/`note` — elas só saem ao abrir a aba correspondente.
+
+### 5. Sinais de que quebrou
+
+- Compras e/ou Notas ainda aparecem empilhadas abaixo das abas (a mudança não subiu).
+- A aba ativa volta sempre para Kanban depois de F5 (o `?tab=` não está sendo lido).
+- Trocar de aba empilha entradas no histórico (o voltar do navegador percorre abas) — o
+  `{ replace: true }` se perdeu.
+- Tela branca ao abrir com `?tab=` inválido (o fallback para `kanban` se perdeu).
+- Aviso de acessibilidade/teste falhando em `aria-labelledby` — o `<h2>` das seções foi removido
+  junto com o espaçamento.
