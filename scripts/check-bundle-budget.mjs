@@ -62,6 +62,11 @@ const VENDOR_RE =
  * funcionalidade, é um aplicativo de desenho inteiro, e sem a regra o Rollup espalharia pedaços
  * dele por chunks compartilhados com rota. Um arquivo só, carregado por `React.lazy`.
  *
+ * Desde a 070, as gramáticas de fence do editor (`cm-lang-javascript`, `cm-lang-python`…) entram
+ * na mesma classe, pelo mesmo motivo do `lowlight`: são baixadas só quando a nota tem um bloco
+ * daquela linguagem, e o `manualChunks` do `vite.config.ts` lhes dá nome estável — sem ele saíam
+ * como `index-…`, que esta regra confundiria com o chunk de entrada do app.
+ *
  * Eles **não** passam por `manualChunks` de propósito: o mermaid já se divide por tipo de diagrama
  * (`sequenceDiagram`, `cynefin`, `architectureDiagram`…), então quem abre um flowchart baixa o
  * flowchart e mais nada. Forçar um chunk `mermaid` único foi medido: 888 KB gzip num arquivo só,
@@ -73,7 +78,7 @@ const VENDOR_RE =
  * despercebido).
  */
 const LAZY_VENDOR_BASE_RE =
-  /^(mermaid\.core|cytoscape|cose-bilkent|cose-base|layout-base|fcose|katex|dagre|roughjs|lowlight)/;
+  /^(mermaid\.core|cytoscape|cose-bilkent|cose-base|layout-base|fcose|katex|dagre|roughjs|lowlight|cm-lang-)/;
 /** `sequenceDiagram-SI44F4Z6-<hash do vite>.js` — o do meio é o sufixo do build do mermaid. */
 const LAZY_VENDOR_FILE_RE = /-[A-Z0-9]{8}-[A-Za-z0-9_-]+\.js$/;
 
@@ -117,7 +122,13 @@ for (const file of files) {
   } else if (VENDOR_RE.test(base) || VENDOR_RE.test(file)) {
     limit = MAX_VENDOR_GZIP;
     kind = "vendor";
-  } else if (LAZY_VENDOR_BASE_RE.test(base) || LAZY_VENDOR_FILE_RE.test(file)) {
+  } else if (
+    LAZY_VENDOR_BASE_RE.test(base) ||
+    // Também contra o nome do arquivo, como as duas regras acima: nome com hífen no meio
+    // (`cm-lang-javascript-<hash>.js`) é encurtado demais pelo `base` — ele vira só `cm`.
+    LAZY_VENDOR_BASE_RE.test(file) ||
+    LAZY_VENDOR_FILE_RE.test(file)
+  ) {
     limit = MAX_LAZY_VENDOR_GZIP;
     kind = "lazy";
   }

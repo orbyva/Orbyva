@@ -110,7 +110,7 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
 - [x] Ligar `slashCommands` em `NoteEditor.tsx` junto de `wikiLinkCompletion`, dentro do mesmo
       `useMemo` de extensões (identidade estável — ver Decisões). Verificação: `npm run build`;
       teste de fumaça em `Notes.flow.test.tsx` de que digitar `[[` continua completando notas.
-- [ ] Reativar highlight dentro de fences: `markdownLanguage.ts` passa a usar `markdown({ base,
+- [x] Reativar highlight dentro de fences: `markdownLanguage.ts` passa a usar `markdown({ base,
       codeLanguages })` com `LanguageDescription.of({ name, load: () => import(...) })` para
       js/ts/json/css/html/sql/python/bash. Verificação: `npm run build && npm run check:bundle` —
       o chunk `codemirror` **não** pode crescer (as gramáticas têm que sair em chunks lazy); anotar
@@ -181,6 +181,36 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
 - 2026-09-25 — Seleção que começa na coluna 0 continua na coluna 0 depois de um toggle de linha
   (título/lista/citação): o marcador entra **dentro** do bloco selecionado, então o bloco segue
   inteiro selecionado e o atalho de novo desfaz exatamente o que acabou de ser feito.
+- 2026-09-25 — **Realce dentro do fence, medido.** A fábrica `markdown()` continua fora: ela importa
+  `@codemirror/lang-html` de forma estática, e é isso que levava o chunk `codemirror` a 212 KB. O
+  caminho usado é o `parseCode` do `@lezer/markdown` com um `codeParser` próprio que devolve
+  `ParseContext.getSkippingParser(import(...))` — o bloco fica sem cor até a gramática chegar e é
+  reparseado sozinho. Números gzip: chunk `codemirror` **138,9 KB → 155,6 KB** (teto de vendor:
+  200 KB) e as sete gramáticas em chunks **lazy** próprios — `cm-lang-javascript` 33,8 KB,
+  `cm-lang-python` 18,8 KB, `cm-lang-sql` 12,8 KB, `cm-lang-css` 12,5 KB, `cm-lang-html` 6,1 KB,
+  `cm-lang-json` 1,5 KB, `cm-lang-shell` 1,2 KB. Rota de Notas: `NoteDetail` 10,3 KB (fim da 069) →
+  **14,3 KB** (toolbar, menu `/`, atalhos, painéis novos); `Notes` segue em 3,0 KB.
+- 2026-09-25 — **O plano pedia que o chunk `codemirror` não crescesse; ele cresceu 16,7 KB gzip, e
+  não são gramáticas.** O que entrou foi a *maquinaria* de parse aninhado, que é estática por
+  natureza: `parseCode`/`parseMixed`, `LanguageDescription`, `ParseContext`, `LRLanguage` e
+  `StreamLanguage` (esta última medida sozinha em 3,9 KB, o preço do ` ```bash `). Medido bloco a
+  bloco: com as gramáticas caindo no vendor (sem `manualChunks` próprio) era 201,5–211,8 KB e o
+  orçamento **falhava**; com um chunk por linguagem, 155,6 KB e `Bundle budget OK.`. Nenhum byte de
+  gramática ficou no caminho crítico — prova: o chunk não contém nenhum dos nomes de nó das
+  gramáticas (`MismatchedCloseTag`, `TemplateString`, `PseudoClassName`, `JsonText`) e não importa
+  estaticamente nenhum `cm-lang-*`.
+- 2026-09-25 — HTML dentro do fence vem do parser cru `@lezer/html`, não de `@codemirror/lang-html`.
+  Motivo medido: `lang-markdown` importa `lang-html` estaticamente (é o que `markdown()` usa), e
+  hoje ele só some por tree-shaking porque ninguém o usa — bastou um `import()` dinâmico dele para
+  o Rollup ter de mantê-lo no grafo estático e o vendor saltar 73 KB.
+- 2026-09-25 — `check-bundle-budget.mjs` passou a testar `LAZY_VENDOR_BASE_RE` também contra o
+  **nome do arquivo**, como já fazia com excalidraw e vendor: nome com hífen no meio
+  (`cm-lang-javascript-<hash>.js`) é encurtado demais pelo `base`, que vira só `cm`. Sem isso as
+  gramáticas entravam como `route` (teto de 160 KB) em vez de `lazy`.
+- 2026-09-25 — Dependências novas no `package.json`: `@codemirror/lang-json`, `lang-sql`,
+  `lang-python` e `legacy-modes` (instaladas), mais `lang-javascript`, `lang-css`, `@lezer/markdown`
+  e `@lezer/html`, que já vinham transitivamente e agora são explícitas — mesma decisão que a 069
+  tomou com o `katex`. `@codemirror/lang-html` **não** entrou: nada o importa diretamente.
 
 ## Como testar
 
@@ -199,6 +229,7 @@ npx vitest run src/components/__tests__/MarkdownCodeEditor.test.tsx
 npx vitest run src/pages/admin/notes/__tests__/NoteEditorToolbar.test.tsx
 npx vitest run src/pages/admin/notes/__tests__/NoteEditor.split.test.tsx
 npx vitest run src/components/codemirror/__tests__/slashCommands.test.ts
+npx vitest run src/components/codemirror/__tests__/markdownLanguage.test.ts
 npx vitest run src/pages/admin/notes/__tests__/Notes.flow.test.tsx
 npm run build
 npm run lint
@@ -220,6 +251,13 @@ npm run check:bundle
   acento, e cada item insere o esqueleto certo com o cursor no lugar.
 - `Notes.flow.test.tsx` é o fluxo fim a fim do módulo: os dois popups do editor (`[[` e `/`) abrem
   no editor real e o que fica **gravado no banco falso** é markdown cru, sem a barra do menu.
+- `markdownLanguage.test.ts` prova o realce dentro do fence: os apelidos (`js`, `ts`, `py`,
+  `bash`…) resolvem, linguagem desconhecida continua sem cor e sem erro, e depois de a gramática
+  carregar o miolo de um ```js vira `VariableDefinition`/`Number` na árvore de sintaxe — que é de
+  onde o realce sai.
+- `npm run check:bundle` também precisa listar os `cm-lang-*.js` como **lazy** (e não como `entry`
+  nem `route`) e o `codemirror-*.js` abaixo de 200 KB — é o que prova que nenhuma gramática entrou
+  no caminho crítico do editor.
 - `npm run build` sem erro de `tsc -b`; `npm run lint` com `0 errors` (os 18 warnings de
   `react-refresh` são pré-existentes); `npm run check:bundle` imprimindo `Bundle budget OK.`
 
@@ -240,7 +278,10 @@ npm run check:bundle
    Link de nota). Digite `tab` para filtrar até **Tabela** e tecle Enter: entra o esqueleto com
    linha em branco antes e o nome da primeira coluna **selecionado** — digite para trocá-lo.
 7. Escolha **Link de nota**: entra `[[]]` com o cursor no meio e o popup de notas já aberto.
-8. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
+8. Escreva um bloco ` ```ts ` com `const total = 1 + 2;` dentro. No **editor** (não no preview), a
+   palavra `const` e o número saem coloridos depois de um instante — a gramática é baixada sob
+   demanda (aba de rede: `cm-lang-javascript-*.js`). Um ` ```brainfuck ` continua sem cor, sem erro.
+9. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
    e o **Inserir diagrama** que já existia. Passe o mouse em cada um: o `title` mostra o atalho.
    Clique em **Tabela** no fim de um parágrafo: entra o esqueleto GFM em bloco próprio, com o
    cabeçalho pronto para ser trocado. Vá para **Visualizar**: a barra some.

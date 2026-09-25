@@ -12,6 +12,25 @@ import { viteSafariHmrNoReload } from "./vite.safari-hmr";
 const RECHARTS_D3_RE =
   /node_modules\/(d3-array|d3-color|d3-ease|d3-format|d3-interpolate|d3-path|d3-scale|d3-shape|d3-time|d3-time-format|d3-timer|internmap)\//;
 
+/**
+ * Pacotes de gramática que só entram por `import()` — o realce dentro de ` ```lang ` do editor de
+ * notas (feature 070). Cada linguagem vira um chunk **próprio e nomeado** (`cm-lang-python-…`),
+ * como o excalidraw faz por arquivo, por dois motivos medidos nesta feature:
+ *
+ * 1. sem regra nenhuma (deixando o Rollup decidir), `@lezer/javascript` e `@lezer/css` acabavam
+ *    **dentro** do chunk `codemirror` — eles também são alcançáveis pelo grafo estático via
+ *    `lang-markdown → lang-html`, e o vendor pulava de 138,9 KB para 201,5 KB gzip, estourando o
+ *    teto de 200 KB. Um `manualChunks` explícito os tira de lá;
+ * 2. o nome estável é o que faz `check-bundle-budget.mjs` classificá-los como vendor lazy. Sem
+ *    nome, o Rollup os batiza de `index-…` (o arquivo de entrada de cada pacote se chama
+ *    `index.js`) e o orçamento os confunde com o chunk de **entrada** do app — a mesma armadilha
+ *    que a 069 documentou com o `lowlight`.
+ */
+const LAZY_FENCE_GRAMMAR_RE =
+  /node_modules\/(?:@codemirror\/lang-|@lezer\/)(javascript|json|css|html|sql|python)\//;
+/** Modos legados (`shell`) não têm pacote `@lezer` próprio: vêm todos de `legacy-modes`. */
+const LEGACY_MODES_RE = /node_modules\/@codemirror\/legacy-modes\//;
+
 export default defineConfig({
   plugins: [
     viteSafariHmrNoReload(),
@@ -190,6 +209,11 @@ export default defineConfig({
            */
           if (RECHARTS_D3_RE.test(id)) return "d3";
           if (id.includes("framer-motion")) return "motion";
+          // Gramática de fence: um chunk por linguagem, antes da regra genérica de `@codemirror`
+          // (que puxaria tudo para o vendor fixo do editor). Ver a constante acima.
+          const fenceGrammar = LAZY_FENCE_GRAMMAR_RE.exec(id);
+          if (fenceGrammar) return `cm-lang-${fenceGrammar[1]}`;
+          if (LEGACY_MODES_RE.test(id)) return "cm-lang-shell";
           // CodeMirror (editor de notas, feature 056) é vendor pesado e só carrega na rota de
           // notas — sem chunk próprio ele entraria no chunk da rota e estouraria o teto de 160 KB.
           if (
