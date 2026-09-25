@@ -37,14 +37,20 @@ function url(): string {
   return screen.getByTestId("url").textContent ?? "";
 }
 
-function renderEditor(initialEntry = "/notes/n1") {
+function renderEditor(initialEntry = "/notes/n1", note: Note = NOTE) {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
-      <NoteEditor note={NOTE} projects={[]} notes={[NOTE]} />
+      <NoteEditor note={note} projects={[]} notes={[note]} />
       <LocationProbe />
     </MemoryRouter>
   );
 }
+
+/** Nota com duas seções — é o que o sumário precisa para ter para onde levar. */
+const NOTA_COM_SECOES: Note = {
+  ...NOTE,
+  content: ["# Primeira", "", "corpo", "", "## Segunda", "", "fim"].join("\n"),
+};
 
 /** O preview renderizado — o `h1` da nota só existe depois que o markdown vira HTML. */
 function previewHeading(): HTMLElement | null {
@@ -194,6 +200,41 @@ describe("NoteEditor — modos de visualização", () => {
 
     // Sem laço de rolagem: o editor fica onde estava.
     expect(editorPane.scrollTop).toBe(0);
+  });
+
+  it("clicar no sumário leva o cursor do editor até a linha do título", async () => {
+    const user = userEvent.setup();
+    renderEditor("/notes/n1", NOTA_COM_SECOES);
+
+    const field = screen.getByRole("textbox", { name: "Conteúdo" });
+    // O live preview só mostra a marcação da linha **onde está o cursor**: com o cursor no começo
+    // do documento, o `#` da linha 1 aparece e o `##` da linha 5 está escondido.
+    expect(field.textContent).toContain("# Primeira");
+    expect(field.textContent).not.toContain("## Segunda");
+
+    await user.click(screen.getByRole("button", { name: "Segunda" }));
+
+    // Cursor na linha 5: agora é o `##` dela que aparece, e o `#` da primeira que some.
+    expect(field.textContent).toContain("## Segunda");
+    expect(field.textContent).not.toContain("# Primeira");
+    expect(field).toHaveFocus();
+  });
+
+  it("no modo Visualizar, o sumário rola até a âncora do título no preview", async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+    renderEditor("/notes/n1?view=visualizar", NOTA_COM_SECOES);
+
+    // O `id` é o mesmo slug que `rehypeHeadingIds` (069) escreveu no título renderizado.
+    const target = document.getElementById("segunda");
+    expect(target).not.toBeNull();
+
+    scrollIntoView.mockClear();
+    await user.click(screen.getByRole("button", { name: "Segunda" }));
+
+    expect(scrollIntoView).toHaveBeenCalled();
+    expect(scrollIntoView.mock.instances[0]).toBe(target);
+    scrollIntoView.mockRestore();
   });
 
   it("a barra de ferramentas some no modo Visualizar e volta no Escrever", async () => {

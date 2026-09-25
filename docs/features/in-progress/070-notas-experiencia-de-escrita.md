@@ -127,11 +127,11 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
 - [x] Rolagem proporcional do preview acompanhando o editor no modo "Dividir" (só nesse sentido),
       com `requestAnimationFrame` para não disparar por frame. Verificação: teste simulando `scroll`
       no contêiner do editor e conferindo o `scrollTop` do preview; `npm run lint`.
-- [ ] Criar `extractHeadings(markdown)` em `src/domain/notes/headings.ts` (ao lado do
+- [x] Criar `extractHeadings(markdown)` em `src/domain/notes/headings.ts` (ao lado do
       `slugifyHeading` da 069) devolvendo `{ level, text, slug, line }[]`, ignorando `#` dentro de
       fence. Testes: níveis 1–6, `#` em bloco de código não vira título, título vazio, slugs
       repetidos recebendo sufixo. Verificação: `npm test`.
-- [ ] Criar `src/pages/admin/notes/NoteOutlinePanel.tsx` (painel colapsável ao lado de "Vínculos"),
+- [x] Criar `src/pages/admin/notes/NoteOutlinePanel.tsx` (painel colapsável ao lado de "Vínculos"),
       listando os títulos com indentação por nível; clicar rola o editor até a linha no modo
       Escrever/Dividir e usa a âncora no modo Visualizar; `EmptyState` curto ("Sem títulos ainda")
       quando a nota não tem nenhum. Verificação: teste `NoteOutlinePanel.test.tsx` — lista, hierarquia,
@@ -240,6 +240,8 @@ npx vitest run src/components/codemirror/__tests__/slashCommands.test.ts
 npx vitest run src/components/codemirror/__tests__/markdownLanguage.test.ts
 npx vitest run src/components/codemirror/__tests__/livePreview.test.ts
 npx vitest run src/domain/notes/__tests__/scrollSync.test.ts
+npx vitest run src/domain/notes/__tests__/headings.test.ts
+npx vitest run src/pages/admin/notes/__tests__/NoteOutlinePanel.test.tsx
 npx vitest run src/pages/admin/notes/__tests__/Notes.flow.test.tsx
 npm run build
 npm run lint
@@ -274,6 +276,12 @@ npm run check:bundle
   fim, nota curta sem nada a rolar) e `NoteEditor.split.test.tsx` prova que ela está **ligada**:
   rolar o painel do editor move o `scrollTop` do preview na mesma fração, e rolar o preview **não**
   move o editor (a sincronia é de mão única, para não haver laço).
+- `headings.test.ts` prova o `extractHeadings` (níveis 1–6, `#` dentro de fence que não conta,
+  título vazio, repetidos com sufixo, marcação removida do texto) e `NoteOutlinePanel.test.tsx`
+  prova o painel (lista, indentação por nível, clique devolvendo linha e slug, estado vazio,
+  recolher/expandir). `NoteEditor.split.test.tsx` prova a navegação de verdade: no modo Escrever o
+  clique leva o **cursor do editor** até a linha (visível pelo live preview, que só mostra a
+  marcação da linha ativa) e no Visualizar chama `scrollIntoView` no título com aquele `id`.
 - `npm run check:bundle` também precisa listar os `cm-lang-*.js` como **lazy** (e não como `entry`
   nem `route`) e o `codemirror-*.js` abaixo de 200 KB — é o que prova que nenhuma gramática entrou
   no caminho crítico do editor.
@@ -309,7 +317,10 @@ npm run check:bundle
     e sobra só o editor (a URL não muda).
     No modo Dividir, role o editor com uma nota longa: o preview acompanha na mesma proporção.
     Rolar o **preview** não mexe no editor.
-11. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
+11. Abaixo do editor, o painel **Sumário** lista os títulos da nota indentados por nível. Clique em
+    um deles no modo Escrever: o cursor pula para a linha do título. No modo Visualizar: a página
+    rola até a seção. Nota sem `#` nenhum mostra "Sem títulos ainda". O painel recolhe pela seta.
+12. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
    e o **Inserir diagrama** que já existia. Passe o mouse em cada um: o `title` mostra o atalho.
    Clique em **Tabela** no fim de um parágrafo: entra o esqueleto GFM em bloco próprio, com o
    cabeçalho pronto para ser trocado. Vá para **Visualizar**: a barra some.

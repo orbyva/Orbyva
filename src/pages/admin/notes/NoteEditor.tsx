@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UIEvent } from "react";
 import { Check, CircleAlert, Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import type { Command, EditorView } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
+import type { Command } from "@codemirror/view";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormLabel } from "@/components/FormLabel";
@@ -10,6 +11,7 @@ import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
 import { wikiLinkAutocomplete } from "@/components/codemirror/wikiLinkCompletion";
 import { slashCommandAutocomplete } from "@/components/codemirror/slashCommands";
 import { NoteEditorToolbar } from "@/pages/admin/notes/NoteEditorToolbar";
+import { NoteOutlinePanel } from "@/pages/admin/notes/NoteOutlinePanel";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
 import { NoteLinksPanel } from "@/pages/admin/notes/NoteLinksPanel";
 import { BacklinksPanel } from "@/pages/admin/notes/BacklinksPanel";
@@ -17,6 +19,7 @@ import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
 import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
 import { appendMermaidSnippet } from "@/domain/notes/mermaidSnippet";
+import type { NoteHeading } from "@/domain/notes/headings";
 import { proportionalScrollTop } from "@/domain/notes/scrollSync";
 import { VIEW_PARAM, parseViewMode } from "@/domain/notes/viewMode";
 import type { ViewMode } from "@/domain/notes/viewMode";
@@ -233,6 +236,31 @@ export function NoteEditor({
   }, [title, content, projectId, debounceMs]);
 
   /**
+   * Clicar num título do sumário. Dois caminhos, porque em cada modo o título mora num lugar
+   * diferente: no editor ele é uma **linha** (não existe âncora nenhuma no DOM), e no preview é um
+   * elemento com `id` — o mesmo `slug` que `rehypeHeadingIds` escreveu (069).
+   */
+  const goToHeading = useCallback(
+    (heading: NoteHeading) => {
+      if (mode === "visualizar") {
+        document.getElementById(heading.slug)?.scrollIntoView({ block: "start" });
+        return;
+      }
+      const view = viewRef.current;
+      if (!view) return;
+      const line = view.state.doc.line(
+        Math.min(heading.line, view.state.doc.lines)
+      );
+      view.dispatch({
+        selection: { anchor: line.from },
+        effects: EditorView.scrollIntoView(line.from, { y: "start" }),
+      });
+      view.focus();
+    },
+    [mode]
+  );
+
+  /**
    * Editor e preview saem em variáveis porque aparecem em **dois** modos cada um (o editor em
    * "Escrever" e em "Dividir"; o preview em "Dividir" e em "Visualizar"). Duplicar o JSX seria a
    * forma clássica de os dois caminhos divergirem com o tempo.
@@ -345,6 +373,9 @@ export function NoteEditor({
           onChange={setProjectId}
         />
       </div>
+
+      {/* Navegar dentro da nota: os títulos dela, do jeito que ela está agora. */}
+      <NoteOutlinePanel content={content} onSelect={goToHeading} />
 
       {/* Vínculo primário (acima) é o projeto; estes são os secundários, com qualquer entidade. */}
       <NoteLinksPanel noteId={note.id} projects={projects} />
