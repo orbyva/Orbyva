@@ -35,6 +35,7 @@ import { FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { AgendaHourGrid } from "./AgendaHourGrid";
 import { EventFormDialog } from "./EventFormDialog";
+import { PointTaskDots } from "./PointTaskDots";
 import { TaskIconBadge } from "./TaskIconBadge";
 import { TaskFormFields, type TaskFormTab } from "./TaskFormFields";
 import {
@@ -56,6 +57,7 @@ import {
   computeVirtualOccurrences,
   computeWeekDays,
   groupCalendarItemsByDay,
+  groupPointItems,
   groupSubtasksByParent,
   isSubtaskDueDateValid,
   resolveEventProjectId,
@@ -102,10 +104,13 @@ export function hourSlotStartsAt(day: Date, hour: number): string {
 
 type CalendarViewMode = "month" | "week" | "day";
 
+/** Ponto de status do chip/bloco da Agenda. "Feito" usa o token `--success` (não `bg-green-500`)
+ * desde a 072: a bolinha de tarefa pontual verde vive na mesma tela, e dois verdes de "feito"
+ * diferentes fariam a tela mentir sobre si mesma. */
 export const STATUS_DOT_CLASS: Record<Task["status"], string> = {
   todo: "bg-muted-foreground/50",
   doing: "bg-blue-500",
-  done: "bg-green-500",
+  done: "bg-success",
 };
 
 export function dayKey(date: Date): string {
@@ -660,6 +665,7 @@ export function AgendaGrid() {
           onOpenTask={openTaskFromChip}
           onOpenEvent={openEventFromChip}
           onCreateAt={(day, hour) => openEventCreate(hourSlotStartsAt(day, hour))}
+          onToggleTaskDone={toggleTaskDone}
         />
       ) : (
         <div className="overflow-hidden rounded-lg border">
@@ -674,8 +680,15 @@ export function AgendaGrid() {
             {gridDays.map((day) => {
               const key = dayKey(day);
               const items = itemsByDay.get(key) ?? [];
-              const visible = items.slice(0, MONTH_MAX_CHIPS_PER_DAY);
-              const overflow = items.length - visible.length;
+              // Pontuais (feature 072) viram uma linha única de bolinhas acima dos chips e **não**
+              // contam contra `MONTH_MAX_CHIPS_PER_DAY`: um dia com 4 remédios deixa de gastar os
+              // 3 chips e continua mostrando as tarefas de verdade.
+              const { groups: pointGroups, rest } = groupPointItems(items);
+              const pointTasks = pointGroups.flatMap((group) =>
+                group.items.flatMap((item) => (item.kind === "task" ? [item.task] : []))
+              );
+              const visible = rest.slice(0, MONTH_MAX_CHIPS_PER_DAY);
+              const overflow = rest.length - visible.length;
               const inMonth = isSameMonth(day, focusDate);
               const isToday = isSameDay(day, today);
               return (
@@ -709,6 +722,16 @@ export function AgendaGrid() {
                     >
                       {format(day, "d")}
                     </span>
+                    {/* Fileira de bolinhas: o pai é `pointer-events-none`, então só as bolinhas
+                        capturam clique — o resto da linha deixa passar para o alvo de "novo
+                        evento" da 067 que cobre a célula. */}
+                    <PointTaskDots
+                      items={pointTasks}
+                      onToggle={toggleTaskDone}
+                      onOverflowClick={() => setDayModalKey(key)}
+                      className="mb-0.5 [&>*]:pointer-events-auto"
+                      label={`Tarefas pontuais — ${format(day, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`}
+                    />
                     <div className="space-y-0.5 [&>*]:pointer-events-auto">
                     {visible.map((item) =>
                       item.kind === "task" ? (

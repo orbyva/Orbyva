@@ -120,20 +120,20 @@ de bolinhas não pode roubar nem perder cliques para eles. E `AgendaHourGrid` é
       conferindo que clicar numa bolinha **não** abre o dialog de criar evento.
 - [x] `AgendaHourGrid.tsx`: pontuais sem horário entram na `UntimedStrip` como bolinhas (e não como
       `TaskChip`). Verificação: caso novo em `AgendaHourGrid.test.tsx`.
-- [ ] `AgendaGrid.tsx` (visão mês): antes dos chips da célula do dia, renderizar uma linha única de
+- [x] `AgendaGrid.tsx` (visão mês): antes dos chips da célula do dia, renderizar uma linha única de
       bolinhas com os pontuais daquele dia; os pontuais saem da contagem de
       `MONTH_MAX_CHIPS_PER_DAY`. O overflow da fileira abre o dialog de dia (`dayModalKey`).
       Verificação: teste no `AgendaGrid.test.tsx` — dia com 4 remédios + 3 tarefas comuns mostra 4
       bolinhas e os 3 chips, sem "+N mais" indevido.
-- [ ] Ligar `toggleTaskDone` (já existente em `AgendaGrid.tsx:453`) às bolinhas do mês e passar como
+- [x] Ligar `toggleTaskDone` (já existente em `AgendaGrid.tsx:453`) às bolinhas do mês e passar como
       `onToggleTaskDone` para o `AgendaHourGrid`. Verificação: `npm run build && npm run lint`.
-- [ ] Teste do gesto ponta a ponta em `src/pages/admin/tasks/__tests__/AgendaGrid.point-tasks.test.tsx`:
+- [x] Teste do gesto ponta a ponta em `src/pages/admin/tasks/__tests__/AgendaGrid.point-tasks.test.tsx`:
       clicar numa bolinha pinta de verde **antes** da resposta da API (update otimista), chama
       `updateTask({ id, status: "done" })`, e clicar de novo volta para `todo`; falha da API reverte
       a cor e mostra toast destrutivo. Lembrar de replicar em todos os `AgendaGrid*.test.tsx` os
       mocks de `@/api/tasks` se algum import novo entrar (footgun registrado nas Notas das 065/066/067).
       Verificação: `npm test`.
-- [ ] Migrar `STATUS_DOT_CLASS.done` de `bg-green-500` para `bg-success` em `AgendaGrid.tsx`.
+- [x] Migrar `STATUS_DOT_CLASS.done` de `bg-green-500` para `bg-success` em `AgendaGrid.tsx`.
       Verificação: `npm run build`; `AgendaGrid.test.tsx` e `AgendaGrid.consultation.test.tsx`
       seguem passando.
 - [ ] `TaskDurationQuickPick.tsx`: opção "Pontual" gravando `estimated_duration = 0`, e
@@ -164,3 +164,8 @@ de bolinhas não pode roubar nem perder cliques para eles. E `AgendaHourGrid` é
 - 2026-08-18 — "- Na visão da agenda, coloque essas tarefas que não tem duração , por exemplo tomar uma tarefa, com uma lista de bolinhas, uma na frente da outra, no prazo marcado, de modo que na visualização de semana/dia ou até mês eu consiga marcar a bolinha, ela fica verde e sabemosq ue a tarefa foi concluída. tipo tarefas pontuais, como trocar lençol, trocar escova, remédios etc"
 
 ## Notas
+- A dose de medicação passou a ser pontual **de fato** na tela, e isso mudou um teste alheio:
+  `AgendaGrid.consultation.test.tsx` (feature 061) afirmava que "Losartana" era um chip com ponto de
+  status. Agora ela é bolinha. O caso foi reescrito preservando o que a 061 cobre (medicação não
+  ganha o marcador de consulta) e afirmando a realidade nova: `getByRole("button", { name:
+  "Concluir: Losartana" })` existe e `queryByText("Losartana")` não — o título virou `aria-label`.

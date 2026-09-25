@@ -139,12 +139,17 @@ describe("AgendaGrid — consulta médica no calendário geral (feature 061)", (
     // Um único marcador de consulta na tela: os outros dois itens não o ganham.
     expect(screen.getAllByLabelText("Consulta médica")).toHaveLength(1);
 
-    for (const title of ["Revisar contrato", "Losartana"]) {
-      const chip = chipFor(title);
-      expect(within(chip).queryByLabelText("Consulta médica")).toBeNull();
-      // Ponto de status (`STATUS_DOT_CLASS`) intacto — nenhuma regressão da 049 nem do padrão.
-      expect(chip.querySelector("span.rounded-full")).not.toBeNull();
-    }
+    const comum = chipFor("Revisar contrato");
+    expect(within(comum).queryByLabelText("Consulta médica")).toBeNull();
+    // Ponto de status (`STATUS_DOT_CLASS`) intacto — nenhuma regressão da 049 nem do padrão.
+    expect(comum.querySelector("span.rounded-full")).not.toBeNull();
+
+    // Desde a 072 a dose de medicação sem duração informada é uma tarefa **pontual**: ela deixou
+    // de ser chip e virou bolinha marcável na fileira do dia. O que a 061 cobre aqui continua
+    // valendo do mesmo jeito — medicação não ganha o marcador de consulta.
+    const bolinha = screen.getByRole("button", { name: "Concluir: Losartana" });
+    expect(within(bolinha).queryByLabelText("Consulta médica")).toBeNull();
+    expect(screen.queryByText("Losartana")).toBeNull();
 
     // E a consulta troca o ponto pelo estetoscópio, não acumula os dois.
     const consulta = chipFor("Cardiologista — Dr. Silva");
