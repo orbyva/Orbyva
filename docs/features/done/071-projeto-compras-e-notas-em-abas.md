@@ -92,7 +92,7 @@ código.
       `docs/features/done/055-notas-nucleo-markdown.md`, registrar na Nota do "desvio do plano: as
       notas viraram seção, não aba" que a 071 restaurou o plano original. Verificação: leitura — os
       dois arquivos deixam de contradizer o código.
-- [ ] Checagem de satisfação do `prompt:` sem navegador: "abas separadas" → `ProjectDetail.tabs.test.tsx`
+- [x] Checagem de satisfação do `prompt:` sem navegador: "abas separadas" → `ProjectDetail.tabs.test.tsx`
       mostra as 5 abas e o roteamento por `?tab=`; "preciso do espaço para visualizar as tarefas" →
       o mesmo teste prova que, no Kanban, nem compras nem notas estão no DOM (logo não ocupam
       altura). Se sobrar algo do pedido, abrir tarefa nova aqui.
@@ -126,6 +126,25 @@ código.
   aba correspondente e para a montagem preguiçosa.
 - **Ordem real das abas conferida por teste**, não por leitura: `getAllByRole("tab")` devolve
   `["Kanban","Lista","Gantt","Compras","Notas"]`.
+- **Checagem de satisfação (2026-09-25), sem navegador.** Recorte do `prompt:` → artefato que o
+  prova:
+  - *"não coloque as compras ou as notas do projeto dessa maneira, pode ser abas separadas"* →
+    `ProjectDetail.tabs.test.tsx` "as cinco abas aparecem na ordem Kanban | Lista | Gantt |
+    Compras | Notas" (`getAllByRole("tab")` devolve exatamente essa lista) mais
+    "`?tab=compras` monta só a seção de compras, já filtrada pelo projeto" e "`?tab=notas` monta
+    só a seção de notas, já filtrada pelo projeto" — cada uma é uma aba própria, e a outra **não**
+    está no DOM.
+  - *"preciso do espaço para poder visualizar as tarefas"* → mesmo arquivo, "no Kanban, nem compras
+    nem notas estão no DOM — e nenhuma das duas é buscada no load"
+    (`queryByRole("heading", { name: "Compras do projeto" })` e o de Notas devolvem `null`;
+    `fetchShoppingCategories`, `fetchShoppingItems` e `fetchNotes` com zero chamadas) e
+    "sair da aba Compras desmonta a seção — ela deixa de ocupar espaço na tela". Não ocupar altura
+    é exatamente não estar no DOM, o que o teste afirma sem navegador.
+  - Nada do pedido ficou de fora; nenhuma tarefa nova foi aberta.
+- **Suíte inteira na passada final (2026-09-25):** `npm test` → `Test Files 177 passed (177)`,
+  `Tests 1706 passed (1706)`. `npm run lint` → `✖ 18 problems (0 errors, 18 warnings)`, todas
+  pré-existentes. `npm run build` → `✓ built in 19.88s`. `npm run check:bundle` →
+  `Bundle budget OK`.
 
 ## Como testar
 
@@ -145,20 +164,21 @@ código.
 ```
 npx vitest run src/pages/admin/tasks/__tests__/ProjectDetail.tabs.test.tsx
 ```
-Passou = as 5 abas existem, `?tab=` roteia (inclusive valor inválido caindo no Kanban) e, com o
-Kanban ativo, nem Compras nem Notas estão no DOM nem chamam a API.
+Passou = **14 testes verdes**: as 5 abas existem na ordem certa, `?tab=` roteia (inclusive valor
+inválido caindo no Kanban) e, com o Kanban ativo, nem Compras nem Notas estão no DOM nem chamam
+a API.
 
 ```
 npx vitest run src/pages/admin/tasks/__tests__/ProjectDetail.edit-project.test.tsx src/pages/admin/tasks/__tests__/ProjectDetail.subtask-edit.test.tsx src/pages/admin/tasks/__tests__/ProjectDetail.consultation-occurrences.test.tsx src/pages/admin/tasks/__tests__/ProjectDetail.medication-occurrences.test.tsx
 ```
-Passou = as quatro telas antigas de `ProjectDetail` continuam íntegras depois da troca de
-`useState` por `?tab=`.
+Passou = **17 testes verdes** — as quatro telas antigas de `ProjectDetail` continuam íntegras
+depois da troca de `useState` por `?tab=`.
 
 ```
 npx vitest run src/pages/admin/shopping/__tests__/ProjectShoppingSection.test.tsx src/pages/admin/notes/__tests__/ProjectNotesSection.test.tsx
 ```
-Passou = as duas seções não mudaram de contrato (mesmo `<h2>`, mesmo `aria-labelledby`) ao irem
-para dentro da aba.
+Passou = **8 testes verdes** — as duas seções não mudaram de contrato (mesmo `<h2>`, mesmo
+`aria-labelledby`) ao irem para dentro da aba.
 
 ```
 npm test
@@ -166,7 +186,9 @@ npm run lint
 npm run build
 npm run check:bundle
 ```
-Passou = suíte inteira verde, sem erro de lint/tipo e sem estourar o orçamento de bundle.
+Passou = suíte inteira verde (**177 arquivos / 1706 testes** na passada de 2026-09-25), lint com
+**0 errors** (18 warnings de `react-refresh`, todas pré-existentes e nenhuma em `ProjectDetail`),
+build concluído e `check:bundle` terminando em "Bundle budget OK".
 
 ### 3. Verificação manual, passo a passo
 
