@@ -152,3 +152,11 @@ dependem dela.
 - Nenhum mock `vi.mock("@/api/tasks", ...)` existente precisou ganhar `updateProjectEvent`: a função
   entrou na API mas ainda não é chamada por tela nenhuma (isso é a 067). O mock do teste novo
   (`AgendaGrid.event-link.test.tsx`) já a declara.
+- 2026-09-25 — Conferido por consulta ao banco remoto, não por suposição: a migration
+  `20260817120000_event_task_link.sql` aparece em `npx supabase migration list --linked` com coluna
+  `remote` **vazia** — ou seja, continua **não aplicada**. A trava desta tarefa é real, não
+  bookkeeping desatualizado. A mesma consulta revelou que o remoto tem **16 migrations que este
+  worktree não tem** (de `20260819090000` a `20260921110000`, vindas do `feat/orb`): rodar
+  `supabase db push` a partir daqui aplicaria migration antiga sobre banco mais novo, que é
+  exatamente o bug de bookkeeping do CLI que a CLAUDE.md registra. O push tem de sair de um checkout
+  com o histórico de migrations completo, e com confirmação do usuário.
