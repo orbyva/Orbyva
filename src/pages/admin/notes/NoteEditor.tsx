@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CircleAlert, Loader2, Workflow } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, CircleAlert, Loader2 } from "lucide-react";
+import type { Command, EditorView } from "@codemirror/view";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormLabel } from "@/components/FormLabel";
 import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
 import { wikiLinkAutocomplete } from "@/components/codemirror/wikiLinkCompletion";
+import { NoteEditorToolbar } from "@/pages/admin/notes/NoteEditorToolbar";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
 import { NoteLinksPanel } from "@/pages/admin/notes/NoteLinksPanel";
 import { BacklinksPanel } from "@/pages/admin/notes/BacklinksPanel";
@@ -98,6 +99,22 @@ export function NoteEditor({
     [note.id]
   );
 
+  /**
+   * O `EditorView` real, entregue pelo `MarkdownCodeEditor` quando ele monta. É o que permite à
+   * barra de ferramentas rodar os **mesmos** comandos dos atalhos na seleção onde o usuário está —
+   * sem ele, um botão só saberia mexer no documento inteiro.
+   */
+  const viewRef = useRef<EditorView | null>(null);
+  const handleCreateEditor = useCallback((view: EditorView) => {
+    viewRef.current = view;
+  }, []);
+  const runCommand = useCallback((command: Command) => {
+    const view = viewRef.current;
+    if (!view) return;
+    command(view);
+    view.focus();
+  }, []);
+
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [projectId, setProjectId] = useState<string | null>(note.project_id);
@@ -186,27 +203,25 @@ export function NoteEditor({
                 Visualizar
               </TabsTrigger>
             </TabsList>
-            {/* Descoberta da funcionalidade: ninguém digita sintaxe de mermaid de cabeça. O botão
-                leva de volta para a aba de escrever, senão o esqueleto some atrás do preview. */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => {
-                setTab("write");
-                setContent((current) => appendMermaidSnippet(current));
-              }}
-            >
-              <Workflow className="h-3.5 w-3.5" aria-hidden="true" />
-              Inserir diagrama
-            </Button>
+            {/* A barra some no modo "Visualizar": ali não há editor para formatar. */}
+            {tab === "preview" ? null : (
+              <NoteEditorToolbar
+                run={runCommand}
+                /* O botão de diagrama leva de volta para a aba de escrever, senão o esqueleto
+                   inserido some atrás do preview (comportamento herdado da 057). */
+                onInsertDiagram={() => {
+                  setTab("write");
+                  setContent((current) => appendMermaidSnippet(current));
+                }}
+              />
+            )}
           </div>
           <TabsContent value="write" className="mt-1.5">
             <MarkdownCodeEditor
               label="Conteúdo"
               value={content}
               onChange={setContent}
+              onCreateEditor={handleCreateEditor}
               className="min-h-[45vh] [&_.cm-editor]:min-h-[45vh]"
               placeholder="Markdown na veia — # títulos, listas, **negrito**, [[links]] entre notas…"
               extensions={editorExtensions}

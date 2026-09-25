@@ -95,7 +95,7 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
       funções puras acima (`Prec.high`, sem colidir com `literalTabKeymap`), e ligá-lo em
       `MarkdownCodeEditor`. Verificação: `npm run build && npm run lint` + teste em
       `MarkdownCodeEditor.test.tsx` disparando `Ctrl+B` e conferindo o documento resultante.
-- [ ] Criar `src/pages/admin/notes/NoteEditorToolbar.tsx` (8 botões + o "Inserir diagrama"
+- [x] Criar `src/pages/admin/notes/NoteEditorToolbar.tsx` (8 botões + o "Inserir diagrama"
       existente, com `aria-label` e `title` mostrando o atalho), chamando os mesmos comandos.
       Verificação: teste novo `NoteEditorToolbar.test.tsx` — cada botão produz a transformação
       esperada no texto; toolbar não aparece no modo "Visualizar".
@@ -196,6 +196,8 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
 ```
 npx vitest run src/domain/notes/__tests__/markdownCommands.test.ts
 npx vitest run src/components/__tests__/MarkdownCodeEditor.test.tsx
+npx vitest run src/pages/admin/notes/__tests__/NoteEditorToolbar.test.tsx
+npx vitest run src/pages/admin/notes/__tests__/NoteEditor.split.test.tsx
 npm run build
 npm run lint
 npm run check:bundle
@@ -207,6 +209,10 @@ npm run check:bundle
 - `MarkdownCodeEditor.test.tsx` prova que os atalhos estão **ligados no editor**: digita
   `Ctrl+B`/`Ctrl+I`/`Ctrl+K`/`Ctrl+Shift+K`/`Ctrl+2`/`Ctrl+Shift+8`/`Ctrl+Shift+7` no
   `contenteditable` e confere o documento resultante.
+- `NoteEditorToolbar.test.tsx` monta a barra **com um editor de verdade** e clica cada botão,
+  conferindo o documento resultante (inclusive o esqueleto de tabela com linha em branco antes).
+- `NoteEditor.split.test.tsx` prova que a barra de formatação some no modo "Visualizar" e volta no
+  "Escrever".
 - `npm run build` sem erro de `tsc -b`; `npm run lint` com `0 errors` (os 18 warnings de
   `react-refresh` são pré-existentes); `npm run check:bundle` imprimindo `Bundle budget OK.`
 
@@ -222,6 +228,10 @@ npm run check:bundle
    vira `### …` (troca de nível, não empilha `#`). Tecle `Ctrl/Cmd+3` de novo: o título some.
 5. Selecione duas linhas e tecle `Ctrl/Cmd+Shift+8`: viram `- linha`. Tecle `Ctrl/Cmd+Shift+7`:
    viram `1. linha` / `2. linha`.
+6. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
+   e o **Inserir diagrama** que já existia. Passe o mouse em cada um: o `title` mostra o atalho.
+   Clique em **Tabela** no fim de um parágrafo: entra o esqueleto GFM em bloco próprio, com o
+   cabeçalho pronto para ser trocado. Vá para **Visualizar**: a barra some.
 
 ### 4. Casos de borda e caminhos negativos
 
