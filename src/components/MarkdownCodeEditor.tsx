@@ -5,6 +5,7 @@ import { EditorView } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
 import { markdownSupport } from "@/components/codemirror/markdownLanguage";
 import { markdownLivePreview } from "@/components/codemirror/livePreview";
+import { markdownFormattingKeymap } from "@/components/codemirror/formattingKeymap";
 import { markdownThemeExtension } from "@/components/codemirror/markdownTheme";
 import { literalTabKeymap } from "@/components/codemirror/tabKeymap";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ export function MarkdownCodeEditor({
   placeholder,
   className,
   extensions,
+  onCreateEditor,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -57,6 +59,12 @@ export function MarkdownCodeEditor({
   className?: string;
   /** Extensões da feature que monta o editor (live preview, autocomplete de `[[`…). */
   extensions?: Extension[];
+  /**
+   * Entrega o `EditorView` recém-criado. É o que permite à barra de ferramentas rodar os **mesmos**
+   * comandos dos atalhos, na seleção real do usuário — um toolbar que só recebesse `value`/
+   * `onChange` não saberia onde está o cursor e só poderia formatar o documento inteiro.
+   */
+  onCreateEditor?: (view: EditorView) => void;
 }) {
   /**
    * O `onChange` precisa ter identidade estável **e** aplicar o estado de forma síncrona.
@@ -85,6 +93,7 @@ export function MarkdownCodeEditor({
       markdownLivePreview,
       markdownThemeExtension,
       literalTabKeymap,
+      markdownFormattingKeymap,
       ...(extensions ?? []),
     ],
     [label, extensions]
@@ -97,6 +106,7 @@ export function MarkdownCodeEditor({
       placeholder={placeholder}
       extensions={allExtensions}
       basicSetup={BASIC_SETUP}
+      onCreateEditor={onCreateEditor}
       className={cn(
         "rounded-md border border-input bg-transparent shadow-sm focus-within:ring-1 focus-within:ring-ring",
         className

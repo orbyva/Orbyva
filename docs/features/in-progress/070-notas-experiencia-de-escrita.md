@@ -91,7 +91,7 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
       cada marcador, seleção vazia (insere o par e põe o cursor no meio), seleção de múltiplas
       linhas, título trocando de nível em vez de empilhar `##`, lista já aplicada volta a texto, e
       link com seleção virando `[sel](url)` e sem seleção virando `[](url)`. Verificação: `npm test`.
-- [ ] Criar `src/components/codemirror/formattingKeymap.ts` ligando os atalhos da Decisão às
+- [x] Criar `src/components/codemirror/formattingKeymap.ts` ligando os atalhos da Decisão às
       funções puras acima (`Prec.high`, sem colidir com `literalTabKeymap`), e ligá-lo em
       `MarkdownCodeEditor`. Verificação: `npm run build && npm run lint` + teste em
       `MarkdownCodeEditor.test.tsx` disparando `Ctrl+B` e conferindo o documento resultante.
@@ -168,3 +168,74 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
 - 2026-08-18 — "- aumente a sofisticação do markdown das notas, procure referências, sdkjs, bases abertas, a ideia é alcançar um nível sofisticado de escrita"
 
 ## Notas
+
+- 2026-09-25 — O arquivo nasceu sem `## Como testar` (a seção passou a ser obrigatória depois do
+  planning). Escrita agora, como a skill `next` manda, e mantida a cada tarefa.
+- 2026-09-25 — `Ctrl/Cmd+K` dentro do editor precisou de `stopPropagation`, não só do
+  `preventDefault` do CodeMirror: `GlobalSearch` escuta `keydown` no `window`, então o mesmo atalho
+  inseria o link **e** abria a paleta de busca por cima. O handler novo não consome o evento (só
+  impede de subir) — quem formata continua sendo o keymap. Coberto por teste.
+- 2026-09-25 — `Ctrl+Shift+K` está registrado duas vezes (`Mod-Shift-k` e `Mod-Shift-K`). Com Shift
+  o navegador manda `event.key === "K"` e o CodeMirror só chega no `"k"` traduzindo o `keyCode`,
+  que o jsdom não preenche. Sem o par, o atalho funcionaria no navegador e nunca no teste.
+- 2026-09-25 — Seleção que começa na coluna 0 continua na coluna 0 depois de um toggle de linha
+  (título/lista/citação): o marcador entra **dentro** do bloco selecionado, então o bloco segue
+  inteiro selecionado e o atalho de novo desfaz exatamente o que acabou de ser feito.
+
+## Como testar
+
+### 1. Pré-requisitos
+
+- `npm ci` na raiz do projeto. A feature **não** acrescenta dependência nova, não tem migration,
+  seed nem variável de ambiente: é 100% cliente.
+- Para a parte manual: `npm run dev`, logar com qualquer usuário, ir em **Notas** (`/admin/notes`)
+  e abrir (ou criar) uma nota.
+
+### 2. Verificação automatizada
+
+```
+npx vitest run src/domain/notes/__tests__/markdownCommands.test.ts
+npx vitest run src/components/__tests__/MarkdownCodeEditor.test.tsx
+npm run build
+npm run lint
+npm run check:bundle
+```
+
+- `markdownCommands.test.ts` prova as transformações puras (aplicar **e** remover cada marcador,
+  seleção vazia, várias linhas, troca de nível de título, troca de tipo de lista, link com e sem
+  seleção). `Test Files 1 passed`.
+- `MarkdownCodeEditor.test.tsx` prova que os atalhos estão **ligados no editor**: digita
+  `Ctrl+B`/`Ctrl+I`/`Ctrl+K`/`Ctrl+Shift+K`/`Ctrl+2`/`Ctrl+Shift+8`/`Ctrl+Shift+7` no
+  `contenteditable` e confere o documento resultante.
+- `npm run build` sem erro de `tsc -b`; `npm run lint` com `0 errors` (os 18 warnings de
+  `react-refresh` são pré-existentes); `npm run check:bundle` imprimindo `Bundle budget OK.`
+
+### 3. Verificação manual, passo a passo
+
+1. Em `/admin/notes`, abra uma nota e clique no editor (aba **Escrever**).
+2. Selecione uma palavra e tecle `Ctrl/Cmd+B`: ela vira `**palavra**`. Tecle de novo: os `**`
+   somem. Idem `Ctrl/Cmd+I` (`_palavra_`) e `Ctrl/Cmd+Shift+K` (`` `palavra` ``).
+3. Selecione uma palavra e tecle `Ctrl/Cmd+K`: vira `[palavra]()` com o cursor **dentro dos
+   parênteses** — digite a URL e ela entra no lugar certo. A paleta de busca global **não** pode
+   abrir junto.
+4. Com o cursor numa linha de texto, tecle `Ctrl/Cmd+2`: a linha vira `## …`. Tecle `Ctrl/Cmd+3`:
+   vira `### …` (troca de nível, não empilha `#`). Tecle `Ctrl/Cmd+3` de novo: o título some.
+5. Selecione duas linhas e tecle `Ctrl/Cmd+Shift+8`: viram `- linha`. Tecle `Ctrl/Cmd+Shift+7`:
+   viram `1. linha` / `2. linha`.
+
+### 4. Casos de borda e caminhos negativos
+
+- Atalho com **nada** selecionado: `Ctrl+B` insere `****` com o cursor no meio; teclar de novo tira
+  o par em vez de empilhar outro.
+- Seleção arrastada de trás para frente (fim → começo): o resultado é o mesmo da seleção normal.
+- `Ctrl+Shift+8` numa seleção que inclui linha em branco: a linha em branco **não** ganha marcador.
+- Item indentado (`  - filho`) virando tarefa mantém os dois espaços de indentação.
+
+### 5. Sinais de que quebrou
+
+- `Ctrl+B` não faz nada e o navegador aplica negrito visual no texto → o `markdownFormattingKeymap`
+  saiu de `MarkdownCodeEditor`.
+- `Ctrl+K` abre a paleta de busca global junto com o link → o `stopAppShortcuts` de
+  `formattingKeymap.ts` se perdeu.
+- Atalho de título empilhando `## ## Título` → regressão em `toggleHeading`; o teste
+  "troca de nível em vez de empilhar `#`" falharia junto.
