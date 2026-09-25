@@ -7,7 +7,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatEstimatedDuration } from "@/domain/tasks/duration";
 import { cn } from "@/lib/utils";
 
-const DURATION_PRESETS_MIN = [15, 30, 60, 90, 120, 240];
+/** `0` é a tarefa pontual (feature 072) e vem primeiro: é o preset mais "curto" de todos. Sem ele
+ * a pontualidade seria inalcançável pela UI. */
+const DURATION_PRESETS_MIN = [0, 15, 30, 60, 90, 120, 240];
 
 /**
  * Trigger clicável (ícone de relógio + `formatEstimatedDuration`; sem duração, mostra "+ Duração") que abre
@@ -38,11 +40,11 @@ export function TaskDurationQuickPick({
           onClick={(e) => e.stopPropagation()}
           className={cn(
             "flex shrink-0 items-center gap-1 rounded-sm px-0.5 hover:bg-muted hover:text-foreground",
-            !value && "text-muted-foreground/70"
+            value == null && "text-muted-foreground/70"
           )}
         >
           <Timer className="h-3 w-3" />
-          {value ? formatEstimatedDuration(value) : "+ Duração"}
+          {formatEstimatedDuration(value) || "+ Duração"}
         </button>
       </PopoverTrigger>
       <PopoverContent

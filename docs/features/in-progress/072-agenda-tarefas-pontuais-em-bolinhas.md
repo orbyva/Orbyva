@@ -136,7 +136,7 @@ de bolinhas não pode roubar nem perder cliques para eles. E `AgendaHourGrid` é
 - [x] Migrar `STATUS_DOT_CLASS.done` de `bg-green-500` para `bg-success` em `AgendaGrid.tsx`.
       Verificação: `npm run build`; `AgendaGrid.test.tsx` e `AgendaGrid.consultation.test.tsx`
       seguem passando.
-- [ ] `TaskDurationQuickPick.tsx`: opção "Pontual" gravando `estimated_duration = 0`, e
+- [x] `TaskDurationQuickPick.tsx`: opção "Pontual" gravando `estimated_duration = 0`, e
       `formatEstimatedDuration(0)` (`src/domain/tasks/duration.ts`) passando a devolver "Pontual".
       Verificação: caso novo em `duration.test.ts` + teste do quick pick escolhendo "Pontual".
 - [ ] Corrigir `AgendaGrid.openTaskFromChip` (`:414-437`), que hoje **não** copia
