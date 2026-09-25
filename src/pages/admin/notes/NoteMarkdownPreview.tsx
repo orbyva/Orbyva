@@ -48,7 +48,16 @@ export function NoteMarkdownPreview({
 
   const components = useMemo<Components>(
     () => ({
-      a({ href, children }) {
+      /**
+       * Este override vê **todos** os links do markdown, não só os wiki-links — inclusive os que a
+       * própria nota gera: marcador de footnote, `↩` de volta e âncora de seção (feature 069). Por
+       * isso ele repassa o resto das props (`node` fora, que é do hast): sem isso o
+       * `data-footnote-ref` e a classe `data-footnote-backref` se perdem, e com eles o estilo e a
+       * navegação da footnote dentro de uma nota.
+       */
+      a({ href, children, ...rest }) {
+        // `node` é o nó do hast, não atributo de DOM — repassá-lo vira warning do React.
+        delete rest.node;
         const missingTitle = href ? parseMissingWikiLinkHref(href) : null;
 
         if (missingTitle !== null) {
@@ -68,11 +77,27 @@ export function NoteMarkdownPreview({
 
         // Rota interna (o wiki-link resolvido, `/notes/<id>`) navega sem recarregar o app.
         if (href?.startsWith("/")) {
-          return <Link to={href}>{children}</Link>;
+          return (
+            <Link to={href} {...rest}>
+              {children}
+            </Link>
+          );
+        }
+
+        /**
+         * Fragmento: é navegação **dentro da própria nota** (footnote, âncora de seção). Sem este
+         * ramo ele cairia no de link externo e abriria outra aba para rolar a mesma página.
+         */
+        if (href?.startsWith("#")) {
+          return (
+            <a href={href} {...rest}>
+              {children}
+            </a>
+          );
         }
 
         return (
-          <a href={href} target="_blank" rel="noreferrer noopener">
+          <a href={href} target="_blank" rel="noreferrer noopener" {...rest}>
             {children}
           </a>
         );

@@ -118,3 +118,40 @@ describe("NoteMarkdownPreview — wiki-links", () => {
     expect(screen.getByRole("button", { name: "Criar nota Sem nota" })).toBeDisabled();
   });
 });
+
+/**
+ * Link de âncora (`#…`) dentro de uma nota (feature 069). O override de `a` daqui existe para o
+ * wiki-link, mas ele vê **todos** os links do markdown — e o marcador de footnote e o `↩` de volta
+ * são links de fragmento. Mandá-los para o ramo de link externo faria a footnote abrir outra aba
+ * em vez de rolar a página, que é o oposto de navegar dentro da própria nota.
+ */
+describe("NoteMarkdownPreview — âncora dentro da nota", () => {
+  const NOTA = "texto[^1] e mais\n\n[^1]: a nota de rodape";
+
+  it("o marcador da footnote é link de fragmento, sem abrir aba", () => {
+    const { container } = renderPreview(NOTA, []);
+
+    const ref = container.querySelector<HTMLAnchorElement>(
+      "sup a[data-footnote-ref]"
+    );
+    expect(ref).not.toBeNull();
+    expect(ref?.getAttribute("href")).toBe("#user-content-fn-1");
+    expect(ref).not.toHaveAttribute("target");
+  });
+
+  it("o link de volta (↩) também fica na mesma página", () => {
+    const { container } = renderPreview(NOTA, []);
+
+    const backref = container.querySelector("a.data-footnote-backref");
+    expect(backref?.getAttribute("href")).toBe("#user-content-fnref-1");
+    expect(backref).not.toHaveAttribute("target");
+  });
+
+  it("link externo continua abrindo em outra aba", () => {
+    renderPreview("[fora](https://exemplo.com)", []);
+
+    const link = screen.getByRole("link", { name: "fora" });
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+  });
+});

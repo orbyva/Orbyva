@@ -150,6 +150,13 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
       (`npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`, forma já usada nas
       Notas da 050 por instabilidade do `npm test` puro nesta máquina). Registrar em Notas o
       tamanho do chunk de `/notes` antes e depois.
+- [x] **Achado da checagem de satisfação**: dentro de uma nota, link de âncora (`#…`) cai no
+      `else` do override de `a` do `NoteMarkdownPreview` e sai com `target="_blank"` — ou seja, o
+      marcador da footnote e o `↩` de volta **abrem outra aba** em vez de rolar a página, e a
+      footnote entregue pela 4ª tarefa desta feature não navega de verdade no único lugar onde ela
+      importa. Fragmento tem que virar link comum. Verificação: teste em
+      `NoteMarkdownPreview.test.tsx` conferindo que o marcador da footnote aponta para
+      `#user-content-fn-1` **sem** `target`, e que link externo continua com `target="_blank"`.
 - [x] Checagem de satisfação do `prompt:` ("nível sofisticado de escrita", lado leitura), com
       artefato por item, sem navegador: código colorido → `CodeBlock.test.tsx`; math →
       `MathBlock.test.tsx`; callout → `remarkCallout.test.ts` + teste de render; tipografia
@@ -236,6 +243,16 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
   capturada — o plano pedia o chunk da rota, e é esse que está medido nas duas pontas. Suíte
   completa: 166 arquivos, 1.562 testes, tudo passando. `npm run lint`: 0 erros (18 warnings
   pré-existentes de `react-refresh`). `npm run check:bundle`: `Bundle budget OK.`
+- 2026-09-25 — **A checagem de satisfação achou um buraco de verdade, e ele virou tarefa em vez de
+  observação.** Dentro de uma nota, o override de `a` do `NoteMarkdownPreview` (o do wiki-link,
+  056) vê **todos** os links do markdown e repassava só `href` e `children`: o marcador de footnote
+  perdia o `data-footnote-ref`, o `↩` perdia a classe `data-footnote-backref` — ou seja, a footnote
+  que a 4ª tarefa desta feature estilizou saía **sem estilo e sem navegação** exatamente onde ela
+  importa — e ambos ainda caíam no ramo de link externo, com `target="_blank"`: abriam outra aba
+  para rolar a mesma página. Corrigido com um ramo para `#…` e o repasse do resto das props;
+  provado por três testes novos em `NoteMarkdownPreview.test.tsx` (o marcador e o `↩` sem `target`,
+  link externo ainda com `target="_blank"`), escritos **antes** do conserto e vistos falhando.
+  Fica a lição para a 070: esse override é um funil por onde passa todo link da nota.
 - 2026-09-25 — **Checagem de satisfação do `prompt:`**, artefato por requisito (portão
   `feature-satisfied` rodado: `TYPESAFE_API_KEY` ausente → UNAVAILABLE, vale a regra escrita da
   skill `next`):
@@ -285,6 +302,7 @@ npx vitest run src/components/__tests__/MarkdownPreview.blocks.test.tsx
 npx vitest run src/components/__tests__/MathBlock.test.tsx
 npx vitest run src/components/__tests__/CodeBlock.test.tsx
 npx vitest run src/domain/notes/__tests__/headings.test.ts
+npx vitest run src/pages/admin/notes/__tests__/NoteMarkdownPreview.test.tsx
 npm run build
 npm run lint
 npm run check:bundle
@@ -298,7 +316,9 @@ npm run check:bundle
   inline vs. display, fórmula inválida, KaTeX que não carrega); `CodeBlock.test.tsx` prova o realce
   (lowlight mockado: linguagem conhecida colore, desconhecida não, lowlight que não carrega não
   quebra nada); `headings.test.ts` prova o slug do `id` de título (acento, pontuação, colisão,
-  título sem letra nenhuma).
+  título sem letra nenhuma); `NoteMarkdownPreview.test.tsx` prova que link de âncora **dentro de
+  uma nota** (footnote, seção) navega na própria página, enquanto link externo continua abrindo em
+  outra aba.
 - `npm run check:bundle` também precisa listar `lowlight-*.js` como `lazy` (e **não** como `entry`)
   e o `katex-*.js` como `lazy` — é o que prova que nenhum dos dois entrou no caminho da rota.
 - `npm run build` precisa terminar sem erro de `tsc -b` (ele compila os testes também).
@@ -394,7 +414,7 @@ npm run check:bundle
    é o que faz `[[nota#seção]]` (056) e o sumário da 070 terem alvo.
 8. Ainda na leitura: o marcador `1` da nota de rodapé sai sobrescrito e clicável; clicar leva à
    seção do fim (separada por uma linha, em fonte menor), a linha de destino se acende, e o `↩`
-   volta para o ponto do texto.
+   volta para o ponto do texto — tudo **na mesma aba**, sem abrir janela nova.
 9. Alterne o tema (claro/escuro) com os callouts na tela: as cores acompanham o tema, sem nenhuma
    caixa ficando ilegível (tudo sai de token `hsl(var(--…))`, não de cor literal).
 
@@ -436,5 +456,8 @@ npm run check:bundle
   chegou (aba de rede) ou o `manualChunks` do `vite.config.ts` perdeu a regra do lowlight.
 - Cores do código erradas no tema escuro → alguma regra `hljs-*` em `src/index.css` voltou a usar
   cor literal em vez de `hsl(var(--token))`.
+- Clicar no marcador da footnote (ou no `↩`) abrindo **outra aba**, ou a seção de rodapé saindo sem
+  estilo dentro de uma nota → o override de `a` do `NoteMarkdownPreview` voltou a engolir as props
+  ou perdeu o ramo de `#…`.
 - `npm run check:bundle` imprimindo `FAIL` numa linha `route` → alguma dependência nova entrou no
   chunk da rota em vez de ficar no `import()` dinâmico.
