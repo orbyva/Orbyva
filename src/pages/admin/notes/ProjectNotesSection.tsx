@@ -15,9 +15,10 @@ import type { Note } from "@/types/notes";
  * "Notas do projeto" dentro da página do projeto (feature 055) — o vínculo no sentido
  * projeto → nota. Lista as notas com `project_id` daquele projeto e cria uma nova já vinculada.
  *
- * Fica **fora** das abas Kanban/Lista/Gantt pelo mesmo motivo de `ProjectShoppingSection`: as abas
- * alternam entre visões das *tarefas* do projeto, e nota não é uma quarta visão de tarefa — é outra
- * entidade ligada ao projeto, que deve continuar visível qualquer que seja a aba escolhida.
+ * Desde a feature 071 é o conteúdo da aba **"Notas"** (`?tab=notas`) do `ProjectDetail`, ao lado de
+ * "Compras" — antes ficava empilhada abaixo das abas, e as duas seções juntas empurravam as
+ * tarefas para fora da tela. Como o `TabsContent` do Radix desmonta o conteúdo inativo, o `fetch`
+ * daqui só acontece quando o usuário abre a aba.
  *
  * É deliberadamente somente-leitura: escrever é no editor, para onde cada item leva.
  */

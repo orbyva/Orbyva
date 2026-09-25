@@ -85,7 +85,7 @@ código.
       mockam `@/api/shopping/*` nem `@/api/notes/notes` e hoje montam as seções de verdade; com a
       mudança elas param de montar. Verificação: rodar os 4 arquivos e registrar em Notas se algum
       mock ficou obsoleto.
-- [ ] Atualizar a documentação que a mudança contradiz — **só em `## Notas`, sem acrescentar tarefa
+- [x] Atualizar a documentação que a mudança contradiz — **só em `## Notas`, sem acrescentar tarefa
       nenhuma, para que as duas features continuem em `done/`**: em
       `docs/features/done/052-categoria-compras-por-projeto.md`, registrar que a Decisão "a seção
       fica fora das abas" foi revista pela 071 (sem apagar o histórico); em
@@ -119,6 +119,11 @@ código.
   pedido do usuário): cinco abas não cabem numa linha de telefone e o `PageShell` é
   `overflow-x-hidden`, então sem a quebra de linha a aba "Notas" sairia da tela. É exatamente o
   `TabsList` que `TripDetail`, `Places`, `Car` e `Timeline` já usam por terem muitas abas.
+- **A justificativa antiga morava em três lugares, não um.** Além do comentário em
+  `ProjectDetail.tsx` (que a tarefa 3 removeu), o docblock de `ProjectNotesSection.tsx` repetia
+  "fica **fora** das abas ... deve continuar visível qualquer que seja a aba escolhida". Os dois
+  docblocks (`ProjectNotesSection` e `ProjectShoppingSection`) foram reescritos apontando para a
+  aba correspondente e para a montagem preguiçosa.
 - **Ordem real das abas conferida por teste**, não por leitura: `getAllByRole("tab")` devolve
   `["Kanban","Lista","Gantt","Compras","Notas"]`.
 

@@ -74,6 +74,12 @@ Depende da 050 (tabela `shopping_category` e página agrupada). Independente da 
 - **A seção fica fora das abas** do `ProjectDetail`, de propósito: as abas (Kanban/Lista/Gantt)
   alternam entre visões das *tarefas* do projeto, e compras não é uma quarta visão de tarefa — é
   outra entidade ligada ao projeto, que deve seguir visível independentemente da aba escolhida.
+  - **Revisto pela feature 071 (2026-09-25), a pedido do usuário.** O que essa decisão protegia
+    (visibilidade constante) custava a altura da tela: com a seção de compras e a de notas
+    empilhadas abaixo das abas, as tarefas saíam da dobra — "preciso do espaço para poder
+    visualizar as tarefas". `ProjectShoppingSection` passou a ser a **aba "Compras"**
+    (`?tab=compras`), ao lado de "Notas", e só é montada/buscada quando o usuário abre a aba. O
+    componente em si não mudou. Ver `docs/features/done/071-projeto-compras-e-notas-em-abas.md`.
 - **Fechamento (2026-08-18) — a migration foi aplicada pelo usuário e a feature foi para `done/`.**
   A confirmação veio de `npx supabase migration list` (`20260816150000` com `local` == `remote`),
   **não** de teste manual: a skill `next` proíbe navegador e esta sessão nunca roda `supabase db

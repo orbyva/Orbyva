@@ -259,6 +259,11 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
   continuar visível qualquer que seja a aba escolhida. `ProjectNotesSection` fica logo abaixo de
   `ProjectShoppingSection`, com o mesmo formato. O requisito da tarefa (listar as notas daquele
   projeto e criar uma já vinculada) está cumprido igual; só o lugar mudou.
+  - **O plano original foi restaurado pela feature 071 (2026-09-25):** as notas do projeto viraram
+    de fato a aba **"Notas"** (`?tab=notas`), ao lado de "Compras" — a 071 reverteu a decisão da
+    052 que motivou este desvio, porque as duas seções empilhadas empurravam as tarefas para fora
+    da tela. `ProjectNotesSection` não mudou; mudou só onde ela é montada. Ver
+    `docs/features/done/071-projeto-compras-e-notas-em-abas.md`.
 - **Ordem de implementação do módulo (dependências):**
   `055` (núcleo: tabela `note` + markdown + projeto + busca) →
   `056` (wiki-links `[[nota]]`, backlinks, vínculo genérico a qualquer entidade, editor com syntax
