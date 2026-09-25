@@ -119,7 +119,7 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
       linha de fence (fundo sutil), mantendo a invariante já testada de que as decorações são
       view-only e o documento não muda. Verificação: casos novos em `livePreview.test.ts`,
       incluindo um que reassere "o documento continua idêntico".
-- [ ] `NoteEditor.tsx`: modo de visualização vira `Escrever | Dividir | Visualizar`, com o valor no
+- [x] `NoteEditor.tsx`: modo de visualização vira `Escrever | Dividir | Visualizar`, com o valor no
       query param `?view=` (padrão "escrever" omite o parâmetro, como em `Recurring.tsx`), e o modo
       "Dividir" renderizando editor e `NoteMarkdownPreview` em duas colunas. Abaixo de `md`,
       "Dividir" cai para "Escrever". Verificação: teste em `NoteEditor.split.test.tsx` — abrir com
@@ -211,6 +211,14 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
   `lang-python` e `legacy-modes` (instaladas), mais `lang-javascript`, `lang-css`, `@lezer/markdown`
   e `@lezer/html`, que já vinham transitivamente e agora são explícitas — mesma decisão que a 069
   tomou com o `katex`. `@codemirror/lang-html` **não** entrou: nada o importa diretamente.
+- 2026-09-25 — `useIsMobile` (que decide a queda de "Dividir" para "Escrever") chama
+  `window.matchMedia`, que o jsdom não implementa — sem stub, **toda** tela que usa o hook derrubava
+  o teste. Entrou um stub em `src/test/setup-jsdom.ts`, ao lado dos de `ResizeObserver` e
+  `Range.getClientRects`, com `matches` derivado de `window.innerWidth` (que o teste controla).
+- 2026-09-25 — `ViewMode`/`VIEW_PARAM`/`parseViewMode` foram para `src/domain/notes/viewMode.ts` em
+  vez de ficarem no componente: exportar função de um arquivo de componente acende
+  `react-refresh/only-export-components` (o lint tem 18 warnings pré-existentes e nenhum novo
+  entrou por esta feature).
 
 ## Como testar
 
@@ -245,8 +253,10 @@ npm run check:bundle
   `contenteditable` e confere o documento resultante.
 - `NoteEditorToolbar.test.tsx` monta a barra **com um editor de verdade** e clica cada botão,
   conferindo o documento resultante (inclusive o esqueleto de tabela com linha em branco antes).
-- `NoteEditor.split.test.tsx` prova que a barra de formatação some no modo "Visualizar" e volta no
-  "Escrever".
+- `NoteEditor.split.test.tsx` prova os três modos: abre em "Escrever" sem parâmetro, `?view=dividir`
+  já mostra editor **e** preview, trocar de modo escreve na URL com `replace` (o padrão apaga o
+  parâmetro), valor inválido cai em "Escrever", abaixo de `md` o "Dividir" some da barra e cai para
+  "Escrever" **sem** perder o `?view=` da URL, e a barra de formatação some em "Visualizar".
 - `slashCommands.test.ts` prova o menu `/`: abre só em início de linha (não em `http:/`, não em
   `12/`, não dentro de fence nem de código inline), filtra por rótulo e por palavra-chave sem
   acento, e cada item insere o esqueleto certo com o cursor no lugar.
@@ -288,7 +298,11 @@ npm run check:bundle
 9. Ainda no editor: link sai colorido com a URL sublinhada em cinza, `-`/`1.` de lista saem em
    destaque, citação ganha barra à esquerda em todas as linhas e o bloco de código ganha fundo
    cinza de ponta a ponta — tudo **sem** o texto mudar (os `>` e `-` continuam lá).
-10. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
+10. Troque para **Dividir**: o editor fica à esquerda e o markdown renderizado à direita, e a URL
+    vira `.../notes/<id>?view=dividir` — recarregue a página e o modo continua. Voltar para
+    **Escrever** limpa o parâmetro. Estreite a janela para menos de 768 px: a aba **Dividir** some
+    e sobra só o editor (a URL não muda).
+11. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
    e o **Inserir diagrama** que já existia. Passe o mouse em cada um: o `title` mostra o atalho.
    Clique em **Tabela** no fim de um parágrafo: entra o esqueleto GFM em bloco próprio, com o
    cabeçalho pronto para ser trocado. Vá para **Visualizar**: a barra some.

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { NoteEditor } from "@/pages/admin/notes/NoteEditor";
 import type { Note } from "@/types/notes";
 
@@ -27,19 +27,111 @@ const NOTE: Note = {
   updated_at: "2026-09-01T12:00:00.000Z",
 };
 
+/** Espelha a URL atual na tela — é por ele que as assertivas leem o `?view=`. */
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="url">{`${location.pathname}${location.search}`}</output>;
+}
+
+function url(): string {
+  return screen.getByTestId("url").textContent ?? "";
+}
+
 function renderEditor(initialEntry = "/notes/n1") {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <NoteEditor note={NOTE} projects={[]} notes={[NOTE]} />
+      <LocationProbe />
     </MemoryRouter>
   );
 }
 
+/** O preview renderizado — o `h1` da nota só existe depois que o markdown vira HTML. */
+function previewHeading(): HTMLElement | null {
+  return screen.queryByRole("heading", { name: "Titulo" });
+}
+
+/** Largura da janela, que é o que `useIsMobile` lê. Volta ao normal depois de cada teste. */
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    writable: true,
+    value: width,
+  });
+}
+
 beforeEach(() => {
   updateNote.mockClear();
+  setViewportWidth(1024);
 });
 
 describe("NoteEditor — modos de visualização", () => {
+  it("abre em Escrever, sem parâmetro na URL", () => {
+    renderEditor();
+    expect(screen.getByRole("tab", { name: "Escrever" })).toHaveAttribute(
+      "data-state",
+      "active"
+    );
+    expect(screen.getByRole("textbox", { name: "Conteúdo" })).toBeInTheDocument();
+    expect(previewHeading()).toBeNull();
+    expect(url()).toBe("/notes/n1");
+  });
+
+  it("abrir com `?view=dividir` já mostra as duas colunas", () => {
+    renderEditor("/notes/n1?view=dividir");
+
+    // Editor e preview na tela ao mesmo tempo — é o ponto do modo.
+    expect(screen.getByRole("textbox", { name: "Conteúdo" })).toBeInTheDocument();
+    expect(previewHeading()).toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Formatação" })).toBeInTheDocument();
+  });
+
+  it("trocar de modo escreve na URL (e o padrão apaga o parâmetro)", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole("tab", { name: "Dividir" }));
+    expect(url()).toBe("/notes/n1?view=dividir");
+
+    await user.click(screen.getByRole("tab", { name: "Visualizar" }));
+    expect(url()).toBe("/notes/n1?view=visualizar");
+
+    // "escrever" é o padrão: some da URL em vez de virar `?view=escrever`.
+    await user.click(screen.getByRole("tab", { name: "Escrever" }));
+    expect(url()).toBe("/notes/n1");
+  });
+
+  it("trocar de modo usa `replace`: não empilha uma entrada de histórico por clique", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByRole("tab", { name: "Dividir" }));
+    await user.click(screen.getByRole("tab", { name: "Visualizar" }));
+    // Um único passo de "voltar" tem que sair da nota, não desfazer as trocas de aba.
+    expect(window.history.length).toBeLessThan(4);
+  });
+
+  it("URL com valor inválido cai em Escrever, sem quebrar a tela", () => {
+    renderEditor("/notes/n1?view=zzz");
+    expect(screen.getByRole("tab", { name: "Escrever" })).toHaveAttribute(
+      "data-state",
+      "active"
+    );
+    expect(previewHeading()).toBeNull();
+  });
+
+  it("abaixo de `md`, Dividir some da barra e cai para Escrever — mas a URL é preservada", () => {
+    setViewportWidth(500);
+    renderEditor("/notes/n1?view=dividir");
+
+    expect(screen.queryByRole("tab", { name: "Dividir" })).toBeNull();
+    // Só o editor: duas colunas em telefone é ilegível.
+    expect(screen.getByRole("textbox", { name: "Conteúdo" })).toBeInTheDocument();
+    expect(previewHeading()).toBeNull();
+    // A URL continua dizendo `dividir`: abrir o mesmo link no computador volta ao modo pedido.
+    expect(url()).toBe("/notes/n1?view=dividir");
+  });
+
   it("a barra de ferramentas some no modo Visualizar e volta no Escrever", async () => {
     const user = userEvent.setup();
     renderEditor();
