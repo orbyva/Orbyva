@@ -149,7 +149,7 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
       (`TaskDescriptionField`, previews read-only) continuam com o checkbox `disabled`.
       Verificação: teste clicando o segundo checkbox de uma nota e conferindo o markdown resultante,
       + teste de que em `TaskDescriptionField` o checkbox segue desabilitado.
-- [ ] Indicador de salvamento no cabeçalho do `NoteEditor`: "Salvando…" / "Salvo às HH:mm" /
+- [x] Indicador de salvamento no cabeçalho do `NoteEditor`: "Salvando…" / "Salvo às HH:mm" /
       "Falha ao salvar" com botão "Tentar novamente"; `Ctrl/Cmd+S` força o flush do debounce.
       Verificação: teste `NoteEditor.autosave.test.tsx` — digitar mostra "Salvando…", sucesso mostra
       o horário, erro mostra a falha **e mantém o texto digitado**, e o botão refaz a chamada.

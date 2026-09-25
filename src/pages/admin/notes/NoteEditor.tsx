@@ -41,15 +41,40 @@ const SAVE_LABEL: Record<SaveState, string> = {
   idle: "",
   saving: "Salvando…",
   saved: "Salvo",
-  error: "Não salvo",
+  error: "Falha ao salvar",
 };
 
-function SaveIndicator({ state }: { state: SaveState }) {
+/** `HH:mm` local. O segundo não interessa: a pergunta é "gravou agora ou faz tempo?". */
+function formatSavedAt(at: Date) {
+  return at.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+/**
+ * O que o autosave está fazendo, no cabeçalho do editor.
+ *
+ * O horário no "Salvo às HH:mm" é a diferença entre "ele diz que salvou" e "eu sei quando" — num
+ * editor sem botão Salvar, é o que substitui o clique como prova. E o erro **não** é só um texto
+ * vermelho: sem uma ação ali, a única saída do usuário seria digitar de novo para reagendar o
+ * debounce, torcendo para funcionar. O `toast` some; esta linha fica.
+ */
+function SaveIndicator({
+  state,
+  savedAt,
+  onRetry,
+}: {
+  state: SaveState;
+  savedAt: Date | null;
+  onRetry: () => void;
+}) {
   if (state === "idle") return null;
   const Icon =
     state === "saving" ? Loader2 : state === "saved" ? Check : CircleAlert;
+  const label =
+    state === "saved" && savedAt
+      ? `Salvo às ${formatSavedAt(savedAt)}`
+      : SAVE_LABEL[state];
   return (
-    <p
+    <div
       role="status"
       aria-live="polite"
       className={
@@ -62,8 +87,17 @@ function SaveIndicator({ state }: { state: SaveState }) {
         aria-hidden="true"
         className={state === "saving" ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"}
       />
-      {SAVE_LABEL[state]}
-    </p>
+      {label}
+      {state === "error" ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="underline underline-offset-2 hover:no-underline"
+        >
+          Tentar novamente
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -186,6 +220,7 @@ export function NoteEditor({
   const mode: ViewMode =
     isMobile && requestedMode === "dividir" ? "escrever" : requestedMode;
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
   const { toast } = useToast();
 
   /**
@@ -220,6 +255,7 @@ export function NoteEditor({
     setContent(note.content);
     setProjectId(note.project_id);
     setSaveState("idle");
+    setSavedAt(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
@@ -227,12 +263,15 @@ export function NoteEditor({
    * O que gravar fica num ref, não nas dependências do efeito de debounce: só alteração do usuário
    * pode reagendar a gravação, nunca a identidade nova de `note`/`onSaved` vinda do re-render.
    */
+  /** Timer do debounce em voo, para `flushSave` poder cancelá-lo e gravar na hora. */
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveRef = useRef<() => Promise<void>>(async () => {});
   saveRef.current = async () => {
     setSaveState("saving");
     try {
       await updateNote({ id: note.id, title, content, project_id: projectId });
       setSaveState("saved");
+      setSavedAt(new Date());
       onSaved?.({ ...note, title, content, project_id: projectId });
     } catch (error) {
       setSaveState("error");
@@ -252,8 +291,34 @@ export function NoteEditor({
     // "Salvando…" já na tecla: o usuário vê que a alteração foi registrada antes do debounce virar.
     setSaveState("saving");
     const timer = setTimeout(() => void saveRef.current(), debounceMs);
+    debounceRef.current = timer;
     return () => clearTimeout(timer);
   }, [title, content, projectId, debounceMs]);
+
+  /**
+   * Gravar **agora**, sem esperar o debounce: é o que `Ctrl/Cmd+S` e o "Tentar novamente" fazem.
+   * Cancelar o timer pendente antes é o que impede a gravação dupla — sem isso, o timer que já
+   * estava agendado dispararia um segundo `updateNote` logo depois deste.
+   */
+  const flushSave = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    void saveRef.current();
+  }, []);
+
+  /**
+   * `Ctrl/Cmd+S`. O atalho do navegador ("salvar página") não serve para nada aqui e assusta:
+   * `preventDefault` sempre. Fica no `window`, não no editor, porque o usuário pode estar com o
+   * foco no título ou no seletor de projeto — os três campos caem no mesmo autosave.
+   */
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") return;
+      event.preventDefault();
+      flushSave();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [flushSave]);
 
   /**
    * Clicar num título do sumário. Dois caminhos, porque em cada modo o título mora num lugar
@@ -321,7 +386,7 @@ export function NoteEditor({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <FormLabel htmlFor="note-title">Título</FormLabel>
-          <SaveIndicator state={saveState} />
+          <SaveIndicator state={saveState} savedAt={savedAt} onRetry={flushSave} />
         </div>
         <Input
           id="note-title"
