@@ -456,6 +456,79 @@
     background-color: hsl(var(--accent));
     color: hsl(var(--accent-foreground));
   }
+
+  /*
+   * Callouts/admonitions (`> [!NOTE]`, feature 069). O atributo vem do `remarkCallout`, que só
+   * anota o blockquote — todo o desenho é daqui, e é por isso que não existe componente novo nem
+   * HTML cru envolvido.
+   *
+   * O seletor de atributo (0,2,0) vence `.markdown-body blockquote` (0,1,1) por especificidade,
+   * então não depende da ordem das regras: um callout nunca herda o cinza de citação.
+   *
+   * Cada tipo troca **só** `--callout-color`, e todas as cores saem dos tokens que já existem
+   * (`--primary`, `--success`, `--warning`, `--destructive`) — a 069 decidiu não inventar token.
+   * `important` divide o azul com `note` porque a paleta não tem um quinto matiz; o que os separa
+   * é o rótulo e o ícone, como no Obsidian com tema monocromático.
+   */
+  .markdown-body [data-callout] {
+    --callout-color: var(--primary);
+    border-left: 3px solid hsl(var(--callout-color));
+    border-radius: calc(var(--radius) - 2px);
+    background-color: hsl(var(--callout-color) / 0.08);
+    padding: 0.5rem 0.75rem;
+    /* Callout não é citação: o corpo lê no tom do texto normal, não no cinza de blockquote. */
+    color: hsl(var(--foreground));
+  }
+
+  /* `space-y-2` do contêiner só alcança filho direto; dentro do callout o espaçamento é daqui. */
+  .markdown-body [data-callout] > * + * {
+    margin-top: 0.5rem;
+  }
+
+  /*
+   * O rótulo é `::before` de propósito: fica fora do texto da nota, então copiar o callout devolve
+   * o Markdown que o usuário escreveu, sem uma palavra a mais.
+   */
+  .markdown-body [data-callout]::before {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1rem;
+    color: hsl(var(--callout-color));
+  }
+
+  .markdown-body [data-callout="note"]::before {
+    content: "ⓘ  Nota";
+  }
+
+  .markdown-body [data-callout="tip"] {
+    --callout-color: var(--success);
+  }
+
+  .markdown-body [data-callout="tip"]::before {
+    content: "✦  Dica";
+  }
+
+  .markdown-body [data-callout="important"]::before {
+    content: "★  Importante";
+  }
+
+  .markdown-body [data-callout="warning"] {
+    --callout-color: var(--warning);
+  }
+
+  .markdown-body [data-callout="warning"]::before {
+    content: "⚠  Atenção";
+  }
+
+  .markdown-body [data-callout="caution"] {
+    --callout-color: var(--destructive);
+  }
+
+  .markdown-body [data-callout="caution"]::before {
+    content: "⊘  Cuidado";
+  }
 }
 
 @layer utilities {

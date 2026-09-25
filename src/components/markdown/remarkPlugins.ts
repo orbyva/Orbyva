@@ -1,5 +1,6 @@
 import remarkGfm from "remark-gfm";
 import type { PluggableList } from "unified";
+import { remarkCallout } from "@/components/markdown/remarkCallout";
 
 /**
  * Plugins remark do Markdown do app — o segundo ponto de extensão da feature 057.
@@ -11,8 +12,12 @@ import type { PluggableList } from "unified";
  *
  * Começa com `remark-gfm` (tabela, riscado, checklist, autolink), que é o que já existia.
  *
+ * `remarkCallout` (feature 069) é local, não tem dependência e só **anota** blockquotes que abrem
+ * com `> [!NOTE]` — o desenho dos cinco tipos mora em `.markdown-body [data-callout]`
+ * (`src/index.css`).
+ *
  * **Cuidado com plugins que produzem HTML cru**: sem `rehype-raw` o `react-markdown` ignora HTML, e
  * é assim que o preview fica livre de XSS sem sanitizador (decisão da 055). Plugin que dependa de
  * HTML cru para funcionar exige `rehype-sanitize` no mesmo passo.
  */
-export const MARKDOWN_REMARK_PLUGINS: PluggableList = [remarkGfm];
+export const MARKDOWN_REMARK_PLUGINS: PluggableList = [remarkGfm, remarkCallout];

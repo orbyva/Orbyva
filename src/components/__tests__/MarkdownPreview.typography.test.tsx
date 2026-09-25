@@ -221,3 +221,74 @@ describe("MarkdownPreview — footnotes", () => {
     expect(refs[1].getAttribute("href")).toBe(`#${items[1].id}`);
   });
 });
+
+/**
+ * Callout (`> [!NOTE]`) é CSS puro pendurado num atributo que o `remarkCallout` escreve. Sem folha
+ * de estilo em jsdom, o que dá para afirmar — e é o que importa — é que o atributo chega ao
+ * `<blockquote>` certo, com o texto do usuário inteiro. Se o plugin saísse do array central de
+ * plugins, todo callout do app viraria citação cinzenta sem nenhum erro de build.
+ */
+describe("MarkdownPreview — callouts", () => {
+  it("o blockquote de aviso chega marcado e sem o marcador no texto", () => {
+    const root = renderDocumento("> [!WARNING]\n> cuidado com o prazo");
+
+    const callout = root.querySelector('[data-callout="warning"]');
+    expect(callout).not.toBeNull();
+    expect(callout?.tagName).toBe("BLOCKQUOTE");
+    expect(callout).toHaveTextContent("cuidado com o prazo");
+    // O marcador é sintaxe, não conteúdo: some da tela.
+    expect(root.textContent).not.toContain("[!WARNING]");
+  });
+
+  it.each([
+    ["NOTE", "note"],
+    ["TIP", "tip"],
+    ["IMPORTANT", "important"],
+    ["WARNING", "warning"],
+    ["CAUTION", "caution"],
+  ])("> [!%s] vira data-callout=%s", (marcador, tipo) => {
+    const root = renderDocumento(`> [!${marcador}]\n> corpo`);
+
+    expect(root.querySelector(`[data-callout="${tipo}"]`)).toHaveTextContent(
+      "corpo"
+    );
+  });
+
+  it("citação comum continua citação (sem atributo de callout)", () => {
+    const root = renderDocumento("> só uma citação");
+
+    expect(root.querySelector("[data-callout]")).toBeNull();
+    expect(root.querySelector("blockquote")).toHaveTextContent("só uma citação");
+  });
+
+  it("tipo desconhecido não some da tela", () => {
+    const root = renderDocumento("> [!FOO]\n> texto");
+
+    expect(root.querySelector("[data-callout]")).toBeNull();
+    expect(root.querySelector("blockquote")).toHaveTextContent("[!FOO]");
+    expect(root.querySelector("blockquote")).toHaveTextContent("texto");
+  });
+
+  it("o conteúdo do callout continua sendo Markdown (lista, link, código)", () => {
+    const root = renderDocumento(
+      "> [!TIP]\n> - passo `um`\n> - [dois](https://exemplo.com)"
+    );
+
+    const callout = root.querySelector('[data-callout="tip"]');
+    expect(callout?.querySelectorAll("li")).toHaveLength(2);
+    expect(callout?.querySelector("code")).toHaveTextContent("um");
+    expect(callout?.querySelector("a")).toHaveAttribute(
+      "href",
+      "https://exemplo.com"
+    );
+  });
+
+  it("HTML cru dentro de callout continua não interpretado", () => {
+    const root = renderDocumento("> [!CAUTION]\n> <img src=x onerror=alert(1)>");
+
+    const callout = root.querySelector('[data-callout="caution"]');
+    expect(callout).not.toBeNull();
+    expect(root.querySelector("img")).toBeNull();
+    expect(callout?.textContent).toContain("<img");
+  });
+});

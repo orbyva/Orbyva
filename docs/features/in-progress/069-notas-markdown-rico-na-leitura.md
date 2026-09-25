@@ -98,15 +98,15 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
       `section[data-footnotes]` com separador e fonte menor, e o link de volta (`↩`) visível.
       Verificação: teste renderizando `texto[^1]` + `[^1]: nota` e conferindo o marcador, a seção e
       o link de retorno.
-- [ ] Criar `src/components/markdown/remarkCallout.ts`: plugin remark local que transforma
+- [x] Criar `src/components/markdown/remarkCallout.ts`: plugin remark local que transforma
       `> [!NOTE] …` (e `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`) em blockquote anotado
       (`data.hProperties['data-callout']`), removendo o marcador do texto. Tipo desconhecido ou
       blockquote comum passam intactos. Verificação: `npm run build`.
-- [ ] Testes Vitest do `remarkCallout` em `src/components/markdown/__tests__/remarkCallout.test.ts`:
+- [x] Testes Vitest do `remarkCallout` em `src/components/markdown/__tests__/remarkCallout.test.ts`:
       os 5 tipos reconhecidos, tipo desconhecido vira blockquote comum, blockquote sem marcador não
       é tocado, marcador no meio do texto não conta, e o texto do callout não perde conteúdo.
       Verificação: `npm test`.
-- [ ] Registrar `remarkCallout` em `MARKDOWN_REMARK_PLUGINS` (`src/components/markdown/remarkPlugins.ts`)
+- [x] Registrar `remarkCallout` em `MARKDOWN_REMARK_PLUGINS` (`src/components/markdown/remarkPlugins.ts`)
       e estilizar os 5 tipos em `.markdown-body` (ícone via `::before`, cor por tipo usando
       `--success`/`--warning`/`--destructive`/`--primary` — sem inventar token novo). Verificação:
       teste de render conferindo `[data-callout="warning"]` no DOM e o texto preservado; o teste
@@ -176,3 +176,115 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
   equivalentes em português, via `remarkRehypeOptions` no `MarkdownPreview`. Motivo: são invisíveis
   na tela mas lidos em voz alta por leitor de tela, num app inteiro em português — texto em inglês
   ali é bug de acessibilidade, não detalhe. Coberto por teste no mesmo arquivo.
+- 2026-09-25 — O arquivo não tinha `## Como testar` (feature escrita antes da seção virar
+  obrigatória). Escrita agora, como a skill `next` manda, e mantida a cada tarefa.
+- 2026-09-25 — Callout: `important` divide o token `--primary` com `note`. A paleta não tem um
+  quinto matiz e a Decisão diz "sem inventar token novo" — o que separa os dois é o rótulo e o
+  ícone do `::before`. O rótulo fica em `::before` (CSS) e não no DOM de propósito: copiar o
+  callout devolve o Markdown que o usuário escreveu, sem uma palavra a mais.
+- 2026-09-25 — `remarkCallout` caminha a árvore com uma recursão de seis linhas em vez de
+  `unist-util-visit`: o pacote só existe aqui como dependência transitiva do `react-markdown`, e a
+  Decisão da feature era "sem dependência nova". Alcança callout aninhado em lista e em outro
+  callout (coberto por teste).
+
+## Como testar
+
+### 1. Pré-requisitos
+
+- `npm ci` na raiz do projeto (a feature acrescenta dependências ao `package.json`).
+- Nenhuma migration, seed ou variável de ambiente nova: a feature é 100% de renderização no
+  cliente. Banco, login e permissões não mudam.
+- Para a parte manual: `npm run dev`, logar com qualquer usuário e ir em **Notas**
+  (`/admin/notes`), abrindo ou criando uma nota.
+
+### 2. Verificação automatizada
+
+```
+npx vitest run src/components/markdown/__tests__/remarkCallout.test.ts
+npx vitest run src/components/__tests__/MarkdownPreview.typography.test.tsx
+npx vitest run src/components/__tests__/MarkdownPreview.blocks.test.tsx
+npm run build
+npm run lint
+npm run check:bundle
+```
+
+- Os três `vitest run` precisam terminar com `Test Files 1 passed` e nenhum teste pulado.
+  `remarkCallout.test.ts` prova o parser (marcador vira atributo, tipo desconhecido não some);
+  `MarkdownPreview.typography.test.tsx` prova o que chega ao DOM (tags que a folha estiliza,
+  footnote, callout); `MarkdownPreview.blocks.test.tsx` prova que o registry de blocos e o array
+  central de plugins continuam ligados.
+- `npm run build` precisa terminar sem erro de `tsc -b` (ele compila os testes também).
+- `npm run lint` precisa terminar com `0 errors` (os warnings de `react-refresh` são
+  pré-existentes).
+- `npm run check:bundle` precisa imprimir `Bundle budget OK.` — é o que garante que nada novo caiu
+  no chunk da rota de Notas.
+
+### 3. Verificação manual, passo a passo
+
+1. Em `/admin/notes`, crie uma nota e cole no editor:
+
+       # Titulo
+
+       ## Secao
+
+       ### Subsecao
+
+       > uma citacao comum
+
+       > [!NOTE]
+       > isto e um aviso informativo
+
+       > [!TIP]
+       > - com lista
+       > - e `codigo inline`
+
+       > [!IMPORTANT]
+       > nao esqueca disto
+
+       > [!WARNING]
+       > cuidado com o prazo
+
+       > [!CAUTION]
+       > isto quebra producao
+
+       > [!FOO]
+       > tipo que nao existe
+
+       Texto com nota de rodape[^1].
+
+       [^1]: o texto da nota.
+
+2. Na leitura da nota (fora do editor), esperado:
+   - os cinco callouts saem em caixas com barra colorida à esquerda e rótulo no topo —
+     **ⓘ Nota** (azul), **✦ Dica** (verde), **★ Importante** (azul), **⚠ Atenção** (âmbar),
+     **⊘ Cuidado** (vermelho);
+   - o texto `[!NOTE]`, `[!TIP]`… **não** aparece em lugar nenhum da tela;
+   - `> [!FOO]` continua uma citação cinza comum, **com o texto `[!FOO]` visível** — nada some;
+   - `> uma citacao comum` continua citação cinza, sem caixa nem rótulo.
+3. Ainda na leitura: o marcador `1` da nota de rodapé sai sobrescrito e clicável; clicar leva à
+   seção do fim (separada por uma linha, em fonte menor), a linha de destino se acende, e o `↩`
+   volta para o ponto do texto.
+4. Alterne o tema (claro/escuro) com os callouts na tela: as cores acompanham o tema, sem nenhuma
+   caixa ficando ilegível (tudo sai de token `hsl(var(--…))`, não de cor literal).
+
+### 4. Casos de borda e caminhos negativos
+
+- `> [!note]` em minúscula: vale igual (jeito do Obsidian).
+- `> [!NOTE] Um título aqui` com texto na mesma linha: vira callout e o título fica como primeira
+  linha do corpo — nada de conteúdo se perde.
+- `> olha o [!NOTE] no meio`: **não** vira callout (o marcador só conta abrindo o bloco).
+- `> [!IMPORTANT]` sozinho, sem corpo: vira uma caixa só com o rótulo, sem parágrafo vazio.
+- Callout dentro de item de lista e callout dentro de callout: os dois são reconhecidos.
+- `> [!CAUTION]` com `<img src=x onerror=alert(1)>` no corpo: o HTML sai **como texto**, nenhuma
+  tag é criada — a invariante da 055 (sem `rehype-raw`) continua valendo dentro de callout.
+
+### 5. Sinais de que quebrou
+
+- Todos os callouts saindo como citação cinza, com `[!NOTE]` visível na tela → o `remarkCallout`
+  saiu de `MARKDOWN_REMARK_PLUGINS` (`src/components/markdown/remarkPlugins.ts`).
+- Caixa colorida certa mas sem rótulo no topo → a folha `.markdown-body [data-callout]::before`
+  (`src/index.css`) se perdeu.
+- Callout vazio, sem o texto que foi escrito → regressão no corte do marcador em
+  `remarkCallout.ts`; `remarkCallout.test.ts` falharia junto.
+- `npm run check:bundle` imprimindo `FAIL` numa linha `route` → alguma dependência nova entrou no
+  chunk da rota em vez de ficar no `import()` dinâmico.
