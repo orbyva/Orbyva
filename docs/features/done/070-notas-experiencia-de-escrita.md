@@ -153,10 +153,10 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
       "Falha ao salvar" com botão "Tentar novamente"; `Ctrl/Cmd+S` força o flush do debounce.
       Verificação: teste `NoteEditor.autosave.test.tsx` — digitar mostra "Salvando…", sucesso mostra
       o horário, erro mostra a falha **e mantém o texto digitado**, e o botão refaz a chamada.
-- [ ] Passada final: `npm run build`, `npm run lint`, `npm run check:bundle` e a suíte completa
+- [x] Passada final: `npm run build`, `npm run lint`, `npm run check:bundle` e a suíte completa
       (`npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`). Anotar em Notas os
       tamanhos de chunk antes/depois e qualquer teste alheio que tenha precisado de ajuste.
-- [ ] Checagem de satisfação do `prompt:` ("nível sofisticado de escrita", lado editor), com
+- [x] Checagem de satisfação do `prompt:` ("nível sofisticado de escrita", lado editor), com
       artefato por item e sem navegador: atalhos → `markdownCommands.test.ts` +
       `MarkdownCodeEditor.test.tsx`; menu `/` → `slashCommands.test.ts`; escrever vendo o resultado
       → `NoteEditor.split.test.tsx`; navegação em nota longa → `NoteOutlinePanel.test.tsx`;
@@ -219,6 +219,50 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
   vez de ficarem no componente: exportar função de um arquivo de componente acende
   `react-refresh/only-export-components` (o lint tem 18 warnings pré-existentes e nenhum novo
   entrou por esta feature).
+
+- 2026-09-25 — **Passada final.** Suíte completa: **176 arquivos, 1692 testes, 0 falhando**
+  (`npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`). `npm run build` sem
+  erro, `npm run lint` com **0 erros** (18 warnings `react-refresh/only-export-components`,
+  pré-existentes e em arquivos não tocados), `npm run check:bundle` → `Bundle budget OK.`
+
+  Chunks, antes (fim da 069) → depois desta feature, gzip:
+
+  | chunk | antes | depois |
+  |---|---|---|
+  | `Notes` (rota da lista) | 3,0 KB | **3,0 KB** |
+  | `NoteDetail` (rota do editor) | 10,3 KB | **15,5 KB** (teto 160 KB) |
+  | `codemirror` (vendor) | 155,6 KB | **155,6 KB** (teto 200 KB) |
+  | `katex` (lazy) | 75,8 KB | **75,8 KB** |
+  | `lowlight` (lazy) | 51,3 KB | **51,3 KB** |
+
+  Os 5,2 KB que `NoteDetail` ganhou são a feature inteira do lado editor — barra de ferramentas,
+  menu `/`, sumário, modo Dividir, contagem e indicador de salvamento. Nada novo entrou em vendor:
+  o CodeMirror já estava lá desde a 055.
+
+  **Teste alheio ajustado — um só**: `Notes.flow.test.tsx` procurava o texto exato `"Salvo"` e
+  passou a procurar `/^Salvo às \d{2}:\d{2}$/`. Não é acomodação de teste: o horário é o conteúdo
+  novo do indicador, e a assertiva velha passaria mesmo se ele sumisse.
+
+- 2026-09-25 — **Checagem de satisfação do `prompt:`** ("a ideia é alcançar um nível sofisticado de
+  escrita" — lado editor; o lado leitura é a 069). Recorte → artefato que prova, todos rodados:
+
+  | o que o prompt pede | artefato | resultado |
+  |---|---|---|
+  | escrever sem decorar sintaxe | `markdownCommands.test.ts` (30) + `NoteEditorToolbar.test.tsx` (7) + `MarkdownCodeEditor.test.tsx` (11) | 48 passando |
+  | inserir bloco sem sair do teclado | menu `/` — `slashCommands.test.ts` | coberto, verde |
+  | escrever **vendo** o resultado | `NoteEditor.split.test.tsx` (13) | modo Dividir, rolagem sincronizada |
+  | navegar em nota longa | `NoteOutlinePanel.test.tsx` (6) | sumário nos três modos |
+  | checklist utilizável de verdade | `MarkdownPreview.tasks.test.tsx` (5) + `toggleTaskListItem` em `markdownCommands.test.ts` | clicar no preview escreve no markdown |
+  | saber quanto já escreveu | `wordCount.test.ts` (7) | palavras, caracteres, tempo de leitura |
+  | **confiar que gravou** | `NoteEditor.autosave.test.tsx` (8) | horário, erro que não come texto, `Ctrl/Cmd+S` |
+
+  Total dos artefatos da feature: **87 testes**, todos passando. Nenhum navegador usado.
+
+  **Nada ficou faltando**, e por isso nenhuma tarefa nova foi aberta aqui. O que o prompt pede e
+  esta feature deliberadamente **não** entrega está declarado nas Decisões como fora de escopo
+  (upload de imagem, exportar PDF/DOCX, transclusão `![[nota]]`) — é recorte antigo, não descoberta
+  desta checagem.
+
 
 ## Como testar
 
@@ -346,3 +390,25 @@ npm run check:bundle
   "troca de nível em vez de empilhar `#`" falharia junto.
 - O menu `/` abrindo dentro de bloco de código, ou a barra `/` sobrando no texto depois de escolher
   um item → regressão em `slashCommands.ts` (`isInsideCode` ou o `from` do resultado).
+
+### 6. Indicador de salvamento (não há botão "Salvar")
+
+```bash
+npx vitest run src/pages/admin/notes/__tests__/NoteEditor.autosave.test.tsx
+```
+
+Passos manuais, em `/notes` com uma nota aberta:
+
+1. Digite qualquer coisa no título. O indicador ao lado do rótulo "Título" diz **"Salvando…"** na
+   hora — antes de gravar.
+2. Espere um segundo: vira **"Salvo às HH:mm"**. O horário é o que substitui o clique num botão
+   Salvar que não existe.
+3. Corte a rede (modo avião, ou DevTools → Network → Offline) e digite de novo. O indicador fica
+   vermelho, diz **"Falha ao salvar"** e oferece **"Tentar novamente"** — e o **texto que você
+   digitou continua na tela**. Religue a rede e clique em "Tentar novamente": volta para "Salvo às".
+4. Com o foco em qualquer campo, aperte **Ctrl+S** (ou **Cmd+S**): grava na hora, sem esperar o
+   debounce, e o "salvar página" do navegador **não** aparece.
+
+**Sinais de que quebrou:** o indicador some depois de gravar (deveria manter o "Salvo às"); o
+diálogo de salvar página do navegador aparece no `Ctrl+S`; o texto digitado some quando a gravação
+falha — este último é o pior de todos, e há teste guardando exatamente ele.
