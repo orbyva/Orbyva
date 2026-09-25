@@ -41,16 +41,18 @@ features 098 (base), 099 (revisão) e 100 (barra lateral, navegação, cartões,
   API de runtime** (`Deno.*`, `process.*`), com o client Supabase injetado via `OrbToolContext`.
   Essa restrição é o que permite o mesmo código rodar no Deno da Edge e no Node do MCP. Tool nova =
   arquivo em `tools/` + uma linha em `registry.ts`; aparece nos dois lados sozinha.
-  **37 tools hoje**, agrupadas por área na ordem do array `orbTools`: finanças (9), produtividade
+  **38 tools hoje**, agrupadas por área na ordem do array `orbTools`: finanças (9), produtividade
   (6), vida (7), viagens (3), compras (1), saúde (2), notas (1), linha do tempo (1), lugares (1),
-  veículos (2), navegação (1), API de dados (2), criação (1). Tabela completa em `mcp/README.md`. A
+  veículos (2), navegação (1), API de dados (2), criação (1), diálogo (1 — `ask_user`, feature 107).
+  Tabela completa em `mcp/README.md`. A
   **ordem do array é contrato**: o catálogo serializado abre o prefixo de toda requisição, então
-  reordenar invalida o cache de todas elas — área nova entra no fim (foi assim que lugares, veículos
-  e as três da feature 100 entraram). Catálogo serializado (name + description + input_schema):
+  reordenar invalida o cache de todas elas — área nova entra no fim (foi assim que lugares, veículos,
+  as três da feature 100 e o `ask_user` da 107 entraram). Catálogo serializado (name + description + input_schema):
   ~44,1 mil chars, ~12,6 mil tokens.
-- **Fronteira app × MCP** (feature 100): `orbMcpTools` = `orbTools` menos `ORB_APP_ONLY_TOOLS`
-  (`open_screen`, `propose_create`). Host MCP não tem tela do Orbyva: não há para onde navegar nem
-  onde confirmar uma criação, então o catálogo dele continua sendo leitura e simulação.
+- **Fronteira app × MCP** (features 100/107): `orbMcpTools` = `orbTools` menos `ORB_APP_ONLY_TOOLS`
+  (`open_screen`, `propose_create`, `ask_user`). Host MCP não tem tela do Orbyva: não há para onde
+  navegar, confirmar criação nem coletar resposta em chips, então o catálogo dele continua sendo
+  leitura e simulação.
 - **Navegação** (`open_screen`): catálogo de telas em `_shared/orb/navigation.ts` — caminho, filtros
   aceitos e valores de cada tela. O servidor monta a URL; o client **valida de novo** contra o mesmo
   catálogo (`isOrbNavigablePath`) antes de chamar `navigate()`. Filtro na URL só funciona porque as
@@ -60,13 +62,21 @@ features 098 (base), 099 (revisão) e 100 (barra lateral, navegação, cartões,
   é buscado sob demanda, senão seriam dezenas de milhares de tokens por turno.
 - **Criação** (`propose_create`): a tool valida e resolve ids, mas **não grava** — devolve uma
   proposta que vira cartão na tela; quem grava é o `src/api/*` da tela manual, depois do clique
-  (`src/api/orbActions.ts`). Sem migration: a proposta vive na mensagem.
+  (`src/api/orbActions.ts`). Kinds: tarefa, lançamento, nota, item de compra, projeto, evento,
+  recorrência, orçamento (set/delete/replicate), tipo/subcategoria financeira, pagamento e
+  quitação de recorrência, check-in e criação de hábito (incl. saúde), marcar filme/série,
+  episódio de série (com série nova via OMDb), progresso/adição de livro (Google Books), álbum
+  (quero ouvir), visita a lugar, atualizar meta, medicação, consulta, veículo novo,
+  abastecimento, manutenção, viagem, gasto de viagem, atividade de roteiro, roteiro do dia
+  (feature 107). Sem migration: a proposta vive na mensagem.
+- **Diálogo** (`ask_user`, feature 107): pergunta tipada + sugestões; vira cartão com chips no chat.
+  Usar antes de `propose_create` quando faltar slot (horário, categoria, escopo…).
 - **Campos `ui_*`**: resultado de tool pode trazer campo só para a tela (pôster, capa). Os dois hosts
   passam o resultado por `stripUiFields` antes de mandá-lo ao modelo.
 - **Rótulo na UI**: cada tool declara `title` em PT-BR e `orbToolTitle` (registry) é a fonte única —
   `orbToolLabel` em `src/domain/orb/toolLabel.ts` só delega. Nada de mapa paralelo escrito à mão.
   Ele mora em arquivo separado do parser de SSE **de propósito**: importar `registry.ts` de dentro
-  de `domain/orb/stream.ts` levava as 37 tools para o chunk carregado em toda página do app.
+  de `domain/orb/stream.ts` levava as tools para o chunk carregado em toda página do app.
 - **Agente**: Edge Function `orb-agent` (Deno) — JWT obrigatório, client anon + `Authorization`
   (mesmo padrão de `home-bundle`, RLS do usuário), loop de function calling com **Gemini**
   (`@google/genai`) e resposta em SSE. `GEMINI_API_KEY` só como secret do Supabase, nunca no Vite.

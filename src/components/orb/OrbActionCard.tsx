@@ -5,8 +5,41 @@ import { AlertTriangle, Check, Loader2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { executeOrbProposal } from "@/api/orbActions";
 import { useOrbContext, type OrbProposalState } from "@/hooks/useOrb";
+import {
+  tripDayPlanAguardandoViagem,
+  viagemConfirmadaNaConversa,
+} from "@/domain/orb/tripDayPlanGate";
 import { getErrorMessage } from "@/lib/errors";
-import type { OrbProposal } from "../../../supabase/functions/_shared/orb/actions.ts";
+import type { OrbCreateKind, OrbProposal } from "../../../supabase/functions/_shared/orb/actions.ts";
+
+function botaoConfirmar(kind: OrbCreateKind, proposal?: OrbProposal): string {
+  if (kind === "budget_delete" || kind === "recurring_quit") return "Confirmar";
+  if (kind === "budget_replicate") return "Replicar";
+  if (kind === "trip_day_plan") return "Adicionar ao roteiro";
+  if (
+    kind === "recurring_payment" ||
+    kind === "habit_checkin" ||
+    kind === "place_visit" ||
+    kind === "fuel_log" ||
+    kind === "maintenance" ||
+    kind === "trip_expense"
+  ) {
+    return "Registrar";
+  }
+  if (kind === "movie_mark") {
+    return proposal?.payload?.is_new === true ? "Adicionar" : "Atualizar";
+  }
+  if (kind === "book_progress") {
+    return proposal?.payload?.is_new === true ? "Adicionar" : "Atualizar";
+  }
+  if (kind === "series_episode") {
+    return proposal?.payload?.is_new === true ? "Adicionar e marcar" : "Marcar";
+  }
+  if (kind === "goal_update") {
+    return "Atualizar";
+  }
+  return "Criar";
+}
 
 /**
  * O cartão de confirmação de uma criação proposta pela Orb (feature 100).
@@ -37,6 +70,18 @@ export function OrbActionCard({
   const [estadoLocal, setEstadoLocal] = useState<OrbProposalState>({ status: "idle" });
   const estado = orb?.proposalStates[callId] ?? estadoLocal;
 
+  const viagemPendente = tripDayPlanAguardandoViagem(proposal);
+  const viagemPronta = !viagemPendente
+    ? true
+    : orb
+      ? viagemConfirmadaNaConversa({
+          titulo: viagemPendente,
+          messages: orb.messages,
+          proposalStates: orb.proposalStates,
+        })
+      : false;
+  const bloqueadoPorViagem = Boolean(viagemPendente) && !viagemPronta;
+
   /**
    * Esta proposta foi reproposta depois (a pessoa pediu um ajuste e o modelo mandou a versão
    * completa de novo). Na conversa o cartão antigo continua na tela — é o histórico —, mas o botão
@@ -57,6 +102,7 @@ export function OrbActionCard({
 
   const criar = useCallback(async () => {
     if (estado.status === "saving" || estado.status === "done") return;
+    if (bloqueadoPorViagem) return;
     definirEstado({ status: "saving" });
     try {
       const resultado = await executeOrbProposal(proposal);
@@ -68,16 +114,23 @@ export function OrbActionCard({
         message: getErrorMessage(error, "Não consegui criar agora."),
       });
     }
-  }, [definirEstado, estado.status, onCreated, proposal]);
+  }, [bloqueadoPorViagem, definirEstado, estado.status, onCreated, proposal]);
+
+  const selo =
+    estado.status === "done"
+      ? "criado"
+      : substituida
+        ? "atualizada"
+        : bloqueadoPorViagem
+          ? "aguardando criar a viagem"
+          : "aguardando você";
 
   return (
     <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
       <div className="flex items-center gap-2">
         <Plus className="size-3.5 shrink-0 text-primary" aria-hidden />
         <span className="text-[13px] font-semibold">{proposal.label}</span>
-        <span className="ml-auto text-[11px] text-muted-foreground">
-          {estado.status === "done" ? "criado" : substituida ? "atualizada" : "aguardando você"}
-        </span>
+        <span className="ml-auto text-[11px] text-muted-foreground">{selo}</span>
       </div>
 
       <dl className="mt-2 grid gap-1">
@@ -103,6 +156,23 @@ export function OrbActionCard({
         <p className="mt-2 text-[12px] text-muted-foreground">
           Substituída por uma versão mais nova — o cartão atual é o de baixo.
         </p>
+      ) : bloqueadoPorViagem ? (
+        <div className="mt-2.5 space-y-2">
+          <p className="text-[12px] text-muted-foreground">
+            Confirme primeiro o cartão <span className="font-medium">Nova viagem</span>
+            {viagemPendente ? ` (“${viagemPendente}”)` : ""}. Depois o roteiro libera aqui.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground"
+            onClick={() => definirEstado({ status: "done", message: "Descartado." })}
+          >
+            <X className="size-3.5" aria-hidden />
+            Descartar
+          </Button>
+        </div>
       ) : (
         <div className="mt-2.5 flex items-center gap-2">
           <Button
@@ -117,7 +187,7 @@ export function OrbActionCard({
             ) : (
               <Check className="size-3.5" aria-hidden />
             )}
-            {estado.status === "saving" ? "Criando…" : "Criar"}
+            {estado.status === "saving" ? "Confirmando…" : botaoConfirmar(proposal.kind, proposal)}
           </Button>
           <Button
             type="button"

@@ -27,6 +27,7 @@ import { vehiclesTools } from "./tools/vehicles.ts";
 import { navigationTools } from "./tools/navigation.ts";
 import { dataTools } from "./tools/data.ts";
 import { createTools } from "./tools/create.ts";
+import { clarifyTools } from "./tools/clarify.ts";
 
 /**
  * A ORDEM DESTE ARRAY É PARTE DO CONTRATO COM A API — não reordene por gosto.
@@ -43,8 +44,8 @@ import { createTools } from "./tools/create.ts";
  * - Só reordene se houver ganho medido que pague um cache miss global.
  *
  * Áreas, na ordem: finanças, produtividade, vida, viagens, compras, saúde, notas, timeline,
- * lugares, veículos, navegação, API de dados, criação. As cinco últimas chegaram depois (2T.2,
- * 2T.4 e a feature 100) e por isso entraram no fim.
+ * lugares, veículos, navegação, API de dados, criação, diálogo (`ask_user`, feature 107). As
+ * áreas do fim chegaram depois e por isso entraram no fim.
  */
 export const orbTools: OrbTool[] = [
   ...financeTools,
@@ -60,19 +61,22 @@ export const orbTools: OrbTool[] = [
   ...navigationTools,
   ...dataTools,
   ...createTools,
+  ...clarifyTools,
 ];
 
 /**
- * Tools que só fazem sentido DENTRO do app (feature 100).
+ * Tools que só fazem sentido DENTRO do app (features 100 e 107).
  *
- * `open_screen` troca a tela que a pessoa está vendo e `propose_create` devolve uma proposta que
- * vira um cartão com botão — as duas dependem de uma tela do Orbyva aberta. Num host MCP (Claude
- * Code, Claude Desktop) não há tela: `open_screen` devolveria um caminho relativo sem app para
- * abri-lo e `propose_create` um objeto que ninguém confirma. Ficam fora de `orbMcpTools`, e o
- * catálogo do MCP volta a ser o que ele promete no `instructions`: leitura e simulação.
+ * `open_screen` troca a tela; `propose_create` devolve cartão de confirmação; `ask_user` vira
+ * cartão com chips. As três dependem de uma tela do Orbyva aberta. Num host MCP (Claude Code,
+ * Claude Desktop) não há tela: ficam fora de `orbMcpTools`, e o catálogo do MCP continua sendo
+ * leitura e simulação.
  */
-export const ORB_APP_ONLY_TOOLS: readonly string[] = ["open_screen", "propose_create"];
-
+export const ORB_APP_ONLY_TOOLS: readonly string[] = [
+  "open_screen",
+  "propose_create",
+  "ask_user",
+];
 /** O catálogo que o servidor MCP anuncia. */
 export const orbMcpTools: OrbTool[] = orbTools.filter(
   (tool) => !ORB_APP_ONLY_TOOLS.includes(tool.name)

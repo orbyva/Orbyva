@@ -281,9 +281,9 @@ export function OrbChat({ className }: { className?: string }) {
                   message={message}
                   onRetry={retry}
                   onEdit={editarPergunta}
+                  onAskReply={submit}
                   isStreaming={isStreaming}
-                />
-              </Fragment>
+                />              </Fragment>
             ))
           )}
         </div>

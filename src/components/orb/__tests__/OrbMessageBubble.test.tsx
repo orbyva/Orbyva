@@ -270,4 +270,35 @@ describe("OrbMessageBubble — editar a pergunta", () => {
     expect(screen.getByText(/falta "date"/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Criar$/i })).not.toBeInTheDocument();
   });
+
+  it("mostra o cartão ask_user com chips que enviam a sugestão", async () => {
+    const user = userEvent.setup();
+    const onAskReply = vi.fn();
+    render(
+      <MemoryRouter>
+        <OrbMessageBubble
+          message={resposta({
+            content: "Preciso do horário.",
+            tools: [
+              {
+                id: "a1",
+                name: "ask_user",
+                status: "ok",
+                summary: {
+                  status: "awaiting_user",
+                  question: "Que horas é o jogo?",
+                  suggestions: ["20:00", "21:00"],
+                },
+              },
+            ],
+          })}
+          onAskReply={onAskReply}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("Que horas é o jogo?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "20:00" }));
+    expect(onAskReply).toHaveBeenCalledWith("20:00");
+  });
 });

@@ -46,6 +46,12 @@ export const LOOKUPS = {
     artigo: "a",
     oQue: "categoria de compras",
   },
+  finance_type: {
+    table: "type",
+    column: "name",
+    artigo: "o",
+    oQue: "tipo financeiro",
+  },
   finance_class: {
     table: "class",
     column: "name",
@@ -132,4 +138,47 @@ function montar(linha: Record<string, unknown>, spec: OrbLookupSpec): OrbLookupR
     label: String(linha[spec.column] ?? spec.oQue),
     row: linha,
   };
+}
+
+/**
+ * Natureza financeira é global (sem `user_id`): Receita, Despesa, Investimento.
+ * Não passa por `lookupByName` porque aquele sempre filtra por dono.
+ */
+export async function lookupNature(
+  ctx: OrbToolContext,
+  termo: string
+): Promise<OrbLookupResult> {
+  const linhas = unwrap<Record<string, unknown>[]>(
+    await ctx.db
+      .from("nature")
+      .select("id, name")
+      .ilike("name", ilikePattern(termo))
+      .order("name", { ascending: true })
+      .limit(MAX_CANDIDATOS + 1),
+    "naturezas"
+  );
+
+  if (linhas.length === 0) {
+    throw new OrbToolError(
+      `Não achei a natureza "${termo}". Use Receita, Despesa ou Investimento.`,
+      "nao_encontrado"
+    );
+  }
+
+  const exato = linhas.find(
+    (linha) => String(linha.name ?? "").toLowerCase() === termo.toLowerCase()
+  );
+  if (exato) {
+    return { id: String(exato.id), label: String(exato.name), row: exato };
+  }
+  if (linhas.length > 1) {
+    const nomes = linhas
+      .slice(0, MAX_CANDIDATOS)
+      .map((linha) => `"${String(linha.name)}"`)
+      .join(", ");
+    throw new OrbToolError(
+      `"${termo}" casa com mais de uma natureza: ${nomes}. Chame ask_user e use o nome exato.`
+    );
+  }
+  return { id: String(linhas[0].id), label: String(linhas[0].name), row: linhas[0] };
 }

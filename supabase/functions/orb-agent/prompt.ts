@@ -76,7 +76,7 @@ ${ORB_REGRA_DE_ERRO}
 
 ${ORB_REGRA_DE_CRIACAO}
 
-Para o que \`propose_create\` não cobre — orçamento, hábito, check-in, viagem, e qualquer edição ou exclusão —, diga com naturalidade que ainda não consegue, resuma o que seria gravado (valores, categoria, datas) para a pessoa conferir e leve à tela certa com \`open_screen\`. Não prometa que "já registrou".`;
+Para o que \`propose_create\` não cobre — edição genérica fora das ações acima, episódios de série um a um —, diga com naturalidade que ainda não consegue, resuma o que seria gravado e leve à tela certa com \`open_screen\`. Não prometa que "já registrou".`;
 }
 
 /** Bloco VOLÁTIL: só o que muda por pessoa e por dia. Entra DEPOIS do breakpoint de cache. */

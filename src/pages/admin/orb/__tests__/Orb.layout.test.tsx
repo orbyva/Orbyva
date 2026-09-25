@@ -34,6 +34,6 @@ describe("Orb — layout do composer", () => {
     expect(shell?.className).toMatch(/overflow-hidden/);
     expect(shell?.className).toMatch(/max-h-\[calc\(100dvh/);
     expect(shell?.className).toMatch(/max-w-none/);
-    expect(shell?.className).toMatch(/\[\&>section\]:shrink-0/);
+    expect(shell?.className).toMatch(/\[&>section\]:shrink-0/);
   });
 });

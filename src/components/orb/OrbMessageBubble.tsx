@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, Check, Copy, Gauge, LogIn, Pencil, RotateCcw } from "lucide-react";
 
 import { OrbActionCard } from "@/components/orb/OrbActionCard";
+import { OrbClarifyCard } from "@/components/orb/OrbClarifyCard";
 import { OrbToolCall } from "@/components/orb/OrbToolCall";
 import { OrbResultView } from "@/components/orb/results/OrbResultView";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,10 @@ import {
   isOrbProposal,
   ORB_CREATE_TOOL_NAME,
 } from "../../../supabase/functions/_shared/orb/actions.ts";
+import {
+  isOrbAskUser,
+  ORB_ASK_USER_TOOL_NAME,
+} from "../../../supabase/functions/_shared/orb/clarify.ts";
 import { formatarTokens } from "@/domain/orb/stream";
 import { cn } from "@/lib/utils";
 import type { OrbMessage } from "@/types/orb";
@@ -26,6 +31,11 @@ interface OrbMessageBubbleProps {
    * acontece em qualquer lugar que monte a bolha fora da conversa completa.
    */
   onEdit?: (messageId: string, texto: string) => void;
+  /**
+   * Resposta a um `ask_user` (feature 107): chip clicado vira a próxima mensagem do chat.
+   * Opcional — sem ele o cartão aparece sem chips clicáveis.
+   */
+  onAskReply?: (texto: string) => void;
   /**
    * Turno em curso. O hook ignora edição enquanto estiver em stream, então o botão nem aparece:
    * botão que não faz nada é pior que botão ausente.
@@ -75,6 +85,7 @@ export const OrbMessageBubble = memo(function OrbMessageBubble({
   message,
   onRetry,
   onEdit,
+  onAskReply,
   isStreaming = false,
 }: OrbMessageBubbleProps) {
   const [copiado, setCopiado] = useState(false);
@@ -170,6 +181,12 @@ export const OrbMessageBubble = memo(function OrbMessageBubble({
     .filter((tool) => isOrbProposal(tool.summary))
     .map((tool) => ({ id: tool.id, proposal: tool.summary as never }));
 
+  /** Perguntas tipadas (`ask_user`) — cartão com chips. */
+  const perguntas = (message.tools ?? [])
+    .filter((tool) => tool.name === ORB_ASK_USER_TOOL_NAME && tool.status === "ok")
+    .filter((tool) => isOrbAskUser(tool.summary))
+    .map((tool) => ({ id: tool.id, ask: tool.summary }));
+
   /**
    * Criação que falhou (faltou campo, categoria inexistente…): a barra amarela colapsada esconde
    * o motivo. Sem isto, a pessoa só vê "Criar (com confirmação)" em 0ms e acha que a Orb não cria.
@@ -231,6 +248,19 @@ export const OrbMessageBubble = memo(function OrbMessageBubble({
           </div>
         )}
       </div>
+
+      {perguntas.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {perguntas.map((item) => (
+            <OrbClarifyCard
+              key={item.id}
+              ask={item.ask}
+              onReply={onAskReply}
+              disabled={isStreaming}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {propostas.length > 0 ? (
         <div className="flex flex-col gap-2">
