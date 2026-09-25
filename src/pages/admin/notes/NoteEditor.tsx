@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { UIEvent } from "react";
 import { Check, CircleAlert, Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import type { Command, EditorView } from "@codemirror/view";
@@ -16,6 +17,7 @@ import { ProjectPicker } from "@/pages/admin/tasks/ProjectPicker";
 import { updateNote } from "@/api/notes/notes";
 import { NOTE_TITLE_MAX } from "@/domain/notes/noteDraft";
 import { appendMermaidSnippet } from "@/domain/notes/mermaidSnippet";
+import { proportionalScrollTop } from "@/domain/notes/scrollSync";
 import { VIEW_PARAM, parseViewMode } from "@/domain/notes/viewMode";
 import type { ViewMode } from "@/domain/notes/viewMode";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -126,6 +128,30 @@ export function NoteEditor({
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [projectId, setProjectId] = useState<string | null>(note.project_id);
+  /**
+   * Rolagem do preview acompanhando a do editor, no modo "Dividir". `requestAnimationFrame` para o
+   * ajuste acontecer **uma vez por quadro**: o evento `scroll` dispara dezenas de vezes por
+   * segundo, e escrever `scrollTop` a cada um deles é jank garantido.
+   */
+  const previewPaneRef = useRef<HTMLDivElement | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const syncPreviewScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const source = event.currentTarget;
+    if (scrollFrameRef.current !== null) return;
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const target = previewPaneRef.current;
+      if (!target) return;
+      target.scrollTop = proportionalScrollTop(source, target);
+    });
+  }, []);
+  useEffect(
+    () => () => {
+      if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
+    },
+    []
+  );
+
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
   const requestedMode = parseViewMode(searchParams.get(VIEW_PARAM));
@@ -286,9 +312,23 @@ export function NoteEditor({
           </TabsContent>
           {/* Escrever vendo o resultado: o editor à esquerda, o markdown renderizado à direita. */}
           <TabsContent value="dividir" className="mt-1.5">
+            {/* Altura fixa nas duas colunas: é o que dá o que rolar e o que faz a proporção
+                significar alguma coisa. Fora do modo "Dividir" quem rola é a página. */}
             <div className="grid gap-3 md:grid-cols-2">
-              {editorNode}
-              <div className="rounded-md border px-3 py-2">{previewNode}</div>
+              <div
+                data-testid="note-editor-pane"
+                className="max-h-[70vh] overflow-y-auto"
+                onScroll={syncPreviewScroll}
+              >
+                {editorNode}
+              </div>
+              <div
+                ref={previewPaneRef}
+                data-testid="note-preview-pane"
+                className="max-h-[70vh] overflow-y-auto rounded-md border px-3 py-2"
+              >
+                {previewNode}
+              </div>
             </div>
           </TabsContent>
           <TabsContent value="visualizar" className="mt-1.5 rounded-md border px-3 py-2">

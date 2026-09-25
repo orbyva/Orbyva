@@ -124,7 +124,7 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
       "Dividir" renderizando editor e `NoteMarkdownPreview` em duas colunas. Abaixo de `md`,
       "Dividir" cai para "Escrever". Verificação: teste em `NoteEditor.split.test.tsx` — abrir com
       `?view=dividir` já mostra as duas colunas; trocar de modo escreve na URL com `replace`.
-- [ ] Rolagem proporcional do preview acompanhando o editor no modo "Dividir" (só nesse sentido),
+- [x] Rolagem proporcional do preview acompanhando o editor no modo "Dividir" (só nesse sentido),
       com `requestAnimationFrame` para não disparar por frame. Verificação: teste simulando `scroll`
       no contêiner do editor e conferindo o `scrollTop` do preview; `npm run lint`.
 - [ ] Criar `extractHeadings(markdown)` em `src/domain/notes/headings.ts` (ao lado do
@@ -239,6 +239,7 @@ npx vitest run src/pages/admin/notes/__tests__/NoteEditor.split.test.tsx
 npx vitest run src/components/codemirror/__tests__/slashCommands.test.ts
 npx vitest run src/components/codemirror/__tests__/markdownLanguage.test.ts
 npx vitest run src/components/codemirror/__tests__/livePreview.test.ts
+npx vitest run src/domain/notes/__tests__/scrollSync.test.ts
 npx vitest run src/pages/admin/notes/__tests__/Notes.flow.test.tsx
 npm run build
 npm run lint
@@ -269,6 +270,10 @@ npm run check:bundle
 - `livePreview.test.ts` prova as decorações novas (link, URL, marcador de lista, citação e fundo do
   fence) **e** a invariante que sustenta o editor: mesmo com todas elas, `state.doc` continua byte a
   byte o que o usuário escreveu.
+- `scrollSync.test.ts` prova a conta da rolagem proporcional (topo, metade, fim, elástico além do
+  fim, nota curta sem nada a rolar) e `NoteEditor.split.test.tsx` prova que ela está **ligada**:
+  rolar o painel do editor move o `scrollTop` do preview na mesma fração, e rolar o preview **não**
+  move o editor (a sincronia é de mão única, para não haver laço).
 - `npm run check:bundle` também precisa listar os `cm-lang-*.js` como **lazy** (e não como `entry`
   nem `route`) e o `codemirror-*.js` abaixo de 200 KB — é o que prova que nenhuma gramática entrou
   no caminho crítico do editor.
@@ -302,6 +307,8 @@ npm run check:bundle
     vira `.../notes/<id>?view=dividir` — recarregue a página e o modo continua. Voltar para
     **Escrever** limpa o parâmetro. Estreite a janela para menos de 768 px: a aba **Dividir** some
     e sobra só o editor (a URL não muda).
+    No modo Dividir, role o editor com uma nota longa: o preview acompanha na mesma proporção.
+    Rolar o **preview** não mexe no editor.
 11. Acima do editor há a barra com **Negrito, Itálico, Título, Link, Lista, Tarefa, Código, Tabela**
    e o **Inserir diagrama** que já existia. Passe o mouse em cada um: o `title` mostra o atalho.
    Clique em **Tabela** no fim de um parágrafo: entra o esqueleto GFM em bloco próprio, com o

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { NoteEditor } from "@/pages/admin/notes/NoteEditor";
@@ -49,6 +49,26 @@ function renderEditor(initialEntry = "/notes/n1") {
 /** O preview renderizado — o `h1` da nota só existe depois que o markdown vira HTML. */
 function previewHeading(): HTMLElement | null {
   return screen.queryByRole("heading", { name: "Titulo" });
+}
+
+/**
+ * jsdom não faz layout: `scrollHeight`/`clientHeight` são sempre 0 e `scrollTop` nunca sai do lugar
+ * sozinho. Esta função finge a geometria de um painel rolável, que é tudo que a sincronização lê.
+ */
+function fakeScrollBox(
+  element: HTMLElement,
+  { scrollHeight, clientHeight }: { scrollHeight: number; clientHeight: number }
+) {
+  Object.defineProperty(element, "scrollHeight", { configurable: true, value: scrollHeight });
+  Object.defineProperty(element, "clientHeight", { configurable: true, value: clientHeight });
+  let top = 0;
+  Object.defineProperty(element, "scrollTop", {
+    configurable: true,
+    get: () => top,
+    set: (next: number) => {
+      top = next;
+    },
+  });
 }
 
 /** Largura da janela, que é o que `useIsMobile` lê. Volta ao normal depois de cada teste. */
@@ -130,6 +150,50 @@ describe("NoteEditor — modos de visualização", () => {
     expect(previewHeading()).toBeNull();
     // A URL continua dizendo `dividir`: abrir o mesmo link no computador volta ao modo pedido.
     expect(url()).toBe("/notes/n1?view=dividir");
+  });
+
+  it("no modo Dividir, rolar o editor rola o preview na mesma proporção", async () => {
+    renderEditor("/notes/n1?view=dividir");
+
+    const editorPane = screen.getByTestId("note-editor-pane");
+    const previewPane = screen.getByTestId("note-preview-pane");
+    // Editor com 1000 px de conteúdo em 200 px de janela (800 de curso); preview com 400 de curso.
+    fakeScrollBox(editorPane, { scrollHeight: 1000, clientHeight: 200 });
+    fakeScrollBox(previewPane, { scrollHeight: 600, clientHeight: 200 });
+
+    editorPane.scrollTop = 400; // metade do curso
+    await act(async () => {
+      fireEvent.scroll(editorPane);
+      // O ajuste acontece uma vez por quadro; o teste espera esse quadro.
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+
+    expect(previewPane.scrollTop).toBe(200); // metade de 400
+
+    editorPane.scrollTop = 800; // fim
+    await act(async () => {
+      fireEvent.scroll(editorPane);
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+    expect(previewPane.scrollTop).toBe(400);
+  });
+
+  it("rolar o preview não mexe no editor — a sincronia é de mão única", async () => {
+    renderEditor("/notes/n1?view=dividir");
+
+    const editorPane = screen.getByTestId("note-editor-pane");
+    const previewPane = screen.getByTestId("note-preview-pane");
+    fakeScrollBox(editorPane, { scrollHeight: 1000, clientHeight: 200 });
+    fakeScrollBox(previewPane, { scrollHeight: 600, clientHeight: 200 });
+
+    previewPane.scrollTop = 300;
+    await act(async () => {
+      fireEvent.scroll(previewPane);
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+
+    // Sem laço de rolagem: o editor fica onde estava.
+    expect(editorPane.scrollTop).toBe(0);
   });
 
   it("a barra de ferramentas some no modo Visualizar e volta no Escrever", async () => {
