@@ -570,6 +570,115 @@
     line-height: 1rem;
     color: hsl(var(--destructive));
   }
+
+  /*
+   * Bloco de código (feature 069): moldura + cabeçalho com a linguagem e o botão de copiar. O
+   * `<pre>` continua lá dentro — o canto arredondado e o fundo passam a ser do contêiner, senão a
+   * moldura ganharia duas bordas.
+   */
+  .markdown-body .markdown-code {
+    overflow: hidden;
+    border: 1px solid hsl(var(--border));
+    border-radius: calc(var(--radius) - 2px);
+    background-color: hsl(var(--muted));
+  }
+
+  .markdown-body .markdown-code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 1.75rem;
+    border-bottom: 1px solid hsl(var(--border));
+    padding: 0.125rem 0.375rem 0.125rem 0.75rem;
+  }
+
+  .markdown-body .markdown-code-language {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body .markdown-code pre {
+    border-radius: 0;
+    background-color: transparent;
+  }
+
+  /*
+   * # Cores do realce — `hljs-*` → tokens do tema
+   *
+   * O `lowlight` marca os pedaços do código com as classes do `highlight.js`; a cor de cada uma sai
+   * daqui, sempre por token, **nunca** literal — é o que faz o mesmo bloco funcionar no claro e no
+   * escuro sem uma segunda folha (os tokens já trocam de valor em `.dark`).
+   *
+   * O mapa é curto de propósito, e cada token entra onde o **significado** dele bate: verde é linha
+   * adicionada, vermelho é linha removida, azul é palavra-chave da linguagem, âmbar é valor
+   * literal, cinza é comentário. Nome de função e título saem em peso, não em cor — hierarquia sem
+   * gastar mais um matiz num app que não tem paleta de editor.
+   */
+  .markdown-body .hljs-comment,
+  .markdown-body .hljs-quote {
+    font-style: italic;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body .hljs-keyword,
+  .markdown-body .hljs-selector-tag,
+  .markdown-body .hljs-literal,
+  .markdown-body .hljs-type,
+  .markdown-body .hljs-built_in,
+  .markdown-body .hljs-meta,
+  .markdown-body .hljs-doctag {
+    color: hsl(var(--primary));
+  }
+
+  .markdown-body .hljs-string,
+  .markdown-body .hljs-regexp,
+  .markdown-body .hljs-char.escape_,
+  .markdown-body .hljs-subst {
+    color: hsl(var(--success));
+  }
+
+  .markdown-body .hljs-number,
+  .markdown-body .hljs-symbol,
+  .markdown-body .hljs-bullet,
+  .markdown-body .hljs-attr,
+  .markdown-body .hljs-attribute,
+  .markdown-body .hljs-variable,
+  .markdown-body .hljs-template-variable,
+  .markdown-body .hljs-link {
+    color: hsl(var(--warning));
+  }
+
+  .markdown-body .hljs-title,
+  .markdown-body .hljs-section,
+  .markdown-body .hljs-name,
+  .markdown-body .hljs-selector-id,
+  .markdown-body .hljs-selector-class {
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  /* Diff: aqui a cor é literalmente o significado. */
+  .markdown-body .hljs-addition {
+    color: hsl(var(--success));
+    background-color: hsl(var(--success) / 0.1);
+  }
+
+  .markdown-body .hljs-deletion {
+    color: hsl(var(--destructive));
+    background-color: hsl(var(--destructive) / 0.1);
+  }
+
+  .markdown-body .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .markdown-body .hljs-strong {
+    font-weight: 700;
+  }
 }
 
 @layer utilities {

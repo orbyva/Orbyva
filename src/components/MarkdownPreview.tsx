@@ -4,7 +4,9 @@ import type { Element } from "hast";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import { findBlockRenderer } from "@/components/markdown/blockRegistry";
+import { CodeBlock } from "@/components/markdown/CodeBlock";
 import { InlineMath } from "@/components/markdown/MathBlock";
+import { parseBlockLanguage } from "@/domain/notes/blockLanguage";
 import { MARKDOWN_REMARK_PLUGINS } from "@/components/markdown/remarkPlugins";
 import { cn } from "@/lib/utils";
 
@@ -108,10 +110,20 @@ const BLOCK_REGISTRY_COMPONENTS: Components = {
   },
   /**
    * O renderer traz o container dele — deixá-lo dentro do `<pre>` herdaria `white-space: pre` e
-   * fonte monoespaçada, que amassam um SVG. Bloco sem renderer continua no `<pre>` de sempre.
+   * fonte monoespaçada, que amassam um SVG. Fence comum (com ou sem linguagem) é desenhado pelo
+   * `CodeBlock`, que continua entregando um `<pre><code>` por dentro — a diferença é o cabeçalho,
+   * o botão de copiar e a cor (feature 069).
+   *
+   * O bloco é decidido **aqui**, e não no override de `code`, porque só o `<pre>` distingue fence
+   * de código inline: os dois chegam como `<code>`, e um fence sem linguagem não tem nem
+   * `className` para diferenciar.
    */
   pre(props) {
     if (hasRegisteredBlock(props.node)) return <>{props.children}</>;
+    const fence = readFence(props.node);
+    if (fence) {
+      return <CodeBlock code={fence.code} language={fence.language} />;
+    }
     const { children, ...rest } = withoutNode(props);
     return <pre {...rest}>{children}</pre>;
   },
@@ -165,13 +177,46 @@ function blockCode(children: ReactNode): string {
 
 /** O `<pre>` embrulha um `<code>` de linguagem registrada? A pergunta é feita no hast, não no DOM. */
 function hasRegisteredBlock(node: Element | undefined): boolean {
+  const code = fenceCode(node);
+  if (!code) return false;
+  return findBlockRenderer(classNameOf(code)) !== null;
+}
+
+/**
+ * O conteúdo cru do fence, lido do hast: texto e linguagem (`null` quando o fence não declarou
+ * nenhuma). `null` inteiro quando o `<pre>` não embrulha um `<code>` — o que não acontece vindo do
+ * Markdown, mas é a saída honesta se um dia acontecer.
+ */
+function readFence(
+  node: Element | undefined
+): { code: string; language: string | null } | null {
+  const code = fenceCode(node);
+  if (!code) return null;
+  return {
+    code: hastText(code).replace(/\n$/, ""),
+    language: parseBlockLanguage(classNameOf(code)),
+  };
+}
+
+function fenceCode(node: Element | undefined): Element | null {
   const child = node?.children?.[0];
-  if (!child || child.type !== "element" || child.tagName !== "code") return false;
-  const className = child.properties?.className;
-  const asString = Array.isArray(className)
-    ? className.join(" ")
-    : typeof className === "string"
-      ? className
-      : null;
-  return findBlockRenderer(asString) !== null;
+  if (!child || child.type !== "element" || child.tagName !== "code") return null;
+  return child;
+}
+
+function classNameOf(node: Element): string | null {
+  const className = node.properties?.className;
+  if (Array.isArray(className)) return className.join(" ");
+  if (typeof className === "string") return className;
+  return null;
+}
+
+/** Todo o texto do nó, na ordem — dentro de um fence isso é o código inteiro. */
+function hastText(node: Element): string {
+  let text = "";
+  for (const child of node.children) {
+    if (child.type === "text") text += child.value;
+    else if (child.type === "element") text += hastText(child);
+  }
+  return text;
 }

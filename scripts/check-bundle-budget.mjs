@@ -53,7 +53,10 @@ const VENDOR_RE =
 /**
  * Chunks do mermaid (feature 057) e do excalidraw (feature 058), carregados só quando uma nota tem
  * um bloco ```mermaid ou o usuário abre um canvas — nunca no caminho crítico de rota nenhuma. Por
- * isso têm limite próprio em vez de entrar no teto de rota.
+ * isso têm limite próprio em vez de entrar no teto de rota. Desde a 069, `lowlight` (realce de
+ * código, baixado só quando a nota tem bloco de código) entra na mesma classe — ele ganha nome
+ * estável pelo `manualChunks` do `vite.config.ts`, senão sairia como `index-…`, que esta regra
+ * confundiria com o chunk de entrada do app.
  *
  * O `excalidraw` **tem** `manualChunks` (ao contrário do mermaid): ele não se divide sozinho por
  * funcionalidade, é um aplicativo de desenho inteiro, e sem a regra o Rollup espalharia pedaços
@@ -70,7 +73,7 @@ const VENDOR_RE =
  * despercebido).
  */
 const LAZY_VENDOR_BASE_RE =
-  /^(mermaid\.core|cytoscape|cose-bilkent|cose-base|layout-base|fcose|katex|dagre|roughjs)/;
+  /^(mermaid\.core|cytoscape|cose-bilkent|cose-base|layout-base|fcose|katex|dagre|roughjs|lowlight)/;
 /** `sequenceDiagram-SI44F4Z6-<hash do vite>.js` — o do meio é o sufixo do build do mermaid. */
 const LAZY_VENDOR_FILE_RE = /-[A-Z0-9]{8}-[A-Za-z0-9_-]+\.js$/;
 

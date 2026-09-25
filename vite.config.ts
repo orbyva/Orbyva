@@ -218,6 +218,20 @@ export default defineConfig({
             const file = id.split("?")[0].split("/").pop() ?? "core";
             return `excalidraw-${file.replace(/\.js$/, "")}`;
           }
+          /**
+           * `lowlight` + `highlight.js` (realce de código das notas, feature 069) só são baixados
+           * quando uma nota tem bloco de código — o `CodeBlock` os importa dinamicamente. O nome
+           * próprio existe pelo mesmo motivo do `excalidraw-` acima: sem ele o Rollup batiza o
+           * chunk de `index-…` (o arquivo de entrada do lowlight se chama `index.js`) e
+           * `check-bundle-budget.mjs` o confunde com o chunk de entrada do app, dando a ele o teto
+           * de 380 KB em vez do de vendor lazy.
+           */
+          if (
+            id.includes("node_modules/lowlight") ||
+            id.includes("node_modules/highlight.js")
+          ) {
+            return "lowlight";
+          }
           if (id.includes("@sentry")) return "sentry";
           if (id.includes("@supabase")) return "supabase";
           if (id.includes("@radix-ui")) return "radix";

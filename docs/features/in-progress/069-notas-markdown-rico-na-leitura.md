@@ -124,12 +124,12 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
 - [x] Testes de `MathBlock`/`InlineMath` em `src/components/__tests__/MathBlock.test.tsx`, com
       `katex` mockado: fórmula válida renderiza, fórmula inválida mostra a fonte e a mensagem de
       erro (não some), falha do `import()` cai para texto puro. Verificação: `npm test`.
-- [ ] Adicionar `lowlight` ao `package.json` e criar `src/components/markdown/CodeBlock.tsx`:
+- [x] Adicionar `lowlight` ao `package.json` e criar `src/components/markdown/CodeBlock.tsx`:
       substitui o override `code`/`pre` atual, carrega `lowlight` via `import()` dinâmico, converte
       a árvore hast em elementos React (sem `innerHTML`), e mostra a linguagem no cabeçalho.
       Fence sem linguagem, linguagem desconhecida ou falha de import → texto puro, sem cor, sem
       erro. Verificação: `npm run build && npm run check:bundle`.
-- [ ] Mapear as cores do highlight para tokens do tema em `.markdown-body` (classes `hljs-*` →
+- [x] Mapear as cores do highlight para tokens do tema em `.markdown-body` (classes `hljs-*` →
       `hsl(var(--…))`), cobrindo claro e escuro. Verificação: `npm run build`; inspeção do CSS —
       nenhuma cor literal fora de token.
 - [ ] Botão "Copiar" no cabeçalho do `CodeBlock` (`navigator.clipboard.writeText`), com feedback
@@ -206,6 +206,20 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
   real é o CSS/fonte, não o JS") e fica **duas ordens de grandeza** abaixo do que motivou tirar o
   excalidraw do precache (4,7 MB). Chunk de rota não mexeu: `NoteDetail` 10,3 KB gzip antes e
   depois.
+- 2026-09-25 — O bloco de código passou a ser decidido no override de **`pre`**, não no de `code`
+  como o plano supunha. Motivo descoberto na implementação: fence e código inline chegam os dois
+  como `<code>`, e um fence **sem linguagem** não tem nem `className` para diferenciar — só o
+  `<pre>` em volta distingue. O `code` continua cuidando do inline e dos renderers do registry.
+- 2026-09-25 — Precisei dar nome ao chunk do `lowlight` no `manualChunks` (`vite.config.ts`) e
+  incluí-lo em `LAZY_VENDOR_BASE_RE` (`scripts/check-bundle-budget.mjs`). Sem isso o Rollup o
+  batizava de `index-…` (o arquivo de entrada do lowlight se chama `index.js`) e o orçamento o
+  classificava como **chunk de entrada do app**, dando a ele o teto de 380 KB — o oposto da falha
+  ruidosa que aquele arquivo documenta querer. Com o nome: `lowlight-*.js`, 51,3 KB gzip, classe
+  `lazy` (teto 200 KB). Foi só `common` (~37 linguagens); `all` (~190) multiplicaria isso.
+- 2026-09-25 — Cores do realce: só 4 matizes e o cinza, todos de token já existente. Verde e
+  vermelho vão onde a cor **é** o significado (linha adicionada/removida no diff); nome de função e
+  título saem em peso, não em cor, porque a paleta do app não tem hue de editor sobrando e inventar
+  token estava fora de escopo.
 
 ## Como testar
 
@@ -224,6 +238,7 @@ npx vitest run src/components/markdown/__tests__/remarkCallout.test.ts
 npx vitest run src/components/__tests__/MarkdownPreview.typography.test.tsx
 npx vitest run src/components/__tests__/MarkdownPreview.blocks.test.tsx
 npx vitest run src/components/__tests__/MathBlock.test.tsx
+npx vitest run src/components/__tests__/CodeBlock.test.tsx
 npm run build
 npm run lint
 npm run check:bundle
@@ -234,7 +249,11 @@ npm run check:bundle
   some); `MarkdownPreview.typography.test.tsx` prova o que chega ao DOM (tags que a folha estiliza,
   footnote, callout); `MarkdownPreview.blocks.test.tsx` prova que o registry de blocos e o array
   central de plugins continuam ligados; `MathBlock.test.tsx` prova a fórmula (KaTeX mockado: modo
-  inline vs. display, fórmula inválida, KaTeX que não carrega).
+  inline vs. display, fórmula inválida, KaTeX que não carrega); `CodeBlock.test.tsx` prova o realce
+  (lowlight mockado: linguagem conhecida colore, desconhecida não, lowlight que não carrega não
+  quebra nada).
+- `npm run check:bundle` também precisa listar `lowlight-*.js` como `lazy` (e **não** como `entry`)
+  e o `katex-*.js` como `lazy` — é o que prova que nenhum dos dois entrou no caminho da rota.
 - `npm run build` precisa terminar sem erro de `tsc -b` (ele compila os testes também).
 - `npm run lint` precisa terminar com `0 errors` (os warnings de `react-refresh` são
   pré-existentes).
@@ -282,6 +301,18 @@ npm run check:bundle
 
        Custou R$ 10 e sobrou troco.
 
+       ```ts
+       const soma = (a: number, b: number) => a + b; // comentario
+       ```
+
+       ```brainfuck
+       +++.
+       ```
+
+       ```
+       fence sem linguagem
+       ```
+
        Texto com nota de rodape[^1].
 
        [^1]: o texto da nota.
@@ -301,10 +332,17 @@ npm run check:bundle
    - `Custou R$ 10` continua texto normal: cifrão solto não vira fórmula.
 4. Fórmula longa (ex.: uma matriz larga) rola dentro do próprio bloco; a **página** não ganha
    scroll horizontal.
-5. Ainda na leitura: o marcador `1` da nota de rodapé sai sobrescrito e clicável; clicar leva à
+5. Os blocos de código:
+   - o de `ts` sai numa moldura com cabeçalho (`TS` à esquerda), `const` e `=>` coloridos e o
+     comentário em cinza itálico;
+   - o de `brainfuck` sai na mesma moldura, com `BRAINFUCK` no cabeçalho e **sem cor** — linguagem
+     desconhecida não é erro;
+   - o fence sem linguagem sai na moldura, sem nome e sem cor;
+   - nenhum deles perde um caractere do código.
+6. Ainda na leitura: o marcador `1` da nota de rodapé sai sobrescrito e clicável; clicar leva à
    seção do fim (separada por uma linha, em fonte menor), a linha de destino se acende, e o `↩`
    volta para o ponto do texto.
-6. Alterne o tema (claro/escuro) com os callouts na tela: as cores acompanham o tema, sem nenhuma
+7. Alterne o tema (claro/escuro) com os callouts na tela: as cores acompanham o tema, sem nenhuma
    caixa ficando ilegível (tudo sai de token `hsl(var(--…))`, não de cor literal).
 
 ### 4. Casos de borda e caminhos negativos
@@ -336,5 +374,9 @@ npm run check:bundle
 - Fórmula ficando **eternamente** em monoespaçada, sem erro nenhum → o `import("katex")` está
   falhando; olhe a aba de rede atrás do chunk `katex-*.js`.
 - Símbolos da fórmula empilhados/desalinhados → o CSS do KaTeX não carregou (`katex-*.css`).
+- Todo bloco de código cinza, sem cor nenhuma, em qualquer linguagem → o chunk `lowlight-*.js` não
+  chegou (aba de rede) ou o `manualChunks` do `vite.config.ts` perdeu a regra do lowlight.
+- Cores do código erradas no tema escuro → alguma regra `hljs-*` em `src/index.css` voltou a usar
+  cor literal em vez de `hsl(var(--token))`.
 - `npm run check:bundle` imprimindo `FAIL` numa linha `route` → alguma dependência nova entrou no
   chunk da rota em vez de ficar no `import()` dinâmico.
