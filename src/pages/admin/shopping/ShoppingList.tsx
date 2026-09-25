@@ -126,9 +126,17 @@ export default function ShoppingList() {
     () => filterCategoriesByProject(categories, projectFilter),
     [categories, projectFilter]
   );
+  /**
+   * O grupo sintético "Sem categoria" nunca aparece com filtro de projeto ativo: o vínculo com
+   * projeto é da **categoria** (feature 052), então item sem categoria não pertence a projeto
+   * nenhum e não cabe numa lista recortada por projeto.
+   */
   const groups = useMemo(
-    () => groupItemsByCategory(items, visibleCategories),
-    [items, visibleCategories]
+    () =>
+      groupItemsByCategory(items, visibleCategories, {
+        includeUncategorized: !projectFilter,
+      }),
+    [items, visibleCategories, projectFilter]
   );
   const filteredProject = useMemo(
     () => projects.find((project) => project.id === projectFilter) ?? null,
@@ -229,12 +237,11 @@ export default function ShoppingList() {
           <Button variant="outline" onClick={openCreateCategory}>
             Nova categoria
           </Button>
-          <Button
-            onClick={() => openCreateItem()}
-            disabled={categories.length === 0}
-          >
-            Novo item
-          </Button>
+          {/*
+            Sem `disabled`: anotar "pilha AA" não pode depender de o usuário ter criado uma
+            categoria antes. O item nasce sem categoria e é classificado depois, pela edição.
+          */}
+          <Button onClick={() => openCreateItem()}>Novo item</Button>
         </>
       }
     >
@@ -270,14 +277,7 @@ export default function ShoppingList() {
 
       {loading ? (
         <TableLoadingSkeleton rows={4} />
-      ) : categories.length === 0 ? (
-        <EmptyState
-          icon={ShoppingCart}
-          title="Nenhuma categoria ainda"
-          description="Crie uma categoria (Mercado, Casa nova…) para começar a listar o que precisa comprar."
-          action={<Button onClick={openCreateCategory}>Nova categoria</Button>}
-        />
-      ) : visibleCategories.length === 0 ? (
+      ) : projectFilter && visibleCategories.length === 0 ? (
         <EmptyState
           icon={ShoppingCart}
           title="Nenhuma categoria neste projeto"
@@ -288,9 +288,28 @@ export default function ShoppingList() {
           }
           action={<Button onClick={openCreateCategory}>Nova categoria</Button>}
         />
+      ) : groups.length === 0 ? (
+        /*
+          Estado vazio de verdade: nem categoria nem item. Havendo item sem categoria a lista já
+          renderiza normalmente, com o grupo "Sem categoria" — por isso as duas ações aqui: dá para
+          começar pela categoria ou direto pelo item.
+        */
+        <EmptyState
+          icon={ShoppingCart}
+          title="Sua lista está vazia"
+          description="Anote um item direto (pilha AA, café) ou crie uma categoria (Mercado, Casa nova…) para agrupar o que precisa comprar."
+          action={
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Button variant="outline" onClick={openCreateCategory}>
+                Nova categoria
+              </Button>
+              <Button onClick={() => openCreateItem()}>Novo item</Button>
+            </div>
+          }
+        />
       ) : (
         <div className="space-y-4">
-          {groups.map(({ category, items: categoryItems }) => (
+          {groups.map(({ category, items: categoryItems, synthetic }) => (
             <section
               key={category.id}
               className="space-y-2.5 rounded-xl border bg-card p-3.5 shadow-sm sm:p-5"
@@ -331,43 +350,56 @@ export default function ShoppingList() {
                       {category.description}
                     </p>
                   )}
+                  {synthetic && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Itens anotados sem categoria. Edite um item para movê-lo
+                      para uma categoria.
+                    </p>
+                  )}
                 </div>
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`h-8 w-8 ${ICON_EDIT_BUTTON_CLASS}`}
-                    onClick={() => openCreateItem(category.id)}
-                    aria-label={`Adicionar item em ${category.name}`}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`h-8 w-8 ${ICON_EDIT_BUTTON_CLASS}`}
-                    onClick={() => openEditCategory(category)}
-                    aria-label={`Editar categoria ${category.name}`}
-                  >
-                    <Pen className="h-3.5 w-3.5" />
-                  </Button>
-                  <ConfirmDeleteDialog
-                    title="Excluir esta categoria?"
-                    description={categoryDeleteDescription(
-                      categoryItems.length
-                    )}
-                    onConfirm={() => handleDeleteCategory(category.id)}
-                  >
+                {/*
+                  O grupo "Sem categoria" não tem linha em `shopping_category` por trás: não há o
+                  que editar nem excluir, e "Adicionar item em…" não faria sentido (o "Novo item"
+                  do cabeçalho já nasce sem categoria).
+                */}
+                {!synthetic && (
+                  <div className="flex shrink-0 gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-destructive"
-                      aria-label={`Excluir categoria ${category.name}`}
+                      className={`h-8 w-8 ${ICON_EDIT_BUTTON_CLASS}`}
+                      onClick={() => openCreateItem(category.id)}
+                      aria-label={`Adicionar item em ${category.name}`}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Plus className="h-3.5 w-3.5" />
                     </Button>
-                  </ConfirmDeleteDialog>
-                </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-8 w-8 ${ICON_EDIT_BUTTON_CLASS}`}
+                      onClick={() => openEditCategory(category)}
+                      aria-label={`Editar categoria ${category.name}`}
+                    >
+                      <Pen className="h-3.5 w-3.5" />
+                    </Button>
+                    <ConfirmDeleteDialog
+                      title="Excluir esta categoria?"
+                      description={categoryDeleteDescription(
+                        categoryItems.length
+                      )}
+                      onConfirm={() => handleDeleteCategory(category.id)}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        aria-label={`Excluir categoria ${category.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </ConfirmDeleteDialog>
+                  </div>
+                )}
               </header>
 
               {categoryItems.length === 0 ? (

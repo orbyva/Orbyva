@@ -27,7 +27,13 @@ export type ShoppingCategoryUpdateRequest =
 export interface ShoppingItem {
   id: string;
   user_id?: string;
-  shopping_category_id: string;
+  /**
+   * Categoria do item. `null` = "sem categoria": estado legítimo, não erro — o usuário anota
+   * "pilha AA" antes de existir categoria nenhuma e categoriza depois, pela edição. Na lista, os
+   * nulos caem num grupo sintético no fim (`groupItemsByCategory`), nunca numa linha de
+   * `shopping_category`.
+   */
+  shopping_category_id: string | null;
   title: string;
   description?: string | null;
   /** Quantidade livre (numeric no banco) — casa com `unit`, que também é texto livre. */

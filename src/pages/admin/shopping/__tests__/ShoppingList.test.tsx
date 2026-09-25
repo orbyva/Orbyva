@@ -65,7 +65,7 @@ const categories: ShoppingCategory[] = [
 
 function item(
   id: string,
-  categoryId: string,
+  categoryId: string | null,
   title: string,
   status: ShoppingItem["status"] = "pending"
 ): ShoppingItem {
@@ -99,12 +99,98 @@ function renderPage(url = "/shopping-list") {
 }
 
 describe("ShoppingList", () => {
-  it("sem categoria nenhuma, mostra o estado vazio e desabilita 'Novo item'", async () => {
+  /**
+   * Reabertura 2026-08-18: o estado vazio só aparece quando não há **nem categoria nem item**, e
+   * "Novo item" nunca fica desabilitado — anotar um item não pode depender de cadastrar categoria.
+   */
+  it("sem categoria nem item, mostra o estado vazio com as duas ações e 'Novo item' habilitado", async () => {
     mockedFetchCategories.mockResolvedValue([]);
     renderPage();
 
-    expect(await screen.findByText("Nenhuma categoria ainda")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Novo item" })).toBeDisabled();
+    expect(await screen.findByText("Sua lista está vazia")).toBeInTheDocument();
+    // O botão do cabeçalho e o do EmptyState — os dois habilitados.
+    const novoItem = screen.getAllByRole("button", { name: "Novo item" });
+    expect(novoItem).toHaveLength(2);
+    novoItem.forEach((button) => expect(button).toBeEnabled());
+    expect(
+      screen.getAllByRole("button", { name: "Nova categoria" })
+    ).toHaveLength(2);
+  });
+
+  it("item sem categoria aparece na seção 'Sem categoria', por último e sem ações de categoria", async () => {
+    mockedFetchItems.mockResolvedValue([
+      item("i1", "c1", "Arroz"),
+      item("i2", null, "Pilha AA"),
+    ]);
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Sem categoria" });
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)
+    ).toEqual(["Mercado", "Escritório", "Sem categoria"]);
+
+    const semCategoria = sectionFor("Sem categoria");
+    expect(within(semCategoria).getByText("Pilha AA")).toBeInTheDocument();
+    expect(within(semCategoria).getByText("1 pendente")).toBeInTheDocument();
+
+    // Não há linha em shopping_category por trás: nada de editar, excluir ou "Adicionar item em…".
+    expect(
+      screen.queryByRole("button", { name: "Editar categoria Sem categoria" })
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Excluir categoria Sem categoria" })
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Adicionar item em Sem categoria" })
+    ).toBeNull();
+  });
+
+  it("sem nenhum item nulo, a seção 'Sem categoria' não existe", async () => {
+    mockedFetchItems.mockResolvedValue([item("i1", "c1", "Arroz")]);
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Mercado" });
+    expect(screen.queryByRole("heading", { name: "Sem categoria" })).toBeNull();
+  });
+
+  it("só com itens sem categoria, a lista renderiza a seção sintética em vez do estado vazio", async () => {
+    mockedFetchCategories.mockResolvedValue([]);
+    mockedFetchItems.mockResolvedValue([item("i2", null, "Pilha AA")]);
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Sem categoria" });
+    expect(screen.queryByText("Sua lista está vazia")).toBeNull();
+    expect(screen.getByText("Pilha AA")).toBeInTheDocument();
+  });
+
+  it("com filtro de projeto ativo, a seção 'Sem categoria' some", async () => {
+    mockedFetchCategories.mockResolvedValue([
+      { id: "c1", name: "Mercado", project_id: "p1" },
+    ]);
+    mockedFetchItems.mockResolvedValue([
+      item("i1", "c1", "Arroz"),
+      item("i2", null, "Pilha AA"),
+    ]);
+    renderPage("/shopping-list?project=p1");
+
+    await screen.findByRole("heading", { name: "Mercado" });
+    expect(screen.queryByRole("heading", { name: "Sem categoria" })).toBeNull();
+    expect(screen.queryByText("Pilha AA")).toBeNull();
+  });
+
+  it("'Novo item' do cabeçalho abre o dialog sem categoria pré-selecionada", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Mercado" });
+    await user.click(screen.getByRole("button", { name: "Novo item" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Novo item" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Categoria" })).toHaveTextContent(
+      "Sem categoria"
+    );
   });
 
   it("agrupa os itens por categoria, na ordem recebida, com pendentes antes dos comprados", async () => {

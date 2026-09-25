@@ -28,13 +28,24 @@ import type {
   ShoppingItemCreateRequest,
 } from "@/types/shopping";
 
+/**
+ * Valor sentinela do `<Select>` para "sem categoria" — o Radix proíbe `value=""`, mesmo truque do
+ * `ALL_PROJECTS = "__all__"` que a página usa no filtro de projeto. Nunca vai para o payload:
+ * vira `null` no `onValueChange`.
+ */
+const NO_CATEGORY = "__none__";
+
 interface ShoppingItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** `null` = criar; item = editar. */
   item: ShoppingItem | null;
   categories: ShoppingCategory[];
-  /** Categoria pré-selecionada ao criar (botão "Adicionar item" dentro de uma categoria). */
+  /**
+   * Categoria pré-selecionada ao criar — vem do "Adicionar item em X" de cada seção. O "Novo item"
+   * do cabeçalho manda `null` de propósito: chutar a primeira categoria da lista arquivaria o item
+   * no lugar errado sem o usuário perceber.
+   */
   defaultCategoryId?: string | null;
   onSaved: () => void;
 }
@@ -44,7 +55,7 @@ interface ItemForm extends Omit<ShoppingItemCreateRequest, "quantity"> {
   quantity: string;
 }
 
-const emptyItem = (categoryId: string): ItemForm => ({
+const emptyItem = (categoryId: string | null): ItemForm => ({
   shopping_category_id: categoryId,
   title: "",
   description: "",
@@ -69,7 +80,7 @@ export function ShoppingItemDialog({
   defaultCategoryId,
   onSaved,
 }: ShoppingItemDialogProps) {
-  const [form, setForm] = useState<ItemForm>(emptyItem(""));
+  const [form, setForm] = useState<ItemForm>(emptyItem(null));
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -87,10 +98,11 @@ export function ShoppingItemDialog({
       });
       return;
     }
-    setForm(emptyItem(defaultCategoryId ?? categories[0]?.id ?? ""));
+    setForm(emptyItem(defaultCategoryId ?? null));
   }, [open, item, defaultCategoryId, categories]);
 
-  const canSave = Boolean(form.title.trim() && form.shopping_category_id);
+  // Só o título prende o salvar: categoria virou opcional (reabertura 2026-08-18).
+  const canSave = Boolean(form.title.trim());
 
   async function handleSave() {
     if (!canSave) return;
@@ -140,17 +152,21 @@ export function ShoppingItemDialog({
             />
           </div>
           <div>
-            <FormLabel required>Categoria</FormLabel>
+            <FormLabel optional>Categoria</FormLabel>
             <Select
-              value={form.shopping_category_id || undefined}
+              value={form.shopping_category_id ?? NO_CATEGORY}
               onValueChange={(v) =>
-                setForm({ ...form, shopping_category_id: v })
+                setForm({
+                  ...form,
+                  shopping_category_id: v === NO_CATEGORY ? null : v,
+                })
               }
             >
               <SelectTrigger aria-label="Categoria">
-                <SelectValue placeholder="Escolha uma categoria" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={NO_CATEGORY}>Sem categoria</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}

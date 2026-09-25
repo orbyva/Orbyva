@@ -89,16 +89,104 @@ describe("ShoppingItemDialog", () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
-  it("sem categoria pré-selecionada, usa a primeira da lista", async () => {
+  /**
+   * Reabertura 2026-08-18 — "deve ser possível criar item de compras sem criar categoria".
+   * O "Novo item" do cabeçalho não chuta mais a primeira categoria da lista: arquivar o item no
+   * lugar errado sem o usuário perceber é pior do que deixá-lo sem categoria.
+   */
+  it("sem categoria pré-selecionada, nasce sem categoria", async () => {
     const user = userEvent.setup();
     renderDialog();
 
+    expect(screen.getByRole("combobox", { name: "Categoria" })).toHaveTextContent(
+      "Sem categoria"
+    );
+
     await user.type(screen.getByLabelText(/Título/), "Café");
+    // Título sozinho já libera o salvar: a categoria é opcional.
+    expect(screen.getByRole("button", { name: "Criar item" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Criar item" }));
+
+    await waitFor(() =>
+      expect(mockedCreate).toHaveBeenCalledWith({
+        shopping_category_id: null,
+        title: "Café",
+        description: null,
+        quantity: null,
+        unit: null,
+        provider_link: null,
+        status: "pending",
+      })
+    );
+  });
+
+  it("sem categoria pré-selecionada, dá para escolher uma antes de salvar", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText(/Título/), "Pilha AA");
+    await user.click(screen.getByRole("combobox", { name: "Categoria" }));
+    await user.click(screen.getByRole("option", { name: "Escritório" }));
     await user.click(screen.getByRole("button", { name: "Criar item" }));
 
     await waitFor(() =>
       expect(mockedCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ shopping_category_id: "c1" })
+        expect.objectContaining({
+          title: "Pilha AA",
+          shopping_category_id: "c2",
+        })
+      )
+    );
+  });
+
+  it("editar item sem categoria atribuindo uma manda o id no update", async () => {
+    const user = userEvent.setup();
+    renderDialog({
+      item: {
+        id: "i7",
+        shopping_category_id: null,
+        title: "Pilha AA",
+        status: "pending",
+      },
+    });
+
+    expect(screen.getByRole("combobox", { name: "Categoria" })).toHaveTextContent(
+      "Sem categoria"
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Categoria" }));
+    await user.click(screen.getByRole("option", { name: "Mercado" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(mockedUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "i7", shopping_category_id: "c1" })
+      )
+    );
+  });
+
+  it("editar item categorizado voltando para 'Sem categoria' manda null no update", async () => {
+    const user = userEvent.setup();
+    renderDialog({
+      item: {
+        id: "i8",
+        shopping_category_id: "c1",
+        title: "Café",
+        status: "pending",
+      },
+    });
+
+    expect(screen.getByRole("combobox", { name: "Categoria" })).toHaveTextContent(
+      "Mercado"
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Categoria" }));
+    await user.click(screen.getByRole("option", { name: "Sem categoria" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(mockedUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "i8", shopping_category_id: null })
       )
     );
   });
