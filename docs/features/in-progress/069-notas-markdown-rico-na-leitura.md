@@ -94,7 +94,7 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
 - [x] Tabela larga passa a rolar dentro de si: override do componente `table` em `MarkdownPreview`
       envolvendo-a num `div` com `overflow-x:auto`, para a nota nunca provocar scroll horizontal na
       página. Verificação: teste no mesmo arquivo acima conferindo o wrapper; `npm run build`.
-- [ ] Estilizar footnotes (já parseadas pelo `remark-gfm`, hoje sem estilo): `sup` do marcador,
+- [x] Estilizar footnotes (já parseadas pelo `remark-gfm`, hoje sem estilo): `sup` do marcador,
       `section[data-footnotes]` com separador e fonte menor, e o link de volta (`↩`) visível.
       Verificação: teste renderizando `texto[^1]` + `[^1]: nota` e conferindo o marcador, a seção e
       o link de retorno.
@@ -171,3 +171,8 @@ travada por teste em `MarkdownPreview.blocks.test.tsx`), e `scripts/check-bundle
   `<pre>` de fence sem linguagem, que estavam na mesma lacuna descrita no Contexto (saíam com o
   reset do navegador). Não é edição de checkbox — isso continua sendo da 070; o `react-markdown`
   já entrega a caixa desabilitada.
+- 2026-09-25 — Além do estilo que a tarefa de footnote pedia, troquei os rótulos de acessibilidade
+  que o `mdast-util-gfm-footnote` escreve por padrão ("Footnotes", "Back to reference 1") pelos
+  equivalentes em português, via `remarkRehypeOptions` no `MarkdownPreview`. Motivo: são invisíveis
+  na tela mas lidos em voz alta por leitor de tela, num app inteiro em português — texto em inglês
+  ali é bug de acessibilidade, não detalhe. Coberto por teste no mesmo arquivo.

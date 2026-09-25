@@ -149,3 +149,75 @@ describe("MarkdownPreview — tipografia", () => {
     expect(root.textContent).toContain("<kbd>");
   });
 });
+
+/**
+ * Footnote já era *parseada* pelo `remark-gfm` desde a 055 — o que faltava era estilo e rótulo em
+ * português. O que dá para afirmar sem CSS é que as âncoras que a folha usa como seletor
+ * (`data-footnote-ref`, `[data-footnotes]`, `.data-footnote-backref`) estão mesmo no DOM, e que a
+ * ida e a volta apontam uma para a outra.
+ */
+describe("MarkdownPreview — footnotes", () => {
+  const NOTA = "texto[^1] e mais\n\n[^1]: a nota de rodape";
+
+  it("o marcador vira <sup> com link para a nota", () => {
+    const root = renderDocumento(NOTA);
+
+    const ref = root.querySelector<HTMLAnchorElement>("sup a[data-footnote-ref]");
+    expect(ref).not.toBeNull();
+    expect(ref).toHaveTextContent("1");
+    expect(ref?.getAttribute("href")).toBe("#user-content-fn-1");
+  });
+
+  it("a seção de rodapé sai no fim, com o texto da nota", () => {
+    const root = renderDocumento(NOTA);
+
+    const section = root.querySelector("[data-footnotes]");
+    expect(section).not.toBeNull();
+    expect(section?.tagName).toBe("SECTION");
+    expect(section).toHaveTextContent("a nota de rodape");
+    // Rodapé é rodapé: vem depois do parágrafo que a cita.
+    expect(root.lastElementChild).toBe(section);
+  });
+
+  it("o link de volta aponta para o marcador que trouxe até aqui", () => {
+    const root = renderDocumento(NOTA);
+
+    const backref = root.querySelector<HTMLAnchorElement>(
+      "a.data-footnote-backref"
+    );
+    expect(backref).not.toBeNull();
+    expect(backref?.getAttribute("href")).toBe("#user-content-fnref-1");
+    expect(backref).toHaveTextContent("↩");
+    // O alvo do link de volta é o id do marcador — ida e volta fecham o ciclo.
+    const ref = root.querySelector("sup a[data-footnote-ref]");
+    expect(ref?.id).toBe("user-content-fnref-1");
+  });
+
+  it("os rótulos de acessibilidade da footnote saem em português", () => {
+    const root = renderDocumento(NOTA);
+
+    expect(root.querySelector("#footnote-label")).toHaveTextContent(
+      "Notas de rodapé"
+    );
+    expect(
+      root.querySelector("a.data-footnote-backref")?.getAttribute("aria-label")
+    ).toBe("Voltar à referência 1");
+  });
+
+  it("duas footnotes numeram e ligam cada uma à sua", () => {
+    const root = renderDocumento(
+      "a[^um] b[^dois]\n\n[^um]: primeira\n\n[^dois]: segunda"
+    );
+
+    const refs = root.querySelectorAll("sup a[data-footnote-ref]");
+    expect(refs).toHaveLength(2);
+    expect(refs[0]).toHaveTextContent("1");
+    expect(refs[1]).toHaveTextContent("2");
+
+    const items = root.querySelectorAll("[data-footnotes] li");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("primeira");
+    expect(items[1]).toHaveTextContent("segunda");
+    expect(refs[1].getAttribute("href")).toBe(`#${items[1].id}`);
+  });
+});

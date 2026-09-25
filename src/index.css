@@ -412,6 +412,50 @@
   .markdown-body th {
     font-weight: 500;
   }
+
+  /*
+   * Footnotes (`texto[^1]` + `[^1]: …`). O `remark-gfm` já parseia desde a 055 — o que faltava era
+   * qualquer estilo: o marcador saía do tamanho do corpo e a seção do fim se confundia com um
+   * parágrafo comum. As classes/atributos abaixo são os que o `mdast-util-gfm-footnote` emite
+   * (`data-footnote-ref`, `[data-footnotes]`, `.data-footnote-backref`), não invenção nossa.
+   */
+  .markdown-body sup a[data-footnote-ref] {
+    display: inline-block;
+    padding-inline: 0.15em;
+    font-weight: 600;
+    text-decoration-line: none;
+  }
+
+  .markdown-body sup a[data-footnote-ref]:hover {
+    text-decoration-line: underline;
+  }
+
+  .markdown-body [data-footnotes] {
+    margin-top: 1.5rem;
+    border-top: 1px solid hsl(var(--border));
+    padding-top: 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1.1rem;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body [data-footnotes] li + li {
+    margin-top: 0.375rem;
+  }
+
+  /* Voltar ao texto: o `↩` é minúsculo demais para ser alvo de clique no tamanho natural. */
+  .markdown-body a.data-footnote-backref {
+    margin-left: 0.25rem;
+    font-size: 0.875rem;
+    text-decoration-line: none;
+  }
+
+  /* Chegou aqui por clique no marcador: a linha se acende para não perder o lugar. */
+  .markdown-body [data-footnotes] li:target {
+    border-radius: 0.25rem;
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
 }
 
 @layer utilities {

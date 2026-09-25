@@ -63,6 +63,7 @@ export function MarkdownPreview({
     <div className={cn(MARKDOWN_PREVIEW_CLASS, className)}>
       <ReactMarkdown
         remarkPlugins={MARKDOWN_REMARK_PLUGINS}
+        remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
         components={merged}
         urlTransform={urlTransform}
       >
@@ -71,6 +72,17 @@ export function MarkdownPreview({
     </div>
   );
 }
+
+/**
+ * Rótulos das footnotes do GFM. Sem isto o `mdast-util-gfm-footnote` escreve "Footnotes" e
+ * "Back to reference 1" — texto em inglês, invisível na tela mas lido em voz alta por leitor de
+ * tela num app inteiro em português (feature 069).
+ */
+const REMARK_REHYPE_OPTIONS = {
+  footnoteLabel: "Notas de rodapé",
+  footnoteBackLabel: (referenceIndex: number) =>
+    `Voltar à referência ${referenceIndex + 1}`,
+};
 
 /**
  * Ponte entre o Markdown e o registry de blocos (feature 057): ` ```<lang> ` com renderer
