@@ -84,15 +84,15 @@ de bolinhas não pode roubar nem perder cliques para eles. E `AgendaHourGrid` é
 
 ## Tarefas
 
-- [ ] `src/domain/tasks/calendar.ts`: criar `isPointTask(task)` (pura) conforme a Decisão e
+- [x] `src/domain/tasks/calendar.ts`: criar `isPointTask(task)` (pura) conforme a Decisão e
       `groupPointItems(items)`, que separa os itens pontuais dos demais e devolve
       `{ startMinutes: number | null, items: CalendarItem[] }[]` ordenado por horário (`null` =
       sem horário, primeiro). Verificação: `npm run build`.
-- [ ] Testes em `src/domain/tasks/__tests__/calendar.test.ts` para as duas funções: `estimated_duration`
+- [x] Testes em `src/domain/tasks/__tests__/calendar.test.ts` para as duas funções: `estimated_duration`
       `0` é pontual; `null`/`undefined` **não** é; dose de medicação sem duração é; dose de medicação
       com duração informada não é; evento nunca é; agrupamento junta 3 tarefas das 08:00 numa fileira
       só e separa a das 09:00; itens sem horário caem no grupo `null`. Verificação: `npm test`.
-- [ ] `getItemTimeRange` passa a devolver `durationMinutes: 0` para tarefa pontual com horário (em
+- [x] `getItemTimeRange` passa a devolver `durationMinutes: 0` para tarefa pontual com horário (em
       vez do default de 30), preservando **exatamente** o comportamento atual para os demais casos.
       Verificação: os testes existentes "tarefa com due_time sem estimated_duration usa a duração
       default" e "tarefa sem due_time não entra na grade" continuam passando, mais um caso novo para
