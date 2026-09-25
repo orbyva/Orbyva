@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ListTodo, Pen, Plus, Timer } from "lucide-react";
 import {
   DndContext,
@@ -129,6 +129,21 @@ function projectToForm(project: Project): ProjectCreateRequest {
   };
 }
 
+/**
+ * Abas da página do projeto (feature 071). `kanban` é o padrão e **omite** o `?tab=` da URL;
+ * qualquer outro valor é escrito no parâmetro, para que a aba sobreviva a refresh e seja linkável.
+ * Valor desconhecido cai em `kanban` em silêncio — link antigo/renomeado não pode virar tela vazia.
+ */
+const PROJECT_TABS = ["kanban", "lista", "gantt"] as const;
+type ProjectTab = (typeof PROJECT_TABS)[number];
+const DEFAULT_PROJECT_TAB: ProjectTab = "kanban";
+
+function parseProjectTab(value: string | null): ProjectTab {
+  return PROJECT_TABS.includes(value as ProjectTab)
+    ? (value as ProjectTab)
+    : DEFAULT_PROJECT_TAB;
+}
+
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
@@ -145,7 +160,8 @@ export default function ProjectDetail() {
   const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
   const [newTaskSubtasks, setNewTaskSubtasks] = useState<string[]>([]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [view, setView] = useState<"kanban" | "lista" | "gantt">("kanban");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = parseProjectTab(searchParams.get("tab"));
   const [statusView, setStatusView] = useState<TaskStatusView>("pending");
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
@@ -154,6 +170,18 @@ export default function ProjectDetail() {
   const [projectForm, setProjectForm] = useState<ProjectCreateRequest>(emptyProjectForm());
   const { toast } = useToast();
   const { runningEntry, start: startTimer, stop: stopTimer } = useActiveTimer();
+
+  function setView(next: ProjectTab) {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (next === DEFAULT_PROJECT_TAB) params.delete("tab");
+        else params.set("tab", next);
+        return params;
+      },
+      { replace: true }
+    );
+  }
 
   async function toggleTimer(task: Task) {
     try {
@@ -706,7 +734,7 @@ export default function ProjectDetail() {
       {loading ? (
         <TableLoadingSkeleton rows={4} columns={3} />
       ) : (
-        <Tabs value={view} onValueChange={(v) => setView(v as typeof view)}>
+        <Tabs value={view} onValueChange={(v) => setView(parseProjectTab(v))}>
           <TabsList>
             <TabsTrigger value="kanban">Kanban</TabsTrigger>
             <TabsTrigger value="lista">Lista</TabsTrigger>

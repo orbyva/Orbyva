@@ -61,7 +61,7 @@ código.
 
 ## Tarefas
 
-- [ ] `src/pages/admin/tasks/ProjectDetail.tsx`: trocar o `useState` de `view` por leitura/escrita
+- [x] `src/pages/admin/tasks/ProjectDetail.tsx`: trocar o `useState` de `view` por leitura/escrita
       do query param `?tab=` com `useSearchParams` (padrão de `Recurring.tsx`), mantendo os três
       valores atuais e caindo em `kanban` para valor desconhecido. Verificação: `npm run build`;
       os 4 testes de `ProjectDetail.*.test.tsx` continuam passando (todos montam a aba padrão).
