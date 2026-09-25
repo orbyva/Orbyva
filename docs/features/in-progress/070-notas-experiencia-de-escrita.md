@@ -83,11 +83,11 @@ padrão de estado-na-URL já usado em `src/pages/admin/finance/Recurring.tsx:tab
 
 ## Tarefas
 
-- [ ] Criar `src/domain/notes/markdownCommands.ts` (puro): `toggleWrap(doc, sel, marker)` para
+- [x] Criar `src/domain/notes/markdownCommands.ts` (puro): `toggleWrap(doc, sel, marker)` para
       negrito/itálico/código/tachado, `toggleHeading(doc, sel, level)`, `toggleList(doc, sel, kind)`
       (bullet/numerada/tarefa), `toggleQuote(doc, sel)` e `insertLink(doc, sel, url?)`. Cada uma
       devolve `{ text, selection }`. Verificação: `npm run build`.
-- [ ] Testes Vitest em `src/domain/notes/__tests__/markdownCommands.test.ts`: aplicar e **remover**
+- [x] Testes Vitest em `src/domain/notes/__tests__/markdownCommands.test.ts`: aplicar e **remover**
       cada marcador, seleção vazia (insere o par e põe o cursor no meio), seleção de múltiplas
       linhas, título trocando de nível em vez de empilhar `##`, lista já aplicada volta a texto, e
       link com seleção virando `[sel](url)` e sem seleção virando `[](url)`. Verificação: `npm test`.
