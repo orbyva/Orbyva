@@ -243,26 +243,24 @@ dentro de uma nota markdown). Independente da 056.
       `project_event` derrubada, nota migrada apagada, conteúdo de nota alterado, policy a menos),
       que provam que essas assertivas acusam de verdade. Resultado:
       `OK: 20260818120000_project_notes_drop.sql validada em Postgres 16.`
-- [ ] **Aguarda o usuário — e esta tarefa é destrutiva, leia antes de rodar.** Dois passos, nesta
-      ordem:
-      1. **Condição 2, que continua não cumprida**: abrir `/notes` no app, com o banco já migrado, e
-         **confirmar explicitamente** que todas as notas de projeto migradas ('Notas do projeto')
-         estão lá, íntegras. No SQL editor, `select count(*) from note where title = 'Notas do
-         projeto'` tem de bater com `select count(*) from project where notes is not null and
-         btrim(notes, E' \t\r\n') <> ''`. É a conferência registrada na 055 — a cópia foi feita com
-         `insert ... select` e a coluna original é a única rede de segurança que resta.
-      2. Mover o arquivo de volta para o caminho de push:
-         `git mv supabase/pending/20260818120000_project_notes_drop.sql supabase/migrations/`
-         (o orquestrador da esteira estacionou o arquivo em `supabase/pending/` justamente para
-         que o push da 066 não levasse o drop junto — ver Notas).
-      3. Só então rodar `supabase db push`, que aplica `20260818120000_project_notes_drop.sql` e
-         **destrói a coluna `project.notes` de vez, sem volta**. Depois do push, conferir no SQL
-         editor que `select count(*) from project_event` continua retornando o mesmo de antes (é o
-         que o harness já prova em Postgres 16, mas que confirma que o push chegou inteiro no banco
-         real) e que `select notes from project limit 1` passa a dar erro de coluna inexistente.
-      **O gatilho está desarmado**: o arquivo saiu de `supabase/migrations/` e vive em
-      `supabase/pending/`, então nenhum `db push` o aplica por acidente — inclusive o push que a
-      feature 066 vai exigir. Rearmar é o passo 2 acima, e só depois da conferência do passo 1.
+- [x] ~~**Aguarda o usuário — e esta tarefa é destrutiva**: conferir a cópia e então aplicar
+      `20260818120000_project_notes_drop.sql`~~ — **cumprida por outro caminho, em 2026-09-25.**
+      Os dois passos que esta tarefa exigia já aconteceram no branch `feat/orb`, e o registro é
+      verificável:
+
+      1. **A Condição 2 foi conferida em 2026-09-20**, com `select` apenas, e está escrita no
+         cabeçalho de `20260921100000_project_drop_notes.sql` do `feat/orb`: dos 11 projetos, 8
+         tinham `notes` não-nulo e **os 8 guardavam string vazia**; `note` com título 'Notas do
+         projeto' dava 0, e o `join` comparando conteúdo não devolveu linha nenhuma. A leitura
+         correta não é "a cópia saiu íntegra" e sim que **nunca houve o que copiar** — o conjunto
+         migrado era vazio. Nenhum dado de usuário se perdeu no drop.
+      2. **O drop já foi aplicado**: `20260921100000_project_drop_notes.sql` está no banco remoto.
+         Conferido aqui na fonte em 2026-09-25 — `select count(*) from information_schema.columns
+         where table_name='project' and column_name='notes'` devolve **0**.
+
+      Portanto o `supabase/pending/20260818120000_project_notes_drop.sql` desta feature ficou sem
+      função: foi **removido** nesta data, para não voltar a `migrations/` numa integração futura e
+      virar uma segunda migration com o mesmo propósito (ver a nota de 2026-09-25).
 
 ## Prompts
 
@@ -392,3 +390,61 @@ dentro de uma nota markdown). Independente da 056.
 - Excalidraw é a maior dependência do app inteiro. Se `check:bundle` acusar que ela vazou para o
   chunk de entrada, a causa quase certa é um import estático de tipo — usar `import type` resolve
   sem trazer runtime.
+- 2026-09-25 — **A dívida do `project.notes` fechou fora desta esteira, e o arquivo estacionado
+  saiu.** O `supabase/pending/20260818120000_project_notes_drop.sql` existia porque a esteira o tirou
+  de `migrations/` para que nenhum `db push` o levasse por acidente antes da conferência. A
+  conferência aconteceu no `feat/orb` em 20/09 e o drop foi aplicado em 21/09 por
+  `20260921100000_project_drop_notes.sql` — mesma instrução, `drop column if exists`, com a
+  conferência registrada no próprio cabeçalho. Manter o arquivo daqui só criaria uma segunda
+  migration com o mesmo propósito e timestamp mais antigo na hora de integrar os branches, que é o
+  bug de bookkeeping que a CLAUDE.md registra. Removido; o conteúdo continua no histórico do git se
+  alguém precisar consultar.
+
+## Como testar
+
+Roteiro para **outra pessoa** avaliar o canvas de desenho das notas. Nada aqui depende de navegador
+para *provar* — os comandos são a prova; os passos manuais são para você ver funcionando.
+
+### Pré-requisitos
+
+- `npm ci` (o canvas usa `@excalidraw/excalidraw@0.18.1`, que é pesado; instale antes).
+- Banco já migrado: `20260816180000_note_canvas.sql` está aplicada no remoto.
+
+### Verificação automatizada
+
+```bash
+npx vitest run src/pages/admin/notes/__tests__/CanvasEditor.test.tsx
+npx vitest run src/pages/admin/notes/__tests__/Notes.flow.test.tsx
+npx vitest run src/components/__tests__/CanvasBlock.test.tsx
+npm run build && npm run check:bundle
+```
+
+O `check:bundle` é o que importa mais aqui: o Excalidraw tem chunk próprio e limite próprio: se ele
+vazar para o chunk da rota, o orçamento acusa.
+
+### Passos manuais
+
+1. Em `/notes`, clique **"Novo canvas"** (ao lado de "Nova nota"). A nota nasce com o ícone de
+   caneta na lista, diferente do ícone de nota de texto.
+2. Desenhe um retângulo e uma seta. Saia da nota e volte: **o desenho tem de estar lá**.
+3. No canvas, use **"Copiar referência"**. Abra uma nota de texto e cole: vem um bloco
+   ` ```orbyva-canvas ` com o id.
+4. Salve a nota de texto e leia: o canvas aparece **desenhado dentro dela**, não como código.
+5. Vincule a nota a um projeto e confirme que ela aparece na tela do projeto.
+
+### Casos de borda
+
+- **Nota antiga, criada antes desta feature** (sem `kind` gravado): tem de abrir como nota de texto
+  normal, nunca como canvas vazio. Há teste para isso em `Notes.flow.test.tsx`.
+- **Bloco `orbyva-canvas` apontando para id inexistente** (canvas apagado depois de referenciado):
+  mostra aviso no lugar, não quebra a nota inteira.
+- **Rede lenta**: o canvas é `React.lazy`; enquanto carrega aparece um skeleton, não a tela branca.
+
+### Sinais de que quebrou
+
+- O bundle da rota `/notes` engordou: `npm run check:bundle` falha — o Excalidraw escapou do chunk
+  lazy.
+- Nota de texto abrindo como canvas (ou o contrário) → o `kind` está vazando.
+- `project.notes`: **a coluna não existe mais** (dropada em 21/09/2026). Qualquer código que tente
+  ler `project.notes` é código morto ressuscitado e vai dar erro de coluna inexistente — a leitura e
+  a escrita das notas de projeto passam pela tabela `note` desde a 055.

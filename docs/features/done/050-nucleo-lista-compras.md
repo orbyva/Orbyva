@@ -131,12 +131,14 @@ Fora do escopo desta feature (cada uma tem a sua): vínculo item↔tarefa (051) 
 - [x] Passada final: `npm run build`, `npm run lint` e a suíte completa
       (`npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`). Registrar em Notas
       qualquer teste alheio ajustado.
-- [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260818140000_shopping_item_optional_category.sql`
-      no banco remoto (`supabase db push`). Até lá o banco real segue com `not null` e criar item
-      sem categoria falha na inserção, mesmo com a UI já liberada. Depois de aplicada: conferir no
-      SQL editor que `select is_nullable from information_schema.columns where table_name =
-      'shopping_item' and column_name = 'shopping_category_id'` devolve `YES`, e criar um item sem
-      categoria pela tela.
+- [x] ~~**Aguarda o usuário**: aplicar
+      `supabase/migrations/20260818140000_shopping_item_optional_category.sql` no banco remoto
+      (`supabase db push`)~~ — **dispensada em 2026-09-25: o efeito já está no banco.** O branch
+      `feat/orb` levou a mesma mudança sob outro nome
+      (`20260819090000_shopping_item_optional_category.sql`) e ela **já foi aplicada**. Conferido na
+      fonte, não por suposição: `select is_nullable from information_schema.columns where
+      table_name='shopping_item' and column_name='shopping_category_id'` devolve **`YES`** no banco
+      real. Nenhum push é necessário; ver a nota de 2026-09-25 sobre a duplicata a reconciliar.
 
 ## Prompts
 
@@ -371,3 +373,20 @@ O que "passou" significa em cada um:
   silencioso que arquiva o item no lugar errado.
 - Contagem de pendentes da seção "Sem categoria" sempre em 0: `countPendingByCategory` deixou de
   usar `UNCATEGORIZED_GROUP_ID` como chave dos itens nulos.
+
+- 2026-09-25 — **A migration desta feature virou duplicata, e isso precisa ser reconciliado no
+  merge.** O branch `feat/orb` implementou a mesma mudança sob outro nome e outro timestamp:
+
+  | branch | arquivo | estado no banco |
+  |---|---|---|
+  | `worktree-pipeline-agenda` (este) | `20260818140000_shopping_item_optional_category.sql` | nunca aplicada |
+  | `feat/orb` | `20260819090000_shopping_item_optional_category.sql` | **aplicada** |
+
+  O efeito no banco é o mesmo e está confirmado por consulta (`is_nullable = YES`), então a feature
+  está satisfeita — mas ao integrar os dois branches vão coexistir duas migrations `drop not null`
+  sobre a mesma coluna. As duas são idempotentes (`alter column ... drop not null` não falha em
+  coluna já nullable), então não quebram; o problema é de bookkeeping: a deste worktree tem
+  timestamp **anterior** a 16 migrations já aplicadas no remoto, e o CLI a veria como "pendente do
+  passado" — exatamente o bug que a CLAUDE.md registra. **Na integração, apagar a daqui e ficar com
+  a do `feat/orb`** é o caminho limpo; é decisão do usuário, não da esteira, por isso fica escrito
+  aqui em vez de executado.
