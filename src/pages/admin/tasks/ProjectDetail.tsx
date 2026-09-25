@@ -133,8 +133,13 @@ function projectToForm(project: Project): ProjectCreateRequest {
  * Abas da página do projeto (feature 071). `kanban` é o padrão e **omite** o `?tab=` da URL;
  * qualquer outro valor é escrito no parâmetro, para que a aba sobreviva a refresh e seja linkável.
  * Valor desconhecido cai em `kanban` em silêncio — link antigo/renomeado não pode virar tela vazia.
+ *
+ * "Compras" e "Notas" são abas, e não seções empilhadas abaixo das abas como eram até a 071: as
+ * duas juntas empurravam as tarefas para fora da tela. Consequência aceita e desejada: o
+ * `TabsContent` do Radix desmonta o conteúdo inativo, então compras e notas só são buscadas ao
+ * abrir a aba correspondente — a página do projeto deixa de pagar esses dois `fetch` no load.
  */
-const PROJECT_TABS = ["kanban", "lista", "gantt"] as const;
+const PROJECT_TABS = ["kanban", "lista", "gantt", "compras", "notas"] as const;
 type ProjectTab = (typeof PROJECT_TABS)[number];
 const DEFAULT_PROJECT_TAB: ProjectTab = "kanban";
 
@@ -735,10 +740,17 @@ export default function ProjectDetail() {
         <TableLoadingSkeleton rows={4} columns={3} />
       ) : (
         <Tabs value={view} onValueChange={(v) => setView(parseProjectTab(v))}>
-          <TabsList>
+          {/*
+            Cinco abas não cabem numa linha de telefone, e o `PageShell` é `overflow-x-hidden` —
+            sem quebra de linha a última aba some da tela. Mesmo `TabsList` das outras páginas com
+            muitas abas (`TripDetail`, `Places`, `Car`, `Timeline`).
+          */}
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
             <TabsTrigger value="kanban">Kanban</TabsTrigger>
             <TabsTrigger value="lista">Lista</TabsTrigger>
             <TabsTrigger value="gantt">Gantt</TabsTrigger>
+            <TabsTrigger value="compras">Compras</TabsTrigger>
+            <TabsTrigger value="notas">Notas</TabsTrigger>
           </TabsList>
 
           <TabsContent value="kanban" className="mt-4">
@@ -943,18 +955,16 @@ export default function ProjectDetail() {
               onDueChange={handleDueChange}
             />
           </TabsContent>
+
+          <TabsContent value="compras" className="mt-4">
+            {id && <ProjectShoppingSection projectId={id} />}
+          </TabsContent>
+
+          <TabsContent value="notas" className="mt-4">
+            {id && <ProjectNotesSection projectId={id} />}
+          </TabsContent>
         </Tabs>
       )}
-
-      {/*
-        Fora das abas de propósito: as abas alternam entre visões das *tarefas* do projeto, e
-        compras não é uma quarta visão de tarefa — é outra entidade ligada ao projeto, que deve
-        continuar visível independentemente da aba escolhida (feature 052).
-      */}
-      {!loading && id && <ProjectShoppingSection projectId={id} />}
-
-      {/* Mesma razão da seção acima: nota é outra entidade ligada ao projeto (feature 055). */}
-      {!loading && id && <ProjectNotesSection projectId={id} />}
 
       <SeriesOccurrencesDialog
         seriesTask={seriesTask}

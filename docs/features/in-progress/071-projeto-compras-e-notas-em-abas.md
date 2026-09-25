@@ -68,19 +68,19 @@ código.
 - [x] Teste novo `src/pages/admin/tasks/__tests__/ProjectDetail.tabs.test.tsx`: abrir com
       `?tab=lista` já renderiza a Lista; abrir com `?tab=inexistente` cai no Kanban; trocar de aba
       escreve o parâmetro na URL; voltar para Kanban **remove** o parâmetro. Verificação: `npm test`.
-- [ ] `ProjectDetail.tsx`: acrescentar os `TabsTrigger` "Compras" e "Notas" depois de "Gantt" e
+- [x] `ProjectDetail.tsx`: acrescentar os `TabsTrigger` "Compras" e "Notas" depois de "Gantt" e
       mover `<ProjectShoppingSection>` e `<ProjectNotesSection>` para dentro dos `TabsContent`
       correspondentes, removendo as duas renderizações inline e o comentário que justificava mantê-las
       fora. Verificação: `npm run build && npm run lint`.
-- [ ] Ajustar o espaçamento das duas seções dentro da aba (remover a margem/borda superior que só
+- [x] Ajustar o espaçamento das duas seções dentro da aba (remover a margem/borda superior que só
       fazia sentido empilhado) e conferir que o `<h2>` + `aria-labelledby` seguem intactos.
       Verificação: `ProjectShoppingSection.test.tsx` e `ProjectNotesSection.test.tsx` (8 testes)
       passam sem alteração.
-- [ ] Estender `ProjectDetail.tabs.test.tsx`: com `?tab=compras`, a seção de compras aparece **e** a
+- [x] Estender `ProjectDetail.tabs.test.tsx`: com `?tab=compras`, a seção de compras aparece **e** a
       de notas não está no DOM (prova a montagem preguiçosa); com o Kanban ativo, nenhuma das duas
       é montada — o que também prova que a página do projeto deixou de buscar compras e notas no
       load. Verificação: `npm test`.
-- [ ] Conferir que nenhum dos 4 testes existentes de `ProjectDetail` (`edit-project`,
+- [x] Conferir que nenhum dos 4 testes existentes de `ProjectDetail` (`edit-project`,
       `consultation-occurrences`, `medication-occurrences`, `subtask-edit`) quebrou: eles não
       mockam `@/api/shopping/*` nem `@/api/notes/notes` e hoje montam as seções de verdade; com a
       mudança elas param de montar. Verificação: rodar os 4 arquivos e registrar em Notas se algum
@@ -102,6 +102,25 @@ código.
 - 2026-08-18 — "- na visualização de um projeto, não coloque as compras ou as notas do projeto dessa maneira, pode ser abas separadas. preciso do espaço para poder visualizar as tarefas"
 
 ## Notas
+
+- **Nenhum mock ficou obsoleto nos 4 testes antigos de `ProjectDetail`** (`edit-project`,
+  `subtask-edit`, `consultation-occurrences`, `medication-occurrences`). Eles nunca mockaram
+  `@/api/shopping/*` nem `@/api/notes/notes`: antes da 071 as duas seções montavam de verdade e
+  as chamadas ao Supabase falhavam em silêncio (o `useToast` está mockado nos quatro arquivos).
+  Depois da 071 as seções nem montam no Kanban, então os quatro arquivos seguem passando sem
+  nenhuma alteração — 17 testes verdes.
+- **Não havia margem nem borda superior para remover nas seções.** `ProjectShoppingSection` e
+  `ProjectNotesSection` são `<section className="space-y-3">`, sem `border-t`/`pt-*`: o
+  espaçamento que as separava do bloco de cima vinha do `space-y-4 sm:space-y-6` do `PageShell`,
+  que deixa de se aplicar sozinho quando elas passam a ser filhas de um `TabsContent`. A tarefa de
+  espaçamento virou, na prática, o `className="mt-4"` dos dois `TabsContent` novos — o mesmo das
+  três abas que já existiam.
+- **`TabsList` ganhou `flex h-auto w-full flex-wrap justify-start gap-1`** (desvio do plano, sem
+  pedido do usuário): cinco abas não cabem numa linha de telefone e o `PageShell` é
+  `overflow-x-hidden`, então sem a quebra de linha a aba "Notas" sairia da tela. É exatamente o
+  `TabsList` que `TripDetail`, `Places`, `Car` e `Timeline` já usam por terem muitas abas.
+- **Ordem real das abas conferida por teste**, não por leitura: `getAllByRole("tab")` devolve
+  `["Kanban","Lista","Gantt","Compras","Notas"]`.
 
 ## Como testar
 

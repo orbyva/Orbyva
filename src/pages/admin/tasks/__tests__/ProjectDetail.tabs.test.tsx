@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import ProjectDetail from "@/pages/admin/tasks/ProjectDetail";
@@ -181,5 +181,102 @@ describe("ProjectDetail — abas na URL (feature 071)", () => {
     await user.click(tab("Lista"));
 
     expect(url()).toBe(`/tasks/projects/${PROJECT_ID}?foo=bar&tab=lista`);
+  });
+});
+
+describe("ProjectDetail — Compras e Notas são abas, não seções empilhadas (feature 071)", () => {
+  beforeEach(() => {
+    toastMock.mockReset();
+    vi.mocked(fetchProjectById).mockReset().mockResolvedValue(PROJECT);
+    vi.mocked(fetchTasks).mockReset().mockResolvedValue([]);
+    vi.mocked(fetchTags).mockReset().mockResolvedValue([]);
+    vi.mocked(fetchDependencies).mockReset().mockResolvedValue([]);
+    vi.mocked(fetchProjectEvents).mockReset().mockResolvedValue([]);
+    vi.mocked(fetchRecurringTransactions).mockReset().mockResolvedValue([]);
+    vi.mocked(fetchShoppingCategories).mockReset().mockResolvedValue([]);
+    vi.mocked(fetchShoppingItems).mockReset().mockResolvedValue([]);
+    vi.mocked(fetchNotes).mockReset().mockResolvedValue([]);
+  });
+
+  it("as cinco abas aparecem na ordem Kanban | Lista | Gantt | Compras | Notas", async () => {
+    await renderDetail();
+
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Kanban",
+      "Lista",
+      "Gantt",
+      "Compras",
+      "Notas",
+    ]);
+  });
+
+  it("no Kanban, nem compras nem notas estão no DOM — e nenhuma das duas é buscada no load", async () => {
+    await renderDetail();
+
+    expect(screen.queryByRole("heading", { name: "Compras do projeto" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Notas do projeto" })).not.toBeInTheDocument();
+    expect(fetchShoppingCategories).not.toHaveBeenCalled();
+    expect(fetchShoppingItems).not.toHaveBeenCalled();
+    expect(fetchNotes).not.toHaveBeenCalled();
+  });
+
+  it("`?tab=compras` monta só a seção de compras, já filtrada pelo projeto", async () => {
+    await renderDetail("?tab=compras");
+
+    expect(
+      await screen.findByRole("heading", { name: "Compras do projeto" })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Notas do projeto" })).not.toBeInTheDocument();
+    expect(fetchShoppingCategories).toHaveBeenCalledWith({ projectId: PROJECT_ID });
+    expect(fetchNotes).not.toHaveBeenCalled();
+  });
+
+  it("`?tab=notas` monta só a seção de notas, já filtrada pelo projeto", async () => {
+    await renderDetail("?tab=notas");
+
+    expect(await screen.findByRole("heading", { name: "Notas do projeto" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Compras do projeto" })).not.toBeInTheDocument();
+    expect(fetchNotes).toHaveBeenCalledWith({ projectId: PROJECT_ID });
+    expect(fetchShoppingCategories).not.toHaveBeenCalled();
+  });
+
+  it("clicar em Compras abre a aba, escreve `?tab=compras` e só então busca as compras", async () => {
+    const user = userEvent.setup();
+    await renderDetail();
+
+    expect(fetchShoppingCategories).not.toHaveBeenCalled();
+
+    await user.click(tab("Compras"));
+
+    expect(url()).toBe(`/tasks/projects/${PROJECT_ID}?tab=compras`);
+    expect(
+      await screen.findByRole("heading", { name: "Compras do projeto" })
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchShoppingCategories).toHaveBeenCalledWith({ projectId: PROJECT_ID })
+    );
+  });
+
+  it("sair da aba Compras desmonta a seção — ela deixa de ocupar espaço na tela", async () => {
+    const user = userEvent.setup();
+    await renderDetail("?tab=compras");
+    await screen.findByRole("heading", { name: "Compras do projeto" });
+
+    await user.click(tab("Kanban"));
+
+    expect(url()).toBe(`/tasks/projects/${PROJECT_ID}`);
+    expect(screen.queryByRole("heading", { name: "Compras do projeto" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /A fazer/ })).toBeInTheDocument();
+  });
+
+  it("as seções mantêm o próprio <h2> e o aria-labelledby dentro da aba", async () => {
+    await renderDetail("?tab=notas");
+
+    const heading = await screen.findByRole("heading", { name: "Notas do projeto" });
+    expect(heading.tagName).toBe("H2");
+    expect(heading).toHaveAttribute("id", "project-notes-heading");
+    expect(
+      document.querySelector('section[aria-labelledby="project-notes-heading"]')
+    ).toBeInTheDocument();
   });
 });
