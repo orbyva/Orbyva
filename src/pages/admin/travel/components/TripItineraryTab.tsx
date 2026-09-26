@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -91,15 +91,34 @@ import type {
 } from "@/types/travel";
 import { ItineraryNextRoutePanel } from "./ItineraryNextRoutePanel";
 import { stopForDate } from "@/domain/travel/tripStops";
+import {
+  collectItineraryPlaceIds,
+  suggestionAnchorForDay,
+  suggestionsForAnchor,
+  type GeoAnchor,
+} from "@/domain/travel/savedPlaceSuggestions";
+import {
+  persistDismissedSuggestionCity,
+  readDismissedSuggestionCities,
+} from "@/lib/savedPlaceSuggestionDismiss";
+import {
+  ItinerarySavedPlaceSuggestions,
+  parseSavedPlaceDragId,
+  savedPlaceDragId,
+} from "./ItinerarySavedPlaceSuggestions";
 type TripItineraryTabProps = {
+  tripId: string;
   itinerary: TripItineraryDay[];
   places: PlaceVisit[];
+  savedPlaces?: PlaceVisit[];
   members: TripMember[];
   user: User | null;
   tripOrigin?: { lat: number; lng: number } | null;
   originLabel?: string | null;
   destinationLat?: number | null;
   destinationLng?: number | null;
+  destinationName?: string | null;
+  destinationPlaceId?: string | null;
   stops?: TripStop[];
   /** Desativa somente o cálculo de deslocamentos. */
   disableRoutes?: boolean;
@@ -122,6 +141,7 @@ type TripItineraryTabProps = {
     targetDayId: string,
     targetIndex: number
   ) => void;
+  onAddSavedPlace: (place: PlaceVisit, dayId: string) => void | Promise<void>;
 };
 
 type TimedMoveAttempt = {
@@ -184,14 +204,18 @@ function formatCompletedAt(iso: string | null | undefined): string | null {
 }
 
 export function TripItineraryTab({
+  tripId,
   itinerary,
   places,
+  savedPlaces = [],
   members,
   user,
   tripOrigin,
   originLabel,
   destinationLat,
   destinationLng,
+  destinationName,
+  destinationPlaceId,
   stops = [],
   disableRoutes = false,
   onEditDay,
@@ -203,6 +227,7 @@ export function TripItineraryTab({
   onActivityDeleted,
   onBeforeCompleteVisit,
   onMoveVisit,
+  onAddSavedPlace,
 }: TripItineraryTabProps) {
   const [routeRefresh, setRouteRefresh] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -211,8 +236,30 @@ export function TripItineraryTab({
   const [showPastDays, setShowPastDays] = useState(false);
   const [timedMoveAttempt, setTimedMoveAttempt] =
     useState<TimedMoveAttempt | null>(null);
+  const [dismissedCities, setDismissedCities] = useState<GeoAnchor[]>([]);
+  const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDismissedCities(readDismissedSuggestionCities(tripId));
+  }, [tripId]);
 
   const todayIso = formatLocalIsoDate(new Date());
+  const itineraryPlaceIds = useMemo(
+    () => collectItineraryPlaceIds(itinerary),
+    [itinerary]
+  );
+  const destinationFallback = useMemo(
+    () =>
+      destinationLat != null && destinationLng != null
+        ? {
+            name: destinationName ?? "",
+            lat: destinationLat,
+            lng: destinationLng,
+            place_id: destinationPlaceId ?? null,
+          }
+        : null,
+    [destinationLat, destinationLng, destinationName, destinationPlaceId]
+  );
 
   const { handleProps: dragHandleProps, dragOverlay } = useTouchDrag({
     onStart: setDragVisitId,
@@ -258,6 +305,16 @@ export function TripItineraryTab({
     visitId = dragVisitId
   ) {
     if (!visitId) return;
+    const savedId = parseSavedPlaceDragId(visitId);
+    if (savedId) {
+      const place =
+        savedPlaces.find((item) => item.id === savedId) ??
+        places.find((item) => item.id === savedId);
+      setDragVisitId(null);
+      setDropDayId(null);
+      if (place) onAddSavedPlace(place, targetDayId);
+      return;
+    }
     const fromDay = itinerary.find((d) =>
       (d.activities ?? []).some((a) => a.id === visitId)
     );
@@ -308,6 +365,19 @@ export function TripItineraryTab({
 
     onMoveVisit(moving.id, targetDayId, insertionIndex);
     setRouteRefresh((n) => n + 1);
+  }
+
+  async function addSavedPlace(place: PlaceVisit, dayId: string) {
+    setAddingPlaceId(place.id);
+    try {
+      await onAddSavedPlace(place, dayId);
+    } finally {
+      setAddingPlaceId(null);
+    }
+  }
+
+  function dismissCity(city: GeoAnchor) {
+    setDismissedCities(persistDismissedSuggestionCity(tripId, city));
   }
 
   const showDragHint =
@@ -391,7 +461,13 @@ export function TripItineraryTab({
           <DayBlock
             key={day.id}
             day={day}
+            tripId={tripId}
             places={places}
+            savedPlaces={savedPlaces}
+            itineraryPlaceIds={itineraryPlaceIds}
+            dismissedCities={dismissedCities}
+            destinationFallback={destinationFallback}
+            addingPlaceId={addingPlaceId}
             members={members}
             user={user}
             todayIso={todayIso}
@@ -424,6 +500,8 @@ export function TripItineraryTab({
             }
             onDropOnDay={() => handleDrop(day.id, day.activities?.length ?? 0)}
             onDropBeforeVisit={(index) => handleDrop(day.id, index)}
+            onAddSavedPlace={(place) => void addSavedPlace(place, day.id)}
+            onDismissCity={dismissCity}
           />
         ))}
       </LayoutGroup>
@@ -460,7 +538,13 @@ export function TripItineraryTab({
 
 function DayBlock({
   day,
+  tripId,
   places,
+  savedPlaces,
+  itineraryPlaceIds,
+  dismissedCities,
+  destinationFallback,
+  addingPlaceId,
   members,
   user,
   todayIso,
@@ -488,9 +572,17 @@ function DayBlock({
   onDragLeaveDay,
   onDropOnDay,
   onDropBeforeVisit,
+  onAddSavedPlace,
+  onDismissCity,
 }: {
   day: TripItineraryDay;
+  tripId: string;
   places: PlaceVisit[];
+  savedPlaces: PlaceVisit[];
+  itineraryPlaceIds: ReadonlySet<string>;
+  dismissedCities: GeoAnchor[];
+  destinationFallback: GeoAnchor | null;
+  addingPlaceId: string | null;
   members: TripMember[];
   user: User | null;
   todayIso: string;
@@ -522,6 +614,8 @@ function DayBlock({
   onDragLeaveDay: () => void;
   onDropOnDay: () => void;
   onDropBeforeVisit: (index: number) => void;
+  onAddSavedPlace: (place: PlaceVisit) => void;
+  onDismissCity: (city: GeoAnchor) => void;
 }) {
   const [deleting, setDeleting] = useState<TripItineraryActivity | null>(null);
   const reduceMotion = useReducedMotion();
@@ -562,6 +656,20 @@ function DayBlock({
   const heading = [dayTitle || `Dia ${day.day_number}`, stopName]
     .filter(Boolean)
     .join(" · ");
+  const suggestionAnchor = suggestionAnchorForDay({
+    date: day.date,
+    stops,
+    fallback: destinationFallback,
+  });
+  const suggestedPlaces = suggestionAnchor
+    ? suggestionsForAnchor({
+        candidates: [...places, ...savedPlaces],
+        anchor: suggestionAnchor,
+        tripId,
+        itineraryPlaceIds,
+        dismissed: dismissedCities,
+      })
+    : [];
 
   return (
     <article
@@ -710,6 +818,22 @@ function DayBlock({
           />
         );
       })()}
+
+      {suggestionAnchor && suggestedPlaces.length > 0 ? (
+        <ItinerarySavedPlaceSuggestions
+          tripId={tripId}
+          city={suggestionAnchor}
+          places={suggestedPlaces}
+          addingPlaceId={addingPlaceId}
+          dragHandleProps={dragHandleProps}
+          onDragStart={(placeId) =>
+            onDragVisitStart(savedPlaceDragId(placeId))
+          }
+          onDragEnd={onDragVisitEnd}
+          onAdd={onAddSavedPlace}
+          onDismiss={onDismissCity}
+        />
+      ) : null}
 
       {sortedActs.length === 0 ? (
         <div className="rounded-lg border border-dashed bg-muted/20 px-3 py-6 text-center">

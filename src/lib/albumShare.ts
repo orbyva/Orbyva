@@ -290,11 +290,7 @@ export async function generateAlbumShareImage(
   const ratedTracks = await loadRatedTracks(album);
   const hasTracks = ratedTracks.length > 0;
 
-  paintStoryBackdrop(ctx, {
-    photo: cover,
-    washFrom: "rgba(14, 165, 233, 0.48)",
-    washTo: "rgba(2, 132, 199, 0.28)",
-  });
+  paintStoryBackdrop(ctx, { photo: cover });
 
   drawStoryHeader(ctx, "Minha opinião");
 

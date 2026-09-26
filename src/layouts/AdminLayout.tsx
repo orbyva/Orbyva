@@ -178,6 +178,7 @@ export default function AdminLayout() {
     description: "Orbyva · sua vida em uma só órbita.",
     path: location.pathname,
     brandSuffix: true,
+    noIndex: true,
   })
 
   // Só bloqueia no carregamento inicial; refresh de plano não desmonta modais

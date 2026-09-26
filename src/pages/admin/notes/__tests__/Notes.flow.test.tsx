@@ -25,6 +25,13 @@ type NoteRow = Partial<Note> & Pick<Note, "id" | "title" | "content" | "project_
 const { store } = vi.hoisted(() => ({
   store: {
     notes: [] as NoteRow[],
+    folders: [] as {
+      id: string;
+      name: string;
+      parent_id: string | null;
+      project_id: string | null;
+      tag_id: string | null;
+    }[],
     projects: [] as { id: string; name: string }[],
     seq: 0,
     clock: 0,
@@ -48,13 +55,15 @@ vi.mock("@/api/notes/notes", () => ({
   fetchNotes: vi.fn(async ({ projectId }: { projectId?: string | null } = {}) =>
     store.notes
       .filter((n) => (projectId ? n.project_id === projectId : true))
-      .map((n): Note => ({ kind: "markdown", canvas_data: null, ...n }))
+      .map((n): Note => ({ kind: "markdown", canvas_data: null, folder_id: null, ...n }))
       // `order("updated_at", { ascending: false })`
       .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))
   ),
   fetchNote: vi.fn(async (id: string) => {
     const found = store.notes.find((n) => n.id === id);
-    return found ? ({ kind: "markdown", canvas_data: null, ...found } as Note) : null;
+    return found
+      ? ({ kind: "markdown", canvas_data: null, folder_id: null, ...found } as Note)
+      : null;
   }),
   createNote: vi.fn(async (draft: NoteDraft) => {
     const at = stamp();
@@ -83,6 +92,27 @@ vi.mock("@/api/notes/notes", () => ({
   deleteNote: vi.fn(async (id: string) => {
     store.notes = store.notes.filter((n) => n.id !== id);
   }),
+}));
+
+vi.mock("@/api/notes/folders", () => ({
+  fetchNoteFolders: vi.fn(async () => store.folders.map((f) => ({ ...f }))),
+  createNoteFolder: vi.fn(),
+  updateNoteFolder: vi.fn(),
+  deleteNoteFolder: vi.fn(async (id: string) => {
+    const target = store.folders.find((f) => f.id === id);
+    const parentId = target?.parent_id ?? null;
+    store.folders = store.folders
+      .filter((f) => f.id !== id)
+      .map((f) => (f.parent_id === id ? { ...f, parent_id: parentId } : f));
+    for (const note of store.notes) {
+      if (note.folder_id === id) note.folder_id = null;
+    }
+  }),
+}));
+
+vi.mock("@/api/tasks/tags", () => ({
+  fetchTags: vi.fn(async () => []),
+  createTag: vi.fn(),
 }));
 
 vi.mock("@/api/tasks/projects", () => ({
@@ -162,6 +192,7 @@ const AUTOSAVE = { timeout: 4000 };
 beforeEach(() => {
   vi.clearAllMocks();
   store.notes = [];
+  store.folders = [];
   store.projects = [{ id: "p1", name: "Obra da casa" }];
   store.seq = 0;
   store.clock = 0;
@@ -270,7 +301,7 @@ describe("Notas — fluxo fim a fim", () => {
     await waitFor(() => expect(store.notes[0].project_id).toBe("p1"), AUTOSAVE);
 
     // De volta à lista, o vínculo aparece no card.
-    await user.click(screen.getByRole("button", { name: /Todas as notas/ }));
+    await user.click(screen.getByRole("link", { name: /Todas as notas/ }));
     const card = (await screen.findByText("Materiais")).closest("article") as HTMLElement;
     expect(within(card).getByText("Obra da casa")).toBeInTheDocument();
     expect(within(card).getByText("cimento e areia")).toBeInTheDocument();

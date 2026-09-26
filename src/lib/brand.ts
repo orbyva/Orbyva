@@ -1,16 +1,16 @@
 /** Identidade do produto Orbyva (life OS · lançamentos no núcleo). */
 export const BRAND = {
   name: "Orbyva",
-  tagline: "Tudo da sua vida em uma só órbita",
+  tagline: "Organize finanças, metas e vida pessoal em um só lugar",
   /** Slogan da lockup visual (logo.webp), shares / exportações. */
   logoSlogan: "Tudo da sua vida em uma só órbita.",
   /** Cunha de diferenciação (landing / marketing). */
   wedge: "Life OS com controle do mês",
   shortDescription:
-    "Pare de espalhar a vida em vários apps. Organize finanças, hábitos, metas, viagens e cinema numa só órbita.",
+    "O Orbyva é um Life OS brasileiro e aplicativo de organização pessoal para finanças pessoais, metas e planejamento da vida numa só órbita.",
   /** Uma linha para o hero: prova + proposta (conversão). */
   heroSupport:
-    "Pare de pagar cinco apps. Organize o mês e o resto da vida no mesmo lugar.",
+    "O Orbyva é um Life OS brasileiro para organizar finanças pessoais, metas e planejamento da vida em uma única plataforma, com produtividade sem espalhar a organização da vida em vários apps.",
   /** Assets em /public */
   logo: "/logo.webp",
   logoMark: "/logo-mark.webp",

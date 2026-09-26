@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildConsultationTitle } from "@/domain/tasks/consultation";
+import {
+  buildConsultationTitle,
+  splitConsultationTitle,
+} from "@/domain/tasks/consultation";
 import { computeMissingOccurrences } from "@/domain/tasks/recurrence";
 import type { RecurrenceRule } from "@/types/tasks";
 
@@ -27,6 +30,22 @@ describe("buildConsultationTitle", () => {
     expect(buildConsultationTitle("  Dermatologista ", "  Dra. Costa  ")).toBe(
       "Dermatologista — Dra. Costa"
     );
+  });
+});
+
+describe("splitConsultationTitle", () => {
+  it("separa especialidade e profissional", () => {
+    expect(splitConsultationTitle("Cardiologista — Dr. Silva")).toEqual({
+      specialty: "Cardiologista",
+      professional: "Dr. Silva",
+    });
+  });
+
+  it("sem travessão, o título inteiro é a especialidade", () => {
+    expect(splitConsultationTitle("Cardiologista")).toEqual({
+      specialty: "Cardiologista",
+      professional: "",
+    });
   });
 });
 

@@ -88,6 +88,13 @@ export function latestByType(
   return result;
 }
 
+export function seriesByType(
+  metrics: HealthMetric[],
+  type: MetricType
+): HealthMetric[] {
+  return sortedDesc(metrics, type);
+}
+
 /**
  * Variação da última medição de um tipo em relação à anterior do **mesmo** tipo (positivo = subiu).
  * `null` quando não há duas medições — sem a anterior não existe variação, e mostrar 0 nesse caso

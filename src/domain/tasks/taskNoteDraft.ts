@@ -38,6 +38,7 @@ export function buildTaskNoteDraft(
     title: task.title,
     content: "",
     project_id: task.project_id ?? null,
+    folder_id: null,
     kind,
     canvas_data: kind === "canvas" ? { elements: [] } : null,
   };

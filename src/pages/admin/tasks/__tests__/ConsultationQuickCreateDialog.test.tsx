@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConsultationQuickCreateDialog } from "@/pages/admin/tasks/ConsultationQuickCreateDialog";
-import { createTask } from "@/api/tasks";
+import { createTask, updateTask } from "@/api/tasks";
+import { pickDate } from "@/test/pickDate";
+import type { Task } from "@/types/tasks";
 
 /**
  * Atalho de agendamento de consulta (feature 061). Substitui a verificação manual no navegador
@@ -17,6 +19,7 @@ vi.mock("@/api/tasks", () => ({
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
   saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   createTask: vi.fn(),
+  updateTask: vi.fn(),
 }));
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
@@ -26,6 +29,7 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 
 const mockedCreateTask = vi.mocked(createTask);
+const mockedUpdateTask = vi.mocked(updateTask);
 
 function renderDialog(props: Partial<Parameters<typeof ConsultationQuickCreateDialog>[0]> = {}) {
   return render(
@@ -48,6 +52,7 @@ describe("ConsultationQuickCreateDialog", () => {
   beforeEach(() => {
     toastMock.mockReset();
     mockedCreateTask.mockReset();
+    mockedUpdateTask.mockReset();
   });
 
   it("botão Agendar começa desabilitado e só habilita com especialidade + data", async () => {
@@ -59,7 +64,7 @@ describe("ConsultationQuickCreateDialog", () => {
     await user.type(screen.getByLabelText(/Especialidade/), "Cardiologista");
     expect(saveButton).toBeDisabled();
 
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
     expect(saveButton).toBeEnabled();
   });
 
@@ -72,7 +77,7 @@ describe("ConsultationQuickCreateDialog", () => {
 
     await user.type(screen.getByLabelText(/Especialidade/), "Cardiologista");
     await user.type(screen.getByLabelText(/Profissional/), "Dr. Silva");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
     await user.type(screen.getByLabelText(/Horário/), "14:30");
     await user.type(screen.getByLabelText(/Local e preparo/), "Clínica Vida, sala 302 — jejum de 8h");
     await user.click(screen.getByRole("button", { name: "Agendar" }));
@@ -98,7 +103,7 @@ describe("ConsultationQuickCreateDialog", () => {
     renderDialog();
 
     await user.type(screen.getByLabelText(/Especialidade/), "Dermatologista");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
     await user.click(screen.getByRole("button", { name: "Agendar" }));
 
     expect(mockedCreateTask).toHaveBeenCalledWith(
@@ -112,7 +117,7 @@ describe("ConsultationQuickCreateDialog", () => {
     renderDialog();
 
     await user.type(screen.getByLabelText(/Especialidade/), "Endocrinologista");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
     await user.type(screen.getByLabelText(/Horário/), "08:00");
     await user.click(screen.getByRole("combobox"));
     await user.click(screen.getByRole("option", { name: "Repetir a cada X meses" }));
@@ -136,7 +141,7 @@ describe("ConsultationQuickCreateDialog", () => {
     renderDialog();
 
     await user.type(screen.getByLabelText(/Especialidade/), "Fisioterapeuta");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
     await user.type(screen.getByLabelText(/Horário/), "08:00");
     await pickRepeat(user, "Repetir a cada X semanas");
 
@@ -163,7 +168,7 @@ describe("ConsultationQuickCreateDialog", () => {
     renderDialog();
 
     await user.type(screen.getByLabelText(/Especialidade/), "Fisioterapeuta");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
 
     // A linha de dias só existe na repetição semanal.
     expect(screen.queryByRole("group", { name: "Dias da semana" })).toBeNull();
@@ -201,13 +206,13 @@ describe("ConsultationQuickCreateDialog", () => {
     renderDialog();
 
     await user.type(screen.getByLabelText(/Especialidade/), "Endocrinologista");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
 
     // Consulta única não tem término nenhum a oferecer.
     expect(screen.queryByLabelText(/Termina em/)).toBeNull();
 
     await pickRepeat(user, "Repetir a cada X meses");
-    await user.type(screen.getByLabelText(/Termina em/), "2027-03-10");
+    await pickDate(user, /Termina em/, "2027-03-10");
     await user.click(screen.getByRole("button", { name: "Agendar" }));
 
     expect(mockedCreateTask).toHaveBeenCalledWith(
@@ -228,7 +233,7 @@ describe("ConsultationQuickCreateDialog", () => {
     renderDialog();
 
     await user.type(screen.getByLabelText(/Especialidade/), "Fisioterapeuta");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-07");
+    await pickDate(user, /^Data/, "2026-09-07");
     await user.type(screen.getByLabelText(/Horário/), "07:30");
     await pickRepeat(user, "Repetir a cada X semanas");
 
@@ -241,7 +246,7 @@ describe("ConsultationQuickCreateDialog", () => {
     const intervalInput = screen.getByLabelText(/A cada quantas semanas/);
     await user.clear(intervalInput);
     await user.type(intervalInput, "0");
-    await user.type(screen.getByLabelText(/Termina em/), "2026-12-18");
+    await pickDate(user, /Termina em/, "2026-12-18");
     await user.click(screen.getByRole("button", { name: "Agendar" }));
 
     expect(mockedCreateTask).toHaveBeenCalledWith(
@@ -265,9 +270,9 @@ describe("ConsultationQuickCreateDialog", () => {
     renderDialog();
 
     await user.type(screen.getByLabelText(/Especialidade/), "Ortopedista");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
     await pickRepeat(user, "Repetir a cada X semanas");
-    await user.type(screen.getByLabelText(/Termina em/), "2026-09-03");
+    await pickDate(user, /Termina em/, "2026-09-03");
     await user.click(screen.getByRole("button", { name: "Agendar" }));
 
     // Uma série que termina antes de começar não geraria ocorrência nenhuma — pior que um erro.
@@ -278,8 +283,7 @@ describe("ConsultationQuickCreateDialog", () => {
 
     // Corrigir a data libera o agendamento.
     mockedCreateTask.mockResolvedValue({ id: "task-1" } as never);
-    await user.clear(screen.getByLabelText(/Termina em/));
-    await user.type(screen.getByLabelText(/Termina em/), "2026-12-10");
+    await pickDate(user, /Termina em/, "2026-12-10");
     expect(screen.queryByRole("alert")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Agendar" }));
     expect(mockedCreateTask).toHaveBeenCalledWith(
@@ -295,14 +299,14 @@ describe("ConsultationQuickCreateDialog", () => {
     renderDialog();
 
     await user.type(screen.getByLabelText(/Especialidade/), "Psicólogo");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
     await pickRepeat(user, "Repetir a cada X semanas");
     await user.click(
       within(screen.getByRole("group", { name: "Dias da semana" })).getByRole("button", {
         name: "terça-feira",
       })
     );
-    await user.type(screen.getByLabelText(/Termina em/), "2026-12-10");
+    await pickDate(user, /Termina em/, "2026-12-10");
 
     await pickRepeat(user, "Consulta única");
     await user.click(screen.getByRole("button", { name: "Agendar" }));
@@ -316,7 +320,7 @@ describe("ConsultationQuickCreateDialog", () => {
     for (const botao of within(weekdayRow).getAllByRole("button")) {
       expect(botao).toHaveAttribute("aria-pressed", "false");
     }
-    expect(screen.getByLabelText(/Termina em/)).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Termina em" })).toBeInTheDocument();
   });
 
   it("depois de agendar, o formulário volta ao padrão (única, sem dias, sem término)", async () => {
@@ -325,14 +329,14 @@ describe("ConsultationQuickCreateDialog", () => {
     renderDialog();
 
     await user.type(screen.getByLabelText(/Especialidade/), "Fisioterapeuta");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
     await pickRepeat(user, "Repetir a cada X semanas");
     await user.click(
       within(screen.getByRole("group", { name: "Dias da semana" })).getByRole("button", {
         name: "sexta-feira",
       })
     );
-    await user.type(screen.getByLabelText(/Termina em/), "2026-12-10");
+    await pickDate(user, /Termina em/, "2026-12-10");
     await user.click(screen.getByRole("button", { name: "Agendar" }));
 
     expect(screen.getByLabelText(/Especialidade/)).toHaveValue("");
@@ -350,12 +354,60 @@ describe("ConsultationQuickCreateDialog", () => {
     renderDialog({ onOpenChange });
 
     await user.type(screen.getByLabelText(/Especialidade/), "Cardiologista");
-    await user.type(screen.getByLabelText(/^Data/), "2026-09-10");
+    await pickDate(user, /^Data/, "2026-09-10");
     await user.click(screen.getByRole("button", { name: "Agendar" }));
 
     expect(toastMock).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Erro", description: "Falhou", variant: "destructive" })
     );
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("editar esta ocorrência preenche o formulário, esconde repetição e chama updateTask", async () => {
+    const user = userEvent.setup();
+    mockedUpdateTask.mockResolvedValue(undefined as never);
+    const onCreated = vi.fn();
+    const task = {
+      id: "c1",
+      project_id: null,
+      parent_task_id: null,
+      recurrence_origin_id: null,
+      title: "tesste — Dr Teste",
+      description: "Clínica Vida",
+      status: "todo",
+      tag_ids: [],
+      due_date: "2026-08-16",
+      due_time: "11:06:00",
+      recurrence_rule: null,
+      linked_recurring_id: null,
+      linked_installment_number: null,
+      is_consultation: true,
+    } as Task;
+
+    renderDialog({ task, onCreated });
+
+    expect(screen.getByRole("heading", { name: "Editar consulta" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Especialidade/)).toHaveValue("tesste");
+    expect(screen.getByLabelText(/Profissional/)).toHaveValue("Dr Teste");
+    expect(screen.getByRole("button", { name: "Data — 16/08/2026" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Horário/)).toHaveValue("11:06");
+    expect(screen.getByLabelText(/Local e preparo/)).toHaveValue("Clínica Vida");
+    expect(screen.queryByRole("combobox", { name: "Repetição" })).toBeNull();
+
+    await user.clear(screen.getByLabelText(/Especialidade/));
+    await user.type(screen.getByLabelText(/Especialidade/), "Cardiologista");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    expect(mockedCreateTask).not.toHaveBeenCalled();
+    expect(mockedUpdateTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "c1",
+        title: "Cardiologista — Dr Teste",
+        description: "Clínica Vida",
+        due_date: "2026-08-16",
+        due_time: "11:06",
+      })
+    );
+    expect(onCreated).toHaveBeenCalled();
   });
 });

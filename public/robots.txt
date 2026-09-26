@@ -1,3 +1,18 @@
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
 User-agent: *
 Allow: /
 Disallow: /home
@@ -14,5 +29,13 @@ Disallow: /music
 Disallow: /car
 Disallow: /ops
 Disallow: /invite
+Disallow: /tasks
+Disallow: /notes
+Disallow: /shopping-list
+Disallow: /life
+Disallow: /links
+Disallow: /ext
+Disallow: /events
+Disallow: /login
 
 Sitemap: https://orbyva.app/sitemap.xml

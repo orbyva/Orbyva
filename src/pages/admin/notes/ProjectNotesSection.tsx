@@ -68,6 +68,7 @@ export function ProjectNotesSection({
         title: "",
         content: "",
         project_id: projectId,
+        folder_id: null,
       });
       navigate(`/notes/${note.id}`);
     } catch (error) {

@@ -197,36 +197,41 @@ export async function fetchIsPro(): Promise<boolean> {
   }
 }
 
+type BillingFnBody = { url?: string; error?: string; code?: string };
+
 async function invokeBillingUrl(
   fn: "stripe-checkout" | "stripe-portal",
   fallback: string
 ): Promise<{ url: string }> {
   const { data, error } = await supabase.functions.invoke(fn, { body: {} });
+  const payload = data as BillingFnBody | null;
 
   if (error) {
     let detail = error.message;
+    let code: string | undefined;
     const ctx = (error as { context?: Response }).context;
     if (ctx) {
       try {
-        const body = (await ctx.clone().json()) as { error?: string };
+        const body = (await ctx.clone().json()) as BillingFnBody;
         if (body?.error) detail = body.error;
+        if (body?.code) code = body.code;
       } catch {
         /* ignore parse errors */
       }
     }
-    if (
-      data &&
-      typeof data === "object" &&
-      "error" in data &&
-      (data as { error?: unknown }).error
-    ) {
-      detail = String((data as { error: unknown }).error);
-    }
-    throw new Error(detail);
+    if (payload?.error) detail = String(payload.error);
+    if (payload?.code) code = payload.code;
+    const err = new Error(detail) as Error & { code?: string };
+    if (code) err.code = code;
+    throw err;
   }
 
-  if (!data?.url) throw new Error(data?.error ?? fallback);
-  return { url: String(data.url) };
+  if (!payload?.url) {
+    const err = new Error(payload?.error ?? fallback) as Error & { code?: string };
+    if (payload?.code) err.code = payload.code;
+    throw err;
+  }
+  return { url: String(payload.url) };
 }
 
 export async function createCheckoutSession(): Promise<{ url: string }> {

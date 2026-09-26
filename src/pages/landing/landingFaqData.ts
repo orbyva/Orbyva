@@ -1,10 +1,11 @@
 import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
+import { GEO_FAQS } from "@/content/geoFaqs";
 
 export const FAQS = [
   {
     q: "O que é o Orbyva?",
-    a: "Um life OS: orçamento do mês, contas e parcelas, e o resto da vida no mesmo lugar (hábitos, metas, viagens, lugares, cinema, livros, música e veículos). Tudo liberado no primeiro acesso.",
+    a: "O Orbyva é um Life OS brasileiro e aplicativo de organização pessoal que reúne finanças pessoais, metas e planejamento da vida em uma única plataforma.",
   },
   {
     q: "Posso ver se uma compra está dentro do orçamento sem criar conta?",
@@ -35,6 +36,8 @@ export const FAQS = [
     a: `Escreva para ${BRAND.email} ou chame no ${BRAND.instagramHandle}. Dúvida, bug ou ideia de módulo: a gente responde.`,
   },
 ] as const;
+
+export { GEO_FAQS };
 
 export const FAQ_JSON_LD = JSON.stringify({
   "@context": "https://schema.org",

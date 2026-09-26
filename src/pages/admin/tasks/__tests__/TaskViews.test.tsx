@@ -240,6 +240,50 @@ describe("KanbanCard — subtarefas agrupadas como mini-cards (feature 047)", ()
     expect(screen.getByRole("button", { name: "Reabrir subtarefa" })).toBeInTheDocument();
   });
 
+  it("ordena os mini-cards por prazo, depois prioridade, depois criação", () => {
+    renderKanbanCard({
+      subtasks: [
+        makeTask({
+          id: "undated-high",
+          title: "Alta sem prazo",
+          parent_task_id: "task-1",
+          due_date: null,
+          priority: "high",
+        }),
+        makeTask({
+          id: "dated-late",
+          title: "Prazo tarde",
+          parent_task_id: "task-1",
+          due_date: "2026-09-20",
+        }),
+        makeTask({
+          id: "dated-soon",
+          title: "Prazo cedo",
+          parent_task_id: "task-1",
+          due_date: "2026-09-10",
+        }),
+        makeTask({
+          id: "undated-old",
+          title: "Antiga sem prazo",
+          parent_task_id: "task-1",
+          due_date: null,
+          created_at: "2026-01-01T00:00:00Z",
+        }),
+      ],
+    });
+
+    const titles = screen
+      .getAllByText(/^(Alta sem prazo|Prazo tarde|Prazo cedo|Antiga sem prazo|Minha tarefa)$/)
+      .map((el) => el.textContent ?? "");
+    expect(titles).toEqual([
+      "Minha tarefa",
+      "Prazo cedo",
+      "Prazo tarde",
+      "Alta sem prazo",
+      "Antiga sem prazo",
+    ]);
+  });
+
   it("mini-card de subtarefa não tem handle de arrastar — só o card do pai é sortable", () => {
     const subtask = makeTask({ id: "sub-1", title: "Subtarefa A", parent_task_id: "task-1" });
     renderKanbanCard({ subtasks: [subtask] });
@@ -391,6 +435,53 @@ describe("TaskListRow — subtarefas agrupadas como linhas reais (feature 046)",
     // de topo, substituindo o checkbox do checklist antigo. Total é 3: a linha de topo (`task-1`,
     // não concluída) mais as 2 subtarefas, cada uma com o seu.
     expect(screen.getAllByRole("button", { name: "Concluir tarefa" })).toHaveLength(3);
+  });
+
+  it("ordena as linhas aninhadas por prazo, depois prioridade, depois criação", () => {
+    renderTaskListRow({
+      subtasks: [
+        makeTask({
+          id: "undated-high",
+          title: "Alta sem prazo",
+          parent_task_id: "task-1",
+          due_date: null,
+          priority: "high",
+        }),
+        makeTask({
+          id: "dated-late",
+          title: "Prazo tarde",
+          parent_task_id: "task-1",
+          due_date: "2026-09-20",
+        }),
+        makeTask({
+          id: "undated-old",
+          title: "Antiga sem prazo",
+          parent_task_id: "task-1",
+          due_date: null,
+          priority: null,
+          created_at: "2026-01-01T00:00:00Z",
+        }),
+        makeTask({
+          id: "dated-soon",
+          title: "Prazo cedo",
+          parent_task_id: "task-1",
+          due_date: "2026-09-10",
+        }),
+      ],
+      expanded: true,
+      subtaskActions: { onDelete: vi.fn(), onStatusChange: vi.fn() },
+    });
+
+    const titles = screen
+      .getAllByText(/^(Alta sem prazo|Prazo tarde|Antiga sem prazo|Prazo cedo|Minha tarefa)$/)
+      .map((el) => el.textContent ?? "");
+    expect(titles).toEqual([
+      "Minha tarefa",
+      "Prazo cedo",
+      "Prazo tarde",
+      "Alta sem prazo",
+      "Antiga sem prazo",
+    ]);
   });
 
   it("a linha da subtarefa não tem seu próprio botão de expandir subtarefas", () => {
@@ -758,6 +849,7 @@ describe("TaskViews — wiki-link na descrição do card", () => {
       title: "Atividades Finatec",
       content: "",
       project_id: null,
+      folder_id: null,
       kind: "markdown",
       canvas_data: null,
       ...overrides,

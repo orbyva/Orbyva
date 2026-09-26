@@ -1,5 +1,7 @@
 import { formatLocalIsoDate } from "@/lib/dates";
 import { diffDaysIso, resolveTaskSchedule, type TaskScheduleInput } from "@/domain/tasks/duration";
+import { sortSubtasks } from "@/domain/tasks/subtasks";
+import type { TaskPriority } from "@/types/tasks";
 
 export type GanttNodeType = "summary" | "task" | "milestone";
 
@@ -18,6 +20,9 @@ export interface GanttTaskInput {
   project_id: string | null;
   start_date?: string | null;
   due_date: string | null;
+  /** Usados só pra ordenar irmãs no Gantt (`sortSubtasks`: prazo → prioridade → criação). */
+  priority?: TaskPriority | null;
+  created_at?: string | null;
   estimated_duration?: number | null;
   /** Ícone customizado (feature 035) — repassado ao nó pra `GanttTaskNameCell` renderizar via
    * `TaskIconBadge`, mesmo componente central usado nas outras visualizações. */
@@ -220,7 +225,7 @@ export function buildGanttNodes(
     nodes.push(taskNode(task, parent, parentIdsWithChildren.has(task.id)));
   }
 
-  for (const task of childTasks) {
+  for (const task of sortSubtasks(childTasks)) {
     nodes.push(taskNode(task, task.parent_task_id as string, false));
   }
 

@@ -133,6 +133,7 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 ```
 /public                 Assets estáticos (logo, marketing)
 /extension              Extensão Chrome (Manifest V3, side panel → `/ext`)
+/mobile                 App nativo Expo (iOS + Android, mesmo Supabase)
 /e2e                    Playwright + helpers (auth, cleanup E2E*)
 /scripts                ci-local, bundle budget, minify SW
 /supabase
@@ -184,6 +185,10 @@ Atalhos: **⌘K** busca global · sino de alertas · PWA após `npm run build`.
 ### Extensão Chrome
 
 Pasta `extension/` (Manifest V3). Painel lateral: tarefas do dia, contadores, hábitos, próxima dose, restante do orçamento, captura para links/compras/notas/catálogo (sem duplicar o que já está salvo). A UI é `/ext` no app (mesma sessão). Como carregar: [`extension/README.md`](./extension/README.md).
+
+### App nativo
+
+Pasta `mobile/` (Expo). Terceiro cliente do mesmo Supabase — iOS e Android, sem backend novo. Como rodar: [`mobile/README.md`](./mobile/README.md).
 
 ---
 

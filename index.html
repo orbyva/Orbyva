@@ -4,9 +4,10 @@
     <meta charset="UTF-8" />
     <!-- GTM via arquivo (CSP script-src 'self'; sem inline). -->
     <script src="/gtm.js" async></script>
-    <link rel="icon" type="image/webp" href="/logo-mark.webp" />
+    <link rel="icon" type="image/png" href="/logo-mark.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0EA5E9" />
+    <meta name="application-name" content="Orbyva" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -17,8 +18,8 @@
       href="/pwa-maskable-512.png"
       media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
     />
-    <title>Orbyva — Veja se está dentro do orçamento e organize o resto da vida</title>
-    <meta name="description" content="Orçamento com teto, parcelas sob controle e lançamentos — com hábitos, metas, viagens, cinema e veículos na mesma órbita. 7 dias grátis." />
+    <title>Orbyva · Organize finanças, metas e sua vida em um só lugar</title>
+    <meta name="description" content="O Orbyva é um Life OS brasileiro para organizar finanças pessoais, metas e planejamento da vida em uma única plataforma." />
     <link rel="canonical" href="https://orbyva.app/" />
     <link rel="describedby" href="https://orbyva.app/llms.txt" />
 
@@ -26,15 +27,15 @@
     <meta property="og:site_name" content="Orbyva" />
     <meta property="og:locale" content="pt_BR" />
     <meta property="og:url" content="https://orbyva.app/" />
-    <meta property="og:title" content="Orbyva — Está dentro do orçamento?" />
-    <meta property="og:description" content="Orçamento, parcelas e lançamentos — com hábitos, metas, viagens e cinema no mesmo app." />
+    <meta property="og:title" content="Orbyva · Organize finanças, metas e sua vida em um só lugar" />
+    <meta property="og:description" content="O Orbyva é um Life OS brasileiro para organizar finanças pessoais, metas e planejamento da vida em uma única plataforma." />
     <meta property="og:image" content="https://orbyva.app/marketing/hub.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Orbyva — Está dentro do orçamento?" />
-    <meta name="twitter:description" content="Orçamento, parcelas e lançamentos — com hábitos, metas, viagens e cinema no mesmo app." />
+    <meta name="twitter:title" content="Orbyva · Organize finanças, metas e sua vida em um só lugar" />
+    <meta name="twitter:description" content="O Orbyva é um Life OS brasileiro para organizar finanças pessoais, metas e planejamento da vida em uma única plataforma." />
     <meta name="twitter:image" content="https://orbyva.app/marketing/hub.png" />
 
     <!-- FCP sem JS: só o fundo da landing. Sem scripts inline (CSP script-src 'self'). -->
@@ -46,6 +47,17 @@
       }
       /* #boot existe pro e2e/hidratação; o wordmark no canto destoava do header (ilha + mark). */
       #boot[hidden] { display: none; }
+      .seo-fallback {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
     </style>
     <link
       rel="preload"
@@ -58,6 +70,23 @@
   <body>
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5H8MT38X" height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe></noscript>
+    <!-- Conteúdo textual sem JS (crawlers / noscript). Removido no prerender quando o React pinta. -->
+    <div id="seo-noscript" class="seo-fallback">
+      <h1>Organize suas finanças, metas e vida pessoal em um único lugar</h1>
+      <p>
+        O Orbyva é um Life OS brasileiro e aplicativo de organização pessoal para
+        organizar finanças pessoais, metas e planejamento da vida em uma única
+        plataforma. Produtividade e organização da vida no mesmo app.
+      </p>
+      <ul>
+        <li><a href="https://orbyva.app/life-os">O que é um Life OS?</a></li>
+        <li><a href="https://orbyva.app/financas-pessoais">Finanças pessoais</a></li>
+        <li><a href="https://orbyva.app/metas">Metas</a></li>
+        <li><a href="https://orbyva.app/organizacao-pessoal">Organização pessoal</a></li>
+        <li><a href="https://orbyva.app/app-organizacao-pessoal">Aplicativo de organização pessoal</a></li>
+        <li><a href="https://orbyva.app/blog">Blog</a></li>
+      </ul>
+    </div>
     <div id="boot" hidden></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

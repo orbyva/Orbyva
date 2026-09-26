@@ -25,7 +25,7 @@ export default defineConfig({
     // Local: rebuild pra não testar dist velho. CI: só preview (job já fez build).
     command: process.env.CI
       ? "npm run preview -- --host 127.0.0.1 --port 4173"
-      : "npm run build && npm run preview -- --host 127.0.0.1 --port 4173",
+      : "npm run build:app && npm run preview -- --host 127.0.0.1 --port 4173",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

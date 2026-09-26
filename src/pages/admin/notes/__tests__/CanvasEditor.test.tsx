@@ -66,6 +66,7 @@ function canvasNote(over: Partial<Note> = {}): Note {
     title: "Arquitetura",
     content: "",
     project_id: null,
+    folder_id: null,
     kind: "canvas",
     canvas_data: toCanvasData([rect], { viewBackgroundColor: "#ffffff" }),
     ...over,
@@ -159,12 +160,13 @@ describe("CanvasEditor", () => {
 
     await user.type(screen.getByLabelText("Título"), " v2");
 
-    await waitFor(() => expect(updateNote).toHaveBeenCalled(), SAVED);
-    const patch = vi.mocked(updateNote).mock.calls.at(-1)?.[0];
-    expect(patch?.title).toBe("Arquitetura v2");
-    // Sem `onChange` do desenho, `canvas_data` nem entra no update — senão renomear reescreveria
-    // a cena com o que o editor ainda não recebeu.
-    expect(patch).not.toHaveProperty("canvas_data");
+    // O debounce pode gravar no meio do `type` (o picker de pasta deixou cada tecla mais lenta
+    // que os 20 ms). Esperar o título fechado, não a primeira chamada.
+    await waitFor(() => {
+      const patch = vi.mocked(updateNote).mock.calls.at(-1)?.[0];
+      expect(patch?.title).toBe("Arquitetura v2");
+      expect(patch).not.toHaveProperty("canvas_data");
+    }, SAVED);
   });
 
   it("erro ao salvar vira toast e 'Não salvo', sem perder o desenho da tela", async () => {

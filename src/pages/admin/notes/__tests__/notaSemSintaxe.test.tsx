@@ -36,6 +36,7 @@ const note: Note = {
   title: "Reforma",
   content: "",
   project_id: null,
+  folder_id: null,
   kind: "markdown",
   canvas_data: null,
 };

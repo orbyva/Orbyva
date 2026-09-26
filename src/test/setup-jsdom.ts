@@ -4,7 +4,7 @@ import { afterEach, vi } from "vitest";
 
 /**
  * `setupFiles` roda para toda a suíte (`.test.ts` em "node" e `.test.tsx` em "jsdom" —
- * ver `environmentMatchGlobs` em `vite.config.ts`). `cleanup()` do Testing Library só faz sentido
+ * ver `test.projects` em `vite.config.ts`). `cleanup()` do Testing Library só faz sentido
  * (e só funciona) quando há `document` de verdade, então só registra o hook em ambiente jsdom —
  * evita quebrar os testes de lógica pura que rodam em "node".
  */

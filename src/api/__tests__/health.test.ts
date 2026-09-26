@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  fetchConsultationTasks,
   fetchHealthMetrics,
   fetchReminderPreferences,
   loadHealthSummary,
   markReminderNotified,
   recordHealthMetric,
+  updateHealthMetric,
+  deleteHealthMetric,
   upsertReminderPreference,
 } from "@/api/health";
 import type { Task } from "@/types/tasks";
@@ -65,6 +68,27 @@ function makeBuilder(table: string) {
   let rows = [...tableRows(table)];
   /** Setado por insert/upsert: o retorno de `.select().single()` é a linha gravada, não a query. */
   let written: AnyRow | null = null;
+  let pendingPatch: AnyRow | null = null;
+  let pendingDelete = false;
+
+  function applyMutation() {
+    if (pendingDelete) {
+      const storeArr = tableRows(table);
+      const ids = new Set(rows.map((row) => row.id));
+      const kept = storeArr.filter((row) => !ids.has(row.id));
+      storeArr.length = 0;
+      storeArr.push(...kept);
+      pendingDelete = false;
+      return;
+    }
+    if (pendingPatch) {
+      for (const row of rows) {
+        Object.assign(row, pendingPatch);
+        written = row;
+      }
+      pendingPatch = null;
+    }
+  }
 
   /** Um `ORDER BY a, b` só, como o Postgres faz: a segunda chave desempata a primeira. */
   const sorted = () =>
@@ -96,6 +120,7 @@ function makeBuilder(table: string) {
     then(
       resolve: (value: { data: AnyRow[] | null; error: { message: string } | null }) => unknown
     ) {
+      applyMutation();
       return Promise.resolve(result()).then(resolve);
     },
     insert(newRows: AnyRow[]) {
@@ -129,9 +154,20 @@ function makeBuilder(table: string) {
       }
       return builder;
     },
+    /** Adiado até `.eq` filtrar: o encadeamento do cliente é `.update().eq().eq().select()`. */
+    update(fields: AnyRow) {
+      pendingPatch = fields;
+      return builder;
+    },
+    /** Idem: `.delete().eq().eq()` — a linha só some depois dos filtros. */
+    delete() {
+      pendingDelete = true;
+      return builder;
+    },
     single() {
       const error = store.errorByTable[table];
       if (error) return Promise.resolve({ data: null, error: { message: error } });
+      applyMutation();
       if (written) return Promise.resolve({ data: written, error: null });
       const first = sorted()[0];
       return Promise.resolve(
@@ -243,7 +279,7 @@ describe("loadHealthSummary", () => {
     expect(query.limit).toBe(1);
   });
 
-  it("consulta médica usa a mesma consulta, trocando só a flag (feature 061)", async () => {
+  it("consulta médica busca as próximas da data de hoje em diante, sem cortar em uma", async () => {
     await loadHealthSummary();
 
     const query = queryFor("is_consultation");
@@ -251,16 +287,38 @@ describe("loadHealthSummary", () => {
     expect(query.eq).toEqual([
       ["user_id", "user-1"],
       ["is_consultation", true],
-      ["status", "todo"],
     ]);
     expect(query.gte).toEqual([["due_date", "2026-08-16"]]);
     expect(query.order.map(([column]) => column)).toEqual([
       "due_date",
       "due_time",
     ]);
-    expect(query.limit).toBe(1);
+    expect(query.limit).toBe(15);
   });
+});
 
+describe("fetchConsultationTasks", () => {
+  it("lê todas as consultas do usuário, sem recortar pela data de hoje", async () => {
+    await fetchConsultationTasks();
+
+    const query = queries.find(
+      (item) =>
+        item.table === "task" &&
+        item.eq.some(
+          ([column, value]) => column === "is_consultation" && value === true
+        ) &&
+        item.gte.length === 0
+    );
+    expect(query).toBeDefined();
+    expect(query!.eq).toEqual([
+      ["user_id", "user-1"],
+      ["is_consultation", true],
+    ]);
+    expect(query!.limit).toBe(100);
+  });
+});
+
+describe("loadHealthSummary", () => {
   it("sem nada agendado, o resumo vem com os campos vazios", async () => {
     expect(await loadHealthSummary()).toEqual({
       nextMedicationDose: null,
@@ -279,6 +337,9 @@ describe("loadHealthSummary", () => {
         onTimeRate: 0,
       },
       activeMedicationCount: 0,
+      todayDoses: [],
+      upcomingConsultations: [],
+      medications: [],
     });
   });
 
@@ -292,6 +353,8 @@ describe("loadHealthSummary", () => {
     const summary = await loadHealthSummary();
 
     expect(summary.activeMedicationCount).toBe(1);
+    expect(summary.medications).toHaveLength(1);
+    expect(summary.medications[0]?.id).toBe("m1");
   });
 
   it("adesão do resumo sai das doses dos últimos 30 dias, não de uma coluna (feature 064)", async () => {
@@ -463,6 +526,87 @@ describe("loadHealthSummary", () => {
     expect(summary.nextMedicationDose?.id).toBe("dose");
     expect(summary.nextConsultation?.id).toBe("consulta");
   });
+
+  it("lista as doses de hoje (tomadas e pendentes) e as atrasadas ainda abertas", async () => {
+    store.tasks = [
+      medication({
+        id: "atrasada-tomada",
+        due_date: "2026-08-15",
+        due_time: "08:00",
+        medication_id: "m1",
+        status: "done",
+      }),
+      medication({
+        id: "atrasada",
+        due_date: "2026-08-15",
+        due_time: "20:00",
+        medication_id: "m1",
+      }),
+      medication({
+        id: "hoje-tomada",
+        due_date: "2026-08-16",
+        due_time: "08:00",
+        medication_id: "m1",
+        status: "done",
+      }),
+      medication({
+        id: "hoje-pendente",
+        due_date: "2026-08-16",
+        due_time: "20:00",
+        medication_id: "m1",
+      }),
+      medication({
+        id: "futura",
+        due_date: "2026-08-18",
+        due_time: "08:00",
+        medication_id: "m1",
+      }),
+    ];
+
+    const { todayDoses } = await loadHealthSummary();
+
+    expect(todayDoses.map((dose) => dose.id)).toEqual([
+      "atrasada",
+      "hoje-tomada",
+      "hoje-pendente",
+    ]);
+  });
+
+  it("lista as próximas consultas, não só a imediata, e guarda as de hoje já comparecidas", async () => {
+    store.tasks = [
+      consultation({
+        id: "hoje-foi",
+        status: "done",
+        due_date: "2026-08-16",
+        due_time: "08:00",
+      }),
+      consultation({
+        id: "c1",
+        due_date: "2026-09-10",
+        due_time: "14:30",
+      }),
+      consultation({
+        id: "c2",
+        due_date: "2026-10-02",
+        due_time: "09:00",
+      }),
+      consultation({
+        id: "compareceu-outro-dia",
+        status: "done",
+        due_date: "2026-08-20",
+        due_time: "10:00",
+      }),
+    ];
+
+    const { upcomingConsultations, nextConsultation } = await loadHealthSummary();
+
+    expect(upcomingConsultations.map((row) => row.id)).toEqual([
+      "hoje-foi",
+      "c1",
+      "c2",
+    ]);
+    expect(nextConsultation?.id).toBe("c1");
+  });
 });
 
 describe("health_metric (feature 063)", () => {
@@ -491,6 +635,49 @@ describe("health_metric (feature 063)", () => {
     });
 
     expect(created.notes).toBeNull();
+  });
+
+  it("atualiza valor, data e observação da medição do próprio usuário", async () => {
+    store.health_metric = [
+      {
+        id: "peso",
+        user_id: "user-1",
+        metric_type: "weight",
+        value: 90,
+        recorded_date: "2026-08-10",
+        notes: "manhã",
+      },
+      {
+        id: "alheio",
+        user_id: "user-2",
+        metric_type: "weight",
+        value: 70,
+        recorded_date: "2026-08-10",
+      },
+    ];
+
+    const updated = await updateHealthMetric({
+      id: "peso",
+      value: 88.5,
+      recorded_date: "2026-08-16",
+      notes: "  em jejum  ",
+    });
+
+    expect(updated.value).toBe(88.5);
+    expect(updated.recorded_date).toBe("2026-08-16");
+    expect(updated.notes).toBe("em jejum");
+    expect(store.health_metric.find((row) => row.id === "alheio")?.value).toBe(70);
+  });
+
+  it("exclui só a medição pedida, do próprio usuário", async () => {
+    store.health_metric = [
+      { id: "peso", user_id: "user-1", metric_type: "weight", value: 90, recorded_date: "2026-08-16" },
+      { id: "altura", user_id: "user-1", metric_type: "height", value: 176, recorded_date: "2026-01-05" },
+    ];
+
+    await deleteHealthMetric("peso");
+
+    expect(store.health_metric.map((row) => row.id)).toEqual(["altura"]);
   });
 
   it("lê da mais recente para a mais antiga, só as do próprio usuário", async () => {

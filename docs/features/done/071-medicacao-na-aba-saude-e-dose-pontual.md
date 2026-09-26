@@ -46,6 +46,15 @@ O botão "Nova medicação" continua no cabeçalho de **Produtividade → Tarefa
 ## Prompts
 
 - 2026-08-19 — "- ficou meio ruim essa posição da medicação, por isso adicione na seção vida->saúde, de modo que já permite a integração da criação de um remédio apra tomar, com as tarefas, que vão identificar. eu devo ser capaz de ver a hora em que foi tomado, se está de acordo com a hor que o evento/tarefa é criado, porque é importante que eu mantenha tomando no horário cert. então a criação e controle das medicações fica na aba saúde, porém ele cria uma tarefa 'especial' dentro das tarefas, de modo principalmente que eu seja alertado, que aparece no meu calendário. e que seja do tipo quick-task, no horário definido. tipo só clicar e ficar verde em uma listagem utilizando o ícone"
+- 2026-09-11 — "No + de saúde está as opções do submódulo de início. Tem que estar igual ao do módulo de vida. Ajuste isso.
+
+Acho que a visualização das coisas de saúde tem que ser melhor aqui no próprio submódulo, hoje sempre tem que ir em tarefas, que tudo bem tb mostrar lá"
+- 2026-09-11 — "Nesse + de vida podia ter para registrar nova alguma coisa nova do módulo de saúde. O que sugere?"
+- 2026-09-11 — "Sim"
+- 2026-09-11 — "Nesse caso o Cadastrar medicação, Agendar Consulta, Novo hábito de saúde. Pode ficar ali no card de cada um, sem ter que ficar lá em cima. Permita também poder excluir e editar Consultas, Medicações, Progresso e Hábito de saúde"
+- 2026-09-11 — "Eu estava pensando em seguir a estrutura de todos terem a estrutura do medicação.
+Tem ali o "Ver medicações" que ele vai  mostrar todas e o histórico. Podíamos seguir o mesmo exemplo para consultas e progressos. Agora em questão de layout. Ao invés de ter o botão "Agendar consulta" vai ter só "+""
+- 2026-09-11 — "O datepicker das coisas de saúde não é o do componente existente. Deixe padronizado"
 
 ## Notas
 
@@ -131,4 +140,9 @@ O botão "Nova medicação" continua no cabeçalho de **Produtividade → Tarefa
   logo depois de Hábitos, como o resto do grupo.
 - **Depende da 070** (`is_quick`, `QuickTaskDot`, fileira de bolinhas na agenda) e da **064** (tabela `medication`, materialização, `dose_time`, adesão). Implementar **depois das duas**. Em particular, a 064 ainda tem uma tarefa "Aguarda o usuário": enquanto `20260816230000_medication.sql` e `20260816233000_medication_backfill.sql` não estiverem no banco remoto, o backfill desta feature não tem o que atualizar.
 - Encosta na 049 (que criou o atalho no `TaskList` que esta feature remove), na 060 (hub de Saúde e ausência na sidebar), na 061 (`ConsultationMarker`, precedente de marcador próprio no calendário) e na 063 (`reminder_preference`, o alerta em si).
+- **Pedido de 2026-09-11 — o + de Saúde caía no mix do Início** porque `resolveAppArea` não tratava `/life` como Vida. `/life/health` e `/life/health/medications` passam a devolver as mesmas ações do módulo Vida. A listagem marcável de doses (e das próximas consultas) entra no próprio `HealthDashboard`, sem tirar as linhas da agenda — era o "tipo só clicar e ficar verde em uma listagem" que tinha ficado só em Tarefas.
+- **Pedido de 2026-09-11 — o + de Vida ganha "Cadastrar medicação" e "Agendar consulta".** Overlay (`inline`), os mesmos diálogos do hub, sem voltar a criar medicação em Tarefas. Hábito de saúde e medição ficaram de fora: o primeiro já existe como "Novo hábito"; o segundo é log, não entidade nova.
+- **Pedido de 2026-09-11 — CTAs de criação saem do cabeçalho da página e passam para o card de cada seção** (Hoje, Medicações, Consultas). O cabeçalho fica só com "Como funciona?" e "Lembretes". Cada linha/card de hábito, medição, consulta e dose ganha editar e excluir: medicação **encerra** o tratamento (histórico permanece, como na lista de tratamentos); consulta, hábito e medição apagam a ocorrência/registro.
+- **Pedido de 2026-09-11 — consultas e progresso ganham a mesma estrutura de medicações.** No hub o criar vira só `+` (o nome fica no `aria-label`); **Ver consultas** e **Ver progresso** abrem listas próprias com histórico (`/life/health/consultations`, `/life/health/progress`), no mesmo molde de **Ver medicações**.
+- **Pedido de 2026-09-11 — datepicker de saúde padronizado.** Consulta, medicação e medição deixam o `<input type="date">` nativo e passam a usar o `DatePicker` do resto do app (calendário com dropdown de mês/ano). Horário continua `<input type="time">`.
 - **A "tarefa especial" do prompt não é um tipo novo de tarefa**: é a dose que a 064 já materializa, agora marcada como pontual (070) e com ícone de comprimido. Nenhuma flag nova em `task` é criada aqui — `medication_id` continua sendo a fonte da verdade e `is_medication` continua sendo a flag de renderização, exatamente como a 064 decidiu.

@@ -6,7 +6,9 @@ import { appRoutes } from "@/routes";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { fetchNote, fetchNotes } from "@/api/notes/notes";
+import { fetchNoteFolders } from "@/api/notes/folders";
 import { fetchProjects } from "@/api/tasks/projects";
+import { fetchTags } from "@/api/tasks/tags";
 
 /**
  * Substitui a "navegação manual pelo menu" da tarefa de registro das rotas: `/notes` e `/notes/:id`
@@ -20,6 +22,18 @@ vi.mock("@/api/notes/notes", () => ({
   createNote: vi.fn(),
   updateNote: vi.fn(),
   deleteNote: vi.fn(),
+}));
+
+vi.mock("@/api/notes/folders", () => ({
+  fetchNoteFolders: vi.fn(),
+  createNoteFolder: vi.fn(),
+  updateNoteFolder: vi.fn(),
+  deleteNoteFolder: vi.fn(),
+}));
+
+vi.mock("@/api/tasks/tags", () => ({
+  fetchTags: vi.fn(),
+  createTag: vi.fn(),
 }));
 
 vi.mock("@/api/tasks/projects", () => ({
@@ -41,11 +55,14 @@ vi.mock("@/hooks/useAuth", () => ({
 
 beforeEach(() => {
   vi.mocked(fetchNotes).mockResolvedValue([]);
+  vi.mocked(fetchNoteFolders).mockResolvedValue([]);
+  vi.mocked(fetchTags).mockResolvedValue([]);
   vi.mocked(fetchNote).mockResolvedValue({
     id: "n1",
     title: "Pauta da reunião",
     content: "",
     project_id: null,
+    folder_id: null,
     kind: "markdown",
     canvas_data: null,
   });

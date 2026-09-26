@@ -17,3 +17,7 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  __ORBYVA_PRERENDER__?: boolean;
+}

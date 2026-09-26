@@ -19,6 +19,7 @@ import {
   updateEmailPrefs,
   type UserProfile,
 } from "@/api/billing";
+import { BILLING_ERROR_CODES } from "@/lib/billing-guard";
 import {
   exportFinanceCsv,
   exportGoalsCsv,
@@ -201,6 +202,13 @@ export default function Account() {
       const { url } = await createCheckoutSession();
       window.location.href = url;
     } catch (error) {
+      const code =
+        error && typeof error === "object" && "code" in error
+          ? String((error as { code?: unknown }).code)
+          : "";
+      if (code === BILLING_ERROR_CODES.ALREADY_SUBSCRIBED) {
+        void refresh();
+      }
       toast({
         title: "Checkout indisponível",
         description: getErrorMessage(

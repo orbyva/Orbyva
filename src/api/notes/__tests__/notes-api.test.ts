@@ -25,6 +25,7 @@ interface Call {
   eq: [string, unknown][];
   neq?: [string, unknown];
   ilike?: [string, string];
+  is?: [string, unknown];
   order?: [string, { ascending: boolean }];
   single: boolean;
   maybeSingle: boolean;
@@ -73,6 +74,10 @@ function makeBuilder(table: string) {
     },
     eq(column: string, value: unknown) {
       call.eq.push([column, value]);
+      return builder;
+    },
+    is(column: string, value: unknown) {
+      call.is = [column, value];
       return builder;
     },
     neq(column: string, value: unknown) {
@@ -176,6 +181,51 @@ describe("api/notes", () => {
     expect(lastCall().eq).toEqual([["user_id", "user-1"]]);
   });
 
+  it("fetchNotes com folderId uuid filtra por folder_id", async () => {
+    nextResult = { data: [], error: null };
+    await fetchNotes({ folderId: "f1" });
+    expect(lastCall().eq).toEqual([
+      ["user_id", "user-1"],
+      ["folder_id", "f1"],
+    ]);
+    expect(lastCall().is).toBeUndefined();
+  });
+
+  it("fetchNotes com folderId inbox filtra folder_id is null", async () => {
+    nextResult = { data: [], error: null };
+    await fetchNotes({ folderId: "inbox" });
+    expect(lastCall().eq).toEqual([["user_id", "user-1"]]);
+    expect(lastCall().is).toEqual(["folder_id", null]);
+  });
+
+  it("fetchNotes sem pasta (null) não filtra por folder_id", async () => {
+    nextResult = { data: [], error: null };
+    await fetchNotes({ folderId: null });
+    expect(lastCall().eq).toEqual([["user_id", "user-1"]]);
+    expect(lastCall().is).toBeUndefined();
+  });
+
+  it("createNote grava folder_id quando a nota nasce dentro de uma pasta", async () => {
+    nextResult = { data: { id: "n3" }, error: null };
+    await createNote({
+      title: "Dentro",
+      content: "",
+      project_id: "p1",
+      folder_id: "f1",
+    });
+    expect((lastCall().payload as { folder_id: unknown }[])[0].folder_id).toBe(
+      "f1"
+    );
+  });
+
+  it("updateNote zera folder_id vazio e preserva um id de verdade", async () => {
+    nextResult = { data: null, error: null };
+    await updateNote({ id: "n1", folder_id: "" });
+    expect((lastCall().payload as Record<string, unknown>).folder_id).toBeNull();
+    await updateNote({ id: "n1", folder_id: "f1" });
+    expect((lastCall().payload as Record<string, unknown>).folder_id).toBe("f1");
+  });
+
   it("fetchNotes devolve [] quando o data vem nulo", async () => {
     nextResult = { data: null, error: null };
     await expect(fetchNotes()).resolves.toEqual([]);
@@ -207,6 +257,7 @@ describe("api/notes", () => {
         title: "Sem título",
         content: "corpo",
         project_id: null,
+        folder_id: null,
         kind: "markdown",
         canvas_data: null,
         user_id: "user-1",
@@ -233,6 +284,7 @@ describe("api/notes", () => {
         title: "Arquitetura",
         content: "",
         project_id: null,
+        folder_id: null,
         kind: "canvas",
         canvas_data,
         user_id: "user-1",

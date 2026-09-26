@@ -179,6 +179,9 @@ interface DatePickerProps extends CalendarLimits {
   clearable?: boolean;
   disabled?: boolean;
   className?: string;
+  /** Encaminhado ao gatilho — campos opcionais com validação (término de consulta/medicação). */
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
 }
 
 export function DatePicker({
@@ -192,6 +195,8 @@ export function DatePicker({
   startMonth,
   endMonth,
   maxDate,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedBy,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
 
@@ -208,6 +213,8 @@ export function DatePicker({
           variant="outline"
           disabled={disabled}
           aria-label={ariaLabel}
+          aria-invalid={ariaInvalid}
+          aria-describedby={ariaDescribedBy}
           className={cn(
             "w-full justify-start text-left font-normal",
             !date && "text-muted-foreground",

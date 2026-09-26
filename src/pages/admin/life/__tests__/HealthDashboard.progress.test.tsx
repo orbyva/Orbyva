@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import HealthDashboard from "@/pages/admin/life/HealthDashboard";
+import { pickDate } from "@/test/pickDate";
 import type { HealthMetric, HealthMetricCreateRequest, MetricType } from "@/types/health";
 
 /**
@@ -45,6 +46,17 @@ vi.mock("@/api/health", () => ({
     const created = { id: `m${store.metrics.length + 100}`, ...input };
     store.metrics = [created, ...store.metrics];
     return created;
+  }),
+  updateHealthMetric: vi.fn(async (input: { id: string; value?: number; recorded_date?: string; notes?: string | null }) => {
+    const row = store.metrics.find((item) => item.id === input.id);
+    if (!row) throw new Error("not found");
+    if (input.value !== undefined) row.value = input.value;
+    if (input.recorded_date !== undefined) row.recorded_date = input.recorded_date;
+    if (input.notes !== undefined) row.notes = input.notes;
+    return row;
+  }),
+  deleteHealthMetric: vi.fn(async (id: string) => {
+    store.metrics = store.metrics.filter((item) => item.id !== id);
   }),
 }));
 
@@ -168,8 +180,7 @@ describe("Health Dashboard — registrar medição", () => {
     await user.click(await screen.findByRole("button", { name: "Registrar medição" }));
 
     await user.type(await screen.findByLabelText(/Valor/), "78,4");
-    await user.clear(screen.getByLabelText(/Data/));
-    await user.type(screen.getByLabelText(/Data/), "2026-08-16");
+    await pickDate(user, /^Data/, "2026-08-16");
     await user.click(screen.getByRole("button", { name: "Registrar" }));
 
     await waitFor(() => expect(store.metrics).toHaveLength(1));
@@ -219,6 +230,38 @@ describe("Health Dashboard — registrar medição", () => {
         expect.objectContaining({ title: "Erro", variant: "destructive" })
       )
     );
+    expect(store.metrics).toHaveLength(0);
+  });
+});
+
+describe("Health Dashboard — editar e excluir medição", () => {
+  it("editar o card de peso grava o valor novo", async () => {
+    const user = userEvent.setup();
+    store.metrics = [metric("weight", 90, "2026-08-16")];
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Editar Peso" }));
+    const value = await screen.findByLabelText(/Valor/);
+    await user.clear(value);
+    await user.type(value, "88,5");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    await waitFor(() => expect(store.metrics[0]!.value).toBe(88.5));
+    const peso = within(progressSection()).getByRole("article", { name: "Peso" });
+    expect(within(peso).getByText("88,5 kg")).toBeInTheDocument();
+  });
+
+  it("excluir a medição pede confirmação e some o card", async () => {
+    const user = userEvent.setup();
+    store.metrics = [metric("weight", 90, "2026-08-16")];
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Excluir medição de Peso" })
+    );
+    await user.click(screen.getByRole("button", { name: "Excluir" }));
+
+    expect(await screen.findByText("Nenhuma medição registrada")).toBeInTheDocument();
     expect(store.metrics).toHaveLength(0);
   });
 });

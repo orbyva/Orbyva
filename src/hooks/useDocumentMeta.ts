@@ -1,8 +1,9 @@
-/** Meta title/description/OG por rota (client-side SPA). */
+/** Meta title/description/OG por rota (client-side SPA; capturado no prerender). */
 import { useEffect } from "react";
+import { DEFAULT_OG_IMAGE, SITE_URL } from "@/lib/seo";
 
-const SITE = "https://orbyva.app";
-const DEFAULT_IMAGE = `${SITE}/marketing/hub.png`;
+const SITE = SITE_URL;
+const DEFAULT_IMAGE = DEFAULT_OG_IMAGE;
 
 export type DocumentMetaInput = {
   title: string;
@@ -11,6 +12,8 @@ export type DocumentMetaInput = {
   image?: string;
   /** Se false, não prefixa com Orbyva, */
   brandSuffix?: boolean;
+  /** noindex,nofollow: auth e app privado */
+  noIndex?: boolean;
 };
 
 function upsertMeta(
@@ -47,8 +50,28 @@ export function applyDocumentMeta(input: DocumentMetaInput) {
 
   upsertMeta("property", "og:title", title);
   upsertMeta("name", "twitter:title", title);
+  upsertMeta("property", "og:site_name", "Orbyva");
+  upsertMeta("property", "og:locale", "pt_BR");
+  upsertMeta("property", "og:type", "website");
+  upsertMeta("name", "twitter:card", "summary_large_image");
+  upsertMeta("name", "application-name", "Orbyva");
 
-  const url = input.path ? `${SITE}${input.path}` : undefined;
+  if (input.noIndex) {
+    upsertMeta("name", "robots", "noindex, nofollow");
+  } else {
+    const robots = document.head.querySelector<HTMLMetaElement>(
+      'meta[name="robots"]'
+    );
+    if (robots?.getAttribute("content")?.includes("noindex")) {
+      robots.setAttribute("content", "index, follow");
+    }
+  }
+
+  const url = input.path
+    ? input.path === "/"
+      ? `${SITE}/`
+      : `${SITE}${input.path}`
+    : undefined;
   if (url) {
     upsertMeta("property", "og:url", url);
     const link =
@@ -70,8 +93,15 @@ export function applyDocumentMeta(input: DocumentMetaInput) {
 }
 
 export function useDocumentMeta(input: DocumentMetaInput) {
-  const { title, description, path, image, brandSuffix } = input;
+  const { title, description, path, image, brandSuffix, noIndex } = input;
   useEffect(() => {
-    applyDocumentMeta({ title, description, path, image, brandSuffix });
-  }, [title, description, path, image, brandSuffix]);
+    applyDocumentMeta({
+      title,
+      description,
+      path,
+      image,
+      brandSuffix,
+      noIndex,
+    });
+  }, [title, description, path, image, brandSuffix, noIndex]);
 }

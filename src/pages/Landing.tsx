@@ -10,13 +10,22 @@ import { LandingNeonFrame } from "@/components/landing/LandingNeonFrame";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { LandingTrustMarquee } from "@/components/landing/LandingTrustMarquee";
 import { Link001 } from "@/components/ui/skiper-ui/skiper40";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { PublicInternalNav } from "@/components/seo/PublicInternalNav";
 import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
 import { isBillingConfigured } from "@/lib/billing-config";
 import { track } from "@/lib/analytics";
 import { landingShouldDeferToApp } from "@/lib/landingAuthHint";
+import { isPrerenderMode } from "@/lib/prerender";
+import {
+  buildFaqPageJsonLd,
+  buildOrganizationJsonLd,
+  buildWebApplicationJsonLd,
+  HOME_META,
+} from "@/lib/seo";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
-import { FAQ_JSON_LD } from "@/pages/landing/landingFaqData";
+import { FAQS } from "@/pages/landing/landingFaqData";
 
 const LandingCompare = lazy(() =>
   import("@/pages/landing/LandingCompare").then((m) => ({
@@ -84,20 +93,26 @@ const SECTION_IDS = ["controle", "planos"] as const;
 
 export default function Landing() {
   const navigate = useNavigate();
+  const prerender = isPrerenderMode();
   useDocumentMeta({
-    title: "Orbyva · Tudo da sua vida em uma só órbita",
-    description:
-      "Pare de espalhar a vida em 5 apps. Organize finanças, hábitos, viagens e cinema numa só órbita. 7 dias grátis.",
+    title: HOME_META.title,
+    description: HOME_META.description,
     path: "/",
     image: "https://orbyva.app/marketing/hub.png",
     brandSuffix: false,
   });
   const billingLive = isBillingConfigured();
   const [showStickyCta, setShowStickyCta] = useState(false);
-  const [belowFold, setBelowFold] = useState(false);
-  const [handoff, setHandoff] = useState(landingShouldDeferToApp);
+  const [belowFold, setBelowFold] = useState(prerender);
+  const [handoff, setHandoff] = useState(
+    () => !prerender && landingShouldDeferToApp()
+  );
   const seenSections = useRef(new Set<string>());
   const heroRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    document.getElementById("seo-noscript")?.remove();
+  }, []);
 
   useEffect(() => {
     if (handoff) return;
@@ -167,7 +182,7 @@ export default function Landing() {
   }, []);
 
   useEffect(() => {
-    if (handoff) return;
+    if (handoff || prerender) return;
     let idle = 0;
     let timeout = 0;
     const show = () => setBelowFold(true);
@@ -184,7 +199,7 @@ export default function Landing() {
       if (idle) window.cancelIdleCallback(idle);
       if (timeout) window.clearTimeout(timeout);
     };
-  }, [handoff]);
+  }, [handoff, prerender]);
 
   /**
    * Quem já tem sessão (ou OAuth na hash) não espera o idle: a landing está fora do AuthRoot
@@ -229,9 +244,12 @@ export default function Landing() {
 
   return (
     <div className="relative min-h-svh bg-[var(--landing-bg)] pb-16 text-zinc-100 md:pb-0">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: FAQ_JSON_LD }}
+      <JsonLd
+        data={[
+          buildOrganizationJsonLd(),
+          buildWebApplicationJsonLd(),
+          buildFaqPageJsonLd(FAQS),
+        ]}
       />
       <a
         href="#conteudo"
@@ -278,11 +296,12 @@ export default function Landing() {
         >
           <div className="landing-hero-copy">
             <h1 className="text-balance font-display text-4xl font-semibold tracking-tighter text-zinc-50 sm:text-5xl lg:text-6xl lg:leading-[1.12]">
-              {BRAND.tagline}.
+              {BRAND.tagline}
             </h1>
             <p className="mt-5 max-w-[65ch] text-pretty text-base leading-relaxed text-zinc-400 sm:text-lg">
               {BRAND.heroSupport}
             </p>
+            <PublicInternalNav className="mt-6" />
             <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
               <LandingMagneticCta
                 href={ctaTo}
@@ -408,6 +427,18 @@ export default function Landing() {
             © {new Date().getFullYear()} {BRAND.name} · {BRAND.domain}
           </span>
           <div className="flex flex-wrap items-center gap-4">
+            <Link to="/life-os" className="hover:text-zinc-300">
+              Life OS
+            </Link>
+            <Link to="/financas-pessoais" className="hover:text-zinc-300">
+              Finanças
+            </Link>
+            <Link to="/metas" className="hover:text-zinc-300">
+              Metas
+            </Link>
+            <Link to="/blog" className="hover:text-zinc-300">
+              Blog
+            </Link>
             <Link to="/dentro-do-orcamento" className="hover:text-zinc-300">
               Está dentro do orçamento?
             </Link>
