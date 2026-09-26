@@ -24,10 +24,7 @@ export function LandingTrustMarquee({
             className="flex shrink-0 items-center gap-10 text-sm text-zinc-400"
           >
             <span className="whitespace-nowrap">{item}</span>
-            <span
-              aria-hidden
-              className="h-1 w-1 rounded-full bg-sky-400/60"
-            />
+            <span aria-hidden className="h-3 w-px bg-white/15" />
           </span>
         ))}
       </div>

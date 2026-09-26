@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pen, Tag as TagIcon, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -102,6 +103,14 @@ export default function Tags() {
       title="Tags"
       description="Gerencie as tags usadas em tarefas e projetos — nome, cor e onde estão em uso."
       eyebrow="Produtividade"
+      actions={
+        // As duas telas de configuração do módulo ficam fora da sidebar (feature 087): sem um
+        // ponteiro de uma para a outra, a de regras de ícone só seria alcançável de dentro do
+        // formulário de tarefa.
+        <Button asChild variant="outline">
+          <Link to="/tasks/link-icons">Ícones de link</Link>
+        </Button>
+      }
     >
       {loading ? (
         <TableLoadingSkeleton rows={5} columns={3} />

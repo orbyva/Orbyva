@@ -49,18 +49,38 @@ describe("getRecurringProgress", () => {
 });
 
 describe("filterRecurringList", () => {
-  it("filtra parcelas pagas", () => {
+  it("filtra parcelas pagas na série inteira (mês em que todas estão pagas)", () => {
     const paid = makeRecurring({ id: "paid", paid_parcels: [1, 2] });
     const open = makeRecurring({ id: "open", paid_parcels: [] });
-    const result = filterRecurringList([paid, open], "paid", []);
+    const result = filterRecurringList([paid, open], "paid", [], 2026, 7);
     expect(result.map((r) => r.id)).toEqual(["paid"]);
   });
 
-  it("filtra em aberto", () => {
+  it("filtra em aberto no mês escolhido, mesmo com parcelas futuras", () => {
     const paid = makeRecurring({ id: "paid", paid_parcels: [1, 2] });
     const open = makeRecurring({ id: "open", paid_parcels: [] });
-    const result = filterRecurringList([paid, open], "open", []);
+    const result = filterRecurringList([paid, open], "open", [], 2026, 7);
     expect(result.map((r) => r.id)).toEqual(["open"]);
+  });
+
+  it("Em aberto e Pagas olham só a parcela do mês, não o resto da série", () => {
+    const mid = makeRecurring({
+      id: "mid",
+      paid_parcels: [1],
+      installments: [
+        { number: 1, dueDate: "2026-07-05", label: "Parcela 1" },
+        { number: 2, dueDate: "2026-08-05", label: "Parcela 2" },
+      ],
+    });
+
+    expect(
+      filterRecurringList([mid], "paid", [], 2026, 7).map((r) => r.id)
+    ).toEqual(["mid"]);
+    expect(filterRecurringList([mid], "open", [], 2026, 7)).toEqual([]);
+    expect(
+      filterRecurringList([mid], "open", [], 2026, 8).map((r) => r.id)
+    ).toEqual(["mid"]);
+    expect(filterRecurringList([mid], "paid", [], 2026, 8)).toEqual([]);
   });
 });
 

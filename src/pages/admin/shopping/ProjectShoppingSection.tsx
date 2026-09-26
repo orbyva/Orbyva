@@ -14,7 +14,16 @@ import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
 
 interface ProjectShoppingSectionProps {
   projectId: string;
+  /**
+   * Mostra o `<h2>` "Compras do projeto". Dentro da aba "Compras" da página do projeto (feature
+   * 069) o gatilho da aba já é o título, e repeti-lo logo abaixo gasta a altura que a feature
+   * está tentando devolver às tarefas — nesse caso o título vira `aria-label` da `<section>`,
+   * para o leitor de tela continuar anunciando a região.
+   */
+  showHeading?: boolean;
 }
+
+const SECTION_TITLE = "Compras do projeto";
 
 /**
  * "Compras do projeto" dentro da página do projeto (feature 052): as categorias vinculadas a ele,
@@ -23,12 +32,11 @@ interface ProjectShoppingSectionProps {
  *
  * É deliberadamente somente-leitura: editar, excluir e criar tarefa continuam sendo da Lista de
  * Compras, para onde o link leva já filtrado. Ver Notas da feature 052.
- *
- * Desde a feature 071 é o conteúdo da aba **"Compras"** (`?tab=compras`), ao lado de "Notas" —
- * antes ficava empilhada abaixo das abas. Como o `TabsContent` do Radix desmonta o conteúdo
- * inativo, os `fetch` daqui só acontecem quando o usuário abre a aba.
  */
-export function ProjectShoppingSection({ projectId }: ProjectShoppingSectionProps) {
+export function ProjectShoppingSection({
+  projectId,
+  showHeading = true,
+}: ProjectShoppingSectionProps) {
   const [categories, setCategories] = useState<ShoppingCategory[]>([]);
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,22 +66,38 @@ export function ProjectShoppingSection({ projectId }: ProjectShoppingSectionProp
     load();
   }, [load]);
 
+  /**
+   * Só os grupos com categoria de verdade. Item sem categoria (feature 066) não pertence a projeto
+   * nenhum — o vínculo com projeto é da categoria (feature 052) —, então o pseudo-grupo
+   * "Sem categoria" que `groupItemsByCategory` devolve fica de fora daqui.
+   */
   const groups = useMemo(
-    () => groupItemsByCategory(items, categories),
+    () =>
+      groupItemsByCategory(items, categories).flatMap((group) =>
+        group.category
+          ? [{ category: group.category, items: group.items }]
+          : []
+      ),
     [items, categories]
   );
 
   return (
-    <section className="space-y-3" aria-labelledby="project-shopping-heading">
+    <section
+      className="space-y-3"
+      aria-labelledby={showHeading ? "project-shopping-heading" : undefined}
+      aria-label={showHeading ? undefined : SECTION_TITLE}
+    >
       <div className="flex items-center justify-between gap-2">
-        <h2
-          id="project-shopping-heading"
-          className="flex items-center gap-2 text-sm font-semibold"
-        >
-          <ShoppingCart className="h-4 w-4" aria-hidden="true" />
-          Compras do projeto
-        </h2>
-        <Button variant="outline" size="sm" asChild>
+        {showHeading && (
+          <h2
+            id="project-shopping-heading"
+            className="flex items-center gap-2 text-sm font-semibold"
+          >
+            <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+            {SECTION_TITLE}
+          </h2>
+        )}
+        <Button variant="outline" size="sm" className="ml-auto" asChild>
           <Link to={`/shopping-list?project=${projectId}`}>
             Ver na Lista de Compras
           </Link>

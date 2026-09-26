@@ -37,6 +37,13 @@ function stamp(): string {
   return new Date(Date.UTC(2026, 7, 16, 12, store.clock)).toISOString();
 }
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/api/notes/notes", () => ({
   fetchNotes: vi.fn(async ({ projectId }: { projectId?: string | null } = {}) =>
     store.notes
@@ -212,10 +219,7 @@ describe("Notas — fluxo fim a fim", () => {
       () => expect(store.notes[0].title).toBe("Pauta da reunião"),
       AUTOSAVE
     );
-    // "Salvo às HH:mm" desde a 070 — o horário é parte do indicador, não enfeite.
-    expect(
-      await screen.findByText(/^Salvo às \d{2}:\d{2}$/, {}, AUTOSAVE)
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Salvo", {}, AUTOSAVE)).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Conteúdo"), "- decidir o orçamento");
     await waitFor(
@@ -242,7 +246,7 @@ describe("Notas — fluxo fim a fim", () => {
     await user.click(await screen.findByRole("tab", { name: "Visualizar" }));
 
     const preview = within(screen.getAllByRole("tabpanel")[0]);
-    expect(preview.getByRole("heading", { name: "Etapas" })).toBeInTheDocument();
+    expect(preview.getByRole("heading", { name: /Etapas/ })).toBeInTheDocument();
     expect(preview.getAllByRole("listitem")).toHaveLength(2);
     // GFM: checklist vira checkbox de verdade, não texto "[x]".
     expect(preview.getAllByRole("checkbox")).toHaveLength(2);
@@ -386,37 +390,6 @@ describe("Notas — fluxo fim a fim", () => {
     );
   });
 
-  it("digitar `/` no começo da linha abre o menu de blocos e insere o esqueleto", async () => {
-    const user = userEvent.setup();
-    store.notes = [
-      { id: "n1", title: "Rascunho", content: "", project_id: null, updated_at: stamp() },
-    ];
-    renderApp("/notes/n1");
-
-    await user.click(await screen.findByLabelText("Conteúdo"));
-    await user.keyboard("/tab");
-
-    const tooltip = await waitFor(
-      () => {
-        const found = document.querySelector(".cm-tooltip-autocomplete");
-        expect(found).not.toBeNull();
-        return found as HTMLElement;
-      },
-      { timeout: 3000 }
-    );
-    expect(tooltip.textContent).toContain("Tabela");
-
-    // Mesmo `interactionDelay` do popup de `[[`: o CodeMirror ignora o Enter nos primeiros 75 ms.
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    await user.keyboard("{Enter}");
-    await waitFor(
-      () => expect(store.notes[0].content).toContain("| --- | --- |"),
-      AUTOSAVE
-    );
-    // A barra do menu não pode sobrar no texto gravado.
-    expect(store.notes[0].content).not.toContain("/tab");
-  });
-
   it("um wiki-link resolvido no preview leva para a outra nota", async () => {
     const user = userEvent.setup();
     store.notes = [
@@ -496,22 +469,32 @@ describe("Notas — fluxo fim a fim", () => {
     expect(await screen.findByText("Nota não encontrada")).toBeInTheDocument();
   });
 
-  it('"Inserir diagrama" escreve um bloco mermaid válido, salva e o preview desenha', async () => {
+  it("o item Diagrama do menu `/` escreve um bloco mermaid válido, salva e o preview desenha", async () => {
     const user = userEvent.setup();
     store.notes = [
       {
         id: "n1",
         title: "Fluxo do projeto",
-        content: "# Fluxo",
+        content: "# Fluxo\n\n",
         project_id: null,
         updated_at: stamp(),
       },
     ];
     renderApp("/notes/n1");
 
-    await user.click(
-      await screen.findByRole("button", { name: /inserir diagrama/i })
+    // O botão "Inserir diagrama" do cabeçalho saiu na 068: o diagrama virou item do menu `/`,
+    // inserido na posição do cursor em vez de anexado no fim do arquivo.
+    expect(screen.queryByRole("button", { name: /inserir diagrama/i })).toBeNull();
+
+    const field = await screen.findByLabelText("Conteúdo");
+    await user.click(field);
+    // Fim do documento: em jsdom o clique não tem geometria e cai na posição 0.
+    await user.keyboard("{Control>}{End}{/Control}");
+    await user.keyboard("/diagrama");
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /Diagrama/ })).toBeInTheDocument()
     );
+    await user.click(screen.getByRole("option", { name: /Diagrama/ }));
 
     // O esqueleto entra no documento cru (markdown na veia) e o autosave grava sozinho.
     await waitFor(
@@ -520,6 +503,8 @@ describe("Notas — fluxo fim a fim", () => {
     );
     expect(store.notes[0].content).toContain("graph TD");
     expect(store.notes[0].content.startsWith("# Fluxo\n\n")).toBe(true);
+    // A consulta digitada some junto com a barra — nada de `/diagrama` sobrando no texto.
+    expect(store.notes[0].content).not.toContain("/diagrama");
 
     await user.click(screen.getByRole("tab", { name: "Visualizar" }));
 
@@ -692,7 +677,7 @@ describe("Notas — fluxo fim a fim", () => {
       expect.objectContaining({ elements: [{ id: "r1", type: "rectangle" }] })
     );
     // O resto da nota continua renderizando em volta do desenho.
-    expect(preview.getByRole("heading", { name: "Arquitetura" })).toBeInTheDocument();
+    expect(preview.getByRole("heading", { name: /Arquitetura/ })).toBeInTheDocument();
     expect(preview.getByText("decidir com o time")).toBeInTheDocument();
 
     // 5. o link leva ao canvas certo

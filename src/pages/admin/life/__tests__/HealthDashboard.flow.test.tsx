@@ -25,6 +25,13 @@ const { store } = vi.hoisted(() => ({
   },
 }));
 
+
+// O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
+vi.mock("@/components/ModuleGuide", () => ({
+  ModuleGuide: () => null,
+  ModuleGuideButton: () => null,
+}));
+
 vi.mock("@/api/health", () => ({
   // A seção "Hoje" (feature 062) tem fluxo próprio em `HealthDashboard.habits.test.tsx`; aqui ela
   // fica vazia de propósito, pra este arquivo continuar sendo sobre dose e consulta.
@@ -60,6 +67,10 @@ vi.mock("@/api/health", () => ({
 // O dialog de consulta (feature 061) grava por `createTask` — o falso escreve na mesma lista que
 // o resumo lê, então o que a tela mostra depois vem mesmo do que foi salvo.
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   createTask: vi.fn(async (draft: TaskCreateRequest) => {
     const created = { ...draft, id: `t${++store.seq}` } as Task;
     store.tasks.push(created);
@@ -74,7 +85,7 @@ vi.mock("@/api/health/medications", () => ({
   createMedicationWithDoses: vi.fn(async (input: MedicationCreateRequest) => {
     const medication = { ...input, id: `m${++store.seq}`, active: true } as Medication;
     store.medications.push(medication);
-    const dose: Task = {
+    store.tasks.push({
       id: `t${++store.seq}`,
       project_id: null,
       parent_task_id: null,
@@ -90,11 +101,8 @@ vi.mock("@/api/health/medications", () => ({
       linked_installment_number: null,
       is_medication: true,
       medication_id: medication.id,
-    };
-    store.tasks.push(dose);
-    // Desde a reabertura de 2026-08-18 a função devolve também as doses criadas — é delas que sai
-    // a contagem do toast ("2 doses já entraram na sua agenda").
-    return { medication, doses: [dose] };
+    });
+    return medication;
   }),
   updateMedication: vi.fn(),
 }));

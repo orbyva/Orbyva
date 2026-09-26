@@ -182,22 +182,24 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
       fora do escopo desta feature; `check:bundle` OK, com os chunks da rota em 2,1 KB
       (`NoteDetail`), 1,8 KB (`Notes`), 0,8 KB (`api/notes`) e 0,4 KB (`noteDraft`) contra o teto
       de 160 KB — nenhuma dependência nova, como previsto.
-- [x] **Migration aplicada no banco remoto** (2026-08-18): o usuário rodou `supabase db push` e
-      `npx supabase migration list` mostra `20260816160000_notes_core` com `local` == `remote`
-      (as das 050, 051 e 052 também). A tabela `note` existe no banco real e o módulo de Notas
-      funciona em produção. Verificação: a saída do `migration list` (leitura — esta sessão nunca
-      roda `db push`); o comportamento da cópia `project.notes` → `note`, com o filtro
-      `btrim(notes, E' \t\r\n')`, está provado em Postgres 16 por
-      `bash supabase/tests/notes_core/run.sh`, que compara as contagens antes/depois exatamente
-      como o roteiro do SQL editor mandava.
-      **Continua sendo passo do usuário, e é o portão da 058:** rodar no SQL editor do banco real
-      `select count(*) from note where title = 'Notas do projeto'` e
-      `select count(*) from project where notes is not null and btrim(notes, E' \t\r\n') <> ''` e
-      conferir que batem, com o conteúdo visível em `/notes`. **Só depois disso** a migration
-      `20260818120000_project_notes_drop.sql` (058) pode ir no próximo `db push` — ela é
-      irreversível (ver Notas).
+- [x] **Migration aplicada pelo usuário** (2026-08-23): o usuário rodou `supabase db push` e
+      confirmou que `supabase/migrations/20260816160000_notes_core.sql` está no banco remoto, junto
+      com as das features 050, 051 e 052 — a tabela `note` existe e o módulo de Notas tem onde ler.
+      **A conferência das contagens no SQL editor NÃO foi executada por esta sessão**: ela lê o
+      banco remoto, ao qual esta esteira não tem acesso. As duas consultas exatas ficaram
+      registradas em `## Notas` como pendência do usuário — e continuam sendo o que **autoriza o
+      `drop column` da feature 058**, que por isso segue bloqueado.
 
 ## Prompts
+
+- 2026-08-31 — `db push` no remoto parou em `notes_core`, verbatim:
+
+```
+ERROR: column p.notes does not exist (SQLSTATE 42703)
+At statement: 15
+insert into public.note (user_id, project_id, title, content)
+select p.user_id, p.id, 'Notas do projeto', p.notes
+```
 
 - 2026-08-16 — prompt que originou o módulo de Notas, verbatim:
 
@@ -214,6 +216,11 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
 
 ## Notas
 
+- **`db push` 2026-08-31: `project.notes` não existe no remoto (SQLSTATE 42703).** A cópia em
+  `20260816160000_notes_core.sql` assumia a coluna da 006. Nesse banco a 006 já estava no histórico
+  sem a coluna (o `add column` não reexecuta). A migration falhou e não entrou no histórico; o
+  `insert` passou a `EXECUTE` dinâmico só se `information_schema` achar `project.notes`. Sem a
+  coluna, `NOTICE` e segue — não há o que copiar. O `drop column` da 058 continua `if exists`.
 - **`btrim(notes) <> ''` sem lista de caracteres era filtro furado.** O `btrim(x)` de uma
   argumento só remove **espaço** — uma `project.notes` com só quebras de linha/tabs (`'   \n\t '`)
   passava e virava nota vazia no módulo novo. Descoberto pela assertiva de `supabase/tests/
@@ -222,11 +229,28 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
   fica no lugar: o filtro só decide o que é copiado, nunca o que é destruído.
 - **A migration ganhou um `not exists` que a tarefa não pedia**, só para a reaplicação ser
   idempotente (sem duplicar `Notas do projeto`). Na primeira aplicação ele não filtra nada.
-- **Pendência para o usuário, depois de rodar `supabase db push`:** conferir no SQL editor que
-  `select count(*) from note where title = 'Notas do projeto'` bate com
-  `select count(*) from project where notes is not null and btrim(notes, E' \t\r\n') <> ''`, e que
-  `project.notes` continua com o conteúdo original. A migration não foi aplicada por esta sessão —
-  `db push` vai para o banco remoto e é decisão do usuário.
+- **PENDÊNCIA DO USUÁRIO — conferência da cópia, pós-push (2026-08-23).** O `supabase db push` foi
+  rodado pelo usuário e a migration está aplicada. A conferência abaixo **não foi executada por
+  esta sessão** (não há acesso ao banco remoto daqui) e continua sendo o passo que autoriza o
+  `drop column` da 058. No SQL editor do projeto remoto:
+
+  ```sql
+  -- Os dois números têm de ser IGUAIS.
+  select count(*) from public.note where title = 'Notas do projeto';
+  select count(*) from public.project
+   where notes is not null and btrim(notes, E' \t\r\n') <> '';
+
+  -- E o original tem de continuar intacto: esta consulta tem de devolver ZERO linhas
+  -- (nenhuma nota migrada com conteúdo diferente da coluna de origem).
+  select p.id, p.notes, n.content
+    from public.project p
+    join public.note n on n.project_id = p.id and n.title = 'Notas do projeto'
+   where n.content is distinct from p.notes;
+  ```
+
+  Se os dois `count` baterem e a terceira consulta vier vazia, as notas de projeto migraram
+  íntegras — é essa a "Condição 2" que a última tarefa da 058 espera. Enquanto isso não for
+  confirmado por você, a coluna `project.notes` **fica onde está**, de propósito.
 - **Checagem de satisfação (2026-08-16), item do `prompt:` → artefato que prova.** O prompt-mãe
   cobre as quatro features; o que a 055 se propôs a cumprir está abaixo, com o teste que passou:
   - *CRIAÇÃO DE NOTAS* → `Notes.flow.test.tsx` "criar uma nota abre o editor dela e a nota nasce
@@ -249,9 +273,10 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
   - Suíte completa: `npm test` → 925 passando, 2 falhando. As 2 são pré-existentes e alheias
     (`src/lib/__tests__/currency.test.ts` espera `"—"`, `src/lib/currency.ts` devolve `"·"`).
     Antes desta feature eram 859/2; a 055 acrescentou 66 testes e nenhuma falha nova.
-- **A migration NÃO foi aplicada.** `supabase db push` vai para o banco remoto e é decisão do
-  usuário; a validação foi toda em Postgres 16 descartável (ver a tarefa correspondente e a
-  pendência mais abaixo).
+- ~~**A migration NÃO foi aplicada.**~~ **Superado em 2026-08-23**: o usuário rodou
+  `supabase db push` e confirmou a aplicação. A validação prévia em Postgres 16 descartável
+  continua valendo como o que provou o conteúdo da migration antes do push; o que **não** foi feito
+  daqui é a conferência das contagens no banco real (ver a pendência logo acima).
 - **Desvio do plano: as notas do projeto viraram seção, não aba.** A tarefa pedia uma quarta aba ao
   lado de Kanban/Lista/Gantt. Não foi feito assim porque a feature 052, no mesmo arquivo, já deixou
   a decisão escrita em comentário: aquelas abas alternam entre *visões das tarefas* do projeto, e
@@ -259,11 +284,6 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
   continuar visível qualquer que seja a aba escolhida. `ProjectNotesSection` fica logo abaixo de
   `ProjectShoppingSection`, com o mesmo formato. O requisito da tarefa (listar as notas daquele
   projeto e criar uma já vinculada) está cumprido igual; só o lugar mudou.
-  - **O plano original foi restaurado pela feature 071 (2026-09-25):** as notas do projeto viraram
-    de fato a aba **"Notas"** (`?tab=notas`), ao lado de "Compras" — a 071 reverteu a decisão da
-    052 que motivou este desvio, porque as duas seções empilhadas empurravam as tarefas para fora
-    da tela. `ProjectNotesSection` não mudou; mudou só onde ela é montada. Ver
-    `docs/features/done/071-projeto-compras-e-notas-em-abas.md`.
 - **Ordem de implementação do módulo (dependências):**
   `055` (núcleo: tabela `note` + markdown + projeto + busca) →
   `056` (wiki-links `[[nota]]`, backlinks, vínculo genérico a qualquer entidade, editor com syntax
@@ -275,25 +295,6 @@ handler de `Tab`). Esse componente é o precedente a extrair e reusar, não a re
 - O prompt-mãe pede o módulo inteiro ("Obsidian/Notion tunado"). Esta feature **não** cumpre o
   prompt sozinha — só o cumprimento das quatro fecha o pedido. Não mover o conjunto para `done/`
   achando que a 055 bastou.
-- **Fechamento (2026-08-18) — a migration foi aplicada pelo usuário e a feature foi para `done/`.**
-  A confirmação veio de `npx supabase migration list` (`20260816160000` com `local` == `remote`),
-  **não** de teste manual: a skill `next` proíbe navegador e esta sessão nunca roda `supabase db
-  push` (é passo do usuário, aplica em produção).
-- **Passo remanescente, do usuário, fora do código — e ele é o portão da 058.** No SQL editor do
-  banco real, conferir que `select count(*) from note where title = 'Notas do projeto'` bate com
-  `select count(*) from project where notes is not null and btrim(notes, E' \t\r\n') <> ''`, e que
-  as notas migradas aparecem íntegras em `/notes`. Enquanto isso não for feito, **não rodar o
-  próximo `supabase db push`**: a migration `20260818120000_project_notes_drop.sql` (058) já está
-  commitada e o push a aplica, destruindo a coluna original de vez. Não virou tarefa em aberto
-  aqui porque não há código a escrever — a lógica da cópia já está provada por
-  `supabase/tests/notes_core/run.sh` —, mas é a conferência que autoriza o drop.
-- **Checagem de satisfação reconfirmada no fechamento (2026-08-18):** a rastreabilidade item a item
-  registrada acima (criação de notas, markdown na veia, vínculo a projeto, busca) continua válida,
-  com todos os testes citados verdes. Suíte completa reexecutada com
-  `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4` (o `npm test` puro é
-  instável nesta máquina): **161 arquivos, 1427 testes, 0 falhando** — as 2 falhas de
-  `currency.test.ts` citadas acima foram corrigidas no commit `eb47042`. O prompt-mãe é do módulo
-  inteiro (055+056+057+058); esta feature fecha o recorte dela, não o prompt sozinha.
 - **Pendência deixada de propósito:** ao fim desta feature a coluna `project.notes` continua no
   banco, com o conteúdo original, sem nenhum código lendo ou escrevendo nela. Isso é intencional —
   é o caminho de volta enquanto o módulo novo não foi usado de verdade. O `drop column` é a última

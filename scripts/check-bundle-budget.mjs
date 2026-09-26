@@ -29,43 +29,36 @@ const MAX_LAZY_VENDOR_GZIP = 200 * 1024;
  * usuário abre um canvas e que nunca encosta num chunk de rota (medido: `NoteDetail` 9,3 KB gzip
  * com o canvas ligado, contra 8,4 KB antes).
  *
- * O limite é 750 KB porque um arquivo do pacote — o subsetting de fonte, com o wasm do harfbuzz
- * embutido — tem 719,6 KB gzip sozinho e é **indivisível**: é um único arquivo-fonte do
- * `@excalidraw/excalidraw`, não há import dinâmico nem `manualChunks` que o quebre. Os outros 100
- * chunks do canvas ficam todos abaixo de 171 KB. Este número é medição, não margem: se subir, é
- * porque a lib cresceu, e aí a discussão é trocar/atualizar a lib — não subir o teto.
+ * O limite é 1.600 KB porque o canvas vive num único chunk `excalidraw` (medido: ~1.532 KB gzip).
+ * Um chunk por arquivo do pacote foi tentado para preservar locales e **quebrou o boot em
+ * produção** (2026-08-31): chunks circulares, `TypeError: $ is not a function`, landing presa no
+ * `#boot`. Não voltar a fatiar por arquivo. Se este teto subir, é a lib que cresceu.
  *
  * Estes chunks ficam **fora do precache do service worker** (`globIgnores` no `vite.config.ts`),
  * senão todo usuário do app baixaria 4,7 MB de canvas na instalação do PWA.
  */
-const MAX_EXCALIDRAW_GZIP = 750 * 1024;
+const MAX_EXCALIDRAW_GZIP = 1600 * 1024;
 
 /**
- * O prefixo `excalidraw-` vem do `manualChunks` (um chunk por arquivo do pacote) — é estável, ao
+ * O prefixo `excalidraw-` vem do `manualChunks` (um chunk só para o pacote) — é estável, ao
  * contrário do nome que o Rollup daria sozinho (`percentages-BXMCSKIN-…`, tirado de um símbolo
  * qualquer de dentro do bundle da lib).
  */
-const EXCALIDRAW_RE = /^excalidraw-/;
+const EXCALIDRAW_RE =
+  /^(excalidraw-|percentages-BXMCSKIN|subset-shared|ExcalidrawCanvas)/i;
 
 const VENDOR_RE =
-  /^(react-vendor|recharts|d3|radix|supabase|sentry|motion|ui-utils|codemirror)-/;
+  /^(react-vendor|recharts|d3|radix|supabase|sentry|motion|ui-utils|codemirror|vite-runtime)-/;
 
 /**
  * Chunks do mermaid (feature 057) e do excalidraw (feature 058), carregados só quando uma nota tem
  * um bloco ```mermaid ou o usuário abre um canvas — nunca no caminho crítico de rota nenhuma. Por
- * isso têm limite próprio em vez de entrar no teto de rota. Desde a 069, `lowlight` (realce de
- * código, baixado só quando a nota tem bloco de código) entra na mesma classe — ele ganha nome
- * estável pelo `manualChunks` do `vite.config.ts`, senão sairia como `index-…`, que esta regra
- * confundiria com o chunk de entrada do app.
+ * isso têm limite próprio em vez de entrar no teto de rota.
  *
  * O `excalidraw` **tem** `manualChunks` (ao contrário do mermaid): ele não se divide sozinho por
  * funcionalidade, é um aplicativo de desenho inteiro, e sem a regra o Rollup espalharia pedaços
- * dele por chunks compartilhados com rota. Um arquivo só, carregado por `React.lazy`.
- *
- * Desde a 070, as gramáticas de fence do editor (`cm-lang-javascript`, `cm-lang-python`…) entram
- * na mesma classe, pelo mesmo motivo do `lowlight`: são baixadas só quando a nota tem um bloco
- * daquela linguagem, e o `manualChunks` do `vite.config.ts` lhes dá nome estável — sem ele saíam
- * como `index-…`, que esta regra confundiria com o chunk de entrada do app.
+ * dele por chunks compartilhados com rota. Um arquivo só, carregado por `React.lazy`. Fatiar
+ * por arquivo do pacote quebra o boot — ver `MAX_EXCALIDRAW_GZIP`.
  *
  * Eles **não** passam por `manualChunks` de propósito: o mermaid já se divide por tipo de diagrama
  * (`sequenceDiagram`, `cynefin`, `architectureDiagram`…), então quem abre um flowchart baixa o
@@ -78,7 +71,7 @@ const VENDOR_RE =
  * despercebido).
  */
 const LAZY_VENDOR_BASE_RE =
-  /^(mermaid\.core|cytoscape|cose-bilkent|cose-base|layout-base|fcose|katex|dagre|roughjs|lowlight|cm-lang-)/;
+  /^(mermaid\.core|cytoscape|cose-bilkent|cose-base|layout-base|fcose|katex|dagre|roughjs)/;
 /** `sequenceDiagram-SI44F4Z6-<hash do vite>.js` — o do meio é o sufixo do build do mermaid. */
 const LAZY_VENDOR_FILE_RE = /-[A-Z0-9]{8}-[A-Za-z0-9_-]+\.js$/;
 
@@ -116,19 +109,18 @@ for (const file of files) {
   if (base === "index" || file.startsWith("index-")) {
     limit = MAX_ENTRY_GZIP;
     kind = "entry";
-  } else if (EXCALIDRAW_RE.test(base) || EXCALIDRAW_RE.test(file)) {
+  } else if (EXCALIDRAW_RE.test(base) || EXCALIDRAW_RE.test(file) || /ExcalidrawCanvas/i.test(file)) {
+    limit = MAX_EXCALIDRAW_GZIP;
+    kind = "canvas";
+  } else if (gz > 400 * 1024 && kind !== "entry") {
+    // Sem `manualChunks`, o Rollup batiza o canvas com um símbolo interno da lib
+    // (`percentages-…`). Qualquer JS > 400 KB gzip que não seja o entry é o canvas.
     limit = MAX_EXCALIDRAW_GZIP;
     kind = "canvas";
   } else if (VENDOR_RE.test(base) || VENDOR_RE.test(file)) {
     limit = MAX_VENDOR_GZIP;
     kind = "vendor";
-  } else if (
-    LAZY_VENDOR_BASE_RE.test(base) ||
-    // Também contra o nome do arquivo, como as duas regras acima: nome com hífen no meio
-    // (`cm-lang-javascript-<hash>.js`) é encurtado demais pelo `base` — ele vira só `cm`.
-    LAZY_VENDOR_BASE_RE.test(file) ||
-    LAZY_VENDOR_FILE_RE.test(file)
-  ) {
+  } else if (LAZY_VENDOR_BASE_RE.test(base) || LAZY_VENDOR_FILE_RE.test(file)) {
     limit = MAX_LAZY_VENDOR_GZIP;
     kind = "lazy";
   }
@@ -144,6 +136,30 @@ for (const r of rows) {
   console.log(
     `  [${mark}] ${r.kind.padEnd(6)} ${fmt(r.gz).padStart(8)} / ${fmt(r.limit).padStart(8)}  ${r.file}`
   );
+}
+
+/**
+ * O split do Excalidraw puxou o grafo do canvas para o `index` (helper de preload do Vite
+ * num chunk do canvas). Import estático de qualquer chunk `canvas` = landing em branco.
+ */
+const html = fs.readFileSync(path.join(__dirname, "..", "dist", "index.html"), "utf8");
+const entryHref = html.match(/src="\/assets\/(index-[^"]+\.js)"/)?.[1];
+const canvasFiles = new Set(rows.filter((r) => r.kind === "canvas").map((r) => r.file));
+if (entryHref) {
+  const src = fs.readFileSync(path.join(assetsDir, entryHref), "utf8");
+  const imported = [...src.matchAll(/(?:from|import)\s*["']\.\/([^"']+\.js)["']/g)].map(
+    (m) => m[1]
+  );
+  const leaked = imported.filter((name) => canvasFiles.has(name) || /excalidraw/i.test(name));
+  if (leaked.length > 0) {
+    console.error(
+      `\nEntry ${entryHref} importa o canvas no boot: ${leaked.join(", ")}`
+    );
+    failed = true;
+  }
+} else {
+  console.error("\nindex.html sem script de entry em /assets/index-*.js");
+  failed = true;
 }
 
 if (failed) {

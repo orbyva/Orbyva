@@ -44,11 +44,13 @@ import {
   TaskListRow,
   type SubtaskRowActions,
 } from "./TaskViews";
-import { TaskFormFields, type TaskFormTab } from "./TaskFormFields";
+import { TaskFormFields } from "./TaskFormFields";
+import type { TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 import { GanttChart } from "./GanttChart";
-import { ProjectFormDialog, type ProjectEventSaveDraft } from "./ProjectFormDialog";
+import { ProjectFormDialog } from "./ProjectFormDialog";
+import { TaskSortToggle } from "./TaskSortToggle";
 import { SeriesOccurrencesDialog } from "./SeriesOccurrencesDialog";
-import { FORM_DIALOG_CONTENT_CLASS } from "@/components/FormLabel";
+import { FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
 import { PageShell } from "@/components/PageShell";
 import { ProjectShoppingSection } from "@/pages/admin/shopping/ProjectShoppingSection";
 import { ProjectNotesSection } from "@/pages/admin/notes/ProjectNotesSection";
@@ -59,31 +61,38 @@ import {
   createTask,
   deleteProjectEvent,
   deleteTask,
-  deleteTasks,
   fetchDependencies,
+  fetchExternalLinksForTask,
+  fetchExternalLinksForTasks,
   fetchProjectById,
   fetchProjectEvents,
   fetchTags,
   fetchTasks,
+  saveExternalLinksForTask,
   updateProject,
-  updateProjectEvent,
   updateTask,
+  updateTasksSortOrder,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
+import { countShoppingCategoriesByProject } from "@/api/shopping/categories";
+import { countNotesByProject } from "@/api/notes/notes";
 import {
   AGENDA_BUCKET_LABELS,
   AGENDA_BUCKET_ORDER,
+  bucketForDueDate,
   collapseRecurringSeries,
   filterTasksByStatusView,
   findSeriesTasks,
+  type TaskDeleteOption,
   groupSubtasksByParent,
   groupTasksByAgendaBucket,
   isSubtaskDueDateValid,
-  resolveEventProjectId,
+  normalizeExternalLinkDrafts,
+  sortTasksBy,
   sortTasksByCompletedAtDesc,
-  sortTasksByDueDate,
 } from "@/domain/tasks";
-import type { AgendaBucket, TaskStatusView } from "@/domain/tasks";
+import type { AgendaBucket, TaskSortKey, TaskStatusView } from "@/domain/tasks";
+import { readTaskSortKey, writeTaskSortKey } from "@/lib/taskSortPreference";
 import {
   addSubtaskToEditing as addSubtaskDraftToEditing,
   emptyTask,
@@ -97,17 +106,41 @@ import type {
   Tag,
   Task,
   TaskDependency,
+  TaskExternalLink,
+  TaskExternalLinkDraft,
   TaskPriority,
   TaskStatus,
 } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
+import { useStartTaskNow } from "@/hooks/useStartTaskNow";
 import { useBreadcrumbTitle } from "@/hooks/useBreadcrumbTitle";
 import { useDimensions } from "@/hooks/useDimensions";
 import { getErrorMessage } from "@/lib/errors";
+import { runScopedTaskDelete } from "./scopedDelete";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR } from "@/lib/currency";
+
+/**
+ * As abas da página do projeto (feature 069). Kanban/Lista/Gantt são visões das tarefas; Compras e
+ * Notas são as entidades ligadas ao projeto, que antes ficavam empilhadas embaixo do quadro e
+ * comiam o espaço vertical dele.
+ */
+const PROJECT_TABS = ["kanban", "lista", "gantt", "compras", "notas"] as const;
+type ProjectTab = (typeof PROJECT_TABS)[number];
+
+/** Aba pedida na URL (`?tab=`). Valor ausente ou desconhecido cai no Kanban, sem quebrar. */
+function parseProjectTab(raw: string | null): ProjectTab {
+  return (PROJECT_TABS as readonly string[]).includes(raw ?? "")
+    ? (raw as ProjectTab)
+    : "kanban";
+}
+
+/** "Compras (7)" — sem número quando a contagem é zero ou não veio (`null`). */
+function tabLabel(label: string, count: number | null): string {
+  return count ? `${label} (${count})` : label;
+}
 
 const emptyProjectForm = (): ProjectCreateRequest => ({
   name: "",
@@ -129,26 +162,6 @@ function projectToForm(project: Project): ProjectCreateRequest {
   };
 }
 
-/**
- * Abas da página do projeto (feature 071). `kanban` é o padrão e **omite** o `?tab=` da URL;
- * qualquer outro valor é escrito no parâmetro, para que a aba sobreviva a refresh e seja linkável.
- * Valor desconhecido cai em `kanban` em silêncio — link antigo/renomeado não pode virar tela vazia.
- *
- * "Compras" e "Notas" são abas, e não seções empilhadas abaixo das abas como eram até a 071: as
- * duas juntas empurravam as tarefas para fora da tela. Consequência aceita e desejada: o
- * `TabsContent` do Radix desmonta o conteúdo inativo, então compras e notas só são buscadas ao
- * abrir a aba correspondente — a página do projeto deixa de pagar esses dois `fetch` no load.
- */
-const PROJECT_TABS = ["kanban", "lista", "gantt", "compras", "notas"] as const;
-type ProjectTab = (typeof PROJECT_TABS)[number];
-const DEFAULT_PROJECT_TAB: ProjectTab = "kanban";
-
-function parseProjectTab(value: string | null): ProjectTab {
-  return PROJECT_TABS.includes(value as ProjectTab)
-    ? (value as ProjectTab)
-    : DEFAULT_PROJECT_TAB;
-}
-
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
@@ -159,15 +172,42 @@ export default function ProjectDetail() {
   const { dimensions } = useDimensions();
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [formTab, setFormTab] = useState<TaskFormTab>("geral");
   const [editing, setEditing] = useState<Task | null>(null);
   const [form, setForm] = useState(emptyTask(id ?? ""));
   const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
   const [newTaskSubtasks, setNewTaskSubtasks] = useState<string[]>([]);
+  /** Links externos da tarefa aberta no formulário (feature 085) — mesma fiação de `TaskList.tsx`,
+   * o outro dono do formulário completo. */
+  const [externalLinkDrafts, setExternalLinkDrafts] = useState<TaskExternalLinkDraft[]>([]);
+  /** Links de todas as tarefas do projeto, numa consulta só por `load()`, para os chips dos cards. */
+  const [externalLinksByTask, setExternalLinksByTask] = useState<Record<string, TaskExternalLink[]>>(
+    {}
+  );
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  /**
+   * A aba ativa mora na URL (`?tab=`), não em `useState` — mesmo idioma do filtro por projeto da
+   * `ShoppingList` (feature 052). Assim voltar da Lista de Compras cai de novo na aba "Compras",
+   * recarregar não joga o usuário no Kanban, e o link é compartilhável.
+   */
   const [searchParams, setSearchParams] = useSearchParams();
   const view = parseProjectTab(searchParams.get("tab"));
+
+  function handleTabChange(next: string) {
+    const params = new URLSearchParams(searchParams);
+    params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  }
+  /**
+   * Contagens dos gatilhos "Compras"/"Notas" (feature 069). `null` = sem número: ou a contagem
+   * ainda não voltou, ou falhou. Fora das abas, essas seções eram o único sinal de que o projeto
+   * tinha lista de compras ou nota; dentro delas, o número é que faz esse papel.
+   */
+  const [shoppingCount, setShoppingCount] = useState<number | null>(null);
+  const [notesCount, setNotesCount] = useState<number | null>(null);
   const [statusView, setStatusView] = useState<TaskStatusView>("pending");
+  /** Mesma preferência de ordenação da Lista principal (feature 079): as duas telas leem e
+   * escrevem a mesma chave de `localStorage`, então escolher aqui vale lá e vice-versa. */
+  const [sortKey, setSortKey] = useState<TaskSortKey>(() => readTaskSortKey());
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [projectEvents, setProjectEvents] = useState<ProjectEvent[]>([]);
@@ -175,18 +215,6 @@ export default function ProjectDetail() {
   const [projectForm, setProjectForm] = useState<ProjectCreateRequest>(emptyProjectForm());
   const { toast } = useToast();
   const { runningEntry, start: startTimer, stop: stopTimer } = useActiveTimer();
-
-  function setView(next: ProjectTab) {
-    setSearchParams(
-      (prev) => {
-        const params = new URLSearchParams(prev);
-        if (next === DEFAULT_PROJECT_TAB) params.delete("tab");
-        else params.set("tab", next);
-        return params;
-      },
-      { replace: true }
-    );
-  }
 
   async function toggleTimer(task: Task) {
     try {
@@ -209,21 +237,37 @@ export default function ProjectDetail() {
   useBreadcrumbTitle(project?.name);
 
   /** Snapshot de `due_date` por tarefa, como veio do último `load()` — mesma técnica de
-   * `TaskList.tsx` pra editar o prazo inline (`handleDueChange`) não mover o card na hora. */
+   * `TaskList.tsx` pra editar o prazo inline (`handleDueChange`) não mover o card **enquanto o
+   * popover de prazo daquela linha está aberto**. Fechar o popover derruba o congelamento e
+   * recarrega (`handleDueOpenChange`), feature 081. */
   const frozenDueDatesRef = useRef<Map<string, string | null>>(new Map());
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [projectData, taskList, dependencyList, tagList, recurringList, eventList] =
-        await Promise.all([
-          fetchProjectById(id),
-          fetchTasks(),
-          fetchDependencies(),
-          fetchTags(),
-          fetchRecurringTransactions(),
-          fetchProjectEvents(),
-        ]);
+      const [
+        projectData,
+        taskList,
+        dependencyList,
+        tagList,
+        recurringList,
+        eventList,
+        shoppingTotal,
+        notesTotal,
+      ] = await Promise.all([
+        fetchProjectById(id),
+        fetchTasks(),
+        fetchDependencies(),
+        fetchTags(),
+        fetchRecurringTransactions(),
+        fetchProjectEvents(),
+        // Contagem é enfeite do gatilho: se falhar, a aba continua lá, só sem número — não é
+        // motivo para derrubar a página inteira no `catch` de baixo.
+        countShoppingCategoriesByProject(id).catch(() => null),
+        countNotesByProject(id).catch(() => null),
+      ]);
+      setShoppingCount(shoppingTotal);
+      setNotesCount(notesTotal);
       setProject(projectData);
       const projectTasks = taskList.filter((t) => t.project_id === id);
       frozenDueDatesRef.current = new Map(projectTasks.map((t) => [t.id, t.due_date]));
@@ -231,11 +275,14 @@ export default function ProjectDetail() {
       setDependencies(dependencyList);
       setTags(tagList);
       setRecurrings(recurringList);
-      // Evento de tarefa conta como evento do projeto da tarefa (feature 068): o `project_id` da
-      // linha é nulo por decisão da 066 (projeto derivado), então o filtro precisa resolver o
-      // vínculo indireto — pelo mapa de **todas** as tarefas, não só as deste projeto.
-      const taskById = new Map(taskList.map((t) => [t.id, t]));
-      setProjectEvents(eventList.filter((e) => resolveEventProjectId(e, taskById) === id));
+      setProjectEvents(eventList.filter((e) => e.project_id === id));
+      // Feature 085: chip de link é enfeite do card. Falha aqui cai para "sem chips" em vez de
+      // derrubar o projeto inteiro — por isso fora do `Promise.all`.
+      try {
+        setExternalLinksByTask(await fetchExternalLinksForTasks(projectTasks.map((t) => t.id)));
+      } catch {
+        setExternalLinksByTask({});
+      }
     } catch (error) {
       toast({
         title: "Erro",
@@ -251,6 +298,15 @@ export default function ProjectDetail() {
     load();
   }, [load]);
 
+  /** Botão "Imediatamente" (feature 078) — mesmo hook compartilhado que a Lista de `TaskList.tsx`
+   * usa, em vez de mais uma cópia do handler. `load()` depois: a tarefa vira "hoje" e tem de
+   * reagrupar na hora. */
+  const { startNow, pendingTaskId: startingNowTaskId } = useStartTaskNow({
+    resolveTaskTitle: (taskId) => tasks.find((t) => t.id === taskId)?.title,
+    onApplied: load,
+  });
+
+  /** Colunas do Kanban do projeto — mesmo `sortKey` da Lista (feature 079). */
   const topLevelByStatus = useMemo(() => {
     const map: Record<TaskStatus, Task[]> = { todo: [], doing: [], done: [] };
     for (const task of tasks) {
@@ -261,8 +317,11 @@ export default function ProjectDetail() {
         map[task.status].push(task);
       }
     }
+    for (const status of Object.keys(map) as TaskStatus[]) {
+      map[status] = sortTasksBy(sortKey, map[status]);
+    }
     return map;
-  }, [tasks]);
+  }, [tasks, sortKey]);
 
   const subtasksByParent = useMemo(() => groupSubtasksByParent(tasks), [tasks]);
 
@@ -285,6 +344,11 @@ export default function ProjectDetail() {
     (list: Task[]) =>
       list.map((task) => ({
         task,
+        // Carimbos junto do item porque o comparador de "última atualização" (079) lê do próprio
+        // item do array, não do `task` embrulhado.
+        id: task.id,
+        updated_at: task.updated_at,
+        created_at: task.created_at,
         due_date: frozenDueDatesRef.current.has(task.id)
           ? (frozenDueDatesRef.current.get(task.id) ?? null)
           : task.due_date,
@@ -293,10 +357,17 @@ export default function ProjectDetail() {
   );
 
   const pendingTasks = useMemo(() => {
-    return sortTasksByDueDate(withFrozenDueDate(filterTasksByStatusView(listTasks, "pending"))).map(
-      (entry) => entry.task
-    );
-  }, [listTasks, withFrozenDueDate]);
+    return sortTasksBy(
+      sortKey,
+      withFrozenDueDate(filterTasksByStatusView(listTasks, "pending"))
+    ).map((entry) => entry.task);
+  }, [listTasks, withFrozenDueDate, sortKey]);
+
+  /** Troca a ordenação e grava a escolha (compartilhada com a Lista principal). */
+  const handleSortKeyChange = useCallback((key: TaskSortKey) => {
+    setSortKey(key);
+    writeTaskSortKey(key);
+  }, []);
 
   const doneTasks = useMemo(
     () => sortTasksByCompletedAtDesc(filterTasksByStatusView(listTasks, "done")),
@@ -341,7 +412,7 @@ export default function ProjectDetail() {
     setEditing(null);
     setForm({ ...emptyTask(id), status });
     setNewTaskSubtasks([]);
-    setFormTab("geral");
+    setExternalLinkDrafts([]);
     setOpen(true);
   }
 
@@ -360,15 +431,43 @@ export default function ProjectDetail() {
       priority: task.priority ?? null,
       recurrence_rule: task.recurrence_rule,
       linked_recurring_id: task.linked_recurring_id,
-      external_url: task.external_url ?? null,
-      external_provider: task.external_provider ?? null,
       icon_key: task.icon_key ?? null,
       icon_url: task.icon_url ?? null,
       is_milestone: task.is_milestone ?? false,
+      // Feature 080: sem isto o painel abria "+ Duração" numa tarefa que já tem duração — o
+      // campo nunca era carregado para edição (bug pré-existente, invisível enquanto a duração
+      // morava numa aba secundária).
+      estimated_duration: task.estimated_duration ?? null,
+      // Feature 070: sem isto o interruptor "Tarefa pontual" abriria sempre desligado numa
+      // tarefa que já é pontual, e salvar a desmarcaria sem o usuário pedir.
+      is_quick: task.is_quick ?? false,
     });
     setNewTaskSubtasks([]);
-    setFormTab("geral");
+    loadExternalLinkDrafts(task.id);
     setOpen(true);
+  }
+
+  /** Carrega os links da tarefa em edição — zera antes de buscar para o formulário nunca mostrar os
+   * links da tarefa anterior enquanto a consulta está em voo. */
+  async function loadExternalLinkDrafts(taskId: string) {
+    setExternalLinkDrafts([]);
+    try {
+      const links = await fetchExternalLinksForTask(taskId);
+      setExternalLinkDrafts(
+        links.map((link) => ({
+          id: link.id,
+          url: link.url,
+          comment: link.comment,
+          position: link.position,
+        }))
+      );
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(error, "Não foi possível carregar os links externos."),
+        variant: "destructive",
+      });
+    }
   }
 
   function openEditProject() {
@@ -393,40 +492,22 @@ export default function ProjectDetail() {
     }
   }
 
-  /**
-   * Cria ou edita conforme o `id` do rascunho (feature 068). Re-lança depois do toast: é a rejeição
-   * de `onSave` que mantém o `EventFormDialog` aberto com o que o usuário digitou.
-   */
-  async function handleSaveProjectEvent(draft: ProjectEventSaveDraft) {
+  async function handleAddProjectEvent({ title, startsAt }: { title: string; startsAt: string }) {
     if (!project) return;
     try {
-      if (draft.id) {
-        await updateProjectEvent({
-          id: draft.id,
-          title: draft.title,
-          starts_at: draft.starts_at,
-          ends_at: draft.ends_at,
-        });
-      } else {
-        await createProjectEvent({
-          project_id: project.id,
-          task_id: null,
-          title: draft.title,
-          starts_at: draft.starts_at,
-          ends_at: draft.ends_at,
-        });
-      }
+      await createProjectEvent({
+        project_id: project.id,
+        title,
+        starts_at: new Date(startsAt).toISOString(),
+        ends_at: null,
+      });
       load();
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(
-          error,
-          draft.id ? "Não foi possível salvar o evento." : "Não foi possível adicionar o evento."
-        ),
+        description: getErrorMessage(error, "Não foi possível adicionar o evento."),
         variant: "destructive",
       });
-      throw error;
     }
   }
 
@@ -451,13 +532,11 @@ export default function ProjectDetail() {
 
   async function handleSave() {
     if (!form.title.trim()) {
-      setFormTab("geral");
-      return;
+        return;
     }
     if (form.parent_task_id) {
       const parentTask = tasks.find((t) => t.id === form.parent_task_id);
       if (parentTask && !isSubtaskDueDateValid(form.due_date, parentTask.due_date)) {
-        setFormTab("data");
         toast({
           title: "Erro",
           description: `O prazo não pode passar de ${formatDateBR(parentTask.due_date)}, prazo da tarefa principal.`,
@@ -473,19 +552,26 @@ export default function ProjectDetail() {
       due_date: isLinked && !isEditingInstance ? null : form.due_date,
       due_time: isLinked && !isEditingInstance ? null : form.due_time,
     };
+    // Feature 085: linha em branco sai, espaços saem, `position` vira 0..n-1 e a URL repetida
+    // (já acusada na linha) fica de fora, antes de o `unique` do banco estourar.
+    const links = normalizeExternalLinkDrafts(externalLinkDrafts).drafts;
     try {
       if (editing) {
         await updateTask({ id: editing.id, ...payload });
+        await saveExternalLinksForTask(editing.id, links);
       } else {
         const created = await createTask(payload);
-        for (const title of newTaskSubtasks) {
+        for (const [index, title] of newTaskSubtasks.entries()) {
           await createTask({
             ...emptyTask(id!),
             project_id: created.project_id,
             parent_task_id: created.id,
             title,
+            sort_order: index,
           });
         }
+        // Só aqui existe `task_id` para gravar.
+        if (links.length > 0) await saveExternalLinksForTask(created.id, links);
       }
       toast({ title: "Tarefa salva!", duration: 2000 });
       setOpen(false);
@@ -510,7 +596,10 @@ export default function ProjectDetail() {
   };
 
   async function addSubtaskToEditing(title: string) {
-    await addSubtaskDraftToEditing(subtaskMutationCtx, title);
+    const siblingCount = editing
+      ? (subtasksByParent.get(editing.id) ?? []).length
+      : 0;
+    await addSubtaskDraftToEditing(subtaskMutationCtx, title, siblingCount);
   }
 
   async function removeExistingSubtask(subtask: SubtaskDraft) {
@@ -531,18 +620,17 @@ export default function ProjectDetail() {
     }
   }
 
-  async function handleDeleteSeries(ids: string[]) {
-    try {
-      await deleteTasks(ids);
-      toast({ title: "Ocorrências excluídas", duration: 2000 });
-      load();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: getErrorMessage(error, "Não foi possível excluir as ocorrências."),
-        variant: "destructive",
-      });
-    }
+  /**
+   * Exclusão com escopo (feature 075): série de recorrência, doses de um tratamento, ou o
+   * encerramento do tratamento junto. O conjunto é resolvido **no servidor** a partir da opção —
+   * antes disto a tela montava os ids com `findSeriesTasks` sobre `visibleTasks`, já filtrada por
+   * projeto/tag/status, e um filtro ativo fazia o botão apagar só a parte visível da série.
+   */
+  async function handleDeleteScoped(task: Task, option: TaskDeleteOption) {
+    await runScopedTaskDelete(task, option, {
+      reload: load,
+      notify: toast,
+    });
   }
 
   /** Edição rápida inline da aba Lista (feature 029) — prioridade e prazo/horário direto no card,
@@ -561,23 +649,46 @@ export default function ProjectDetail() {
     }
   }
 
-  /** Diferente de `handlePriorityChange` (que chama `load()`), atualiza só localmente —
-   * `load()` também atualizaria `frozenDueDatesRef` (o snapshot que trava a posição/bucket da
-   * tarefa), fazendo o card pular pro bucket novo na hora. */
+  /** Diferente de `handlePriorityChange` (que chama `load()`), grava só localmente — `load()`
+   * também refaria `frozenDueDatesRef` (o snapshot que trava a posição/bucket da tarefa) e o card
+   * pularia de caixa com o popover ainda aberto. Quem descongela e reagrupa é
+   * `handleDueOpenChange`, no fechamento (feature 081). Falha no `updateTask` desfaz o otimismo. */
   async function handleDueChange(
     taskId: string,
-    next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }
+    next: TaskDueQuickEditValue
   ) {
+    const before = tasks.find((t) => t.id === taskId);
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...next } : t)));
     try {
       await updateTask({ id: taskId, ...next });
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...next } : t)));
     } catch (error) {
+      if (before) setTasks((prev) => prev.map((t) => (t.id === taskId ? before : t)));
       toast({
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível atualizar o prazo."),
         variant: "destructive",
       });
     }
+  }
+
+  /** Espelho de `TaskList.handleDueOpenChange` (feature 081): fechar o popover de prazo solta o
+   * congelamento daquela tarefa, avisa pra qual caixa ela foi e recarrega — é o `load()` que refaz
+   * `frozenDueDatesRef` a partir do servidor e reorganiza a Lista. */
+  function handleDueOpenChange(taskId: string, open: boolean) {
+    if (open) return;
+    const frozen = frozenDueDatesRef.current;
+    const previousDueDate = frozen.has(taskId) ? (frozen.get(taskId) ?? null) : undefined;
+    frozen.delete(taskId);
+    const current = tasks.find((t) => t.id === taskId);
+    if (current && previousDueDate !== undefined) {
+      const todayIso = formatLocalIsoDate(new Date());
+      const from = bucketForDueDate(previousDueDate, todayIso);
+      const to = bucketForDueDate(current.due_date, todayIso);
+      if (from !== to) {
+        toast({ title: `Movida para «${AGENDA_BUCKET_LABELS[to]}»`, duration: 2000 });
+      }
+    }
+    load();
   }
 
   async function handleIconChange(taskId: string, next: TaskIconValue) {
@@ -683,9 +794,12 @@ export default function ProjectDetail() {
     onOpenSeries: (subtask) => setSeriesTask(subtask),
     isTimerRunning: (subtask) => runningEntry?.task_id === subtask.id,
     onToggleTimer: (subtask) => toggleTimer(subtask),
+    onStartNow: (subtask) => startNow(subtask),
+    isStartingNow: (subtask) => startingNowTaskId === subtask.id,
     onIconChange: (subtask, next) => handleIconChange(subtask.id, next),
     onPriorityChange: (subtask, priority) => handlePriorityChange(subtask.id, priority),
     onDueChange: (subtask, next) => handleDueChange(subtask.id, next),
+    onDueOpenChange: (subtask, open) => handleDueOpenChange(subtask.id, open),
   };
 
   if (!loading && !project) {
@@ -736,24 +850,20 @@ export default function ProjectDetail() {
         <span className="text-xs text-muted-foreground">Projetos</span>
       </div>
 
-      {loading ? (
-        <TableLoadingSkeleton rows={4} columns={3} />
-      ) : (
-        <Tabs value={view} onValueChange={(v) => setView(parseProjectTab(v))}>
-          {/*
-            Cinco abas não cabem numa linha de telefone, e o `PageShell` é `overflow-x-hidden` —
-            sem quebra de linha a última aba some da tela. Mesmo `TabsList` das outras páginas com
-            muitas abas (`TripDetail`, `Places`, `Car`, `Timeline`).
-          */}
-          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
-            <TabsTrigger value="kanban">Kanban</TabsTrigger>
-            <TabsTrigger value="lista">Lista</TabsTrigger>
-            <TabsTrigger value="gantt">Gantt</TabsTrigger>
-            <TabsTrigger value="compras">Compras</TabsTrigger>
-            <TabsTrigger value="notas">Notas</TabsTrigger>
-          </TabsList>
+      <Tabs value={view} onValueChange={handleTabChange}>
+        {/* `flex-wrap`: cinco gatilhos não cabem numa linha só em tela estreita (feature 069). */}
+        <TabsList className="flex flex-wrap">
+          <TabsTrigger value="kanban">Kanban</TabsTrigger>
+          <TabsTrigger value="lista">Lista</TabsTrigger>
+          <TabsTrigger value="gantt">Gantt</TabsTrigger>
+          <TabsTrigger value="compras">{tabLabel("Compras", shoppingCount)}</TabsTrigger>
+          <TabsTrigger value="notas">{tabLabel("Notas", notesCount)}</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="kanban" className="mt-4">
+        <TabsContent value="kanban" className="mt-4">
+          {loading ? (
+            <TableLoadingSkeleton rows={4} columns={3} />
+          ) : (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -797,7 +907,6 @@ export default function ProjectDetail() {
                               <KanbanCard
                                 key={task.id}
                                 task={task}
-                                allTasks={tasks}
                                 colIndex={colIndex}
                                 subtasks={subtasks}
                                 allTags={tags}
@@ -810,13 +919,17 @@ export default function ProjectDetail() {
                                 onOpenSubtask={openEdit}
                                 onEdit={() => openEdit(task)}
                                 onDelete={() => handleDelete(task.id)}
-                                onDeleteAll={handleDeleteSeries}
+                                onDeleteScoped={handleDeleteScoped}
                                 onMoveStatus={(direction) => moveStatus(task, direction)}
                                 isTimerRunning={runningEntry?.task_id === task.id}
                                 onToggleTimer={() => toggleTimer(task)}
+                                onStartNow={() => startNow(task)}
+                                isStartingNow={startingNowTaskId === task.id}
                                 onIconChange={(next) => handleIconChange(task.id, next)}
                                 onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
                                 onDueChange={(next) => handleDueChange(task.id, next)}
+                                onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
+                                externalLinksByTask={externalLinksByTask}
                                 subtaskActions={subtaskActions}
                               />
                             );
@@ -835,114 +948,131 @@ export default function ProjectDetail() {
                 ) : null}
               </DragOverlay>
             </DndContext>
-          </TabsContent>
+          )}
+        </TabsContent>
 
-          <TabsContent value="lista" className="mt-4 space-y-5">
-            <Select value={statusView} onValueChange={(v) => setStatusView(v as TaskStatusView)}>
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pendentes</SelectItem>
-                <SelectItem value="done">Concluídas</SelectItem>
-                <SelectItem value="all">Todas</SelectItem>
-              </SelectContent>
-            </Select>
+        <TabsContent value="lista" className="mt-4 space-y-5">
+          {loading ? (
+            <TableLoadingSkeleton rows={4} columns={3} />
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={statusView} onValueChange={(v) => setStatusView(v as TaskStatusView)}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pendentes</SelectItem>
+                    <SelectItem value="done">Concluídas</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
+                  </SelectContent>
+                </Select>
+                <TaskSortToggle value={sortKey} onChange={handleSortKeyChange} />
+              </div>
 
-            {listNothingToShow ? (
-              <EmptyState
-                icon={ListTodo}
-                title="Nenhuma tarefa"
-                description="Crie sua primeira tarefa neste projeto."
-                action={<Button onClick={() => openCreate("todo")}>Nova tarefa</Button>}
-              />
-            ) : (
-              <>
-                {showPending &&
-                  AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
-                    (bucket) => (
-                      <div key={bucket} className="space-y-2">
-                        <h3 className="text-sm font-semibold">
-                          {AGENDA_BUCKET_LABELS[bucket]}{" "}
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({agendaGroups[bucket].length})
-                          </span>
-                        </h3>
-                        <div className="space-y-2">
-                          {agendaGroups[bucket].map((task) => (
-                            <TaskListRow
-                              key={task.id}
-                              task={task}
-                              allTasks={tasks}
-                              subtasks={subtasksByParent.get(task.id) ?? []}
-                              allTags={tags}
-                              expanded={expandedTasks.has(task.id)}
-                              onToggleExpand={() => toggleExpanded(task.id)}
-                              onToggleSubtask={toggleSubtask}
-                              onOpenSubtask={openEdit}
-                              onToggleDone={() => toggleSubtask(task)}
-                              onStatusChange={(status) =>
-                                applyStatusChange(task, status, "Não foi possível atualizar a tarefa.")
-                              }
-                              onOpenSeries={() => setSeriesTask(task)}
-                              onEdit={() => openEdit(task)}
-                              onDelete={() => handleDelete(task.id)}
-                              onDeleteAll={handleDeleteSeries}
-                              isTimerRunning={runningEntry?.task_id === task.id}
-                              onToggleTimer={() => toggleTimer(task)}
-                              onIconChange={(next) => handleIconChange(task.id, next)}
-                              onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
-                              onDueChange={(next) => handleDueChange(task.id, next)}
-                              subtaskActions={subtaskActions}
-                            />
-                          ))}
+              {listNothingToShow ? (
+                <EmptyState
+                  icon={ListTodo}
+                  title="Nenhuma tarefa"
+                  description="Crie sua primeira tarefa neste projeto."
+                  action={<Button onClick={() => openCreate("todo")}>Nova tarefa</Button>}
+                />
+              ) : (
+                <>
+                  {showPending &&
+                    AGENDA_BUCKET_ORDER.filter((bucket) => agendaGroups[bucket].length > 0).map(
+                      (bucket) => (
+                        <div key={bucket} className="space-y-2">
+                          <h3 className="text-sm font-semibold">
+                            {AGENDA_BUCKET_LABELS[bucket]}{" "}
+                            <span className="text-xs font-normal text-muted-foreground">
+                              ({agendaGroups[bucket].length})
+                            </span>
+                          </h3>
+                          <div className="space-y-2">
+                            {agendaGroups[bucket].map((task) => (
+                              <TaskListRow
+                                key={task.id}
+                                task={task}
+                                subtasks={subtasksByParent.get(task.id) ?? []}
+                                allTags={tags}
+                                expanded={expandedTasks.has(task.id)}
+                                onToggleExpand={() => toggleExpanded(task.id)}
+                                onToggleSubtask={toggleSubtask}
+                                onOpenSubtask={openEdit}
+                                onToggleDone={() => toggleSubtask(task)}
+                                onStatusChange={(status) =>
+                                  applyStatusChange(task, status, "Não foi possível atualizar a tarefa.")
+                                }
+                                onOpenSeries={() => setSeriesTask(task)}
+                                onEdit={() => openEdit(task)}
+                                onDelete={() => handleDelete(task.id)}
+                                onDeleteScoped={handleDeleteScoped}
+                                isTimerRunning={runningEntry?.task_id === task.id}
+                                onToggleTimer={() => toggleTimer(task)}
+                                onStartNow={() => startNow(task)}
+                                isStartingNow={startingNowTaskId === task.id}
+                                onIconChange={(next) => handleIconChange(task.id, next)}
+                                onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
+                                onDueChange={(next) => handleDueChange(task.id, next)}
+                                onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
+                                externalLinksByTask={externalLinksByTask}
+                                subtaskActions={subtaskActions}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )
+                      )
+                    )}
+                  {showDone && (
+                    <CompletedTasksSection
+                      key={statusView}
+                      tasks={doneTasks}
+                      allTags={tags}
+                      subtasksByParent={subtasksByParent}
+                      expandedTasks={expandedTasks}
+                      onToggleExpand={toggleExpanded}
+                      onToggleSubtask={toggleSubtask}
+                      onOpenSubtask={openEdit}
+                      onToggleDone={toggleSubtask}
+                      onStatusChange={(task, status) =>
+                        applyStatusChange(task, status, "Não foi possível atualizar a tarefa.")
+                      }
+                      onOpenSeries={(task) => setSeriesTask(task)}
+                      onEdit={openEdit}
+                      onDelete={handleDelete}
+                      onDeleteScoped={handleDeleteScoped}
+                      isTimerRunning={(task) => runningEntry?.task_id === task.id}
+                      defaultOpen={statusView === "done"}
+                      onIconChange={(task, next) => handleIconChange(task.id, next)}
+                      onPriorityChange={(task, priority) => handlePriorityChange(task.id, priority)}
+                      onDueChange={(task, next) => handleDueChange(task.id, next)}
+                      onDueOpenChange={(task, open) => handleDueOpenChange(task.id, open)}
+                      externalLinksByTask={externalLinksByTask}
+                      subtaskActions={subtaskActions}
+                      extraActions={(task) =>
+                        !task.linked_recurring_id ? (
+                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
+                            <Link
+                              to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
+                            >
+                              Lançar transação
+                            </Link>
+                          </Button>
+                        ) : undefined
+                      }
+                    />
                   )}
-                {showDone && (
-                  <CompletedTasksSection
-                    key={statusView}
-                    tasks={doneTasks}
-                    allTasks={tasks}
-                    allTags={tags}
-                    subtasksByParent={subtasksByParent}
-                    expandedTasks={expandedTasks}
-                    onToggleExpand={toggleExpanded}
-                    onToggleSubtask={toggleSubtask}
-                    onOpenSubtask={openEdit}
-                    onToggleDone={toggleSubtask}
-                    onStatusChange={(task, status) =>
-                      applyStatusChange(task, status, "Não foi possível atualizar a tarefa.")
-                    }
-                    onOpenSeries={(task) => setSeriesTask(task)}
-                    onEdit={openEdit}
-                    onDelete={handleDelete}
-                    onDeleteAll={handleDeleteSeries}
-                    isTimerRunning={(task) => runningEntry?.task_id === task.id}
-                    defaultOpen={statusView === "done"}
-                    onIconChange={(task, next) => handleIconChange(task.id, next)}
-                    onPriorityChange={(task, priority) => handlePriorityChange(task.id, priority)}
-                    onDueChange={(task, next) => handleDueChange(task.id, next)}
-                    subtaskActions={subtaskActions}
-                    extraActions={(task) =>
-                      !task.linked_recurring_id ? (
-                        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" asChild>
-                          <Link
-                            to={`/finance/transactions?new=1&nature=despesa&desc=${encodeURIComponent(task.title)}`}
-                          >
-                            Lançar transação
-                          </Link>
-                        </Button>
-                      ) : undefined
-                    }
-                  />
-                )}
-              </>
-            )}
-          </TabsContent>
+                </>
+              )}
+            </>
+          )}
+        </TabsContent>
 
-          <TabsContent value="gantt" className="mt-4">
+        <TabsContent value="gantt" className="mt-4">
+          {loading ? (
+            <TableLoadingSkeleton rows={4} columns={3} />
+          ) : (
             <GanttChart
               tasks={ganttTasks}
               dependencies={dependencies}
@@ -954,17 +1084,25 @@ export default function ProjectDetail() {
               onPriorityChange={handlePriorityChange}
               onDueChange={handleDueChange}
             />
-          </TabsContent>
+          )}
+        </TabsContent>
 
-          <TabsContent value="compras" className="mt-4">
-            {id && <ProjectShoppingSection projectId={id} />}
-          </TabsContent>
+        {/*
+          Compras e notas moraram fora das abas até a feature 069 — a ideia era que elas não são
+          "uma quarta visão de tarefa" e deviam ficar sempre visíveis. Na tela isso empurrava o
+          quadro para cima do dobrão, e o usuário pediu o contrário ("preciso do espaço para
+          poder visualizar as tarefas"): viraram abas. Como o `TabsContent` do Radix só monta o
+          conteúdo da aba aberta, as requisições de compras/notas passaram a ser sob demanda —
+          quem só olha as tarefas não paga por elas.
+        */}
+        <TabsContent value="compras" className="mt-4">
+          {id && <ProjectShoppingSection projectId={id} showHeading={false} />}
+        </TabsContent>
 
-          <TabsContent value="notas" className="mt-4">
-            {id && <ProjectNotesSection projectId={id} />}
-          </TabsContent>
-        </Tabs>
-      )}
+        <TabsContent value="notas" className="mt-4">
+          {id && <ProjectNotesSection projectId={id} showHeading={false} />}
+        </TabsContent>
+      </Tabs>
 
       <SeriesOccurrencesDialog
         seriesTask={seriesTask}
@@ -973,13 +1111,11 @@ export default function ProjectDetail() {
       />
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
+        <DialogContent className={FORM_DIALOG_CONTENT_CLASS_LG}>
           <DialogHeader>
             <DialogTitle>{editing ? "Editar tarefa" : "Nova tarefa"}</DialogTitle>
           </DialogHeader>
           <TaskFormFields
-            formTab={formTab}
-            onFormTabChange={setFormTab}
             form={form}
             setForm={setForm}
             editing={editing}
@@ -1002,6 +1138,32 @@ export default function ProjectDetail() {
                 ? removeExistingSubtask(subtask)
                 : setNewTaskSubtasks((prev) => prev.filter((_, i) => i !== index))
             }
+            onReorderSubtasks={(next) => {
+              if (!editing) {
+                setNewTaskSubtasks(next.map((s) => s.title));
+                return;
+              }
+              const pairs = next
+                .filter((s): s is SubtaskDraft & { id: string } => !!s.id)
+                .map((s, i) => ({ id: s.id, sort_order: i }));
+              const previous = tasks;
+              setTasks((prev) =>
+                prev.map((t) => {
+                  const pair = pairs.find((p) => p.id === t.id);
+                  return pair ? { ...t, sort_order: pair.sort_order } : t;
+                })
+              );
+              void updateTasksSortOrder(pairs).catch((error) => {
+                setTasks(previous);
+                toast({
+                  title: "Erro",
+                  description: getErrorMessage(error, "Não foi possível reordenar as subtarefas."),
+                  variant: "destructive",
+                });
+              });
+            }}
+            externalLinks={externalLinkDrafts}
+            onExternalLinksChange={setExternalLinkDrafts}
           />
           <Button onClick={handleSave} className="w-full">
             {editing ? "Salvar alterações" : "Criar tarefa"}
@@ -1019,9 +1181,8 @@ export default function ProjectDetail() {
           tags={tags}
           onCreateTag={handleCreateTag}
           events={projectEvents}
-          tasks={tasks}
           onSave={handleSaveProject}
-          onSaveEvent={handleSaveProjectEvent}
+          onAddEvent={handleAddProjectEvent}
           onDeleteEvent={handleDeleteProjectEvent}
         />
       )}

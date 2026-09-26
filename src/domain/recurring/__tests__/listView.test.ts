@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   countRecurringByNature,
   filterRecurringByNature,
+  filterRecurringBySearch,
   filterRecurringByYearMonth,
   sortRecurringList,
   sumRecurringActiveInMonth,
@@ -40,6 +41,96 @@ function makeRecurring(overrides: Partial<Recurring> = {}): Recurring {
     ...overrides,
   };
 }
+
+describe("filterRecurringBySearch", () => {
+  it("sem busca devolve a lista inteira", () => {
+    const list = [makeRecurring({ id: "a" }), makeRecurring({ id: "b" })];
+    expect(filterRecurringBySearch(list, "  ").map((r) => r.id)).toEqual([
+      "a",
+      "b",
+    ]);
+  });
+
+  it("filtra por descrição", () => {
+    const luz = makeRecurring({ id: "luz", description: "Conta de luz" });
+    const net = makeRecurring({ id: "net", description: "Internet" });
+    expect(
+      filterRecurringBySearch([luz, net], "LUZ").map((r) => r.id)
+    ).toEqual(["luz"]);
+  });
+
+  it("filtra por categoria", () => {
+    const moradia = makeRecurring({
+      id: "m",
+      description: "Parcela",
+      class: {
+        id: 1,
+        name: "Aluguel",
+        type: {
+          id: 1,
+          name: "Moradia",
+          hex_color: "#fff",
+          lucide_icon: "home",
+          nature: { id: 2, name: "Despesa" },
+        },
+      },
+    });
+    const comida = makeRecurring({
+      id: "c",
+      description: "Mercado",
+      class: {
+        id: 2,
+        name: "Supermercado",
+        type: {
+          id: 2,
+          name: "Alimentação",
+          hex_color: "#fff",
+          lucide_icon: "utensils",
+          nature: { id: 2, name: "Despesa" },
+        },
+      },
+    });
+    expect(
+      filterRecurringBySearch([moradia, comida], "mora").map((r) => r.id)
+    ).toEqual(["m"]);
+  });
+
+  it("filtra por subcategoria", () => {
+    const aluguel = makeRecurring({
+      id: "a",
+      description: "Apt",
+      class: {
+        id: 1,
+        name: "Aluguel",
+        type: {
+          id: 1,
+          name: "Moradia",
+          hex_color: "#fff",
+          lucide_icon: "home",
+          nature: { id: 2, name: "Despesa" },
+        },
+      },
+    });
+    const luz = makeRecurring({
+      id: "l",
+      description: "CEMIG",
+      class: {
+        id: 2,
+        name: "Energia",
+        type: {
+          id: 1,
+          name: "Moradia",
+          hex_color: "#fff",
+          lucide_icon: "home",
+          nature: { id: 2, name: "Despesa" },
+        },
+      },
+    });
+    expect(
+      filterRecurringBySearch([aluguel, luz], "alug").map((r) => r.id)
+    ).toEqual(["a"]);
+  });
+});
 
 describe("filterRecurringByNature", () => {
   it("separa a receber e a pagar", () => {

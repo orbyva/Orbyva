@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { LandingBeams } from "@/components/landing/LandingBeams";
 
 /**
- * Atmosfera leve: beams + glow CSS.
+ * Atmosfera leve: beams + glow CSS + grain fixo.
  * (Canvas stardust + gradient Framer no documento inteiro travavam a landing.)
  */
 export function LandingAtmosphere({ className }: { className?: string }) {
@@ -30,6 +30,7 @@ export function LandingAtmosphere({ className }: { className?: string }) {
           allowMotion ? "landing-atmosphere-glow--live" : ""
         }`}
       />
+      <div className="landing-grain" />
     </div>
   );
 }

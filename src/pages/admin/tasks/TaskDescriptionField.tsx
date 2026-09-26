@@ -1,12 +1,25 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { EditorView } from "@codemirror/view";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MarkdownPreview } from "@/components/MarkdownPreview";
-import { MarkdownTextarea } from "@/components/MarkdownTextarea";
+import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
+import { wikiLinkAutocomplete } from "@/components/codemirror/wikiLinkCompletion";
+import { wikiLinkNavigation } from "@/components/codemirror/wikiLinkNavigation";
+import {
+  openInsertMenu,
+  slashMenuAutocomplete,
+} from "@/components/codemirror/slashMenu";
+import { NoteEditorToolbar } from "@/pages/admin/notes/NoteEditorToolbar";
+import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
+import { createNote, fetchNotes } from "@/api/notes/notes";
+import { indexNotesByTitle, normalizeWikiTitle } from "@/domain/notes/wikiLinks";
+import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
+import type { Note } from "@/types/notes";
 
 /**
- * Campo de descrição com abas Escrever/Visualizar — Markdown + GFM (listas, tabela, riscado,
- * checklist). O textarea (com o handler de `Tab`) e o preview são os componentes compartilhados
- * `MarkdownTextarea`/`MarkdownPreview`, os mesmos que o editor de notas usa (feature 055).
+ * Descrição da tarefa (e da subtarefa — o form é o mesmo) com o editor de Markdown das notas:
+ * barra de formatação, menu `/` e wiki-links `[[Título]]` resolvidos contra as notas do usuário.
  */
 export function TaskDescriptionField({
   value,
@@ -16,6 +29,72 @@ export function TaskDescriptionField({
   onChange: (value: string) => void;
 }) {
   const [tab, setTab] = useState<"write" | "preview">("write");
+  const [notes, setNotes] = useState<Note[]>([]);
+  const viewRef = useRef<EditorView | null>(null);
+  const notesRef = useRef<Note[]>([]);
+  notesRef.current = notes;
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const openWikiLink = useRef<(title: string, href: string | null) => void>(() => {});
+
+  useEffect(() => {
+    let alive = true;
+    fetchNotes()
+      .then((list) => {
+        if (alive) setNotes(list);
+      })
+      .catch(() => {
+        if (alive) setNotes([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const handleCreateLinkedNote = useCallback(
+    async (title: string): Promise<Note | null> => {
+      try {
+        const created = await createNote({ title, content: "", project_id: null });
+        setNotes((prev) => [created, ...prev]);
+        return created;
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: getErrorMessage(error, "Não foi possível criar a nota."),
+        });
+        return null;
+      }
+    },
+    [toast]
+  );
+
+  openWikiLink.current = (title, href) => {
+    if (href) {
+      navigate(href);
+      return;
+    }
+    void handleCreateLinkedNote(title).then((created) => {
+      if (created) navigate(`/notes/${created.id}`);
+    });
+  };
+
+  const editorExtensions = useMemo(
+    () => [
+      wikiLinkAutocomplete(() => notesRef.current.map((note) => note.title)),
+      slashMenuAutocomplete(),
+      wikiLinkNavigation({
+        resolveHref: (title) => {
+          const id = indexNotesByTitle(notesRef.current).get(normalizeWikiTitle(title));
+          return id ? `/notes/${id}` : null;
+        },
+        onOpen: (title, href) => openWikiLink.current(title, href),
+      }),
+    ],
+    []
+  );
+
   return (
     <Tabs value={tab} onValueChange={(v) => setTab(v === "preview" ? "preview" : "write")}>
       <TabsList className="h-8">
@@ -26,16 +105,37 @@ export function TaskDescriptionField({
           Visualizar
         </TabsTrigger>
       </TabsList>
-      <TabsContent value="write" className="mt-1.5">
-        <MarkdownTextarea
+      <TabsContent value="write" className="mt-1.5 space-y-1.5">
+        <NoteEditorToolbar
+          getView={() => viewRef.current}
+          onInsert={() => {
+            const view = viewRef.current;
+            if (view) openInsertMenu(view);
+          }}
+        />
+        <MarkdownCodeEditor
+          label="Descrição"
           value={value}
           onChange={onChange}
-          placeholder="Descrição em Markdown — listas, **negrito**, tabelas, checklist…"
+          onViewReady={(view) => {
+            viewRef.current = view;
+          }}
+          className="min-h-[10rem] [&_.cm-editor]:min-h-[10rem]"
+          placeholder="Markdown — digite / para inserir, [[ para vincular uma nota…"
+          extensions={editorExtensions}
         />
       </TabsContent>
       <TabsContent value="preview" className="mt-1.5 rounded-md border px-3 py-2">
         {value.trim() ? (
-          <MarkdownPreview content={value} />
+          <NoteMarkdownPreview
+            content={value}
+            notes={notes}
+            onCreateNote={(title) => {
+              void handleCreateLinkedNote(title).then((created) => {
+                if (created) navigate(`/notes/${created.id}`);
+              });
+            }}
+          />
         ) : (
           <p className="text-xs text-muted-foreground">Nada para visualizar ainda.</p>
         )}

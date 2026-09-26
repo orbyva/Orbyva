@@ -1,25 +1,30 @@
-import { createElement, useMemo } from "react";
-import type { JSX, ReactNode } from "react";
+import { useMemo } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import type { Element } from "hast";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import { findBlockRenderer } from "@/components/markdown/blockRegistry";
-import { CodeBlock } from "@/components/markdown/CodeBlock";
-import { InlineMath } from "@/components/markdown/MathBlock";
-import { parseBlockLanguage } from "@/domain/notes/blockLanguage";
-import { MARKDOWN_REHYPE_PLUGINS } from "@/components/markdown/rehypePlugins";
+import { CalloutBlock } from "@/components/markdown/CalloutBlock";
+import {
+  CALLOUT_TITLE_ATTR,
+  CALLOUT_TYPE_ATTR,
+  parseCalloutType,
+} from "@/components/markdown/remarkCallout";
 import { MARKDOWN_REMARK_PLUGINS } from "@/components/markdown/remarkPlugins";
-import { TASK_INDEX_ATTR } from "@/components/markdown/rehypeTaskIndex";
+import { MARKDOWN_REHYPE_PLUGINS } from "@/components/markdown/rehypePlugins";
+import {
+  MARKDOWN_PREVIEW_CLASS as PREVIEW_CLASS,
+  MARKDOWN_TABLE_WRAPPER_CLASS,
+} from "@/components/markdown/previewTypography";
+import { TASK_INDEX_ATTR } from "@/components/markdown/rehypeTaskListIndex";
 import { cn } from "@/lib/utils";
 
 /**
- * Tipografia do Markdown renderizado — compartilhada por descrição de tarefa e nota.
- *
- * A folha em si mora em `src/index.css` (`@layer components`, procure por `.markdown-body`): a 069
- * tirou daqui a string de variantes arbitrárias porque o número de seletores estilizados mais que
- * dobrou. O nome da constante não mudou — quem importa continua importando isto.
+ * Reexport: a tipografia mudou de arquivo na 067 (`markdown/previewTypography.ts`), o nome não.
+ * Vários consumidores importam `MARKDOWN_PREVIEW_CLASS` daqui — e continuam podendo.
  */
-export const MARKDOWN_PREVIEW_CLASS = "markdown-body";
+/* eslint-disable-next-line react-refresh/only-export-components -- reexport de contrato: consumidores importam esta constante daqui desde a 055, e mudá-la de arquivo (067) não pode obrigá-los a trocar de import. */
+export { MARKDOWN_PREVIEW_CLASS } from "@/components/markdown/previewTypography";
 
 /**
  * Markdown + GFM (listas, tabela, riscado, checklist) renderizado.
@@ -35,10 +40,19 @@ export function MarkdownPreview({
   className,
   components,
   urlTransform,
-  onToggleTask,
+  onToggleTaskItem,
 }: {
   content: string;
   className?: string;
+  /**
+   * Torna a checklist do GFM clicável (feature 067). Recebe o índice do checkbox — o mesmo que
+   * `toggleTaskListItem(content, index)` espera — e é responsabilidade de quem passa reescrever o
+   * Markdown e gravar.
+   *
+   * **Sem o handler, o checkbox continua `disabled`**, que é como a descrição de tarefa se
+   * comporta: lá o Markdown é do campo de descrição, não um documento que o preview possa editar.
+   */
+  onToggleTaskItem?: (index: number) => void;
   /**
    * Renderizadores por elemento, repassados ao `react-markdown` — é por aqui que o módulo de Notas
    * troca o `<a>` por wiki-link/chip de criar nota (feature 056), sem que este componente precise
@@ -51,12 +65,6 @@ export function MarkdownPreview({
    * exceção para esquemas próprios conhecidos — ver `NoteMarkdownPreview`.
    */
   urlTransform?: (url: string) => string;
-  /**
-   * Torna o checkbox de `- [ ]` **clicável** (feature 070), recebendo o índice da caixa na ordem do
-   * documento. Sem este callback o checkbox continua `disabled`, como o `react-markdown` o entrega:
-   * marcar tarefa é edição, e a maioria dos previews do app é só leitura.
-   */
-  onToggleTask?: (index: number) => void;
 }) {
   /**
    * Os renderers do registry entram **antes** dos do consumidor: quem passa `components` continua
@@ -65,19 +73,20 @@ export function MarkdownPreview({
   const merged = useMemo<Components>(
     () => ({
       ...BLOCK_REGISTRY_COMPONENTS,
-      ...TYPOGRAPHY_COMPONENTS,
-      ...(onToggleTask ? taskCheckboxComponents(onToggleTask) : null),
+      ...HEADING_COMPONENTS,
+      ...CALLOUT_COMPONENTS,
+      ...TABLE_COMPONENTS,
+      ...taskListComponents(onToggleTaskItem),
       ...components,
     }),
-    [components, onToggleTask]
+    [components, onToggleTaskItem]
   );
 
   return (
-    <div className={cn(MARKDOWN_PREVIEW_CLASS, className)}>
+    <div className={cn(PREVIEW_CLASS, className)}>
       <ReactMarkdown
         remarkPlugins={MARKDOWN_REMARK_PLUGINS}
         rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
-        remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
         components={merged}
         urlTransform={urlTransform}
       >
@@ -88,14 +97,116 @@ export function MarkdownPreview({
 }
 
 /**
- * Rótulos das footnotes do GFM. Sem isto o `mdast-util-gfm-footnote` escreve "Footnotes" e
- * "Back to reference 1" — texto em inglês, invisível na tela mas lido em voz alta por leitor de
- * tela num app inteiro em português (feature 069).
+ * Tabela larga rola dentro do próprio container, em vez de esticar a página (feature 067).
  */
-const REMARK_REHYPE_OPTIONS = {
-  footnoteLabel: "Notas de rodapé",
-  footnoteBackLabel: (referenceIndex: number) =>
-    `Voltar à referência ${referenceIndex + 1}`,
+const TABLE_COMPONENTS: Components = {
+  table(props) {
+    const { children, ...rest } = withoutNode(props);
+    return (
+      <div className={MARKDOWN_TABLE_WRAPPER_CLASS}>
+        <table {...rest}>{children}</table>
+      </div>
+    );
+  },
+};
+
+/**
+ * Checklist clicável (feature 067). Sem `onToggleTaskItem`, devolve exatamente o `<input>` que o
+ * `remark-gfm` já produzia — desabilitado —, então nenhum consumidor antigo muda de comportamento.
+ *
+ * O índice vem do `rehypeTaskListIndex` (atributo no HTML), não de um contador de render.
+ */
+function taskListComponents(
+  onToggleTaskItem?: (index: number) => void
+): Components {
+  return {
+    input(props) {
+      const rest = withoutNode(props);
+      const index = Number((rest as Record<string, unknown>)[TASK_INDEX_ATTR]);
+
+      if (
+        !onToggleTaskItem ||
+        rest.type !== "checkbox" ||
+        !Number.isInteger(index)
+      ) {
+        return <input {...rest} />;
+      }
+
+      return (
+        <input
+          {...rest}
+          disabled={false}
+          // Controlado: o estado real é o Markdown, e ele só muda quando a gravação acontece.
+          onChange={() => onToggleTaskItem(index)}
+          className={cn("cursor-pointer", rest.className)}
+        />
+      );
+    },
+  };
+}
+
+/**
+ * `> [!NOTE]` marcado pelo `remarkCallout` vira caixa; blockquote comum continua blockquote
+ * (feature 067). A decisão de "é callout?" já foi tomada no parser — aqui só se lê o atributo.
+ */
+const CALLOUT_COMPONENTS: Components = {
+  blockquote(props) {
+    const record = props as unknown as Record<string, unknown>;
+    const type = parseCalloutType(record[CALLOUT_TYPE_ATTR]);
+    if (!type) {
+      const { children, ...rest } = withoutNode(props);
+      return <blockquote {...rest}>{children}</blockquote>;
+    }
+    const title = record[CALLOUT_TITLE_ATTR];
+    return (
+      <CalloutBlock type={type} title={typeof title === "string" ? title : undefined}>
+        {props.children}
+      </CalloutBlock>
+    );
+  },
+};
+
+/** Rótulo da âncora de título — o mesmo texto usado pelo teste, por isso vive numa constante. */
+export const HEADING_ANCHOR_LABEL = "Link para esta seção";
+
+/**
+ * Título com âncora de link (feature 067). O `id` vem do `rehype-slug`
+ * (`MARKDOWN_REHYPE_PLUGINS`); aqui só se acrescenta o `#` que aponta para ele.
+ *
+ * A âncora fica invisível até o hover/foco (`opacity-0` + `group-hover`), e não `hidden`: elemento
+ * escondido de verdade sairia da árvore de acessibilidade e do alcance do teclado. `!no-underline`
+ * é necessário porque a tipografia do preview sublinha todo `<a>` — este é o único link que não é
+ * do usuário.
+ */
+function headingRenderer(Tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
+  return function Heading(
+    props: ComponentPropsWithoutRef<typeof Tag> & { node?: Element }
+  ) {
+    const { children, className, ...rest } = withoutNode(props);
+    return (
+      <Tag {...rest} className={cn("group scroll-mt-20", className)}>
+        {children}
+        {rest.id ? (
+          <a
+            href={`#${rest.id}`}
+            aria-label={HEADING_ANCHOR_LABEL}
+            className="ml-1.5 align-middle text-muted-foreground opacity-0 transition-opacity !no-underline group-hover:opacity-100 focus-visible:opacity-100"
+          >
+            #
+          </a>
+        ) : null}
+      </Tag>
+    );
+  };
+}
+
+const HEADING_COMPONENTS: Components = {
+  h1: headingRenderer("h1"),
+  h2: headingRenderer("h2"),
+  h3: headingRenderer("h3"),
+  h4: headingRenderer("h4"),
+  h5: headingRenderer("h5"),
+  h6: headingRenderer("h6"),
 };
 
 /**
@@ -104,167 +215,29 @@ const REMARK_REHYPE_OPTIONS = {
  */
 const BLOCK_REGISTRY_COMPONENTS: Components = {
   code(props) {
-    /**
-     * `$…$` chega como código **inline** com a classe `math-inline` (feature 069). Ele precisa ser
-     * desviado antes do registry: lá dentro a linguagem também é `math`, e o bloco de display
-     * quebraria a linha no meio da frase.
-     */
-    if (isInlineMath(props.className)) {
-      return <InlineMath code={blockCode(props.children)} />;
-    }
     const Renderer = findBlockRenderer(props.className);
     if (!Renderer) {
       const { children, ...rest } = withoutNode(props);
       return <code {...rest}>{children}</code>;
     }
-    return <Renderer code={blockCode(props.children)} />;
+    // `className` vai junto: é por ela que o `MathBlock` sabe se a fórmula é inline ou de bloco.
+    return (
+      <Renderer
+        code={blockCode(props.children)}
+        className={props.className ?? undefined}
+      />
+    );
   },
   /**
    * O renderer traz o container dele — deixá-lo dentro do `<pre>` herdaria `white-space: pre` e
-   * fonte monoespaçada, que amassam um SVG. Fence comum (com ou sem linguagem) é desenhado pelo
-   * `CodeBlock`, que continua entregando um `<pre><code>` por dentro — a diferença é o cabeçalho,
-   * o botão de copiar e a cor (feature 069).
-   *
-   * O bloco é decidido **aqui**, e não no override de `code`, porque só o `<pre>` distingue fence
-   * de código inline: os dois chegam como `<code>`, e um fence sem linguagem não tem nem
-   * `className` para diferenciar.
+   * fonte monoespaçada, que amassam um SVG. Bloco sem renderer continua no `<pre>` de sempre.
    */
   pre(props) {
     if (hasRegisteredBlock(props.node)) return <>{props.children}</>;
-    const fence = readFence(props.node);
-    if (fence) {
-      return <CodeBlock code={fence.code} language={fence.language} />;
-    }
     const { children, ...rest } = withoutNode(props);
     return <pre {...rest}>{children}</pre>;
   },
 };
-
-/**
- * Overrides de tipografia que **não** cabem em CSS (feature 069): mudam a árvore, não a aparência.
- * O resto da folha mora em `.markdown-body`, em `src/index.css`.
- */
-const TYPOGRAPHY_COMPONENTS: Components = {
-  h1: headingComponent("h1"),
-  h2: headingComponent("h2"),
-  h3: headingComponent("h3"),
-  h4: headingComponent("h4"),
-  h5: headingComponent("h5"),
-  h6: headingComponent("h6"),
-  /**
-   * Tabela larga rola dentro de si, nunca na página. Sem este embrulho, uma tabela de nota com
-   * muitas colunas empurra o layout inteiro e cria scroll horizontal no `body` — que, além de feio,
-   * quebra a leitura no celular. É CSS demais para o `<table>` sozinho: `overflow-x` não funciona
-   * em elemento de tabela, precisa de um bloco em volta.
-   */
-  table(props) {
-    const { children, ...rest } = withoutNode(props);
-    return (
-      <div className="markdown-table-scroll">
-        <table {...rest}>{children}</table>
-      </div>
-    );
-  },
-};
-
-/**
- * Título com âncora `#` ao lado (feature 069). O `id` já vem no nó, posto por `rehypeHeadingIds`
- * (que é quem enxerga a nota inteira e desempata títulos repetidos); aqui só se desenha o link
- * para ele.
- *
- * A âncora é escrita **em JSX**, e não posta na árvore pelo plugin, porque um `<a>` vindo da
- * árvore passaria pelo override de `a` de quem consome o preview — no módulo de Notas, o do
- * wiki-link (056), que manda link externo abrir em outra aba. Âncora de seção tem que rolar a
- * página, não abrir aba.
- *
- * Título da seção de rodapé (`id="footnote-label"`, invisível) não ganha `#`: ele não é um lugar
- * para onde alguém queira mandar link.
- */
-function headingComponent(tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
-  return function Heading(props: JSX.IntrinsicElements[typeof tag] & { node?: Element }) {
-    const { children, ...rest } = withoutNode(props);
-    const id = typeof rest.id === "string" ? rest.id : undefined;
-    const anchored = id && id !== FOOTNOTE_LABEL_ID;
-
-    return createElement(
-      tag,
-      rest,
-      children,
-      anchored ? (
-        <a
-          key="anchor"
-          className="markdown-heading-anchor"
-          href={`#${id}`}
-          /**
-           * Fora da árvore de acessibilidade, como o GitHub faz. O nome acessível de um título
-           * inclui o texto dos descendentes: sem isto, todo `<h2>Seção</h2>` passaria a se chamar
-           * "Seção Link para esta seção" para um leitor de tela — e para os testes que procuram o
-           * título pelo nome. `tabIndex={-1}` acompanha, porque elemento focável escondido do leitor
-           * de tela é armadilha de acessibilidade, não recurso.
-           */
-          aria-hidden="true"
-          tabIndex={-1}
-        >
-          #
-        </a>
-      ) : null
-    );
-  };
-}
-
-/**
- * Checkbox de tarefa clicável. O índice vem do `rehypeTaskIndex`, que numerou as caixas na mesma
- * ordem em que `toggleTaskListItem` as conta no texto.
- *
- * O `<input>` continua **controlado pelo markdown**: `checked` vem do documento e o clique só
- * avisa quem edita o texto. Se a escrita de volta falhar, a caixa volta sozinha para o que está
- * escrito, em vez de mentir na tela.
- *
- * Sem `readOnly` de propósito, mesmo a caixa não sendo editável pelo DOM: o `@testing-library/
- * user-event` se recusa a clicar em campo `readOnly` (e um clique que o teste não consegue dar é um
- * clique que ninguém garante). O `onChange` já basta para o React não reclamar de campo controlado.
- */
-function taskCheckboxComponents(onToggleTask: (index: number) => void): Components {
-  return {
-    input(props) {
-      const { node, ...rest } = props;
-      const index = readTaskIndex(node);
-      if (rest.type !== "checkbox" || index === null) {
-        return <input {...rest} />;
-      }
-      return (
-        <input
-          {...rest}
-          disabled={false}
-          aria-label={`Tarefa ${index + 1}`}
-          className="cursor-pointer"
-          onChange={() => onToggleTask(index)}
-        />
-      );
-    },
-  };
-}
-
-function readTaskIndex(node: Element | undefined): number | null {
-  const value = node?.properties?.[TASK_INDEX_ATTR];
-  if (typeof value === "number") return value;
-  if (typeof value === "string" && value !== "") return Number(value);
-  return null;
-}
-
-/** O `remark-gfm` põe este `id` no rótulo invisível da seção de notas de rodapé. */
-const FOOTNOTE_LABEL_ID = "footnote-label";
-
-/**
- * A classe que o `remark-math` põe no `$…$`. É dele, não nossa — por isso a constante mora ao lado
- * de quem a lê, com o nome do plugin no comentário.
- */
-const MATH_INLINE_CLASS = "math-inline";
-
-function isInlineMath(className?: string): boolean {
-  if (!className) return false;
-  return className.split(/\s+/).includes(MATH_INLINE_CLASS);
-}
 
 /** `node` é o nó do hast, não um atributo de DOM — repassá-lo ao elemento vira warning do React. */
 function withoutNode<T extends { node?: Element }>(props: T): Omit<T, "node"> {
@@ -282,46 +255,13 @@ function blockCode(children: ReactNode): string {
 
 /** O `<pre>` embrulha um `<code>` de linguagem registrada? A pergunta é feita no hast, não no DOM. */
 function hasRegisteredBlock(node: Element | undefined): boolean {
-  const code = fenceCode(node);
-  if (!code) return false;
-  return findBlockRenderer(classNameOf(code)) !== null;
-}
-
-/**
- * O conteúdo cru do fence, lido do hast: texto e linguagem (`null` quando o fence não declarou
- * nenhuma). `null` inteiro quando o `<pre>` não embrulha um `<code>` — o que não acontece vindo do
- * Markdown, mas é a saída honesta se um dia acontecer.
- */
-function readFence(
-  node: Element | undefined
-): { code: string; language: string | null } | null {
-  const code = fenceCode(node);
-  if (!code) return null;
-  return {
-    code: hastText(code).replace(/\n$/, ""),
-    language: parseBlockLanguage(classNameOf(code)),
-  };
-}
-
-function fenceCode(node: Element | undefined): Element | null {
   const child = node?.children?.[0];
-  if (!child || child.type !== "element" || child.tagName !== "code") return null;
-  return child;
-}
-
-function classNameOf(node: Element): string | null {
-  const className = node.properties?.className;
-  if (Array.isArray(className)) return className.join(" ");
-  if (typeof className === "string") return className;
-  return null;
-}
-
-/** Todo o texto do nó, na ordem — dentro de um fence isso é o código inteiro. */
-function hastText(node: Element): string {
-  let text = "";
-  for (const child of node.children) {
-    if (child.type === "text") text += child.value;
-    else if (child.type === "element") text += hastText(child);
-  }
-  return text;
+  if (!child || child.type !== "element" || child.tagName !== "code") return false;
+  const className = child.properties?.className;
+  const asString = Array.isArray(className)
+    ? className.join(" ")
+    : typeof className === "string"
+      ? className
+      : null;
+  return findBlockRenderer(asString) !== null;
 }

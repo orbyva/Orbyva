@@ -18,8 +18,13 @@ export function filterNotes(notes: Note[], query: string): Note[] {
   );
 }
 
-/** Minúscula e sem acento — "Reuniao" tem que achar "Reunião". */
-function foldForSearch(text: string): string {
+/**
+ * Minúscula e sem acento — "Reuniao" tem que achar "Reunião".
+ *
+ * Exportada desde a 068: o menu de inserção (`/`) filtra os itens com a mesma regra, e duas
+ * funções de dobra diferentes no mesmo módulo seriam duas buscas que discordam.
+ */
+export function foldForSearch(text: string): string {
   return text
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")

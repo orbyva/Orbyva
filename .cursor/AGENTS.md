@@ -220,7 +220,7 @@ Avaliar:
 * Priorização (dor real vs. nice-to-have);
 * Simplicidade; aderência aos módulos existentes;
 * Evitar funcionalidades desnecessárias;
-* Alinhamento com billing (trial 7 dias → Pro) e growth (waitlist, e-mails).
+* Alinhamento com billing (trial 7 dias → Pro) e e-mails de produto.
 
 ---
 
@@ -239,7 +239,7 @@ Avaliar:
 
 Avaliar:
 
-* Facilidade de uso; hierarquia; navegação (sidebar em quatro blocos);
+* Facilidade de uso; hierarquia; navegação (sidebar em cinco blocos);
 * Feedbacks, mensagens de erro, estados vazios e de carregamento;
 * Densidade mobile (especialmente roteiro de viagem);
 * Redução de fricção (⌘K, alertas, PWA).

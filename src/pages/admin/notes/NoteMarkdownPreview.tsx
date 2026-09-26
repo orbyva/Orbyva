@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { FilePlus2 } from "lucide-react";
 import { defaultUrlTransform } from "react-markdown";
 import type { Components } from "react-markdown";
@@ -29,7 +29,7 @@ export function NoteMarkdownPreview({
   content,
   notes,
   onCreateNote,
-  onToggleTask,
+  onToggleTaskItem,
   className,
 }: {
   content: string;
@@ -38,12 +38,13 @@ export function NoteMarkdownPreview({
   /** Chamado pelo chip de link quebrado, com o título que falta. */
   onCreateNote?: (title: string) => void;
   /**
-   * Repassado ao `MarkdownPreview`: com ele, o checkbox de `- [ ]` fica clicável (feature 070).
-   * Só o editor da nota passa — em preview de leitura a caixa continua desabilitada.
+   * Torna a checklist clicável (feature 067). É repassado direto ao `MarkdownPreview`: só a nota
+   * passa esse handler, porque só ela tem um Markdown que o preview pode reescrever.
    */
-  onToggleTask?: (index: number) => void;
+  onToggleTaskItem?: (index: number) => void;
   className?: string;
 }) {
+  const navigate = useNavigate();
   const resolved = useMemo(() => {
     const index = indexNotesByTitle(notes);
     return replaceWikiLinks(content, (title) => {
@@ -54,23 +55,18 @@ export function NoteMarkdownPreview({
 
   const components = useMemo<Components>(
     () => ({
-      /**
-       * Este override vê **todos** os links do markdown, não só os wiki-links — inclusive os que a
-       * própria nota gera: marcador de footnote, `↩` de volta e âncora de seção (feature 069). Por
-       * isso ele repassa o resto das props (`node` fora, que é do hast): sem isso o
-       * `data-footnote-ref` e a classe `data-footnote-backref` se perdem, e com eles o estilo e a
-       * navegação da footnote dentro de uma nota.
-       */
-      a({ href, children, ...rest }) {
-        // `node` é o nó do hast, não atributo de DOM — repassá-lo vira warning do React.
-        delete rest.node;
+      a({ href, children }) {
         const missingTitle = href ? parseMissingWikiLinkHref(href) : null;
 
         if (missingTitle !== null) {
           return (
             <button
               type="button"
-              onClick={() => onCreateNote?.(missingTitle)}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onCreateNote?.(missingTitle);
+              }}
               disabled={!onCreateNote}
               aria-label={`Criar nota ${missingTitle}`}
               className="inline-flex items-center gap-1 rounded border border-dashed border-muted-foreground/50 px-1.5 py-0.5 align-baseline text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:pointer-events-none disabled:opacity-70"
@@ -81,35 +77,35 @@ export function NoteMarkdownPreview({
           );
         }
 
-        // Rota interna (o wiki-link resolvido, `/notes/<id>`) navega sem recarregar o app.
+        // Rota interna (wiki-link resolvido). `navigate` em vez de `<Link>`: o preview da
+        // descrição da tarefa vive dentro de um Dialog do Radix, e o clique no `<Link>` era
+        // engolido pelo trap de foco — a URL não mudava. Cmd/Ctrl+clique segue o href nativo.
         if (href?.startsWith("/")) {
           return (
-            <Link to={href} {...rest}>
-              {children}
-            </Link>
-          );
-        }
-
-        /**
-         * Fragmento: é navegação **dentro da própria nota** (footnote, âncora de seção). Sem este
-         * ramo ele cairia no de link externo e abriria outra aba para rolar a mesma página.
-         */
-        if (href?.startsWith("#")) {
-          return (
-            <a href={href} {...rest}>
+            <a
+              href={href}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                if (event.button !== 0) return;
+                event.preventDefault();
+                event.stopPropagation();
+                navigate(href);
+              }}
+            >
               {children}
             </a>
           );
         }
 
         return (
-          <a href={href} target="_blank" rel="noreferrer noopener" {...rest}>
+          <a href={href} target="_blank" rel="noreferrer noopener">
             {children}
           </a>
         );
       },
     }),
-    [onCreateNote]
+    [onCreateNote, navigate]
   );
 
   return (
@@ -117,7 +113,7 @@ export function NoteMarkdownPreview({
       content={resolved}
       className={className}
       components={components}
-      onToggleTask={onToggleTask}
+      onToggleTaskItem={onToggleTaskItem}
       urlTransform={(url) =>
         url.startsWith(WIKI_LINK_MISSING_SCHEME) ? url : defaultUrlTransform(url)
       }

@@ -83,103 +83,77 @@ describe("MarkdownCodeEditor", () => {
     expect(doc()).toBe("**negrito**\nsegunda linha");
   });
 
-  /**
-   * Atalhos de formatação (feature 070). O teste digita a tecla de verdade no `contenteditable` e
-   * confere o **documento resultante** — é o que prova que o keymap está ligado no editor, e não só
-   * que a função pura por trás dele funciona (isso é `markdownCommands.test.ts`).
-   */
-  describe("atalhos de formatação", () => {
-    async function selectAll(user: ReturnType<typeof userEvent.setup>, field: HTMLElement) {
+  it("Ctrl+B envolve a seleção em negrito e Ctrl+B de novo desfaz", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial="urgente" />);
+
+    const field = screen.getByRole("textbox", { name: "Conteúdo" });
+    await user.click(field);
+    await user.keyboard("{Control>}a{/Control}");
+    await user.keyboard("{Control>}b{/Control}");
+    expect(doc()).toBe("**urgente**");
+
+    await user.keyboard("{Control>}b{/Control}");
+    expect(doc()).toBe("urgente");
+  });
+
+  it("Ctrl+Shift+2 vira título de nível 2 e troca de nível em vez de acumular `#`", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial="Pauta" />);
+
+    const field = screen.getByRole("textbox", { name: "Conteúdo" });
+    await user.click(field);
+    await user.keyboard("{Control>}{Shift>}2{/Shift}{/Control}");
+    expect(doc()).toBe("## Pauta");
+
+    await user.keyboard("{Control>}{Shift>}1{/Shift}{/Control}");
+    expect(doc()).toBe("# Pauta");
+  });
+
+  it("Ctrl+K insere o esqueleto de link e não vaza para o atalho global do app", async () => {
+    const user = userEvent.setup();
+    // O mesmo predicado do `GlobalSearch`: só o Ctrl/⌘+K interessa (as teclas modificadoras
+    // sozinhas continuam subindo, e não fazem nada lá).
+    const globalShortcut = vi.fn();
+    const listener = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") globalShortcut();
+    };
+    window.addEventListener("keydown", listener);
+
+    try {
+      render(<Harness initial="veja " />);
+      const field = screen.getByRole("textbox", { name: "Conteúdo" });
       await user.click(field);
-      await user.keyboard("{Control>}a{/Control}");
+      await user.keyboard("{Control>}{End}{/Control}");
+      await user.keyboard("{Control>}k{/Control}");
+
+      expect(doc()).toBe("veja []()");
+      // A busca global (`GlobalSearch`) escuta Ctrl+K no `window`: o `stopPropagation` da
+      // KeyBinding é o que impede o popup de abrir por cima do editor.
+      expect(globalShortcut).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("keydown", listener);
     }
+  });
 
-    it("Ctrl+B envolve a seleção com `**` e Ctrl+B de novo remove", async () => {
-      const user = userEvent.setup();
-      render(<Harness initial="negrito" />);
-      const field = screen.getByRole("textbox", { name: "Conteúdo" });
+  it("Ctrl+F abre a busca dentro da nota (religada na 068)", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <Harness initial={"linha um\nlinha dois\nprazo do cartório"} />
+    );
 
-      await selectAll(user, field);
-      await user.keyboard("{Control>}b{/Control}");
-      expect(doc()).toBe("**negrito**");
+    const field = screen.getByRole("textbox", { name: "Conteúdo" });
+    await user.click(field);
+    expect(container.querySelector(".cm-search")).toBeNull();
 
-      await user.keyboard("{Control>}b{/Control}");
-      expect(doc()).toBe("negrito");
-    });
+    await user.keyboard("{Control>}f{/Control}");
 
-    it("Ctrl+I aplica itálico e Ctrl+Shift+K aplica código inline", async () => {
-      const user = userEvent.setup();
-      render(<Harness initial="texto" />);
-      const field = screen.getByRole("textbox", { name: "Conteúdo" });
-
-      await selectAll(user, field);
-      await user.keyboard("{Control>}i{/Control}");
-      expect(doc()).toBe("_texto_");
-
-      await selectAll(user, field);
-      await user.keyboard("{Control>}{Shift>}K{/Shift}{/Control}");
-      expect(doc()).toBe("`_texto_`");
-    });
-
-    it("Ctrl+K vira link com o texto selecionado como rótulo", async () => {
-      const user = userEvent.setup();
-      render(<Harness initial="orbyva" />);
-      const field = screen.getByRole("textbox", { name: "Conteúdo" });
-
-      await selectAll(user, field);
-      await user.keyboard("{Control>}k{/Control}");
-      expect(doc()).toBe("[orbyva]()");
-
-      // O cursor parou dentro dos parênteses: é lá que falta digitar.
-      await user.keyboard("https://orbyva.app");
-      expect(doc()).toBe("[orbyva](https://orbyva.app)");
-    });
-
-    it("Ctrl+2 vira título nível 2 e Ctrl+3 troca o nível em vez de empilhar `#`", async () => {
-      const user = userEvent.setup();
-      render(<Harness initial="Introducao" />);
-      const field = screen.getByRole("textbox", { name: "Conteúdo" });
-
-      await user.click(field);
-      await user.keyboard("{Control>}2{/Control}");
-      expect(doc()).toBe("## Introducao");
-
-      await user.keyboard("{Control>}3{/Control}");
-      expect(doc()).toBe("### Introducao");
-    });
-
-    it("Ctrl+Shift+8 vira lista e Ctrl+Shift+7 vira lista numerada", async () => {
-      const user = userEvent.setup();
-      render(<Harness initial={"um\ndois"} />);
-      const field = screen.getByRole("textbox", { name: "Conteúdo" });
-
-      await selectAll(user, field);
-      await user.keyboard("{Control>}{Shift>}8{/Shift}{/Control}");
-      expect(doc()).toBe("- um\n- dois");
-
-      await user.keyboard("{Control>}{Shift>}7{/Shift}{/Control}");
-      expect(doc()).toBe("1. um\n2. dois");
-    });
-
-    it("o atalho não deixa o evento subir para o atalho global do app (Ctrl+K)", async () => {
-      const user = userEvent.setup();
-      const onWindowKey = vi.fn();
-      window.addEventListener("keydown", onWindowKey);
-      render(<Harness initial="orbyva" />);
-      const field = screen.getByRole("textbox", { name: "Conteúdo" });
-
-      await selectAll(user, field);
-      onWindowKey.mockClear();
-      await user.keyboard("{Control>}k{/Control}");
-
-      // A busca global (`GlobalSearch`) escuta no `window`: sem o `stopPropagation`, o mesmo
-      // Ctrl+K inseriria o link **e** abriria a paleta por cima do editor. (O keydown da própria
-      // tecla Control sobe normalmente — quem não pode subir é o `k`.)
-      const keys = onWindowKey.mock.calls.map(([event]) => (event as KeyboardEvent).key);
-      expect(keys).not.toContain("k");
-      expect(doc()).toBe("[orbyva]()");
-      window.removeEventListener("keydown", onWindowKey);
-    });
+    // O painel padrão do `@codemirror/search`, com o campo de busca dentro dele.
+    const panel = container.querySelector(".cm-search");
+    expect(panel).not.toBeNull();
+    expect(panel?.querySelector("input[name='search']")).not.toBeNull();
+    // E o documento continua intacto: abrir a busca não é editar.
+    expect(doc()).toBe("linha um\nlinha dois\nprazo do cartório");
   });
 
   it("Shift+Tab não apaga nada quando o caractere anterior não é tab", async () => {

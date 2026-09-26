@@ -42,14 +42,23 @@ describe("emptyTask", () => {
       priority: null,
       recurrence_rule: null,
       linked_recurring_id: null,
-      external_url: null,
-      external_provider: null,
       icon_key: null,
       icon_url: null,
       is_milestone: false,
+      // Feature 070: o draft nasce não-pontual — "pontual" é escolha explícita do usuário, nunca
+      // derivada de duração ausente.
+      is_quick: false,
       is_medication: false,
       is_consultation: false,
+      // Feature 082: nasce em 0, empatada com o resto da faixa — quem desempata é o comparador da
+      // tela (079) até alguém arrastar. Espelha o `default 0` da coluna.
+      sort_order: 0,
     });
+  });
+
+  it("semeia sort_order 0 também quando o projeto vem preenchido (feature 082)", () => {
+    expect(emptyTask("project-1").sort_order).toBe(0);
+    expect(emptyTask().sort_order).toBe(0);
   });
 });
 
@@ -74,12 +83,13 @@ describe("addSubtaskToEditing", () => {
 
   it("com tarefa em edição, cria a subtarefa herdando project_id e usando o id como parent_task_id", async () => {
     const ctx = makeContext();
-    await addSubtaskToEditing(ctx, "Nova subtarefa");
+    await addSubtaskToEditing(ctx, "Nova subtarefa", 2);
     expect(ctx.createTask).toHaveBeenCalledWith(
       expect.objectContaining<Partial<TaskCreateRequest>>({
         project_id: "project-1",
         parent_task_id: "parent-1",
         title: "Nova subtarefa",
+        sort_order: 2,
       })
     );
     expect(ctx.onSuccess).toHaveBeenCalledTimes(1);

@@ -5,9 +5,9 @@ import { EditorView } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
 import { markdownSupport } from "@/components/codemirror/markdownLanguage";
 import { markdownLivePreview } from "@/components/codemirror/livePreview";
-import { markdownFormattingKeymap } from "@/components/codemirror/formattingKeymap";
 import { markdownThemeExtension } from "@/components/codemirror/markdownTheme";
 import { literalTabKeymap } from "@/components/codemirror/tabKeymap";
+import { markdownFormatKeymap } from "@/components/codemirror/formatKeymap";
 import { cn } from "@/lib/utils";
 
 /**
@@ -38,8 +38,18 @@ const BASIC_SETUP = {
   // autocomplete de wiki-link escuta.
   closeBrackets: false,
   autocompletion: true,
-  // O app tem busca global própria (Ctrl+K); o painel de busca do CodeMirror só atrapalharia.
-  searchKeymap: false,
+  /**
+   * Busca **dentro** da nota (`Mod-f`), religada na 068.
+   *
+   * Estava desligada desde a 056 com a justificativa de bundle e de que o app já tem busca global
+   * (Ctrl+K) — mas as duas buscas respondem perguntas diferentes: a global acha *a nota*, esta acha
+   * *o trecho*. Numa nota de duas páginas, não ter busca é o oposto de escrita sofisticada.
+   *
+   * O custo medido foi ~0: o `@codemirror/search` já entrava no chunk por causa do
+   * `highlightSelectionMatches` do `basicSetup`; o que estava fora era só o keymap (ver Notas da
+   * 068).
+   */
+  searchKeymap: true,
 } as const;
 
 export function MarkdownCodeEditor({
@@ -49,7 +59,7 @@ export function MarkdownCodeEditor({
   placeholder,
   className,
   extensions,
-  onCreateEditor,
+  onViewReady,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -60,11 +70,13 @@ export function MarkdownCodeEditor({
   /** Extensões da feature que monta o editor (live preview, autocomplete de `[[`…). */
   extensions?: Extension[];
   /**
-   * Entrega o `EditorView` recém-criado. É o que permite à barra de ferramentas rodar os **mesmos**
-   * comandos dos atalhos, na seleção real do usuário — um toolbar que só recebesse `value`/
-   * `onChange` não saberia onde está o cursor e só poderia formatar o documento inteiro.
+   * Entrega a `EditorView` recém-criada (feature 068).
+   *
+   * É por ela que a barra de ferramentas roda os comandos de formatação — os mesmos dos atalhos.
+   * Sem isso, a barra teria que editar o texto por fora, via `value`/`onChange`, e aí perderia a
+   * posição do cursor e a seleção, que é justamente o que um comando de formatação precisa saber.
    */
-  onCreateEditor?: (view: EditorView) => void;
+  onViewReady?: (view: EditorView) => void;
 }) {
   /**
    * O `onChange` precisa ter identidade estável **e** aplicar o estado de forma síncrona.
@@ -85,6 +97,14 @@ export function MarkdownCodeEditor({
     flushSync(() => onChangeRef.current(next));
   }, []);
 
+  // Mesma razão do `onChange` acima: identidade estável, senão o `@uiw/react-codemirror` recria o
+  // editor a cada render de quem o hospeda.
+  const onViewReadyRef = useRef(onViewReady);
+  onViewReadyRef.current = onViewReady;
+  const handleCreateEditor = useCallback((view: EditorView) => {
+    onViewReadyRef.current?.(view);
+  }, []);
+
   const allExtensions = useMemo<Extension[]>(
     () => [
       markdownSupport,
@@ -93,7 +113,9 @@ export function MarkdownCodeEditor({
       markdownLivePreview,
       markdownThemeExtension,
       literalTabKeymap,
-      markdownFormattingKeymap,
+      // Atalhos de formatação (068). O catálogo é o mesmo que a barra do editor de notas usa —
+      // ver `formatKeymap.ts`.
+      markdownFormatKeymap,
       ...(extensions ?? []),
     ],
     [label, extensions]
@@ -105,8 +127,8 @@ export function MarkdownCodeEditor({
       onChange={handleChange}
       placeholder={placeholder}
       extensions={allExtensions}
+      onCreateEditor={handleCreateEditor}
       basicSetup={BASIC_SETUP}
-      onCreateEditor={onCreateEditor}
       className={cn(
         "rounded-md border border-input bg-transparent shadow-sm focus-within:ring-1 focus-within:ring-ring",
         className

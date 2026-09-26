@@ -24,30 +24,33 @@ type Candidate = {
 };
 
 type Kind = "welcome" | "nurture_d3" | "nurture_d7";
+type MailCopy = {
+  sentCol: string;
+  subject: string;
+  title: (g: string) => string;
+  body: string;
+  cta: string;
+  path: string;
+};
 
-const KINDS: Record<
-  Kind,
-  {
-    sentCol: string;
-    subject: string;
-    title: (g: string) => string;
-    body: string;
-    cta: string;
-  }
-> = {
+const CABE_SOURCE = "quanto-ainda-cabe";
+
+const WAITLIST_KINDS: Record<Kind, MailCopy> = {
   welcome: {
     sentCol: "welcome_sent_at",
     subject: "Você entrou na lista do Orbyva",
     title: (g) => `${g}, estamos preparando sua órbita`,
     body: "Obrigado por entrar na waitlist. Orbyva é o life OS com finanças no centro, orçamento, parcelas, hábitos e mais. Avisamos quando liberar (ou quando o checkout estiver aberto).",
     cta: "Conhecer o Orbyva",
+    path: "/",
   },
   nurture_d3: {
     sentCol: "nurture_d3_sent_at",
     subject: "Orbyva · o que o life OS resolve",
     title: (g) => `${g}, um app, várias órbitas`,
-    body: "Enquanto a lista anda: no Orbyva você lança despesas, define o teto do mês, acompanha parcelas e ainda tem hábitos, metas e viagens no mesmo lugar. Sem planilha paralela.",
+    body: "Enquanto a lista anda: no Orbyva você lança despesas, define o orçamento do mês, acompanha parcelas e ainda tem hábitos, metas e viagens no mesmo lugar. Sem planilha paralela.",
     cta: "Ver a landing",
+    path: "/",
   },
   nurture_d7: {
     sentCol: "nurture_d7_sent_at",
@@ -55,8 +58,40 @@ const KINDS: Record<
     title: (g) => `${g}, um empurrão leve`,
     body: "Faz uma semana na waitlist. Se o Pro já estiver aberto no site, vale tentar o cadastro, senão, respondemos assim que houver vaga. Obrigado por esperar com a gente.",
     cta: "Abrir orbyva.app",
+    path: "/",
   },
 };
+
+const CABE_KINDS: Record<Kind, MailCopy> = {
+  welcome: {
+    sentCol: "welcome_sent_at",
+    subject: "Está dentro do orçamento? · o recorte que você viu",
+    title: (g) => `${g}, no app isso atualiza sozinho`,
+    body: "Você acabou de ver se a compra está dentro do orçamento. No Orbyva, lançamentos, contas e orçamento ficam na mesma órbita, e o restante muda com o mês real. 7 dias grátis, sem cartão.",
+    cta: "Começar grátis",
+    path: "/login?mode=signup",
+  },
+  nurture_d3: {
+    sentCol: "nurture_d3_sent_at",
+    subject: "Orbyva · uma conta atrasada distorce o mês",
+    title: (g) => `${g}, o restante mente se a conta atrasou`,
+    body: "A ferramenta é um recorte estático. No app, recorrências e alertas entram no mesmo restante do mês, e você simula uma compra na Projeção antes de comprometer a folga.",
+    cta: "Ver o Orbyva",
+    path: "/",
+  },
+  nurture_d7: {
+    sentCol: "nurture_d7_sent_at",
+    subject: "Orbyva · 7 dias para o mês atualizar sozinho",
+    title: (g) => `${g}, o teste é curto de propósito`,
+    body: "No Orbyva o restante do mês não é uma conta avulsa: entra lançamento, conta e orçamento, e você vê se está dentro do orçamento. 7 dias grátis; depois Pro, se fizer sentido.",
+    cta: "Começar o teste",
+    path: "/login?mode=signup",
+  },
+};
+
+function copyFor(kind: Kind, source: string | null): MailCopy {
+  return source === CABE_SOURCE ? CABE_KINDS[kind] : WAITLIST_KINDS[kind];
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { status: 200 });
@@ -81,7 +116,6 @@ Deno.serve(async (req) => {
     {};
 
   for (const kind of kinds) {
-    const meta = KINDS[kind];
     summary[kind] = { candidates: 0, sent: 0, failed: 0 };
     const { data, error } = await admin.rpc("waitlist_email_candidates", {
       p_kind: kind,
@@ -97,16 +131,22 @@ Deno.serve(async (req) => {
     summary[kind].candidates = rows.length;
 
     for (const row of rows) {
+      const meta = copyFor(kind, row.source);
       const first = firstNameFromEmail(row.email);
       const greet = first ? `Oi, ${first}` : "Oi";
       const html = emailShell({
-        eyebrow: "Orbyva · Waitlist",
+        eyebrow:
+          row.source === CABE_SOURCE
+            ? "Orbyva · Está dentro do orçamento?"
+            : "Orbyva · Waitlist",
         title: meta.title(greet),
         bodyHtml: `<p style="margin:0;">${meta.body}</p>`,
         ctaLabel: meta.cta,
-        ctaUrl: siteUrl,
+        ctaUrl: `${siteUrl}${meta.path}`,
         footer:
-          "Você recebeu isto por estar na waitlist do Orbyva. Se não pediu, ignore.",
+          row.source === CABE_SOURCE
+            ? "Você recebeu isto porque usou a ferramenta Está dentro do orçamento?. Se não pediu, ignore."
+            : "Você recebeu isto por estar na waitlist do Orbyva. Se não pediu, ignore.",
       });
 
       const result = await sendResendEmail({

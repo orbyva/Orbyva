@@ -136,7 +136,7 @@ describe("MarkdownPreview + ```mermaid", () => {
       expect.any(String),
       "graph TD;\n  A-->B;"
     );
-    expect(screen.getByRole("heading", { name: "Fluxo" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Fluxo/ })).toBeInTheDocument();
     expect(screen.getByText("fim")).toBeInTheDocument();
   });
 
@@ -148,7 +148,7 @@ describe("MarkdownPreview + ```mermaid", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Diagrama inválido");
-    expect(screen.getByRole("heading", { name: "Fluxo" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Fluxo/ })).toBeInTheDocument();
     expect(screen.getByText("fim")).toBeInTheDocument();
   });
 });

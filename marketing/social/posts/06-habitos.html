@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>P06 · Hábitos</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+</head>
+<body>
+
+<div class="stage stage--feed s-paper" data-eyebrow="Hábitos" data-module="life" data-idx="06/12" data-sig="tr">
+
+  <h1 class="head head--sm" style="margin-top:54px">
+    Transforme intenção<br>em <span class="acc">hábito</span>.
+  </h1>
+
+  <p class="sub sub--wide" style="margin-top:28px">
+    Check-in do dia, sequência e a visão do mês.
+  </p>
+
+  <div class="spacer"></div>
+
+  <!-- aba Mês: heatmap (HabitMonthHeatmap.tsx) -->
+  <div class="card" style="padding:34px 36px">
+    <div class="rowf ac">
+      <div class="tabs"><span>Hoje</span><span class="on">Mês</span></div>
+      <span class="ui-cap tnum" style="margin-left:auto">Hoje: 4/5</span>
+    </div>
+
+    <div class="rowf g40" style="margin-top:34px">
+
+      <div class="heat" style="--hc:46px; flex:none"
+           data-heat="d3d2dm3 dd3d2d2 32dddmd d3d22d3 ddNffff"></div>
+
+      <!-- linhas de hábito com faixa da semana (HabitWeekStrip.tsx) -->
+      <div class="col f1 g24" style="--wk:38px">
+        <div>
+          <div class="rowf ac g16">
+            <span class="tick on" style="--m:var(--ok)"><span data-icon="check"></span></span>
+            <span class="ui-name" style="font-size:28px">Treinar</span>
+          </div>
+          <div class="ui-cap" style="font-size:20px; margin:10px 0 12px">4× por semana · Sequência: 12</div>
+          <span class="week" data-week="1101100" data-week-now="4"></span>
+        </div>
+
+        <hr class="hair">
+
+        <div>
+          <div class="rowf ac g16">
+            <span class="tick on" style="--m:var(--ok)"><span data-icon="check"></span></span>
+            <span class="ui-name" style="font-size:28px">Ler 20 páginas</span>
+          </div>
+          <div class="ui-cap" style="font-size:20px; margin:10px 0 12px">Todo dia · Sequência: 31</div>
+          <span class="week" data-week="1111100" data-week-now="4"></span>
+        </div>
+
+        <hr class="hair">
+
+        <div>
+          <div class="rowf ac g16">
+            <span class="tick"></span>
+            <span class="ui-name" style="font-size:28px">Sem delivery</span>
+          </div>
+          <div class="ui-cap" style="font-size:20px; margin:10px 0 12px">Anti-hábito · Sequência: 6</div>
+          <span class="week" data-week="1110100" data-week-now="4"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

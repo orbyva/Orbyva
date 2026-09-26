@@ -13,10 +13,35 @@ import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS } from "@/compo
 import { createTask } from "@/api/tasks";
 import { emptyTask } from "@/domain/tasks/taskDraft";
 import { buildConsultationTitle } from "@/domain/tasks/consultation";
+import {
+  WEEKDAY_LABELS,
+  WEEKDAY_NAMES_LONG,
+  WEEKDAYS_EMPTY_HINT,
+} from "@/domain/tasks/recurrence";
 import { getErrorMessage } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
-type RepeatOption = "once" | "monthly";
+type RepeatOption = "once" | "weekly" | "monthly";
+
+/**
+ * Rótulo do campo de intervalo por unidade de repetição. Um campo fixo "A cada quantos meses"
+ * passaria a mentir assim que a opção semanal existisse (feature 061, pedido de 2026-08-23).
+ */
+const INTERVAL_LABEL: Record<Exclude<RepeatOption, "once">, string> = {
+  weekly: "A cada quantas semanas",
+  monthly: "A cada quantos meses",
+};
+
+/**
+ * Intervalo inicial por unidade: retorno de rotina se marca em meses (semestral é o caso comum),
+ * mas série semanal — fisioterapia, sessões de terapia — é quase sempre toda semana. Trocar a
+ * unidade sem trocar o número deixaria "a cada 6 semanas" pré-selecionado.
+ */
+const DEFAULT_INTERVAL: Record<Exclude<RepeatOption, "once">, string> = {
+  weekly: "1",
+  monthly: "6",
+};
 
 interface ConsultationQuickCreateDialogProps {
   open: boolean;
@@ -45,7 +70,12 @@ export function ConsultationQuickCreateDialog({
   const [repeat, setRepeat] = useState<RepeatOption>("once");
   // String (não number) pra não clampar durante a digitação — mesmo motivo documentado em
   // `MedicationQuickCreateDialog.tsx` (apagar pra redigitar fazia o campo saltar pro mínimo).
-  const [monthsInterval, setMonthsInterval] = useState("6");
+  const [intervalValue, setIntervalValue] = useState(DEFAULT_INTERVAL.monthly);
+  /** Dias marcados na repetição semanal (0=domingo…6=sábado), sempre ordenados. */
+  const [weekdays, setWeekdays] = useState<number[]>([]);
+  /** `until` da regra. Vazio = sem fim, que é o padrão de quem só quer "todo mês". */
+  const [endsOn, setEndsOn] = useState("");
+  const [endsOnError, setEndsOnError] = useState<string | null>(null);
   const [details, setDetails] = useState("");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -58,15 +88,63 @@ export function ConsultationQuickCreateDialog({
     setDueDate("");
     setDueTime("");
     setRepeat("once");
-    setMonthsInterval("6");
+    setIntervalValue(DEFAULT_INTERVAL.monthly);
+    setWeekdays([]);
+    setEndsOn("");
+    setEndsOnError(null);
     setDetails("");
+  }
+
+  /**
+   * Trocar a unidade de repetição leva junto o intervalo padrão dela (ver `DEFAULT_INTERVAL`) e
+   * descarta o que só faz sentido na unidade anterior — dia da semana marcado não pode sobreviver
+   * a uma virada para mensal e reaparecer no payload como resíduo, nem um término escolhido pode
+   * sobrar em cima de uma consulta que voltou a ser única.
+   */
+  function pickRepeat(next: RepeatOption) {
+    setRepeat(next);
+    if (next !== "once") setIntervalValue(DEFAULT_INTERVAL[next]);
+    if (next !== "weekly") setWeekdays([]);
+    if (next === "once") setEndsOn("");
+    setEndsOnError(null);
+  }
+
+  /**
+   * O que impede o formulário de salvar um término inconsistente. `null` = pode salvar.
+   *
+   * Término antes da data da consulta não é um detalhe cosmético: `computeMissingOccurrences` corta
+   * tudo que passa de `until`, então a série nasceria com a consulta inicial e nenhuma repetição —
+   * o usuário pediu recorrência e receberia uma consulta única, sem aviso nenhum.
+   */
+  function endsOnProblem(): string | null {
+    if (repeat === "once" || !endsOn) return null;
+    if (dueDate && endsOn < dueDate) {
+      return "O término precisa ser igual ou posterior à data da consulta.";
+    }
+    return null;
+  }
+
+  function toggleWeekday(weekday: number) {
+    setWeekdays((current) =>
+      current.includes(weekday)
+        ? current.filter((wd) => wd !== weekday)
+        : [...current, weekday].sort((a, b) => a - b)
+    );
   }
 
   async function handleSave() {
     if (!canSave) return;
+
+    const problem = endsOnProblem();
+    if (problem) {
+      setEndsOnError(problem);
+      return;
+    }
+    setEndsOnError(null);
+
     setSaving(true);
     try {
-      const interval = Math.max(1, parseInt(monthsInterval, 10) || 1);
+      const interval = Math.max(1, parseInt(intervalValue, 10) || 1);
       await createTask({
         ...emptyTask(),
         title: buildConsultationTitle(specialty, professional),
@@ -76,9 +154,15 @@ export function ConsultationQuickCreateDialog({
         due_time: dueTime || null,
         is_consultation: true,
         recurrence_rule:
-          repeat === "monthly"
-            ? { frequency: "monthly", interval, time: dueTime || null }
-            : null,
+          repeat === "once"
+            ? null
+            : {
+                frequency: repeat,
+                interval,
+                time: dueTime || null,
+                ...(repeat === "weekly" && weekdays.length > 0 ? { weekdays } : {}),
+                ...(endsOn ? { until: endsOn } : {}),
+              },
       });
       toast({ title: "Consulta agendada!", duration: 2000 });
       reset();
@@ -154,28 +238,94 @@ export function ConsultationQuickCreateDialog({
           </div>
           <div>
             <FormLabel>Repetição</FormLabel>
-            <Select value={repeat} onValueChange={(v) => setRepeat(v as RepeatOption)}>
-              <SelectTrigger>
+            <Select value={repeat} onValueChange={(v) => pickRepeat(v as RepeatOption)}>
+              <SelectTrigger aria-label="Repetição">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="once">Consulta única</SelectItem>
+                <SelectItem value="weekly">Repetir a cada X semanas</SelectItem>
                 <SelectItem value="monthly">Repetir a cada X meses</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          {repeat === "monthly" && (
+          {repeat !== "once" && (
             <div>
               <FormLabel required htmlFor="consultation-interval">
-                A cada quantos meses
+                {INTERVAL_LABEL[repeat]}
               </FormLabel>
               <Input
                 id="consultation-interval"
                 type="number"
                 min={1}
-                value={monthsInterval}
-                onChange={(e) => setMonthsInterval(e.target.value)}
+                value={intervalValue}
+                onChange={(e) => setIntervalValue(e.target.value)}
               />
+            </div>
+          )}
+          {/* "Fisioterapia segunda, quarta e sexta" precisa ser uma série só: sem os dias da
+              semana, seriam três consultas recorrentes separadas para o mesmo tratamento. */}
+          {repeat === "weekly" && (
+            <div>
+              <FormLabel optional>Dias da semana</FormLabel>
+              <div className="mt-1 flex gap-1" role="group" aria-label="Dias da semana">
+                {WEEKDAY_LABELS.map((label, wd) => {
+                  const selected = weekdays.includes(wd);
+                  return (
+                    <Button
+                      key={wd}
+                      type="button"
+                      size="sm"
+                      variant={selected ? "secondary" : "outline"}
+                      aria-pressed={selected}
+                      // A inicial sozinha não identifica o dia ("S" é segunda e sábado).
+                      aria-label={WEEKDAY_NAMES_LONG[wd]}
+                      className={cn("h-7 w-7 p-0 text-xs", selected && "border border-primary/40")}
+                      onClick={() => toggleWeekday(wd)}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{WEEKDAYS_EMPTY_HINT}</p>
+            </div>
+          )}
+          {/* Sem este campo, qualquer repetição do atalho era eterna — e a semanal materializaria
+              uma tarefa por semana desde a data inicial, todas as semanas, para sempre. */}
+          {repeat !== "once" && (
+            <div>
+              <FormLabel optional htmlFor="consultation-ends-on">
+                Termina em
+              </FormLabel>
+              <Input
+                id="consultation-ends-on"
+                type="date"
+                value={endsOn}
+                aria-invalid={endsOnError != null}
+                aria-describedby={
+                  endsOnError ? "consultation-ends-on-error" : "consultation-ends-on-hint"
+                }
+                onChange={(e) => {
+                  setEndsOn(e.target.value);
+                  if (endsOnError) setEndsOnError(null);
+                }}
+                // Validação no blur, não a cada tecla: uma data pela metade não é erro do usuário.
+                onBlur={() => setEndsOnError(endsOnProblem())}
+              />
+              {endsOnError ? (
+                <p
+                  id="consultation-ends-on-error"
+                  role="alert"
+                  className="mt-1 text-xs text-destructive"
+                >
+                  {endsOnError}
+                </p>
+              ) : (
+                <p id="consultation-ends-on-hint" className="mt-1 text-xs text-muted-foreground">
+                  Em branco, a consulta se repete sem fim.
+                </p>
+              )}
             </div>
           )}
           <div>

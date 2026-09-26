@@ -1,10 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { KanbanCard, TaskListRow, STATUS_LABELS } from "@/pages/admin/tasks/TaskViews";
 import { formatDateTimeBR } from "@/lib/currency";
-import type { Project, Task } from "@/types/tasks";
+import { fetchNotes } from "@/api/notes/notes";
+import { invalidateNotesTitleIndex } from "@/hooks/useNotesTitleIndex";
+import type { Project, Task, TaskExternalLink } from "@/types/tasks";
+import type { Note } from "@/types/notes";
+
+vi.mock("@/api/notes/notes", () => ({
+  fetchNotes: vi.fn(),
+}));
+
+beforeEach(() => {
+  invalidateNotesTitleIndex();
+  vi.mocked(fetchNotes).mockResolvedValue([]);
+});
 
 /**
  * Cobre a extração do quick-edit compartilhado (`TaskQuickFields`, feature 033) — prova que o
@@ -50,7 +62,6 @@ function renderKanbanCard(overrides: Partial<Parameters<typeof KanbanCard>[0]> =
     <MemoryRouter>
       <KanbanCard
         task={task}
-        allTasks={[task]}
         colIndex={0}
         subtasks={[]}
         allTags={[]}
@@ -71,22 +82,23 @@ function renderKanbanCard(overrides: Partial<Parameters<typeof KanbanCard>[0]> =
 function renderTaskListRow(overrides: Partial<Parameters<typeof TaskListRow>[0]> = {}) {
   const task = overrides.task ?? makeTask();
   return render(
-    <TaskListRow
-      task={task}
-      allTasks={[task]}
-      subtasks={[]}
-      allTags={[]}
-      expanded={false}
-      onToggleExpand={vi.fn()}
-      onToggleSubtask={vi.fn()}
-      onOpenSubtask={vi.fn()}
-      onToggleDone={vi.fn()}
-      onStatusChange={vi.fn()}
-      onOpenSeries={vi.fn()}
-      onEdit={vi.fn()}
-      onDelete={vi.fn()}
-      {...overrides}
-    />
+    <MemoryRouter>
+      <TaskListRow
+        task={task}
+        subtasks={[]}
+        allTags={[]}
+        expanded={false}
+        onToggleExpand={vi.fn()}
+        onToggleSubtask={vi.fn()}
+        onOpenSubtask={vi.fn()}
+        onToggleDone={vi.fn()}
+        onStatusChange={vi.fn()}
+        onOpenSeries={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        {...overrides}
+      />
+    </MemoryRouter>
   );
 }
 
@@ -142,6 +154,8 @@ describe("KanbanCard — quick edit compartilhado com a Lista (feature 033)", ()
       due_date: "2026-08-20",
       due_time: "14:30",
       estimated_duration: null,
+      // Feature 070: o payload da edição rápida passou a carregar a flag de tarefa pontual.
+      is_quick: false,
     });
   });
 
@@ -469,5 +483,338 @@ describe("TaskListRow — subtarefas agrupadas como linhas reais (feature 046)",
     renderTaskListRow({ subtasks: [subtask], expanded: false });
 
     expect(screen.queryByText("Subtarefa A")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Botão "Imediatamente" (feature 078) — a superfície da ação nas duas visões que já tinham Play.
+ * O rótulo por extenso vive no `aria-label`/tooltip, então é por ele que o botão é encontrado.
+ */
+describe("TaskViews — botão Imediatamente (feature 078)", () => {
+  const startNowName = /Imediatamente/;
+
+  it("aparece na linha da Lista quando `onStartNow` é passado e dispara o handler no clique", async () => {
+    const user = userEvent.setup();
+    const onStartNow = vi.fn();
+    renderTaskListRow({ onStartNow });
+
+    const button = screen.getByRole("button", { name: startNowName });
+    expect(button).toBeInTheDocument();
+    await user.click(button);
+    expect(onStartNow).toHaveBeenCalledTimes(1);
+  });
+
+  it("aparece no card do Kanban quando `onStartNow` é passado e dispara o handler no clique", async () => {
+    const user = userEvent.setup();
+    const onStartNow = vi.fn();
+    renderKanbanCard({ onStartNow });
+
+    const button = screen.getByRole("button", { name: startNowName });
+    expect(button).toBeInTheDocument();
+    await user.click(button);
+    expect(onStartNow).toHaveBeenCalledTimes(1);
+  });
+
+  it("some quando a prop não é passada (mesmo padrão opcional do Play)", () => {
+    renderTaskListRow();
+    expect(screen.queryByRole("button", { name: startNowName })).not.toBeInTheDocument();
+  });
+
+  it("some no card do Kanban quando a prop não é passada", () => {
+    renderKanbanCard();
+    expect(screen.queryByRole("button", { name: startNowName })).not.toBeInTheDocument();
+  });
+
+  it("some em tarefa concluída, na linha e no card", () => {
+    const done = makeTask({ status: "done" });
+    const { unmount } = renderTaskListRow({ task: done, onStartNow: vi.fn() });
+    expect(screen.queryByRole("button", { name: startNowName })).not.toBeInTheDocument();
+    unmount();
+
+    renderKanbanCard({ task: done, onStartNow: vi.fn() });
+    expect(screen.queryByRole("button", { name: startNowName })).not.toBeInTheDocument();
+  });
+
+  it("fica desabilitado enquanto a ação está em voo (`isStartingNow`)", () => {
+    renderTaskListRow({ onStartNow: vi.fn(), isStartingNow: true });
+    expect(screen.getByRole("button", { name: startNowName })).toBeDisabled();
+  });
+
+  it("a linha aninhada de subtarefa ganha o mesmo botão, bindado na subtarefa", async () => {
+    const user = userEvent.setup();
+    const subtask = makeTask({ id: "sub-1", title: "Subtarefa A", parent_task_id: "task-1" });
+    const onStartNow = vi.fn();
+    renderTaskListRow({
+      subtasks: [subtask],
+      expanded: true,
+      subtaskActions: { onDelete: vi.fn(), onStatusChange: vi.fn(), onStartNow },
+    });
+
+    const subtaskRow = screen.getByText("Subtarefa A").closest(".cursor-pointer") as HTMLElement;
+    await user.click(within(subtaskRow).getByRole("button", { name: startNowName }));
+
+    expect(onStartNow).toHaveBeenCalledWith(subtask);
+  });
+
+  /**
+   * Largura no mobile: o botão a mais não pode empurrar o conteúdo pra fora da linha/card — a `072`
+   * já teve de apertar o `gap` do player pelo mesmo motivo. O que segura isso é estrutural (bloco
+   * de ações `shrink-0`, conteúdo `min-w-0` + título `truncate`) e o botão ter a mesma caixa
+   * compacta dos vizinhos; é isso que as asserções travam.
+   */
+  it("na linha, o botão tem a mesma caixa do Play e o título continua podendo truncar", () => {
+    renderTaskListRow({ onStartNow: vi.fn(), onToggleTimer: vi.fn() });
+
+    const startNow = screen.getByRole("button", { name: startNowName });
+    const play = screen.getByRole("button", { name: "Iniciar timer" });
+    expect(startNow.className).toContain("h-8");
+    expect(startNow.className).toContain("w-8");
+    expect(play.className).toContain("h-8");
+
+    const actions = startNow.parentElement as HTMLElement;
+    expect(actions.className).toContain("shrink-0");
+    expect(actions.className).toContain("gap-1");
+
+    const title = screen.getByText("Minha tarefa");
+    expect(title.className).toContain("truncate");
+    expect((title.closest("div.min-w-0") as HTMLElement).className).toContain("flex-1");
+  });
+
+  it("no card do Kanban, o botão usa a caixa apertada (7x7) dos vizinhos", () => {
+    renderKanbanCard({ onStartNow: vi.fn(), onToggleTimer: vi.fn() });
+
+    const startNow = screen.getByRole("button", { name: startNowName });
+    expect(startNow.className).toContain("h-7");
+    expect(startNow.className).toContain("w-7");
+
+    const actions = startNow.parentElement as HTMLElement;
+    expect(actions.className).toContain("shrink-0");
+
+    const title = screen.getByText("Minha tarefa");
+    expect(title.className).toContain("truncate");
+  });
+
+  it("sem `onStartNow` em `subtaskActions`, a linha aninhada não mostra o botão", () => {
+    const subtask = makeTask({ id: "sub-1", title: "Subtarefa A", parent_task_id: "task-1" });
+    renderTaskListRow({
+      subtasks: [subtask],
+      expanded: true,
+      subtaskActions: { onDelete: vi.fn(), onStatusChange: vi.fn() },
+    });
+
+    const subtaskRow = screen.getByText("Subtarefa A").closest(".cursor-pointer") as HTMLElement;
+    expect(
+      within(subtaskRow).queryByRole("button", { name: startNowName })
+    ).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Feature 085 — os chips de link externo. O pedido de 2026-08-23 é literal ("todos com a gestão de
+ * ícones+preview"): **um chip por link**, não o primeiro com um contador. O orçamento visual é de 3
+ * chips; o resto vira um "+N".
+ */
+function makeLink(over: Partial<TaskExternalLink> & { url: string }): TaskExternalLink {
+  return { id: `l-${over.url}`, task_id: "task-1", comment: null, position: 0, ...over };
+}
+
+describe("ExternalLinkChip — um chip por link (feature 085)", () => {
+  it("com um link, o rótulo é o de sempre (GitHub continua saindo como owner/repo#N)", () => {
+    renderTaskListRow({
+      externalLinksByTask: {
+        "task-1": [makeLink({ url: "https://github.com/owner/repo/issues/7" })],
+      },
+    });
+
+    const chip = screen.getByRole("link", { name: "owner/repo#7" });
+    expect(chip).toHaveAttribute("href", "https://github.com/owner/repo/issues/7");
+    expect(chip).toHaveAttribute("target", "_blank");
+  });
+
+  it("com três links, saem três chips, cada um com o próprio rótulo e o próprio comentário no title", () => {
+    renderTaskListRow({
+      externalLinksByTask: {
+        "task-1": [
+          makeLink({ url: "https://github.com/owner/repo/issues/7", comment: "issue de origem", position: 0 }),
+          makeLink({ url: "https://docs.google.com/document/d/abc", comment: "contrato", position: 1 }),
+          makeLink({ url: "https://www.figma.com/file/abc", comment: "protótipo", position: 2 }),
+        ],
+      },
+    });
+
+    expect(screen.getByRole("link", { name: "owner/repo#7" })).toHaveAttribute(
+      "title",
+      "issue de origem"
+    );
+    expect(screen.getByRole("link", { name: "docs.google.com" })).toHaveAttribute(
+      "title",
+      "contrato"
+    );
+    // O `www.` some do rótulo, mas o href continua a URL crua.
+    const figma = screen.getByRole("link", { name: "figma.com" });
+    expect(figma).toHaveAttribute("title", "protótipo");
+    expect(figma).toHaveAttribute("href", "https://www.figma.com/file/abc");
+    expect(screen.queryByText(/^\+/)).not.toBeInTheDocument();
+  });
+
+  it("link sem comentário cai na URL no title (melhor do que title nenhum)", () => {
+    renderTaskListRow({
+      externalLinksByTask: { "task-1": [makeLink({ url: "https://exemplo.com/x" })] },
+    });
+    expect(screen.getByRole("link", { name: "exemplo.com" })).toHaveAttribute(
+      "title",
+      "https://exemplo.com/x"
+    );
+  });
+
+  it("com cinco links, saem três chips e um +2 com os rótulos restantes no title", () => {
+    renderTaskListRow({
+      externalLinksByTask: {
+        "task-1": [
+          makeLink({ url: "https://a.com", position: 0 }),
+          makeLink({ url: "https://b.com", position: 1 }),
+          makeLink({ url: "https://c.com", position: 2 }),
+          makeLink({ url: "https://d.com", position: 3 }),
+          makeLink({ url: "https://e.com", position: 4 }),
+        ],
+      },
+    });
+
+    expect(screen.getAllByRole("link")).toHaveLength(3);
+    expect(screen.getByRole("link", { name: "a.com" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "d.com" })).not.toBeInTheDocument();
+
+    const more = screen.getByText("+2");
+    expect(more).toHaveAttribute("title", "d.com, e.com");
+    expect(more).toHaveAttribute("aria-label", "Mais 2 links: d.com, e.com");
+  });
+
+  it("sem link nenhum não há chip (nem mapa, nem lista vazia)", () => {
+    const { unmount } = renderTaskListRow();
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+    unmount();
+
+    renderTaskListRow({ externalLinksByTask: { "task-1": [] } });
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("o Kanban mostra os mesmos chips que a Lista, da mesma lista em lote", () => {
+    renderKanbanCard({
+      externalLinksByTask: {
+        "task-1": [
+          makeLink({ url: "https://github.com/owner/repo/pull/3", comment: "PR", position: 0 }),
+          makeLink({ url: "https://notion.so/x", position: 1 }),
+        ],
+      },
+    });
+
+    expect(screen.getByRole("link", { name: "owner/repo#3" })).toHaveAttribute("title", "PR");
+    expect(screen.getByRole("link", { name: "notion.so" })).toBeInTheDocument();
+  });
+
+  it("clicar no chip não abre o formulário da tarefa (o clique para no link)", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    renderTaskListRow({
+      onEdit,
+      externalLinksByTask: { "task-1": [makeLink({ url: "https://exemplo.com" })] },
+    });
+
+    await user.click(screen.getByRole("link", { name: "exemplo.com" }));
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("a linha aninhada da subtarefa mostra os links dela, não os da tarefa-mãe", () => {
+    const parent = makeTask({ id: "task-1", title: "Mãe" });
+    const child = makeTask({ id: "sub-1", parent_task_id: "task-1", title: "Filha" });
+    renderTaskListRow({
+      task: parent,
+      subtasks: [child],
+      expanded: true,
+      subtaskActions: {
+        onDelete: vi.fn(),
+        onStatusChange: vi.fn(),
+      },
+      externalLinksByTask: {
+        "task-1": [makeLink({ url: "https://mae.com" })],
+        "sub-1": [makeLink({ url: "https://filha.com", task_id: "sub-1" })],
+      },
+    });
+
+    expect(screen.getByRole("link", { name: "mae.com" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "filha.com" })).toBeInTheDocument();
+  });
+});
+
+describe("TaskViews — wiki-link na descrição do card", () => {
+  beforeEach(() => {
+    invalidateNotesTitleIndex();
+    vi.mocked(fetchNotes).mockResolvedValue([]);
+  });
+
+  function makeNote(overrides: Partial<Note> = {}): Note {
+    return {
+      id: "n-finatec",
+      title: "Atividades Finatec",
+      content: "",
+      project_id: null,
+      kind: "markdown",
+      canvas_data: null,
+      ...overrides,
+    };
+  }
+
+  it("[[wiki-link]] vira link para a nota e o clique não abre o formulário da tarefa", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    vi.mocked(fetchNotes).mockResolvedValue([makeNote()]);
+
+    render(
+      <MemoryRouter initialEntries={["/tasks"]}>
+        <Routes>
+          <Route
+            path="/tasks"
+            element={
+              <TaskListRow
+                task={makeTask({
+                  description: "Ata reunião 01/09/2026 em: [[Atividades Finatec]]",
+                })}
+                subtasks={[]}
+                allTags={[]}
+                expanded={false}
+                onToggleExpand={vi.fn()}
+                onToggleSubtask={vi.fn()}
+                onOpenSubtask={vi.fn()}
+                onToggleDone={vi.fn()}
+                onStatusChange={vi.fn()}
+                onOpenSeries={vi.fn()}
+                onEdit={onEdit}
+                onDelete={vi.fn()}
+              />
+            }
+          />
+          <Route path="/notes/:id" element={<p data-testid="note-page">nota</p>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const link = await screen.findByRole("link", { name: "Atividades Finatec" });
+    expect(link).toHaveAttribute("href", "/notes/n-finatec");
+    await user.click(link);
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(screen.getByTestId("note-page")).toHaveTextContent("nota");
+  });
+
+  it("no Kanban o wiki-link também aponta para a nota", async () => {
+    vi.mocked(fetchNotes).mockResolvedValue([makeNote()]);
+    renderKanbanCard({
+      task: makeTask({
+        description: "Ata reunião 01/09/2026 em: [[Atividades Finatec]]",
+      }),
+    });
+    expect(await screen.findByRole("link", { name: "Atividades Finatec" })).toHaveAttribute(
+      "href",
+      "/notes/n-finatec"
+    );
   });
 });

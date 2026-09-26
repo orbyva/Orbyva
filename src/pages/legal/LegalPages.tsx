@@ -4,7 +4,8 @@ import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
-const UPDATED_AT = "10 de agosto de 2026";
+const TERMS_UPDATED_AT = "10 de agosto de 2026";
+const PRIVACY_UPDATED_AT = "17 de agosto de 2026";
 
 function LegalIntro({ children }: { children: ReactNode }) {
   return (
@@ -38,7 +39,7 @@ export function TermsPage() {
         Termos de uso
       </h1>
       <p className="mt-2 text-sm text-zinc-500">
-        Última atualização: {UPDATED_AT}
+        Última atualização: {TERMS_UPDATED_AT}
       </p>
       <LegalIntro>
         Ao usar o {BRAND.name} ({BRAND.tagline}), você concorda com estes termos.
@@ -136,7 +137,7 @@ export function PrivacyPage() {
         Privacidade e LGPD
       </h1>
       <p className="mt-2 text-sm text-zinc-500">
-        Última atualização: {UPDATED_AT}
+        Última atualização: {PRIVACY_UPDATED_AT}
       </p>
       <LegalIntro>
         Esta política explica como o {BRAND.name} trata dados pessoais, em
@@ -148,10 +149,11 @@ export function PrivacyPage() {
         <LegalList
           items={[
             "Dados de autenticação (nome, e-mail e foto via Google OAuth)",
+            "E-mail informado na ferramenta pública “Está dentro do orçamento?”, para a sequência curta de aquecimento (não guardamos os valores digitados)",
             "Conteúdo que você cria (lançamentos, orçamento, recorrências, hábitos, metas, viagens, lugares, cinema, livros, música, veículos etc.)",
             "Preferências de conta e de e-mail (quando disponíveis na Conta)",
             "Código de indicação, se você chegou por convite",
-            "Dados técnicos mínimos: erros (Sentry, se configurado) e eventos de produto (PostHog, se configurado)",
+            "Dados técnicos mínimos: erros (Sentry, se configurado), eventos de produto (PostHog, se configurado) e medição de visitas via Google Tag Manager / GA4",
           ]}
         />
       </PublicSection>
@@ -183,11 +185,12 @@ export function PrivacyPage() {
             "Supabase, autenticação, banco de dados e storage",
             "Google, login OAuth; opcionalmente Books, Places, Routes e Weather via Edge Functions",
             "Stripe, pagamentos do plano Pro (quando ativo)",
-            "Resend, e-mails (auth, welcome, waitlist etc., quando configurado)",
+            "Resend, e-mails (auth, welcome, lifecycle etc., quando configurado)",
             "Spotify / MusicBrainz, catálogo de música via Edge (sem login Spotify da sua conta)",
             "TMDB / OMDb, catálogo de cinema (quando configurado)",
             "Sentry, monitoramento de erros (quando configurado)",
             "PostHog, analytics de produto (quando configurado)",
+            "Google Tag Manager / Google Analytics (GA4), medição de visitas",
             "Vercel, hospedagem do front",
           ]}
         />

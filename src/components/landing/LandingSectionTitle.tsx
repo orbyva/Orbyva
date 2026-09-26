@@ -31,7 +31,7 @@ export function LandingSectionTitle({
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
       viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.55, ease: [0.32, 0.72, 0, 1] }}
       className={cn(
         "overflow-visible",
         center ? "mx-auto max-w-xl text-center" : "max-w-xl",
@@ -45,14 +45,17 @@ export function LandingSectionTitle({
       ) : null}
       <Tag
         className={cn(
-          "mt-2 block pb-[0.22em] font-display text-3xl font-semibold leading-[1.4] tracking-tight sm:text-4xl sm:leading-[1.35]",
+          "block text-balance pb-[0.22em] font-display text-3xl font-semibold leading-[1.4] tracking-tighter sm:text-4xl sm:leading-[1.35]",
+          eyebrow && "mt-2",
           center && "text-center"
         )}
       >
         {title}
       </Tag>
       {description ? (
-        <p className="mt-3 text-zinc-400">{description}</p>
+        <p className="mt-3 max-w-[65ch] text-pretty leading-relaxed text-zinc-400">
+          {description}
+        </p>
       ) : null}
     </motion.div>
   );

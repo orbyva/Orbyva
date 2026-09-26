@@ -1,5 +1,4 @@
 import { Component, ErrorInfo, ReactNode } from "react";
-import { Button } from "@/components/ui/button";
 
 interface Props {
   children: ReactNode;
@@ -33,7 +32,13 @@ export class ErrorBoundary extends Component<Props, State> {
           <p className="max-w-md text-sm text-muted-foreground">
             Ocorreu um erro inesperado. Recarregue a página para tentar novamente.
           </p>
-          <Button onClick={() => window.location.reload()}>Recarregar</Button>
+          <button
+            type="button"
+            className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
+            onClick={() => window.location.reload()}
+          >
+            Recarregar
+          </button>
         </div>
       );
     }

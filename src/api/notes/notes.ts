@@ -24,6 +24,21 @@ export async function fetchNotes(
   return data ?? [];
 }
 
+/**
+ * Quantas notas este projeto tem — o número que a aba "Notas" da página do projeto mostra
+ * (feature 069). `head: true` + `count: "exact"`: só a contagem, sem trazer linha nenhuma.
+ */
+export async function countNotesByProject(projectId: string): Promise<number> {
+  const userId = await getCurrentUserId();
+  const { count, error } = await supabase
+    .from("note")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("project_id", projectId);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
 /** Uma nota pelo id. `null` quando não existe (ou é de outro usuário — a RLS a esconde). */
 export async function fetchNote(id: string): Promise<Note | null> {
   const userId = await getCurrentUserId();

@@ -199,18 +199,8 @@ describe("createTaskFromShoppingItem", () => {
     expect(callsTo("task")).toHaveLength(0);
   });
 
-  it("erro do banco ao inserir vira Error com a mensagem original", async () => {
-    resultsByTable.task = { data: null, error: { message: "row level security" } };
-    await expect(createTaskFromShoppingItem("item-1")).rejects.toThrow(
-      "row level security"
-    );
-  });
-
-  /**
-   * Reabertura 2026-08-18: item sem categoria é estado legítimo. Criar tarefa a partir dele não
-   * pode nem quebrar nem ir ao banco buscar uma categoria que não existe.
-   */
-  it("item SEM categoria vira tarefa sem consultar shopping_category", async () => {
+  /** Feature 066: item solto vira tarefa igual — e sem consultar categoria nenhuma. */
+  it("item sem categoria: insere a tarefa sem tocar em shopping_category", async () => {
     resultsByTable.shopping_item = {
       data: { ...ITEM, shopping_category_id: null },
       error: null,
@@ -219,21 +209,24 @@ describe("createTaskFromShoppingItem", () => {
     await createTaskFromShoppingItem("item-1");
 
     expect(callsTo("shopping_category")).toHaveLength(0);
-
-    const [taskCall] = callsTo("task");
-    expect(taskCall.op).toBe("insert");
-    const [row] = taskCall.payload as Record<string, unknown>[];
+    const [row] = callsTo("task")[0].payload as Record<string, unknown>[];
     expect(row).toMatchObject({
       title: "Comprar Café",
       icon_key: "shopping-cart",
       linked_shopping_item_id: "item-1",
       status: "todo",
-      user_id: "user-1",
     });
-    // Sem categoria, a descrição cai para o rótulo do módulo — e não vaza "undefined".
-    expect(row.description).toContain("Lista de Compras");
+    expect(row.description).toBe(
+      "Lista de Compras\n2 pacotes\nmoído\nhttps://loja.example/cafe"
+    );
     expect(row.description).not.toContain("Mercado");
-    expect(row.description).not.toContain("undefined");
+  });
+
+  it("erro do banco ao inserir vira Error com a mensagem original", async () => {
+    resultsByTable.task = { data: null, error: { message: "row level security" } };
+    await expect(createTaskFromShoppingItem("item-1")).rejects.toThrow(
+      "row level security"
+    );
   });
 });
 

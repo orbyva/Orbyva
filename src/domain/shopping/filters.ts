@@ -1,32 +1,19 @@
 import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
 
 /**
- * Id do grupo sintético "Sem categoria". **Não** existe em `shopping_category`: é um agrupamento
- * de renderização para os itens de `shopping_category_id` nulo, para não haver uma linha
- * editável/apagável que o app tivesse que proteger nem migration com dado por conta.
+ * Chave do pseudo-grupo dos itens sem categoria (feature 066). Não é o id de nenhuma linha do
+ * banco — a ausência de categoria é `null` lá; esta constante só serve para indexar contagens e
+ * dar `key` ao grupo na UI.
  */
 export const UNCATEGORIZED_GROUP_ID = "__uncategorized__";
 
-/** Nome exibido do grupo sintético. */
-export const UNCATEGORIZED_GROUP_NAME = "Sem categoria";
+/** Rótulo do pseudo-grupo dos itens sem categoria. */
+export const UNCATEGORIZED_GROUP_LABEL = "Sem categoria";
 
 export interface ShoppingCategoryGroup {
-  category: ShoppingCategory;
+  /** `null` = pseudo-grupo dos itens sem categoria: não tem cor, nem edição, nem exclusão. */
+  category: ShoppingCategory | null;
   items: ShoppingItem[];
-  /**
-   * `true` só no grupo "Sem categoria": não há linha em `shopping_category` por trás dele, então a
-   * UI não oferece editar/excluir categoria nem "Adicionar item em…".
-   */
-  synthetic?: boolean;
-}
-
-export interface GroupItemsByCategoryOptions {
-  /**
-   * Inclui o grupo sintético "Sem categoria" (padrão: sim, quando há algum item nulo). Vai a falso
-   * com filtro de projeto ativo: o vínculo com projeto é da **categoria**, então item sem categoria
-   * não pertence a projeto nenhum e não pode aparecer numa lista recortada por projeto.
-   */
-  includeUncategorized?: boolean;
 }
 
 /**
@@ -35,27 +22,21 @@ export interface GroupItemsByCategoryOptions {
  * categoria não está na lista é ignorado. Dentro de cada grupo, `pending` vem antes de
  * `purchased`; itens de mesmo status mantêm a ordem em que chegaram.
  *
- * Itens de `shopping_category_id` nulo caem num grupo sintético "Sem categoria", sempre **por
- * último** e só quando existe pelo menos um deles. Isso é diferente de "categoria inexistente":
- * item apontando para um id que não veio na lista continua sendo ignorado, não jogado no grupo
- * sintético — um é ausência de classificação, o outro é dado fora do recorte carregado.
+ * Itens sem categoria (`shopping_category_id` nulo) caem num grupo próprio com `category: null`,
+ * sempre **por último** (feature 066). Ao contrário das categorias reais, esse grupo só existe
+ * quando tem item: a categoria vazia é uma intenção do usuário, o grupo sem categoria é só um resto.
  */
 export function groupItemsByCategory(
   items: ShoppingItem[],
-  categories: ShoppingCategory[],
-  options: GroupItemsByCategoryOptions = {}
+  categories: ShoppingCategory[]
 ): ShoppingCategoryGroup[] {
-  const { includeUncategorized = true } = options;
   const groups = new Map<string, ShoppingItem[]>();
   for (const category of categories) groups.set(category.id, []);
-
   const uncategorized: ShoppingItem[] = [];
+
   for (const item of items) {
-    if (item.shopping_category_id == null) {
-      uncategorized.push(item);
-      continue;
-    }
-    groups.get(item.shopping_category_id)?.push(item);
+    if (item.shopping_category_id == null) uncategorized.push(item);
+    else groups.get(item.shopping_category_id)?.push(item);
   }
 
   const result: ShoppingCategoryGroup[] = categories.map((category) => ({
@@ -63,12 +44,8 @@ export function groupItemsByCategory(
     items: sortPendingFirst(groups.get(category.id) ?? []),
   }));
 
-  if (includeUncategorized && uncategorized.length > 0) {
-    result.push({
-      category: { id: UNCATEGORIZED_GROUP_ID, name: UNCATEGORIZED_GROUP_NAME },
-      items: sortPendingFirst(uncategorized),
-      synthetic: true,
-    });
+  if (uncategorized.length > 0) {
+    result.push({ category: null, items: sortPendingFirst(uncategorized) });
   }
 
   return result;
@@ -81,9 +58,6 @@ export function groupItemsByCategory(
  * `projectId` nulo/indefinido = sem filtro: devolve tudo, inclusive as categorias sem projeto.
  * Com filtro, categoria sem projeto (`project_id` nulo) não aparece em filtro de projeto nenhum —
  * ela é uma categoria comum da casa, não pertence a projeto algum.
- *
- * Trabalha só com categorias: o grupo sintético "Sem categoria" é assunto de
- * `groupItemsByCategory`, e esta função nunca o introduz.
  */
 export function filterCategoriesByProject(
   categories: ShoppingCategory[],
@@ -95,8 +69,7 @@ export function filterCategoriesByProject(
 
 /**
  * Quantidade de itens ainda não comprados por `shopping_category_id`. Os itens sem categoria são
- * contados sob `UNCATEGORIZED_GROUP_ID`, a mesma chave do grupo sintético — assim o cabeçalho de
- * "Sem categoria" lê a contagem do mesmo jeito que o das categorias reais.
+ * contados sob `UNCATEGORIZED_GROUP_ID` (feature 066).
  */
 export function countPendingByCategory(
   items: ShoppingItem[]

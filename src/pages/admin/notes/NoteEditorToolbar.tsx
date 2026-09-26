@@ -1,126 +1,117 @@
 import {
   Bold,
   Code,
-  Heading2,
   Italic,
   Link as LinkIcon,
   List,
-  ListTodo,
-  Table,
-  Workflow,
+  ListChecks,
+  Plus,
+  TextQuote,
 } from "lucide-react";
-import type { Command } from "@codemirror/view";
+import type { LucideIcon } from "lucide-react";
+import type { EditorView } from "@codemirror/view";
 import { Button } from "@/components/ui/button";
 import {
-  headingCommand,
-  insertMarkdownLink,
-  insertTable,
-  toggleBold,
-  toggleBulletList,
-  toggleInlineCode,
-  toggleItalic,
-  toggleTaskList,
-} from "@/components/codemirror/formattingKeymap";
-import { cn } from "@/lib/utils";
+  FORMAT_ACTION_BY_ID,
+  shortcutLabel,
+} from "@/components/codemirror/formatKeymap";
+import type { FormatActionId } from "@/components/codemirror/formatKeymap";
 
 /**
- * # Barra de ferramentas do editor de nota (feature 070)
+ * # Barra de ferramentas do editor de notas (feature 068)
  *
- * Pequena e **sempre visível**, não flutuante sobre a seleção: toolbar flutuante exigiria medir a
- * seleção e brigaria com o live preview, e o ganho não paga (ver Decisões da 070).
+ * A segunda porta de entrada da formatação: quem não sabe (ou não quer lembrar) que negrito é
+ * `**`, clica. Os atalhos e a barra chamam **os mesmos comandos** — o catálogo é o
+ * `MARKDOWN_FORMAT_ACTIONS` do `formatKeymap.ts`, então rótulo, tecla e efeito não podem divergir.
  *
- * Cada botão roda exatamente o **mesmo comando** do atalho de teclado — não há uma segunda
- * implementação de "negrito" aqui. O `title` de cada botão mostra o atalho correspondente, que é
- * como o usuário descobre que existe atalho.
+ * **Curta de propósito.** Foram descartadas a barra completa com um botão por sintaxe e o menu
+ * suspenso por categoria: uma barra que não cabe numa linha em 360px vira duas linhas de barra num
+ * editor que já disputa altura com o texto. O que não está aqui está no menu `/` (botão "Inserir"),
+ * que é buscável e por isso escala sem ocupar tela.
+ *
+ * O `title` mostra o atalho ao lado do nome — é assim que a barra se torna dispensável para quem
+ * usa a nota todo dia.
  */
 
-/** `Cmd` no Apple, `Ctrl` no resto — o rótulo do atalho precisa bater com o teclado de quem lê. */
-function modLabel(): string {
-  if (typeof navigator === "undefined") return "Ctrl+";
-  return /Mac|iPhone|iPad|iPod/.test(navigator.userAgent) ? "⌘" : "Ctrl+";
-}
+/** Quais ações aparecem, nesta ordem. O resto vive no menu de inserção. */
+const TOOLBAR_ITEMS: readonly { id: FormatActionId; Icon: LucideIcon }[] = [
+  { id: "bold", Icon: Bold },
+  { id: "italic", Icon: Italic },
+  { id: "code", Icon: Code },
+  { id: "link", Icon: LinkIcon },
+  { id: "bullet", Icon: List },
+  { id: "task", Icon: ListChecks },
+  { id: "quote", Icon: TextQuote },
+];
 
-interface ToolbarAction {
-  label: string;
-  shortcut: string;
-  icon: typeof Bold;
-  command: Command;
-}
-
-function actions(mod: string): ToolbarAction[] {
-  return [
-    { label: "Negrito", shortcut: `${mod}B`, icon: Bold, command: toggleBold },
-    { label: "Itálico", shortcut: `${mod}I`, icon: Italic, command: toggleItalic },
-    /**
-     * "Título de seção", e não só "Título": a nota tem um campo **Título** logo acima, e dois
-     * controles com o mesmo nome acessível na mesma tela é ambiguidade para leitor de tela (e foi
-     * ambiguidade real para os testes, que passaram a achar dois elementos).
-     */
-    {
-      label: "Título de seção",
-      shortcut: `${mod}2`,
-      icon: Heading2,
-      command: headingCommand(2),
-    },
-    { label: "Link", shortcut: `${mod}K`, icon: LinkIcon, command: insertMarkdownLink },
-    { label: "Lista", shortcut: `${mod}⇧8`, icon: List, command: toggleBulletList },
-    { label: "Tarefa", shortcut: "", icon: ListTodo, command: toggleTaskList },
-    { label: "Código", shortcut: `${mod}⇧K`, icon: Code, command: toggleInlineCode },
-    { label: "Tabela", shortcut: "", icon: Table, command: insertTable },
-  ];
-}
+/**
+ * Rótulo do botão que abre o menu de inserção. Constante local, **não** exportada: exportar de
+ * arquivo de componente acende `react-refresh/only-export-components` (a regra do repo é não
+ * acrescentar warning novo), e um rótulo de três sílabas não justifica um módulo só para ele.
+ */
+const INSERT_MENU_BUTTON_LABEL = "Inserir";
 
 export function NoteEditorToolbar({
-  run,
-  onInsertDiagram,
+  getView,
+  onInsert,
   className,
 }: {
-  /** Roda o comando no editor real (e devolve o foco para lá). */
-  run: (command: Command) => void;
-  /** O botão que já existia antes desta feature, mantido no mesmo lugar. */
-  onInsertDiagram: () => void;
+  /**
+   * O editor pode ainda não existir (a aba "Visualizar" desmonta o CodeMirror), por isso é uma
+   * função e não a view: a barra pergunta na hora do clique, em vez de guardar uma referência que
+   * pode ter morrido.
+   */
+  getView: () => EditorView | null;
+  /** Abre o menu de inserção — o mesmo do `/`. */
+  onInsert: () => void;
   className?: string;
 }) {
-  const mod = modLabel();
-
   return (
     <div
       role="toolbar"
       aria-label="Formatação"
-      className={cn("flex flex-wrap items-center gap-0.5", className)}
+      // `flex-wrap` em vez de rolagem horizontal: em 360px a barra quebra para uma segunda linha
+      // curta, que é melhor do que esconder botão atrás de scroll sem affordance.
+      className={["flex flex-wrap items-center gap-0.5", className]
+        .filter(Boolean)
+        .join(" ")}
     >
-      {actions(mod).map(({ label, shortcut, icon: Icon, command }) => (
-        <Button
-          key={label}
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label={label}
-          title={shortcut ? `${label} (${shortcut})` : label}
-          /**
-           * O clique não pode roubar o foco do editor **antes** de o comando rodar: sem isto o
-           * navegador tira a seleção visível do `contenteditable` e o usuário vê o cursor sumir a
-           * cada botão. O estado do CodeMirror guarda a seleção de qualquer jeito, mas o piscar é
-           * feio e o `view.focus()` de volta ficaria brigando com o browser.
-           */
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => run(command)}
-        >
-          <Icon aria-hidden="true" className="h-3.5 w-3.5" />
-        </Button>
-      ))}
-      {/* Descoberta da funcionalidade: ninguém digita sintaxe de mermaid de cabeça (feature 057). */}
+      {TOOLBAR_ITEMS.map(({ id, Icon }) => {
+        const action = FORMAT_ACTION_BY_ID[id];
+        return (
+          <Button
+            key={id}
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            aria-label={action.label}
+            title={
+              action.key
+                ? `${action.label} (${shortcutLabel(action.key)})`
+                : action.label
+            }
+            // `onMouseDown` com `preventDefault` seria o jeito de não perder o foco do editor; aqui
+            // não é preciso, porque todo comando devolve o foco (`markdownCommands.apply`).
+            onClick={() => {
+              const view = getView();
+              if (view) action.run(view);
+            }}
+          >
+            <Icon aria-hidden="true" className="h-3.5 w-3.5" />
+          </Button>
+        );
+      })}
+
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="h-8 gap-1.5 text-xs"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={onInsertDiagram}
+        className="h-8 gap-1.5 px-2 text-xs"
+        onClick={onInsert}
       >
-        <Workflow className="h-3.5 w-3.5" aria-hidden="true" />
-        Inserir diagrama
+        <Plus aria-hidden="true" className="h-3.5 w-3.5" />
+        {INSERT_MENU_BUTTON_LABEL}
       </Button>
     </div>
   );

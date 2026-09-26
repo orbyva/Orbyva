@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>P10 · Veículos</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+</head>
+<body>
+
+<div class="stage stage--feed s-paper" data-eyebrow="Veículos" data-module="car" data-idx="10/12" data-sig="tr">
+
+  <h1 class="head head--sm" style="margin-top:54px">
+    Manutenção não é<br>surpresa. É <span style="color:var(--m-car)">data</span>.
+  </h1>
+
+  <p class="sub sub--wide" style="margin-top:28px">
+    Cronograma, Manutenções, Abastecimentos e Documentos — carro ou moto.
+  </p>
+
+  <div class="spacer"></div>
+
+  <div class="tabs tabs--tight">
+    <span class="on">Cronograma</span><span>Manutenções</span><span>Abastecimentos</span><span>Documentos</span>
+  </div>
+
+  <!-- Cronograma (Car.tsx) -->
+  <div class="card" style="margin-top:26px; padding:14px 36px">
+    <div class="row">
+      <div class="f1">
+        <div class="ui-name">Troca de óleo</div>
+        <div class="ui-cap" style="font-size:21px; margin-top:6px">Venceu em 28/07/2026</div>
+      </div>
+      <span class="chip chip--bad"><span data-icon="alert"></span>Atrasada</span>
+    </div>
+    <div class="row">
+      <div class="f1">
+        <div class="ui-name">IPVA 2026</div>
+        <div class="ui-cap" style="font-size:21px; margin-top:6px">Vence em 15/08/2026</div>
+      </div>
+      <span class="chip chip--warn"><span data-icon="clock"></span>Em 5 dias</span>
+    </div>
+    <div class="row">
+      <div class="f1">
+        <div class="ui-name">Revisão 40.000 km</div>
+        <div class="ui-cap" style="font-size:21px; margin-top:6px">Vence em 02/09/2026</div>
+      </div>
+      <span class="chip chip--warn"><span data-icon="clock"></span>Em 23 dias</span>
+    </div>
+    <div class="row">
+      <div class="f1">
+        <div class="ui-name">Seguro</div>
+        <div class="ui-cap" style="font-size:21px; margin-top:6px">Vence em 11/01/2027</div>
+      </div>
+      <span class="chip chip--ok"><span data-icon="check"></span>Em dia</span>
+    </div>
+  </div>
+
+  <div style="margin-top:26px">
+    <span class="chip chip--mut"><span data-icon="bell"></span>Alertas avisam antes de vencer</span>
+  </div>
+
+  <div class="spacer"></div>
+
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

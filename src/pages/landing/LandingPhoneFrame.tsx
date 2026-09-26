@@ -15,23 +15,25 @@ export function LandingPhoneFrame({
 
   return (
     <div
-      className={`overflow-hidden rounded-[1.5rem] border border-white/12 bg-zinc-950 shadow-[0_28px_80px_-28px_rgba(14,165,233,0.45)] ring-1 ring-white/5 ${className}`}
+      className={`rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${className}`}
     >
-      <picture>
-        {hasWebp ? (
-          <source type="image/webp" srcSet={webpSrc} />
-        ) : null}
-        <img
-          src={src}
-          alt={alt}
-          width={390}
-          height={809}
-          className="aspect-[9/19] h-auto w-full object-contain object-top"
-          loading={priority ? "eager" : "lazy"}
-          fetchPriority={priority ? "high" : undefined}
-          decoding={priority ? "sync" : "async"}
-        />
-      </picture>
+      <div className="overflow-hidden rounded-[calc(1.75rem-0.375rem)] border border-white/10 bg-zinc-950">
+        <picture>
+          {hasWebp ? (
+            <source type="image/webp" srcSet={webpSrc} />
+          ) : null}
+          <img
+            src={src}
+            alt={alt}
+            width={390}
+            height={809}
+            className="aspect-[9/19] h-auto w-full object-contain object-top"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "low"}
+            decoding="async"
+          />
+        </picture>
+      </div>
     </div>
   );
 }

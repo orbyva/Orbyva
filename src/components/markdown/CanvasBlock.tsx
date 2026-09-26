@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ExternalLink, TriangleAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { sanitizeSvgElement } from "@/components/markdown/sanitizeSvg";
+import { sanitizeSvgElement } from "@/lib/sanitizeSvg";
 import { fetchNote } from "@/api/notes/notes";
 import {
   parseCanvasReference,

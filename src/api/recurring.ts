@@ -20,15 +20,19 @@ const RECURRING_SELECT =
 
 export async function fetchRecurringTransactions(
   startDateTZString: string | null = null,
-  endDateTZString: string | null = null
+  endDateTZString: string | null = null,
+  options: { includeInactive?: boolean } = {}
 ): Promise<Recurring[]> {
   const userId = await getCurrentUserId();
   let query = supabase
     .from("recurring_transaction")
     .select(RECURRING_SELECT)
     .eq("user_id", userId)
-    .eq("status", true)
     .order("id", { ascending: false });
+
+  if (!options.includeInactive) {
+    query = query.eq("status", true);
+  }
 
   if (startDateTZString) {
     query = query.gte("created_at", startDateTZString);
@@ -116,6 +120,17 @@ export async function softDeleteRecurring(id: string): Promise<void> {
   const { error } = await supabase
     .from("recurring_transaction")
     .update({ status: false })
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}
+
+export async function restoreRecurring(id: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("recurring_transaction")
+    .update({ status: true })
     .eq("id", id)
     .eq("user_id", userId);
 

@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
 
 /**
  * `setupFiles` roda para toda a suíte (`.test.ts` em "node" e `.test.tsx` em "jsdom" —
@@ -11,6 +11,56 @@ import { afterEach } from "vitest";
 if (typeof document !== "undefined") {
   afterEach(() => {
     cleanup();
+    // O FocusScope do Radix (Dialog) agenda `setTimeout(0)` no unmount para disparar
+    // `focusScope.autoFocusOnUnmount`. Com `vi.useFakeTimers()`, esse callback fica na fila e
+    // dispara depois do jsdom cair — `dispatchEvent` recebe um CustomEvent de outro realm e
+    // vira "parameter 1 is not of type 'Event'". Cancela a fila e devolve o relógio real
+    // antes do próximo arquivo (os `beforeEach` que fakeiam o tempo ligam de novo).
+    if (vi.isFakeTimers()) {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  /**
+   * Node 25+ expõe um `localStorage` global incompleto (precisa de `--localstorage-file`).
+   * O jsdom 29 não substitui esse objeto, então `getItem`/`clear` não são funções e a suíte
+   * de componente quebra em `NavUser`, onboarding e nas preferências de tarefas.
+   */
+  const memoryStore = () => {
+    const store = new Map<string, string>();
+    return {
+      get length() {
+        return store.size;
+      },
+      key: (i: number) => [...store.keys()][i] ?? null,
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        store.set(String(k), String(v));
+      },
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+      clear: () => store.clear(),
+    } satisfies Storage;
+  };
+  const local = memoryStore();
+  const session = memoryStore();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: local,
+  });
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: local,
+  });
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: session,
+  });
+  Object.defineProperty(globalThis, "sessionStorage", {
+    configurable: true,
+    value: session,
   });
 
   // jsdom não implementa `ResizeObserver` nem a API de Pointer Capture que o Radix (Popover,
@@ -34,29 +84,6 @@ if (typeof document !== "undefined") {
   }
   if (typeof Element.prototype.scrollIntoView === "undefined") {
     Element.prototype.scrollIntoView = () => {};
-  }
-
-  /**
-   * `window.matchMedia` não existe no jsdom, e `useIsMobile` (`src/hooks/use-mobile.tsx`) o chama
-   * no `useEffect` — sem o stub, qualquer tela que use o hook derruba o teste com
-   * "matchMedia is not a function". O stub é fiel ao que o hook precisa: uma `MediaQueryList` com
-   * `matches` calculado a partir de `window.innerWidth` (que o teste controla) e listeners que não
-   * fazem nada, já que quem muda a largura no teste também remonta o componente.
-   */
-  if (typeof window.matchMedia === "undefined") {
-    window.matchMedia = ((query: string) => {
-      const max = /max-width:\s*(\d+)px/.exec(query);
-      return {
-        media: query,
-        matches: max ? window.innerWidth <= Number(max[1]) : false,
-        onchange: null,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        addListener: () => {},
-        removeListener: () => {},
-        dispatchEvent: () => false,
-      };
-    }) as typeof window.matchMedia;
   }
 
   // O CodeMirror (editor de notas, feature 056) mede o texto pelo layout: a cada `measure` ele

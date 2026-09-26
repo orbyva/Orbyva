@@ -15,14 +15,27 @@ import type { Note } from "@/types/notes";
  * "Notas do projeto" dentro da página do projeto (feature 055) — o vínculo no sentido
  * projeto → nota. Lista as notas com `project_id` daquele projeto e cria uma nova já vinculada.
  *
- * Desde a feature 071 é o conteúdo da aba **"Notas"** (`?tab=notas`) do `ProjectDetail`, ao lado de
- * "Compras" — antes ficava empilhada abaixo das abas, e as duas seções juntas empurravam as
- * tarefas para fora da tela. Como o `TabsContent` do Radix desmonta o conteúdo inativo, o `fetch`
- * daqui só acontece quando o usuário abre a aba.
+ * Desde a feature 069 vive **dentro** da aba "Notas" da página do projeto (antes ficava empilhada
+ * embaixo do quadro, sempre visível — o que comia o espaço vertical das tarefas). Por isso monta
+ * só quando a aba é aberta, e o `<h2>` some quando o próprio gatilho da aba já é o título.
  *
  * É deliberadamente somente-leitura: escrever é no editor, para onde cada item leva.
  */
-export function ProjectNotesSection({ projectId }: { projectId: string }) {
+interface ProjectNotesSectionProps {
+  projectId: string;
+  /**
+   * Mostra o `<h2>` "Notas do projeto". Dentro da aba "Notas" (feature 069) o gatilho da aba já é
+   * o título; nesse caso ele vira `aria-label` da `<section>`, sem gastar altura na tela.
+   */
+  showHeading?: boolean;
+}
+
+const SECTION_TITLE = "Notas do projeto";
+
+export function ProjectNotesSection({
+  projectId,
+  showHeading = true,
+}: ProjectNotesSectionProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -68,16 +81,28 @@ export function ProjectNotesSection({ projectId }: { projectId: string }) {
   }
 
   return (
-    <section className="space-y-3" aria-labelledby="project-notes-heading">
+    <section
+      className="space-y-3"
+      aria-labelledby={showHeading ? "project-notes-heading" : undefined}
+      aria-label={showHeading ? undefined : SECTION_TITLE}
+    >
       <div className="flex items-center justify-between gap-2">
-        <h2
-          id="project-notes-heading"
-          className="flex items-center gap-2 text-sm font-semibold"
+        {showHeading && (
+          <h2
+            id="project-notes-heading"
+            className="flex items-center gap-2 text-sm font-semibold"
+          >
+            <NotebookPen className="h-4 w-4" aria-hidden="true" />
+            {SECTION_TITLE}
+          </h2>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          onClick={handleCreate}
+          disabled={creating}
         >
-          <NotebookPen className="h-4 w-4" aria-hidden="true" />
-          Notas do projeto
-        </h2>
-        <Button variant="outline" size="sm" onClick={handleCreate} disabled={creating}>
           Nova nota
         </Button>
       </div>

@@ -48,10 +48,10 @@ const NAV_FINANCE: NavItem = {
   icon: PiggyBank,
   items: [
     { title: "Dashboard", url: "/finance/dashboard" },
-    { title: "Categorias", url: "/finance/categories" },
-    { title: "Orçamento", url: "/finance/budget" },
-    { title: "Recorrências", url: "/finance/recurring" },
     { title: "Transações", url: "/finance/transactions" },
+    { title: "Recorrências", url: "/finance/recurring" },
+    { title: "Orçamento", url: "/finance/budget" },
+    { title: "Categorias", url: "/finance/categories" },
   ],
 }
 
@@ -75,13 +75,14 @@ const NAV_VIDA: NavItem = {
   icon: Target,
   items: [
     { title: "Hábitos", url: "/habits" },
-    // Mesma posição do card em `HOME_MODULES` (logo depois de "Hábitos"). `isNavItemActive` casa
-    // por prefixo, então o item fica ativo também em `/life/health/medications`.
+    // Feature 071: até aqui só se chegava em `/life/health` pelo card do hub ou pela URL — trocar a
+    // criação de medicação de lugar sem isto seria trocar um lugar ruim por um lugar escondido. A
+    // posição (logo depois de Hábitos) é a mesma que `HOME_MODULES` já usa no hub.
     { title: "Saúde", url: "/life/health" },
-    { title: "Lugares", url: "/places" },
     { title: "Metas", url: "/goals" },
-    { title: "Veículos", url: "/car" },
+    { title: "Lugares", url: "/places" },
     { title: "Viagens", url: "/travel" },
+    { title: "Veículos", url: "/car" },
   ],
 }
 
@@ -102,7 +103,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
 
   const navItems = React.useMemo(
-    () => [NAV_INICIO, NAV_FINANCE, NAV_CONTEUDO, NAV_VIDA, NAV_PRODUTIVIDADE],
+    () => [NAV_INICIO, NAV_FINANCE, NAV_PRODUTIVIDADE, NAV_VIDA, NAV_CONTEUDO],
     []
   )
 

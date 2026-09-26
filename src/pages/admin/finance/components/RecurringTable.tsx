@@ -1,4 +1,4 @@
-import { ChevronDown, CheckCircle, Pen, Trash2, Repeat, ArrowUpDown } from "lucide-react";
+import { ChevronDown, CheckCircle, Pen, Trash2, Repeat, ArrowUpDown, RotateCcw } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/EmptyState";
 import {
   deleteRecurringApi,
   softDeleteRecurring,
+  restoreRecurring,
   updateRecurringParcelPayment,
   formatInstallmentPlanSummary,
   getRecurringProgress,
@@ -73,6 +74,8 @@ interface RecurringTableProps {
   reloadRecurring: () => Promise<void>;
   onPaidParcelsChange?: (recurringId: string, paidParcels: number[]) => void;
   handleEditRecurring: (recurring: Recurring) => void;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 function SortableHead({
@@ -138,6 +141,8 @@ export function RecurringTable({
   reloadRecurring,
   onPaidParcelsChange,
   handleEditRecurring,
+  emptyTitle = "Nenhuma recorrência neste filtro",
+  emptyDescription = "Ajuste a busca ou o filtro, ou cadastre uma recorrência para acompanhar o mês.",
 }: RecurringTableProps) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [paymentAction, setPaymentAction] = useState<"mark" | "unmark" | null>(
@@ -209,8 +214,8 @@ export function RecurringTable({
     return (
       <EmptyState
         icon={Repeat}
-        title="Nenhuma recorrência neste filtro"
-        description="Ajuste o filtro ou cadastre uma recorrência para acompanhar o mês."
+        title={emptyTitle}
+        description={emptyDescription}
       />
     );
   }
@@ -321,7 +326,11 @@ export function RecurringTable({
                       <span className="line-clamp-2 font-medium leading-snug">
                         {displayName}
                       </span>
-                      {lastPaidAtById[item.id] ? (
+                      {item.status === false ? (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          Arquivada
+                        </p>
+                      ) : lastPaidAtById[item.id] ? (
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
                           Pago em {formatDateBR(lastPaidAtById[item.id])}
                         </p>
@@ -400,6 +409,41 @@ export function RecurringTable({
                           </Button>
                         </ActionTooltip>
 
+                        {item.status === false ? (
+                          <AlertDialog>
+                            <ActionTooltip label={copy.restoreLabel}>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 focus-visible:ring-primary"
+                                  aria-label={copy.restoreLabel}
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                            </ActionTooltip>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                {copy.restoreTitle}
+                              </AlertDialogHeader>
+                              <p className="text-sm text-muted-foreground">
+                                {copy.restoreHint}
+                              </p>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={async () => {
+                                    await restoreRecurring(item.id);
+                                    reloadRecurring();
+                                  }}
+                                >
+                                  {copy.restoreConfirm}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : (
                         <AlertDialog
                           open={
                             confirmOpenSoft && selectedRecurring?.id === item.id
@@ -425,7 +469,8 @@ export function RecurringTable({
                             </AlertDialogHeader>
                             <p className="text-sm text-muted-foreground">
                               A recorrência &quot;{displayName}&quot; será
-                              arquivada como concluída.
+                              arquivada como paga. Para reativar, marque
+                              Mostrar só as quitadas.
                             </p>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -441,6 +486,7 @@ export function RecurringTable({
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                        )}
 
                         <AlertDialog
                           open={confirmOpen && selectedRecurring?.id === item.id}

@@ -50,6 +50,9 @@ docker cp "$WORK" "$CONTAINER:/sql" >/dev/null
 # idempotente), o backfill, as assertivas do backfill, **o backfill de novo** e as mesmas
 # assertivas (prova de idempotência), os controles negativos e por fim as de RLS.
 # 05_assert_rls fica no fim de tudo porque termina apagando um usuário de `auth.users`.
+# 06_assert_diagnostico (feature 096) vem depois dele: prova que as quatro consultas do roteiro de
+# diagnóstico discriminam H1–H4, e para isso semeia quatro tratamentos próprios — que quebrariam as
+# contagens absolutas de `public.medication` do 05 se entrassem antes.
 docker exec "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d orbyva -q \
   -f /sql/00_stubs.sql \
   -f /sql/01_seed.sql \
@@ -62,6 +65,8 @@ docker exec "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d orbyva -q \
   -f /sql/11_backfill_migration.sql `# SEGUNDA aplicação do backfill: não pode duplicar nada` \
   -f /sql/04_assert_backfill.sql `# mesmas contagens absolutas: é a prova de idempotência` \
   -f /sql/03_negative_controls.sql \
-  -f /sql/05_assert_rls.sql
+  -f /sql/05_assert_rls.sql \
+  -f /sql/06_assert_diagnostico.sql
 
 echo "OK: 20260816230000_medication.sql e 20260816233000_medication_backfill.sql validadas em Postgres 16 (backfill aplicado 2x sem duplicar)."
+echo "OK: as quatro consultas do roteiro de diagnóstico da 096 discriminam as hipóteses H1-H4."

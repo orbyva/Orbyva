@@ -1,17 +1,12 @@
 import { formatLocalIsoDate } from "@/lib/dates";
 
-/** Rótulo de `estimated_duration === 0` — a tarefa **pontual** da feature 072 (remédio, trocar
- * lençol): acontece num instante, e na Agenda vira bolinha marcável em vez de bloco. */
-export const POINT_DURATION_LABEL = "Pontual";
-
 /**
  * Formata `estimated_duration` (minutos) de forma curta para exibição no trigger de
  * `TaskDurationQuickPick` e em qualquer outro lugar que mostre a duração estimada de uma tarefa
- * (ex.: Gantt). `0` é "Pontual" (feature 072); `null`/`undefined`/negativo retornam string vazia —
- * quem exibe decide o placeholder.
+ * (ex.: Gantt). `null`/`undefined`/`0` (ou negativo) retornam string vazia — quem exibe decide o
+ * placeholder.
  */
 export function formatEstimatedDuration(minutes: number | null | undefined): string {
-  if (minutes === 0) return POINT_DURATION_LABEL;
   if (!minutes || minutes <= 0) return "";
 
   const hours = Math.floor(minutes / 60);

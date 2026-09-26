@@ -19,7 +19,12 @@ import { loadHealthSummary } from "@/api/health";
  * em todos os pontos de uso, inclusive nas duas declarações do `src/index.css`.
  */
 
-vi.mock("@/api/health", () => ({ loadHealthSummary: vi.fn() }));
+vi.mock("@/api/health", () => ({
+  loadHealthSummary: vi.fn(),
+  // A lista de tratamentos carrega as preferências de lembrete junto (atalho "Lembretes" da 071).
+  fetchReminderPreferences: vi.fn(async () => []),
+  upsertReminderPreference: vi.fn(),
+}));
 
 // A lista de tratamentos (064) é montada de verdade pela rota — a API é mockada para o teste ser
 // sobre a navegação, não sobre o Supabase.
@@ -57,6 +62,7 @@ beforeEach(() => {
       dispatchEvent: () => false,
     })) as unknown as typeof window.matchMedia;
   }
+
   vi.mocked(loadHealthSummary).mockResolvedValue({
     nextMedicationDose: null,
     nextConsultation: null,
@@ -103,6 +109,62 @@ describe("hub de Vida", () => {
       .querySelector("span") as HTMLElement;
     expect(icon.className).toContain("bg-[hsl(var(--health))]/10");
     expect(icon.className).toContain("text-[hsl(var(--health))]");
+  });
+});
+
+/**
+ * Feature 071: até então `/life/health` não aparecia em menu nenhum — só pelo card do hub ou pela
+ * URL. Trocar a criação de medicação de Tarefas para a Saúde sem isto seria trocar um lugar ruim
+ * por um lugar escondido.
+ */
+describe("sidebar — Saúde no grupo Vida (071)", () => {
+  it("lista 'Saúde' apontando para /life/health, logo depois de Hábitos", () => {
+    render(
+      <MemoryRouter initialEntries={["/life/health"]}>
+        <SidebarProvider>
+          <AppSidebar />
+        </SidebarProvider>
+      </MemoryRouter>
+    );
+
+    const link = screen.getByRole("link", { name: "Saúde" });
+    expect(link).toHaveAttribute("href", "/life/health");
+
+    const vida = Array.from(document.querySelectorAll("a[href]"))
+      .map((a) => a.getAttribute("href"))
+      .filter((href): href is string => href != null);
+    expect(vida[vida.indexOf("/life/health") - 1]).toBe("/habits");
+  });
+
+  it("o item fica ativo em /life/health e também na rota-filha /life/health/medications", () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={["/life/health"]}>
+        <SidebarProvider>
+          <AppSidebar />
+        </SidebarProvider>
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("link", { name: "Saúde" })).toHaveAttribute(
+      "data-active",
+      "true"
+    );
+    expect(screen.getByRole("link", { name: "Hábitos" })).toHaveAttribute(
+      "data-active",
+      "false"
+    );
+    unmount();
+
+    render(
+      <MemoryRouter initialEntries={["/life/health/medications"]}>
+        <SidebarProvider>
+          <AppSidebar />
+        </SidebarProvider>
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("link", { name: "Saúde" })).toHaveAttribute(
+      "data-active",
+      "true"
+    );
   });
 });
 
@@ -181,56 +243,4 @@ describe("rota /life/health/medications (feature 064)", () => {
       )
     ).toBeInTheDocument();
   }, 15_000);
-});
-
-/**
- * Reabertura de 2026-08-18 ("adicione na seção vida->saúde"): antes disto, chegar em medicações
- * exigia passar pelo dashboard de Vida — Saúde existia como card no hub, mas não na sidebar.
- */
-describe("sidebar — Saúde no grupo Vida", () => {
-  function renderSidebar(pathname: string) {
-    return render(
-      <MemoryRouter initialEntries={[pathname]}>
-        <SidebarProvider>
-          <AppSidebar />
-        </SidebarProvider>
-      </MemoryRouter>
-    );
-  }
-
-  it("lista 'Saúde' apontando para /life/health", () => {
-    renderSidebar("/life/health");
-    expect(screen.getByRole("link", { name: "Saúde" })).toHaveAttribute(
-      "href",
-      "/life/health"
-    );
-  });
-
-  it("'Saúde' vem logo depois de 'Hábitos', como no hub", () => {
-    renderSidebar("/life/health");
-    const titles = screen
-      .getAllByRole("link")
-      .map((link) => link.textContent?.trim());
-    expect(titles[titles.indexOf("Saúde") - 1]).toBe("Hábitos");
-  });
-
-  it("fica ativo em /life/health e também em /life/health/medications (prefixo)", () => {
-    const { unmount } = renderSidebar("/life/health");
-    expect(screen.getByRole("link", { name: "Saúde" })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
-    unmount();
-
-    renderSidebar("/life/health/medications");
-    expect(screen.getByRole("link", { name: "Saúde" })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
-    // Controle negativo: o vizinho do mesmo grupo não acende junto.
-    expect(screen.getByRole("link", { name: "Hábitos" })).toHaveAttribute(
-      "data-active",
-      "false"
-    );
-  });
 });

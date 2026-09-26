@@ -97,6 +97,9 @@ export function TagCombobox({
               }
             }}
             placeholder="Buscar ou criar tag…"
+            // O rótulo "Tags" fica no `FormLabel` de quem monta o campo, sem `htmlFor` — sem este
+            // `aria-label` o input não tem nome acessível nenhum (feature 080).
+            aria-label="Tags"
             className="h-9"
           />
         </PopoverAnchor>

@@ -4,7 +4,6 @@ import {
   filterCategoriesByProject,
   groupItemsByCategory,
   UNCATEGORIZED_GROUP_ID,
-  UNCATEGORIZED_GROUP_NAME,
 } from "@/domain/shopping/filters";
 import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
 
@@ -26,7 +25,7 @@ describe("groupItemsByCategory", () => {
       [item("i1", "c2"), item("i2", "c1")],
       [category("c2", "Mercado"), category("c1", "Farmácia")]
     );
-    expect(groups.map((g) => g.category.id)).toEqual(["c2", "c1"]);
+    expect(groups.map((g) => g.category?.id)).toEqual(["c2", "c1"]);
     expect(groups[0].items.map((i) => i.id)).toEqual(["i1"]);
     expect(groups[1].items.map((i) => i.id)).toEqual(["i2"]);
   });
@@ -75,86 +74,84 @@ describe("groupItemsByCategory", () => {
   });
 });
 
-/**
- * Reabertura 2026-08-18 — "deve ser possível criar item de compras sem criar categoria".
- * O item de `shopping_category_id` nulo não é erro: ele cai num grupo sintético, sempre no fim.
- */
-describe("groupItemsByCategory — grupo sintético 'Sem categoria'", () => {
-  it("sem item nulo, o grupo sintético não aparece", () => {
-    const groups = groupItemsByCategory([item("i1", "c1")], [category("c1")]);
-    expect(groups.map((g) => g.category.id)).toEqual(["c1"]);
-    expect(groups.some((g) => g.synthetic)).toBe(false);
-  });
-
-  it("com item nulo, o grupo sintético aparece por último, com nome 'Sem categoria'", () => {
+/** Feature 066: categoria virou opcional — item solto (`shopping_category_id` nulo) tem grupo próprio. */
+describe("groupItemsByCategory — itens sem categoria", () => {
+  it("item sem categoria cai no grupo sem categoria (category null)", () => {
     const groups = groupItemsByCategory(
-      [item("orfa", null), item("i1", "c1"), item("i2", "c2")],
-      [category("c1", "Mercado"), category("c2", "Escritório")]
-    );
-    expect(groups.map((g) => g.category.id)).toEqual([
-      "c1",
-      "c2",
-      UNCATEGORIZED_GROUP_ID,
-    ]);
-    const last = groups[groups.length - 1];
-    expect(last.category.name).toBe(UNCATEGORIZED_GROUP_NAME);
-    expect(last.synthetic).toBe(true);
-    expect(last.items.map((i) => i.id)).toEqual(["orfa"]);
-  });
-
-  it("itens categorizados não vazam para o grupo sintético", () => {
-    const groups = groupItemsByCategory(
-      [item("i1", "c1"), item("sem-cat", null)],
+      [item("solto", null), item("i1", "c1")],
       [category("c1")]
     );
+    const uncategorized = groups.find((g) => g.category === null);
+    expect(uncategorized).toBeDefined();
+    expect(uncategorized?.items.map((i) => i.id)).toEqual(["solto"]);
     expect(groups[0].items.map((i) => i.id)).toEqual(["i1"]);
-    expect(groups[1].items.map((i) => i.id)).toEqual(["sem-cat"]);
   });
 
-  it("item de categoria inexistente continua ignorado, não vai para 'Sem categoria'", () => {
+  it("o grupo sem categoria vem sempre por último", () => {
     const groups = groupItemsByCategory(
-      [item("i1", "c1"), item("orfao", "sumiu")],
+      [item("solto", null), item("i1", "c1"), item("i2", "c2")],
+      [category("c1"), category("c2")]
+    );
+    expect(groups.map((g) => g.category?.id ?? null)).toEqual([
+      "c1",
+      "c2",
+      null,
+    ]);
+  });
+
+  it("sem item solto, o grupo não é criado (ao contrário da categoria vazia, que aparece)", () => {
+    const groups = groupItemsByCategory([item("i1", "c1")], [category("c1")]);
+    expect(groups).toHaveLength(1);
+    expect(groups.some((g) => g.category === null)).toBe(false);
+  });
+
+  it("categoria vazia continua aparecendo mesmo com itens soltos na lista", () => {
+    const groups = groupItemsByCategory(
+      [item("solto", null)],
+      [category("c1"), category("c2")]
+    );
+    expect(groups.map((g) => g.category?.id ?? null)).toEqual([
+      "c1",
+      "c2",
+      null,
+    ]);
+    expect(groups[0].items).toEqual([]);
+    expect(groups[1].items).toEqual([]);
+  });
+
+  it("item de categoria inexistente continua sendo descartado — não vira item solto", () => {
+    const groups = groupItemsByCategory(
+      [item("orfao", "sumiu"), item("i1", "c1")],
       [category("c1")]
     );
     expect(groups).toHaveLength(1);
+    expect(groups.some((g) => g.category === null)).toBe(false);
     expect(groups[0].items.map((i) => i.id)).toEqual(["i1"]);
   });
 
-  it("dentro do grupo sintético, pending vem antes de purchased", () => {
+  it("dentro do grupo solto, pending vem antes de purchased", () => {
     const groups = groupItemsByCategory(
       [
         item("comprado", null, "purchased"),
         item("pendente", null),
-        item("i1", "c1"),
+        item("comprado-2", null, "purchased"),
       ],
-      [category("c1")]
+      []
     );
-    expect(groups[1].items.map((i) => i.id)).toEqual(["pendente", "comprado"]);
-  });
-
-  it("sem categoria nenhuma cadastrada, o grupo sintético é o único grupo", () => {
-    const groups = groupItemsByCategory([item("sem-cat", null)], []);
     expect(groups).toHaveLength(1);
-    expect(groups[0].category.id).toBe(UNCATEGORIZED_GROUP_ID);
-    expect(groups[0].items.map((i) => i.id)).toEqual(["sem-cat"]);
+    expect(groups[0].category).toBeNull();
+    expect(groups[0].items.map((i) => i.id)).toEqual([
+      "pendente",
+      "comprado",
+      "comprado-2",
+    ]);
   });
 
-  it("com includeUncategorized: false (filtro de projeto ativo), o grupo sintético some", () => {
-    const groups = groupItemsByCategory(
-      [item("sem-cat", null), item("i1", "c1")],
-      [category("c1")],
-      { includeUncategorized: false }
-    );
-    expect(groups.map((g) => g.category.id)).toEqual(["c1"]);
-    expect(groups[0].items.map((i) => i.id)).toEqual(["i1"]);
-  });
-
-  it("com includeUncategorized: false e só itens nulos, não devolve grupo nenhum", () => {
-    expect(
-      groupItemsByCategory([item("sem-cat", null)], [], {
-        includeUncategorized: false,
-      })
-    ).toEqual([]);
+  it("sem categoria nenhuma, item solto ainda assim tem onde aparecer", () => {
+    const groups = groupItemsByCategory([item("solto", null)], []);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBeNull();
+    expect(groups[0].items.map((i) => i.id)).toEqual(["solto"]);
   });
 });
 
@@ -199,16 +196,6 @@ describe("filterCategoriesByProject", () => {
     filterCategoriesByProject(entrada, "p1");
     expect(entrada).toEqual(todas);
   });
-
-  it("não introduz o grupo sintético: item sem categoria não tem projeto", () => {
-    // A função só lida com categorias — "Sem categoria" é assunto de groupItemsByCategory.
-    const filtradas = filterCategoriesByProject(todas, "p1");
-    expect(filtradas.map((c) => c.id)).toEqual(["c1"]);
-    expect(filtradas.some((c) => c.id === UNCATEGORIZED_GROUP_ID)).toBe(false);
-    expect(filtradas.some((c) => c.name === UNCATEGORIZED_GROUP_NAME)).toBe(
-      false
-    );
-  });
 });
 
 describe("countPendingByCategory", () => {
@@ -230,19 +217,13 @@ describe("countPendingByCategory", () => {
     expect(countPendingByCategory([])).toEqual({});
   });
 
-  it("conta os itens sem categoria sob a chave do grupo sintético", () => {
+  it("conta os itens soltos sob UNCATEGORIZED_GROUP_ID (feature 066)", () => {
     const counts = countPendingByCategory([
       item("i1", "c1"),
-      item("sem-cat-1", null),
-      item("sem-cat-2", null),
-      item("sem-cat-3", null, "purchased"),
+      item("solto-1", null),
+      item("solto-2", null),
+      item("solto-3", null, "purchased"),
     ]);
     expect(counts).toEqual({ c1: 1, [UNCATEGORIZED_GROUP_ID]: 2 });
-  });
-
-  it("só itens sem categoria comprados não geram contagem nenhuma", () => {
-    expect(countPendingByCategory([item("sem-cat", null, "purchased")])).toEqual(
-      {}
-    );
   });
 });

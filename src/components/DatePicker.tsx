@@ -171,6 +171,10 @@ interface DatePickerProps extends CalendarLimits {
   date?: Date;
   onSelect: (date: Date | undefined) => void;
   placeholder?: string;
+  /** Nome acessível do gatilho. Sem isso o botão se chama pela data que exibe (ou pelo
+   * placeholder), e dois campos de data na mesma tela ficam indistinguíveis para leitor de tela —
+   * é o caso do painel de tarefa (feature 080), com "Data limite" e "Início" lado a lado. */
+  ariaLabel?: string;
   /** Mostra ação para limpar a data (campos opcionais). */
   clearable?: boolean;
   disabled?: boolean;
@@ -181,6 +185,7 @@ export function DatePicker({
   date,
   onSelect,
   placeholder = "Selecione a data",
+  ariaLabel,
   clearable = false,
   disabled = false,
   className,
@@ -202,6 +207,7 @@ export function DatePicker({
           type="button"
           variant="outline"
           disabled={disabled}
+          aria-label={ariaLabel}
           className={cn(
             "w-full justify-start text-left font-normal",
             !date && "text-muted-foreground",

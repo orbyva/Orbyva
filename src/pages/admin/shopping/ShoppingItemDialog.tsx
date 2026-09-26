@@ -28,24 +28,13 @@ import type {
   ShoppingItemCreateRequest,
 } from "@/types/shopping";
 
-/**
- * Valor sentinela do `<Select>` para "sem categoria" — o Radix proíbe `value=""`, mesmo truque do
- * `ALL_PROJECTS = "__all__"` que a página usa no filtro de projeto. Nunca vai para o payload:
- * vira `null` no `onValueChange`.
- */
-const NO_CATEGORY = "__none__";
-
 interface ShoppingItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** `null` = criar; item = editar. */
   item: ShoppingItem | null;
   categories: ShoppingCategory[];
-  /**
-   * Categoria pré-selecionada ao criar — vem do "Adicionar item em X" de cada seção. O "Novo item"
-   * do cabeçalho manda `null` de propósito: chutar a primeira categoria da lista arquivaria o item
-   * no lugar errado sem o usuário perceber.
-   */
+  /** Categoria pré-selecionada ao criar (botão "Adicionar item" dentro de uma categoria). */
   defaultCategoryId?: string | null;
   onSaved: () => void;
 }
@@ -54,6 +43,13 @@ interface ItemForm extends Omit<ShoppingItemCreateRequest, "quantity"> {
   /** O input é texto livre ("2", "0,5", "") — só vira número no submit. */
   quantity: string;
 }
+
+/**
+ * Valor do `<Select>` que representa "sem categoria" — o Radix não aceita `value=""`, mesmo
+ * recurso do `ALL_PROJECTS` da `ShoppingList` e do "Sem projeto" do `ProjectPicker`. Vira `null`
+ * na request (feature 066).
+ */
+const NO_CATEGORY = "__none__";
 
 const emptyItem = (categoryId: string | null): ItemForm => ({
   shopping_category_id: categoryId,
@@ -98,10 +94,11 @@ export function ShoppingItemDialog({
       });
       return;
     }
+    // Sem categoria pedida (botão geral "Novo item"), o padrão é "Sem categoria" — nunca a
+    // primeira da lista, que arquivava o item em silêncio numa categoria que ninguém escolheu.
     setForm(emptyItem(defaultCategoryId ?? null));
-  }, [open, item, defaultCategoryId, categories]);
+  }, [open, item, defaultCategoryId]);
 
-  // Só o título prende o salvar: categoria virou opcional (reabertura 2026-08-18).
   const canSave = Boolean(form.title.trim());
 
   async function handleSave() {

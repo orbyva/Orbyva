@@ -38,7 +38,7 @@ Depende da 050 (tabela `shopping_category` e página agrupada). Independente da 
 - [x] Verificação do pedido literal ("ver os itens, por categorias, de um projeto em específico") — feita **por teste, não no navegador** (a skill `next` proíbe browser): `src/pages/admin/shopping/__tests__/ShoppingList.project-filter.flow.test.tsx`, 6 testes contra um backend falso em memória que imita o schema, inclusive o `on delete set null` do projeto. Cobre o roteiro inteiro: duas categorias em projetos diferentes e uma sem projeto, com itens em cada; filtrar mostra **só** as categorias do projeto, **ainda como seções agrupadas** (não uma lista achatada); abrir `/shopping-list?project=p1` direto na URL já carrega filtrado; categoria sem projeto não aparece em filtro nenhum; a seção da página do projeto mostra o mesmo conteúdo; e excluir o projeto preserva categoria e itens, que voltam a aparecer entre as sem projeto e somem do filtro daquele projeto. Suíte completa: 859 passando, 2 falhando (as duas pré-existentes de `currency.test.ts`, alheias). `npm run build` e `npm run lint` limpos (0 erros, 13 warnings pré-existentes).
       Roteiro original, mantido como referência do que foi coberto: criar duas categorias em projetos diferentes e uma sem projeto, com itens em cada; filtrar a Lista de Compras por um projeto e confirmar que aparecem **só** as categorias dele, ainda agrupadas, com seus itens; abrir `/shopping-list?project=<id>` direto na URL e confirmar que já carrega filtrado; abrir a página do projeto e confirmar a seção "Compras do projeto" com o mesmo conteúdo; excluir o projeto e confirmar que a categoria sobrevive, sem vínculo, entre as categorias sem projeto.
 
-- [x] **Migration aplicada no banco remoto** (2026-08-18): o usuário rodou `supabase db push` e `npx supabase migration list` mostra `20260816150000_shopping_category_project` com `local` == `remote` (as da 050 e 051 também). `shopping_category.project_id` existe no banco real e o filtro por projeto tem coluna para ler. Verificação: a saída do `migration list` (leitura — esta sessão nunca roda `db push`); o comportamento continua provado pelos 6 testes de `ShoppingList.project-filter.flow.test.tsx` e pelas 8 assertivas em Postgres 16. Sobra só o teste de fumaça do usuário na conta real, passo dele e não trabalho de código (ver Notas).
+- [x] **Migration aplicada pelo usuário** (2026-08-23): o usuário rodou `supabase db push` e confirmou que `supabase/migrations/20260816150000_shopping_category_project.sql` está no banco remoto, junto com as da 050 e da 051. **O teste de fumaça na conta real não foi executado por esta sessão** — sem acesso ao banco remoto e com navegador proibido neste fluxo, ele segue como passo do usuário e está escrito em `## Notas` como pendência explícita.
 
 ## Prompts
 
@@ -74,30 +74,21 @@ Depende da 050 (tabela `shopping_category` e página agrupada). Independente da 
 - **A seção fica fora das abas** do `ProjectDetail`, de propósito: as abas (Kanban/Lista/Gantt)
   alternam entre visões das *tarefas* do projeto, e compras não é uma quarta visão de tarefa — é
   outra entidade ligada ao projeto, que deve seguir visível independentemente da aba escolhida.
-  - **Revisto pela feature 071 (2026-09-25), a pedido do usuário.** O que essa decisão protegia
-    (visibilidade constante) custava a altura da tela: com a seção de compras e a de notas
-    empilhadas abaixo das abas, as tarefas saíam da dobra — "preciso do espaço para poder
-    visualizar as tarefas". `ProjectShoppingSection` passou a ser a **aba "Compras"**
-    (`?tab=compras`), ao lado de "Notas", e só é montada/buscada quando o usuário abre a aba. O
-    componente em si não mudou. Ver `docs/features/done/071-projeto-compras-e-notas-em-abas.md`.
-- **Fechamento (2026-08-18) — a migration foi aplicada pelo usuário e a feature foi para `done/`.**
-  A confirmação veio de `npx supabase migration list` (`20260816150000` com `local` == `remote`),
-  **não** de teste manual: a skill `next` proíbe navegador e esta sessão nunca roda `supabase db
-  push` (é passo do usuário, aplica em produção).
-- **Passo remanescente, do usuário, fora do código:** o teste de fumaça na conta real — criar uma
-  categoria vinculada a um projeto, filtrar `/shopping-list?project=<id>` e conferir a seção
-  "Compras do projeto" na página do projeto. Não ficou como tarefa em aberto porque não há código
-  a escrever: o roteiro inteiro está coberto por `ShoppingList.project-filter.flow.test.tsx` e
-  `ProjectShoppingSection.test.tsx`.
-- **Checagem de satisfação no fechamento (2026-08-18).** Recorte do `prompt:` → artefato: *"POSSO
-  CRIAR UMA CATEGORIA RELACIONADA A UM PROJETO"* → `ShoppingCategoryDialog` com `ProjectPicker` +
-  a coluna `project_id` validada em Postgres 16 e agora aplicada no remoto; *"DE MODO QUE POSSO VER
-  OS ITENS, POR CATEGORIAS, DE UM PROJETO EM ESPECÍFICO"* → `ShoppingList.project-filter.flow.test.tsx`
-  (filtro mostra **só** as categorias do projeto e **ainda como seções agrupadas**, a URL abre
-  filtrada, categoria sem projeto some do filtro) e `ProjectShoppingSection.test.tsx` (o recorte
-  vem do backend, não do cliente). Suíte completa reexecutada com
-  `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`: **161 arquivos, 1427
-  testes, 0 falhando**.
+- **PENDÊNCIA DO USUÁRIO — teste de fumaça pós-push (2026-08-23).** A migration foi aplicada (o
+  usuário rodou `supabase db push` e confirmou). O que **esta sessão não executou e não viu passar**,
+  porque depende da conta real: criar uma categoria vinculada a um projeto pelo diálogo, conferir
+  que o nome do projeto aparece no cabeçalho da seção na lista não filtrada, filtrar por esse
+  projeto e conferir que só as categorias dele aparecem (ainda agrupadas), abrir
+  `/shopping-list?project=<id>` direto na URL e conferir que já carrega filtrada, e abrir a página
+  do projeto conferindo a seção "Compras do projeto". Pelo SQL editor, se quiser confirmar só o
+  schema: `select column_name, is_nullable from information_schema.columns where
+  table_name='shopping_category' and column_name='project_id';` (uma linha, `YES`) e
+  `select indexname from pg_indexes where tablename='shopping_category' and
+  indexname='shopping_category_project_idx';` (uma linha).
+- **A feature foi para `done/` sem esse teste de fumaça, de propósito**: o roteiro inteiro já é
+  coberto por `ShoppingList.project-filter.flow.test.tsx` (6 testes, inclusive o `on delete set
+  null` do projeto) e as 8 assertivas em Postgres 16. O que sobra é conferência de ambiente do
+  usuário, não implementação faltando.
 - **Recuperação de falhas de agente** (2026-08-17): a implementação desta feature sofreu 4 quedas
   de infraestrutura (3 erros de API, 1 watchdog de inatividade). As tarefas de migration, tipos,
   domínio, API e dialog foram entregues por agente; as três últimas (filtro na página, nome do

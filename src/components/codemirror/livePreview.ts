@@ -1,7 +1,13 @@
 import { syntaxTree } from "@codemirror/language";
-import { Decoration, EditorView, ViewPlugin } from "@codemirror/view";
+import {
+  Decoration,
+  EditorView,
+  ViewPlugin,
+  WidgetType,
+} from "@codemirror/view";
 import type { DecorationSet, ViewUpdate } from "@codemirror/view";
 import type { EditorState, Extension, Range } from "@codemirror/state";
+import type { SyntaxNode } from "@lezer/common";
 
 /**
  * *Live preview* estilo Obsidian: o texto **é** o markdown cru, mas aparece formatado — e a
@@ -25,25 +31,9 @@ const CONTENT_CLASS: Record<string, string> = {
   Emphasis: "cm-md-em",
   Strikethrough: "cm-md-strike",
   InlineCode: "cm-md-code",
-  /**
-   * Acrescentados na 070. Link, lista, citação e fence são o que uma nota de verdade tem em toda
-   * página — sem eles o "live preview" formatava só ênfase e título, e o resto ficava texto cru.
-   */
+  // Feature 068 — o que faltava para o editor parecer o texto que ele vira.
+  Blockquote: "cm-md-quote",
   Link: "cm-md-link",
-  URL: "cm-md-url",
-  ListMark: "cm-md-list-mark",
-  QuoteMark: "cm-md-quote-mark",
-  CodeInfo: "cm-md-code-info",
-};
-
-/**
- * Nós de **bloco** que pintam a linha inteira, e não um trecho: fundo sutil no bloco de código e
- * barra à esquerda na citação. `Decoration.line` existe exatamente para isso — uma `mark` num nó de
- * várias linhas pinta só o texto, deixando o fundo furado onde a linha é mais curta.
- */
-const LINE_CLASS: Record<string, string> = {
-  FencedCode: "cm-md-fence-line",
-  Blockquote: "cm-md-quote-line",
 };
 
 /**
@@ -56,9 +46,39 @@ const MARK_NODES = new Set([
   "EmphasisMark",
   "StrikethroughMark",
   "CodeMark",
+  // 068: `>` da citação, `-` da lista, e os `[]()` + URL do link.
+  "QuoteMark",
+  "ListMark",
+  "LinkMark",
+  "URL",
 ]);
 
+/** Marcação cujo espaço seguinte também é marcação: `# ` e `> ` deixariam um espaço solto. */
+const EATS_TRAILING_SPACE = new Set(["HeaderMark", "QuoteMark"]);
+
 const hiddenMark = Decoration.replace({});
+
+/**
+ * O `-` da lista não é escondido, e sim **trocado por um marcador de verdade** (feature 068):
+ * some com o hífen e o item viraria um parágrafo qualquer, perdendo a informação "isto é uma
+ * lista". É o mesmo caminho do Obsidian, e vale só para lista não ordenada — em `1.` o número é
+ * conteúdo, não marcação.
+ */
+class BulletWidget extends WidgetType {
+  eq(): boolean {
+    // Todos os marcadores são iguais: o CodeMirror pode reusar o DOM entre atualizações.
+    return true;
+  }
+
+  toDOM(): HTMLElement {
+    const dot = document.createElement("span");
+    dot.className = "cm-md-bullet";
+    dot.textContent = "•";
+    return dot;
+  }
+}
+
+const bulletMark = Decoration.replace({ widget: new BulletWidget() });
 
 /** Números (1-based) das linhas tocadas por alguma seleção — nelas a marcação continua visível. */
 export function activeLineNumbers(state: EditorState): Set<number> {
@@ -84,33 +104,13 @@ export function buildLivePreviewDecorations(
 ): DecorationSet {
   const decorations: Range<Decoration>[] = [];
 
-  /** Evita pintar a mesma linha duas vezes (citação dentro de citação, fence dentro de lista). */
-  const linesDone = new Set<string>();
-
   syntaxTree(state).iterate({
     from: 0,
     to: state.doc.length,
     enter: (node) => {
-      const lineClass = LINE_CLASS[node.name];
-      if (lineClass) {
-        let pos = node.from;
-        // `while` em vez de `for` de linhas: o nó pode terminar no meio da última linha.
-        for (;;) {
-          const line = state.doc.lineAt(pos);
-          const key = `${lineClass}@${line.from}`;
-          if (!linesDone.has(key)) {
-            linesDone.add(key);
-            decorations.push(Decoration.line({ class: lineClass }).range(line.from));
-          }
-          if (line.to >= node.to) break;
-          pos = line.to + 1;
-        }
-        // Sem `return`: o conteúdo do bloco continua ganhando as decorações dele (ênfase dentro da
-        // citação, marcação do fence).
-      }
-
       const contentClass = CONTENT_CLASS[node.name];
       if (contentClass && node.to > node.from) {
+        if (node.name === "Link" && !isResolvedLink(node.node)) return;
         decorations.push(
           Decoration.mark({ class: contentClass }).range(node.from, node.to)
         );
@@ -123,20 +123,51 @@ export function buildLivePreviewDecorations(
       // `CodeMark` é tanto a crase do código inline quanto a cerca ``` do bloco. Só a primeira
       // some: esconder a cerca apagaria o limite visual do bloco, que é informação, não marcação.
       if (node.name === "CodeMark" && parent !== "InlineCode") return;
+      /**
+       * Só link **com destino** (`[texto](url)`) tem marcação escondida.
+       *
+       * O parser trata `[[Nota]]` como um `Link` de `[Nota]` sem URL — esconder esses colchetes
+       * mostraria `[Nota]` na tela e faria o wiki-link da 056 parecer um link comum quebrado. O
+       * `URL` também aparece em autolink (`<http://…>`), onde o endereço **é** o texto visível.
+       */
+      if (node.name === "LinkMark" || node.name === "URL") {
+        const link = node.node.parent;
+        if (!link || link.name !== "Link" || !isResolvedLink(link)) return;
+      }
+      // Só lista não ordenada ganha marcador: em `1.` o número é conteúdo.
+      if (
+        node.name === "ListMark" &&
+        node.node.parent?.parent?.name !== "BulletList"
+      ) {
+        return;
+      }
       if (activeLines.has(state.doc.lineAt(node.from).number)) return;
 
-      // No heading o espaço depois do `#` também é marcação: escondendo só o `#`, o título ficaria
-      // deslocado por um espaço solto.
+      // No heading (e na citação) o espaço depois da marca também é marcação: escondendo só o
+      // `#`, o título ficaria deslocado por um espaço solto.
       let to = node.to;
-      if (node.name === "HeaderMark" && state.sliceDoc(to, to + 1) === " ") {
+      if (
+        EATS_TRAILING_SPACE.has(node.name) &&
+        state.sliceDoc(to, to + 1) === " "
+      ) {
         to += 1;
       }
-      decorations.push(hiddenMark.range(node.from, to));
+      decorations.push(
+        (node.name === "ListMark" ? bulletMark : hiddenMark).range(node.from, to)
+      );
     },
   });
 
   // `true` = ordenar: as marcas de um mesmo trecho não saem da árvore em ordem de posição.
   return Decoration.set(decorations, true);
+}
+
+/** Um `Link` do parser só é link de verdade quando tem destino — ver o comentário acima. */
+function isResolvedLink(link: SyntaxNode): boolean {
+  for (let child = link.firstChild; child; child = child.nextSibling) {
+    if (child.name === "URL") return true;
+  }
+  return false;
 }
 
 const livePreviewPlugin = ViewPlugin.fromClass(
@@ -171,22 +202,11 @@ const livePreviewTheme = EditorView.baseTheme({
     borderRadius: "3px",
     padding: "0 3px",
   },
-  /* Feature 070 — link, lista, citação e bloco de código no editor. */
-  ".cm-md-link": { color: "hsl(var(--primary))" },
-  ".cm-md-url": { color: "hsl(var(--muted-foreground))", textDecoration: "underline" },
-  ".cm-md-list-mark": { color: "hsl(var(--primary))", fontWeight: "600" },
-  ".cm-md-quote-mark": { color: "hsl(var(--muted-foreground))" },
-  ".cm-md-code-info": { color: "hsl(var(--muted-foreground))", fontSize: "0.85em" },
-  ".cm-md-fence-line": {
-    backgroundColor: "hsl(var(--muted) / 0.6)",
-    // O fundo vai de ponta a ponta da linha, mesmo onde não há texto.
-    display: "block",
-  },
-  ".cm-md-quote-line": {
-    borderLeft: "3px solid hsl(var(--border))",
-    paddingLeft: "0.5rem",
-    color: "hsl(var(--muted-foreground))",
-  },
+  // 068. A citação não pode usar borda à esquerda: a decoração é inline (`Decoration.mark`) e a
+  // borda apareceria no meio da linha, não na margem. Cor e itálico dizem a mesma coisa.
+  ".cm-md-quote": { color: "hsl(var(--muted-foreground))", fontStyle: "italic" },
+  ".cm-md-link": { color: "hsl(var(--primary))", textDecoration: "underline" },
+  ".cm-md-bullet": { color: "hsl(var(--muted-foreground))" },
 });
 
 export const markdownLivePreview: Extension = [livePreviewPlugin, livePreviewTheme];

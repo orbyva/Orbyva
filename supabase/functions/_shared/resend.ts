@@ -1,10 +1,23 @@
 /** Cliente Resend mínimo para Edge Functions. */
 
+/**
+ * Anexo no formato que a API do Resend espera. `content` é o arquivo em base64 — para `.ics` é o
+ * VCALENDAR inteiro (feature 076), que é o que faz o evento entrar no Google/Apple Calendar com um
+ * clique.
+ */
+export type ResendAttachment = {
+  filename: string;
+  /** Conteúdo em base64. */
+  content: string;
+  content_type?: string;
+};
+
 export type SendEmailInput = {
   to: string;
   subject: string;
   html: string;
   from?: string;
+  attachments?: ResendAttachment[];
 };
 
 export async function sendResendEmail(
@@ -29,6 +42,8 @@ export async function sendResendEmail(
       to: [input.to],
       subject: input.subject,
       html: input.html,
+      // Só manda a chave quando há anexo: a API rejeita `attachments: []`.
+      ...(input.attachments?.length ? { attachments: input.attachments } : {}),
     }),
   });
 

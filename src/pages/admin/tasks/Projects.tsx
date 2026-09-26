@@ -26,14 +26,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
-import {
-  ProjectFormDialog,
-  STATUS_LABELS,
-  formatEventDate,
-  type ProjectEventSaveDraft,
-} from "./ProjectFormDialog";
+import { ProjectFormDialog, STATUS_LABELS, formatEventDate } from "./ProjectFormDialog";
 import {
   createProject,
   createProjectEvent,
@@ -45,9 +41,8 @@ import {
   fetchTags,
   fetchTasks,
   updateProject,
-  updateProjectEvent,
 } from "@/api/tasks";
-import { resolveEventProjectId, topOngoingTasksForProject } from "@/domain/tasks";
+import { topOngoingTasksForProject } from "@/domain/tasks";
 import type {
   Project,
   ProjectCreateRequest,
@@ -267,24 +262,18 @@ export default function Projects() {
     load();
   }, [load]);
 
-  const taskById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
-
   const eventsByProject = useMemo(() => {
     const map = new Map<string, ProjectEvent[]>();
     for (const e of events) {
-      // Evento de tarefa conta como evento do projeto **da tarefa** (feature 068): o `project_id`
-      // da linha é nulo por decisão da 066 (projeto derivado, nunca copiado), então comparar o
-      // campo cru esconderia do card o compromisso que o usuário marcou sobre uma tarefa dele —
-      // e o "próximo evento" passaria a mentir por omissão. Evento avulso segue fora de todo card.
-      const projectId = resolveEventProjectId(e, taskById);
-      if (!projectId) continue;
-      const list = map.get(projectId);
+      // Evento sem projeto (feature 076: recebido por convite) não entra em nenhum card de projeto.
+      if (!e.project_id) continue;
+      const list = map.get(e.project_id);
       if (list) list.push(e);
-      else map.set(projectId, [e]);
+      else map.set(e.project_id, [e]);
     }
     for (const list of map.values()) list.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
     return map;
-  }, [events, taskById]);
+  }, [events]);
 
   function nextEventFor(projectId: string): ProjectEvent | undefined {
     const nowIso = new Date().toISOString();
@@ -401,41 +390,22 @@ export default function Projects() {
     }
   }
 
-  /**
-   * Cria ou edita conforme o `id` do rascunho (feature 068). O erro vira toast **e** é re-lançado:
-   * quem decide manter o `EventFormDialog` aberto é ele mesmo, pela rejeição de `onSave` — engolir a
-   * exceção aqui fecharia o dialog como se tivesse salvado.
-   */
-  async function handleSaveEvent(draft: ProjectEventSaveDraft) {
+  async function handleAddEvent({ title, startsAt }: { title: string; startsAt: string }) {
     if (!editing) return;
     try {
-      if (draft.id) {
-        await updateProjectEvent({
-          id: draft.id,
-          title: draft.title,
-          starts_at: draft.starts_at,
-          ends_at: draft.ends_at,
-        });
-      } else {
-        await createProjectEvent({
-          project_id: editing.id,
-          task_id: null,
-          title: draft.title,
-          starts_at: draft.starts_at,
-          ends_at: draft.ends_at,
-        });
-      }
+      await createProjectEvent({
+        project_id: editing.id,
+        title,
+        starts_at: new Date(startsAt).toISOString(),
+        ends_at: null,
+      });
       load();
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(
-          error,
-          draft.id ? "Não foi possível salvar o evento." : "Não foi possível adicionar o evento."
-        ),
+        description: getErrorMessage(error, "Não foi possível adicionar o evento."),
         variant: "destructive",
       });
-      throw error;
     }
   }
 
@@ -457,8 +427,14 @@ export default function Projects() {
     <PageShell
       title="Projetos"
       description="Agrupe tarefas por projeto e acompanhe o andamento em Lista ou Kanban."
-      actions={<Button onClick={openCreate}>Novo projeto</Button>}
+      actions={
+        <>
+          <ModuleGuideButton moduleId="tasks" />
+          <Button onClick={openCreate}>Novo projeto</Button>
+        </>
+      }
     >
+      <ModuleGuide moduleId="tasks" />
       {loading ? (
         <TableLoadingSkeleton rows={4} />
       ) : projects.length === 0 ? (
@@ -563,9 +539,8 @@ export default function Projects() {
         tags={tags}
         onCreateTag={handleCreateTag}
         events={editing ? (eventsByProject.get(editing.id) ?? []) : []}
-        tasks={tasks}
         onSave={handleSave}
-        onSaveEvent={handleSaveEvent}
+        onAddEvent={handleAddEvent}
         onDeleteEvent={handleDeleteEvent}
       />
     </PageShell>

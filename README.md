@@ -12,10 +12,10 @@ Feito com **React 19 + TypeScript + Vite**, **Tailwind + shadcn/ui**, **Recharts
 
 ## Módulos (navegação)
 
-A sidebar agrupa o app em quatro blocos:
+A sidebar agrupa o app em cinco blocos:
 
 ### Início
-- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro), waitlist; marketing com motion OriginKit + Cult UI + Skiper UI (free); módulos por ícones (sem prints repetidos); card do cronômetro flutuante
+- **Landing** (`/`) — life OS, planos (teste 7 dias → Pro); isca **Está dentro do orçamento?** (`/dentro-do-orcamento`, sem login; aliases `/quanto-ainda-cabe` e `/cabe-no-mes`); marketing com motion OriginKit + Cult UI + Skiper UI (free); módulos por ícones (sem prints repetidos); card do cronômetro flutuante
 - **Dashboard** (`/home`) — resumo do dia: hábitos, saldo, alertas, atalhos; botão **+** abre um popover compacto e formulários de criação no overlay (sem sair da tela, quando suportado)
 - **Timeline** (`/timeline`) — eventos agregados de todos os módulos
 
@@ -26,17 +26,25 @@ A sidebar agrupa o app em quatro blocos:
 - **Orçamento mensal** — planejado vs gasto, alertas e duplicação entre meses
 - **Categorias** — categorias e subcategorias com cor e ícone; busca por nome na página; animação ao mover subcategoria entre categorias
 
-### Entretenimento
-- **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); busca ao digitar; episódios com nota; import Letterboxd / TV Time; card Stories
-- **Livros** (`/books`) — para ler / lendo / lidos / abandonei; Google Books com busca ao digitar; marca-página e notas de leitura; opinião e card Stories
-- **Música** (`/music`) — para ouvir / ouvidos; catálogo via Edge Function (Spotify) com fallback MusicBrainz; busca ao digitar; tracklist + nota por faixa; cadastro manual; card Stories
+### Produtividade
+- **Tarefas** (`/tasks`) — lista unificada, Kanban, agenda e Gantt; timer Live; tags e ícones de link
+- **Projetos** (`/tasks/projects`) — agrupamento de tarefas, detalhe em Lista/Kanban/Agenda/Gantt
+- **Notas** (`/notes`) — markdown (e canvas) soltas ou vinculadas a um projeto
+- **Lista de Compras** (`/shopping-list`) — itens por categoria, com vínculo opcional a tarefa/projeto
 
 ### Vida
 - **Hábitos** (`/habits`) — check-in do dia, faixa da semana, heatmap mensal (aba **Hoje | Mês**), anti-hábitos e vínculo com metas
+- **Saúde** (`/life/health`) — medicações, consultas, métricas corporais e hábitos de saúde
 - **Metas** (`/goals`) — progresso, categorias e prazos
 - **Lugares** (`/places`) — para visitar / visitados (fluxos separados); busca Google Places; nota e opinião; na edição, aba **Visitas** com N visitas ao mesmo lugar (`place_visit_occurrence`)
 - **Viagens** (`/travel`, `/travel/:id`) — paradas multi-cidade (editar parada no lápis do dia); clima + sugestão de roupa/mala sob demanda (botão); roteiro por dia (dias passados ocultos com “ver anteriores”; mover atividades; status de visita; ícone Google Maps quando houver link; próximo destino + rotas Google; ao editar início/fim da viagem o roteiro realinha pelas datas); deslocamentos como **atividade do dia** (origem/destino obrigatórios → título Origem → Destino; modo voo/trem/ônibus/carro; saída/chegada com input `time`; ida/volta iniciais na criação; conflito de horário com visitas); gastos (incl. rateio e vínculo com finanças; lançamento em categoria Viagens pode vincular a uma viagem); lugares da viagem; prazos; convites compartilhados. GPS no Chrome exige `Permissions-Policy: geolocation=(self)` (ver `vercel.json`).
 - **Veículos** (`/car`) — manutenções, abastecimentos, documentos e alertas (carro ou moto)
+
+### Conteúdo
+- **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); busca ao digitar; episódios com nota; import Letterboxd / TV Time; card Stories
+- **Livros** (`/books`) — para ler / lendo / lidos / abandonei; Google Books com busca ao digitar; marca-página e notas de leitura; opinião e card Stories
+- **Música** (`/music`) — para ouvir / ouvidos; catálogo via Edge Function (Spotify) com fallback MusicBrainz; busca ao digitar; tracklist + nota por faixa; cadastro manual; card Stories
+- **Links** (`/links`) — artigos, vídeos e sites para consumir depois
 
 ---
 
@@ -84,9 +92,14 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 ### Front: rotas e performance
 
 - `routes.tsx` — React Router v7; app atrás de `ProtectedRoute`
-- Módulos em `React.lazy`; `AdminLayout` pré-carrega chunks de Entretenimento em idle
+- Landing (`/`) no grafo estático, sem Supabase; `/marketing/hub.webp` em preload, o print do hero é o `<img>` do carrossel (sem overlay HTML por cima)
+- First paint da home: shell HTML + CSS crítico; `/marketing/hub.webp` em preload
+- Fontes latin-only; PWA registra o SW em idle
 - Listas de Cinema/Livros/Música: cache em memória (`memoryCache` + `useCachedCatalog`) com revalidação
-- PWA via `vite-plugin-pwa`; bundle budget em `npm run check:bundle`
+- Bundle budget em `npm run check:bundle`
+- `/llms.txt` (Markdown com H1 + links) para agentes; arquivo estático em `public/`, não a SPA
+- `/sitemap.xml` (páginas públicas) + `/robots.txt`; o SW não faz fallback da SPA nesses paths
+- Google Tag Manager (`GTM-5H8MT38X`) via `public/gtm.js` (sem script inline, por causa do CSP); noscript no `index.html`; hosts Google liberados no CSP
 
 ### Backend: Supabase
 
@@ -119,12 +132,13 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 
 ```
 /public                 Assets estáticos (logo, marketing)
+/extension              Extensão Chrome (Manifest V3, side panel → `/ext`)
 /e2e                    Playwright + helpers (auth, cleanup E2E*)
 /scripts                ci-local, bundle budget, minify SW
 /supabase
   ├─ migrations/        Schema / RLS / seeds (fonte da verdade)
   ├─ config.toml
-  └─ functions/         stripe-*, spotify-catalog, places-catalog, e-mails, waitlist…
+  └─ functions/         stripe-*, spotify-catalog, places-catalog, e-mails…
 /src
   ├─ api/               Cliente Supabase por domínio
   ├─ domain/            Regras puras + testes
@@ -148,8 +162,10 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 |------|------|
 | `/` | Landing |
 | `/about` | Sobre |
+| `/dentro-do-orcamento` | Ferramenta pública: está dentro do orçamento? |
 | `/login` | Login |
 | `/home` | Hub / dashboard geral |
+| `/ext` | Painel da extensão Chrome (autenticado, sem sidebar) |
 | `/timeline` | Timeline |
 | `/account` | Conta (plano, export, preferências de e-mail) |
 | `/finance/*` | Dashboard, transações, recorrências, orçamento, categorias |
@@ -164,6 +180,10 @@ Cinema e Livros seguem o mesmo padrão de catálogo + cache + share card.
 | `/terms` · `/privacy` | Legal |
 
 Atalhos: **⌘K** busca global · sino de alertas · PWA após `npm run build`.
+
+### Extensão Chrome
+
+Pasta `extension/` (Manifest V3). Painel lateral: tarefas do dia, contadores, hábitos, próxima dose, restante do orçamento, captura para links/compras/notas/catálogo (sem duplicar o que já está salvo). A UI é `/ext` no app (mesma sessão). Como carregar: [`extension/README.md`](./extension/README.md).
 
 ---
 
@@ -292,7 +312,7 @@ Console em `/ops` (fora do menu): conceder Pro / estender teste. Requer migratio
 | `lifecycle-email` | Welcome (fallback), trial, nudges (cron + `CRON_SECRET`) |
 | `retention-d7-email` | Retorno D7 |
 | `weekly-digest-email` | Digest semanal |
-| `habit-reminder-email` / `trip-invite-email` / `waitlist-email` | Produto / growth |
+| `habit-reminder-email` / `trip-invite-email` | Produto / growth |
 
 Secrets comuns: `RESEND_API_KEY`, `RESEND_FROM`, `SITE_URL`, `CRON_SECRET`. Preferências na Conta.
 

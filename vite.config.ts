@@ -2,7 +2,7 @@
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { viteSafariHmrNoReload } from "./vite.safari-hmr";
 
 /**
@@ -11,36 +11,36 @@ import { viteSafariHmrNoReload } from "./vite.safari-hmr";
  */
 const RECHARTS_D3_RE =
   /node_modules\/(d3-array|d3-color|d3-ease|d3-format|d3-interpolate|d3-path|d3-scale|d3-shape|d3-time|d3-time-format|d3-timer|internmap)\//;
-
-/**
- * Pacotes de gramática que só entram por `import()` — o realce dentro de ` ```lang ` do editor de
- * notas (feature 070). Cada linguagem vira um chunk **próprio e nomeado** (`cm-lang-python-…`),
- * como o excalidraw faz por arquivo, por dois motivos medidos nesta feature:
- *
- * 1. sem regra nenhuma (deixando o Rollup decidir), `@lezer/javascript` e `@lezer/css` acabavam
- *    **dentro** do chunk `codemirror` — eles também são alcançáveis pelo grafo estático via
- *    `lang-markdown → lang-html`, e o vendor pulava de 138,9 KB para 201,5 KB gzip, estourando o
- *    teto de 200 KB. Um `manualChunks` explícito os tira de lá;
- * 2. o nome estável é o que faz `check-bundle-budget.mjs` classificá-los como vendor lazy. Sem
- *    nome, o Rollup os batiza de `index-…` (o arquivo de entrada de cada pacote se chama
- *    `index.js`) e o orçamento os confunde com o chunk de **entrada** do app — a mesma armadilha
- *    que a 069 documentou com o `lowlight`.
- */
-const LAZY_FENCE_GRAMMAR_RE =
-  /node_modules\/(?:@codemirror\/lang-|@lezer\/)(javascript|json|css|html|sql|python)\//;
-/** Modos legados (`shell`) não têm pacote `@lezer` próprio: vêm todos de `legacy-modes`. */
-const LEGACY_MODES_RE = /node_modules\/@codemirror\/legacy-modes\//;
+/** CSS do bundle sem bloquear FCP (LCP pinta pelo HTML). */
+function preloadCriticalFonts(): Plugin {
+  return {
+    name: "orbyva-preload-critical-fonts",
+    transformIndexHtml: {
+      order: "post",
+      handler(html, ctx) {
+        if (!ctx.bundle) return html;
+        const next = html.replace(
+          /<link rel="stylesheet" crossorigin href="([^"]+\.css)">/g,
+          '<link rel="stylesheet" href="$1" media="print" data-boot-css>\n    <noscript><link rel="stylesheet" href="$1"></noscript>'
+        );
+        return next;
+      },
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
     viteSafariHmrNoReload(),
     react(),
+    preloadCriticalFonts(),
     VitePWA({
       registerType: "prompt",
       minify: true,
       includeAssets: [
         "logo.webp",
         "logo-mark.webp",
+        "logo-mark-sky.png",
         "placeholder.svg",
         "pwa-192.png",
         "pwa-512.png",
@@ -86,15 +86,26 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,webp,svg,woff2,png}"],
         /**
-         * O canvas (feature 058) fica **fora do precache**: são 4,7 MB em ~100 chunks que só quem
-         * abre um canvas usa. Precachear tudo faria a instalação do PWA baixar isso para todo
-         * mundo (medido: 11,4 MB → 15,9 MB de precache). Continuam disponíveis pela rede, sob
-         * demanda, como qualquer chunk lazy; a contrapartida aceita é que abrir um canvas pela
-         * primeira vez exige estar online.
+         * O canvas (feature 058) fica **fora do precache**: o JS do Excalidraw passa de 2 MB
+         * (limite do Workbox) e só quem abre um canvas usa. Sem `manualChunks` o nome do arquivo
+         * não é estável (`excalidraw-*` ou o símbolo interno da lib), então o teto de tamanho
+         * é o que garante que um chunk gigante não entre no precache se o glob falhar.
          */
-        globIgnores: ["**/excalidraw-*.js", "**/excalidraw-*.css"],
+        globIgnores: [
+          "**/excalidraw-*.js",
+          "**/excalidraw-*.css",
+          "**/ExcalidrawCanvas-*.js",
+          "**/ExcalidrawCanvas-*.css",
+          "**/percentages-BXMCSKIN-*.js",
+          "**/subset-shared.chunk-*.js",
+        ],
+        maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
+          /^\/llms\.txt$/,
+          /^\/robots\.txt$/,
+          /^\/sitemap\.xml$/,
+          /^\/gtm\.js$/,
           /^\/tmdb-media/,
           /^\/books-media/,
           /^\/mb-api/,
@@ -180,9 +191,23 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 700,
+    modulePreload: false,
     rollupOptions: {
       output: {
         manualChunks(id) {
+          /**
+           * Antes do `node_modules` return: o helper de preload do Vite não mora em
+           * `node_modules` (`\0vite/preload-helper`). Sem chunk próprio, o Rollup o joga no
+           * primeiro vendor grande que o usa — o Excalidraw — e o `index` importa 4,7 MB só
+           * para ter `__vitePreload`. Prod 2026-08-31: `TypeError: $ is not a function`.
+           */
+          if (
+            id.includes("\0vite/") ||
+            id.includes("vite/preload-helper") ||
+            id.includes("vite/dynamic-import-helper")
+          ) {
+            return "vite-runtime";
+          }
           if (!id.includes("node_modules")) return;
           // Utils pequenos, NÃO deixar cair no chunk do recharts (clsx era engolido).
           if (
@@ -209,11 +234,6 @@ export default defineConfig({
            */
           if (RECHARTS_D3_RE.test(id)) return "d3";
           if (id.includes("framer-motion")) return "motion";
-          // Gramática de fence: um chunk por linguagem, antes da regra genérica de `@codemirror`
-          // (que puxaria tudo para o vendor fixo do editor). Ver a constante acima.
-          const fenceGrammar = LAZY_FENCE_GRAMMAR_RE.exec(id);
-          if (fenceGrammar) return `cm-lang-${fenceGrammar[1]}`;
-          if (LEGACY_MODES_RE.test(id)) return "cm-lang-shell";
           // CodeMirror (editor de notas, feature 056) é vendor pesado e só carrega na rota de
           // notas — sem chunk próprio ele entraria no chunk da rota e estouraria o teto de 160 KB.
           if (
@@ -227,35 +247,19 @@ export default defineConfig({
             return "codemirror";
           }
           /**
-           * Excalidraw (canvas, feature 058) é a maior dependência do app — 4,7 MB de JS somando
-           * tudo. Um `manualChunks` **único** foi medido e reprovado: colapsa os ~90 locales e os
-           * chunks internos num arquivo de 1,5 MB gzip (e o Workbox nem consegue pré-cachear,
-           * limite de 2 MB por arquivo). É a mesma armadilha que a 057 documentou com o mermaid.
-           *
-           * A regra abaixo é o contrário disso: **um chunk por arquivo do pacote**, que é onde o
-           * próprio Excalidraw já traçou as fronteiras (core, subsetting de fonte, um arquivo por
-           * idioma). Preserva o split natural — quem abre um canvas em pt-BR não baixa os outros
-           * 89 idiomas — e ainda dá nome estável (`excalidraw-…`) para o orçamento de bundle
-           * classificar, em vez de depender do sufixo de build da lib.
+           * Runtime do Vite (preload helper). Sem chunk próprio, o Rollup joga o helper no
+           * primeiro vendor grande que o usa — no caso o Excalidraw — e o `index` importa esse
+           * vendor só para ter `__vitePreload`. Em produção (2026-08-31) isso puxou 4,7 MB de
+           * canvas no boot e explodiu com `TypeError: $ is not a function`.
            */
-          if (id.includes("@excalidraw")) {
-            const file = id.split("?")[0].split("/").pop() ?? "core";
-            return `excalidraw-${file.replace(/\.js$/, "")}`;
-          }
           /**
-           * `lowlight` + `highlight.js` (realce de código das notas, feature 069) só são baixados
-           * quando uma nota tem bloco de código — o `CodeBlock` os importa dinamicamente. O nome
-           * próprio existe pelo mesmo motivo do `excalidraw-` acima: sem ele o Rollup batiza o
-           * chunk de `index-…` (o arquivo de entrada do lowlight se chama `index.js`) e
-           * `check-bundle-budget.mjs` o confunde com o chunk de entrada do app, dando a ele o teto
-           * de 380 KB em vez do de vendor lazy.
+           * Excalidraw **não** entra em `manualChunks`. Forçar nome (um arquivo só ou um por
+           * arquivo do pacote) coloca o grafo do canvas no mesmo chunk do helper de preload, e o
+           * boot da landing importa os 4,7 MB. O `React.lazy` / `import()` do `ExcalidrawCanvas`
+           * e do `CanvasBlock` já o deixam lazy. `globIgnores` + teto de tamanho do Workbox
+           * cobrem o precache. O guarda em `check-bundle-budget.mjs` falha se o `index`
+           * importar o canvas.
            */
-          if (
-            id.includes("node_modules/lowlight") ||
-            id.includes("node_modules/highlight.js")
-          ) {
-            return "lowlight";
-          }
           if (id.includes("@sentry")) return "sentry";
           if (id.includes("@supabase")) return "supabase";
           if (id.includes("@radix-ui")) return "radix";
@@ -308,7 +312,7 @@ export default defineConfig({
         rewrite: (p) => p.replace(/^\/spotify-media/, ""),
       },
     },
-    allowedHosts: ["localhost", "5757-146-70-163-204.ngrok-free.app"]
+    allowedHosts: ["localhost", "6cd8-45-238-124-170.ngrok-free.app"]
   },
   test: {
     globals: true,
@@ -317,9 +321,10 @@ export default defineConfig({
     // `environmentMatchGlobs` mantém o resto da suíte (`.test.ts`, lógica pura) em "node", mais
     // rápido e sem custo de jsdom.
     environmentMatchGlobs: [["src/**/*.test.tsx", "jsdom"]],
-    setupFiles: ["./src/test/setup-jsdom.ts"],
+    setupFiles: ["./src/test/setup-timezone.ts", "./src/test/setup-jsdom.ts"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     env: {
+      TZ: "America/Sao_Paulo",
       VITE_SUPABASE_URL: "https://example.supabase.co",
       VITE_SUPABASE_ANON_KEY: "test-anon-key",
     },

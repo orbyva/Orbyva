@@ -1,24 +1,46 @@
-import { StrictMode } from "react";
+import { lazy, Suspense, StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { PwaUpdateBanner } from "@/components/PwaUpdateBanner";
-import { AuthProvider } from "@/hooks/useAuth";
 import { track } from "@/lib/analytics";
 import { handleNeedRefresh } from "@/lib/pwaUpdate";
 import "./index.css";
 import AppRouter from "./routes";
 
-void import("@/lib/sentry").then(({ initSentry }) => {
-  const boot = () => initSentry();
-  if (typeof window.requestIdleCallback === "function") {
-    window.requestIdleCallback(() => boot(), { timeout: 4000 });
-  } else {
-    setTimeout(boot, 2500);
-  }
+document.querySelectorAll<HTMLLinkElement>("link[data-boot-css]").forEach((link) => {
+  const apply = () => {
+    link.media = "all";
+  };
+  link.addEventListener("load", apply);
+  if (link.sheet) apply();
 });
-track("app_boot");
+
+document.getElementById("boot")?.setAttribute("hidden", "");
+
+const PwaUpdateBanner = lazy(() =>
+  import("@/components/PwaUpdateBanner").then((m) => ({
+    default: m.PwaUpdateBanner,
+  }))
+);
+
+function afterLoad(fn: () => void) {
+  const run = () => {
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(() => fn(), { timeout: 4000 });
+    } else {
+      window.setTimeout(fn, 2000);
+    }
+  };
+  if (document.readyState === "complete") run();
+  else window.addEventListener("load", run, { once: true });
+}
+
+void afterLoad(() => {
+  void import("@/lib/sentry").then(({ initSentry }) => initSentry());
+});
+
+afterLoad(() => track("app_boot"));
 
 // PWA: fora de formulário → atualiza na hora; em formulário → banner "Atualizar agora".
 let refreshing = false;
@@ -30,48 +52,61 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-const updateSW = registerSW({
-  immediate: true,
-  onNeedRefresh() {
-    handleNeedRefresh(() => updateSW(true));
-  },
-  onRegisteredSW(_swUrl, registration) {
-    if (!registration) return;
+afterLoad(() => {
+  const updateSW = registerSW({
+    immediate: false,
+    onNeedRefresh() {
+      handleNeedRefresh(() => updateSW(true));
+    },
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
 
-    const check = () => {
-      void (async () => {
-        // Rede ruim / deploy no meio / SW já instalando → update() estoura TypeError no Sentry.
-        if (!navigator.onLine || registration.installing) return;
-        try {
-          const ping = await fetch("/sw.js", {
-            cache: "no-store",
-            headers: { "cache-control": "no-cache" },
-          });
-          if (!ping.ok) return;
-          await registration.update();
-        } catch {
-          /* ignore, próximo ciclo tenta de novo */
-        }
-      })();
-    };
+      const check = () => {
+        void (async () => {
+          // Rede ruim / deploy no meio / SW já instalando → update() estoura TypeError no Sentry.
+          if (!navigator.onLine || registration.installing) return;
+          try {
+            const ping = await fetch("/sw.js", {
+              cache: "no-store",
+              headers: { "cache-control": "no-cache" },
+            });
+            if (!ping.ok) return;
+            await registration.update();
+          } catch {
+            /* ignore, próximo ciclo tenta de novo */
+          }
+        })();
+      };
 
-    window.setInterval(check, 60 * 1000);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") check();
-    });
-  },
-  onRegisterError() {
-    /* silencioso, falha transitória de rede */
-  },
+      window.setInterval(check, 60 * 1000);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") check();
+      });
+    },
+    onRegisterError() {
+      /* silencioso, falha transitória de rede */
+    },
+  });
 });
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <AuthProvider>
+function Root() {
+  const [banner, setBanner] = useState(false);
+  useEffect(() => {
+    afterLoad(() => setBanner(true));
+  }, []);
+
+  return (
+    <StrictMode>
+      <ErrorBoundary>
         <AppRouter />
-        <PwaUpdateBanner />
-      </AuthProvider>
-    </ErrorBoundary>
-  </StrictMode>
-);
+        {banner ? (
+          <Suspense fallback={null}>
+            <PwaUpdateBanner />
+          </Suspense>
+        ) : null}
+      </ErrorBoundary>
+    </StrictMode>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(<Root />);

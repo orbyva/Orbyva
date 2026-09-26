@@ -1,22 +1,20 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Smartphone, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/BrandLogo";
-import { BrandWordmark } from "@/components/BrandWordmark";
+import LoadingFallback from "@/components/LoadingFallback";
 import PhoneMockupBasic from "@/components/ui/phone-mockups-1";
 import { LandingAtmosphere } from "@/components/landing/LandingAtmosphere";
 import { LandingMagneticCta } from "@/components/landing/LandingMagneticCta";
 import { LandingNeonFrame } from "@/components/landing/LandingNeonFrame";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { LandingTrustMarquee } from "@/components/landing/LandingTrustMarquee";
-import { GradientHeading } from "@/components/cult-ui/gradient-heading";
 import { Link001 } from "@/components/ui/skiper-ui/skiper40";
 import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plan";
 import { isBillingConfigured } from "@/lib/billing-config";
 import { track } from "@/lib/analytics";
-import { useAuth } from "@/hooks/useAuth";
+import { landingShouldDeferToApp } from "@/lib/landingAuthHint";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import { FAQ_JSON_LD } from "@/pages/landing/landingFaqData";
 
@@ -62,7 +60,7 @@ const NAV = [
 
 const TRUST = [
   "Parece 5 apps. Custa 1.",
-  "Teto do mês no bolso",
+  "Está dentro do orçamento?",
   "7 dias grátis",
   "Life OS incluso",
   "Cancele em 1 clique",
@@ -85,7 +83,7 @@ const ROADMAP = [
 const SECTION_IDS = ["controle", "planos"] as const;
 
 export default function Landing() {
-  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   useDocumentMeta({
     title: "Orbyva · Tudo da sua vida em uma só órbita",
     description:
@@ -96,23 +94,33 @@ export default function Landing() {
   });
   const billingLive = isBillingConfigured();
   const [showStickyCta, setShowStickyCta] = useState(false);
+  const [belowFold, setBelowFold] = useState(false);
+  const [handoff, setHandoff] = useState(landingShouldDeferToApp);
   const seenSections = useRef(new Set<string>());
+  const heroRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    if (handoff) return;
     track("landing_view", {
       billing_live: billingLive,
       channel: "instagram",
     });
-  }, [billingLive]);
+  }, [billingLive, handoff]);
 
   useEffect(() => {
-    const onScroll = () => setShowStickyCta(window.scrollY > 640);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    if (handoff) return;
+    const hero = heroRef.current;
+    if (!hero) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickyCta(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(hero);
+    return () => observer.disconnect();
+  }, [handoff]);
 
   useEffect(() => {
+    if (handoff) return;
     let cancelled = false;
     let observer: IntersectionObserver | null = null;
     let raf = 0;
@@ -149,11 +157,75 @@ export default function Landing() {
       cancelAnimationFrame(raf);
       observer?.disconnect();
     };
+  }, [handoff]);
+
+  useLayoutEffect(() => {
+    document.getElementById("boot")?.setAttribute("hidden", "");
+    return () => {
+      document.getElementById("boot")?.setAttribute("hidden", "");
+    };
   }, []);
 
-  const ctaTo = !loading && user ? "/home" : "/login?mode=signup";
-  const ctaLabel = !loading && user ? "Abrir app" : "Começar grátis";
+  useEffect(() => {
+    if (handoff) return;
+    let idle = 0;
+    let timeout = 0;
+    const show = () => setBelowFold(true);
+    const arm = () => {
+      if (typeof window.requestIdleCallback === "function") {
+        idle = window.requestIdleCallback(show, { timeout: 4000 });
+      } else {
+        timeout = window.setTimeout(show, 1500);
+      }
+    };
+    if (document.readyState === "complete") arm();
+    else window.addEventListener("load", arm, { once: true });
+    return () => {
+      if (idle) window.cancelIdleCallback(idle);
+      if (timeout) window.clearTimeout(timeout);
+    };
+  }, [handoff]);
+
+  /**
+   * Quem já tem sessão (ou OAuth na hash) não espera o idle: a landing está fora do AuthRoot
+   * de propósito (LCP), mas pintar o marketing e só então mandar para `/home` parece um flash.
+   * Visitante anônimo continua sem importar o Supabase.
+   */
+  useEffect(() => {
+    if (!handoff) return;
+    let cancelled = false;
+    void import("@/lib/supabase")
+      .then(({ supabase }) => supabase.auth.getSession())
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data.session?.user) {
+          navigate("/home", { replace: true });
+          return;
+        }
+        const url = new URL(window.location.href);
+        if (url.searchParams.has("code") || url.searchParams.has("state")) {
+          url.searchParams.delete("code");
+          url.searchParams.delete("state");
+          const next = `${url.pathname}${url.search}${url.hash}`;
+          window.history.replaceState({}, "", next);
+        }
+        setHandoff(false);
+      })
+      .catch(() => {
+        if (!cancelled) setHandoff(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [handoff, navigate]);
+
+  const ctaTo = "/login?mode=signup";
+  const ctaLabel = "Começar grátis";
   const heroSub = `7 dias grátis · depois Pro ${PLANS.pro.priceLabel}`;
+
+  if (handoff) {
+    return <LoadingFallback />;
+  }
 
   return (
     <div className="relative min-h-svh bg-[var(--landing-bg)] pb-16 text-zinc-100 md:pb-0">
@@ -161,66 +233,76 @@ export default function Landing() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: FAQ_JSON_LD }}
       />
+      <a
+        href="#conteudo"
+        className="absolute left-4 top-4 z-50 -translate-y-16 rounded-full bg-sky-400 px-4 py-2 text-sm font-semibold text-sky-950 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] focus:translate-y-0"
+      >
+        Ir para o conteúdo
+      </a>
       <LandingAtmosphere />
 
-      <header className="relative z-20 mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link to="/" aria-label={BRAND.name} className="inline-flex shrink-0">
-          <BrandLogo
-            variant="mark"
-            className="size-9 rounded-lg bg-white sm:size-10 sm:rounded-xl"
-            alt={BRAND.name}
-          />
-        </Link>
+      <header className="relative z-20 px-4 pt-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 rounded-full border border-white/10 bg-[var(--landing-bg)]/80 px-2 pl-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md sm:px-3">
+          <Link to="/" aria-label={BRAND.name} className="inline-flex shrink-0">
+            <BrandLogo
+              variant="mark"
+              className="size-8 rounded-lg bg-white sm:size-9 sm:rounded-xl"
+              alt={BRAND.name}
+            />
+          </Link>
 
-        <LandingNav items={NAV} />
+          <LandingNav items={NAV} />
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-zinc-300 hover:text-white"
-            asChild
-          >
-            <Link to="/login">Entrar</Link>
-          </Button>
-          <Button size="sm" className="rounded-full px-4" asChild>
-            <Link to={ctaTo} onClick={() => track("landing_cta_nav")}>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Link
+              to="/login"
+              className="inline-flex h-8 items-center rounded-full px-3 text-xs text-zinc-300 transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-white"
+            >
+              Entrar
+            </Link>
+            <Link
+              to={ctaTo}
+              onClick={() => track("landing_cta_nav")}
+              className="inline-flex h-8 items-center rounded-full bg-sky-400 px-4 text-xs font-medium text-sky-950 transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-sky-300 active:scale-[0.98]"
+            >
               {ctaLabel}
             </Link>
-          </Button>
+          </div>
         </div>
       </header>
 
-      <main className="relative z-10">
-        <section className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pb-12 pt-6 sm:px-8 sm:pt-10 lg:grid-cols-[0.95fr_1.05fr] lg:gap-12 lg:pb-20">
+      <main id="conteudo" className="relative z-10">
+        <section
+          ref={heroRef}
+          className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pb-14 pt-8 sm:px-8 sm:pt-10 lg:grid-cols-[0.95fr_1.05fr] lg:gap-12 lg:pb-20"
+        >
           <div className="landing-hero-copy">
-            <BrandWordmark size="lg" showSubtitle={false} />
-            <GradientHeading
-              as="h1"
-              variant="sky"
-              size="xl"
-              weight="semi"
-              className="mt-4 font-display"
-            >
+            <h1 className="text-balance font-display text-4xl font-semibold tracking-tighter text-zinc-50 sm:text-5xl lg:text-6xl lg:leading-[1.12]">
               {BRAND.tagline}.
-            </GradientHeading>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-zinc-400 sm:text-lg">
+            </h1>
+            <p className="mt-5 max-w-[65ch] text-pretty text-base leading-relaxed text-zinc-400 sm:text-lg">
               {BRAND.heroSupport}
             </p>
-            <div className="mt-8">
+            <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
               <LandingMagneticCta
                 href={ctaTo}
                 label={ctaLabel}
                 onClick={() => track("landing_cta_hero")}
               />
+              <Link
+                to="/dentro-do-orcamento"
+                onClick={() => track("landing_cta_cabe_no_mes")}
+                className="text-sm text-zinc-400 underline-offset-4 transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-zinc-200 hover:underline"
+              >
+                Está dentro do orçamento?
+              </Link>
             </div>
-            <p className="mt-3 text-xs text-zinc-500">{heroSub}</p>
           </div>
 
           <div className="landing-hero-visual relative w-full min-w-0">
             <div
               aria-hidden
-              className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-[radial-gradient(circle_at_50%_40%,rgba(14,165,233,0.28),transparent_65%)] blur-2xl"
+              className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-[radial-gradient(circle_at_50%_40%,rgba(14,165,233,0.18),transparent_65%)] blur-2xl"
             />
             <PhoneMockupBasic />
           </div>
@@ -228,24 +310,26 @@ export default function Landing() {
 
         <LandingTrustMarquee items={TRUST} />
 
-        <Suspense fallback={null}>
-          <LandingCompare />
-          <LandingFeatures />
-          <LandingProof ctaTo={ctaTo} />
-          <LandingPricing
-            ctaTo={ctaTo}
-            ctaLabel={ctaLabel}
-            showPlanCtas
-          />
-          <LandingFaq />
-        </Suspense>
+        {belowFold ? (
+          <Suspense fallback={null}>
+            <LandingCompare />
+            <LandingFeatures />
+            <LandingProof ctaTo={ctaTo} />
+            <LandingPricing
+              ctaTo={ctaTo}
+              ctaLabel={ctaLabel}
+              showPlanCtas
+            />
+            <LandingFaq />
+          </Suspense>
+        ) : null}
 
-        <section className="relative mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
+        <section className="relative mx-auto w-full max-w-6xl px-5 py-24 sm:px-8 sm:py-32">
           <LandingNeonFrame className="px-6 py-14 text-center sm:px-12">
-            <h2 className="font-display text-3xl font-semibold leading-[1.4] tracking-tight sm:text-4xl sm:leading-[1.35]">
+            <h2 className="text-balance font-display text-3xl font-semibold leading-[1.4] tracking-tighter sm:text-4xl sm:leading-[1.35]">
               Comece grátis. Organize o mês e o resto da vida hoje.
             </h2>
-            <p className="mx-auto mt-3 max-w-md text-zinc-400">
+            <p className="mx-auto mt-3 max-w-[65ch] text-pretty text-zinc-400">
               7 dias com tudo liberado. Depois, Pro por {PLANS.pro.priceLabel},
               sem pegadinha.
             </p>
@@ -257,7 +341,7 @@ export default function Landing() {
               />
             </div>
             <p className="mt-3 text-xs text-zinc-500">
-              Cadastro em minutos · cartão só se assinar o Pro
+              Cadastro em minutos, cartão só se assinar o Pro
             </p>
           </LandingNeonFrame>
         </section>
@@ -266,10 +350,7 @@ export default function Landing() {
       <footer className="relative z-10 border-t border-white/10">
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[1.2fr_1fr]">
           <div>
-            <p className="font-display text-sm font-medium text-sky-400/90">
-              No radar
-            </p>
-            <h2 className="mt-2 font-display text-xl font-semibold tracking-tight sm:text-2xl">
+            <h2 className="font-display text-xl font-semibold tracking-tighter sm:text-2xl">
               O que vem a seguir
             </h2>
             <ul className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -292,11 +373,11 @@ export default function Landing() {
             </ul>
           </div>
 
-          <div id="contato" className="scroll-mt-20">
-            <p className="font-display text-sm font-medium text-sky-400/90">
+          <div id="contato" className="scroll-mt-24">
+            <h2 className="font-display text-xl font-semibold tracking-tighter sm:text-2xl">
               Contato
-            </p>
-            <p className="mt-2 text-sm text-zinc-400">
+            </h2>
+            <p className="mt-2 max-w-[65ch] text-sm text-zinc-400">
               Dúvida, ideia ou feedback? Resposta humana, de verdade.
             </p>
             <div className="mt-4 flex flex-wrap gap-5">
@@ -327,6 +408,9 @@ export default function Landing() {
             © {new Date().getFullYear()} {BRAND.name} · {BRAND.domain}
           </span>
           <div className="flex flex-wrap items-center gap-4">
+            <Link to="/dentro-do-orcamento" className="hover:text-zinc-300">
+              Está dentro do orçamento?
+            </Link>
             <Link to="/about" className="hover:text-zinc-300">
               Sobre
             </Link>
@@ -352,17 +436,19 @@ export default function Landing() {
       </footer>
 
       <div
-        className={`fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[var(--landing-bg)]/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-md transition-transform duration-300 md:hidden ${
+        className={`fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[var(--landing-bg)]/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-md transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] md:hidden ${
           showStickyCta ? "translate-y-0" : "translate-y-full"
         }`}
       >
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs leading-tight text-zinc-400">{heroSub}</p>
-          <Button size="sm" className="rounded-full px-5" asChild>
-            <Link to={ctaTo} onClick={() => track("landing_cta_sticky")}>
-              {ctaLabel}
-            </Link>
-          </Button>
+          <Link
+            to={ctaTo}
+            onClick={() => track("landing_cta_sticky")}
+            className="inline-flex h-8 shrink-0 items-center rounded-full bg-sky-400 px-5 text-xs font-medium text-sky-950 transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-sky-300 active:scale-[0.98]"
+          >
+            {ctaLabel}
+          </Link>
         </div>
       </div>
     </div>

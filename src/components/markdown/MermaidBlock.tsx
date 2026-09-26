@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { sanitizeSvgMarkup } from "@/components/markdown/sanitizeSvg";
+import { sanitizeSvgMarkup } from "@/lib/sanitizeSvg";
 import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
 
 /**
@@ -16,7 +16,7 @@ import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
  * **`securityLevel: "strict"`** é a barreira de segurança: desliga rótulo em HTML (`htmlLabels`) e
  * faz o mermaid sanitizar o texto do usuário. O SVG que ele devolve ainda passa por
  * `sanitizeSvgMarkup` antes de entrar na página — ver Decisões da 057 e o comentário de
- * `sanitizeSvg.ts`.
+ * `src/lib/sanitizeSvg.ts`.
  *
  * **Sintaxe inválida é caso normal**, não exceção: `mermaid.parse` valida antes de desenhar e o
  * erro vira uma caixa legível no lugar do diagrama. O resto da nota continua renderizando.

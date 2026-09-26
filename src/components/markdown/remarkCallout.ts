@@ -1,30 +1,26 @@
-import type { Blockquote, Nodes, Root } from "mdast";
+import type { Blockquote, Nodes, Paragraph, Root, Text } from "mdast";
 
 /**
- * # `> [!NOTE]` — callouts/admonitions sem dependência nova (feature 069)
+ * # Callout — o dialeto de alerta do GitHub dentro das notas (feature 067)
  *
- * `> [!NOTE] …` é a sintaxe que o GitHub chama de *alert* e o Obsidian de *callout*. As duas
- * escrevem o mesmo texto, e é por isso que ela foi escolhida: a nota continua legível (e portável)
- * em qualquer editor de Markdown — sem marcador reconhecido ela é apenas uma citação comum, que é
- * exatamente como o resto do mundo já a renderiza.
+ * ```md
+ * > [!WARNING] Prazo do cartório
+ * > A escritura vence dia 30.
+ * ```
  *
- * O plugin é local de propósito. `> [!NOTE]` já é um `blockquote` válido para o CommonMark: não há
- * gramática nova para escrever, só um marcador a reconhecer no primeiro parágrafo. Então aqui não
- * se mexe no parser — só se **anota** o nó (`data.hProperties['data-callout']`, que o
- * `mdast-util-to-hast` transforma no atributo do `<blockquote>`) e se tira o marcador do texto. Todo
- * o desenho mora no CSS (`.markdown-body [data-callout]`, em `src/index.css`).
+ * Vira uma caixa com ícone e cor, em vez de uma citação cinza. A sintaxe é a do GitHub — cinco
+ * tipos, palavra-chave entre colchetes na **primeira linha** de um blockquote — mais o título
+ * opcional na mesma linha, que é a boa ideia emprestada do Obsidian.
  *
- * Três garantias que este arquivo mantém, e que os testes vigiam:
+ * **Por que não `remark-directive`/`:::note`**: seria uma dependência a mais e uma sintaxe que o
+ * usuário não encontra em lugar nenhum fora deste app. O dialeto do GitHub degrada com elegância —
+ * em qualquer outro renderizador o texto continua sendo uma citação legível, não um `:::note` cru
+ * na tela.
  *
- * 1. **Tipo desconhecido não some**: `> [!FOO]` continua um blockquote normal, com o texto
- *    `[!FOO]` visível. O usuário vê o que escreveu em vez de um bloco vazio.
- * 2. **Nada de conteúdo se perde**: só o marcador é removido, e só quando ele abre o bloco.
- *    Marcador no meio do texto não conta.
- * 3. **Nenhum HTML cru entra**: o plugin devolve o mesmo mdast, com um atributo a mais. É o que
- *    permite a invariante da 055 (`rehype-raw` desligado) continuar verdadeira.
+ * O plugin **não** gera HTML: ele só marca o nó (`data-callout`, `data-callout-title`), e quem
+ * desenha é o `CalloutBlock` via `components.blockquote`. Isso é o que mantém a decisão da 055 de
+ * pé — nada aqui abre caminho para HTML cru, e o título continua sendo texto, nunca markup.
  */
-
-/** Os cinco tipos do GitHub. O Obsidian tem mais, mas estes são os que as duas bases compartilham. */
 export const CALLOUT_TYPES = [
   "note",
   "tip",
@@ -36,65 +32,108 @@ export const CALLOUT_TYPES = [
 export type CalloutType = (typeof CALLOUT_TYPES)[number];
 
 /**
- * `[!TIPO]` abrindo o bloco, com o espaço que costuma vir depois dele. Ancorado no início de
- * propósito: é o que faz "marcador no meio do texto não conta".
+ * Rótulo em português por tipo — é o que aparece quando o usuário não escreve título próprio.
+ * Mora aqui, e não no `CalloutBlock`, para o componente exportar só componente (regra do
+ * `react-refresh/only-export-components`).
  */
-const CALLOUT_MARKER_RE = /^\[!([A-Za-z]+)\][ \t]*/;
+export const CALLOUT_LABEL: Record<CalloutType, string> = {
+  note: "Nota",
+  tip: "Dica",
+  important: "Importante",
+  warning: "Atenção",
+  caution: "Cuidado",
+};
 
-const CALLOUT_TYPE_SET = new Set<string>(CALLOUT_TYPES);
+/** O tipo chega como atributo de DOM (string qualquer): confere antes de indexar mapa nenhum. */
+export function parseCalloutType(value: unknown): CalloutType | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.toLowerCase();
+  return isCalloutType(normalized) ? normalized : null;
+}
+
+/** Atributo que o `CalloutBlock` lê para saber que aquele blockquote virou callout. */
+export const CALLOUT_TYPE_ATTR = "data-callout";
+/** Título opcional escrito na mesma linha do `[!TIPO]`. Texto puro, nunca markup. */
+export const CALLOUT_TITLE_ATTR = "data-callout-title";
 
 /**
- * Plugin remark: anota os blockquotes que abrem com `> [!TIPO]` e tira o marcador do texto.
- * Registrado em `MARKDOWN_REMARK_PLUGINS` (`remarkPlugins.ts`), vale para todo Markdown do app.
+ * `[!TIPO]` no começo da linha, com o resto da linha virando título.
+ * `(.*)` não casa `\n` de propósito: o título é só a primeira linha.
+ */
+const CALLOUT_RE = /^\[!([A-Za-z]+)\][ \t]*(.*)(?:\n|$)/;
+
+function isCalloutType(value: string): value is CalloutType {
+  return (CALLOUT_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Plugin remark: marca todo blockquote que começa com `[!TIPO]`.
+ *
+ * Escrito sem `unist-util-visit` de propósito — a travessia é meia dúzia de linhas e o módulo fica
+ * puro e testável sozinho, no mesmo estilo de `src/domain/notes/`.
  */
 export function remarkCallout() {
-  return (tree: Root): void => {
-    visitBlockquotes(tree, annotateCallout);
+  return function transform(tree: Root): void {
+    visitNodes(tree, (node) => {
+      if (node.type === "blockquote") markCallout(node);
+    });
   };
 }
 
-/**
- * Caminhada recursiva pela árvore. Não usa `unist-util-visit` porque ele chegaria aqui como
- * dependência transitiva do `react-markdown` — e a alternativa cabe em seis linhas. Callout dentro
- * de lista, de outro callout ou de citação aninhada é alcançado igual.
- */
-function visitBlockquotes(node: Nodes, visitor: (node: Blockquote) => void): void {
-  if (node.type === "blockquote") visitor(node);
-  if ("children" in node) {
-    for (const child of node.children) visitBlockquotes(child, visitor);
-  }
+function visitNodes(node: Nodes, onNode: (node: Nodes) => void): void {
+  onNode(node);
+  const children = "children" in node ? node.children : undefined;
+  if (!children) return;
+  for (const child of children) visitNodes(child as Nodes, onNode);
 }
 
-function annotateCallout(node: Blockquote): void {
+/**
+ * Marca o blockquote **e consome a linha do gatilho**, para o `[!NOTE]` não aparecer no texto.
+ * Blockquote que não começa com um dos cinco tipos sai daqui intocado — `[!FOO]` continua sendo
+ * uma citação com um `[!FOO]` literal dentro, que é como o GitHub também se comporta.
+ */
+function markCallout(node: Blockquote): void {
   const paragraph = node.children[0];
   if (!paragraph || paragraph.type !== "paragraph") return;
 
-  const opening = paragraph.children[0];
-  if (!opening || opening.type !== "text") return;
+  const first = paragraph.children[0];
+  if (!first || first.type !== "text") return;
 
-  const match = CALLOUT_MARKER_RE.exec(opening.value);
+  const match = CALLOUT_RE.exec(first.value);
   if (!match) return;
 
   const type = match[1].toLowerCase();
-  // Tipo que não conhecemos volta a ser citação comum — com o `[!FOO]` ainda na tela.
-  if (!CALLOUT_TYPE_SET.has(type)) return;
+  if (!isCalloutType(type)) return;
 
-  /**
-   * O corpo costuma vir na linha seguinte (`> [!NOTE]\n> texto`), e no mdast a quebra leve é um
-   * `\n` dentro do próprio texto. Removê-la evita o bloco começar com uma linha em branco. Título
-   * na mesma linha (jeito do Obsidian, `> [!NOTE] Atenção`) é mantido como primeira linha do corpo.
-   */
-  const rest = opening.value.slice(match[0].length).replace(/^\n/, "");
-  opening.value = rest;
-
-  // `> [!NOTE]` sozinho: sem isto sobraria um parágrafo vazio abrindo o callout.
-  if (rest === "") {
-    paragraph.children.shift();
-    if (paragraph.children.length === 0) node.children.shift();
-  }
+  const title = match[2].trim();
+  consumeTriggerLine(node, paragraph, first, match[0].length);
 
   node.data = {
     ...node.data,
-    hProperties: { ...node.data?.hProperties, "data-callout": type },
+    hProperties: {
+      ...(node.data?.hProperties ?? {}),
+      [CALLOUT_TYPE_ATTR]: type,
+      ...(title ? { [CALLOUT_TITLE_ATTR]: title } : {}),
+    },
   };
+}
+
+/**
+ * Tira o `[!TIPO] Título\n` do texto. Se aquilo era o parágrafo inteiro (callout de uma linha só,
+ * sem corpo), o parágrafo vazio some — senão sobraria um espaço em branco dentro da caixa.
+ */
+function consumeTriggerLine(
+  node: Blockquote,
+  paragraph: Paragraph,
+  first: Text,
+  consumed: number
+): void {
+  const rest = first.value.slice(consumed);
+  if (rest) {
+    first.value = rest;
+    return;
+  }
+  paragraph.children.shift();
+  // Parágrafo que só continha o gatilho vira um `<p>` vazio dentro da caixa — fora com ele.
+  if (paragraph.children.length === 0) node.children.shift();
 }

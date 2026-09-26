@@ -9,6 +9,17 @@ import type { Medication } from "@/types/health";
  * "1 de manhã e 1 à noite" é um tratamento só com dois horários.
  */
 
+/**
+ * `icon_key` gravada em toda dose materializada (feature 071). O preset correspondente é
+ * `{ key: "pill", label: "Medicação" }` em `TASK_ICON_PRESETS`
+ * (`src/pages/admin/tasks/TaskIconBadge.tsx`) — é ele que a bolinha da agenda desenha, e é o que
+ * diferencia a dose das outras tarefas pontuais do dia sem precisar de texto.
+ *
+ * Mesmo padrão de `SHOPPING_TASK_ICON_KEY` (`src/domain/shopping/taskLink.ts`): a chave mora no
+ * domínio, quem grava e quem desenha só a importam.
+ */
+export const MEDICATION_TASK_ICON_KEY = "pill";
+
 /** Uma dose a materializar: o dia e qual dos `medication.times` ela representa. */
 export interface DoseSlot {
   /** `YYYY-MM-DD` no fuso local. */
@@ -24,10 +35,23 @@ export interface ExistingDose {
 }
 
 /**
- * Teto de iterações do laço de datas — mesmo espírito do `guard` de
+ * Quantas datas da cadência um laço pode visitar de uma vez — mesmo espírito do `guard` de
  * `computeMissingWeekdayOccurrences` (`src/domain/tasks/recurrence.ts`). Um tratamento contínuo
- * começado há anos não pode virar um laço infinito nem uma insert de milhares de linhas de uma vez;
- * o que sobrar entra na carga seguinte, porque as doses já criadas saem de `existingDoses`.
+ * começado há anos não pode virar laço infinito nem uma insert de milhares de linhas de uma vez.
+ *
+ * **Não é um teto de alcance** (feature 096). Era, até então, e isso escondia um bug: o laço
+ * contava iterações a partir de `started_on` e avançava o cursor em toda passada, inclusive nas
+ * datas cuja dose já existia. O alcance do gerador era `started_on + 399 × interval_days`, **para
+ * sempre** — um tratamento diário começado há mais de 400 dias parava de materializar dose e nunca
+ * mais voltava, enquanto a agenda continuava desenhando a dose virtual pontilhada que nunca virava
+ * real. O comentário aqui afirmava o contrário ("o que sobrar entra na carga seguinte"), então
+ * quem lia o código era ativamente enganado.
+ *
+ * Hoje o laço para **por data** e a janela é ancorada no fim (`hoje`, ou o fim programado), não no
+ * começo: `computeMissingDoses` cobre sempre os últimos `MAX_DAYS` passos de cadência até `limit`.
+ * A consequência assumida é que um tratamento mais velho que isso não materializa retroativamente o
+ * início — e é a troca certa: são doses de mais de um ano atrás, que ninguém vai marcar como
+ * tomadas, e o que não pode faltar é a dose de **hoje**.
  */
 const MAX_DAYS = 400;
 
@@ -76,6 +100,10 @@ function parseIso(iso: string): Date {
  * `existingDoses` são as doses já materializadas **deste** tratamento; a comparação é por
  * (`due_date`, `dose_time` normalizado), então rodar isto de novo com o resultado já inserido
  * devolve lista vazia — é o que impede a mesma dose de aparecer duas vezes no calendário.
+ *
+ * A janela varrida termina em `limit` e tem no máximo `MAX_DAYS` datas de cadência (ver o comentário
+ * de `MAX_DAYS`): a dose de **hoje** sai daqui por mais velho que seja o tratamento, e é o começo
+ * de um tratamento muito antigo que fica de fora, não o fim.
  */
 export function computeMissingDoses(
   medication: Medication,
@@ -102,10 +130,21 @@ export function computeMissingDoses(
       .map((dose) => `${dose.due_date}T${normalizeTime(dose.dose_time) ?? ""}`)
   );
 
-  const missing: DoseSlot[] = [];
+  // Onde a varredura começa. Um tratamento dentro da janela começa em `started_on`, como sempre;
+  // um mais antigo que `MAX_DAYS` passos começa no passo que deixa exatamente `MAX_DAYS` datas até
+  // `limit`. O salto é aritmético a partir de `started_on` (mesma conta de `computeVirtualDoses`),
+  // então a cadência continua alinhada com o início: um `interval_days = 3` cai sempre no dia certo
+  // e nunca no de véspera.
+  const totalSteps = Math.floor(daysBetween(start, limit) / interval);
+  const firstStep = Math.max(0, totalSteps - MAX_DAYS + 1);
   const cursor = parseIso(start);
+  cursor.setDate(cursor.getDate() + firstStep * interval);
 
-  for (let step = 0; step < MAX_DAYS; step += 1) {
+  const missing: DoseSlot[] = [];
+
+  // O laço para **por data**. `MAX_DAYS + 1` é trava de segurança contra laço infinito, não regra
+  // de negócio: o `firstStep` acima garante que a saída seja sempre o `date > limit`.
+  for (let guard = 0; guard <= MAX_DAYS; guard += 1) {
     const date = toIso(cursor);
     if (date > limit) break;
 
@@ -119,57 +158,198 @@ export function computeMissingDoses(
   return missing;
 }
 
-/** Soma dias a uma data ISO, pelo meio-dia local (imune a horário de verão). */
-function addDays(iso: string, days: number): string {
-  const date = parseIso(iso);
-  date.setDate(date.getDate() + days);
-  return toIso(date);
+/**
+ * Uma dose já materializada, do ponto de vista da **reconciliação** (feature 074): além da chave
+ * (`due_date`, `dose_time`) que `computeMissingDoses` usa, precisa do `id` (é o que vai ser
+ * apagado) e de como saber se ela já foi tomada.
+ */
+export interface ReconcilableDose extends ExistingDose {
+  id: string;
+  status?: string | null;
+  completed_at?: string | null;
+}
+
+/** Dose já tomada — nunca é tocada pela reconciliação: é o histórico de adesão da 064. */
+function isDoseCompleted(dose: ReconcilableDose): boolean {
+  return dose.status === "done" || dose.completed_at != null;
 }
 
 /**
- * A próxima dose do tratamento em ou depois de `now` — data e horário.
+ * Os ids das doses que **deixaram de fazer parte** do tratamento depois de uma edição — o que
+ * `updateMedication` apaga para o calendário não ficar com a dose do horário velho ao lado da do
+ * horário novo (feature 074).
  *
- * Sai do **tratamento**, não das tarefas já materializadas: a materialização só cria doses até
- * hoje, então perguntar às tasks responderia "a mais antiga ainda não tomada", que não é a próxima.
- * Devolve `null` para tratamento encerrado (`active = false`), sem horários, ou cujo `ended_on` já
- * passou — nesses casos não existe próxima dose, e exibir uma seria mentira.
+ * Só entram doses **futuras** (`due_date > today`) e **não concluídas**. Essa é a regra que não
+ * pode ser relaxada: dose passada e dose já tomada são o histórico de adesão da `064`, e apagá-las
+ * falsificaria a métrica — quem mudou o horário hoje não desfez o remédio que tomou ontem. A dose
+ * de **hoje** também fica de fora de propósito: o dia está em curso, ela pode estar prestes a ser
+ * marcada, e a materialização não recriaria nada melhor no lugar.
  *
- * O salto até a data corrente é aritmético (não um laço dia a dia): um tratamento diário começado
- * há três anos tem de responder na mesma velocidade que um começado ontem.
+ * Uma dose futura é obsoleta quando qualquer coisa da nova configuração a exclui: tratamento
+ * encerrado (`active = false`), `dose_time` que não está mais em `times`, dia anterior ao novo
+ * `started_on`, dia posterior ao novo `ended_on`, ou dia fora da cadência de `interval_days`.
+ * O que continua batendo fica de pé — reconciliar não é "apagar tudo e materializar de novo", que
+ * trocaria ids e perderia qualquer edição feita na linha.
  */
-export function nextDoseSlot(medication: Medication, now: Date): DoseSlot | null {
+export function computeStaleDoses(
+  medication: Medication,
+  existingDoses: ReconcilableDose[],
+  today: string
+): string[] {
+  const times = new Set(medicationTimes(medication));
+  const interval = Math.max(1, Math.trunc(medication.interval_days || 1));
+  const start = medication.started_on;
+
+  const stale: string[] = [];
+  for (const dose of existingDoses) {
+    if (!dose.due_date) continue;
+    if (dose.due_date <= today) continue;
+    if (isDoseCompleted(dose)) continue;
+
+    if (!medication.active) {
+      stale.push(dose.id);
+      continue;
+    }
+
+    const time = normalizeTime(dose.dose_time);
+    if (!time || !times.has(time)) {
+      stale.push(dose.id);
+      continue;
+    }
+    if (!start || dose.due_date < start) {
+      stale.push(dose.id);
+      continue;
+    }
+    if (medication.ended_on && dose.due_date > medication.ended_on) {
+      stale.push(dose.id);
+      continue;
+    }
+    if (daysBetween(start, dose.due_date) % interval !== 0) {
+      stale.push(dose.id);
+    }
+  }
+  return stale;
+}
+
+/** Dias inteiros de `fromIso` até `toIso` (negativo se `toIso` for anterior). */
+function daysBetween(fromIso: string, toIso: string): number {
+  const ms = parseIso(toIso).getTime() - parseIso(fromIso).getTime();
+  return Math.round(ms / 86_400_000);
+}
+
+/**
+ * Os pares (data, horário) que o tratamento **ainda vai** gerar, do dia seguinte a `today` até
+ * `rangeEndIso` (inclusive) — as doses virtuais da agenda (feature 071).
+ *
+ * `computeMissingDoses` para em `today` de propósito: a 064 decidiu não encher a base de linhas
+ * futuras para tratamentos que o usuário pode encerrar amanhã. O efeito colateral era a agenda não
+ * mostrar dose nenhuma no futuro, contradizendo o "aparece no meu calendário" do prompt. Estas
+ * doses fecham o buraco sem persistir nada: são sintetizadas na janela visível, desenhadas como a
+ * bolinha tracejada da 070 e não são clicáveis — quando o dia chegar, a materialização cria a linha
+ * de verdade.
+ *
+ * Mesmas regras de `computeMissingDoses` (`active`, `started_on`, `interval_days`, `ended_on`) e a
+ * mesma deduplicação por (`due_date`, `dose_time`) contra `existingDoses`: se a dose já foi
+ * materializada — o que acontece com a de hoje, e com qualquer futura que exista por outro caminho
+ * —, ela não aparece uma segunda vez como virtual.
+ */
+export function computeVirtualDoses(
+  medication: Medication,
+  existingDoses: ExistingDose[],
+  rangeEndIso: string,
+  today: string
+): DoseSlot[] {
+  if (!medication.active) return [];
+
+  const times = medicationTimes(medication);
+  if (times.length === 0) return [];
+
+  const start = medication.started_on;
+  if (!start) return [];
+
+  // Fim da janela: o fim do intervalo visível, ou o fim programado do tratamento se ele vier antes.
+  const limit =
+    medication.ended_on && medication.ended_on < rangeEndIso
+      ? medication.ended_on
+      : rangeEndIso;
+
+  // Só o futuro: hoje (e o passado) é responsabilidade da materialização, não da síntese.
+  if (limit <= today) return [];
+
+  const interval = Math.max(1, Math.trunc(medication.interval_days || 1));
+
+  // Primeira ocorrência depois de hoje, sem varrer dia a dia desde `started_on`: um tratamento
+  // contínuo começado há anos estouraria o guard antes de chegar na janela visível.
+  let firstIso = start;
+  const offset = daysBetween(start, today);
+  if (offset >= 0) {
+    const steps = Math.floor(offset / interval) + 1;
+    const cursorStart = parseIso(start);
+    cursorStart.setDate(cursorStart.getDate() + steps * interval);
+    firstIso = toIso(cursorStart);
+  }
+  if (firstIso > limit) return [];
+
+  const existing = new Set(
+    existingDoses
+      .filter((dose) => dose.due_date)
+      .map((dose) => `${dose.due_date}T${normalizeTime(dose.dose_time) ?? ""}`)
+  );
+
+  const virtual: DoseSlot[] = [];
+  const cursor = parseIso(firstIso);
+
+  for (let step = 0; step < MAX_DAYS; step += 1) {
+    const date = toIso(cursor);
+    if (date > limit) break;
+
+    for (const time of times) {
+      if (!existing.has(`${date}T${time}`)) virtual.push({ date, time });
+    }
+
+    cursor.setDate(cursor.getDate() + interval);
+  }
+
+  return virtual;
+}
+
+/**
+ * A próxima dose prevista do tratamento a partir de agora (`today` + `nowTime`), materializada ou
+ * não — o que a lista de tratamentos mostra por linha (feature 071).
+ *
+ * Deliberadamente ignora o que já existe em `task`: a pergunta aqui é "quando é a próxima",
+ * não "qual linha do banco vem a seguir". Uma dose de hoje já tomada continua sendo a dose de hoje;
+ * o que interessa na lista é o próximo horário do **cronograma**, então basta `medication`.
+ *
+ * `null` quando o tratamento está inativo, não tem horário, ou já acabou (`ended_on` no passado) —
+ * e também quando a próxima dose está além de `horizonDays`, que só acontece com `interval_days`
+ * muito grande e é melhor do que varrer o calendário inteiro.
+ */
+export function nextDoseSlot(
+  medication: Medication,
+  today: string,
+  nowTime: string,
+  horizonDays = 90
+): DoseSlot | null {
   if (!medication.active) return null;
 
   const times = medicationTimes(medication);
   if (times.length === 0) return null;
+  if (!medication.started_on) return null;
+  if (medication.ended_on && medication.ended_on < today) return null;
 
-  const start = medication.started_on;
-  if (!start) return null;
-
+  // Hoje ainda conta, se for dia de dose e sobrar horário no relógio.
   const interval = Math.max(1, Math.trunc(medication.interval_days || 1));
-  const today = toIso(now);
-  const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(
-    now.getMinutes()
-  ).padStart(2, "0")}`;
-
-  // Primeira data do tratamento em ou depois de hoje, respeitando a cadência a partir do início.
-  let date = start;
-  if (start < today) {
-    const elapsedDays = Math.round(
-      (parseIso(today).getTime() - parseIso(start).getTime()) / 86_400_000
-    );
-    date = addDays(start, Math.ceil(elapsedDays / interval) * interval);
+  const offset = daysBetween(medication.started_on, today);
+  const hojeEhDiaDeDose = offset >= 0 && offset % interval === 0;
+  if (hojeEhDiaDeDose) {
+    const restante = times.find((time) => time >= nowTime);
+    if (restante) return { date: today, time: restante };
   }
 
-  // No próprio dia de hoje só vale horário que ainda não passou; senão, pula para a data seguinte.
-  let time = times.find((candidate) => date > today || candidate >= nowTime);
-  if (!time) {
-    date = addDays(date, interval);
-    time = times[0]!;
-  }
-
-  if (medication.ended_on && date > medication.ended_on) return null;
-  return { date, time };
+  const horizon = parseIso(today);
+  horizon.setDate(horizon.getDate() + horizonDays);
+  return computeVirtualDoses(medication, [], toIso(horizon), today)[0] ?? null;
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { Recurring, RecurringDueAlert } from "@/types/recurring";
 import { DUE_WARNING_DAYS } from "./constants";
 import { formatDueDate } from "./installments";
+import { formatYm } from "./projection";
 import { countsAsMonthlySpend } from "@/domain/finance/spendFlags";
 
 export function getRecurringDueAlerts(
@@ -86,6 +87,28 @@ export function getRecurringProgress(rec: Recurring): RecurringProgress | null {
   };
 }
 
+/** Parcela com vencimento no mês (1–12). */
+export function recurringInstallmentInMonth(
+  rec: Recurring,
+  year: number,
+  month: number
+) {
+  if (!Array.isArray(rec.installments)) return undefined;
+  const ym = formatYm(year, month);
+  return rec.installments.find((inst) => inst.dueDate.slice(0, 7) === ym);
+}
+
+/** A parcela do mês escolhido já foi paga / recebida. */
+export function isRecurringPaidInMonth(
+  rec: Recurring,
+  year: number,
+  month: number
+): boolean {
+  const inst = recurringInstallmentInMonth(rec, year, month);
+  if (!inst) return false;
+  return (rec.paid_parcels || []).includes(inst.number);
+}
+
 export interface DueAlertGroup {
   date: string;
   dateLabel: string;
@@ -117,7 +140,9 @@ export function groupDueAlertsByDate(
 export function filterRecurringList(
   list: Recurring[],
   filter: RecurringFilter,
-  dueAlerts: RecurringDueAlert[]
+  dueAlerts: RecurringDueAlert[],
+  year: number,
+  month: number
 ): Recurring[] {
   const overdueIds = new Set(
     dueAlerts.filter((a) => a.status === "overdue").map((a) => a.recurring.id)
@@ -127,13 +152,11 @@ export function filterRecurringList(
   );
 
   return list.filter((rec) => {
-    const progress = getRecurringProgress(rec);
-
     switch (filter) {
       case "open":
-        return !progress || progress.open > 0;
+        return !isRecurringPaidInMonth(rec, year, month);
       case "paid":
-        return progress !== null && progress.open === 0 && progress.total > 0;
+        return isRecurringPaidInMonth(rec, year, month);
       case "upcoming":
         return upcomingIds.has(rec.id);
       case "overdue":

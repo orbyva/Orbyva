@@ -7,6 +7,8 @@ import {
   parseMissingWikiLinkHref,
   parseWikiLinks,
   replaceWikiLinks,
+  wikiLinkAt,
+  wikiLinkPlainSegments,
   wikiLinkTitles,
 } from "@/domain/notes/wikiLinks";
 
@@ -29,6 +31,24 @@ describe("parseWikiLinks", () => {
       { title: "Nota", start: 4, end: 12 },
     ]);
     expect(content.slice(4, 12)).toBe("[[Nota]]");
+  });
+
+  it("wikiLinkAt devolve o link sob o índice, ou null fora dele", () => {
+    const content = "ver [[Pauta]] agora";
+    expect(wikiLinkAt(content, 6)?.title).toBe("Pauta");
+    expect(wikiLinkAt(content, 4)?.title).toBe("Pauta");
+    expect(wikiLinkAt(content, 0)).toBeNull();
+    expect(wikiLinkAt(content, 13)).toBeNull();
+  });
+
+  it("wikiLinkPlainSegments parte prosa e wiki-link, na ordem", () => {
+    expect(wikiLinkPlainSegments("Ata em: [[Atividades Finatec]] hoje")).toEqual([
+      { type: "text", value: "Ata em: " },
+      { type: "wiki", title: "Atividades Finatec" },
+      { type: "text", value: " hoje" },
+    ]);
+    expect(wikiLinkPlainSegments("só texto")).toEqual([{ type: "text", value: "só texto" }]);
+    expect(wikiLinkPlainSegments("")).toEqual([]);
   });
 
   it("ignora colchete não fechado", () => {

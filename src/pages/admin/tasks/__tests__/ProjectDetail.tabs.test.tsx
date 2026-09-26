@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import ProjectDetail from "@/pages/admin/tasks/ProjectDetail";
 import {
   fetchDependencies,
@@ -11,19 +17,25 @@ import {
   fetchTasks,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
-import { fetchShoppingCategories } from "@/api/shopping/categories";
+import {
+  countShoppingCategoriesByProject,
+  fetchShoppingCategories,
+} from "@/api/shopping/categories";
 import { fetchShoppingItems } from "@/api/shopping/items";
-import { fetchNotes } from "@/api/notes/notes";
+import { countNotesByProject, fetchNotes } from "@/api/notes/notes";
 import type { Project } from "@/types/tasks";
 
 /**
- * Feature 071 — a página do projeto passa a ter **cinco** abas (Kanban | Lista | Gantt | Compras |
- * Notas) e a aba ativa mora no `?tab=` da URL. Testado montando a tela de verdade, sem navegador:
- * as assertivas leem a URL por um `LocationProbe` e conferem o que está (e o que **não** está) no
- * DOM de cada aba.
+ * Feature 069 — a página do projeto passa a ter cinco abas (Kanban | Lista | Gantt | Compras |
+ * Notas). Compras e notas saíram de baixo do quadro, onde comiam o espaço vertical das tarefas, e
+ * viraram abas: só carregam quando alguém as abre.
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchProjectById: vi.fn(),
   fetchTasks: vi.fn(),
   fetchTags: vi.fn(),
@@ -34,10 +46,12 @@ vi.mock("@/api/tasks", () => ({
   deleteTask: vi.fn(),
   deleteTasks: vi.fn(),
   createTag: vi.fn(),
-  uploadTaskIcon: vi.fn(),
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   updateProject: vi.fn(),
   createProjectEvent: vi.fn(),
-  updateProjectEvent: vi.fn(),
   deleteProjectEvent: vi.fn(),
 }));
 
@@ -48,16 +62,17 @@ vi.mock("@/api/recurring", () => ({
 
 vi.mock("@/api/shopping/categories", () => ({
   fetchShoppingCategories: vi.fn(),
+  countShoppingCategoriesByProject: vi.fn(),
 }));
 
 vi.mock("@/api/shopping/items", () => ({
   fetchShoppingItems: vi.fn(),
-  fetchTaskLinksForItems: vi.fn(),
 }));
 
 vi.mock("@/api/notes/notes", () => ({
   fetchNotes: vi.fn(),
   createNote: vi.fn(),
+  countNotesByProject: vi.fn(),
 }));
 
 vi.mock("@/hooks/useDimensions", () => ({
@@ -70,138 +85,104 @@ vi.mock("@/hooks/use-toast", () => ({
   toast: toastMock,
 }));
 
-const PROJECT_ID = "project-1";
+const PROJECT_ID = "p1";
 
-const PROJECT: Project = {
+const project: Project = {
   id: PROJECT_ID,
-  name: "Projeto Alpha",
-  description: "Descrição",
-  color: "#94a3b8",
+  name: "Obra da casa",
+  description: "Reforma",
+  color: null,
   goal_id: null,
   status: "active",
   tag_ids: [],
 };
 
-/** Espelha a URL atual na tela — é por ele que as assertivas leem o `?tab=`. */
 function LocationProbe() {
   const location = useLocation();
-  return <output data-testid="url">{`${location.pathname}${location.search}`}</output>;
+  const navigate = useNavigate();
+  return (
+    <>
+      <output data-testid="url">{`${location.pathname}${location.search}`}</output>
+      {/* O "voltar" do navegador, que o MemoryRouter só expõe por `navigate(-1)`. */}
+      <button onClick={() => navigate(-1)}>voltar no histórico</button>
+    </>
+  );
 }
 
-function url(): string {
-  return screen.getByTestId("url").textContent ?? "";
-}
-
-function tab(name: string): HTMLElement {
-  return screen.getByRole("tab", { name });
-}
-
-async function renderDetail(search = "") {
-  render(
-    <MemoryRouter initialEntries={[`/tasks/projects/${PROJECT_ID}${search}`]}>
+function renderDetail(url = `/tasks/projects/${PROJECT_ID}`) {
+  return render(
+    <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/tasks/projects/:id" element={<ProjectDetail />} />
+        <Route path="/shopping-list" element={<p>lista de compras</p>} />
       </Routes>
       <LocationProbe />
     </MemoryRouter>
   );
-  await screen.findByText(PROJECT.name);
 }
 
-describe("ProjectDetail — abas na URL (feature 071)", () => {
-  beforeEach(() => {
-    toastMock.mockReset();
-    vi.mocked(fetchProjectById).mockReset().mockResolvedValue(PROJECT);
-    vi.mocked(fetchTasks).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchTags).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchDependencies).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchProjectEvents).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchRecurringTransactions).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchShoppingCategories).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchShoppingItems).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchNotes).mockReset().mockResolvedValue([]);
-  });
-
-  it("sem `?tab=` abre no Kanban", async () => {
-    await renderDetail();
-
-    expect(tab("Kanban")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("heading", { name: /A fazer/ })).toBeInTheDocument();
-    expect(url()).toBe(`/tasks/projects/${PROJECT_ID}`);
-  });
-
-  it("`?tab=lista` já renderiza a Lista no primeiro paint", async () => {
-    await renderDetail("?tab=lista");
-
-    expect(tab("Lista")).toHaveAttribute("aria-selected", "true");
-    expect(tab("Kanban")).toHaveAttribute("aria-selected", "false");
-    // Conteúdo exclusivo da Lista: o estado vazio dela (o Kanban usa colunas por status).
-    expect(screen.getByText("Nenhuma tarefa")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /A fazer/ })).not.toBeInTheDocument();
-  });
-
-  it("`?tab=gantt` já renderiza o Gantt no primeiro paint", async () => {
-    await renderDetail("?tab=gantt");
-
-    expect(tab("Gantt")).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("heading", { name: /A fazer/ })).not.toBeInTheDocument();
-  });
-
-  it("valor desconhecido de `?tab=` cai no Kanban, sem tela vazia", async () => {
-    await renderDetail("?tab=inexistente");
-
-    expect(tab("Kanban")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("heading", { name: /A fazer/ })).toBeInTheDocument();
-  });
-
-  it("trocar de aba escreve o parâmetro na URL", async () => {
-    const user = userEvent.setup();
-    await renderDetail();
-
-    await user.click(tab("Lista"));
-
-    expect(url()).toBe(`/tasks/projects/${PROJECT_ID}?tab=lista`);
-    expect(tab("Lista")).toHaveAttribute("aria-selected", "true");
-  });
-
-  it("voltar para o Kanban remove o parâmetro da URL", async () => {
-    const user = userEvent.setup();
-    await renderDetail("?tab=gantt");
-
-    await user.click(tab("Kanban"));
-
-    expect(url()).toBe(`/tasks/projects/${PROJECT_ID}`);
-    expect(tab("Kanban")).toHaveAttribute("aria-selected", "true");
-  });
-
-  it("o `?tab=` convive com outros parâmetros da URL, sem apagá-los", async () => {
-    const user = userEvent.setup();
-    await renderDetail("?foo=bar");
-
-    await user.click(tab("Lista"));
-
-    expect(url()).toBe(`/tasks/projects/${PROJECT_ID}?foo=bar&tab=lista`);
-  });
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(fetchProjectById).mockResolvedValue(project);
+  vi.mocked(fetchTasks).mockResolvedValue([]);
+  vi.mocked(fetchTags).mockResolvedValue([]);
+  vi.mocked(fetchDependencies).mockResolvedValue([]);
+  vi.mocked(fetchRecurringTransactions).mockResolvedValue([]);
+  vi.mocked(fetchProjectEvents).mockResolvedValue([]);
+  vi.mocked(fetchShoppingCategories).mockResolvedValue([]);
+  vi.mocked(fetchShoppingItems).mockResolvedValue([]);
+  vi.mocked(fetchNotes).mockResolvedValue([]);
+  vi.mocked(countShoppingCategoriesByProject).mockResolvedValue(0);
+  vi.mocked(countNotesByProject).mockResolvedValue(0);
 });
 
-describe("ProjectDetail — Compras e Notas são abas, não seções empilhadas (feature 071)", () => {
-  beforeEach(() => {
-    toastMock.mockReset();
-    vi.mocked(fetchProjectById).mockReset().mockResolvedValue(PROJECT);
-    vi.mocked(fetchTasks).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchTags).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchDependencies).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchProjectEvents).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchRecurringTransactions).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchShoppingCategories).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchShoppingItems).mockReset().mockResolvedValue([]);
-    vi.mocked(fetchNotes).mockReset().mockResolvedValue([]);
+describe("ProjectDetail — abas (feature 069)", () => {
+  /**
+   * O ponto da tarefa: a `TabsList` fica de pé desde o primeiro render, com o esqueleto **dentro**
+   * do conteúdo da aba. Antes, a lista inteira de abas sumia durante o carregamento e reaparecia,
+   * empurrando o conteúdo para baixo em toda abertura de projeto.
+   */
+  it("os gatilhos das abas existem no primeiro render, antes de qualquer await", async () => {
+    renderDetail();
+
+    for (const name of ["Kanban", "Lista", "Gantt", "Compras", "Notas"]) {
+      expect(screen.getByRole("tab", { name })).toBeInTheDocument();
+    }
+    // E o esqueleto de carregamento está *dentro* do painel da aba, não em volta das abas.
+    expect(screen.getByRole("tabpanel").querySelector(".animate-pulse")).not.toBeNull();
+
+    await screen.findByText(project.name);
   });
 
-  it("as cinco abas aparecem na ordem Kanban | Lista | Gantt | Compras | Notas", async () => {
-    await renderDetail();
+  /**
+   * O ganho de carga da feature 069, e o que uma regressão futura mais provavelmente desfaz: antes,
+   * abrir *qualquer* projeto disparava `fetchShoppingCategories` + `fetchShoppingItems` +
+   * `fetchNotes`, mesmo para quem só ia olhar o quadro. Agora só quando a aba abre.
+   */
+  it("as requisições de compras e notas não acontecem enquanto a aba não é aberta", async () => {
+    const user = userEvent.setup();
+    renderDetail();
 
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+    await screen.findByText(project.name);
+    expect(fetchShoppingCategories).not.toHaveBeenCalled();
+    expect(fetchShoppingItems).not.toHaveBeenCalled();
+    expect(fetchNotes).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("tab", { name: "Compras" }));
+    expect(fetchShoppingCategories).toHaveBeenCalledWith({ projectId: PROJECT_ID });
+    expect(fetchShoppingItems).toHaveBeenCalled();
+    // Abrir compras não puxa as notas junto.
+    expect(fetchNotes).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("tab", { name: "Notas" }));
+    expect(fetchNotes).toHaveBeenCalledWith({ projectId: PROJECT_ID });
+  });
+
+  it("as cinco abas aparecem: Kanban, Lista, Gantt, Compras e Notas", async () => {
+    renderDetail();
+
+    await screen.findByText(project.name);
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Kanban",
       "Lista",
       "Gantt",
@@ -210,73 +191,130 @@ describe("ProjectDetail — Compras e Notas são abas, não seções empilhadas 
     ]);
   });
 
-  it("no Kanban, nem compras nem notas estão no DOM — e nenhuma das duas é buscada no load", async () => {
-    await renderDetail();
+  it("as contagens saem nos gatilhos de Compras e Notas", async () => {
+    vi.mocked(countShoppingCategoriesByProject).mockResolvedValue(7);
+    vi.mocked(countNotesByProject).mockResolvedValue(2);
 
-    expect(screen.queryByRole("heading", { name: "Compras do projeto" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Notas do projeto" })).not.toBeInTheDocument();
-    expect(fetchShoppingCategories).not.toHaveBeenCalled();
-    expect(fetchShoppingItems).not.toHaveBeenCalled();
-    expect(fetchNotes).not.toHaveBeenCalled();
+    renderDetail();
+
+    expect(await screen.findByRole("tab", { name: "Compras (7)" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Notas (2)" })).toBeInTheDocument();
+    expect(countShoppingCategoriesByProject).toHaveBeenCalledWith(PROJECT_ID);
+    expect(countNotesByProject).toHaveBeenCalledWith(PROJECT_ID);
   });
 
-  it("`?tab=compras` monta só a seção de compras, já filtrada pelo projeto", async () => {
-    await renderDetail("?tab=compras");
+  it("contagem zero não mostra número", async () => {
+    renderDetail();
 
-    expect(
-      await screen.findByRole("heading", { name: "Compras do projeto" })
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Notas do projeto" })).not.toBeInTheDocument();
-    expect(fetchShoppingCategories).toHaveBeenCalledWith({ projectId: PROJECT_ID });
-    expect(fetchNotes).not.toHaveBeenCalled();
+    await screen.findByText(project.name);
+    expect(screen.getByRole("tab", { name: "Compras" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Notas" })).toBeInTheDocument();
   });
 
-  it("`?tab=notas` monta só a seção de notas, já filtrada pelo projeto", async () => {
-    await renderDetail("?tab=notas");
+  it("abrir com ?tab=notas já carrega na aba de notas", async () => {
+    renderDetail(`/tasks/projects/${PROJECT_ID}?tab=notas`);
 
-    expect(await screen.findByRole("heading", { name: "Notas do projeto" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Compras do projeto" })).not.toBeInTheDocument();
-    expect(fetchNotes).toHaveBeenCalledWith({ projectId: PROJECT_ID });
-    expect(fetchShoppingCategories).not.toHaveBeenCalled();
-  });
-
-  it("clicar em Compras abre a aba, escreve `?tab=compras` e só então busca as compras", async () => {
-    const user = userEvent.setup();
-    await renderDetail();
-
-    expect(fetchShoppingCategories).not.toHaveBeenCalled();
-
-    await user.click(tab("Compras"));
-
-    expect(url()).toBe(`/tasks/projects/${PROJECT_ID}?tab=compras`);
-    expect(
-      await screen.findByRole("heading", { name: "Compras do projeto" })
-    ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(fetchShoppingCategories).toHaveBeenCalledWith({ projectId: PROJECT_ID })
+    const notas = await screen.findByRole("tab", { name: "Notas" });
+    expect(notas).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Kanban" })).toHaveAttribute(
+      "aria-selected",
+      "false"
     );
   });
 
-  it("sair da aba Compras desmonta a seção — ela deixa de ocupar espaço na tela", async () => {
-    const user = userEvent.setup();
-    await renderDetail("?tab=compras");
-    await screen.findByRole("heading", { name: "Compras do projeto" });
+  it("?tab=foo (valor inválido) cai no Kanban, sem quebrar", async () => {
+    renderDetail(`/tasks/projects/${PROJECT_ID}?tab=foo`);
 
-    await user.click(tab("Kanban"));
-
-    expect(url()).toBe(`/tasks/projects/${PROJECT_ID}`);
-    expect(screen.queryByRole("heading", { name: "Compras do projeto" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /A fazer/ })).toBeInTheDocument();
+    await screen.findByText(project.name);
+    expect(screen.getByRole("tab", { name: "Kanban" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
   });
 
-  it("as seções mantêm o próprio <h2> e o aria-labelledby dentro da aba", async () => {
-    await renderDetail("?tab=notas");
+  it("trocar de aba escreve o ?tab= na URL", async () => {
+    const user = userEvent.setup();
+    renderDetail();
 
-    const heading = await screen.findByRole("heading", { name: "Notas do projeto" });
-    expect(heading.tagName).toBe("H2");
-    expect(heading).toHaveAttribute("id", "project-notes-heading");
-    expect(
-      document.querySelector('section[aria-labelledby="project-notes-heading"]')
-    ).toBeInTheDocument();
+    await screen.findByText(project.name);
+    await user.click(screen.getByRole("tab", { name: "Compras" }));
+
+    expect(screen.getByTestId("url")).toHaveTextContent(
+      `/tasks/projects/${PROJECT_ID}?tab=compras`
+    );
+    expect(screen.getByRole("tab", { name: "Compras" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+  });
+
+  /**
+   * O pedido literal: "preciso do espaço para poder visualizar as tarefas". Na aba Kanban, o
+   * quadro é o único conteúdo abaixo das abas — nem a seção de compras nem a de notas ocupam
+   * altura ali (não estão no documento).
+   */
+  it("na aba Kanban, compras e notas não estão no documento — o quadro é o único conteúdo", async () => {
+    renderDetail();
+
+    await screen.findByText(project.name);
+
+    // O quadro está lá, com as três colunas de status.
+    expect(screen.getByRole("heading", { name: /A fazer/ })).toBeInTheDocument();
+
+    // E nada das duas seções: nem região, nem título, nem estado vazio delas.
+    expect(screen.queryByRole("region", { name: "Compras do projeto" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Notas do projeto" })).toBeNull();
+    expect(screen.queryByText("Compras do projeto")).toBeNull();
+    expect(screen.queryByText("Notas do projeto")).toBeNull();
+    expect(screen.queryByText("Nenhuma categoria de compras neste projeto")).toBeNull();
+    expect(screen.queryByText("Nenhuma nota neste projeto")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Ver na Lista de Compras" })).toBeNull();
+
+    // Um único painel montado abaixo das abas: o da aba aberta.
+    expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
+  });
+
+  /**
+   * O caminho de ida e volta que a feature 069 promete: da aba "Compras" para a Lista de Compras
+   * já filtrada e, no botão voltar do navegador, de volta para a aba "Compras" — não para o Kanban.
+   * É a razão de a aba viver na URL em vez de em `useState`.
+   */
+  it("ir para a Lista de Compras e voltar devolve a aba 'Compras', não o Kanban", async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByText(project.name);
+    await user.click(screen.getByRole("tab", { name: "Compras" }));
+
+    const link = await screen.findByRole("link", { name: "Ver na Lista de Compras" });
+    expect(link).toHaveAttribute("href", `/shopping-list?project=${PROJECT_ID}`);
+    await user.click(link);
+    expect(screen.getByTestId("url")).toHaveTextContent(
+      `/shopping-list?project=${PROJECT_ID}`
+    );
+
+    await user.click(screen.getByRole("button", { name: "voltar no histórico" }));
+
+    expect(screen.getByTestId("url")).toHaveTextContent(
+      `/tasks/projects/${PROJECT_ID}?tab=compras`
+    );
+    expect(await screen.findByRole("tab", { name: "Compras" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+  });
+
+  it("falha na contagem não derruba a página nem esconde a aba — só fica sem número", async () => {
+    vi.mocked(countShoppingCategoriesByProject).mockRejectedValue(new Error("offline"));
+    vi.mocked(countNotesByProject).mockRejectedValue(new Error("offline"));
+
+    renderDetail();
+
+    // A página carregou (o nome do projeto está lá) e as abas continuam de pé, sem número.
+    expect(await screen.findByText(project.name)).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Compras" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Notas" })).toBeInTheDocument();
+    // E sem toast de erro: contagem que falha é silenciosa.
+    expect(toastMock).not.toHaveBeenCalled();
   });
 });

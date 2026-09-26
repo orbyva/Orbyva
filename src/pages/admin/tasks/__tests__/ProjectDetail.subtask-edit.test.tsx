@@ -24,6 +24,10 @@ import type { Project, Task } from "@/types/tasks";
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchProjectById: vi.fn(),
   fetchTasks: vi.fn(),
   fetchTags: vi.fn(),
@@ -34,7 +38,10 @@ vi.mock("@/api/tasks", () => ({
   deleteTask: vi.fn(),
   deleteTasks: vi.fn(),
   createTag: vi.fn(),
-  uploadTaskIcon: vi.fn(),
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   updateProject: vi.fn(),
   createProjectEvent: vi.fn(),
   deleteProjectEvent: vi.fn(),
@@ -122,7 +129,7 @@ describe("ProjectDetail — edição de subtarefa abre o form completo (feature 
     mockedUpdateTask.mockResolvedValue(undefined);
   });
 
-  it("Organização esconde o campo Subtarefas ao editar uma subtarefa (regressão: faltava o guard nesta tela)", async () => {
+  it("o painel esconde o campo Subtarefas ao editar uma subtarefa (regressão: faltava o guard nesta tela)", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", due_date: "2026-08-20" });
     const subtask = makeTask({
@@ -134,28 +141,29 @@ describe("ProjectDetail — edição de subtarefa abre o form completo (feature 
     await renderWithTasks([parent, subtask]);
 
     await openSubtaskFromChecklist(user, "Subtarefa filha");
-    await user.click(screen.getByRole("tab", { name: "Organização" }));
     const dialog = within(screen.getByRole("dialog"));
 
+    expect(dialog.queryByRole("button", { name: /Subtarefas/ })).not.toBeInTheDocument();
     expect(dialog.queryByPlaceholderText("Adicionar subtarefa")).not.toBeInTheDocument();
     expect(dialog.getByText("Tags")).toBeInTheDocument();
-    expect(dialog.getByText("Link externo")).toBeInTheDocument();
+    // Feature 085: o campo único virou a seção "Links externos" — subtarefa continua tendo a dela.
+    expect(dialog.getByRole("button", { name: /Links externos/ })).toBeInTheDocument();
   });
 
-  it("Organização mostra o campo Subtarefas normalmente ao editar uma tarefa de topo", async () => {
+  it("o painel mostra o campo Subtarefas normalmente ao editar uma tarefa de topo", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal" });
     await renderWithTasks([parent]);
 
     await user.click(screen.getByText("Tarefa principal"));
-    await user.click(screen.getByRole("tab", { name: "Organização" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Subtarefas/ }));
 
     expect(
       within(screen.getByRole("dialog")).getByPlaceholderText("Adicionar subtarefa")
     ).toBeInTheDocument();
   });
 
-  it("abrir uma subtarefa pelo checklist abre o mesmo dialog completo, com abas Geral/Data e repetição/Organização/Registros de tempo", async () => {
+  it("abrir uma subtarefa pelo checklist abre o mesmo painel completo, com tudo visível de uma vez", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", due_date: "2026-08-20" });
     const subtask = makeTask({
@@ -169,13 +177,17 @@ describe("ProjectDetail — edição de subtarefa abre o form completo (feature 
     await openSubtaskFromChecklist(user, "Subtarefa filha");
 
     expect(screen.getByText("Editar tarefa")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Geral" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Data e repetição" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Organização" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Registros de tempo" })).toBeInTheDocument();
+    // Feature 080: sem abas — os campos convivem no mesmo painel.
+    const dialog = within(screen.getByRole("dialog"));
+    expect(screen.queryByRole("tab", { name: "Geral" })).not.toBeInTheDocument();
+    expect(dialog.getByLabelText(/^Título/)).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: /Descrição/ })).toBeInTheDocument();
+    expect(dialog.getByText("Data limite")).toBeInTheDocument();
+    expect(dialog.getByText("Tags")).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: /Registros de tempo/ })).toBeInTheDocument();
   });
 
-  it("TaskRecurrenceField em modo subtarefa mostra só Prazo/Horário, sem seletor de recorrência", async () => {
+  it("subtarefa mostra só Data limite/Horário, sem recorrência", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", due_date: "2026-08-20" });
     const subtask = makeTask({
@@ -187,14 +199,15 @@ describe("ProjectDetail — edição de subtarefa abre o form completo (feature 
     await renderWithTasks([parent, subtask]);
 
     await openSubtaskFromChecklist(user, "Subtarefa filha");
-    await user.click(screen.getByRole("tab", { name: "Data e repetição" }));
+    const dialog = within(screen.getByRole("dialog"));
 
-    expect(screen.getByText("Prazo")).toBeInTheDocument();
-    expect(screen.queryByText("Esta tarefa se repete?")).not.toBeInTheDocument();
-    expect(screen.queryByText("Início")).not.toBeInTheDocument();
+    expect(dialog.getByText("Data limite")).toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: /Repetição da tarefa/ })).not.toBeInTheDocument();
+    expect(dialog.queryByText("Esta tarefa se repete?")).not.toBeInTheDocument();
+    expect(dialog.queryByText("Início")).not.toBeInTheDocument();
   });
 
-  it("isSubtaskDueDateValid bloqueia salvar com prazo além do prazo da mãe: toast de erro + troca para a aba Data", async () => {
+  it("isSubtaskDueDateValid bloqueia salvar com prazo além do prazo da mãe: aviso no campo + toast de erro", async () => {
     const user = userEvent.setup();
     const parent = makeTask({ id: "parent-1", title: "Tarefa principal", due_date: "2026-08-20" });
     const subtask = makeTask({
@@ -206,6 +219,12 @@ describe("ProjectDetail — edição de subtarefa abre o form completo (feature 
     await renderWithTasks([parent, subtask]);
 
     await openSubtaskFromChecklist(user, "Subtarefa filha");
+
+    // Feature 080: o campo avisa sozinho, antes de qualquer tentativa de salvar.
+    expect(within(screen.getByRole("dialog")).getByRole("alert")).toHaveTextContent(
+      "O prazo não pode passar de 20/08/2026, prazo da tarefa principal."
+    );
+
     await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
     expect(toastMock).toHaveBeenCalledWith(
@@ -214,10 +233,6 @@ describe("ProjectDetail — edição de subtarefa abre o form completo (feature 
         description: expect.stringContaining("O prazo não pode passar de 20/08/2026"),
         variant: "destructive",
       })
-    );
-    expect(screen.getByRole("tab", { name: "Data e repetição" })).toHaveAttribute(
-      "aria-selected",
-      "true"
     );
     expect(mockedUpdateTask).not.toHaveBeenCalled();
   });

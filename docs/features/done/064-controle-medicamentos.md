@@ -25,39 +25,6 @@ A feature 049 entregou o atalho de medicação: nome, um horário, frequência d
 - **Estoque fica fora do escopo, e isso é uma decisão, não um adiamento com schema pronto.** Ele exige quantidade em unidades, decremento confiável a cada dose, fluxo de reposição e alerta de "acabando" — e o decremento só é confiável se a marcação de dose for fiel, que é justamente o que esta feature está construindo. Sem pedido explícito do usuário, o valor não paga o custo. Se for pedido, vira feature própria completa, com schema, API e UI juntos.
 - **RLS por `user_id` na `medication`**, nas quatro operações.
 
-### Reabertura 2026-08-18 — medicação mora em Vida > Saúde
-
-- **O ponto de entrada de medicação sai de Produtividade > Tarefas e passa a ser Vida > Saúde.**
-  Revisa a decisão da 049 ("o atalho vive só em `TaskList.tsx`"): o botão "Nova medicação" ao lado
-  de "Nova tarefa" põe um assunto de saúde no meio da tela de trabalho, e desde a 060/064 existe um
-  lugar próprio (`/life/health` e `/life/health/medications`) que já tem o CTA "Cadastrar
-  medicação". Hoje há três entradas para o mesmo dialog e a mais visível é a errada.
-- **A sidebar ganha "Saúde" dentro do grupo Vida** (`NAV_VIDA` em `src/components/app-sidebar.tsx`),
-  apontando para `/life/health`. É o buraco real: a 060 declarou Saúde "um hub de primeiro nível
-  dentro de Vida", mas só criou o card em `HOME_MODULES` — chegar em medicações exige passar pelo
-  dashboard. `isNavItemActive` já casa `/life/health/medications` pelo prefixo, então o item fica
-  ativo nas duas telas sem código extra.
-- **Os dois botões de `TaskList.tsx` (cabeçalho e `EmptyState`) são removidos, não escondidos.** Um
-  atalho que sobrevive "por precaução" é uma quarta entrada para manter. Quem estiver acostumado com
-  ele encontra o caminho novo pela sidebar, que é justamente o que passa a existir.
-- **`MedicationQuickCreateDialog.tsx` muda de pasta**, de `src/pages/admin/tasks/` para
-  `src/pages/admin/health/`, junto de `MedicationList.tsx`. Move mecânico (3 importadores + o
-  arquivo de teste); ele não tem mais nada a ver com o módulo de tarefas depois que a 064 o
-  reescreveu para criar uma `medication`.
-- **"Integrar a criação de um remédio com as tarefas" já é o modelo desta feature, e a tarefa nova é
-  torná-lo visível, não reconstruí-lo.** `createMedicationWithDoses` já cria o tratamento e
-  materializa as doses como linhas de `task` (`medication_id` + `dose_time`), e `fetchTasks` já as
-  injeta na Lista, no Kanban e na Agenda. O que falta é o retorno na tela: ao salvar, dizer quantas
-  doses foram criadas e oferecer "Ver na agenda". Sem isso o usuário cadastra um remédio e não tem
-  como saber que ele virou tarefa — que é exatamente o que o pedido chama de "com as tarefas, que
-  vão identificar".
-- **Descartado criar uma rota nova para o cadastro** (`/life/health/medications/new`): o dialog já
-  existe, funciona e é chamado de dois lugares dentro de Saúde. Trocá-lo por página é retrabalho
-  sem pedido.
-- **Descartado mover `is_medication`/`isDoseLate`/o dialog "Ocorrências de…"** para fora de
-  `src/domain/tasks` e de `TaskList`/`ProjectDetail`: dose **é** tarefa, e essa exibição é
-  comportamento de tarefa. O que muda de módulo é o cadastro do tratamento, não a dose.
-
 ## Tarefas
 - [x] Criar a migration `supabase/migrations/20260816230000_medication.sql`: tabela `public.medication` (`id uuid pk default gen_random_uuid()`, `user_id uuid not null references auth.users(id) on delete cascade`, `name text not null`, `dose_amount numeric`, `dose_unit text`, `instructions text`, `times time[] not null`, `interval_days int not null default 1`, `started_on date not null`, `ended_on date`, `active boolean not null default true`, `created_at timestamptz not null default now()`), com `enable row level security` e as quatro políticas por `user_id = auth.uid()`; e, em `public.task`, as colunas `medication_id uuid references public.medication(id) on delete set null` e `dose_time time`, com índice em (`medication_id`, `due_date`)
 - [x] Criar a migration `supabase/migrations/20260816233000_medication_backfill.sql`: para cada task origem com `is_medication = true` e `recurrence_rule not null`, inserir uma `medication` (`name` = `title`, `times` = array com o `time` da regra, `interval_days` = `interval` da regra, `started_on` = `due_date` da origem, `user_id` = o da task) e gravar `medication_id` e `dose_time` na origem e em todas as ocorrências com aquele `recurrence_origin_id`. A migration deve ser idempotente (não recriar `medication` para task que já tenha `medication_id`)
@@ -80,84 +47,10 @@ A feature 049 entregou o atalho de medicação: nome, um horário, frequência d
   - *dose no horário vs. atrasada > 60 min → adesão reflete as duas*: `adherence.test.ts` (4 cenários isolados) + `MedicationList.test.tsx` → "adesão dos últimos 30 dias sai das doses" (a tela mostra "Adesão 30 dias: 67% (2 de 3) · 33% no horário")
   - *encerrar para de gerar doses sem apagar histórico*: `health.medications.test.ts` → "encerra sem apagar" (`active` false, `ended_on` hoje, zero deletes, `completed_at` da dose antiga intacto) + `tasks.medication-materialization.test.ts` → "tratamento encerrado não gera dose nova"
 - [x] Verificação de RLS — substituída pelo harness `supabase/tests/medication/` (Postgres 16 descartável em Docker, `bash supabase/tests/medication/run.sh`), que roda as assertivas **como `authenticated`** com `auth.uid()` setado: o dono vê só os próprios tratamentos, `update`/`delete` alheios alcançam 0 linhas, `insert` com `user_id` de outro é barrado pelo `with check`, e um controle negativo confirma que os zeros vieram da policy (como superusuário as linhas aparecem). Mais forte que o SQL editor: os 11 controles negativos provam que as assertivas acusam sabotagem, inclusive uma policy `using (true)`
-- [x] **Migrations aplicadas no banco remoto** (2026-08-18): o usuário rodou `supabase db push` e `npx supabase migration list` mostra `20260816230000_medication` e `20260816233000_medication_backfill` com `local` == `remote` — as duas últimas da fila, aplicadas na ordem dos timestamps. A tabela `medication`, as colunas `task.medication_id`/`task.dose_time` e o backfill existem no banco real. Verificação: a saída do `migration list` (leitura — esta sessão nunca roda `db push`); o comportamento do backfill, que é o ponto de risco desta feature, já estava provado em Postgres 16 por `bash supabase/tests/medication/run.sh`, que **aplica o backfill duas vezes** e exige as mesmas contagens absolutas, com dois controles negativos dedicados à idempotência (o 10 cria uma duplicata à mão e exige que as assertivas acusem; o 11 remove o guard `medication_id is null` e exige que a insert duplique). A ausência de dupla materialização no app está em `tasks.medication-materialization.test.ts`, com controle negativo manual registrado nas Notas. A conferência do resultado do backfill **no dado real** continua sendo passo do usuário, e mudou de forma agora que o push já aconteceu — o roteiro pós-fato está nas Notas.
-
-### Reabertura 2026-08-18 — medicação mora em Vida > Saúde
-
-- [x] `src/components/app-sidebar.tsx`: acrescentar `{ title: "Saúde", url: "/life/health" }` a
-      `NAV_VIDA.items`, na posição correspondente à do card em `HOME_MODULES` (logo depois de
-      "Hábitos", que é a ordem que `health-navigation.test.tsx` já assere). Verificação: o
-      `describe("sidebar — Saúde no grupo Vida")` de `health-navigation.test.tsx` (3 casos, verdes),
-      com controle negativo: apagando a linha do `NAV_VIDA`, os 3 falham em `getByRole("link",
-      { name: "Saúde" })`
-- [x] Teste de navegação em `src/pages/admin/life/__tests__/health-navigation.test.tsx` (arquivo já
-      existe): o link "Saúde" está no grupo Vida da sidebar com `href="/life/health"`, resolve em
-      `matchRoutes(appRoutes, "/life/health")`, e fica ativo também em
-      `/life/health/medications` (prefixo). Copiar o formato de `shopping-navigation.test.tsx`.
-      Verificação: `npx vitest run src/pages/admin/life/__tests__/health-navigation.test.tsx` →
-      11 testes passando (8 antigos + 3 novos)
-- [x] Mover `src/pages/admin/tasks/MedicationQuickCreateDialog.tsx` para
-      `src/pages/admin/health/MedicationQuickCreateDialog.tsx` (`git mv`) e atualizar os
-      importadores (`HealthDashboard.tsx`, `MedicationList.tsx` e, por ora, `TaskList.tsx`) e o
-      caminho do teste `MedicationQuickCreateDialog.test.tsx`. Verificação: `npx tsc --noEmit` sem
-      saída; `npx vitest run src/pages/admin/health src/.../HealthDashboard.medications.test.tsx
-      src/.../HealthDashboard.flow.test.tsx` → 4 arquivos, 29 testes passando, com os **10** testes
-      do dialog (não 11, como o plano supunha) verdes no caminho novo
-- [x] Remover o atalho "Nova medicação" de `src/pages/admin/tasks/TaskList.tsx`: os dois botões
-      (cabeçalho e ação do `EmptyState`), o `useState` `medicationDialogOpen`, o render do dialog e
-      os imports que ficarem órfãos (inclusive o ícone `Pill`). Verificação: `npx tsc --noEmit` sem
-      saída e `npx eslint src/pages/admin/tasks/TaskList.tsx src/pages/admin/health
-      src/pages/admin/life` sem saída (nenhum import órfão); comportamento na tarefa abaixo
-- [x] Atualizar `src/pages/admin/tasks/__tests__/TaskList.medication.test.tsx`: os 3 casos do
-      `describe("TaskList — atalho Nova medicação")` deixam de existir e viram o oposto — a tela de
-      Tarefas **não** oferece mais o atalho (nem no cabeçalho, nem no `EmptyState`). Os arquivos
-      `TaskList.medication-occurrences.test.tsx` e `ProjectDetail.medication-occurrences.test.tsx`
-      não mudam: a exibição de dose continua sendo comportamento de tarefa. Verificação:
-      `npx vitest run .../TaskList.medication.test.tsx .../TaskList.medication-occurrences.test.tsx`
-      → 2 arquivos, 7 testes passando (3 novos de ausência, cada um com controle positivo de que a
-      tela renderizou, + os 4 de ocorrências intactos)
-- [x] `src/pages/admin/health/MedicationList.tsx`: garantir que a tela é autossuficiente como
-      destino do fluxo — botão "Nova medicação" no cabeçalho **e** no `EmptyState`, abrindo o
-      dialog movido. Verificação: `MedicationList.test.tsx` → "o CTA do EmptyState abre o dialog de
-      cadastro" e "com tratamento na lista, o botão do cabeçalho abre o mesmo dialog" (os dois
-      abrem o `role="dialog"` com o campo "Nome do remédio" vazio); 10 testes no arquivo, todos
-      passando. Os dois CTAs são **exclusivos** por estado (cabeçalho com lista, `EmptyState` sem) —
-      ver Notas
-- [x] Retorno visível da integração com tarefas: `MedicationQuickCreateDialog`, ao salvar com
-      sucesso, mostra um `toast` dizendo quantas doses foram criadas e, quando houver ao menos uma,
-      uma ação "Ver na agenda" que navega para `/tasks/agenda`. O número vem do retorno de
-      `createMedicationWithDoses` (ajustar a função para devolver as doses inseridas, se ainda não
-      devolver). Verificação: `MedicationQuickCreateDialog.test.tsx` → 15 testes passando, dos quais
-      5 novos: 2 horários → `description` "2 doses já entraram na sua agenda como tarefas." e
-      `onClick` da ação chamando `navigate("/tasks/agenda")`; 1 dose no singular; início no futuro →
-      "Nenhuma dose venceu ainda…" **sem** ação; editar e erro não prometem dose nenhuma. Do lado da
-      API, `health.medications.test.ts` → "cria o tratamento e já materializa as doses vencidas"
-      agora assere o retorno (`result.doses` com as 4 linhas `2026-08-16 08:00` … `2026-08-17 20:00`)
-- [x] `src/pages/admin/health/MedicationList.tsx`: em cada tratamento, link "Ver doses na agenda"
-      apontando para `/tasks/agenda`, e a próxima dose exibida com data e horário — é o vínculo
-      remédio→tarefa aparecendo onde o remédio é gerenciado. Verificação: `MedicationList.test.tsx`
-      → 13 testes passando, 3 novos ("Próxima dose: 17/08/2026 às 20:00" com o link
-      `href="/tasks/agenda"`; às 21:00 a próxima vira "18/08/2026 às 08:00"; tratamento encerrado
-      não anuncia próxima dose e mantém o link). A regra por trás é a função pura `nextDoseSlot`
-      (`src/domain/health/medication.ts`), com 10 casos em `medication.test.ts` — 28 testes no
-      arquivo, todos verdes
-- [x] Passada final: `npm run build`, `npm run lint` e a suíte completa
-      (`npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`). Registrar em Notas
-      qualquer teste alheio ajustado pelo move de arquivo. Resultado real: `npm run build` → "built
-      in 13.89s" + PWA gerado; `npm run check:bundle` → "Bundle budget OK"; `npm run lint` → **0
-      erros**, 18 warnings de `react-refresh/only-export-components`, todos em arquivos que esta
-      rodada não tocou (`useActiveTimer.tsx`, `AgendaGrid.tsx`, `GanttChart.tsx`,
-      `LabelColorPicker.tsx`, `ProjectFormDialog.tsx`, `TaskIconBadge.tsx`, `TaskViews.tsx`,
-      `TimeEntryRow.tsx`, `routes.tsx`); suíte completa → **162 arquivos, 1491 testes, 0 falhando**
-- [x] Checagem de satisfação do bullet de 2026-08-18, sem navegador: "adicione na seção vida->saúde"
-      → `health-navigation.test.tsx` (item na sidebar, rota resolve, ativo no filho) + a ausência do
-      atalho em `TaskList.medication.test.tsx`; "integração da criação de um remédio para tomar, com
-      as tarefas, que vão identificar" → o toast com a contagem de doses e a ação "Ver na agenda"
-      (`MedicationQuickCreateDialog.test.tsx`) somados aos testes já existentes de materialização
-      (`tasks.medication-materialization.test.ts`), que provam que a dose nasce como `task`. Faltou
-      algo? Abrir tarefa nova aqui em vez de fechar. **Feita — rastreabilidade item a item nas
-      Notas ("Checagem de satisfação da reabertura"), nenhum requisito sem artefato, nenhuma tarefa
-      nova aberta.**
+- [x] **Migrations aplicadas pelo usuário** (2026-08-23): o usuário rodou `supabase db push` e confirmou que `supabase/migrations/20260816230000_medication.sql` e `supabase/migrations/20260816233000_medication_backfill.sql` estão no banco remoto. Esta é a **única** migration desta esteira que escreve em dado existente, e é justamente por isso que o que segue precisa ficar escrito com precisão:
+  - **As contagens "antes do push" não foram tiradas, e agora não podem mais ser** — o push já aconteceu, e esta esteira nunca teve acesso ao banco remoto. A conferência original (comparar antes × depois) **não é mais executável como estava escrita**. Ela foi reescrita em `## Notas` numa versão *post-hoc*, que detecta backfill duplicado ou incompleto sem depender de nenhum número anotado previamente.
+  - **Nenhuma das 7 conferências foi executada nem vista passar por esta sessão.** As de SQL leem o banco remoto; as 3 últimas são teste de fumaça na interface. As duas coisas estão fora do alcance desta esteira (navegador é proibido pela skill `next`).
+  - O que **está** provado, e é o que justifica fechar a feature: o harness `supabase/tests/medication/` roda as duas migrations em Postgres 16 descartável, aplica o backfill **duas vezes** e prova que ele é idempotente (3 tratamentos, 5 doses ligadas, nem uma a mais), que `completed_at` sobrevive, e — nos controles negativos 10 e 11 — que é o guard `medication_id is null` que segura a segunda execução, não o acaso do conjunto de dados
 
 ## Prompts
 - 2026-08-16 — "- SUB-MÓDULO DE VIDA.SAÚDE
@@ -168,18 +61,7 @@ A feature 049 entregou o atalho de medicação: nome, um horário, frequência d
     - CONTROLE DE NOTIFICAÇÕES PARA INGESTÃO DE ÁGUA
     - TUDO NO FUTURO VAI DAR UMA PUSH NOTIFICATION PARA O USUÁRIO"
 
-- 2026-08-18 — "- ficou meio ruim essa posição da medicação, por isso adicione na seção vida->saúde, de modo que já permite a integração da criação de um remédio apra tomar, com as tarefas, que vão identificar"
-
 ## Notas
-- **Reaberta em 2026-08-18** (de `done/` para `in-progress/`, conforme o item 2 do `CLAUDE.md`): o
-  usuário reclamou da posição do atalho de medicação. Encaixou aqui, e não em `NNN` novo nem na
-  049, porque esta feature é a dona atual de todo o código envolvido — ela reescreveu o
-  `MedicationQuickCreateDialog`, criou `MedicationList`, a rota `/life/health/medications` e a
-  ligação com o `HealthDashboard`. A 049 continua em `done/` e intocada (mesmo critério que as
-  Notas dela já registram): o que muda agora é onde o cadastro vive, não o que a 049 entregou.
-  A parte "integração ... com as tarefas" não é código novo de modelo — `medication_id` +
-  `dose_time` + `materializeAllMedicationDoses` já fazem isso desde esta feature; o que faltava era
-  o usuário **ver** que aconteceu, e é isso que as tarefas novas entregam.
 - **Recorte do prompt-mãe que esta feature cumpre**: o item "CONTROLAR MEDICAMENTOS", na parte que a 049 não cobre — múltiplas doses por dia, posologia e adesão histórica.
 - **Relação com a 049**: a 049 permanece em `done/` e não é editada. Ela entregou o que se propôs (o atalho de criação e a marcação de dose); esta feature é a continuação, e por isso o trabalho novo vive aqui, não como reabertura daquele arquivo. O que se reusa dela sem reescrever: a flag `is_medication`, o helper `isDoseLate` e a exibição de "Tomado às HH:mm" no histórico de ocorrências.
 - **Depende da 060** (`HealthDashboard`, `src/api/health.ts`, `src/types/health.ts`). Independente de 061, 062 e 063 — mas é a **última** do sub-módulo na ordem de implementação, porque é a única com backfill de dados em produção e convém rodá-la com o resto do sub-módulo já estável.
@@ -201,242 +83,63 @@ A feature 049 entregou o atalho de medicação: nome, um horário, frequência d
   - *adesão histórica*: `computeAdherence` cobre no horário/atrasada/perdida/não vencida (`adherence.test.ts`); a tela mostra "Adesão 30 dias: 67% (2 de 3) · 33% no horário" (`MedicationList.test.tsx` e `HealthDashboard.medications.test.tsx`); o resumo a calcula das doses da janela (`health.test.ts`).
   - *sem regressão na 049*: `tasks.recurring-materialization.test.ts` segue verde, e uma medicação da 049 ainda não migrada continua materializando pela recorrência (`tasks.medication-materialization.test.ts`).
   - *suíte completa*: 1309 passando, 2 falhando — as duas pré-existentes de `src/lib/__tests__/currency.test.ts`.
-- ~~**A feature fica em `in-progress/`**, não em `done/`~~: sobrava a tarefa "Aguarda o usuário", porque as duas migrations só valem depois do `supabase db push` no banco remoto — e aqui o push tem um passo a mais que as outras features da esteira, a conferência do resultado do backfill. **Resolvido em 2026-08-18** — ver os itens abaixo.
-- **Fechamento (2026-08-18) — as duas migrations foram aplicadas pelo usuário e a feature foi para
-  `done/`.** A confirmação veio de `npx supabase migration list` (`20260816230000` e
-  `20260816233000` com `local` == `remote`), **não** de teste manual: a skill `next` proíbe
-  navegador e esta sessão nunca roda `supabase db push` (é passo do usuário, aplica em produção).
-- **Passo remanescente, do usuário, fora do código — e ele mudou de forma, porque o push já
-  aconteceu.** O roteiro original começava com duas contagens **antes** do push, que não existem
-  mais. O equivalente pós-fato, todo no SQL editor e sem depender do "antes":
-  1. `select user_id, name, count(*) from medication group by 1,2 having count(*) > 1` → **zero
-     linhas**. É o sinal de backfill duplicado, e vale sozinho: se a migration tivesse rodado duas
-     vezes sem o guard, apareceria aqui.
-  2. `select count(*) from medication` = `select count(distinct medication_id) from task where
-     medication_id is not null and recurrence_origin_id is null` — cada origem virou exatamente uma
-     linha de tratamento.
-  3. `select count(*) from task where is_medication and medication_id is null and recurrence_rule
-     is not null and recurrence_origin_id is null` → **zero**: nenhuma medicação-origem da 049
-     ficou de fora do backfill.
-  4. `select name, times, interval_days, started_on, ended_on from medication` — horário, cadência
-     e período de cada tratamento migrado, inclusive o `until` da regra virando `ended_on`.
-  5. No app: o dialog "Ocorrências de..." de uma medicação antiga ainda mostra "Tomado às HH:mm"
-     (`completed_at` intocado); `/tasks` não mostra dose duplicada no mesmo dia/horário; e
-     `/life/health/medications` lista os tratamentos migrados com posologia.
-  Não virou tarefa em aberto porque não há código a escrever: o item 1 (idempotência), o 3
-  (cobertura do backfill), o 4 (horário/cadência/período) e o `completed_at` intocado já são
-  assertivas de `bash supabase/tests/medication/run.sh` com o backfill aplicado duas vezes, e a
-  ausência de dose duplicada no calendário é o que
-  `tasks.medication-materialization.test.ts` prova, com controle negativo.
-- **Checagem de satisfação reconfirmada no fechamento (2026-08-18):** a rastreabilidade acima do
-  recorte "CONTROLAR MEDICAMENTOS" (múltiplas doses/dia, posologia, adesão histórica, sem regressão
-  na 049) continua válida, com todos os artefatos citados verdes. Suíte completa reexecutada com
-  `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4` (o `npm test` puro é
-  instável nesta máquina, com dezenas de timeouts de 5 s em arquivos alheios): **161 arquivos,
-  1427 testes, 0 falhando** — as 2 falhas de `currency.test.ts` citadas acima foram corrigidas no
-  commit `eb47042`.
+- ~~**A feature fica em `in-progress/`**, não em `done/`: sobra a tarefa "Aguarda o usuário".~~
+  **Superado em 2026-08-23**: o usuário rodou o push e confirmou. A feature foi para `done/`; a
+  conferência do backfill, que ninguém desta esteira consegue rodar, está logo abaixo.
+- **PENDÊNCIA DO USUÁRIO — conferência do backfill, versão post-hoc (2026-08-23).** O roteiro
+  original mandava anotar dois `count(*)` **antes** do push e comparar depois. Isso não aconteceu:
+  o push foi rodado sem os números de partida, e esta esteira nunca teve acesso ao banco remoto.
+  Em vez de fingir que a comparação passou, aqui vai a versão que **funciona sem o "antes"** — cada
+  consulta tem um resultado esperado absoluto, não relativo. **Nenhuma delas foi executada por esta
+  sessão.**
 
-### Notas da reabertura (2026-08-18 → implementada em 2026-09-25)
+  ```sql
+  -- (1) BACKFILL DUPLICADO? Tem de vir VAZIO.
+  --     Mesma pessoa com duas medicações de mesmo nome = a migration rodou duas vezes sem o guard.
+  select user_id, name, count(*)
+    from public.medication
+   group by 1, 2
+  having count(*) > 1;
 
-- **Os dois CTAs "Nova medicação" de `MedicationList` continuam exclusivos por estado** (cabeçalho
-  quando há tratamento, `EmptyState` quando não há), e não somados como a tarefa dava a entender.
-  Dois botões idênticos na mesma tela vazia é ruído, não autossuficiência; o que a tarefa pede —
-  "a tela abre o cadastro sozinha, nos dois estados" — está coberto pelos dois casos novos do
-  teste, cada um no seu estado. O caso do cabeçalho assere `toHaveLength(1)` justamente para
-  travar o contrário.
-- **`createMedicationWithDoses` passou a devolver `{ medication, doses }`** (antes só `Medication`).
-  É o que a tarefa pedia ("ajustar a função para devolver as doses inseridas"), e a contagem do
-  toast sai daí. Efeito colateral: o falso de `HealthDashboard.flow.test.tsx` teve de passar a
-  devolver a mesma forma — é o único teste alheio ajustado por esta rodada, e ele segue verde com a
-  mesma assertiva de antes (cadastrar no dashboard faz a próxima dose aparecer).
-- **`nextDoseSlot` é função nova em `src/domain/health/medication.ts`** (não prevista na tarefa, que
-  só dizia "a próxima dose exibida com data e horário"). Ela sai do **tratamento**, não das doses já
-  materializadas: a materialização para em hoje, então perguntar às `task` devolveria a dose mais
-  antiga ainda em aberto — o oposto de "a próxima". O salto até a data corrente é aritmético
-  (`ceil(dias/intervalo)`), não um laço dia a dia, senão um tratamento diário começado em 2023
-  estouraria o teto de 400 iterações e não responderia nada; há um caso de teste exatamente para
-  isso.
-- **`doseFeedback` ficou privado ao módulo do dialog.** Exportá-la para testar a string direto
-  acrescentaria um warning `react-refresh/only-export-components` num arquivo que não tinha nenhum;
-  a frase é conferida pelo `description` do toast, que é o que o usuário lê.
-- **`useNavigate` é mockado no teste do dialog** em vez de embrulhar cada `render` num
-  `MemoryRouter`: o que importa provar é para onde a ação do toast leva (`/tasks/agenda`), e o mock
-  deixa isso assertável sem árvore de rotas. Em produção os três pontos de render do dialog estão
-  dentro do `Router` (`AdminLayout`), e a `Toaster` também — a ação renderiza no lugar certo.
-- **Tarefa do plano com número errado:** ele falava em "os 11 testes do dialog"; são **10** no
-  arquivo antes desta rodada (8 + 2 de edição), e 15 depois.
+  -- (2) BACKFILL INCOMPLETO? Tem de dar 0.
+  --     Toda medicação-origem da 049 (is_medication + recurrence_rule, sem origem própria)
+  --     precisa ter ganhado medication_id.
+  select count(*) from public.task
+   where is_medication
+     and recurrence_rule is not null
+     and recurrence_origin_id is null
+     and medication_id is null;
 
-### Checagem de satisfação da reabertura (2026-09-25) — artefato por requisito
+  -- (3) UMA medicação por origem — os dois números têm de ser IGUAIS.
+  select count(*) from public.medication;
+  select count(distinct medication_id) from public.task
+   where medication_id is not null
+     and recurrence_rule is not null
+     and recurrence_origin_id is null;
 
-Prompt de 2026-08-18, verbatim: *"ficou meio ruim essa posição da medicação, por isso adicione na
-seção vida->saúde, de modo que já permite a integração da criação de um remédio apra tomar, com as
-tarefas, que vão identificar"*. Nada por navegador.
+  -- (4) O BACKFILL NÃO PODE TER INSERIDO LINHA NENHUMA em task (ele só faz update).
+  --     Toda dose ligada tem de ter vindo de uma medicação que existe: tem de dar 0.
+  select count(*) from public.task t
+   where t.medication_id is not null
+     and not exists (select 1 from public.medication m where m.id = t.medication_id);
 
-1. *"ficou meio ruim essa posição da medicação"* → o atalho **saiu** de `/tasks`:
-   `TaskList.medication.test.tsx` (3 casos verdes) assere que o cabeçalho não tem "Nova medicação",
-   que o `EmptyState` também não, e que nenhum dialog de medicação é montado ali — cada caso com um
-   controle positivo ("Nova tarefa" presente) para a ausência não passar por tela vazia.
-2. *"adicione na seção vida->saúde"* → `health-navigation.test.tsx`, 11 testes verdes: o link
-   "Saúde" existe na sidebar com `href="/life/health"`, vem logo depois de "Hábitos", e fica
-   `data-active="true"` tanto em `/life/health` quanto em `/life/health/medications`, com "Hábitos"
-   em `false` no mesmo render. Controle negativo rodado: apagando a linha do `NAV_VIDA`, os 3 casos
-   falham. O cadastro também mudou de módulo — `MedicationQuickCreateDialog` agora vive em
-   `src/pages/admin/health/`, com seus 15 testes verdes no caminho novo.
-3. *"a integração da criação de um remédio apra tomar, com as tarefas"* → a dose nasce como `task`:
-   `health.medications.test.ts` → "cria o tratamento e já materializa as doses vencidas" agora
-   assere o **retorno** (`result.doses` = `2026-08-16 08:00`, `2026-08-16 20:00`, `2026-08-17 08:00`,
-   `2026-08-17 20:00`), e `tasks.medication-materialization.test.ts` segue provando a inserção e a
-   **ausência** de dupla materialização.
-4. *"...com as tarefas, que vão identificar"* (o retorno visível) → `MedicationQuickCreateDialog.test.tsx`:
-   com 2 horários, o toast é "Medicação criada!" + "2 doses já entraram na sua agenda como tarefas."
-   e a ação "Ver na agenda" chama `navigate("/tasks/agenda")`; 1 dose sai no singular; tratamento
-   que começa no futuro não promete dose nem oferece a ação; editar e erro também não. Do lado da
-   gestão, `MedicationList.test.tsx` mostra "Próxima dose: 17/08/2026 às 20:00" e o link
-   "Ver doses na agenda" (`href="/tasks/agenda"`) em cada tratamento.
-5. **Suíte completa** (não só os testes novos): `npx vitest run --testTimeout=30000
-   --hookTimeout=30000 --maxWorkers=4` → **162 arquivos, 1491 testes, 0 falhando**. Somados:
-   `npm run build` (ok) + `npm run check:bundle` ("Bundle budget OK.") + `npm run lint` (0 erros,
-   18 warnings pré-existentes) e `bash supabase/tests/medication/run.sh` (schema, RLS e backfill 2x
-   em Postgres 16, com os 11 controles negativos acusando).
-6. **Roteiro `## Como testar`** escrito nesta rodada (a feature não tinha a seção) e com a parte
-   automatizada executada aqui, comando por comando, exatamente como está escrita.
+  -- (5) O HISTÓRICO SOBREVIVEU: doses concluídas continuam com completed_at.
+  --     Tem de dar 0 (nenhuma dose 'done' sem carimbo).
+  select count(*) from public.task
+   where medication_id is not null and status = 'done' and completed_at is null;
 
-Portão `feature-satisfied`: **UNAVAILABLE** — `~/.claude/skills/jev/bin/jev check` responde
-"TYPESAFE_API_KEY não está no ambiente"; pelo fallback da própria skill, as três partes acima
-decidem sozinhas, e as três passaram.
+  -- (6) Conferência de olho: cada medicação antiga virou uma linha com o horário certo.
+  select name, times, interval_days, started_on, ended_on, active
+    from public.medication order by name;
+  ```
 
-## Como testar
+  E os 3 passos de interface, que continuam valendo:
+  1. abrir o dialog "Ocorrências de…" de uma medicação antiga e conferir que as doses já tomadas
+     ainda exibem **"Tomado às HH:mm"** (o `completed_at` não pode ter sido tocado);
+  2. recarregar `/tasks` e conferir no calendário que **nenhuma dose aparece duplicada** no mesmo
+     dia/horário — é o que confirma no dado real o que `tasks.medication-materialization.test.ts`
+     prova em teste, e o que a **074** endereça no banco com índice único;
+  3. `/life/health/medications` lista os tratamentos migrados com posologia e horários.
 
-### 1. Pré-requisitos
-
-- As duas migrations desta feature já estão no banco remoto (aplicadas em 2026-08-18 pelo usuário):
-  `20260816230000_medication` e `20260816233000_medication_backfill`. Conferir com
-  `npx supabase migration list --linked` — as duas têm de aparecer com `local` == `remote`. Sem
-  elas, a tela de medicações carrega vazia de propósito (`isMissingMedicationRelation` engole o erro
-  para o app não quebrar inteiro) e **nada** abaixo funciona.
-- App rodando: `npm run dev` (Vite em `http://localhost:5173` por padrão), logado com um usuário
-  qualquer — a `medication` é escopada por `user_id` com RLS, então cada conta só vê a sua.
-- Para o harness de banco (item 2.5) é preciso Docker rodando; ele sobe um Postgres 16 descartável e
-  **não** toca no banco remoto.
-- Nada aqui precisa de navegador automatizado; a parte manual é o usuário clicando no app.
-
-### 2. Verificação automatizada
-
-Um comando por linha, do diretório do projeto:
-
-```
-npx vitest run src/domain/health/__tests__/medication.test.ts src/domain/health/__tests__/adherence.test.ts
-```
-Regras puras: doses faltantes por (data × horário), `nextDoseSlot` (próxima dose) e adesão.
-**Passou = 2 arquivos, 38 testes, 0 falhando.**
-
-```
-npx vitest run src/api/__tests__/health.medications.test.ts src/api/__tests__/tasks.medication-materialization.test.ts src/api/__tests__/health.test.ts
-```
-CRUD do tratamento (inclusive "encerrar sem apagar"), materialização das doses como `task` e o
-resumo do dashboard. **Passou = 3 arquivos, 40 testes, 0 falhando.** Aqui mora a prova de que a dose
-nasce como tarefa e de que **não** há dupla materialização.
-
-```
-npx vitest run src/pages/admin/health src/pages/admin/life/__tests__/health-navigation.test.tsx src/pages/admin/life/__tests__/HealthDashboard.medications.test.tsx src/pages/admin/tasks/__tests__/TaskList.medication.test.tsx src/pages/admin/tasks/__tests__/TaskList.medication-occurrences.test.tsx --testTimeout=30000
-```
-Telas: lista de tratamentos, dialog de cadastro (toast com a contagem de doses e "Ver na agenda"),
-sidebar/rota de Saúde, seção do dashboard, **ausência** do atalho em `/tasks` e a exibição de dose
-que continua sendo comportamento de tarefa. **Passou = 6 arquivos, 49 testes, 0 falhando.**
-
-```
-npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4
-```
-Suíte inteira. **Passou = 162 arquivos, 1491 testes, 0 falhando.** (Use esta forma, não `npm test`
-puro: nesta máquina o timeout padrão de 5 s derruba arquivos alheios por lentidão, não por defeito.)
-
-```
-npm run build && npm run check:bundle && npm run lint
-```
-**Passou = build concluído + "Bundle budget OK" + 0 erros de lint.** Os 18 warnings de
-`react-refresh/only-export-components` são pré-existentes e em arquivos que esta feature não toca.
-
-```
-bash supabase/tests/medication/run.sh
-```
-Schema, RLS e backfill em Postgres 16 descartável, com o backfill aplicado **duas vezes**.
-**Passou = a última linha é `OK: 20260816230000_medication.sql e 20260816233000_medication_backfill.sql
-validadas em Postgres 16 (backfill aplicado 2x sem duplicar).`**, precedida por "OK: 11 controles
-negativos acusaram a sabotagem".
-
-### 3. Verificação manual, passo a passo
-
-1. Na sidebar, abra o grupo **Vida**. Esperado: existe o item **Saúde**, logo depois de "Hábitos".
-   Clique nele → vai para `/life/health` e o item fica destacado.
-2. Em `/life/health`, ache a seção **Medicações**. Esperado: ela mostra a próxima dose (se houver) e
-   a adesão do período; o botão **Ver medicações** leva a `/life/health/medications`.
-3. Em `/life/health/medications`, sem nenhum tratamento cadastrado. Esperado: o estado vazio
-   "Nenhuma medicação cadastrada" com o botão **Nova medicação**. Clique nele → abre o dialog
-   "Nova medicação".
-4. Preencha: Nome do remédio `Losartana`; Quantidade `2`; Unidade `comprimidos`; Horário 1 `08:00`;
-   clique em **Adicionar horário** e preencha Horário 2 `20:00`; Frequência "Todos os dias"; Início
-   = hoje; Instruções `em jejum`. Clique em **Criar**.
-   Esperado: o dialog fecha e aparece um toast **"Medicação criada!"** com a descrição
-   **"2 doses já entraram na sua agenda como tarefas."** e a ação **"Ver na agenda"**.
-   (Se você criar depois das 20:00, a contagem continua 2 — o dia inteiro é materializado.)
-5. Clique em **Ver na agenda** no toast. Esperado: vai para `/tasks/agenda` e as duas doses do dia
-   aparecem lá como tarefas, com o título "Losartana 2 comprimidos", uma às 08:00 e outra às 20:00.
-   É o elo remédio → tarefa: a dose **é** uma tarefa.
-6. Volte a `/life/health/medications`. Esperado, na linha do tratamento: `Losartana`;
-   `2 comprimidos · 08:00, 20:00 · todos os dias`; `em jejum`;
-   `Próxima dose: <data de hoje ou de amanhã> às <o próximo dos dois horários>`;
-   `Sem doses vencidas nos últimos 30 dias` (ainda não houve dose vencida e não tomada há tempo
-   suficiente); o link **Ver doses na agenda**; e os botões **Editar** e **Encerrar**.
-7. Clique em **Ver doses na agenda**. Esperado: `/tasks/agenda`, as mesmas doses do passo 5.
-8. Abra `/tasks`. Esperado: **não** existe mais botão "Nova medicação" — nem no cabeçalho (só
-   "Live", "Tags" e "Nova tarefa"), nem na ação da lista vazia. As doses de medicação continuam
-   aparecendo na lista normalmente.
-9. Marque uma dose como concluída em `/tasks` e volte a `/life/health/medications`. Esperado: a
-   linha passa a mostrar `Adesão 30 dias: X% (n de m) · Y% no horário` no lugar de "Sem doses
-   vencidas". Concluir até 60 min depois do horário conta como "no horário"; depois disso, como
-   atrasada.
-10. Clique em **Editar** no tratamento, troque a Quantidade para `1` e salve. Esperado: toast
-    "Medicação atualizada!" (**sem** contagem de doses e **sem** "Ver na agenda" — editar não
-    materializa nada) e a posologia da linha vira `1 comprimidos · ...`.
-11. Clique em **Encerrar**, confirme no diálogo "Encerrar Losartana?". Esperado: toast "Tratamento
-    encerrado."; a linha ganha o badge **Encerrado** e a data de `Término: <hoje>`; a linha
-    "Próxima dose" **some**; o link "Ver doses na agenda" continua; o botão "Encerrar" some e
-    "Editar" fica. As doses já criadas continuam em `/tasks` — encerrar não apaga histórico.
-
-### 4. Casos de borda e caminhos negativos
-
-- **Tratamento que começa no futuro**: cadastre com Início = daqui a uma semana. Esperado: toast
-  "Medicação criada!" com **"Nenhuma dose venceu ainda — elas entram na sua agenda a partir do
-  início do tratamento."** e **sem** a ação "Ver na agenda" (não há o que ver). Na lista, "Próxima
-  dose" mostra a data de início com o primeiro horário.
-- **"A cada X dias"**: cadastre com Início = 4 dias atrás e Frequência "A cada X dias" = `2`.
-  Esperado: doses em D-4, D-2 e hoje — **não** nos dias intermediários; "Próxima dose" cai no
-  próximo dia da cadência, não em amanhã.
-- **Sem horário ou sem nome**: o botão **Criar** fica desabilitado. Um tratamento sem horário não
-  geraria dose nenhuma.
-- **Remover horário**: com um horário só não existe o botão de remover (o mínimo é um).
-- **Término no passado**: um tratamento com Término já vencido não mostra "Próxima dose" e para de
-  gerar doses novas, mesmo com `active = true`.
-- **Recarregar a página várias vezes**: a contagem de doses em `/tasks` **não** pode crescer. A
-  dedupe é por (`due_date`, `dose_time`).
-- **Outro usuário**: logado com outra conta, `/life/health/medications` não mostra os tratamentos da
-  primeira. A RLS por `user_id` é o que garante isso (coberta pelo harness do item 2.5).
-- **Medicação antiga, da 049 (migrada pelo backfill)**: abrir o dialog "Ocorrências de..." dela em
-  `/tasks` continua mostrando "Tomado às HH:mm" nas doses já concluídas — o histórico sobreviveu.
-
-### 5. Sinais de que quebrou
-
-- `/life/health/medications` lista vazia com tratamentos existentes, ou erro "relation medication
-  does not exist" no console: migration não aplicada no banco daquele ambiente.
-- **Dose duplicada** no mesmo dia e horário em `/tasks` (duas linhas "Losartana 2 comprimidos" às
-  08:00): a exclusão de séries com `medication_id` em `materializeRecurringInstances` regrediu — é o
-  ponto de maior risco desta feature.
-- Toast de criação sem descrição, com contagem errada, ou com "Ver na agenda" numa criação que não
-  gerou dose: o retorno de `createMedicationWithDoses` (`{ medication, doses }`) regrediu.
-- "Próxima dose" apontando para uma data no passado, ou aparecendo em tratamento encerrado:
-  regressão em `nextDoseSlot`.
-- Adesão em 0% logo após cadastrar (o certo é "Sem doses vencidas nos últimos 30 dias"), ou adesão
-  contando dose que ainda não venceu: regressão em `computeAdherence`.
-- Item "Saúde" ausente da sidebar, ou aceso ao mesmo tempo que "Hábitos": regressão em `NAV_VIDA` /
-  `isNavItemActive`.
-- Botão "Nova medicação" reaparecendo em `/tasks`: alguém reintroduziu a entrada removida.
+  Se (1) trouxer linha ou (2) não der 0, **pare de usar o app e investigue antes de seguir** — é
+  backfill duplicado ou incompleto, e ambos falsificam a métrica de adesão.

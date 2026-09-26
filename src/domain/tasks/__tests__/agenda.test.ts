@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  AGENDA_BUCKET_ORDER,
   bucketForDueDate,
   collapseRecurringSeries,
+  DUE_DATE_SHORTCUTS,
+  dueDateForShortcut,
   filterTasksByStatusView,
   findSeriesTasks,
   groupTasksByAgendaBucket,
+  isMedicationDoseTask,
   isRecurringTask,
   isSimpleRecurringTask,
   sortTasksByCompletedAtDesc,
@@ -58,6 +62,7 @@ type Row = {
   recurrence_rule: unknown;
   recurrence_origin_id: string | null;
   linked_recurring_id: string | null;
+  medication_id?: string | null;
 };
 
 function task(overrides: Partial<Row> & { id: string }): Row {
@@ -67,6 +72,7 @@ function task(overrides: Partial<Row> & { id: string }): Row {
     recurrence_rule: null,
     recurrence_origin_id: null,
     linked_recurring_id: null,
+    medication_id: null,
     ...overrides,
   };
 }
@@ -246,5 +252,162 @@ describe("isSimpleRecurringTask", () => {
 
   it("false para tarefa comum, sem nenhuma recorrência", () => {
     expect(isSimpleRecurringTask(task({ id: "5" }))).toBe(false);
+  });
+
+  /**
+   * Feature 075. O backfill 049→064 preserva a `recurrence_rule` da origem da medicação e grava
+   * `medication_id` nela — antes desta feature ela caía como "recorrência simples" e o dialog
+   * oferecia um "excluir todas as ocorrências" que só alcançava `recurrence_origin_id`, deixando
+   * para trás todas as doses de `materializeMedicationDoses` (que nascem com `recurrence_origin_id`
+   * nulo). Quem manda numa linha com `medication_id` é a variante de medicação.
+   */
+  it("false para a origem backfillada de medicação (recurrence_rule + medication_id)", () => {
+    expect(
+      isSimpleRecurringTask(
+        task({
+          id: "origem-med",
+          recurrence_rule: { frequency: "daily", interval: 1 },
+          medication_id: "med-1",
+        })
+      )
+    ).toBe(false);
+  });
+
+  it("false para ocorrência antiga da série que o backfill marcou com medication_id", () => {
+    expect(
+      isSimpleRecurringTask(
+        task({ id: "oco-antiga", recurrence_origin_id: "origem-med", medication_id: "med-1" })
+      )
+    ).toBe(false);
+  });
+});
+
+describe("isMedicationDoseTask", () => {
+  it("true para a dose materializada (só medication_id, sem recorrência nenhuma)", () => {
+    expect(isMedicationDoseTask(task({ id: "dose", medication_id: "med-1" }))).toBe(true);
+  });
+
+  it("true para a origem backfillada, que é série e dose ao mesmo tempo", () => {
+    expect(
+      isMedicationDoseTask(
+        task({
+          id: "origem-med",
+          recurrence_rule: { frequency: "daily", interval: 1 },
+          medication_id: "med-1",
+        })
+      )
+    ).toBe(true);
+  });
+
+  it("false para recorrência simples comum — ela não regride para a variante de medicação", () => {
+    expect(
+      isMedicationDoseTask(task({ id: "1", recurrence_rule: { frequency: "daily", interval: 1 } }))
+    ).toBe(false);
+    expect(isMedicationDoseTask(task({ id: "2", recurrence_origin_id: "origem" }))).toBe(false);
+  });
+
+  it("false para tarefa avulsa e para parcela vinculada a Recorrência Financeira", () => {
+    expect(isMedicationDoseTask(task({ id: "3" }))).toBe(false);
+    expect(isMedicationDoseTask(task({ id: "4", linked_recurring_id: "rec1" }))).toBe(false);
+  });
+});
+
+describe("dueDateForShortcut", () => {
+  it("dia de meio de semana no meio do mês: os três atalhos dão datas distintas", () => {
+    const wednesday = "2026-08-12"; // quarta-feira
+    expect(dueDateForShortcut("today", wednesday)).toBe("2026-08-12");
+    expect(dueDateForShortcut("this_week", wednesday)).toBe("2026-08-15"); // sábado
+    expect(dueDateForShortcut("this_month", wednesday)).toBe("2026-08-31");
+  });
+
+  it("domingo: 'esta semana' é o sábado seguinte, não 'daqui a uma semana'", () => {
+    const sunday = "2026-08-09";
+    expect(new Date(2026, 7, 9).getDay()).toBe(0);
+    expect(dueDateForShortcut("this_week", sunday)).toBe("2026-08-15"); // 6 dias à frente
+  });
+
+  it("sábado: 'esta semana' colapsa no próprio dia (igual a 'hoje')", () => {
+    const saturday = "2026-08-08";
+    expect(new Date(2026, 7, 8).getDay()).toBe(6);
+    expect(dueDateForShortcut("this_week", saturday)).toBe(saturday);
+    expect(dueDateForShortcut("today", saturday)).toBe(saturday);
+  });
+
+  it("último dia do mês: 'este mês' colapsa no próprio dia", () => {
+    const lastDay = "2026-08-31";
+    expect(dueDateForShortcut("this_month", lastDay)).toBe(lastDay);
+    expect(dueDateForShortcut("today", lastDay)).toBe(lastDay);
+  });
+
+  it("31 de dezembro: 'este mês' fica em 31/12, sem virar o ano", () => {
+    expect(dueDateForShortcut("this_month", "2026-12-20")).toBe("2026-12-31");
+    expect(dueDateForShortcut("this_month", "2026-12-31")).toBe("2026-12-31");
+  });
+
+  it("fevereiro bissexto: 'este mês' é 29/02", () => {
+    expect(dueDateForShortcut("this_month", "2028-02-10")).toBe("2028-02-29");
+    expect(dueDateForShortcut("this_month", "2026-02-10")).toBe("2026-02-28");
+  });
+});
+
+describe("dueDateForShortcut — invariantes contra bucketForDueDate", () => {
+  /** ~3 meses cobrindo virada de mês, virada de ano e fevereiro bissexto. */
+  function everyDayFrom(start: string, days: number): string[] {
+    const [y, m, d] = start.split("-").map(Number);
+    return Array.from({ length: days }, (_, i) => {
+      const day = new Date(y, m - 1, d + i);
+      return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(
+        day.getDate()
+      ).padStart(2, "0")}`;
+    });
+  }
+
+  const DAYS = [...everyDayFrom("2026-12-01", 92), ...everyDayFrom("2028-01-15", 60)];
+
+  it("nunca produz data no passado", () => {
+    for (const day of DAYS) {
+      for (const shortcut of DUE_DATE_SHORTCUTS) {
+        expect(dueDateForShortcut(shortcut, day) >= day).toBe(true);
+      }
+    }
+  });
+
+  it("a data cai na caixa que o botão nomeia — ou numa mais urgente, quando o atalho colapsa em hoje", () => {
+    for (const day of DAYS) {
+      for (const shortcut of DUE_DATE_SHORTCUTS) {
+        const resolved = dueDateForShortcut(shortcut, day);
+        const bucket = bucketForDueDate(resolved, day);
+        if (bucket === shortcut) continue;
+        // Divergir só é aceitável para **mais urgente** (índice menor em AGENDA_BUCKET_ORDER),
+        // nunca para "later"/"overdue"/"no_date". Três colapsos legítimos: sábado
+        // ("esta semana" = hoje), último dia do mês ("este mês" = hoje) e — o caso que só a
+        // varredura revela — fim do mês caindo dentro da semana corrente, quando "este mês"
+        // aterrissa na caixa "Esta semana".
+        expect(AGENDA_BUCKET_ORDER.indexOf(bucket)).toBeLessThan(
+          AGENDA_BUCKET_ORDER.indexOf(shortcut)
+        );
+        expect(bucket === "today" || bucket === "this_week").toBe(true);
+        if (bucket === "today") expect(resolved).toBe(day);
+      }
+    }
+  });
+
+  it("o intervalo varrido inclui de fato sábados, domingos e últimos dias de mês", () => {
+    const weekdays = new Set(DAYS.map((d) => new Date(`${d}T12:00:00`).getDay()));
+    expect(weekdays.size).toBe(7);
+    expect(DAYS.filter((d) => dueDateForShortcut("this_month", d) === d).length).toBeGreaterThan(3);
+    expect(DAYS).toContain("2028-02-29");
+  });
+});
+
+describe("dueDateForShortcut — colapso de fim de mês dentro da semana corrente", () => {
+  it("'este mês' pode cair na caixa 'Esta semana' quando o mês acaba antes do sábado", () => {
+    const sunday = "2026-12-27"; // domingo; a semana vai até 02/01/2027
+    expect(dueDateForShortcut("this_month", sunday)).toBe("2026-12-31");
+    expect(bucketForDueDate("2026-12-31", sunday)).toBe("this_week");
+    // Continua sendo "mais urgente que o botão", nunca menos: a tarefa aparece antes, não depois.
+    expect(AGENDA_BUCKET_ORDER.indexOf("this_week")).toBeLessThan(
+      AGENDA_BUCKET_ORDER.indexOf("this_month")
+    );
   });
 });

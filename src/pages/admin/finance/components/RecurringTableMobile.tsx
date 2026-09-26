@@ -1,4 +1,4 @@
-import { ChevronDown, CheckCircle, Pen, Trash2 } from "lucide-react";
+import { ChevronDown, CheckCircle, Pen, Trash2, RotateCcw } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -14,6 +14,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   deleteRecurringApi,
   softDeleteRecurring,
+  restoreRecurring,
   formatInstallmentPlanSummary,
   getRecurringProgress,
 } from "@/api/recurring";
@@ -98,7 +99,11 @@ export function RecurringTableMobile({
                   <RecurringIcon recurring={item} />
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="font-medium leading-snug">{displayName}</p>
-                    {lastPaidAtById[item.id] ? (
+                    {item.status === false ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Arquivada
+                      </p>
+                    ) : lastPaidAtById[item.id] ? (
                       <p className="text-[11px] text-muted-foreground">
                         Pago em {formatDateBR(lastPaidAtById[item.id])}
                       </p>
@@ -177,6 +182,37 @@ export function RecurringTableMobile({
                       <Pen className="h-4 w-4" />
                     </Button>
 
+                    {item.status === false ? (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10"
+                            aria-label={copy.restoreLabel}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>{copy.restoreTitle}</AlertDialogHeader>
+                          <p className="text-sm text-muted-foreground">
+                            {copy.restoreHint}
+                          </p>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={async () => {
+                                await restoreRecurring(item.id);
+                                reloadRecurring();
+                              }}
+                            >
+                              {copy.restoreConfirm}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : (
                     <AlertDialog
                       open={confirmOpenSoft && selectedRecurring?.id === item.id}
                       onOpenChange={setConfirmOpenSoft}
@@ -195,7 +231,7 @@ export function RecurringTableMobile({
                       <AlertDialogContent>
                         <AlertDialogHeader>{copy.archiveTitle}</AlertDialogHeader>
                         <p className="text-sm text-muted-foreground">
-                          A recorrência &quot;{displayName}&quot; será arquivada como concluída.
+                          A recorrência &quot;{displayName}&quot; será arquivada como paga. Para reativar, marque Mostrar só as quitadas.
                         </p>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -211,6 +247,7 @@ export function RecurringTableMobile({
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+                    )}
 
                     <AlertDialog
                       open={confirmOpen && selectedRecurring?.id === item.id}

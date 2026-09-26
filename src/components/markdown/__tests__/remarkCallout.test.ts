@@ -1,146 +1,133 @@
 import { describe, expect, it } from "vitest";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
-import type { Blockquote, Nodes, Root } from "mdast";
+import remarkGfm from "remark-gfm";
+import type { Blockquote, Code, Root } from "mdast";
 import {
+  CALLOUT_TITLE_ATTR,
+  CALLOUT_TYPE_ATTR,
   CALLOUT_TYPES,
   remarkCallout,
 } from "@/components/markdown/remarkCallout";
 
 /**
- * O plugin é testado contra Markdown de verdade, não contra uma árvore montada à mão: o que
- * importa é o que acontece com `> [!NOTE]` escrito numa nota, e uma árvore fabricada aqui provaria
- * só que o código concorda com a minha suposição de como o remark parseia citação.
+ * O plugin é testado na árvore (mdast), não no HTML: é lá que ele age, e é lá que dá para afirmar
+ * "este blockquote virou callout do tipo X **e** o `[!X]` sumiu do texto". A ponte com a tela é
+ * afirmada em `CalloutBlock.test.tsx`.
  */
-const processor = unified().use(remarkParse).use(remarkCallout);
+const processor = unified().use(remarkParse).use(remarkGfm).use(remarkCallout);
 
 function parse(markdown: string): Root {
-  // `runSync` é tipado como `Node` genérico; o processador aqui só tem plugins de mdast.
   return processor.runSync(processor.parse(markdown)) as Root;
 }
 
-function firstBlockquote(node: Nodes): Blockquote | null {
-  if (node.type === "blockquote") return node;
-  if (!("children" in node)) return null;
-  for (const child of node.children) {
-    const found = firstBlockquote(child);
-    if (found) return found;
-  }
-  return null;
+function firstBlockquote(tree: Root): Blockquote {
+  const node = tree.children.find((child) => child.type === "blockquote");
+  if (!node) throw new Error("nenhum blockquote na árvore");
+  return node as Blockquote;
 }
 
-function calloutOf(markdown: string): string | undefined {
-  const quote = firstBlockquote(parse(markdown));
-  const properties = quote?.data?.hProperties as
-    | Record<string, unknown>
-    | undefined;
-  return properties?.["data-callout"] as string | undefined;
+function calloutProps(node: Blockquote): Record<string, unknown> {
+  return (node.data?.hProperties ?? {}) as Record<string, unknown>;
 }
 
-/** Todo o texto do nó, na ordem — é como se confere que nada sumiu do callout. */
-function textOf(node: Nodes | null | undefined): string {
-  if (!node) return "";
-  if ("value" in node && typeof node.value === "string") return node.value;
-  if (!("children" in node)) return "";
-  return node.children.map(textOf).join("");
+/** Todo o texto de um nó, concatenado — para conferir que o gatilho foi consumido. */
+function textOf(node: unknown): string {
+  const candidate = node as { value?: string; children?: unknown[] };
+  if (typeof candidate.value === "string") return candidate.value;
+  return (candidate.children ?? []).map(textOf).join("");
 }
 
 describe("remarkCallout", () => {
-  it.each(CALLOUT_TYPES)("reconhece > [!%s] e anota o blockquote", (tipo) => {
-    const markdown = `> [!${tipo.toUpperCase()}]\n> o corpo do aviso`;
+  it.each(CALLOUT_TYPES)("reconhece `[!%s]`", (type) => {
+    const upper = type.toUpperCase();
+    const tree = parse(`> [!${upper}]\n> corpo do aviso`);
+    const quote = firstBlockquote(tree);
 
-    expect(calloutOf(markdown)).toBe(tipo);
-    expect(textOf(firstBlockquote(parse(markdown)))).toBe("o corpo do aviso");
+    expect(calloutProps(quote)[CALLOUT_TYPE_ATTR]).toBe(type);
+    // O gatilho não pode sobrar como texto na caixa.
+    expect(textOf(quote)).toBe("corpo do aviso");
   });
 
-  it("aceita o marcador em minúscula (jeito do Obsidian)", () => {
-    expect(calloutOf("> [!tip]\n> dica")).toBe("tip");
+  it("aceita o tipo em minúsculas (dialeto do Obsidian) e normaliza", () => {
+    const quote = firstBlockquote(parse("> [!tip]\n> dica"));
+    expect(calloutProps(quote)[CALLOUT_TYPE_ATTR]).toBe("tip");
   });
 
-  it("tipo desconhecido continua citação comum, com o marcador visível", () => {
-    const markdown = "> [!FOO]\n> texto qualquer";
+  it("tipo desconhecido continua sendo citação comum, com o texto literal", () => {
+    const quote = firstBlockquote(parse("> [!FOO]\n> texto"));
 
-    expect(calloutOf(markdown)).toBeUndefined();
-    // O usuário vê o que escreveu — nada de bloco vazio por causa de um tipo errado.
-    expect(textOf(firstBlockquote(parse(markdown)))).toBe(
-      "[!FOO]\ntexto qualquer"
+    expect(calloutProps(quote)[CALLOUT_TYPE_ATTR]).toBeUndefined();
+    expect(textOf(quote)).toBe("[!FOO]\ntexto");
+  });
+
+  it("`[!NOTE]` dentro de bloco de código não vira callout", () => {
+    const tree = parse("```md\n> [!NOTE]\n> exemplo\n```");
+
+    expect(tree.children.some((child) => child.type === "blockquote")).toBe(false);
+    const code = tree.children[0] as Code;
+    expect(code.type).toBe("code");
+    expect(code.value).toBe("> [!NOTE]\n> exemplo");
+  });
+
+  it("`[!NOTE]` no meio do parágrafo (não na primeira linha) não vira callout", () => {
+    const quote = firstBlockquote(parse("> aviso:\n> [!NOTE]\n> corpo"));
+
+    expect(calloutProps(quote)[CALLOUT_TYPE_ATTR]).toBeUndefined();
+  });
+
+  it("título na primeira linha vira atributo, e não texto do corpo", () => {
+    const quote = firstBlockquote(
+      parse("> [!WARNING] Prazo do cartório\n> A escritura vence dia 30.")
     );
+
+    expect(calloutProps(quote)).toMatchObject({
+      [CALLOUT_TYPE_ATTR]: "warning",
+      [CALLOUT_TITLE_ATTR]: "Prazo do cartório",
+    });
+    expect(textOf(quote)).toBe("A escritura vence dia 30.");
   });
 
-  it("blockquote sem marcador não é tocado", () => {
-    const markdown = "> uma citação de sempre";
-    const quote = firstBlockquote(parse(markdown));
-
-    expect(quote?.data).toBeUndefined();
-    expect(textOf(quote)).toBe("uma citação de sempre");
+  it("sem título, o atributo de título nem aparece", () => {
+    const quote = firstBlockquote(parse("> [!NOTE]\n> só corpo"));
+    expect(calloutProps(quote)).not.toHaveProperty(CALLOUT_TITLE_ATTR);
   });
 
-  it("marcador no meio do texto não conta", () => {
-    const markdown = "> olha o [!NOTE] aqui no meio";
+  it("callout só de título não deixa parágrafo vazio para trás", () => {
+    const quote = firstBlockquote(parse("> [!TIP] Atalho útil"));
 
-    expect(calloutOf(markdown)).toBeUndefined();
-    expect(textOf(firstBlockquote(parse(markdown)))).toBe(
-      "olha o [!NOTE] aqui no meio"
+    expect(calloutProps(quote)[CALLOUT_TITLE_ATTR]).toBe("Atalho útil");
+    expect(quote.children).toHaveLength(0);
+  });
+
+  it("callout de várias linhas e com lista dentro preserva a estrutura", () => {
+    const quote = firstBlockquote(
+      parse(
+        "> [!IMPORTANT]\n> Antes de assinar:\n>\n> - conferir a matrícula\n> - conferir o IPTU"
+      )
     );
+
+    expect(calloutProps(quote)[CALLOUT_TYPE_ATTR]).toBe("important");
+    expect(quote.children.map((child) => child.type)).toEqual([
+      "paragraph",
+      "list",
+    ]);
+    const list = quote.children[1] as { children: unknown[] };
+    expect(list.children).toHaveLength(2);
+    expect(textOf(quote.children[0])).toBe("Antes de assinar:");
   });
 
-  it("marcador fora de citação (parágrafo solto) não vira callout", () => {
-    const tree = parse("[!NOTE] isto é um parágrafo");
+  it("citação normal, sem colchetes, segue intocada", () => {
+    const quote = firstBlockquote(parse("> só uma citação"));
 
-    expect(firstBlockquote(tree)).toBeNull();
-    expect(textOf(tree)).toBe("[!NOTE] isto é um parágrafo");
+    expect(quote.data?.hProperties).toBeUndefined();
+    expect(textOf(quote)).toBe("só uma citação");
   });
 
-  it("título na mesma linha e corpo em vários parágrafos sobrevivem inteiros", () => {
-    const markdown = "> [!WARNING] Cuidado\n> primeira linha\n>\n> segundo parágrafo";
-    const quote = firstBlockquote(parse(markdown));
+  it("callout aninhado dentro de outra citação também é reconhecido", () => {
+    const outer = firstBlockquote(parse("> > [!CAUTION]\n> > cuidado"));
+    const inner = outer.children[0] as Blockquote;
 
-    expect(calloutOf(markdown)).toBe("warning");
-    expect(quote?.children).toHaveLength(2);
-    expect(textOf(quote)).toBe("Cuidado\nprimeira linha" + "segundo parágrafo");
-  });
-
-  it("formatação logo depois do marcador continua sendo formatação", () => {
-    const quote = firstBlockquote(parse("> [!TIP] **forte** e o resto"));
-
-    // O texto vazio que sobrou do marcador sai da árvore; o `strong` abre o parágrafo.
-    const paragraph = quote?.children[0];
-    expect(paragraph?.type).toBe("paragraph");
-    expect(paragraph && "children" in paragraph && paragraph.children[0].type).toBe(
-      "strong"
-    );
-    expect(textOf(quote)).toBe("forte e o resto");
-  });
-
-  it("marcador sozinho não deixa parágrafo vazio para trás", () => {
-    const quote = firstBlockquote(parse("> [!IMPORTANT]"));
-
-    expect(quote?.children).toHaveLength(0);
-    expect(
-      (quote?.data?.hProperties as Record<string, unknown>)["data-callout"]
-    ).toBe("important");
-  });
-
-  it("callout dentro de lista também é alcançado", () => {
-    const markdown = "- item\n\n  > [!NOTE]\n  > aninhado";
-
-    expect(calloutOf(markdown)).toBe("note");
-    expect(textOf(firstBlockquote(parse(markdown)))).toBe("aninhado");
-  });
-
-  it("callout aninhado em callout: os dois são anotados", () => {
-    const tree = parse("> [!NOTE]\n> fora\n>\n> > [!WARNING]\n> > dentro");
-    const outer = firstBlockquote(tree);
-    const inner = outer?.children
-      .map((child) => firstBlockquote(child))
-      .find((found): found is Blockquote => found !== null);
-
-    expect(
-      (outer?.data?.hProperties as Record<string, unknown>)["data-callout"]
-    ).toBe("note");
-    expect(
-      (inner?.data?.hProperties as Record<string, unknown>)["data-callout"]
-    ).toBe("warning");
-    expect(textOf(inner)).toBe("dentro");
+    expect(calloutProps(inner)[CALLOUT_TYPE_ATTR]).toBe("caution");
   });
 });

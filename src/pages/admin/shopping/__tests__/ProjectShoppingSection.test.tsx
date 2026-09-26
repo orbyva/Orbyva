@@ -24,7 +24,7 @@ const mockedFetchItems = vi.mocked(fetchShoppingItems);
 
 function item(
   id: string,
-  categoryId: string,
+  categoryId: string | null,
   title: string,
   status: ShoppingItem["status"] = "pending"
 ): ShoppingItem {
@@ -78,6 +78,39 @@ describe("ProjectShoppingSection", () => {
     expect(screen.queryByText("Item alheio")).toBeNull();
   });
 
+  /**
+   * Feature 066: item sem categoria não pertence a projeto nenhum — o vínculo com projeto é da
+   * categoria (feature 052). O pseudo-grupo "Sem categoria" nunca aparece na página do projeto.
+   */
+  it("item sem categoria não aparece na seção do projeto", async () => {
+    mockedFetchCategories.mockResolvedValue([
+      { id: "c1", name: "Materiais", project_id: "p1" },
+    ]);
+    mockedFetchItems.mockResolvedValue([
+      item("i1", "c1", "Cimento"),
+      item("solto", null, "Pilha AA"),
+    ]);
+
+    renderSection();
+
+    await screen.findByRole("heading", { name: "Materiais" });
+    expect(screen.getByText("Cimento")).toBeInTheDocument();
+    expect(screen.queryByText("Pilha AA")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Sem categoria" })).toBeNull();
+  });
+
+  it("só com itens soltos, a seção do projeto segue vazia (não inventa grupo)", async () => {
+    mockedFetchCategories.mockResolvedValue([]);
+    mockedFetchItems.mockResolvedValue([item("solto", null, "Pilha AA")]);
+
+    renderSection();
+
+    expect(
+      await screen.findByText("Nenhuma categoria de compras neste projeto")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Pilha AA")).toBeNull();
+  });
+
   it("sem categoria vinculada, mostra o estado vazio", async () => {
     mockedFetchCategories.mockResolvedValue([]);
     mockedFetchItems.mockResolvedValue([]);
@@ -99,6 +132,43 @@ describe("ProjectShoppingSection", () => {
       name: "Ver na Lista de Compras",
     });
     expect(link).toHaveAttribute("href", "/shopping-list?project=p42");
+  });
+
+  /**
+   * Feature 069: dentro da aba "Compras" o gatilho da aba já é o título, então o `<h2>` some — mas
+   * a região continua nomeada para leitor de tela, agora por `aria-label`.
+   */
+  it("showHeading={false} tira o <h2> e nomeia a section por aria-label, sem perder o link", async () => {
+    mockedFetchCategories.mockResolvedValue([]);
+    mockedFetchItems.mockResolvedValue([]);
+
+    render(
+      <MemoryRouter>
+        <ProjectShoppingSection projectId="p1" showHeading={false} />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Nenhuma categoria de compras neste projeto");
+    expect(
+      screen.queryByRole("heading", { name: "Compras do projeto" })
+    ).toBeNull();
+    const region = screen.getByRole("region", { name: "Compras do projeto" });
+    expect(region).toBeInTheDocument();
+    expect(region).not.toHaveAttribute("aria-labelledby");
+    expect(
+      within(region).getByRole("link", { name: "Ver na Lista de Compras" })
+    ).toBeInTheDocument();
+  });
+
+  it("por padrão (sem a prop) o <h2> continua lá — nenhum outro consumidor muda", async () => {
+    mockedFetchCategories.mockResolvedValue([]);
+    mockedFetchItems.mockResolvedValue([]);
+
+    renderSection();
+
+    expect(
+      await screen.findByRole("heading", { name: "Compras do projeto", level: 2 })
+    ).toBeInTheDocument();
   });
 
   it("erro no carregamento vira toast destrutivo, sem quebrar a página do projeto", async () => {

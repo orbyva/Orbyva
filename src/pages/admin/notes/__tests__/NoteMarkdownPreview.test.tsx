@@ -1,9 +1,31 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
+import { NoteEditor } from "@/pages/admin/notes/NoteEditor";
 import type { Note } from "@/types/notes";
+
+const { updateNoteMock, toastMock } = vi.hoisted(() => ({
+  updateNoteMock: vi.fn(),
+  toastMock: vi.fn(),
+}));
+
+vi.mock("@/api/notes/notes", () => ({ updateNote: updateNoteMock }));
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast: toastMock }),
+  toast: toastMock,
+}));
+// Painéis de vínculo e o editor de código são de outras features — aqui só atrapalhariam.
+vi.mock("@/pages/admin/notes/NoteLinksPanel", () => ({ NoteLinksPanel: () => null }));
+vi.mock("@/pages/admin/notes/BacklinksPanel", () => ({ BacklinksPanel: () => null }));
+vi.mock("@/components/MarkdownCodeEditor", () => ({
+  MarkdownCodeEditor: ({ value }: { value: string }) => (
+    <textarea readOnly value={value} aria-label="Conteúdo" />
+  ),
+}));
 
 /**
  * Wiki-link no preview (feature 056): resolvido vira link para a nota; não resolvido vira o chip
@@ -91,7 +113,8 @@ describe("NoteMarkdownPreview — wiki-links", () => {
       note("n7", "Obra da casa"),
     ]);
 
-    expect(screen.getByRole("heading", { name: "Etapas" })).toBeInTheDocument();
+    // O nome acessível do título agora inclui a âncora de seção da 067 — daí o regex.
+    expect(screen.getByRole("heading", { name: /Etapas/ })).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByText("negrito").tagName).toBe("STRONG");
   });
@@ -117,41 +140,143 @@ describe("NoteMarkdownPreview — wiki-links", () => {
     renderPreview("[[Sem nota]]", []);
     expect(screen.getByRole("button", { name: "Criar nota Sem nota" })).toBeDisabled();
   });
+
+  it("clicar no wiki-link navega para a nota, inclusive dentro de um Dialog", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/tasks"]}>
+        <Routes>
+          <Route
+            path="/tasks"
+            element={
+              <Dialog open>
+                <DialogContent aria-describedby={undefined}>
+                  <DialogTitle>Editar tarefa</DialogTitle>
+                  <NoteMarkdownPreview
+                    content="ver [[Obra da casa]]"
+                    notes={[note("n7", "Obra da casa")]}
+                  />
+                </DialogContent>
+              </Dialog>
+            }
+          />
+          <Route path="/notes/:id" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByRole("link", { name: "Obra da casa" }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/notes/n7");
+  });
 });
 
+function LocationProbe() {
+  const { pathname } = useLocation();
+  return <div data-testid="location">{pathname}</div>;
+}
+
 /**
- * Link de âncora (`#…`) dentro de uma nota (feature 069). O override de `a` daqui existe para o
- * wiki-link, mas ele vê **todos** os links do markdown — e o marcador de footnote e o `↩` de volta
- * são links de fragmento. Mandá-los para o ramo de link externo faria a footnote abrir outra aba
- * em vez de rolar a página, que é o oposto de navegar dentro da própria nota.
+ * Checklist interativa (feature 067): clicar num `- [ ]` do preview reescreve o Markdown da nota e
+ * grava. O clique é afirmado aqui, com o `NoteEditor` de verdade — a skill `next` proíbe conferir
+ * no navegador, e o que importa provar é o efeito colateral (o que foi salvo), não o pixel.
  */
-describe("NoteMarkdownPreview — âncora dentro da nota", () => {
-  const NOTA = "texto[^1] e mais\n\n[^1]: a nota de rodape";
+describe("NoteMarkdownPreview — checklist interativa", () => {
+  beforeEach(() => {
+    updateNoteMock.mockReset();
+    updateNoteMock.mockResolvedValue(undefined);
+    toastMock.mockReset();
+  });
 
-  it("o marcador da footnote é link de fragmento, sem abrir aba", () => {
-    const { container } = renderPreview(NOTA, []);
+  function noteWith(content: string): Note {
+    return { id: "n1", title: "Compras", content, project_id: null, kind: "markdown", canvas_data: null };
+  }
 
-    const ref = container.querySelector<HTMLAnchorElement>(
-      "sup a[data-footnote-ref]"
+  async function renderEditorPreview(content: string) {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <NoteEditor note={noteWith(content)} projects={[]} debounceMs={0} />
+      </MemoryRouter>
     );
-    expect(ref).not.toBeNull();
-    expect(ref?.getAttribute("href")).toBe("#user-content-fn-1");
-    expect(ref).not.toHaveAttribute("target");
+    await user.click(screen.getByRole("tab", { name: "Visualizar" }));
+    return user;
+  }
+
+  it("clicar no checkbox salva o conteúdo com o item marcado", async () => {
+    const user = await renderEditorPreview("- [ ] comprar\n- [ ] pagar\n");
+
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes).toHaveLength(2);
+    expect(boxes[1]).toBeEnabled();
+
+    await user.click(boxes[1]);
+
+    await waitFor(() => {
+      expect(updateNoteMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "n1", content: "- [ ] comprar\n- [x] pagar\n" })
+      );
+    });
   });
 
-  it("o link de volta (↩) também fica na mesma página", () => {
-    const { container } = renderPreview(NOTA, []);
+  it("o índice do clique casa com a linha certa mesmo com bloco de código no meio", async () => {
+    const content = "- [ ] real\n\n```md\n- [ ] exemplo\n```\n\n- [ ] outro real\n";
+    const user = await renderEditorPreview(content);
 
-    const backref = container.querySelector("a.data-footnote-backref");
-    expect(backref?.getAttribute("href")).toBe("#user-content-fnref-1");
-    expect(backref).not.toHaveAttribute("target");
+    const boxes = screen.getAllByRole("checkbox");
+    // O `- [ ]` de dentro do bloco de código não vira checkbox — são dois, não três.
+    expect(boxes).toHaveLength(2);
+
+    await user.click(boxes[1]);
+
+    await waitFor(() => {
+      expect(updateNoteMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: "- [ ] real\n\n```md\n- [ ] exemplo\n```\n\n- [x] outro real\n",
+        })
+      );
+    });
   });
 
-  it("link externo continua abrindo em outra aba", () => {
-    renderPreview("[fora](https://exemplo.com)", []);
+  it("desmarcar também grava", async () => {
+    const user = await renderEditorPreview("- [x] pago\n");
 
-    const link = screen.getByRole("link", { name: "fora" });
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+    await user.click(screen.getByRole("checkbox"));
+
+    await waitFor(() => {
+      expect(updateNoteMock).toHaveBeenCalledWith(
+        expect.objectContaining({ content: "- [ ] pago\n" })
+      );
+    });
+  });
+
+  it("erro ao salvar mostra toast e desmarca o item de volta", async () => {
+    updateNoteMock.mockRejectedValue(new Error("sem rede"));
+    const user = await renderEditorPreview("- [ ] comprar\n");
+
+    await user.click(screen.getByRole("checkbox"));
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ variant: "destructive" })
+      );
+    });
+    // A mentira silenciosa que isto evita: checkbox marcado na tela, nada gravado no banco.
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox")).not.toBeChecked();
+    });
+  });
+
+  it("sem handler (a descrição de tarefa) o checkbox continua desabilitado", () => {
+    render(<MarkdownPreview content={"- [ ] tarefa\n- [x] feita"} />);
+
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes[0]).toBeDisabled();
+    expect(boxes[1]).toBeDisabled();
+    expect(boxes[1]).toBeChecked();
+  });
+
+  it("o preview da nota sem `onToggleTaskItem` também segue somente-leitura", () => {
+    renderPreview("- [ ] item", []);
+    expect(screen.getByRole("checkbox")).toBeDisabled();
   });
 });

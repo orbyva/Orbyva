@@ -22,13 +22,16 @@ export function emptyTask(projectId?: string | null): TaskCreateRequest {
     priority: null,
     recurrence_rule: null,
     linked_recurring_id: null,
-    external_url: null,
-    external_provider: null,
     icon_key: null,
     icon_url: null,
     is_milestone: false,
+    is_quick: false,
     is_medication: false,
     is_consultation: false,
+    // Feature 082: toda tarefa nasce no topo empatado da faixa (`0`) — o desempate fica com o
+    // comparador da tela (079) até alguém arrastar. O banco também tem `default 0`; semear aqui é
+    // o que mantém o rascunho e a linha gravada com o mesmo formato.
+    sort_order: 0,
   };
 }
 
@@ -47,14 +50,19 @@ export interface SubtaskMutationContext {
 
 /** Cria uma subtarefa para a tarefa em edição (`ctx.editing`) — no-op se não houver tarefa em
  * edição (modo criação usa a lista local de rascunhos no call site, não isso). */
-export async function addSubtaskToEditing(ctx: SubtaskMutationContext, title: string): Promise<void> {
+export async function addSubtaskToEditing(
+  ctx: SubtaskMutationContext,
+  title: string,
+  sortOrder?: number
+): Promise<void> {
   if (!ctx.editing) return;
   try {
     await ctx.createTask({
       ...emptyTask(ctx.editing.project_id),
       parent_task_id: ctx.editing.id,
-      title,
-    });
+            title,
+            sort_order: sortOrder ?? 0,
+          });
     ctx.onSuccess();
   } catch (error) {
     ctx.onError(getErrorMessage(error, "Não foi possível adicionar a subtarefa."));

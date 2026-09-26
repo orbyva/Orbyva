@@ -65,35 +65,74 @@ describe("TaskDurationQuickPick", () => {
 
     expect(onChange).toHaveBeenCalledWith(null);
   });
+});
 
-  /** Feature 072: sem o preset "Pontual" a primeira cláusula de `isPointTask`
-   * (`estimated_duration === 0`) seria inalcançável pela UI. */
-  it('escolher "Pontual" grava estimated_duration = 0', async () => {
+/**
+ * Feature 070 — "Pontual" ao lado dos presets: duração e tarefa pontual são mutuamente exclusivas,
+ * então escolher uma tem que desligar a outra, nos dois sentidos.
+ */
+describe("TaskDurationQuickPick — opção Pontual (feature 070)", () => {
+  it("sem onQuickChange, a opção Pontual não existe (comportamento anterior intacto)", async () => {
     const user = userEvent.setup();
-    const onChange = vi.fn();
-    render(<TaskDurationQuickPick value={null} onChange={onChange} />);
+    render(<TaskDurationQuickPick value={null} onChange={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: /\+ Duração/ }));
-    await user.click(await screen.findByRole("button", { name: "Pontual" }));
 
-    expect(onChange).toHaveBeenCalledWith(0);
+    expect(screen.queryByRole("button", { name: "Pontual" })).not.toBeInTheDocument();
   });
 
-  it('com value 0 o trigger mostra "Pontual", não o placeholder', () => {
-    render(<TaskDurationQuickPick value={0} onChange={vi.fn()} />);
-
-    expect(screen.getByRole("button", { name: "Pontual" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /\+ Duração/ })).toBeNull();
-  });
-
-  it('com value 0 ainda é possível remover a duração (voltar para "não sei quanto dura")', async () => {
+  it("escolher Pontual dispara só onQuickChange(true) — quem zera a duração é o consumidor", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<TaskDurationQuickPick value={0} onChange={onChange} />);
+    const onQuickChange = vi.fn();
+    render(
+      <TaskDurationQuickPick value={60} onChange={onChange} isQuick={false} onQuickChange={onQuickChange} />
+    );
 
-    await user.click(screen.getByRole("button", { name: "Pontual" }));
-    await user.click(await screen.findByRole("button", { name: "Remover duração" }));
+    await user.click(screen.getByRole("button", { name: "1h" }));
+    await user.click(await screen.findByRole("button", { name: "Pontual" }));
 
-    expect(onChange).toHaveBeenCalledWith(null);
+    expect(onQuickChange).toHaveBeenCalledWith(true);
+    // Callback único por ação: um segundo disparo sobrescreveria o primeiro com props defasadas
+    // (e, na lista, viraria duas escritas no banco).
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("escolher um preset devolve a duração num único onChange (o inverso; a flag cai no consumidor)", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const onQuickChange = vi.fn();
+    render(
+      <TaskDurationQuickPick value={null} onChange={onChange} isQuick onQuickChange={onQuickChange} />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Pontual \(sem duração\)/ }));
+    await user.click(await screen.findByRole("button", { name: "30min" }));
+
+    expect(onChange).toHaveBeenCalledWith(30);
+    expect(onQuickChange).not.toHaveBeenCalled();
+  });
+
+  it("aplicar um valor personalizado segue o mesmo contrato de callback único", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const onQuickChange = vi.fn();
+    render(
+      <TaskDurationQuickPick value={null} onChange={onChange} isQuick onQuickChange={onQuickChange} />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Pontual \(sem duração\)/ }));
+    await user.type(await screen.findByPlaceholderText("Ex: 50"), "45");
+    await user.click(screen.getByRole("button", { name: "Aplicar" }));
+
+    expect(onChange).toHaveBeenCalledWith(45);
+    expect(onQuickChange).not.toHaveBeenCalled();
+  });
+
+  it("o trigger mostra 'Pontual (sem duração)' e fica desabilitado quando quem manda é o interruptor do form", () => {
+    render(<TaskDurationQuickPick value={null} onChange={vi.fn()} isQuick />);
+
+    const trigger = screen.getByRole("button", { name: /Pontual \(sem duração\)/ });
+    expect(trigger).toBeDisabled();
   });
 });

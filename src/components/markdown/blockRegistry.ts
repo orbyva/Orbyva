@@ -1,9 +1,12 @@
 import type { ComponentType } from "react";
 import { MermaidBlock } from "@/components/markdown/MermaidBlock";
 import { CanvasBlock } from "@/components/markdown/CanvasBlock";
-import { MathBlock } from "@/components/markdown/MathBlock";
-import { parseBlockLanguage } from "@/domain/notes/blockLanguage";
+import {
+  MATH_BLOCK_LANGUAGE,
+  parseBlockLanguage,
+} from "@/domain/notes/blockLanguage";
 import { CANVAS_BLOCK_LANGUAGE } from "@/domain/notes/canvasScene";
+import { MathBlock } from "@/components/markdown/MathBlock";
 
 /**
  * # Registry de renderers de bloco — os "plugins" do Markdown (feature 057)
@@ -23,14 +26,22 @@ import { CANVAS_BLOCK_LANGUAGE } from "@/domain/notes/canvasScene";
  *
  * **O que o renderer recebe é texto do usuário.** Quem produz HTML/SVG a partir dele é responsável
  * pela sanitização — o `MarkdownPreview` não tem `rehype-raw` de propósito (decisão da 055) e um
- * plugin não pode ser o buraco por onde HTML cru volta. Ver `sanitizeSvg.ts`, que é a rede que o
+ * plugin não pode ser o buraco por onde HTML cru volta. Ver `src/lib/sanitizeSvg.ts`, que é a rede que o
  * `MermaidBlock` usa antes de deixar um SVG entrar na página.
  *
  * O outro ponto de extensão é o *parser*, não o render: `remarkPlugins.ts`.
  * O procedimento acima está exercitado em `MarkdownPreview.blocks.test.tsx`, que registra um
  * renderer de mentira exatamente assim e afirma o que aparece na tela.
  */
-export type BlockRenderer = ComponentType<{ code: string }>;
+export type BlockRenderer = ComponentType<{
+  code: string;
+  /**
+   * A `className` crua do `<code>` — o renderer quase sempre ignora, mas quem precisa da variante
+   * dentro da linguagem lê daqui. É o caso do `MathBlock`, que distingue `math-inline` de
+   * `math-display` (feature 067). Renderer que só declara `{ code }` continua válido.
+   */
+  className?: string;
+}>;
 
 /**
  * Linguagem (minúscula, como `parseBlockLanguage` devolve) → componente.
@@ -41,12 +52,11 @@ export const blockRenderers: Record<string, BlockRenderer> = {
   // ```orbyva-canvas com o id de uma nota-canvas → o desenho da 058, em modo leitura.
   [CANVAS_BLOCK_LANGUAGE]: CanvasBlock,
   /**
-   * `math` cobre dois caminhos de uma vez (feature 069): o fence ` ```math ` (que o GitHub também
-   * renderiza) e o `$$…$$`, porque o `remark-math` entrega justamente
-   * ` <pre><code class="language-math math-display"> ` ao hast. O `$…$` **não** passa por aqui — é
-   * código inline, e quem o desvia para o `InlineMath` é o override de `code` do `MarkdownPreview`.
+   * `$…$` e `$$…$$` (feature 067). O `remark-math` entrega fórmula como
+   * `code.language-math`, o mesmo formato de um fence — então ela entra por este registry, sem caso
+   * especial no `MarkdownPreview`. De brinde, ` ```math ` também funciona.
    */
-  math: MathBlock,
+  [MATH_BLOCK_LANGUAGE]: MathBlock,
 };
 
 /**

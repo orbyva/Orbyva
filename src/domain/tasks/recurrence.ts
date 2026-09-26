@@ -1,4 +1,4 @@
-import type { RecurrenceRule } from "@/types/tasks";
+import type { RecurrenceFrequency, RecurrenceRule } from "@/types/tasks";
 
 function addOccurrence(iso: string, rule: RecurrenceRule): string {
   const [y, m, d] = iso.split("-").map(Number);
@@ -190,11 +190,40 @@ export function computeMissingOccurrences(
   return missing;
 }
 
+interface SeriesOriginSource {
+  id: string;
+  recurrence_rule?: RecurrenceRule | null;
+  recurrence_origin_id?: string | null;
+}
+
+/**
+ * Id da tarefa que ancora a série de `task` — a origem, para quem `recurrence_origin_id` das
+ * ocorrências aponta —, ou `null` quando a tarefa não faz parte de série nenhuma.
+ *
+ * É estrutural de propósito: cobre tanto a recorrência simples quanto as séries vindas da
+ * Recorrência Financeira, porque as duas gravam `recurrence_origin_id` nas ocorrências
+ * (`materializeRecurringInstances` e `materializeLinkedInstances`). Doses de medicação (feature
+ * 064) caem fora sozinhas — nascem com `recurrence_rule` e `recurrence_origin_id` nulos, agrupadas
+ * só por `medication_id`, que `seriesKey` também não reconhece como série.
+ */
+export function resolveSeriesOriginId(task: SeriesOriginSource): string | null {
+  if (task.recurrence_origin_id) return task.recurrence_origin_id;
+  if (task.recurrence_rule) return task.id;
+  return null;
+}
+
 interface RecurringSeriesSource {
   id: string;
   due_date: string | null;
   recurrence_rule: RecurrenceRule | null;
   recurrence_origin_id: string | null;
+  /**
+   * Tratamento (feature 064) do qual a linha é dose. Opcional porque quem não sabe de medicação
+   * nenhuma continua podendo chamar `computeVirtualOccurrences`; o que não pode é o campo ficar
+   * **fora do tipo**, como ficava até a 074 — a origem chegava aqui com `medication_id`
+   * preenchido e o tipo estreito escondia isso do filtro.
+   */
+  medication_id?: string | null;
 }
 
 /**
@@ -203,6 +232,15 @@ interface RecurringSeriesSource {
  * preview em telas de calendário sem inserir nada. Reaproveita `computeMissingOccurrences`
  * passando o fim do intervalo visível no lugar de "hoje": qualquer data já materializada está em
  * `existingDates` e não volta duplicada; só sobra o que ainda falta gerar dentro do intervalo.
+ *
+ * Séries de medicação (`medication_id`) ficam **de fora**, exatamente como em
+ * `materializeRecurringInstances` (`src/api/tasks/tasks.ts`) — é a mesma regra, e até a feature 074
+ * ela estava escrita só naquele lado. O backfill da 064 preserva a `recurrence_rule` da origem de
+ * propósito, então uma medicação migrada da 049 é uma linha com regra **e** `medication_id`: sem
+ * este filtro ela virava uma ocorrência virtual por dia em cima da dose real (que nasce com
+ * `recurrence_origin_id` nulo e por isso nunca entra em `existingDates`), e a agenda desenhava duas
+ * bolinhas de comprimido no mesmo dia. Quem cobre o futuro do tratamento é `computeVirtualDoses`
+ * (feature 071), que deduplica por (`due_date`, `dose_time`).
  */
 export function computeVirtualOccurrences<T extends RecurringSeriesSource>(
   tasks: T[],
@@ -210,7 +248,7 @@ export function computeVirtualOccurrences<T extends RecurringSeriesSource>(
 ): { originId: string; dueDate: string }[] {
   const origins = tasks.filter(
     (t): t is T & { due_date: string; recurrence_rule: RecurrenceRule } =>
-      !!t.recurrence_rule && !t.recurrence_origin_id && !!t.due_date
+      !!t.recurrence_rule && !t.recurrence_origin_id && !!t.due_date && !t.medication_id
   );
 
   const result: { originId: string; dueDate: string }[] = [];
@@ -229,4 +267,155 @@ export function computeVirtualOccurrences<T extends RecurringSeriesSource>(
     }
   }
   return result;
+}
+
+/** Unidade de intervalo por frequência, no singular/plural — usada no `<Select>` de frequência
+ * (`TaskRecurrenceRules`) e no resumo textual da recorrência. */
+export const FREQUENCY_UNIT_LABELS: Record<RecurrenceFrequency, string> = {
+  daily: "dia(s)",
+  weekly: "semana(s)",
+  monthly: "mês(es)",
+  yearly: "ano(s)",
+};
+
+const FREQUENCY_UNIT_SINGULAR: Record<RecurrenceFrequency, string> = {
+  daily: "dia",
+  weekly: "semana",
+  monthly: "mês",
+  yearly: "ano",
+};
+
+const FREQUENCY_UNIT_PLURAL: Record<RecurrenceFrequency, string> = {
+  daily: "dias",
+  weekly: "semanas",
+  monthly: "meses",
+  yearly: "anos",
+};
+
+/** Iniciais dos dias da semana nos botões de "Dias da semana" (0=domingo…6=sábado). */
+export const WEEKDAY_LABELS = ["D", "S", "T", "Q", "Q", "S", "S"];
+
+/**
+ * O que acontece quando o usuário não marca dia nenhum na repetição semanal — o ramo
+ * `computeMissingSimpleOccurrences` (mesmo dia da semana da origem, a cada `interval` semanas).
+ * Constante compartilhada de propósito: o formulário completo (`TaskRecurrenceRules`) e o atalho de
+ * consulta (`ConsultationQuickCreateDialog`) explicam o mesmo comportamento, e duas redações
+ * divergentes da mesma regra é como o app passa a se contradizer.
+ */
+export const WEEKDAYS_EMPTY_HINT =
+  "Nenhum dia marcado repete no mesmo dia da semana do prazo, a cada intervalo.";
+
+/** Abreviações usadas no resumo textual ("seg e qua"). */
+export const WEEKDAY_NAMES_SHORT = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+/**
+ * Nome por extenso do dia (0=domingo…6=sábado). Exportado porque `WEEKDAY_LABELS` é só a inicial
+ * ("S" serve para segunda e sábado) e não funciona como nome acessível dos botões de dia da semana
+ * — quem usa os botões (`TaskRecurrenceRules`, `ConsultationQuickCreateDialog`) precisa deste.
+ */
+export const WEEKDAY_NAMES_LONG = [
+  "domingo",
+  "segunda-feira",
+  "terça-feira",
+  "quarta-feira",
+  "quinta-feira",
+  "sexta-feira",
+  "sábado",
+];
+
+const ORDINAL_LABELS: Record<number, string> = {
+  1: "primeira",
+  2: "segunda",
+  3: "terceira",
+  4: "quarta",
+  5: "quinta",
+};
+
+/** "Na terceira terça-feira" — o dia/semana do mês são inferidos de `dueDate`, não escolhidos à parte. */
+export function monthlyWeekdayLabel(dueDate: string): string {
+  const [y, m, d] = dueDate.split("-").map(Number);
+  const date = new Date(y, m - 1, d, 12);
+  const ordinal = weekdayOrdinalInMonth(date);
+  const ordinalLabel = ordinal === -1 ? "última" : (ORDINAL_LABELS[ordinal] ?? `${ordinal}ª`);
+  return `Na ${ordinalLabel} ${WEEKDAY_NAMES_LONG[date.getDay()]}`;
+}
+
+function formatIsoAsBr(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+/** "seg, qua e sex" */
+function joinWeekdays(weekdays: number[]): string {
+  const names = [...weekdays].sort((a, b) => a - b).map((wd) => WEEKDAY_NAMES_SHORT[wd]);
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} e ${names[names.length - 1]}`;
+}
+
+export interface RecurrenceSummaryInput {
+  recurrence_rule: RecurrenceRule | null;
+  linked_recurring_id?: string | null;
+  due_date?: string | null;
+}
+
+/**
+ * Resumo curto do estado da recorrência, para o botão que abre o `TaskRecurrenceDialog` no painel
+ * denso (feature 080) — a informação não pode desaparecer atrás de um clique só porque a
+ * configuração saiu da tela principal. Ex.: "Não se repete", "A cada 1 semana, seg e qua",
+ * "Todo dia 15, até 30/06/2026", "Vinculada a «Aluguel»".
+ *
+ * `linkedDescription` é a descrição da Recorrência Financeira vinculada (quem chama tem a lista);
+ * sem ela, o texto cai no genérico.
+ */
+export function formatRecurrenceSummary(
+  value: RecurrenceSummaryInput,
+  linkedDescription?: string | null
+): string {
+  if (value.linked_recurring_id) {
+    return `Vinculada a «${linkedDescription ?? "Recorrência Financeira"}»`;
+  }
+  const rule = value.recurrence_rule;
+  if (!rule) return "Não se repete";
+
+  const interval = Math.max(1, rule.interval || 1);
+  const dueDate = value.due_date ?? null;
+  let base: string;
+
+  if (rule.frequency === "monthly") {
+    const dayPart =
+      dueDate && rule.monthlyMode === "weekday"
+        ? monthlyWeekdayLabel(dueDate)
+        : dueDate
+          ? `dia ${Number(dueDate.slice(8, 10))}`
+          : null;
+    if (interval === 1) {
+      base = dayPart
+        ? rule.monthlyMode === "weekday"
+          ? dayPart
+          : `Todo ${dayPart}`
+        : "Todo mês";
+    } else {
+      const tail = dayPart
+        ? rule.monthlyMode === "weekday"
+          ? `, ${dayPart.charAt(0).toLowerCase()}${dayPart.slice(1)}`
+          : `, no ${dayPart}`
+        : "";
+      base = `A cada ${interval} meses${tail}`;
+    }
+  } else {
+    const unit =
+      interval === 1
+        ? FREQUENCY_UNIT_SINGULAR[rule.frequency]
+        : FREQUENCY_UNIT_PLURAL[rule.frequency];
+    base = `A cada ${interval} ${unit}`;
+    if (rule.frequency === "weekly" && rule.weekdays && rule.weekdays.length > 0) {
+      base += `, ${joinWeekdays(rule.weekdays)}`;
+    }
+  }
+
+  if (rule.until) return `${base}, até ${formatIsoAsBr(rule.until)}`;
+  if (rule.count) {
+    return `${base}, ${rule.count} ${rule.count === 1 ? "ocorrência" : "ocorrências"}`;
+  }
+  return base;
 }

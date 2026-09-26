@@ -13,6 +13,7 @@ import {
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
@@ -30,6 +31,8 @@ import {
   countPendingByCategory,
   filterCategoriesByProject,
   groupItemsByCategory,
+  UNCATEGORIZED_GROUP_ID,
+  UNCATEGORIZED_GROUP_LABEL,
 } from "@/domain/shopping/filters";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -127,17 +130,13 @@ export default function ShoppingList() {
     [categories, projectFilter]
   );
   /**
-   * O grupo sintético "Sem categoria" nunca aparece com filtro de projeto ativo: o vínculo com
-   * projeto é da **categoria** (feature 052), então item sem categoria não pertence a projeto
-   * nenhum e não cabe numa lista recortada por projeto.
+   * O pseudo-grupo "Sem categoria" (feature 066) só aparece na lista completa: item sem categoria
+   * não pertence a projeto nenhum, porque o vínculo com projeto é da categoria (feature 052).
    */
-  const groups = useMemo(
-    () =>
-      groupItemsByCategory(items, visibleCategories, {
-        includeUncategorized: !projectFilter,
-      }),
-    [items, visibleCategories, projectFilter]
-  );
+  const groups = useMemo(() => {
+    const all = groupItemsByCategory(items, visibleCategories);
+    return projectFilter ? all.filter((group) => group.category !== null) : all;
+  }, [items, visibleCategories, projectFilter]);
   const filteredProject = useMemo(
     () => projects.find((project) => project.id === projectFilter) ?? null,
     [projects, projectFilter]
@@ -153,6 +152,11 @@ export default function ShoppingList() {
     () => countPendingByCategory(items),
     [items]
   );
+
+  /** Pendentes do grupo — os itens soltos moram sob `UNCATEGORIZED_GROUP_ID`. */
+  function pendingCountFor(category: ShoppingCategory | null): number {
+    return pendingByCategory[category?.id ?? UNCATEGORIZED_GROUP_ID] ?? 0;
+  }
 
   function openCreateCategory() {
     setEditingCategory(null);
@@ -234,17 +238,16 @@ export default function ShoppingList() {
       description="Agrupe o que você precisa comprar por categoria e marque o que já comprou."
       actions={
         <>
+          <ModuleGuideButton moduleId="shopping" />
           <Button variant="outline" onClick={openCreateCategory}>
             Nova categoria
           </Button>
-          {/*
-            Sem `disabled`: anotar "pilha AA" não pode depender de o usuário ter criado uma
-            categoria antes. O item nasce sem categoria e é classificado depois, pela edição.
-          */}
+          {/* Nunca desabilitado: anotar um item não depende de existir categoria (feature 066). */}
           <Button onClick={() => openCreateItem()}>Novo item</Button>
         </>
       }
     >
+      <ModuleGuide moduleId="shopping" />
       {projects.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <Select
@@ -277,7 +280,7 @@ export default function ShoppingList() {
 
       {loading ? (
         <TableLoadingSkeleton rows={4} />
-      ) : projectFilter && visibleCategories.length === 0 ? (
+      ) : groups.length === 0 && projectFilter ? (
         <EmptyState
           icon={ShoppingCart}
           title="Nenhuma categoria neste projeto"
@@ -290,31 +293,30 @@ export default function ShoppingList() {
         />
       ) : groups.length === 0 ? (
         /*
-          Estado vazio de verdade: nem categoria nem item. Havendo item sem categoria a lista já
-          renderiza normalmente, com o grupo "Sem categoria" — por isso as duas ações aqui: dá para
-          começar pela categoria ou direto pelo item.
+          Nada mesmo: nenhuma categoria e nenhum item solto. As duas ações aparecem lado a lado, e
+          a categoria é descrita pelo que é — organização opcional, não pré-requisito.
         */
         <EmptyState
           icon={ShoppingCart}
           title="Sua lista está vazia"
-          description="Anote um item direto (pilha AA, café) ou crie uma categoria (Mercado, Casa nova…) para agrupar o que precisa comprar."
+          description="Anote o que precisa comprar. Categorias (Mercado, Casa nova…) são opcionais — servem só para agrupar depois."
           action={
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Button onClick={() => openCreateItem()}>Novo item</Button>
               <Button variant="outline" onClick={openCreateCategory}>
                 Nova categoria
               </Button>
-              <Button onClick={() => openCreateItem()}>Novo item</Button>
             </div>
           }
         />
       ) : (
         <div className="space-y-4">
-          {groups.map(({ category, items: categoryItems, synthetic }) => (
+          {groups.map(({ category, items: categoryItems }) => (
             <section
-              key={category.id}
+              key={category?.id ?? UNCATEGORIZED_GROUP_ID}
               className="space-y-2.5 rounded-xl border bg-card p-3.5 shadow-sm sm:p-5"
               style={
-                category.color
+                category?.color
                   ? { borderLeft: `3px solid ${category.color}` }
                   : undefined
               }
@@ -322,84 +324,91 @@ export default function ShoppingList() {
               <header className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    {category.color && (
+                    {category?.color && (
                       <span
                         aria-hidden="true"
                         className="h-2.5 w-2.5 shrink-0 rounded-full"
                         style={{ backgroundColor: category.color }}
                       />
                     )}
-                    <h2 className="truncate font-semibold">{category.name}</h2>
+                    {/* Sem bolinha e em tom apagado: o grupo dos itens soltos não é uma categoria. */}
+                    <h2
+                      className={
+                        category
+                          ? "truncate font-semibold"
+                          : "truncate font-semibold text-muted-foreground"
+                      }
+                    >
+                      {category?.name ?? UNCATEGORIZED_GROUP_LABEL}
+                    </h2>
                     <Badge variant="outline" className="shrink-0 text-[10px]">
-                      {pendingByCategory[category.id] ?? 0} pendente
-                      {(pendingByCategory[category.id] ?? 0) === 1 ? "" : "s"}
+                      {pendingCountFor(category)} pendente
+                      {pendingCountFor(category) === 1 ? "" : "s"}
                     </Badge>
                     {/*
                       Só faz sentido quando a lista mostra tudo: com o filtro ativo, todas as
                       categorias visíveis são do mesmo projeto e o nome já está no cabeçalho da
                       página — repeti-lo em cada seção seria ruído.
                     */}
-                    {!projectFilter && projectNameById[category.project_id ?? ""] && (
-                      <Badge variant="secondary" className="shrink-0 text-[10px]">
-                        {projectNameById[category.project_id ?? ""]}
-                      </Badge>
-                    )}
+                    {category &&
+                      !projectFilter &&
+                      projectNameById[category.project_id ?? ""] && (
+                        <Badge variant="secondary" className="shrink-0 text-[10px]">
+                          {projectNameById[category.project_id ?? ""]}
+                        </Badge>
+                      )}
                   </div>
-                  {category.description && (
+                  {category?.description && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {category.description}
                     </p>
                   )}
-                  {synthetic && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Itens anotados sem categoria. Edite um item para movê-lo
-                      para uma categoria.
-                    </p>
-                  )}
                 </div>
-                {/*
-                  O grupo "Sem categoria" não tem linha em `shopping_category` por trás: não há o
-                  que editar nem excluir, e "Adicionar item em…" não faria sentido (o "Novo item"
-                  do cabeçalho já nasce sem categoria).
-                */}
-                {!synthetic && (
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`h-8 w-8 ${ICON_EDIT_BUTTON_CLASS}`}
-                      onClick={() => openCreateItem(category.id)}
-                      aria-label={`Adicionar item em ${category.name}`}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`h-8 w-8 ${ICON_EDIT_BUTTON_CLASS}`}
-                      onClick={() => openEditCategory(category)}
-                      aria-label={`Editar categoria ${category.name}`}
-                    >
-                      <Pen className="h-3.5 w-3.5" />
-                    </Button>
-                    <ConfirmDeleteDialog
-                      title="Excluir esta categoria?"
-                      description={categoryDeleteDescription(
-                        categoryItems.length
-                      )}
-                      onConfirm={() => handleDeleteCategory(category.id)}
-                    >
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-8 w-8 ${ICON_EDIT_BUTTON_CLASS}`}
+                    onClick={() => openCreateItem(category?.id)}
+                    aria-label={
+                      category
+                        ? `Adicionar item em ${category.name}`
+                        : "Adicionar item sem categoria"
+                    }
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                  {/* Editar e excluir só existem para categoria de verdade. */}
+                  {category && (
+                    <>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-destructive"
-                        aria-label={`Excluir categoria ${category.name}`}
+                        className={`h-8 w-8 ${ICON_EDIT_BUTTON_CLASS}`}
+                        onClick={() => openEditCategory(category)}
+                        aria-label={`Editar categoria ${category.name}`}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Pen className="h-3.5 w-3.5" />
                       </Button>
-                    </ConfirmDeleteDialog>
-                  </div>
-                )}
+                      <ConfirmDeleteDialog
+                        title="Excluir esta categoria?"
+                        description={categoryDeleteDescription(
+                          categoryItems.length
+                        )}
+                        onConfirm={() => handleDeleteCategory(category.id)}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          aria-label={`Excluir categoria ${category.name}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </ConfirmDeleteDialog>
+                    </>
+                  )}
+                </div>
               </header>
 
               {categoryItems.length === 0 ? (

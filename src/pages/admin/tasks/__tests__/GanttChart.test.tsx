@@ -100,6 +100,15 @@ vi.mock("@svar-ui/react-gantt", () => ({
 // verdade nos handlers de `update-task`/`add-link`/`delete-link` — mockado pra provar a fiação
 // (`api.on(...) → nosso handler → chamada de API`) sem bater no Supabase de verdade.
 vi.mock("@/api/tasks", () => ({
+  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
+  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
+  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
+  // Feature 086: o popover de ícone carrega a biblioteca do usuário ao abrir.
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  uploadIconAsset: vi.fn(),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   updateTask: vi.fn(),
   createDependency: vi.fn(),
   deleteDependency: vi.fn(),
@@ -405,6 +414,8 @@ describe("GanttChart — quick actions no card (feature 039)", () => {
       due_date: "2026-08-20",
       due_time: "14:30",
       estimated_duration: null,
+      // Feature 070: o payload da edição rápida passou a carregar a flag de tarefa pontual.
+      is_quick: false,
     });
   });
 
@@ -419,6 +430,36 @@ describe("GanttChart — quick actions no card (feature 039)", () => {
     await user.click(within(listbox).getByRole("option", { name: "Projeto 2" }));
 
     expect(onProjectChange).toHaveBeenCalledWith("1", "p2");
+  });
+
+  /**
+   * Feature 081 — a Lista passou a recarregar ao fechar o popover de prazo (`onDueOpenChange`).
+   * O Gantt **não** recebe essa prop: ele já recarrega pelo `onDataChanged` do arrastar da barra,
+   * e ligar as duas coisas faria o caminho do popover recarregar por dois motivos ao mesmo tempo.
+   */
+  it("fechar o popover de prazo do Gantt não dispara onDataChanged — só o arrastar da barra recarrega", async () => {
+    const user = userEvent.setup();
+    const onDueChange = vi.fn();
+    const onDataChanged = vi.fn();
+    renderGantt({ onDueChange, onDataChanged });
+    const expectedDue = formatDateTimeBR("2026-08-20", null);
+
+    await user.click(screen.getByRole("button", { name: "Tarefa 1" }));
+    await user.click(await screen.findByRole("button", { name: new RegExp(expectedDue) }));
+    const timeInput = await screen.findByLabelText("Horário");
+    fireEvent.change(timeInput, { target: { value: "14:30" } });
+    await user.keyboard("{Escape}");
+
+    expect(onDueChange).toHaveBeenCalled();
+    expect(onDataChanged).not.toHaveBeenCalled();
+
+    // O caminho do arrastar continua recarregando — uma vez só.
+    await triggerGanttEvent("update-task", {
+      id: "1",
+      task: { start: new Date(2026, 7, 21, 12), end: new Date(2026, 7, 23, 12) },
+    });
+
+    expect(onDataChanged).toHaveBeenCalledTimes(1);
   });
 
   it("nó de projeto (type: summary) não renderiza o trigger de quick actions", () => {

@@ -79,6 +79,25 @@ function classLabel(rec: Recurring): string {
   return rec.class?.name?.trim() || "Sem subcategoria";
 }
 
+function matchesQuery(text: string | null | undefined, query: string): boolean {
+  return (text ?? "").toLowerCase().includes(query);
+}
+
+/** Busca por descrição, categoria (tipo) ou subcategoria (classe). */
+export function filterRecurringBySearch(
+  list: Recurring[],
+  search: string
+): Recurring[] {
+  const q = search.trim().toLowerCase();
+  if (!q) return list;
+  return list.filter(
+    (rec) =>
+      matchesQuery(rec.description, q) ||
+      matchesQuery(rec.class?.type?.name, q) ||
+      matchesQuery(rec.class?.name, q)
+  );
+}
+
 function sortValue(rec: Recurring, key: RecurringSortKey): string | number {
   switch (key) {
     case "type":

@@ -1,6 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
-import { computeMissingLinkedInstallments, computeMissingOccurrences } from "@/domain/tasks";
+import {
+  computeMissingLinkedInstallments,
+  computeMissingOccurrences,
+  resolveSeriesOriginId,
+  type TaskSortOrderPair,
+} from "@/domain/tasks";
 import { calculateInstallments, resolvePaymentStartDate } from "@/domain/recurring";
 import {
   fetchRecurringTransactionsByIds,
@@ -8,6 +13,14 @@ import {
 } from "@/api/recurring";
 import { resolveItemStatusFromTask } from "@/domain/shopping/taskLink";
 import { materializeAllMedicationDoses } from "@/api/health/medications";
+import { deleteTaskRows, insertMaterializedTasks } from "@/api/tasks/taskRows";
+/**
+ * Feature 075. A implementação mora em `taskRows.ts` pelo mesmo motivo de `deleteTaskRows`
+ * (feature 074): `src/api/health/medications.ts` precisa chamar `deleteTaskSeries` para encerrar um
+ * tratamento, e este arquivo já importa `medications.ts` — importar de volta fecharia um ciclo. O
+ * re-export mantém `@/api/tasks` como a porta de entrada única das telas.
+ */
+export { countTaskSeries, deleteTaskSeries } from "@/api/tasks/taskRows";
 import { formatLocalIsoDate } from "@/lib/dates";
 import type {
   Task,
@@ -64,13 +77,20 @@ async function materializeRecurringInstances(
         recurrence_origin_id: origin.id,
         is_medication: origin.is_medication ?? false,
         is_consultation: origin.is_consultation ?? false,
+        // Feature 070: sem isto, "trocar lençol toda semana" seria bolinha só na origem e bloco em
+        // todas as repetições — a materialização copia um subconjunto explícito dos campos.
+        is_quick: origin.is_quick ?? false,
+        // Feature 073: o ícone é da série. Sem copiar aqui, a próxima materialização criaria
+        // ocorrências sem ícone e desfaria a propagação retroativa.
+        icon_key: origin.icon_key ?? null,
+        icon_url: origin.icon_url ?? null,
       });
     }
   }
 
   if (newRows.length === 0) return tasks;
 
-  const { data, error } = await supabase.from("task").insert(newRows).select();
+  const { data, error } = await insertMaterializedTasks(newRows);
   if (error) throw new Error(error.message);
   return [...tasks, ...(data ?? [])];
 }
@@ -137,13 +157,16 @@ async function materializeLinkedInstances(
         recurrence_origin_id: template.id,
         linked_recurring_id: template.linked_recurring_id,
         linked_installment_number: installment.number,
+        // Feature 073: mesma regra da recorrência simples — o ícone pertence à série.
+        icon_key: template.icon_key ?? null,
+        icon_url: template.icon_url ?? null,
       });
     }
   }
 
   if (newRows.length === 0) return tasks;
 
-  const { data, error } = await supabase.from("task").insert(newRows).select();
+  const { data, error } = await insertMaterializedTasks(newRows);
   if (error) throw new Error(error.message);
   return [...tasks, ...(data ?? [])];
 }
@@ -186,6 +209,41 @@ export async function createTask(task: TaskCreateRequest): Promise<Task> {
   return data;
 }
 
+/**
+ * Feature 073: o ícone é propriedade da **série**, não da ocorrência — mexer nele em qualquer
+ * ocorrência (ou na origem) vale para a série inteira, inclusive as ocorrências passadas e já
+ * concluídas. Sem isso a mesma série apareceria com ícones mistos na linha do tempo do
+ * `SeriesOccurrencesDialog` e na visão "Concluídas".
+ *
+ * O escopo `id = originId OR recurrence_origin_id = originId` cobre de graça tanto a recorrência
+ * simples quanto as séries vinculadas à Recorrência Financeira (as duas gravam
+ * `recurrence_origin_id` nas ocorrências), sem precisar da lista de tarefas no cliente.
+ */
+async function propagateIconToSeries(
+  taskId: string,
+  userId: string,
+  icon: Record<string, unknown>
+): Promise<void> {
+  const { data: task, error } = await supabase
+    .from("task")
+    .select("id, recurrence_rule, recurrence_origin_id")
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!task) return;
+
+  const originId = resolveSeriesOriginId(task);
+  if (!originId) return;
+
+  const { error: updateError } = await supabase
+    .from("task")
+    .update({ ...icon, updated_at: new Date().toISOString() })
+    .or(`id.eq.${originId},recurrence_origin_id.eq.${originId}`)
+    .eq("user_id", userId);
+  if (updateError) throw new Error(updateError.message);
+}
+
 export async function updateTask(data: TaskUpdateRequest): Promise<void> {
   const userId = await getCurrentUserId();
   const { id, ...fields } = data;
@@ -200,6 +258,18 @@ export async function updateTask(data: TaskUpdateRequest): Promise<void> {
     .eq("id", id)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
+
+  // Fora do try/catch silencioso dos syncs abaixo de propósito: a propagação **é** o
+  // comportamento pedido na feature 073, então a falha tem que subir e virar toast no chamador,
+  // em vez de sumir num `console.error` deixando a série com ícones divergentes.
+  const iconFields: Record<string, unknown> = {};
+  if (fields.icon_key !== undefined) iconFields.icon_key = fields.icon_key;
+  if (fields.icon_url !== undefined) iconFields.icon_url = fields.icon_url;
+  // Só paga o `select` extra quando o payload traz ícone — arrastar no Gantt, trocar status ou
+  // editar prazo continuam com um `update` só.
+  if (Object.keys(iconFields).length > 0) {
+    await propagateIconToSeries(id, userId, iconFields);
+  }
 
   if (fields.status) {
     try {
@@ -281,32 +351,15 @@ async function syncLinkedInstallmentFromTask(
   );
 }
 
-/**
- * Envia um ícone customizado pra uma tarefa (bucket `task-icons`, mesmo padrão de
- * `uploadAlbumCover` em `src/api/albums.ts`) e devolve a URL pública. Não atualiza `task` sozinho
- * — quem chama decide quando gravar `icon_url` (ex.: junto de `icon_key: null` via `updateTask`).
- */
-export async function uploadTaskIcon(taskId: string, file: File): Promise<string> {
-  const userId = await getCurrentUserId();
-  const ext =
-    file.type === "image/png"
-      ? "png"
-      : file.type === "image/webp"
-        ? "webp"
-        : file.type === "image/svg+xml"
-          ? "svg"
-          : "jpg";
-  const path = `${userId}/${taskId}.${ext}`;
-
-  const { error } = await supabase.storage
-    .from("task-icons")
-    .upload(path, file, { upsert: true, contentType: file.type });
-
-  if (error) throw new Error(error.message);
-
-  const { data } = supabase.storage.from("task-icons").getPublicUrl(path);
-  return data.publicUrl;
-}
+// `uploadTaskIcon(taskId, file)` (feature 035) vivia aqui e gravava em
+// `task-icons/{userId}/{taskId}.{ext}`. A feature 086 a substituiu por `uploadIconAsset`
+// (`src/api/tasks/iconAssets.ts`), que grava por **ícone** (`{userId}/library/{uuid}.{ext}`) e
+// registra a linha na biblioteca. Duas razões para a antiga sair em vez de ficar depreciada: o
+// caminho por tarefa era o motivo de o upload exigir uma tarefa já salva (e de a 073 ter de usar o
+// id da origem da série), e ela subia um `.svg` escolhido no seletor **sem sanitizar** — um caminho
+// de upload sem a barreira que a 086 estabeleceu. Os arquivos já gravados no caminho antigo
+// continuam no bucket e as tarefas que apontam para eles seguem funcionando: `icon_url` é URL
+// absoluta, e a migration da 086 copiou cada uma para a biblioteca.
 
 export async function deleteTask(id: string): Promise<void> {
   const userId = await getCurrentUserId();
@@ -325,10 +378,52 @@ export async function deleteTask(id: string): Promise<void> {
 export async function deleteTasks(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const userId = await getCurrentUserId();
-  const { error } = await supabase
+  await deleteTaskRows(ids, userId);
+}
+
+/**
+ * Grava a ordem manual de uma faixa inteira do painel "Por prioridade" (feature 082) numa escrita
+ * só — mesmo raciocínio do `deleteTasks` acima: a faixa é renumerada de 0..n-1 a cada solta, e N
+ * chamadas de `updateTask` seriam N round-trips **e** N passagens pelos syncs de ícone/parcela que
+ * o `updateTask` faz e que nada têm a ver com reordenar.
+ *
+ * O `select` antes do `upsert` não é enfeite, é o que torna o upsert seguro:
+ * - `task.title` e `task.user_id` são `not null` sem default, então o upsert precisa carregá-los —
+ *   um upsert só com `{id, sort_order}` estoura o not-null antes mesmo do `on conflict`;
+ * - um id que não é do usuário (ou que não existe) sai da lista aqui, então ele nunca chega ao
+ *   `upsert` — sem isso, um id forjado viraria uma **linha nova** na tabela em vez de um no-op.
+ * A RLS continua sendo a rede de segurança do servidor; este filtro é o que impede a escrita errada
+ * de ser tentada.
+ */
+export async function updateTasksSortOrder(pairs: TaskSortOrderPair[]): Promise<void> {
+  if (pairs.length === 0) return;
+  const userId = await getCurrentUserId();
+
+  const { data: rows, error: readError } = await supabase
     .from("task")
-    .delete()
-    .in("id", ids)
+    .select("id, title")
+    .in(
+      "id",
+      pairs.map((pair) => pair.id)
+    )
     .eq("user_id", userId);
+  if (readError) throw new Error(readError.message);
+
+  const titleById = new Map<string, string>(
+    (rows ?? []).map((row: { id: string; title: string }) => [row.id, row.title])
+  );
+  const now = new Date().toISOString();
+  const payload = pairs
+    .filter((pair) => titleById.has(pair.id))
+    .map((pair) => ({
+      id: pair.id,
+      user_id: userId,
+      title: titleById.get(pair.id) as string,
+      sort_order: pair.sort_order,
+      updated_at: now,
+    }));
+  if (payload.length === 0) return;
+
+  const { error } = await supabase.from("task").upsert(payload, { onConflict: "id" });
   if (error) throw new Error(error.message);
 }

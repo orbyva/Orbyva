@@ -35,6 +35,7 @@ echo "==> lint"
 npm run lint
 
 echo "==> unit tests (env dummy como no CI)"
+TZ=America/Sao_Paulo \
 VITE_SUPABASE_URL=https://example.supabase.co \
 VITE_SUPABASE_ANON_KEY=test-anon-key \
   npm run test

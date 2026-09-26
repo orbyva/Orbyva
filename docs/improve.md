@@ -11,3 +11,13 @@
     - ✅ Avalie cada formulário e traga os que estão muito morosos.
     - ✅ Avalie o fluxo de todos os módulos explorando todas as funções e me traga um relatório de cada coisa que, se caso houver algo ruim que possa melhorar.
       → relatório: `docs/superpowers/reports/2026-08-07-usability-perf-forms.md`
+
+- Monetização
+    - Gate de trial/Pro inerte no banco inteiro: `has_app_access()`/`enforce_app_access()`
+      (`supabase/migrations/20260723120000_app_access_enforce.sql`) são `security definer` com dono
+      `postgres`, então o `is_db_admin()` que elas consultam vê `current_user = 'postgres'` e devolve
+      `true` para qualquer usuário — todo mundo escreve sem assinatura. Medido durante a 076 (com o
+      gate funcionando, a RPC cai com `42501`); os dois cenários estão congelados em
+      `supabase/tests/event_invite/05_assert_accept.sql`. Consertar passa a cobrar de quem hoje
+      escreve de graça — precisa de análise de impacto (quantas contas ativas perderiam acesso)
+      antes de virar feature.

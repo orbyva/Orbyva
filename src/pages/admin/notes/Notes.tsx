@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
+import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { PageShell } from "@/components/PageShell";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { createNote, deleteNote, fetchNotes } from "@/api/notes/notes";
@@ -116,6 +117,7 @@ export default function Notes() {
         // Dois botões lado a lado em vez de um menu: são só duas opções, e escondê-las atrás de um
         // clique a mais tornaria o canvas invisível para quem não sabe que ele existe.
         <>
+          <ModuleGuideButton moduleId="notes" />
           <Button
             variant="outline"
             onClick={() => handleCreate("canvas")}
@@ -130,6 +132,7 @@ export default function Notes() {
         </>
       }
     >
+      <ModuleGuide moduleId="notes" />
       {notes.length > 0 && (
         <Input
           value={query}

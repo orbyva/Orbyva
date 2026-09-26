@@ -6,8 +6,6 @@ import {
   ChevronRight,
   Circle,
   CircleDashed,
-  ExternalLink,
-  Github,
   GripVertical,
   Pen,
   Play,
@@ -33,14 +31,25 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TaskDeleteDialog } from "./TaskDeleteDialog";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
-import { detectGitHubLink, isRecurringTask } from "@/domain/tasks";
-import type { Project, Tag, Task, TaskPriority, TaskStatus } from "@/types/tasks";
+import { isRecurringTask, resolveLinkAppearance, type TaskDeleteOption } from "@/domain/tasks";
+import { useLinkIconRules } from "@/hooks/useLinkIconRules";
+import type {
+  Project,
+  Tag,
+  Task,
+  TaskExternalLink,
+  TaskPriority,
+  TaskStatus,
+} from "@/types/tasks";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { contrastTextColor } from "@/lib/color";
-import { stripMarkdown } from "@/lib/markdown";
+import { TaskIconBadge } from "./TaskIconBadge";
 import { TaskQuickFields } from "./TaskQuickFields";
+import { TaskStartNowButton } from "./TaskStartNowButton";
+import { TaskDescriptionSnippet } from "./TaskDescriptionSnippet";
+import type { TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 import type { TaskIconValue } from "./TaskIconPicker";
 
 export const STATUSES: TaskStatus[] = ["todo", "doing", "done"];
@@ -57,30 +66,69 @@ export const STATUS_ICONS: Record<TaskStatus, LucideIcon> = {
   done: CheckCircle2,
 };
 
-/** Chip de link externo — reconhece issue/PR do GitHub pela URL (sem chamada de rede) e mostra
- * "owner/repo#N"; qualquer outra URL vira um chip genérico "Link externo". */
-export function ExternalLinkChip({ url }: { url: string }) {
-  const github = detectGitHubLink(url);
+/** Quantos links viram chip antes de o resto virar um "+N" (feature 085). Três é o que cabe na
+ * linha do card ao lado de status, prazo e tags sem empurrar tudo para a linha de baixo; quem tem
+ * mais abre a tarefa e vê a lista inteira na seção "Links externos". */
+export const EXTERNAL_LINK_CHIPS_VISIBLE = 3;
+
+/**
+ * Chips dos links externos de uma tarefa (feature 085): **um por link**, cada um com o próprio
+ * ícone, o próprio rótulo e o **próprio comentário** no `title`. O comentário é a razão de o link
+ * existir e não pode ficar visível só dentro do formulário.
+ *
+ * Ícone e rótulo saem de `resolveLinkAppearance` com as **regras do usuário** (feature 087): a
+ * primeira regra que casa a URL vence, e sem regra nenhuma o resultado é o de antes — issue/PR do
+ * GitHub vira "owner/repo#N", o resto cai no host. Era aqui que morava o `if` de GitHub; ele saiu
+ * porque reconhecer um serviço novo virou configuração, não deploy.
+ *
+ * Acima de `EXTERNAL_LINK_CHIPS_VISIBLE`, o excedente vira um único "+N" com os rótulos restantes
+ * no `title`. Lista vazia não renderiza nada.
+ */
+export function ExternalLinkChip({ links }: { links: TaskExternalLink[] }) {
+  // Fora do `if` de lista vazia: hook não pode ser condicional. O cache no módulo faz disto uma
+  // leitura de memória depois da primeira busca da página.
+  const rules = useLinkIconRules();
+  if (links.length === 0) return null;
+  const visible = links.slice(0, EXTERNAL_LINK_CHIPS_VISIBLE);
+  const rest = links.slice(EXTERNAL_LINK_CHIPS_VISIBLE);
+  const restLabels = rest
+    .map((link) => resolveLinkAppearance(link.url, rules).label)
+    .join(", ");
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
-    >
-      {github ? (
-        <>
-          <Github className="h-3 w-3" />
-          {github.owner}/{github.repo}#{github.number}
-        </>
-      ) : (
-        <>
-          <ExternalLink className="h-3 w-3" />
-          Link externo
-        </>
+    <>
+      {visible.map((link) => {
+        const { iconKey, iconUrl, label } = resolveLinkAppearance(link.url, rules);
+        return (
+          <a
+            key={link.id}
+            href={link.url}
+            target="_blank"
+            rel="noreferrer"
+            // Sem comentário, o `title` cai na URL: melhor mostrar para onde o chip leva do que
+            // não mostrar nada.
+            title={link.comment ?? link.url}
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-w-[12rem] shrink-0 items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+          >
+            {/* `aria-hidden` no wrapper e não no ícone: `TaskIconBadge` põe o próprio `aria-label`
+                no preset, e o leitor de tela ouviria "Bandeira" antes do rótulo do link. */}
+            <span aria-hidden="true" className="flex shrink-0 items-center">
+              <TaskIconBadge iconKey={iconKey} iconUrl={iconUrl} className="h-3 w-3" />
+            </span>
+            <span className="truncate">{label}</span>
+          </a>
+        );
+      })}
+      {rest.length > 0 && (
+        <span
+          title={restLabels}
+          aria-label={`Mais ${rest.length} ${rest.length === 1 ? "link" : "links"}: ${restLabels}`}
+          className="shrink-0 text-[10px] text-muted-foreground"
+        >
+          +{rest.length}
+        </span>
       )}
-    </a>
+    </>
   );
 }
 
@@ -109,12 +157,16 @@ export interface SubtaskRowActions {
   onOpenSeries?: (subtask: Task) => void;
   isTimerRunning?: (subtask: Task) => boolean;
   onToggleTimer?: (subtask: Task) => void;
+  /** "Imediatamente" na linha aninhada da subtarefa (feature 078) — subtarefa é tarefa completa
+   * desde a `036`, então ela tem timer e prazo próprios como qualquer outra. */
+  onStartNow?: (subtask: Task) => void;
+  isStartingNow?: (subtask: Task) => boolean;
   onIconChange?: (subtask: Task, next: TaskIconValue) => void;
   onPriorityChange?: (subtask: Task, priority: TaskPriority | null) => void;
-  onDueChange?: (
-    subtask: Task,
-    next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }
-  ) => void;
+  onDueChange?: (subtask: Task, next: TaskDueQuickEditValue) => void;
+  /** Abertura/fechamento do popover de prazo da subtarefa (feature 081) — mesma semântica da
+   * linha de topo: fechar descongela e recarrega. */
+  onDueOpenChange?: (subtask: Task, open: boolean) => void;
 }
 
 export function ExpandSubtasksButton({
@@ -142,7 +194,6 @@ export function ExpandSubtasksButton({
 
 export function TaskListRow({
   task,
-  allTasks,
   subtasks,
   allTags,
   expanded,
@@ -154,23 +205,24 @@ export function TaskListRow({
   onOpenSeries,
   onEdit,
   onDelete,
-  onDeleteAll,
+  onDeleteScoped,
   isTimerRunning,
   onToggleTimer,
+  onStartNow,
+  isStartingNow,
   extraActions,
   projectBadge,
   onIconChange,
   onPriorityChange,
   onDueChange,
+  onDueOpenChange,
   onProjectChange,
   projects,
+  externalLinksByTask,
   isNested = false,
   subtaskActions,
 }: {
   task: Task;
-  /** Lista completa de tarefas do usuário — usada pelo `TaskDeleteDialog` pra calcular a série
-   * (via `findSeriesTasks`) quando `task` é uma recorrência simples. */
-  allTasks: Task[];
   subtasks: Task[];
   /** Catálogo completo de tags do usuário — usado pra resolver `task.tag_ids` nos badges coloridos. */
   allTags: Tag[];
@@ -185,13 +237,20 @@ export function TaskListRow({
   onOpenSeries: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  /** Exclui todas as ocorrências de uma recorrência simples de uma vez — opção só exibida no
-   * `TaskDeleteDialog` quando `task` é elegível (`isSimpleRecurringTask`) e essa prop é passada;
-   * ausente, o dialog se comporta como antes (só "Excluir"). */
-  onDeleteAll?: (ids: string[]) => void;
+  /** Exclui um conjunto a partir desta tarefa: a série inteira de uma recorrência simples, ou as
+   * doses do tratamento (feature 075). O escopo é resolvido no servidor a partir da opção — a lista
+   * carregada na tela não participa. Ausente, o `TaskDeleteDialog` só oferece "Excluir".  */
+  onDeleteScoped?: (task: Task, option: TaskDeleteOption) => void;
   /** Timer "Live" rodando pra esta tarefa agora. */
   isTimerRunning?: boolean;
   onToggleTimer?: () => void;
+  /** Presente = botão "Imediatamente" ao lado do Play (feature 078): um clique inicia o timer e
+   * grava o prazo como agora + duração estimada. Ausente = botão some (mesmo padrão opcional dos
+   * outros handlers desta linha). */
+  onStartNow?: () => void;
+  /** "Imediatamente" desta tarefa em voo — desabilita o botão pra não abrir dois registros de
+   * tempo com clique duplo. */
+  isStartingNow?: boolean;
   /** Ações extras (ex.: "Lançar transação") renderizadas antes de editar/excluir. */
   extraActions?: ReactNode;
   /** Badge do projeto somente-leitura — usado quando `onProjectChange` não é passado (mantém
@@ -207,12 +266,21 @@ export function TaskListRow({
   /** Presente = edição rápida de prazo+horário+duração inline (popover com `DatePicker` +
    * horário + duração estimada), no lugar do texto estático de prazo — só se aplica a tarefas não
    * concluídas ("Concluída em..." continua somente-leitura) (feature 029). */
-  onDueChange?: (next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }) => void;
+  onDueChange?: (next: TaskDueQuickEditValue) => void;
+  /** Abertura/fechamento do popover de prazo (feature 081) — a Lista congela a posição da linha
+   * enquanto ele está aberto e reagrupa quando fecha. */
+  onDueOpenChange?: (open: boolean) => void;
   /** Presente (junto com `projects`) = badge de projeto clicável (`ProjectBadgeButton`) no lugar
    * de `projectBadge` estático (feature 029). */
   onProjectChange?: (projectId: string | null) => void;
   /** Catálogo de projetos (já ordenado por atividade) — obrigatório junto com `onProjectChange`. */
   projects?: Project[];
+  /** Links externos por tarefa (feature 085), carregados em **lote** pelo dono da página
+   * (`fetchExternalLinksForTasks` no `load()`). É o mapa inteiro, e não só os desta linha, porque a
+   * linha aninhada da subtarefa é a mesma `TaskListRow` e precisa dos dela — mesmo formato de
+   * `subtasksByParent`. Ausente = nenhum chip; nada é buscado aqui (uma consulta por linha seria
+   * uma ida ao banco por tarefa a cada render). */
+  externalLinksByTask?: Record<string, TaskExternalLink[]>;
   /** `true` = esta linha é uma subtarefa renderizada aninhada sob a linha da tarefa-mãe (feature
    * 046): aplica indentação/borda visual distinta e desliga `ExpandSubtasksButton`/o próprio
    * aninhamento (sem sub-subtarefas — modelo de 2 níveis já estabelecido pela feature 036). */
@@ -231,6 +299,7 @@ export function TaskListRow({
     onIconChange,
     onPriorityChange,
     onDueChange,
+    onDueOpenChange,
     onProjectChange,
     projects,
     projectBadge,
@@ -326,12 +395,10 @@ export function TaskListRow({
               {taskTags.map((tag) => (
                 <TagBadge key={tag.id} tag={tag} />
               ))}
-              {task.external_url && <ExternalLinkChip url={task.external_url} />}
+              <ExternalLinkChip links={externalLinksByTask?.[task.id] ?? []} />
             </div>
             {task.description && (
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                {stripMarkdown(task.description)}
-              </p>
+              <TaskDescriptionSnippet description={task.description} className="mt-1" />
             )}
           </div>
         </div>
@@ -347,11 +414,18 @@ export function TaskListRow({
               {isTimerRunning ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
             </Button>
           )}
+          {onStartNow && !done && (
+            <TaskStartNowButton onClick={onStartNow} pending={isStartingNow} size="row" />
+          )}
           {extraActions}
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={onEdit}>
             <Pen className="h-3.5 w-3.5" />
           </Button>
-          <TaskDeleteDialog task={task} allTasks={allTasks} onConfirm={onDelete} onConfirmAll={onDeleteAll}>
+          <TaskDeleteDialog
+            task={task}
+            onConfirm={onDelete}
+            onConfirmScoped={onDeleteScoped ? (option) => onDeleteScoped(task, option) : undefined}
+          >
             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -367,7 +441,6 @@ export function TaskListRow({
             <TaskListRow
               key={subtask.id}
               task={subtask}
-              allTasks={allTasks}
               subtasks={[]}
               allTags={allTags}
               expanded={false}
@@ -385,6 +458,12 @@ export function TaskListRow({
                   ? () => subtaskActions.onToggleTimer!(subtask)
                   : undefined
               }
+              onStartNow={
+                subtaskActions?.onStartNow
+                  ? () => subtaskActions.onStartNow!(subtask)
+                  : undefined
+              }
+              isStartingNow={subtaskActions?.isStartingNow?.(subtask)}
               onIconChange={
                 subtaskActions?.onIconChange
                   ? (next) => subtaskActions.onIconChange!(subtask, next)
@@ -400,6 +479,12 @@ export function TaskListRow({
                   ? (next) => subtaskActions.onDueChange!(subtask, next)
                   : undefined
               }
+              onDueOpenChange={
+                subtaskActions?.onDueOpenChange
+                  ? (open) => subtaskActions.onDueOpenChange!(subtask, open)
+                  : undefined
+              }
+              externalLinksByTask={externalLinksByTask}
               isNested
             />
           ))}
@@ -415,7 +500,6 @@ export function TaskListRow({
  * e fechada dentro de "Todas". */
 export function CompletedTasksSection({
   tasks,
-  allTasks,
   allTags,
   subtasksByParent,
   expandedTasks,
@@ -427,7 +511,7 @@ export function CompletedTasksSection({
   onOpenSeries,
   onEdit,
   onDelete,
-  onDeleteAll,
+  onDeleteScoped,
   isTimerRunning,
   extraActions,
   projectBadge,
@@ -435,13 +519,13 @@ export function CompletedTasksSection({
   onIconChange,
   onPriorityChange,
   onDueChange,
+  onDueOpenChange,
   onProjectChange,
   projects,
+  externalLinksByTask,
   subtaskActions,
 }: {
   tasks: Task[];
-  /** Lista completa de tarefas do usuário — repassada ao `TaskDeleteDialog` de cada `TaskListRow`. */
-  allTasks: Task[];
   allTags: Tag[];
   subtasksByParent: Map<string, Task[]>;
   expandedTasks: Set<string>;
@@ -453,7 +537,7 @@ export function CompletedTasksSection({
   onOpenSeries: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
-  onDeleteAll?: (ids: string[]) => void;
+  onDeleteScoped?: (task: Task, option: TaskDeleteOption) => void;
   isTimerRunning: (task: Task) => boolean;
   extraActions?: (task: Task) => ReactNode;
   projectBadge?: (task: Task) => ReactNode;
@@ -461,9 +545,13 @@ export function CompletedTasksSection({
   /** Repassadas por tarefa a cada `TaskListRow` — mesma edição rápida inline da feature 029. */
   onIconChange?: (task: Task, next: TaskIconValue) => void;
   onPriorityChange?: (task: Task, priority: TaskPriority | null) => void;
-  onDueChange?: (task: Task, next: { due_date: string | null; due_time: string | null; estimated_duration: number | null }) => void;
+  onDueChange?: (task: Task, next: TaskDueQuickEditValue) => void;
+  /** Abertura/fechamento do popover de prazo por tarefa (feature 081). */
+  onDueOpenChange?: (task: Task, open: boolean) => void;
   onProjectChange?: (task: Task, projectId: string | null) => void;
   projects?: Project[];
+  /** Repassado direto a cada `TaskListRow` — o mesmo mapa em lote da feature 085. */
+  externalLinksByTask?: Record<string, TaskExternalLink[]>;
   /** Repassado direto a cada `TaskListRow` — já vem parametrizado por tarefa (feature 046), mesmo
    * formato que os handlers acima, só sem precisar de wrapping aqui. */
   subtaskActions?: SubtaskRowActions;
@@ -486,7 +574,6 @@ export function CompletedTasksSection({
           <TaskListRow
             key={task.id}
             task={task}
-            allTasks={allTasks}
             subtasks={subtasksByParent.get(task.id) ?? []}
             allTags={allTags}
             expanded={expandedTasks.has(task.id)}
@@ -498,7 +585,7 @@ export function CompletedTasksSection({
             onOpenSeries={() => onOpenSeries(task)}
             onEdit={() => onEdit(task)}
             onDelete={() => onDelete(task.id)}
-            onDeleteAll={onDeleteAll}
+            onDeleteScoped={onDeleteScoped}
             isTimerRunning={isTimerRunning(task)}
             extraActions={extraActions?.(task)}
             projectBadge={projectBadge?.(task)}
@@ -507,10 +594,14 @@ export function CompletedTasksSection({
               onPriorityChange ? (priority) => onPriorityChange(task, priority) : undefined
             }
             onDueChange={onDueChange ? (next) => onDueChange(task, next) : undefined}
+            onDueOpenChange={
+              onDueOpenChange ? (open) => onDueOpenChange(task, open) : undefined
+            }
             onProjectChange={
               onProjectChange ? (projectId) => onProjectChange(task, projectId) : undefined
             }
             projects={projects}
+            externalLinksByTask={externalLinksByTask}
             subtaskActions={subtaskActions}
           />
         ))}
@@ -561,6 +652,9 @@ function KanbanSubtaskCard({
       : undefined,
     onDueChange: subtaskActions?.onDueChange
       ? (next) => subtaskActions.onDueChange!(subtask, next)
+      : undefined,
+    onDueOpenChange: subtaskActions?.onDueOpenChange
+      ? (open) => subtaskActions.onDueOpenChange!(subtask, open)
       : undefined,
   });
   const StatusIcon = STATUS_ICONS[subtask.status];
@@ -648,7 +742,6 @@ function KanbanSubtaskCard({
 
 export function KanbanCard({
   task,
-  allTasks,
   colIndex,
   subtasks,
   allTags,
@@ -658,10 +751,12 @@ export function KanbanCard({
   onToggleSubtask,
   onEdit,
   onDelete,
-  onDeleteAll,
+  onDeleteScoped,
   onMoveStatus,
   isTimerRunning,
   onToggleTimer,
+  onStartNow,
+  isStartingNow,
   onOpenSubtask,
   /** Badge do projeto — só faz sentido num Kanban que cruza projetos (ex.: aba Kanban de
    * `TaskList.tsx`); o Kanban de dentro de um projeto (`ProjectDetail.tsx`) não passa isso.
@@ -671,13 +766,13 @@ export function KanbanCard({
   onIconChange,
   onPriorityChange,
   onDueChange,
+  onDueOpenChange,
   onProjectChange,
   projects,
+  externalLinksByTask,
   subtaskActions,
 }: {
   task: Task;
-  /** Lista completa de tarefas do usuário — repassada ao `TaskDeleteDialog`. */
-  allTasks: Task[];
   colIndex: number;
   subtasks: Task[];
   allTags: Tag[];
@@ -689,10 +784,13 @@ export function KanbanCard({
   onToggleSubtask: (subtask: Task) => void;
   onEdit: () => void;
   onDelete: () => void;
-  onDeleteAll?: (ids: string[]) => void;
+  onDeleteScoped?: (task: Task, option: TaskDeleteOption) => void;
   onMoveStatus: (direction: -1 | 1) => void;
   isTimerRunning?: boolean;
   onToggleTimer?: () => void;
+  /** Presente = botão "Imediatamente" ao lado do Play (feature 078), igual ao da linha da Lista. */
+  onStartNow?: () => void;
+  isStartingNow?: boolean;
   onOpenSubtask: (subtask: Task) => void;
   projectBadge?: ReactNode;
   /** Presente = edição rápida de ícone inline (mesmo popover de `TaskListRow`), no lugar do
@@ -703,16 +801,18 @@ export function KanbanCard({
   onPriorityChange?: (priority: TaskPriority | null) => void;
   /** Presente = edição rápida de prazo+horário+duração inline, no lugar do texto estático de
    * prazo (feature 033). */
-  onDueChange?: (next: {
-    due_date: string | null;
-    due_time: string | null;
-    estimated_duration: number | null;
-  }) => void;
+  onDueChange?: (next: TaskDueQuickEditValue) => void;
+  /** Abertura/fechamento do popover de prazo (feature 081) — o Kanban agrupa por status, então
+   * aqui isso só serve pra quem chama recarregar; a coluna não muda por prazo. */
+  onDueOpenChange?: (open: boolean) => void;
   /** Presente (junto com `projects`) = badge de projeto clicável no lugar de `projectBadge`
    * estático (feature 033). */
   onProjectChange?: (projectId: string | null) => void;
   /** Catálogo de projetos (já ordenado por atividade) — obrigatório junto com `onProjectChange`. */
   projects?: Project[];
+  /** Links externos por tarefa (feature 085), carregados em lote pelo dono da página — mesmo mapa
+   * que `TaskListRow` recebe. */
+  externalLinksByTask?: Record<string, TaskExternalLink[]>;
   /** Handlers de quick action parametrizados por subtarefa (mesma interface que `TaskListRow`
    * usa desde a feature 046) — presente = mini-card de subtarefa ganha status editável (Select,
    * sem mudar de coluna) e ícone/prioridade/prazo clicáveis; ausente = cai pro visual
@@ -735,6 +835,7 @@ export function KanbanCard({
     onIconChange,
     onPriorityChange,
     onDueChange,
+    onDueOpenChange,
     onProjectChange,
     projects,
     projectBadge,
@@ -778,6 +879,9 @@ export function KanbanCard({
               {isTimerRunning ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
             </Button>
           )}
+          {onStartNow && task.status !== "done" && (
+            <TaskStartNowButton onClick={onStartNow} pending={isStartingNow} size="card" />
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -788,12 +892,11 @@ export function KanbanCard({
           </Button>
           <TaskDeleteDialog
             task={task}
-            allTasks={allTasks}
             description={
               subtasks.length > 0 ? "As subtarefas também serão excluídas." : undefined
             }
             onConfirm={onDelete}
-            onConfirmAll={onDeleteAll}
+            onConfirmScoped={onDeleteScoped ? (option) => onDeleteScoped(task, option) : undefined}
           >
             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
               <Trash2 className="h-3 w-3" />
@@ -826,13 +929,11 @@ export function KanbanCard({
         {taskTags.map((tag) => (
           <TagBadge key={tag.id} tag={tag} />
         ))}
-        {task.external_url && <ExternalLinkChip url={task.external_url} />}
+        <ExternalLinkChip links={externalLinksByTask?.[task.id] ?? []} />
       </div>
 
       {task.description && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
-          {stripMarkdown(task.description)}
-        </p>
+        <TaskDescriptionSnippet description={task.description} />
       )}
 
       {subtasks.length > 0 && (

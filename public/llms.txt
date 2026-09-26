@@ -1,0 +1,16 @@
+# Orbyva
+> Life OS brasileiro: veja se está dentro do orçamento e organize finanças, hábitos, metas, viagens, lugares, cinema, livros, música e veículos numa só órbita. 7 dias grátis; depois Pro por R$ 19,90/mês.
+
+App web (PWA) em português. Cadastro em https://orbyva.app/login. Contato: orbyva@gmail.com.
+
+## Páginas
+- [Início](https://orbyva.app/): landing, proposta e trial
+- [Está dentro do orçamento?](https://orbyva.app/dentro-do-orcamento): ferramenta grátis (renda, contas, compra) sem login
+- [Sobre](https://orbyva.app/about): o que o Orbyva faz e módulos
+- [Entrar](https://orbyva.app/login): login e cadastro (7 dias grátis)
+- [Termos de uso](https://orbyva.app/terms): conta, planos e uso aceitável
+- [Privacidade](https://orbyva.app/privacy): política de privacidade (LGPD)
+
+## Optional
+- [Sitemap](https://orbyva.app/sitemap.xml): URLs públicas para indexação
+- [Instagram](https://instagram.com/orbyva): canal @orbyva
