@@ -82,6 +82,7 @@ const copiaDoConvidado: ProjectEvent = {
   id: "evento-copiado-1",
   user_id: "guest-1",
   project_id: null,
+  task_id: null,
   title: "Reunião de kickoff",
   starts_at: hojeAoMeioDia(),
   ends_at: null,

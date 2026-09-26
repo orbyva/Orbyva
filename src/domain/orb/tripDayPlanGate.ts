@@ -24,7 +24,13 @@ function tituloNormalizado(valor: unknown): string {
 export function viagemConfirmadaNaConversa(params: {
   titulo: string;
   messages: { tools?: { id: string; name: string; status: string; summary?: unknown }[] }[];
-  proposalStates: Record<string, { status: string }>;
+  /**
+   * Só `status` é lido aqui, mas o estado real (`OrbProposalState`) traz `message`/`link` quando
+   * `status` é `"done"` ou `"error"`. Declará-los como opcionais mantém este módulo de domínio
+   * independente de `hooks/useOrb` e ainda aceita o objeto real escrito inline — que, sem isto,
+   * o TypeScript recusa por propriedade excedente.
+   */
+  proposalStates: Record<string, { status: string; message?: string; link?: string }>;
 }): boolean {
   const alvo = tituloNormalizado(params.titulo);
   if (!alvo) return false;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Pill } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -286,6 +287,13 @@ export default function MedicationList() {
                         Término: {formatDateBR(medication.ended_on)}
                       </p>
                     ) : null}
+                    <Link
+                      to="/tasks/agenda"
+                      aria-label={`Ver doses de ${medication.name} na agenda`}
+                      className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      Ver doses na agenda
+                    </Link>
                   </div>
 
                   <div className="flex shrink-0 gap-2">

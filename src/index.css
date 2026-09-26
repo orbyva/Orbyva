@@ -191,6 +191,539 @@
   color: hsl(var(--primary-foreground));
 }
 
+/*
+ * # `.markdown-body` — a folha de estilo do Markdown renderizado (feature 069)
+ *
+ * É o valor de `MARKDOWN_PREVIEW_CLASS` (`src/components/MarkdownPreview.tsx`), que até a 069 era
+ * uma string de variantes arbitrárias (`[&_h1]:text-base [&_td]:border …`) crescendo dentro de um
+ * `className`. A 069 mais que dobra o número de seletores (h3–h6, citação, regra, imagem, callout,
+ * math, realce de código), e uma string de uma linha com isso é ilegível.
+ *
+ * Fica em `@layer components` de propósito: as utilities do Tailwind vêm depois na cascata, então
+ * quem passar `className` para o `MarkdownPreview` (`text-base`, `space-y-4`…) continua vencendo
+ * estas regras, exatamente como vencia as variantes arbitrárias de antes.
+ *
+ * Cor sempre por token (`hsl(var(--…))`), nunca literal — é o que faz o dark mode funcionar sem
+ * uma segunda folha.
+ */
+@layer components {
+  .markdown-body {
+    min-height: 80px;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  /* `space-y-2`: espaçamento entre blocos do documento, não dentro deles. */
+  .markdown-body > * + * {
+    margin-top: 0.5rem;
+  }
+
+  .markdown-body h1 {
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 600;
+  }
+
+  .markdown-body h2 {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+  }
+
+  /*
+   * h3–h6 continuam a escala de h1/h2 para baixo. Como o corpo já é 0.875rem, sobra pouca
+   * diferença de tamanho: a hierarquia dos níveis mais fundos é feita com peso e cor, não só
+   * com corpo de fonte — é o que o Obsidian faz.
+   */
+  .markdown-body h3 {
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+  }
+
+  .markdown-body h4 {
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+    font-weight: 600;
+  }
+
+  .markdown-body h5 {
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body h6 {
+    font-size: 0.6875rem;
+    line-height: 1.125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Título abre seção: respira mais do que dois parágrafos seguidos. */
+  .markdown-body > * + :is(h1, h2, h3, h4, h5, h6) {
+    margin-top: 1.25rem;
+  }
+
+  /*
+   * Âncora `#` do título (feature 069). Fica invisível até o hover, mas **ocupa o lugar**
+   * (`opacity`, não `display`), senão o título dança quando o mouse passa. Ela é `aria-hidden`
+   * (ver `MarkdownPreview`), então não há estado de foco a desenhar: quem não usa mouse chega na
+   * seção pela URL, que é o que a âncora serve para descobrir.
+   */
+  .markdown-body .markdown-heading-anchor {
+    margin-left: 0.375rem;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground));
+    text-decoration-line: none;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .markdown-body :is(h1, h2, h3, h4, h5, h6):hover .markdown-heading-anchor {
+    opacity: 1;
+  }
+
+  .markdown-body a {
+    color: hsl(var(--primary));
+    text-decoration-line: underline;
+    /* Sublinhado discreto na leitura, cheio no hover — o link não compete com o texto. */
+    text-decoration-color: hsl(var(--primary) / 0.4);
+    text-underline-offset: 0.15em;
+    transition: text-decoration-color 150ms ease;
+  }
+
+  .markdown-body a:hover {
+    text-decoration-color: hsl(var(--primary));
+  }
+
+  .markdown-body del {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body code {
+    border-radius: 0.25rem;
+    background-color: hsl(var(--muted));
+    padding: 0.125rem 0.25rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
+  .markdown-body pre {
+    overflow-x: auto;
+    border-radius: calc(var(--radius) - 2px);
+    background-color: hsl(var(--muted));
+    padding: 0.75rem;
+  }
+
+  /* Dentro do bloco, o fundo/padding é do `<pre>`: o `<code>` só carrega a fonte. */
+  .markdown-body pre code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    line-height: 1.45;
+  }
+
+  .markdown-body kbd {
+    display: inline-block;
+    border: 1px solid hsl(var(--border));
+    border-bottom-width: 2px;
+    border-radius: 0.25rem;
+    background-color: hsl(var(--muted));
+    padding: 0 0.25rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.6875rem;
+    line-height: 1.15rem;
+    white-space: nowrap;
+  }
+
+  .markdown-body blockquote {
+    border-left: 3px solid hsl(var(--border));
+    padding-left: 0.75rem;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body hr {
+    border: 0;
+    border-top: 1px solid hsl(var(--border));
+    margin-block: 1.25rem;
+  }
+
+  .markdown-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid hsl(var(--border));
+  }
+
+  .markdown-body ul {
+    list-style-type: disc;
+  }
+
+  .markdown-body ol {
+    list-style-type: decimal;
+  }
+
+  .markdown-body li {
+    margin-left: 1rem;
+  }
+
+  /* Aninhamento: marcador muda de nível a nível, como em qualquer editor de markdown. */
+  .markdown-body ul ul {
+    list-style-type: circle;
+  }
+
+  .markdown-body ul ul ul {
+    list-style-type: square;
+  }
+
+  .markdown-body ol ol {
+    list-style-type: lower-alpha;
+  }
+
+  .markdown-body ol ol ol {
+    list-style-type: lower-roman;
+  }
+
+  /* `space-y-2` só alcança os filhos diretos do container; lista aninhada precisa do seu. */
+  .markdown-body li + li {
+    margin-top: 0.125rem;
+  }
+
+  .markdown-body li > ul,
+  .markdown-body li > ol {
+    margin-top: 0.25rem;
+  }
+
+  /* Checklist do GFM: sem marcador de lista, a caixa já é o marcador. */
+  .markdown-body li:has(> input[type="checkbox"]) {
+    list-style-type: none;
+    margin-left: 0.25rem;
+  }
+
+  .markdown-body input[type="checkbox"] {
+    margin-right: 0.375rem;
+    vertical-align: middle;
+    accent-color: hsl(var(--primary));
+  }
+
+  /* Embrulho que o override `table` do `MarkdownPreview` cria — ver o comentário lá. */
+  .markdown-body .markdown-table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .markdown-body th,
+  .markdown-body td {
+    border: 1px solid hsl(var(--border));
+    padding: 0.25rem 0.5rem;
+  }
+
+  .markdown-body th {
+    font-weight: 500;
+  }
+
+  /*
+   * Footnotes (`texto[^1]` + `[^1]: …`). O `remark-gfm` já parseia desde a 055 — o que faltava era
+   * qualquer estilo: o marcador saía do tamanho do corpo e a seção do fim se confundia com um
+   * parágrafo comum. As classes/atributos abaixo são os que o `mdast-util-gfm-footnote` emite
+   * (`data-footnote-ref`, `[data-footnotes]`, `.data-footnote-backref`), não invenção nossa.
+   */
+  .markdown-body sup a[data-footnote-ref] {
+    display: inline-block;
+    padding-inline: 0.15em;
+    font-weight: 600;
+    text-decoration-line: none;
+  }
+
+  .markdown-body sup a[data-footnote-ref]:hover {
+    text-decoration-line: underline;
+  }
+
+  .markdown-body [data-footnotes] {
+    margin-top: 1.5rem;
+    border-top: 1px solid hsl(var(--border));
+    padding-top: 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1.1rem;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body [data-footnotes] li + li {
+    margin-top: 0.375rem;
+  }
+
+  /* Voltar ao texto: o `↩` é minúsculo demais para ser alvo de clique no tamanho natural. */
+  .markdown-body a.data-footnote-backref {
+    margin-left: 0.25rem;
+    font-size: 0.875rem;
+    text-decoration-line: none;
+  }
+
+  /* Chegou aqui por clique no marcador: a linha se acende para não perder o lugar. */
+  .markdown-body [data-footnotes] li:target {
+    border-radius: 0.25rem;
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
+
+  /*
+   * Callouts/admonitions (`> [!NOTE]`, feature 069). O atributo vem do `remarkCallout`, que só
+   * anota o blockquote — todo o desenho é daqui, e é por isso que não existe componente novo nem
+   * HTML cru envolvido.
+   *
+   * O seletor de atributo (0,2,0) vence `.markdown-body blockquote` (0,1,1) por especificidade,
+   * então não depende da ordem das regras: um callout nunca herda o cinza de citação.
+   *
+   * Cada tipo troca **só** `--callout-color`, e todas as cores saem dos tokens que já existem
+   * (`--primary`, `--success`, `--warning`, `--destructive`) — a 069 decidiu não inventar token.
+   * `important` divide o azul com `note` porque a paleta não tem um quinto matiz; o que os separa
+   * é o rótulo e o ícone, como no Obsidian com tema monocromático.
+   */
+  .markdown-body [data-callout] {
+    --callout-color: var(--primary);
+    border-left: 3px solid hsl(var(--callout-color));
+    border-radius: calc(var(--radius) - 2px);
+    background-color: hsl(var(--callout-color) / 0.08);
+    padding: 0.5rem 0.75rem;
+    /* Callout não é citação: o corpo lê no tom do texto normal, não no cinza de blockquote. */
+    color: hsl(var(--foreground));
+  }
+
+  /* `space-y-2` do contêiner só alcança filho direto; dentro do callout o espaçamento é daqui. */
+  .markdown-body [data-callout] > * + * {
+    margin-top: 0.5rem;
+  }
+
+  /*
+   * O rótulo é `::before` de propósito: fica fora do texto da nota, então copiar o callout devolve
+   * o Markdown que o usuário escreveu, sem uma palavra a mais.
+   */
+  .markdown-body [data-callout]::before {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1rem;
+    color: hsl(var(--callout-color));
+  }
+
+  .markdown-body [data-callout="note"]::before {
+    content: "ⓘ  Nota";
+  }
+
+  .markdown-body [data-callout="tip"] {
+    --callout-color: var(--success);
+  }
+
+  .markdown-body [data-callout="tip"]::before {
+    content: "✦  Dica";
+  }
+
+  .markdown-body [data-callout="important"]::before {
+    content: "★  Importante";
+  }
+
+  .markdown-body [data-callout="warning"] {
+    --callout-color: var(--warning);
+  }
+
+  .markdown-body [data-callout="warning"]::before {
+    content: "⚠  Atenção";
+  }
+
+  .markdown-body [data-callout="caution"] {
+    --callout-color: var(--destructive);
+  }
+
+  .markdown-body [data-callout="caution"]::before {
+    content: "⊘  Cuidado";
+  }
+
+  /*
+   * Fórmula (feature 069). A aparência dos símbolos é do CSS do próprio KaTeX, que vem junto com o
+   * `import()` dinâmico do `MathBlock`; daqui sai só o encaixe no texto — como a fórmula ocupa a
+   * linha, o que fazer quando ela é larga demais, e como o erro se mostra.
+   */
+  .markdown-body .markdown-math-display {
+    display: block;
+    /* Fórmula longa rola dentro de si, nunca empurra a página — mesma regra da tabela. */
+    overflow-x: auto;
+    padding-block: 0.25rem;
+  }
+
+  .markdown-body .markdown-math-inline {
+    display: inline;
+  }
+
+  /*
+   * Fonte da fórmula: é o que aparece enquanto o KaTeX não chegou e o que fica se ele nunca
+   * chegar. Continua sendo um `<code>`, então herda a caixinha monoespaçada da folha.
+   */
+  .markdown-body .markdown-math-source {
+    white-space: pre-wrap;
+  }
+
+  .markdown-body .markdown-math-error {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.375rem;
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid hsl(var(--destructive) / 0.4);
+    background-color: hsl(var(--destructive) / 0.05);
+    padding: 0.25rem 0.5rem;
+  }
+
+  .markdown-body .markdown-math-message {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: hsl(var(--destructive));
+  }
+
+  /*
+   * Bloco de código (feature 069): moldura + cabeçalho com a linguagem e o botão de copiar. O
+   * `<pre>` continua lá dentro — o canto arredondado e o fundo passam a ser do contêiner, senão a
+   * moldura ganharia duas bordas.
+   */
+  .markdown-body .markdown-code {
+    overflow: hidden;
+    border: 1px solid hsl(var(--border));
+    border-radius: calc(var(--radius) - 2px);
+    background-color: hsl(var(--muted));
+  }
+
+  .markdown-body .markdown-code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 1.75rem;
+    border-bottom: 1px solid hsl(var(--border));
+    padding: 0.125rem 0.375rem 0.125rem 0.75rem;
+  }
+
+  .markdown-body .markdown-code-language {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body .markdown-code pre {
+    border-radius: 0;
+    background-color: transparent;
+  }
+
+  .markdown-body .markdown-code-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    color: hsl(var(--muted-foreground));
+    transition:
+      color 150ms ease,
+      background-color 150ms ease;
+  }
+
+  .markdown-body .markdown-code-copy:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
+
+  .markdown-body .markdown-code-copy:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 1px;
+  }
+
+  /*
+   * # Cores do realce — `hljs-*` → tokens do tema
+   *
+   * O `lowlight` marca os pedaços do código com as classes do `highlight.js`; a cor de cada uma sai
+   * daqui, sempre por token, **nunca** literal — é o que faz o mesmo bloco funcionar no claro e no
+   * escuro sem uma segunda folha (os tokens já trocam de valor em `.dark`).
+   *
+   * O mapa é curto de propósito, e cada token entra onde o **significado** dele bate: verde é linha
+   * adicionada, vermelho é linha removida, azul é palavra-chave da linguagem, âmbar é valor
+   * literal, cinza é comentário. Nome de função e título saem em peso, não em cor — hierarquia sem
+   * gastar mais um matiz num app que não tem paleta de editor.
+   */
+  .markdown-body .hljs-comment,
+  .markdown-body .hljs-quote {
+    font-style: italic;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .markdown-body .hljs-keyword,
+  .markdown-body .hljs-selector-tag,
+  .markdown-body .hljs-literal,
+  .markdown-body .hljs-type,
+  .markdown-body .hljs-built_in,
+  .markdown-body .hljs-meta,
+  .markdown-body .hljs-doctag {
+    color: hsl(var(--primary));
+  }
+
+  .markdown-body .hljs-string,
+  .markdown-body .hljs-regexp,
+  .markdown-body .hljs-char.escape_,
+  .markdown-body .hljs-subst {
+    color: hsl(var(--success));
+  }
+
+  .markdown-body .hljs-number,
+  .markdown-body .hljs-symbol,
+  .markdown-body .hljs-bullet,
+  .markdown-body .hljs-attr,
+  .markdown-body .hljs-attribute,
+  .markdown-body .hljs-variable,
+  .markdown-body .hljs-template-variable,
+  .markdown-body .hljs-link {
+    color: hsl(var(--warning));
+  }
+
+  .markdown-body .hljs-title,
+  .markdown-body .hljs-section,
+  .markdown-body .hljs-name,
+  .markdown-body .hljs-selector-id,
+  .markdown-body .hljs-selector-class {
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  /* Diff: aqui a cor é literalmente o significado. */
+  .markdown-body .hljs-addition {
+    color: hsl(var(--success));
+    background-color: hsl(var(--success) / 0.1);
+  }
+
+  .markdown-body .hljs-deletion {
+    color: hsl(var(--destructive));
+    background-color: hsl(var(--destructive) / 0.1);
+  }
+
+  .markdown-body .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .markdown-body .hljs-strong {
+    font-weight: 700;
+  }
+}
+
 @layer utilities {
   .container {
     width: min(100% - 2rem, 1200px);

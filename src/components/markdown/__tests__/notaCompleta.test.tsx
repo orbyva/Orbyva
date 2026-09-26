@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HEADING_ANCHOR_LABEL, MarkdownPreview } from "@/components/MarkdownPreview";
+import { MarkdownPreview } from "@/components/MarkdownPreview";
 
 /**
  * # A verificação do pedido literal da 067: "nível sofisticado de escrita"
@@ -101,14 +101,16 @@ describe("nota usando todas as sintaxes da 067 ao mesmo tempo", () => {
     // Dois `## Orçamento` iguais viram ids distintos; o terceiro h2 é o rótulo (invisível) que o
     // GFM cria para a seção de notas de rodapé.
     expect([...container.querySelectorAll("h2")].map((h) => h.id)).toEqual([
-      "orçamento",
-      "orçamento-1",
+      "orcamento",
+      "orcamento-2",
       "footnote-label",
     ]);
-    expect(container.querySelector("h3")).toHaveAttribute("id", "pendências");
+    expect(container.querySelector("h3")).toHaveAttribute("id", "pendencias");
     const headings = container.querySelectorAll("h1[id], h2[id], h3[id]");
-    expect(screen.getAllByRole("link", { name: HEADING_ANCHOR_LABEL })).toHaveLength(
-      headings.length
+    // Âncoras ficam `aria-hidden` (não poluem o nome do título); contam pelo seletor CSS.
+    expect(container.querySelectorAll("a.markdown-heading-anchor")).toHaveLength(
+      // footnote-label não ganha âncora
+      [...headings].filter((h) => h.id !== "footnote-label").length
     );
 
     // ---- Callout

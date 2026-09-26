@@ -7,7 +7,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatEstimatedDuration } from "@/domain/tasks/duration";
 import { cn } from "@/lib/utils";
 
-const DURATION_PRESETS_MIN = [15, 30, 60, 90, 120, 240];
+/** Presets de duração. `0` ("Pontual", feature 072) só aparece quando **não** há `onQuickChange`
+ * — com `onQuickChange` a pontualidade é a flag `is_quick` (feature 070), e o botão "Pontual"
+ * separado cobre esse caso sem duplicar o rótulo. */
+const DURATION_PRESETS_WITH_POINT = [0, 15, 30, 60, 90, 120, 240];
+const DURATION_PRESETS_WITHOUT_POINT = [15, 30, 60, 90, 120, 240];
 
 /**
  * Trigger clicável (ícone de relógio + `formatEstimatedDuration`; sem duração, mostra "+ Duração") que abre
@@ -19,7 +23,8 @@ const DURATION_PRESETS_MIN = [15, 30, 60, 90, 120, 240];
  * - com `onQuickChange` (edição rápida): "Pontual" vira uma opção ao lado dos presets; escolhê-la
  *   liga a flag e limpa a duração, e escolher um preset/personalizado faz o inverso;
  * - só com `isQuick` (formulário completo, onde o interruptor "Tarefa pontual" é quem manda): o
- *   controle de duração fica desabilitado enquanto a tarefa for pontual.
+ *   controle de duração fica desabilitado enquanto a tarefa for pontual;
+ * - sem `onQuickChange`: o preset `0` ("Pontual", feature 072) grava `estimated_duration = 0`.
  */
 export function TaskDurationQuickPick({
   value,
@@ -34,6 +39,7 @@ export function TaskDurationQuickPick({
 }) {
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState("");
+  const presets = onQuickChange ? DURATION_PRESETS_WITHOUT_POINT : DURATION_PRESETS_WITH_POINT;
 
   /** Contrato de callback único: cada ação dispara **um** `onChange` **ou** **um** `onQuickChange`,
    * nunca os dois. Quem consome resolve o par (escolher duração desliga "pontual"; escolher
@@ -59,12 +65,14 @@ export function TaskDurationQuickPick({
           onClick={(e) => e.stopPropagation()}
           className={cn(
             "flex shrink-0 items-center gap-1 rounded-sm px-0.5 hover:bg-muted hover:text-foreground",
-            !value && "text-muted-foreground/70",
+            value == null && !isQuick && "text-muted-foreground/70",
             isQuick && !onQuickChange && "cursor-not-allowed opacity-60 hover:bg-transparent"
           )}
         >
           <Timer className="h-3 w-3" />
-          {isQuick ? "Pontual (sem duração)" : value ? formatEstimatedDuration(value) : "+ Duração"}
+          {isQuick
+            ? "Pontual (sem duração)"
+            : formatEstimatedDuration(value) || "+ Duração"}
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -75,7 +83,7 @@ export function TaskDurationQuickPick({
         <div>
           <FormLabel optional>Duração</FormLabel>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {DURATION_PRESETS_MIN.map((preset) => (
+            {presets.map((preset) => (
               <Button
                 key={preset}
                 type="button"

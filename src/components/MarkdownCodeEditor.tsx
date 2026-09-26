@@ -5,9 +5,9 @@ import { EditorView } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
 import { markdownSupport } from "@/components/codemirror/markdownLanguage";
 import { markdownLivePreview } from "@/components/codemirror/livePreview";
+import { markdownFormattingKeymap } from "@/components/codemirror/formattingKeymap";
 import { markdownThemeExtension } from "@/components/codemirror/markdownTheme";
 import { literalTabKeymap } from "@/components/codemirror/tabKeymap";
-import { markdownFormatKeymap } from "@/components/codemirror/formatKeymap";
 import { cn } from "@/lib/utils";
 
 /**
@@ -39,15 +39,14 @@ const BASIC_SETUP = {
   closeBrackets: false,
   autocompletion: true,
   /**
-   * Busca **dentro** da nota (`Mod-f`), religada na 068.
+   * Busca **dentro** da nota (`Mod-f`).
    *
    * Estava desligada desde a 056 com a justificativa de bundle e de que o app já tem busca global
    * (Ctrl+K) — mas as duas buscas respondem perguntas diferentes: a global acha *a nota*, esta acha
    * *o trecho*. Numa nota de duas páginas, não ter busca é o oposto de escrita sofisticada.
    *
    * O custo medido foi ~0: o `@codemirror/search` já entrava no chunk por causa do
-   * `highlightSelectionMatches` do `basicSetup`; o que estava fora era só o keymap (ver Notas da
-   * 068).
+   * `highlightSelectionMatches` do `basicSetup`; o que estava fora era só o keymap.
    */
   searchKeymap: true,
 } as const;
@@ -60,6 +59,7 @@ export function MarkdownCodeEditor({
   className,
   extensions,
   onViewReady,
+  onCreateEditor,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -70,13 +70,16 @@ export function MarkdownCodeEditor({
   /** Extensões da feature que monta o editor (live preview, autocomplete de `[[`…). */
   extensions?: Extension[];
   /**
-   * Entrega a `EditorView` recém-criada (feature 068).
+   * Entrega a `EditorView` recém-criada.
    *
    * É por ela que a barra de ferramentas roda os comandos de formatação — os mesmos dos atalhos.
    * Sem isso, a barra teria que editar o texto por fora, via `value`/`onChange`, e aí perderia a
    * posição do cursor e a seleção, que é justamente o que um comando de formatação precisa saber.
+   *
+   * `onCreateEditor` é o mesmo contrato sob outro nome (consumidores da feature 070).
    */
   onViewReady?: (view: EditorView) => void;
+  onCreateEditor?: (view: EditorView) => void;
 }) {
   /**
    * O `onChange` precisa ter identidade estável **e** aplicar o estado de forma síncrona.
@@ -101,8 +104,11 @@ export function MarkdownCodeEditor({
   // editor a cada render de quem o hospeda.
   const onViewReadyRef = useRef(onViewReady);
   onViewReadyRef.current = onViewReady;
+  const onCreateEditorRef = useRef(onCreateEditor);
+  onCreateEditorRef.current = onCreateEditor;
   const handleCreateEditor = useCallback((view: EditorView) => {
     onViewReadyRef.current?.(view);
+    onCreateEditorRef.current?.(view);
   }, []);
 
   const allExtensions = useMemo<Extension[]>(
@@ -113,9 +119,8 @@ export function MarkdownCodeEditor({
       markdownLivePreview,
       markdownThemeExtension,
       literalTabKeymap,
-      // Atalhos de formatação (068). O catálogo é o mesmo que a barra do editor de notas usa —
-      // ver `formatKeymap.ts`.
-      markdownFormatKeymap,
+      // Atalhos de formatação. O catálogo é o mesmo que a barra do editor de notas usa.
+      markdownFormattingKeymap,
       ...(extensions ?? []),
     ],
     [label, extensions]

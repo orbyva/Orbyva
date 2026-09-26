@@ -102,7 +102,7 @@ describe("NoteOutline", () => {
 
     await user.click(items[1]);
     expect(onSelect).toHaveBeenCalledWith(
-      expect.objectContaining({ slug: "etapas-1", line: 3 })
+      expect.objectContaining({ slug: "etapas-2", line: 3 })
     );
   });
 });

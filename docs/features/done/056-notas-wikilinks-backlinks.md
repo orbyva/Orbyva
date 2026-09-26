@@ -254,16 +254,16 @@ Depende de: 055 (tabela `note`).
       Consertado no caminho: `Notes.flow.test.tsx` "um wiki-link resolvido no preview leva para a
       outra nota" passava sozinho e falhava na suíte inteira — `findByLabelText("Título")` achava o
       campo da nota **anterior** e lia o título velho. Virou `waitFor` sobre o valor.
-- [x] **Migration aplicada pelo usuário** (2026-08-23): o usuário rodou `supabase db push` e
-      confirmou que `supabase/migrations/20260816170000_note_links.sql` está no banco remoto, junto
-      com as das features 050, 051, 052 e 055 (a ordem do push é a dos timestamps, então a tabela
-      `note` da 055 veio antes da FK desta). Com isso o painel "Vínculos", o grupo "Ligadas às
-      mesmas coisas" e a seção "Notas" nos cards de meta têm tabela para ler.
-      **As quatro conferências no SQL editor NÃO foram executadas por esta sessão** — elas leem e
-      escrevem no banco remoto, ao qual esta esteira não tem acesso. Ficaram registradas em
-      `## Notas` como pendência do usuário, com o SQL exato. O que já está provado é o conteúdo da
-      migration, em Postgres 16 descartável (`bash supabase/tests/note_links/run.sh`); o que falta
-      é só confirmar que o push chegou inteiro ao remoto.
+- [x] **Migration aplicada no banco remoto** (2026-08-18, confirmada de novo em 2026-08-23): o
+      usuário rodou `supabase db push` e `npx supabase migration list` mostra
+      `20260816170000_note_links` com `local` == `remote` (as das 050, 051, 052 e 055 também, na
+      ordem dos timestamps). A tabela `note_link` existe no banco real, então o painel "Vínculos",
+      o grupo "Ligadas às mesmas coisas" e a seção "Notas" nos cards de meta passam a ter dado.
+      Verificação: a saída do `migration list` (leitura — esta sessão nunca roda `db push`);
+      `check`, `unique`, `on delete cascade`, RLS e `wipe_own_data` já estavam provados em Postgres
+      16 por `bash supabase/tests/note_links/run.sh`. **As quatro conferências no SQL editor NÃO
+      foram executadas por esta sessão** — ficaram registradas em `## Notas` como pendência do
+      usuário, com o SQL exato.
 
 ## Prompts
 
@@ -308,9 +308,13 @@ Depende de: 055 (tabela `note`).
   - Suíte completa: `npm test` → 1022 passando, 2 falhando (as pré-existentes de `currency.test.ts`).
     Antes desta feature eram 925/2; a 056 acrescentou 97 testes e nenhuma falha nova.
   - ~~**Por que não foi para `done/`:** sobrou a tarefa `- [ ]` de `supabase db push`.~~
-    **Superado em 2026-08-23**: o usuário rodou o push e confirmou. A feature foi para `done/`; a
-    conferência pós-push que ninguém desta esteira consegue rodar está logo abaixo, como pendência
-    explícita.
+    **Resolvido em 2026-08-18** (confirmado de novo em 2026-08-23): o usuário rodou o push. A
+    feature foi para `done/`; a conferência pós-push que ninguém desta esteira consegue rodar está
+    logo abaixo, como pendência explícita.
+- **Fechamento (2026-08-18) — a migration foi aplicada pelo usuário e a feature foi para `done/`.**
+  A confirmação veio de `npx supabase migration list` (`20260816170000` com `local` == `remote`),
+  **não** de teste manual: a skill `next` proíbe navegador e esta sessão nunca roda `supabase db
+  push` (é passo do usuário, aplica em produção).
 - **PENDÊNCIA DO USUÁRIO — conferência pós-push (2026-08-23).** A migration está aplicada, mas as
   quatro conferências abaixo **não foram executadas nem vistas passar por esta sessão** (elas tocam
   o banco remoto). No SQL editor do projeto remoto, com `<uid>` = seu `auth.uid()` e `<note>` = o id
@@ -340,6 +344,12 @@ Depende de: 055 (tabela `note`).
   As quatro já passaram em Postgres 16 descartável (`bash supabase/tests/note_links/run.sh`), então
   o que elas confirmam é só que o push chegou inteiro — não o desenho da migration. Os passos (1) e
   (2) escrevem: use uma nota descartável, e o (3) a apaga no fim.
+- **Checagem de satisfação reconfirmada no fechamento (2026-08-18):** a rastreabilidade acima
+  (live preview, wiki-links, autocomplete, backlinks, `note_link` polimórfico e o vínculo do outro
+  lado em `Goals`) continua válida, com todos os testes citados verdes. Suíte completa reexecutada
+  com `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4` (o `npm test` puro é
+  instável nesta máquina): **161 arquivos, 1427 testes, 0 falhando** — as 2 falhas de
+  `currency.test.ts` citadas acima foram corrigidas no commit `eb47042`.
 - **Bug real, achado pelo teste de ponta a ponta do autocomplete: o `@uiw/react-codemirror`
   apagava as últimas letras digitadas.** O `onChange` dele vem de fora do sistema de eventos do
   React, então o `setState` ficava agendado; digitando rápido, o `value` que voltava ao componente

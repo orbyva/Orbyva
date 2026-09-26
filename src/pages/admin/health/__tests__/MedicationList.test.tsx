@@ -282,19 +282,26 @@ describe("MedicationList", () => {
     renderPage();
 
     // 17/08 às 12:00 — 08:00 já passou, 20:00 ainda não.
-    expect(await screen.findByTestId("next-dose-med-1")).toHaveTextContent(
+    const row = within(await screen.findByRole("listitem", { name: "Losartana" }));
+    expect(row.getByTestId("next-dose-med-1")).toHaveTextContent(
       "Próxima dose: hoje às 20:00"
     );
+    expect(
+      row.getByRole("link", { name: "Ver doses de Losartana na agenda" })
+    ).toHaveAttribute("href", "/tasks/agenda");
   });
 
-  it("tratamento encerrado não anuncia próxima dose", async () => {
+  it("tratamento encerrado não anuncia próxima dose, mas mantém o link da agenda", async () => {
     mockedFetchMedications.mockResolvedValue([
       medication({ active: false, ended_on: "2026-08-12" }),
     ]);
     renderPage();
 
-    await screen.findByRole("listitem", { name: "Losartana" });
-    expect(screen.queryByTestId("next-dose-med-1")).toBeNull();
+    const row = within(await screen.findByRole("listitem", { name: "Losartana" }));
+    expect(row.queryByTestId("next-dose-med-1")).toBeNull();
+    expect(
+      row.getByRole("link", { name: "Ver doses de Losartana na agenda" })
+    ).toHaveAttribute("href", "/tasks/agenda");
   });
 
   it("Lembretes abre o dialog de preferências da 063 direto desta tela", async () => {

@@ -18,6 +18,7 @@ import {
   isOrbAskUser,
   ORB_ASK_USER_TOOL_NAME,
 } from "../../../supabase/functions/_shared/orb/clarify.ts";
+import type { OrbAskUser } from "../../../supabase/functions/_shared/orb/clarify.ts";
 import { formatarTokens } from "@/domain/orb/stream";
 import { cn } from "@/lib/utils";
 import type { OrbMessage } from "@/types/orb";
@@ -185,7 +186,10 @@ export const OrbMessageBubble = memo(function OrbMessageBubble({
   const perguntas = (message.tools ?? [])
     .filter((tool) => tool.name === ORB_ASK_USER_TOOL_NAME && tool.status === "ok")
     .filter((tool) => isOrbAskUser(tool.summary))
-    .map((tool) => ({ id: tool.id, ask: tool.summary }));
+    // O `filter` acima já provou a forma, mas o type guard mira `tool.summary` e não estreita
+    // `tool`: o cast é o que leva essa prova até aqui. Tipado, ao contrário do `as never` das
+    // propostas — se `OrbAskUser` mudar, este ponto passa a acusar.
+    .map((tool) => ({ id: tool.id, ask: tool.summary as OrbAskUser }));
 
   /**
    * Criação que falhou (faltou campo, categoria inexistente…): a barra amarela colapsada esconde

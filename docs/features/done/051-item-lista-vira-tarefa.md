@@ -43,7 +43,7 @@ Depende da 050 (tabelas, página e API do núcleo).
 - [x] `src/pages/admin/shopping/ShoppingList.tsx`: carregar os vínculos com uma chamada a `fetchTaskLinksForItems` após carregar os itens e repassar o mapa às linhas. Verificação: ~~aba Network do navegador~~ teste que conta as chamadas de vínculo num carregamento com muitos itens e afirma que é exatamente **1**, independentemente da quantidade de itens (navegador está fora deste fluxo, ver Notas).
 - [x] Verificação fim a fim automatizada (substitui a manual, mesmo padrão de `ShoppingList.flow.test.tsx` da 050): backend falso em memória que imita o schema (inclusive `on delete set null`) — criar item → "Criar tarefa" → a tarefa existe com `icon_key: "shopping-cart"` e `linked_shopping_item_id`; concluir a tarefa e conferir que o item vira `purchased`; desmarcar o item e conferir que a tarefa volta a `todo`; excluir a tarefa e conferir que o item continua na lista, sem vínculo; excluir um item vinculado e conferir que a tarefa continua existindo, com o vínculo nulo.
 
-- [x] **Migration aplicada pelo usuário** (2026-08-23): o usuário rodou `supabase db push` e confirmou que `supabase/migrations/20260816140000_task_shopping_item_link.sql` está no banco remoto, junto com a da 050. **O teste de fumaça na conta real não foi executado por esta sessão** — sem acesso ao banco remoto e com navegador proibido neste fluxo, ele segue como passo do usuário e está escrito em `## Notas` como pendência explícita. Nada foi dado por passado sem ter sido visto passar.
+- [x] **Migration aplicada no banco remoto** (2026-08-18, confirmada de novo em 2026-08-23): o usuário rodou `supabase db push` e `npx supabase migration list` mostra `20260816140000_task_shopping_item_link` com `local` == `remote` (a da 050 também). `task.linked_shopping_item_id` existe no banco real e o botão "Criar tarefa" tem coluna para escrever. Verificação: a saída do `migration list` (leitura — esta sessão nunca roda `db push`); o comportamento continua provado pelos testes citados acima, do fluxo fim a fim ao `on delete set null` em Postgres 16. **O teste de fumaça na conta real não foi executado por esta sessão** — sem acesso ao banco remoto e com navegador proibido neste fluxo, ele segue como passo do usuário e está escrito em `## Notas` como pendência explícita. Nada foi dado por passado sem ter sido visto passar.
 
 ## Prompts
 
@@ -87,9 +87,26 @@ Depende da 050 (tabelas, página e API do núcleo).
   pré-existentes e alheias registradas na 050 (`src/lib/__tests__/currency.test.ts` espera "—" e
   `src/lib/currency.ts` devolve "·"); nenhum arquivo de moeda/data foi tocado aqui. Eram 782
   passando ao fim da 050.
-- **A feature segue em `in-progress/`, não em `done/`** (desvio próprio, mesmo motivo da 050): a
+- ~~**A feature segue em `in-progress/`, não em `done/`**~~ (desvio próprio, mesmo motivo da 050): a
   migration ainda não foi aplicada no banco remoto — `supabase db push` só com autorização do
   usuário —, então virou a tarefa final, explicitamente aguardando. Todo o resto está verificado.
+  **Resolvido em 2026-08-18** — ver o item abaixo.
+- **Fechamento (2026-08-18) — a migration foi aplicada pelo usuário e a feature foi para `done/`.**
+  A confirmação veio de `npx supabase migration list` (`20260816140000` com `local` == `remote`),
+  **não** de teste manual: a skill `next` proíbe navegador e esta sessão nunca roda `supabase db
+  push` (é passo do usuário, aplica em produção).
+- **Passo remanescente, do usuário, fora do código:** o teste de fumaça na conta real — criar um
+  item na Lista de Compras, clicar em "Criar tarefa", conferir o ícone de compras na tarefa e a
+  sincronização de status nos dois sentidos. Não ficou como tarefa em aberto porque não há código
+  a escrever: o roteiro está coberto por `ShoppingList.task-link.flow.test.tsx`,
+  `shopping-task-link.test.ts` e `updateTask-shopping-sync.test.ts`.
+- **Checagem de satisfação reconfirmada no fechamento (2026-08-18):** a rastreabilidade item a item
+  do recorte do `prompt:` já está registrada acima e continua válida — nenhum artefato foi
+  invalidado. Suíte completa reexecutada com
+  `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4` (o `npm test` puro é
+  instável nesta máquina, com timeouts de 5 s em arquivos alheios): **161 arquivos, 1427 testes,
+  0 falhando**. As 2 falhas de `currency.test.ts` citadas acima foram corrigidas no commit
+  `eb47042`.
 - **Verificações de navegador viraram teste** (2026-08-16, desvio próprio): duas tarefas pediam
   conferência manual (aba Network em `ShoppingList.tsx`, roteiro fim a fim). Navegador está fora
   deste fluxo, então viraram asserções de código — contagem de chamadas de vínculo por

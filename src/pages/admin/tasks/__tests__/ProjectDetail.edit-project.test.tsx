@@ -12,6 +12,7 @@ import {
   fetchTags,
   fetchTasks,
   updateProject,
+  updateProjectEvent,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
 import type { Project, ProjectEvent, Task } from "@/types/tasks";
@@ -25,10 +26,6 @@ import type { Project, ProjectEvent, Task } from "@/types/tasks";
  */
 
 vi.mock("@/api/tasks", () => ({
-  // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
-  fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
-  fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
-  saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchProjectById: vi.fn(),
   fetchTasks: vi.fn(),
   fetchTags: vi.fn(),
@@ -39,12 +36,10 @@ vi.mock("@/api/tasks", () => ({
   deleteTask: vi.fn(),
   deleteTasks: vi.fn(),
   createTag: vi.fn(),
-  uploadIconAsset: vi.fn(),
-  fetchIconAssets: vi.fn().mockResolvedValue([]),
-  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
-  renameIconAsset: vi.fn().mockResolvedValue(undefined),
+  uploadTaskIcon: vi.fn(),
   updateProject: vi.fn(),
   createProjectEvent: vi.fn(),
+  updateProjectEvent: vi.fn(),
   deleteProjectEvent: vi.fn(),
 }));
 
@@ -72,6 +67,7 @@ const mockedFetchRecurringTransactions = vi.mocked(fetchRecurringTransactions);
 const mockedFetchProjectEvents = vi.mocked(fetchProjectEvents);
 const mockedUpdateProject = vi.mocked(updateProject);
 const mockedCreateProjectEvent = vi.mocked(createProjectEvent);
+const mockedUpdateProjectEvent = vi.mocked(updateProjectEvent);
 const mockedDeleteProjectEvent = vi.mocked(deleteProjectEvent);
 
 function makeProject(overrides: Partial<Project> = {}): Project {
@@ -91,8 +87,28 @@ function makeEvent(overrides: Partial<ProjectEvent> = {}): ProjectEvent {
   return {
     id: "event-1",
     project_id: PROJECT_ID,
+    task_id: null,
     title: "Reunião semanal",
     starts_at: "2026-08-20T14:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function makeTask(overrides: Partial<Task> = {}): Task {
+  return {
+    id: "task-1",
+    project_id: PROJECT_ID,
+    parent_task_id: null,
+    recurrence_origin_id: null,
+    title: "Comprar cimento",
+    status: "todo",
+    tag_ids: [],
+    due_date: null,
+    due_time: null,
+    recurrence_rule: null,
+    linked_recurring_id: null,
+    linked_installment_number: null,
+    priority: null,
     ...overrides,
   };
 }
@@ -120,6 +136,7 @@ describe("ProjectDetail — editar projeto", () => {
     toastMock.mockReset();
     mockedUpdateProject.mockReset();
     mockedCreateProjectEvent.mockReset();
+    mockedUpdateProjectEvent.mockReset();
     mockedDeleteProjectEvent.mockReset();
     mockedFetchProjectById.mockReset();
     mockedFetchTasks.mockReset();
@@ -159,25 +176,56 @@ describe("ProjectDetail — editar projeto", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("adicionar um evento chama createProjectEvent com o project_id correto", async () => {
+  it("adicionar um evento passa pelo EventFormDialog e chama createProjectEvent com o project_id correto", async () => {
     const user = userEvent.setup();
     const project = makeProject();
     mockedCreateProjectEvent.mockResolvedValue(makeEvent());
     await renderDetail(project);
 
     await user.click(screen.getByRole("button", { name: "Editar projeto" }));
-    const dialog = within(screen.getByRole("dialog"));
-    await user.type(dialog.getByPlaceholderText("Título"), "Reunião mensal");
-    await user.click(dialog.getByRole("button", { name: "Data do evento" }));
-    await user.click(screen.getByRole("button", { name: "Hoje" }));
-    const time = dialog.getByLabelText("Horário do evento");
-    await user.clear(time);
-    await user.type(time, "10:00");
-    await user.click(dialog.getByRole("button", { name: "Adicionar evento" }));
+    await user.click(screen.getByRole("button", { name: "Adicionar evento" }));
+    // Feature 068: o mini-form inline virou o mesmo dialog de evento da Agenda.
+    await screen.findByText("Novo evento");
+    await user.type(screen.getByLabelText(/^Título/), "Reunião mensal");
+    await user.type(screen.getByLabelText(/^Início/), "2026-09-01T10:00");
+    await user.type(screen.getByLabelText(/^Fim/), "2026-09-01T11:00");
+    await user.click(screen.getByRole("button", { name: "Criar evento" }));
 
-    expect(mockedCreateProjectEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ project_id: PROJECT_ID, title: "Reunião mensal" })
+    await waitFor(() =>
+      expect(mockedCreateProjectEvent).toHaveBeenCalledWith({
+        project_id: PROJECT_ID,
+        task_id: null,
+        title: "Reunião mensal",
+        starts_at: new Date(2026, 8, 1, 10, 0).toISOString(),
+        // O `ends_at: null` fixo do mini-form antigo virou o fim de verdade do rascunho.
+        ends_at: new Date(2026, 8, 1, 11, 0).toISOString(),
+      })
     );
+  });
+
+  it("editar um evento existente chama updateProjectEvent com o id do evento", async () => {
+    const user = userEvent.setup();
+    const project = makeProject();
+    const starts = new Date(2026, 7, 20, 14, 0);
+    mockedUpdateProjectEvent.mockResolvedValue(makeEvent());
+    await renderDetail(project, [], [makeEvent({ starts_at: starts.toISOString() })]);
+
+    await user.click(screen.getByRole("button", { name: "Editar projeto" }));
+    await user.click(screen.getByRole("button", { name: "Editar evento Reunião semanal" }));
+    const title = await screen.findByLabelText(/^Título/);
+    await user.clear(title);
+    await user.type(title, "Reunião quinzenal");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() =>
+      expect(mockedUpdateProjectEvent).toHaveBeenCalledWith({
+        id: "event-1",
+        title: "Reunião quinzenal",
+        starts_at: starts.toISOString(),
+        ends_at: null,
+      })
+    );
+    expect(mockedCreateProjectEvent).not.toHaveBeenCalled();
   });
 
   it("excluir um evento existente chama deleteProjectEvent com o id do evento", async () => {
@@ -190,12 +238,56 @@ describe("ProjectDetail — editar projeto", () => {
     await user.click(screen.getByRole("button", { name: "Editar projeto" }));
     const dialog = within(screen.getByRole("dialog"));
     expect(dialog.getByText(/Reunião semanal/)).toBeInTheDocument();
-    // Dois botões de ícone na linha desde a feature 076 (convidar e excluir) — alvo pelo rótulo.
-    await user.click(
-      dialog.getByRole("button", { name: "Excluir Reunião semanal" })
-    );
+    await user.click(dialog.getByRole("button", { name: "Excluir evento Reunião semanal" }));
 
     expect(mockedDeleteProjectEvent).toHaveBeenCalledWith("event-1");
+  });
+
+  it("evento vinculado a uma tarefa do projeto aparece na lista de eventos da tela", async () => {
+    const user = userEvent.setup();
+    const project = makeProject();
+    const task = makeTask();
+    await renderDetail(
+      project,
+      [task],
+      [
+        // `project_id` nulo de propósito (066: projeto derivado da tarefa) — sem
+        // `resolveEventProjectId` este evento sumiria da tela do projeto.
+        makeEvent({ id: "event-2", project_id: null, task_id: task.id, title: "Reunião do cimento" }),
+      ]
+    );
+
+    await user.click(screen.getByRole("button", { name: "Editar projeto" }));
+    const dialog = within(screen.getByRole("dialog"));
+
+    expect(dialog.getByText(/Reunião do cimento/)).toBeInTheDocument();
+    // Herdado: aparece com a origem e sem os botões de editar/excluir.
+    expect(dialog.getByText(/via Comprar cimento/)).toBeInTheDocument();
+    expect(
+      dialog.queryByRole("button", { name: "Editar evento Reunião do cimento" })
+    ).not.toBeInTheDocument();
+    expect(
+      dialog.queryByRole("button", { name: "Excluir evento Reunião do cimento" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("evento avulso e evento de tarefa de outro projeto ficam de fora da tela", async () => {
+    const user = userEvent.setup();
+    const project = makeProject();
+    await renderDetail(
+      project,
+      [makeTask(), makeTask({ id: "task-2", project_id: "outro-projeto", title: "Tarefa alheia" })],
+      [
+        makeEvent({ id: "event-3", project_id: null, title: "Dentista" }),
+        makeEvent({ id: "event-4", project_id: null, task_id: "task-2", title: "Reunião alheia" }),
+      ]
+    );
+
+    await user.click(screen.getByRole("button", { name: "Editar projeto" }));
+    const dialog = within(screen.getByRole("dialog"));
+
+    expect(dialog.queryByText(/Dentista/)).not.toBeInTheDocument();
+    expect(dialog.queryByText(/Reunião alheia/)).not.toBeInTheDocument();
   });
 
   it("erro ao salvar mostra toast e mantém o dialog aberto", async () => {

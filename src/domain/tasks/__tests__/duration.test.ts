@@ -3,6 +3,10 @@ import { formatEstimatedDuration, resolveTaskSchedule } from "@/domain/tasks/dur
 import { formatLocalIsoDate } from "@/lib/dates";
 
 describe("formatEstimatedDuration", () => {
+  it('0 é "Pontual" — a tarefa que acontece num instante (feature 072)', () => {
+    expect(formatEstimatedDuration(0)).toBe("Pontual");
+  });
+
   it("formata minutos < 60 como 'Xmin'", () => {
     expect(formatEstimatedDuration(45)).toBe("45min");
     expect(formatEstimatedDuration(1)).toBe("1min");
@@ -18,10 +22,9 @@ describe("formatEstimatedDuration", () => {
     expect(formatEstimatedDuration(135)).toBe("2h15");
   });
 
-  it("retorna vazio para null/undefined/0", () => {
+  it("retorna vazio para null/undefined", () => {
     expect(formatEstimatedDuration(null)).toBe("");
     expect(formatEstimatedDuration(undefined)).toBe("");
-    expect(formatEstimatedDuration(0)).toBe("");
   });
 
   it("retorna vazio para valores negativos", () => {

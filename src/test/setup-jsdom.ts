@@ -86,6 +86,29 @@ if (typeof document !== "undefined") {
     Element.prototype.scrollIntoView = () => {};
   }
 
+  /**
+   * `window.matchMedia` não existe no jsdom, e `useIsMobile` (`src/hooks/use-mobile.tsx`) o chama
+   * no `useEffect` — sem o stub, qualquer tela que use o hook derruba o teste com
+   * "matchMedia is not a function". O stub é fiel ao que o hook precisa: uma `MediaQueryList` com
+   * `matches` calculado a partir de `window.innerWidth` (que o teste controla) e listeners que não
+   * fazem nada, já que quem muda a largura no teste também remonta o componente.
+   */
+  if (typeof window.matchMedia === "undefined") {
+    window.matchMedia = ((query: string) => {
+      const max = /max-width:\s*(\d+)px/.exec(query);
+      return {
+        media: query,
+        matches: max ? window.innerWidth <= Number(max[1]) : false,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      };
+    }) as typeof window.matchMedia;
+  }
+
   // O CodeMirror (editor de notas, feature 056) mede o texto pelo layout: a cada `measure` ele
   // chama `Range.getClientRects()` para descobrir a altura da linha e a posição do cursor. O jsdom
   // implementa `Range` mas não essas duas, e o erro sobe de dentro de um `requestAnimationFrame`,

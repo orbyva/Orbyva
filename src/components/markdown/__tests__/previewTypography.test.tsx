@@ -10,14 +10,16 @@ import {
 } from "@/components/markdown/previewTypography";
 
 /**
- * A tipografia mudou de arquivo (feature 067). Dois riscos precisam ficar afirmados: (1) o nome
- * `MARKDOWN_PREVIEW_CLASS` continua saindo de `MarkdownPreview.tsx`, senão quebra consumidor; (2) a
- * tabela larga passa a rolar dentro do próprio container, em vez de esticar a página.
+ * A tipografia mudou de arquivo (feature 067) e depois ganhou a folha `.markdown-body` (069).
+ * Dois contratos precisam ficar afirmados: (1) `MARKDOWN_PREVIEW_CLASS` continua saindo de
+ * `MarkdownPreview.tsx` e carrega a classe da folha; (2) as regras Tailwind do módulo legado
+ * continuam aplicadas no DOM (e exportadas pelo módulo), senão blockquote/hr/h3… perdem estilo
+ * onde a folha CSS ainda não cobre.
  */
 describe("previewTypography", () => {
-  it("`MARKDOWN_PREVIEW_CLASS` continua exportado do `MarkdownPreview` e é o mesmo valor", () => {
-    expect(MARKDOWN_PREVIEW_CLASS).toBe(FROM_MODULE);
-    expect(MARKDOWN_PREVIEW_CLASS).toContain("text-sm");
+  it("`MARKDOWN_PREVIEW_CLASS` continua exportado do `MarkdownPreview` e carrega a folha", () => {
+    expect(MARKDOWN_PREVIEW_CLASS).toBe("markdown-body");
+    expect(MARKDOWN_PREVIEW_CLASS).toContain("markdown-body");
   });
 
   it.each([
@@ -31,7 +33,11 @@ describe("previewTypography", () => {
     ["lista aninhada", "[&_ul_ul]:list-[circle]"],
     ["nota de rodapé", "[&_.footnotes]:border-t"],
   ])("cobre o que não tinha estilo nenhum: %s", (_label, rule) => {
-    expect(MARKDOWN_PREVIEW_CLASS).toContain(rule);
+    // As regras moram no módulo `previewTypography` e são aplicadas no DOM pelo preview.
+    expect(FROM_MODULE).toContain(rule);
+    const { container } = render(<MarkdownPreview content="oi" />);
+    const root = container.querySelector(`.${MARKDOWN_PREVIEW_CLASS}`);
+    expect(root?.className).toContain(rule);
   });
 
   it("a tabela sai dentro de um wrapper rolável, e não solta no fluxo", () => {

@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { Plus, Trash2, UserPlus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Pencil, Plus, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/DatePicker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -11,13 +10,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FormLabel, FORM_DIALOG_CONTENT_CLASS, FORM_FIELDS_CLASS } from "@/components/FormLabel";
+import {
+  FormLabel,
+  FORM_DIALOG_CONTENT_CLASS,
+  FORM_FIELDS_CLASS,
+  ICON_EDIT_BUTTON_CLASS,
+} from "@/components/FormLabel";
 import { LabelColorPicker } from "./LabelColorPicker";
-import { EventInviteDialog } from "./EventInviteDialog";
 import { TagCombobox } from "./TagCombobox";
+import { EventFormDialog } from "./EventFormDialog";
+import { EventInviteDialog } from "./EventInviteDialog";
+import { eventLinkKind } from "@/domain/tasks";
 import { formatDateTimeBR } from "@/lib/currency";
-import { formatLocalIsoDateTime } from "@/lib/dates";
-import type { Project, ProjectCreateRequest, ProjectEvent, ProjectStatus, Tag } from "@/types/tasks";
+import { cn } from "@/lib/utils";
+import type {
+  Project,
+  ProjectCreateRequest,
+  ProjectEvent,
+  ProjectEventCreateRequest,
+  ProjectStatus,
+  Tag,
+  Task,
+} from "@/types/tasks";
 
 export const STATUS_LABELS: Record<ProjectStatus, string> = {
   planned: "Planejado",
@@ -32,9 +46,25 @@ export function formatEventDate(iso: string): string {
 }
 
 /**
+ * Rascunho devolvido pela seção de Eventos (feature 068). `id` presente = edição de um evento que
+ * já existe; ausente = criação. Um handler só (`onSaveEvent`) para os dois casos, em vez de
+ * multiplicar props no call site.
+ */
+export interface ProjectEventSaveDraft {
+  id?: string;
+  title: string;
+  starts_at: string;
+  ends_at: string | null;
+}
+
+/**
  * Dialog de criar/editar projeto, compartilhado por `Projects.tsx` (lista) e `ProjectDetail.tsx`
  * (feature 050) — antes vivia inline só em `Projects.tsx`. `editing: null` = modo criação (sem
  * seção de Eventos, que só faz sentido para um projeto que já existe).
+ *
+ * A seção de Eventos usa o mesmo `EventFormDialog` da Agenda (feature 068): antes havia um
+ * mini-form inline aqui (título + início, sem fim e sem edição) e um dialog completo lá, duas UIs
+ * para a mesma entidade.
  */
 export function ProjectFormDialog({
   open,
@@ -45,8 +75,9 @@ export function ProjectFormDialog({
   tags,
   onCreateTag,
   events,
+  tasks,
   onSave,
-  onAddEvent,
+  onSaveEvent,
   onDeleteEvent,
 }: {
   open: boolean;
@@ -57,16 +88,21 @@ export function ProjectFormDialog({
   tags: Tag[];
   onCreateTag: (name: string, color: string) => Promise<Tag>;
   events: ProjectEvent[];
+  /** Tarefas do projeto — só para dar nome ao evento herdado de tarefa (feature 068). */
+  tasks: Task[];
   onSave: () => Promise<void> | void;
-  onAddEvent: (payload: { title: string; startsAt: string }) => Promise<void> | void;
+  onSaveEvent: (draft: ProjectEventSaveDraft) => Promise<void> | void;
   onDeleteEvent: (id: string) => Promise<void> | void;
 }) {
+  const [eventDialog, setEventDialog] = useState<{ open: boolean; editing: ProjectEvent | null }>({
+    open: false,
+    editing: null,
+  });
   /** Evento cujo dialog de convite (feature 076) está aberto. */
   const [invitingEvent, setInvitingEvent] = useState<ProjectEvent | null>(null);
-  const [eventTitle, setEventTitle] = useState("");
-  const [eventDate, setEventDate] = useState<Date | undefined>();
-  const [eventTime, setEventTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
+
+  const taskTitleById = useMemo(() => new Map(tasks.map((t) => [t.id, t.title])), [tasks]);
 
   async function handleSaveClick() {
     if (!form.name.trim()) return;
@@ -80,26 +116,26 @@ export function ProjectFormDialog({
     }
   }
 
-  async function handleAddEventClick() {
-    if (!eventTitle.trim() || !eventDate) return;
-    await onAddEvent({
-      title: eventTitle.trim(),
-      startsAt: formatLocalIsoDateTime(eventDate, eventTime),
+  /**
+   * Repassa o rascunho do `EventFormDialog` para quem chama, com o `id` do evento em edição quando
+   * houver. Só fecha o dialog de evento se `onSaveEvent` resolver — o erro sobe para o
+   * `EventFormDialog`, que é quem decide continuar aberto com o que foi digitado.
+   */
+  async function handleSaveEventDraft(draft: ProjectEventCreateRequest) {
+    await onSaveEvent({
+      id: eventDialog.editing?.id,
+      title: draft.title,
+      starts_at: draft.starts_at,
+      ends_at: draft.ends_at ?? null,
     });
-    setEventTitle("");
-    setEventDate(undefined);
-    setEventTime("09:00");
+    setEventDialog({ open: false, editing: null });
   }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) {
-          setEventTitle("");
-          setEventDate(undefined);
-          setEventTime("09:00");
-        }
+        if (!next) setEventDialog({ open: false, editing: null });
         onOpenChange(next);
       }}
     >
@@ -173,73 +209,72 @@ export function ProjectFormDialog({
             <div>
               <FormLabel optional>Eventos (reuniões, horários de trabalho)</FormLabel>
               <div className="mt-1.5 space-y-1.5">
-                {events.map((e) => (
-                  <div
-                    key={e.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2 text-xs"
-                  >
-                    <span className="min-w-0 truncate">
-                      {e.title} — {formatEventDate(e.starts_at)}
-                    </span>
-                    <div className="flex shrink-0 items-center gap-0.5">
-                      {/* Feature 076: convidar alguém para este evento. Fica aqui porque é onde os
-                          eventos já são criados e apagados (feature 065). */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        type="button"
-                        aria-label={`Convidar para ${e.title}`}
-                        onClick={() => setInvitingEvent(e)}
-                      >
-                        <UserPlus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive"
-                        type="button"
-                        aria-label={`Excluir ${e.title}`}
-                        onClick={() => onDeleteEvent(e.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                {events.map((e) => {
+                  // Evento herdado: o vínculo real é uma tarefa do projeto, não o projeto (feature
+                  // 068). Aparece aqui para o projeto não mentir por omissão, mas em leitura: mudar
+                  // o projeto de um evento de tarefa é justamente o que a 066 decidiu não permitir,
+                  // e editar por aqui daria a impressão contrária. Quem edita é a Agenda.
+                  const inherited = eventLinkKind(e) === "task";
+                  const taskTitle = e.task_id ? taskTitleById.get(e.task_id) : undefined;
+                  return (
+                    <div
+                      key={e.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border bg-card p-2 text-xs"
+                    >
+                      <span className="min-w-0 truncate">
+                        {e.title} — {formatEventDate(e.starts_at)}
+                        {inherited && (
+                          <span className="ml-1 text-muted-foreground">
+                            (via {taskTitle ?? "tarefa do projeto"})
+                          </span>
+                        )}
+                      </span>
+                      {!inherited && (
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-6 w-6", ICON_EDIT_BUTTON_CLASS)}
+                            onClick={() => setEventDialog({ open: true, editing: e })}
+                            aria-label={`Editar evento ${e.title}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          {/* Feature 076: convidar alguém para este evento. */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            type="button"
+                            aria-label={`Convidar para ${e.title}`}
+                            onClick={() => setInvitingEvent(e)}
+                          >
+                            <UserPlus className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => onDeleteEvent(e.id)}
+                            aria-label={`Excluir evento ${e.title}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Input
-                    placeholder="Título"
-                    value={eventTitle}
-                    onChange={(e) => setEventTitle(e.target.value)}
-                    className="h-8 min-w-[8rem] flex-1 text-xs"
-                  />
-                  <DatePicker
-                    date={eventDate}
-                    onSelect={setEventDate}
-                    placeholder="Data"
-                    ariaLabel="Data do evento"
-                    className="h-8 w-auto text-xs"
-                  />
-                  <Input
-                    type="time"
-                    value={eventTime}
-                    onChange={(e) => setEventTime(e.target.value)}
-                    aria-label="Horário do evento"
-                    className="h-8 w-[6.5rem] text-xs"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    onClick={handleAddEventClick}
-                    aria-label="Adicionar evento"
-                    disabled={!eventTitle.trim() || !eventDate}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                  );
+                })}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setEventDialog({ open: true, editing: null })}
+                  aria-label="Adicionar evento"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
           )}
@@ -249,7 +284,19 @@ export function ProjectFormDialog({
           </Button>
         </div>
       </DialogContent>
-
+      {editing && (
+        <EventFormDialog
+          open={eventDialog.open}
+          onOpenChange={(next) => (next ? undefined : setEventDialog({ open: false, editing: null }))}
+          editing={eventDialog.editing}
+          // Vínculo travado no projeto em edição: aqui o seletor de vínculo (e com ele
+          // `projects`/`ProjectPicker`) some, então não há lista de projetos para passar.
+          lockedLink={{ kind: "project", id: editing.id }}
+          projects={[]}
+          tasks={tasks}
+          onSave={handleSaveEventDraft}
+        />
+      )}
       {invitingEvent && (
         <EventInviteDialog
           eventId={invitingEvent.id}

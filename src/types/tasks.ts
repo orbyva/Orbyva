@@ -28,14 +28,27 @@ export type ProjectUpdateRequest = Partial<ProjectCreateRequest> & {
   id: string;
 };
 
+/**
+ * Evento da agenda. O nome `ProjectEvent` (e o da tabela `project_event`) é histórico: o evento
+ * nasceu preso a um projeto na feature 006 e desde a 066 também cobre evento de tarefa e evento
+ * avulso. Renomear custaria policies, índices, `wipe_own_data` e ~15 arquivos sem entregar nada ao
+ * usuário — ver Decisões da feature 066.
+ */
 export interface ProjectEvent {
   id: string;
   user_id?: string;
   /**
-   * Nulo = evento recebido por convite (feature 076): o convidado tem a cópia do evento na agenda
-   * dele, mas não tem o projeto do anfitrião. A agenda usa cor/rótulo neutros nesse caso.
+   * Vínculo com projeto. Nulo quando o evento é de tarefa, avulso, ou recebido por convite
+   * (feature 076: o convidado tem a cópia na agenda dele, sem o projeto do anfitrião — cor/rótulo
+   * neutros). A check `project_event_single_link` garante no máximo um vínculo preenchido.
    */
   project_id: string | null;
+  /**
+   * Vínculo com tarefa. O projeto de um evento de tarefa é **derivado** da tarefa em memória
+   * (`resolveEventProjectId`, em `src/domain/tasks/events.ts`), nunca copiado para `project_id` —
+   * senão mover a tarefa de projeto deixaria o evento apontando para o projeto antigo.
+   */
+  task_id: string | null;
   title: string;
   starts_at: string;
   ends_at?: string | null;
@@ -46,6 +59,10 @@ export type ProjectEventCreateRequest = Omit<
   ProjectEvent,
   "id" | "user_id" | "created_at"
 >;
+
+export type ProjectEventUpdateRequest = Partial<ProjectEventCreateRequest> & {
+  id: string;
+};
 
 /** Convite de evento (feature 076) — espelha `public.event_invite`. */
 export type EventInviteStatus = "pending" | "accepted" | "revoked" | "expired";

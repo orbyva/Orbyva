@@ -130,13 +130,16 @@ export default function ShoppingList() {
     [categories, projectFilter]
   );
   /**
-   * O pseudo-grupo "Sem categoria" (feature 066) só aparece na lista completa: item sem categoria
-   * não pertence a projeto nenhum, porque o vínculo com projeto é da categoria (feature 052).
+   * O pseudo-grupo "Sem categoria" só aparece na lista completa: item sem categoria não pertence
+   * a projeto nenhum, porque o vínculo com projeto é da categoria (feature 052).
    */
-  const groups = useMemo(() => {
-    const all = groupItemsByCategory(items, visibleCategories);
-    return projectFilter ? all.filter((group) => group.category !== null) : all;
-  }, [items, visibleCategories, projectFilter]);
+  const groups = useMemo(
+    () =>
+      groupItemsByCategory(items, visibleCategories, {
+        includeUncategorized: !projectFilter,
+      }),
+    [items, visibleCategories, projectFilter]
+  );
   const filteredProject = useMemo(
     () => projects.find((project) => project.id === projectFilter) ?? null,
     [projects, projectFilter]
@@ -280,7 +283,7 @@ export default function ShoppingList() {
 
       {loading ? (
         <TableLoadingSkeleton rows={4} />
-      ) : groups.length === 0 && projectFilter ? (
+      ) : projectFilter && visibleCategories.length === 0 ? (
         <EmptyState
           icon={ShoppingCart}
           title="Nenhuma categoria neste projeto"
@@ -311,7 +314,7 @@ export default function ShoppingList() {
         />
       ) : (
         <div className="space-y-4">
-          {groups.map(({ category, items: categoryItems }) => (
+          {groups.map(({ category, items: categoryItems, synthetic }) => (
             <section
               key={category?.id ?? UNCATEGORIZED_GROUP_ID}
               className="space-y-2.5 rounded-xl border bg-card p-3.5 shadow-sm sm:p-5"
@@ -361,6 +364,12 @@ export default function ShoppingList() {
                   {category?.description && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {category.description}
+                    </p>
+                  )}
+                  {synthetic && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Itens anotados sem categoria. Edite um item para movê-lo
+                      para uma categoria.
                     </p>
                   )}
                 </div>

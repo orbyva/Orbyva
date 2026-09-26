@@ -1,4 +1,3 @@
-import rehypeSlug from "rehype-slug";
 import rehypeHighlight from "rehype-highlight";
 import type { PluggableList } from "unified";
 import bash from "highlight.js/lib/languages/bash";
@@ -11,12 +10,12 @@ import python from "highlight.js/lib/languages/python";
 import sql from "highlight.js/lib/languages/sql";
 import typescript from "highlight.js/lib/languages/typescript";
 import xml from "highlight.js/lib/languages/xml";
+import { rehypeHeadingIds } from "@/components/markdown/rehypeHeadingIds";
 import { rehypeSkipRegisteredBlocks } from "@/components/markdown/rehypeSkipRegisteredBlocks";
-import { rehypeTaskListIndex } from "@/components/markdown/rehypeTaskListIndex";
+import { rehypeTaskIndex } from "@/components/markdown/rehypeTaskIndex";
 
 /**
- * Plugins rehype do Markdown do app — o terceiro ponto de extensão, irmão do `remarkPlugins.ts`
- * (feature 067).
+ * Plugins rehype do Markdown do app — o terceiro ponto de extensão, irmão do `remarkPlugins.ts`.
  *
  * A diferença entre os dois é **em que árvore** cada um mexe. `remark` opera no mdast (a sintaxe do
  * Markdown: "isto é uma citação", "isto é uma fórmula"); `rehype` opera no hast, já convertido para
@@ -25,17 +24,17 @@ import { rehypeTaskListIndex } from "@/components/markdown/rehypeTaskListIndex";
  * aqui. Acrescentar um plugin nesta lista vale para todo Markdown renderizado no app, nota e
  * descrição de tarefa inclusive.
  *
- * Começa com `rehype-slug`, que dá `id` a todo título (`# Etapas` → `<h2 id="etapas">`) usando o
- * `github-slugger` — mesmo algoritmo do GitHub, com desambiguação automática de títulos repetidos
- * (`etapas`, `etapas-1`). É o que permite linkar um trecho de nota, o que alimenta a âncora de
- * hover do `MarkdownPreview` e o que a 068 usa para montar o sumário.
+ * Começa com `rehypeHeadingIds`, que dá `id` a todo título usando o mesmo algoritmo do sumário
+ * (`domain/notes/headings`) — é o que permite linkar um trecho de nota, o que alimenta a âncora de
+ * hover do `MarkdownPreview` e o que o outline usa para montar o sumário.
  *
  * Sem `rehype-autolink-headings` de propósito: a âncora é um `components.h1..h6` próprio no
  * `MarkdownPreview`, para não instalar uma dependência inteira por causa de um `<a>`.
  *
  * **Cuidado com plugins que produzem HTML cru**: sem `rehype-raw` o `react-markdown` ignora HTML, e
  * é assim que o preview fica livre de XSS sem sanitizador (decisão da 055). Plugin que dependa de
- * HTML cru para funcionar exige `rehype-sanitize` no mesmo passo.
+ * HTML cru para funcionar exige `rehype-sanitize` no mesmo passo. `rehype-raw` continua fora, e
+ * não é acidente.
  */
 /**
  * As linguagens registradas no realce, **uma a uma**. Não é `common` do lowlight (37 linguagens)
@@ -48,7 +47,7 @@ import { rehypeTaskListIndex } from "@/components/markdown/rehypeTaskListIndex";
  * `python`), porque o `registerLanguage` do highlight.js registra os `aliases` declarados nela.
  *
  * Acrescentar uma linguagem é uma linha aqui — e um pouco mais de bundle, então vale medir com
- * `npm run check:bundle` (ver Notas da 067).
+ * `npm run check:bundle`.
  */
 export const MARKDOWN_HIGHLIGHT_LANGUAGES = {
   typescript,
@@ -64,11 +63,11 @@ export const MARKDOWN_HIGHLIGHT_LANGUAGES = {
 };
 
 export const MARKDOWN_REHYPE_PLUGINS: PluggableList = [
-  rehypeSlug,
-  /** Numera os `- [ ]` para o clique saber qual linha do Markdown reescrever (067). */
-  rehypeTaskListIndex,
+  rehypeHeadingIds,
+  /** Numera os `- [ ]` para o clique saber qual linha do Markdown reescrever. */
+  rehypeTaskIndex,
   /**
-   * Precedência do `blockRegistry` (057) sobre o realce: precisa rodar **antes** do
+   * Precedência do `blockRegistry` sobre o realce: precisa rodar **antes** do
    * `rehype-highlight`, senão ` ```mermaid ` chegaria ao `MermaidBlock` já picado em `<span>`.
    */
   rehypeSkipRegisteredBlocks,

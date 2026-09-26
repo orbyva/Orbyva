@@ -15,9 +15,10 @@ import type { Note } from "@/types/notes";
  * "Notas do projeto" dentro da página do projeto (feature 055) — o vínculo no sentido
  * projeto → nota. Lista as notas com `project_id` daquele projeto e cria uma nova já vinculada.
  *
- * Desde a feature 069 vive **dentro** da aba "Notas" da página do projeto (antes ficava empilhada
- * embaixo do quadro, sempre visível — o que comia o espaço vertical das tarefas). Por isso monta
- * só quando a aba é aberta, e o `<h2>` some quando o próprio gatilho da aba já é o título.
+ * Desde a feature 071 vive **dentro** da aba "Notas" (`?tab=notas`) da página do projeto, ao lado
+ * de "Compras" (antes ficava empilhada embaixo do quadro, sempre visível — o que comia o espaço
+ * vertical das tarefas). Por isso monta só quando a aba é aberta, e o `<h2>` some quando o próprio
+ * gatilho da aba já é o título.
  *
  * É deliberadamente somente-leitura: escrever é no editor, para onde cada item leva.
  */

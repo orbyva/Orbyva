@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { blockRenderers } from "@/components/markdown/blockRegistry";
 
@@ -87,5 +87,68 @@ describe("MarkdownPreview + registry de blocos", () => {
 
     expect(container.querySelector("img")).toBeNull();
     expect(container.textContent).toContain("<img");
+  });
+});
+
+/**
+ * # A invariante, recurso por recurso (feature 069)
+ *
+ * "O preview não interpreta HTML" (decisão da 055, garantida por não existir `rehype-raw`) é a
+ * frase mais fácil de deixar de ser verdade sem ninguém notar: basta um recurso novo passar texto
+ * do usuário por `innerHTML` em algum canto. A 069 trouxe três caminhos novos para o texto do
+ * usuário — callout, fórmula e realce de código — e cada um deles tem um caso aqui.
+ *
+ * Estes testes usam o **KaTeX e o lowlight de verdade**, sem mock, de propósito: mock nenhum prova
+ * o que a biblioteca faz com o que recebe, e é exatamente isso que está sendo afirmado.
+ */
+describe("MarkdownPreview — HTML cru continua desligado nos recursos da 069", () => {
+  const ATAQUE = "<img src=x onerror=alert(1)>";
+
+  it("dentro de um callout", () => {
+    const { container } = render(
+      <MarkdownPreview content={`> [!WARNING]\n> ${ATAQUE}`} />
+    );
+
+    expect(container.querySelector('[data-callout="warning"]')).not.toBeNull();
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.textContent).toContain("<img");
+  });
+
+  it("dentro de uma fórmula", async () => {
+    const { container } = render(
+      <MarkdownPreview content={`$$\n${ATAQUE}\n$$`} />
+    );
+
+    // Espera o KaTeX de verdade desenhar (ou falhar) — sem isso o teste passaria por preguiça.
+    await waitFor(
+      () =>
+        expect(
+          container.querySelector(".katex") ??
+            container.querySelector('[role="alert"]')
+        ).not.toBeNull(),
+      { timeout: 5000 }
+    );
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("dentro de um fence com linguagem html", async () => {
+    const { container } = render(
+      <MarkdownPreview content={"```html\n" + ATAQUE + "\n```"} />
+    );
+
+    // O realce de verdade marca a tag; é depois dele que o DOM deixaria de ser texto.
+    await waitFor(
+      () => expect(container.querySelector(".hljs-tag")).not.toBeNull(),
+      { timeout: 5000 }
+    );
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("pre > code")).toHaveTextContent(ATAQUE);
+  });
+
+  it("dentro do texto de um título (que ganha id e âncora)", () => {
+    const { container } = render(<MarkdownPreview content={`## ${ATAQUE}`} />);
+
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("h2")?.textContent).toContain("<img");
   });
 });

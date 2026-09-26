@@ -99,6 +99,7 @@ export function ShoppingItemDialog({
     setForm(emptyItem(defaultCategoryId ?? null));
   }, [open, item, defaultCategoryId]);
 
+  // Só o título prende o salvar: categoria é opcional.
   const canSave = Boolean(form.title.trim());
 
   async function handleSave() {
