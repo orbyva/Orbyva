@@ -1,12 +1,12 @@
 import type { ComponentType } from "react";
 import { MermaidBlock } from "@/components/markdown/MermaidBlock";
 import { CanvasBlock } from "@/components/markdown/CanvasBlock";
+import { MathBlock } from "@/components/markdown/MathBlock";
 import {
   MATH_BLOCK_LANGUAGE,
   parseBlockLanguage,
 } from "@/domain/notes/blockLanguage";
 import { CANVAS_BLOCK_LANGUAGE } from "@/domain/notes/canvasScene";
-import { MathBlock } from "@/components/markdown/MathBlock";
 
 /**
  * # Registry de renderers de bloco — os "plugins" do Markdown (feature 057)
@@ -38,7 +38,7 @@ export type BlockRenderer = ComponentType<{
   /**
    * A `className` crua do `<code>` — o renderer quase sempre ignora, mas quem precisa da variante
    * dentro da linguagem lê daqui. É o caso do `MathBlock`, que distingue `math-inline` de
-   * `math-display` (feature 067). Renderer que só declara `{ code }` continua válido.
+   * `math-display`. Renderer que só declara `{ code }` continua válido.
    */
   className?: string;
 }>;
@@ -52,9 +52,10 @@ export const blockRenderers: Record<string, BlockRenderer> = {
   // ```orbyva-canvas com o id de uma nota-canvas → o desenho da 058, em modo leitura.
   [CANVAS_BLOCK_LANGUAGE]: CanvasBlock,
   /**
-   * `$…$` e `$$…$$` (feature 067). O `remark-math` entrega fórmula como
-   * `code.language-math`, o mesmo formato de um fence — então ela entra por este registry, sem caso
-   * especial no `MarkdownPreview`. De brinde, ` ```math ` também funciona.
+   * `math` cobre dois caminhos de uma vez: o fence ` ```math ` (que o GitHub também renderiza) e o
+   * `$$…$$`, porque o `remark-math` entrega justamente
+   * `<pre><code class="language-math math-display">` ao hast. O `$…$` **não** passa por aqui — é
+   * código inline, e quem o desvia para o `InlineMath` é o override de `code` do `MarkdownPreview`.
    */
   [MATH_BLOCK_LANGUAGE]: MathBlock,
 };

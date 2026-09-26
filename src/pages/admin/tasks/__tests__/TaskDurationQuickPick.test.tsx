@@ -65,6 +65,37 @@ describe("TaskDurationQuickPick", () => {
 
     expect(onChange).toHaveBeenCalledWith(null);
   });
+
+  /** Feature 072: sem o preset "Pontual" a primeira cláusula de `isPointTask`
+   * (`estimated_duration === 0`) seria inalcançável pela UI. */
+  it('escolher "Pontual" grava estimated_duration = 0', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<TaskDurationQuickPick value={null} onChange={onChange} />);
+
+    await user.click(screen.getByRole("button", { name: /\+ Duração/ }));
+    await user.click(await screen.findByRole("button", { name: "Pontual" }));
+
+    expect(onChange).toHaveBeenCalledWith(0);
+  });
+
+  it('com value 0 o trigger mostra "Pontual", não o placeholder', () => {
+    render(<TaskDurationQuickPick value={0} onChange={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Pontual" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /\+ Duração/ })).toBeNull();
+  });
+
+  it('com value 0 ainda é possível remover a duração (voltar para "não sei quanto dura")', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<TaskDurationQuickPick value={0} onChange={onChange} />);
+
+    await user.click(screen.getByRole("button", { name: "Pontual" }));
+    await user.click(await screen.findByRole("button", { name: "Remover duração" }));
+
+    expect(onChange).toHaveBeenCalledWith(null);
+  });
 });
 
 /**
@@ -72,13 +103,13 @@ describe("TaskDurationQuickPick", () => {
  * então escolher uma tem que desligar a outra, nos dois sentidos.
  */
 describe("TaskDurationQuickPick — opção Pontual (feature 070)", () => {
-  it("sem onQuickChange, a opção Pontual não existe (comportamento anterior intacto)", async () => {
+  it("sem onQuickChange, Pontual ainda existe como preset de duração 0 (feature 072)", async () => {
     const user = userEvent.setup();
     render(<TaskDurationQuickPick value={null} onChange={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: /\+ Duração/ }));
 
-    expect(screen.queryByRole("button", { name: "Pontual" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pontual" })).toBeInTheDocument();
   });
 
   it("escolher Pontual dispara só onQuickChange(true) — quem zera a duração é o consumidor", async () => {

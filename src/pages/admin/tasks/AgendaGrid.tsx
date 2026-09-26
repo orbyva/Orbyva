@@ -12,9 +12,8 @@ import {
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CornerDownRight, DollarSign, ExternalLink, Stethoscope, Trash2, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, CornerDownRight, DollarSign, ExternalLink, Plus, Stethoscope, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -24,10 +23,11 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { FORM_DIALOG_CONTENT_CLASS, FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
+import { FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { AgendaHourGrid } from "./AgendaHourGrid";
+import { EventFormDialog } from "./EventFormDialog";
+import { PointTaskDots } from "./PointTaskDots";
 import { QuickTaskDotRow } from "./QuickTaskDotRow";
 import { EventInviteDialog } from "./EventInviteDialog";
 import { TaskIconBadge } from "./TaskIconBadge";
@@ -36,6 +36,7 @@ import { TaskDeleteDialog } from "./TaskDeleteDialog";
 import { runScopedTaskDelete } from "./scopedDelete";
 import { formatTimeOfDay } from "./TimeEntryRow";
 import {
+  createProjectEvent,
   createTag,
   createTask,
   deleteProjectEvent,
@@ -46,6 +47,7 @@ import {
   fetchTags,
   fetchTasks,
   saveExternalLinksForTask,
+  updateProjectEvent,
   updateTask,
   updateTasksSortOrder,
 } from "@/api/tasks";
@@ -61,8 +63,8 @@ import {
   computeVirtualOccurrences,
   computeWeekDays,
   eventProjectColor,
-  EVENT_WITHOUT_PROJECT_LABEL,
   groupCalendarItemsByDay,
+  groupPointItems,
   groupSubtasksByParent,
   isQuickTask,
   isSubtaskDueDateValid,
@@ -70,6 +72,7 @@ import {
   normalizeProjectFilter,
   PROJECT_FILTER_ALL,
   PROJECT_FILTER_NONE,
+  resolveEventProjectId,
   splitAgendaItems,
   type TaskDeleteOption,
 } from "@/domain/tasks";
@@ -88,6 +91,7 @@ import {
 import type {
   Project,
   ProjectEvent,
+  ProjectEventCreateRequest,
   SubtaskDraft,
   Tag,
   Task,
@@ -103,6 +107,21 @@ import { cn } from "@/lib/utils";
 
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTH_MAX_CHIPS_PER_DAY = 3;
+
+/** Hora sugerida ao criar um evento clicando num dia da visão Mês — a célula do mês não tem
+ * horário, e começo de expediente é o palpite menos errado (feature 067). */
+const MONTH_CLICK_DEFAULT_HOUR = 9;
+
+/** ISO do início sugerido ao clicar num dia da visão Mês: o próprio dia às 09:00 **locais**. */
+export function monthCellStartsAt(day: Date): string {
+  return hourSlotStartsAt(day, MONTH_CLICK_DEFAULT_HOUR);
+}
+
+/** ISO do início sugerido ao clicar numa linha de hora (visões Semana/Dia): o dia na hora cheia
+ * clicada, em horário **local** — quem converte para UTC é o `toISOString`, nunca um slice. */
+export function hourSlotStartsAt(day: Date, hour: number): string {
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour, 0).toISOString();
+}
 
 type CalendarViewMode = "month" | "week" | "day";
 
@@ -274,7 +293,13 @@ export function AgendaGrid({
    * mostram chip de link hoje). */
   const [externalLinkDrafts, setExternalLinkDrafts] = useState<TaskExternalLinkDraft[]>([]);
   const [form, setForm] = useState<TaskCreateRequest>(emptyTask());
-  const [viewingEvent, setViewingEvent] = useState<ProjectEvent | null>(null);
+  /** Dialog de criar/editar evento (feature 067). `editing: null` = criação; `prefillStartsAt` é o
+   * início sugerido pelo clique num dia (mês) ou num slot de hora (semana/dia). */
+  const [eventDialog, setEventDialog] = useState<{
+    open: boolean;
+    editing: ProjectEvent | null;
+    prefillStartsAt: string | null;
+  }>({ open: false, editing: null, prefillStartsAt: null });
   /** Evento cujo dialog de convite (feature 076) está aberto. */
   const [invitingEvent, setInvitingEvent] = useState<ProjectEvent | null>(null);
   const { toast } = useToast();
@@ -493,10 +518,22 @@ export function AgendaGrid({
     return task.parent_task_id ? taskById.get(task.parent_task_id)?.title : undefined;
   }
 
-  const filteredEvents = useMemo(
-    () => events.filter((e) => matchesProjectFilter(e.project_id)),
-    [events, matchesProjectFilter]
+  // Desde a 066 o evento pode não ter `project_id`: o de tarefa deriva o projeto da tarefa e o
+  // avulso não tem projeto nenhum (fica de fora quando o filtro aponta para um projeto).
+  // Evento recebido por convite (076) também tem `project_id` nulo.
+  const eventProjectId = useCallback(
+    (event: ProjectEvent) => resolveEventProjectId(event, taskById),
+    [taskById]
   );
+
+  const filteredEvents = useMemo(
+    () => events.filter((e) => matchesProjectFilter(eventProjectId(e))),
+    [events, matchesProjectFilter, eventProjectId]
+  );
+
+  const editingEventProject = eventDialog.editing
+    ? (projectById.get(eventProjectId(eventDialog.editing) ?? "") ?? null)
+    : null;
 
   const itemsByDay = useMemo(
     () => groupCalendarItemsByDay(filteredTasks, filteredEvents),
@@ -532,6 +569,10 @@ export function AgendaGrid({
       // Feature 070: sem isto o interruptor "Tarefa pontual" abriria sempre desligado numa
       // tarefa que já é pontual, e salvar a desmarcaria sem o usuário pedir.
       is_quick: task.is_quick ?? false,
+      // Feature 072: `estimated_duration` já está acima; `is_medication`/`is_consultation`
+      // precisam sobreviver ao salvar — `TaskRecurrenceField` devolve esses campos no `onChange`.
+      is_medication: task.is_medication ?? false,
+      is_consultation: task.is_consultation ?? false,
     });
     loadExternalLinkDrafts(task.id);
   }
@@ -567,7 +608,53 @@ export function AgendaGrid({
 
   function openEventFromChip(event: ProjectEvent) {
     setDayModalKey(null);
-    setViewingEvent(event);
+    setEventDialog({ open: true, editing: event, prefillStartsAt: null });
+  }
+
+  function closeEventDialog() {
+    setEventDialog({ open: false, editing: null, prefillStartsAt: null });
+  }
+
+  /** "Ir para a tarefa" do dialog de evento (feature 068): fecha o evento e abre o form da própria
+   * tarefa aqui mesmo — navegar para `/tasks` jogaria o usuário para fora do calendário. */
+  function openTaskFromEventDialog(taskId: string) {
+    const task = taskById.get(taskId);
+    closeEventDialog();
+    if (task) openTaskFromChip(task);
+  }
+
+  /** Abre o dialog em modo criação. `startsAt` (ISO) vem do dia/slot clicado; sem ele o usuário
+   * escolhe a data no próprio form (botão "Novo evento" do header). */
+  function openEventCreate(startsAt: string | null) {
+    setDayModalKey(null);
+    setEventDialog({ open: true, editing: null, prefillStartsAt: startsAt });
+  }
+
+  /**
+   * Cria ou edita conforme o `editing` do dialog. O erro é toast **e** re-lançado: quem mostra a
+   * mensagem é a Agenda, mas quem decide continuar aberto é o `EventFormDialog`.
+   */
+  async function handleSaveEvent(draft: ProjectEventCreateRequest) {
+    const editing = eventDialog.editing;
+    try {
+      if (editing) {
+        await updateProjectEvent({ id: editing.id, ...draft });
+      } else {
+        await createProjectEvent(draft);
+      }
+      closeEventDialog();
+      await load();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: getErrorMessage(
+          error,
+          editing ? "Não foi possível salvar o evento." : "Não foi possível criar o evento."
+        ),
+        variant: "destructive",
+      });
+      throw error;
+    }
   }
 
   async function toggleTaskDone(task: Task) {
@@ -696,7 +783,7 @@ export function AgendaGrid({
   async function handleDeleteEvent(id: string) {
     try {
       await deleteProjectEvent(id);
-      setViewingEvent(null);
+      closeEventDialog();
       load();
     } catch (error) {
       toast({
@@ -764,6 +851,10 @@ export function AgendaGrid({
               </SelectContent>
             </Select>
           )}
+          <Button size="sm" className="h-8 gap-1.5" onClick={() => openEventCreate(null)}>
+            <Plus className="h-3.5 w-3.5" />
+            Novo evento
+          </Button>
         </div>
       </div>
 
@@ -778,6 +869,8 @@ export function AgendaGrid({
           onOpenTask={openTaskFromChip}
           onOpenEvent={openEventFromChip}
           onToggleQuick={toggleTaskDone}
+          onToggleTaskDone={toggleTaskDone}
+          onCreateAt={(day, hour) => openEventCreate(hourSlotStartsAt(day, hour))}
           onOpenDay={setDayModalKey}
         />
       ) : (
@@ -793,10 +886,15 @@ export function AgendaGrid({
             {gridDays.map((day) => {
               const key = dayKey(day);
               const items = itemsByDay.get(key) ?? [];
-              // Tarefa pontual (feature 070) vira bolinha no topo da célula e **não** disputa as
-              // 3 vagas de chip: fazê-la competir esconderia tarefas normais pra caber um remédio.
-              const { quick } = splitAgendaItems(items);
-              const chipItems = items.filter(
+              // Pontuais por duração/medicação (072) e por `is_quick` (070) não disputam as 3
+              // vagas de chip: um dia com 4 remédios deixa de gastar os chips e continua mostrando
+              // as tarefas de verdade.
+              const { groups: pointGroups, rest: afterPoints } = groupPointItems(items);
+              const pointTasks = pointGroups.flatMap((group) =>
+                group.items.flatMap((item) => (item.kind === "task" ? [item.task] : []))
+              );
+              const { quick } = splitAgendaItems(afterPoints);
+              const chipItems = afterPoints.filter(
                 (item) => !(item.kind === "task" && isQuickTask(item.task))
               );
               const visible = chipItems.slice(0, MONTH_MAX_CHIPS_PER_DAY);
@@ -806,59 +904,79 @@ export function AgendaGrid({
               return (
                 <div
                   key={key}
-                  className={cn("min-h-24 border-b border-r p-1 sm:min-h-28", !inMonth && "bg-muted/20")}
+                  className={cn(
+                    "relative min-h-24 border-b border-r p-1 sm:min-h-28",
+                    !inMonth && "bg-muted/20"
+                  )}
                 >
-                  {/* Feature 075: o número do dia abre o modal do dia, como já acontecia em
-                      semana/dia (`AgendaHourGrid`). Sem isto, uma dose sozinha na célula do mês era
-                      **inalcançável** — a bolinha só concluí/reabre, e o `+N` só aparece com
-                      excesso —, então a exclusão recém-adicionada ao dialog de editar não teria
-                      caminho justamente na visão em que o usuário estava. */}
+                  {/* Alvo de criação (feature 067): cobre a célula por baixo do conteúdo. */}
                   <button
                     type="button"
-                    onClick={() => setDayModalKey(key)}
-                    aria-label={`Ver tudo do dia ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
-                    className={cn(
-                      "mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs hover:bg-muted",
-                      isToday && "bg-primary font-semibold text-primary-foreground hover:bg-primary/90",
-                      !inMonth && "text-muted-foreground"
-                    )}
-                  >
-                    {format(day, "d")}
-                  </button>
-                  <QuickTaskDotRow
-                    tasks={quick}
-                    onToggle={toggleTaskDone}
-                    onOverflow={() => setDayModalKey(key)}
-                    label={`Tarefas pontuais de ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
-                    className="mb-0.5"
+                    aria-label={`Novo evento em ${format(day, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`}
+                    tabIndex={-1}
+                    onClick={() => openEventCreate(monthCellStartsAt(day))}
+                    className="absolute inset-0 z-0 h-full w-full cursor-pointer"
                   />
-                  <div className="space-y-0.5">
-                    {visible.map((item) =>
-                      item.kind === "task" ? (
-                        <TaskChip
-                          key={item.task.id}
-                          task={item.task}
-                          parentTitle={parentTitleFor(item.task)}
-                          onClick={() => openTaskFromChip(item.task)}
-                        />
-                      ) : (
-                        <EventChip
-                          key={item.event.id}
-                          event={item.event}
-                          projectColor={eventProjectColor(item.event.project_id, projectById)}
-                          onClick={() => openEventFromChip(item.event)}
-                        />
-                      )
-                    )}
-                    {overflow > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setDayModalKey(key)}
-                        className="w-full truncate rounded px-1 py-0.5 text-left text-[10px] text-muted-foreground hover:bg-muted"
-                      >
-                        +{overflow} mais
-                      </button>
-                    )}
+                  <div className="pointer-events-none relative z-10">
+                    {/* Feature 075: o número do dia abre o modal do dia. */}
+                    <button
+                      type="button"
+                      onClick={() => setDayModalKey(key)}
+                      aria-label={`Ver tudo do dia ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
+                      className={cn(
+                        "pointer-events-auto mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs hover:bg-muted",
+                        isToday &&
+                          "bg-primary font-semibold text-primary-foreground hover:bg-primary/90",
+                        !inMonth && "text-muted-foreground"
+                      )}
+                    >
+                      {format(day, "d")}
+                    </button>
+                    <QuickTaskDotRow
+                      tasks={quick}
+                      onToggle={toggleTaskDone}
+                      onOverflow={() => setDayModalKey(key)}
+                      label={`Tarefas pontuais de ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
+                      className="mb-0.5 [&>*]:pointer-events-auto"
+                    />
+                    <PointTaskDots
+                      items={pointTasks}
+                      onToggle={toggleTaskDone}
+                      onOverflowClick={() => setDayModalKey(key)}
+                      className="mb-0.5 [&>*]:pointer-events-auto"
+                      label={`Tarefas pontuais — ${format(day, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`}
+                    />
+                    <div className="space-y-0.5 [&>*]:pointer-events-auto">
+                      {visible.map((item) =>
+                        item.kind === "task" ? (
+                          <TaskChip
+                            key={item.task.id}
+                            task={item.task}
+                            parentTitle={parentTitleFor(item.task)}
+                            onClick={() => openTaskFromChip(item.task)}
+                          />
+                        ) : (
+                          <EventChip
+                            key={item.event.id}
+                            event={item.event}
+                            projectColor={eventProjectColor(
+                              eventProjectId(item.event),
+                              projectById
+                            )}
+                            onClick={() => openEventFromChip(item.event)}
+                          />
+                        )
+                      )}
+                      {overflow > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setDayModalKey(key)}
+                          className="w-full truncate rounded px-1 py-0.5 text-left text-[10px] text-muted-foreground hover:bg-muted"
+                        >
+                          +{overflow} mais
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -887,7 +1005,7 @@ export function AgendaGrid({
                 <EventChip
                   key={item.event.id}
                   event={item.event}
-                  projectColor={eventProjectColor(item.event.project_id, projectById)}
+                  projectColor={eventProjectColor(eventProjectId(item.event), projectById)}
                   onClick={() => openEventFromChip(item.event)}
                 />
               )
@@ -985,63 +1103,43 @@ export function AgendaGrid({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!viewingEvent} onOpenChange={(v) => !v && setViewingEvent(null)}>
-        <DialogContent className={FORM_DIALOG_CONTENT_CLASS}>
-          <DialogHeader>
-            <DialogTitle>{viewingEvent?.title}</DialogTitle>
-          </DialogHeader>
-          {viewingEvent && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                {format(new Date(viewingEvent.starts_at), "dd/MM/yyyy 'às' HH:mm")}
-              </p>
-              {/* Evento sem projeto (feature 076: cópia recebida por convite) não tem projeto para
-                  onde ir — mostra o rótulo neutro no lugar do badge e some com o link. */}
-              {viewingEvent.project_id ? (
-                projectById.get(viewingEvent.project_id) && (
-                  <Badge variant="outline" className="gap-1">
-                    {projectById.get(viewingEvent.project_id)?.name}
-                  </Badge>
-                )
-              ) : (
-                <Badge variant="outline" className="gap-1">
-                  {EVENT_WITHOUT_PROJECT_LABEL}
-                </Badge>
-              )}
-              <div className="flex gap-2">
-                {viewingEvent.project_id && (
-                  <Button variant="outline" size="sm" className="gap-1.5" asChild>
-                    <Link to={`/tasks/projects/${viewingEvent.project_id}`}>
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Ir para o projeto
-                    </Link>
-                  </Button>
-                )}
-                {/* Feature 076: convidar alguém para este evento, direto do chip da agenda.
-                    Só faz sentido no evento que é meu — a cópia recebida por convite (project_id
-                    nulo) não é minha para repassar. */}
-                {viewingEvent.project_id && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => setInvitingEvent(viewingEvent)}
-                  >
-                    <UserPlus className="h-3.5 w-3.5" />
-                    Convidar
-                  </Button>
-                )}
-                <ConfirmDeleteDialog title="Excluir este evento?" onConfirm={() => handleDeleteEvent(viewingEvent.id)}>
-                  <Button variant="outline" size="sm" className="gap-1.5 text-destructive">
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Excluir
-                  </Button>
-                </ConfirmDeleteDialog>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <EventFormDialog
+        open={eventDialog.open}
+        onOpenChange={(v) => (v ? undefined : closeEventDialog())}
+        editing={eventDialog.editing}
+        projects={projects}
+        tasks={tasks}
+        prefillStartsAt={eventDialog.prefillStartsAt}
+        onOpenTask={openTaskFromEventDialog}
+        onSave={handleSaveEvent}
+        onDelete={
+          eventDialog.editing ? () => handleDeleteEvent(eventDialog.editing!.id) : undefined
+        }
+        extraActions={
+          <>
+            {editingEventProject ? (
+              <Button variant="outline" size="sm" className="gap-1.5" asChild>
+                <Link to={`/tasks/projects/${editingEventProject.id}`}>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Ir para o projeto
+                </Link>
+              </Button>
+            ) : null}
+            {/* Feature 076: convidar — só no evento com projeto próprio (não cópia por convite). */}
+            {eventDialog.editing?.project_id ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setInvitingEvent(eventDialog.editing)}
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Convidar
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
       {invitingEvent && (
         <EventInviteDialog

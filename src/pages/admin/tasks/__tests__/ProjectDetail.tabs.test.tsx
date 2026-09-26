@@ -52,6 +52,7 @@ vi.mock("@/api/tasks", () => ({
   renameIconAsset: vi.fn().mockResolvedValue(undefined),
   updateProject: vi.fn(),
   createProjectEvent: vi.fn(),
+  updateProjectEvent: vi.fn(),
   deleteProjectEvent: vi.fn(),
 }));
 

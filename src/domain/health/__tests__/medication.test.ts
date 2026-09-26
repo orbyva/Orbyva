@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeMissingDoses,
   computeStaleDoses,
+  nextDoseSlot,
   computeVirtualDoses,
   formatDoseTitle,
   formatPosology,
@@ -564,5 +565,101 @@ describe("computeStaleDoses", () => {
       HOJE
     );
     expect(stale).toEqual([]);
+  });
+});
+
+
+/**
+ * "Próxima dose" da lista de tratamentos. Sai do tratamento, não das doses já materializadas —
+ * a materialização para em hoje, então perguntar às tasks devolveria a dose mais antiga ainda em
+ * aberto, que é o oposto de "a próxima". Assinatura `(medication, today, nowTime)` — a mesma que
+ * `MedicationList` usa.
+ */
+describe("nextDoseSlot", () => {
+  it("no meio do dia, pega o próximo horário de hoje", () => {
+    expect(
+      nextDoseSlot(medication({ times: ["08:00", "20:00"] }), "2026-08-17", "12:00")
+    ).toEqual({ date: "2026-08-17", time: "20:00" });
+  });
+
+  it("passado o último horário do dia, vai para o primeiro horário do dia seguinte", () => {
+    expect(
+      nextDoseSlot(medication({ times: ["08:00", "20:00"] }), "2026-08-17", "21:00")
+    ).toEqual({ date: "2026-08-18", time: "08:00" });
+  });
+
+  it("no minuto exato do horário, a dose ainda é a de agora", () => {
+    expect(nextDoseSlot(medication({ times: ["08:00"] }), "2026-08-17", "08:00")).toEqual({
+      date: "2026-08-17",
+      time: "08:00",
+    });
+  });
+
+  it("respeita interval_days a partir do início, sem cair num dia intermediário", () => {
+    // Início 10/08 a cada 3 dias → 10, 13, 16, 19. Em 17/08 a próxima é 19/08.
+    expect(
+      nextDoseSlot(
+        medication({ started_on: "2026-08-10", interval_days: 3 }),
+        "2026-08-17",
+        "12:00"
+      )
+    ).toEqual({ date: "2026-08-19", time: "08:00" });
+  });
+
+  it("cai exatamente num dia da cadência e o horário já passou: pula um intervalo inteiro", () => {
+    // 16/08 é dia da série (10 + 2×3 = 16), mas às 12:00 as 08:00 já passaram.
+    expect(
+      nextDoseSlot(
+        medication({ started_on: "2026-08-10", interval_days: 3 }),
+        "2026-08-16",
+        "12:00"
+      )
+    ).toEqual({ date: "2026-08-19", time: "08:00" });
+  });
+
+  it("tratamento que ainda não começou aponta para o primeiro dia", () => {
+    expect(
+      nextDoseSlot(
+        medication({ started_on: "2026-09-01", times: ["08:00", "20:00"] }),
+        "2026-08-17",
+        "23:00"
+      )
+    ).toEqual({ date: "2026-09-01", time: "08:00" });
+  });
+
+  it("tratamento encerrado ou com fim já passado não tem próxima dose", () => {
+    expect(nextDoseSlot(medication({ active: false }), "2026-08-17", "06:00")).toBeNull();
+    expect(
+      nextDoseSlot(medication({ ended_on: "2026-08-12" }), "2026-08-17", "06:00")
+    ).toBeNull();
+  });
+
+  it("fim no futuro continua tendo próxima dose, e o fim no mesmo dia também", () => {
+    expect(
+      nextDoseSlot(medication({ ended_on: "2026-08-20" }), "2026-08-17", "06:00")
+    ).toEqual({ date: "2026-08-17", time: "08:00" });
+    expect(
+      nextDoseSlot(medication({ ended_on: "2026-08-17" }), "2026-08-17", "06:00")
+    ).toEqual({ date: "2026-08-17", time: "08:00" });
+  });
+
+  it("sem horário não há próxima dose", () => {
+    expect(nextDoseSlot(medication({ times: [] }), "2026-08-17", "06:00")).toBeNull();
+  });
+
+  it("horário do Postgres (HH:MM:SS) é comparado normalizado", () => {
+    expect(
+      nextDoseSlot(
+        medication({ times: ["08:00:00", "20:00:00"] }),
+        "2026-08-17",
+        "09:00"
+      )
+    ).toEqual({ date: "2026-08-17", time: "20:00" });
+  });
+
+  it("tratamento diário antigo responde a data certa (sem laço dia a dia)", () => {
+    expect(
+      nextDoseSlot(medication({ started_on: "2023-01-01" }), "2026-08-17", "06:00")
+    ).toEqual({ date: "2026-08-17", time: "08:00" });
   });
 });

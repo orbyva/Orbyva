@@ -856,6 +856,9 @@ export default function TaskList() {
               Tags
             </Link>
           </Button>
+          {/* "Nova medicação" saiu daqui na reabertura da 064: medicação é assunto de Vida >
+              Saúde (`/life/health/medications`), que agora tem item próprio na sidebar. A dose
+              continua sendo tarefa e continua aparecendo nesta tela. */}
           <Button onClick={openCreate}>Nova tarefa</Button>
         </>
       }

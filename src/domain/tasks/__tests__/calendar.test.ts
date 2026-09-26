@@ -6,7 +6,9 @@ import {
   DEFAULT_ITEM_DURATION_MINUTES,
   getItemTimeRange,
   groupCalendarItemsByDay,
+  groupPointItems,
   groupQuickItemsBySlot,
+  isPointTask,
   isQuickTask,
   layoutTimedItems,
   splitAgendaItems,
@@ -20,6 +22,7 @@ interface TestTask {
   due_time?: string | null;
   estimated_duration?: number | null;
   is_quick?: boolean | null;
+  is_medication?: boolean | null;
 }
 
 interface TestEvent {
@@ -138,6 +141,120 @@ describe("groupCalendarItemsByDay", () => {
   });
 });
 
+/**
+ * Feature 072 — tarefa pontual (remédio, trocar lençol, trocar escova): acontece num instante,
+ * não ocupa intervalo, e na Agenda vira bolinha marcável em vez de bloco retangular.
+ */
+describe("isPointTask", () => {
+  it("estimated_duration 0 é pontual (controle explícito do usuário)", () => {
+    expect(isPointTask({ id: "t1", due_date: "2026-08-10", estimated_duration: 0 })).toBe(true);
+  });
+
+  it("estimated_duration null/undefined NÃO é pontual (segue o bloco de 30 min de sempre)", () => {
+    expect(isPointTask({ id: "t2", due_date: "2026-08-10", estimated_duration: null })).toBe(false);
+    expect(isPointTask({ id: "t3", due_date: "2026-08-10" })).toBe(false);
+  });
+
+  it("duração real (> 0) nunca é pontual", () => {
+    expect(isPointTask({ id: "t4", due_date: "2026-08-10", estimated_duration: 30 })).toBe(false);
+  });
+
+  it("dose de medicação sem duração informada é pontual", () => {
+    expect(
+      isPointTask({ id: "d1", due_date: "2026-08-10", due_time: "08:00", is_medication: true })
+    ).toBe(true);
+    expect(
+      isPointTask({
+        id: "d2",
+        due_date: "2026-08-10",
+        due_time: "08:00",
+        is_medication: true,
+        estimated_duration: null,
+      })
+    ).toBe(true);
+  });
+
+  it("dose com is_quick fica na fileira 070/071, não em PointTaskDots", () => {
+    expect(
+      isPointTask({
+        id: "d-quick",
+        due_date: "2026-08-10",
+        due_time: "08:00",
+        is_medication: true,
+        is_quick: true,
+      })
+    ).toBe(false);
+  });
+
+  it("dose de medicação COM duração informada não é pontual — o usuário mandou o contrário", () => {
+    expect(
+      isPointTask({
+        id: "d3",
+        due_date: "2026-08-10",
+        due_time: "08:00",
+        is_medication: true,
+        estimated_duration: 45,
+      })
+    ).toBe(false);
+  });
+});
+
+describe("groupPointItems", () => {
+  it("junta 3 tarefas pontuais das 08:00 numa fileira só e separa a das 09:00", () => {
+    const { groups, rest } = groupPointItems([
+      taskItem({ id: "p1", due_date: "2026-08-10", due_time: "08:00", estimated_duration: 0 }),
+      taskItem({ id: "p2", due_date: "2026-08-10", due_time: "08:00", estimated_duration: 0 }),
+      taskItem({ id: "p3", due_date: "2026-08-10", due_time: "08:00", estimated_duration: 0 }),
+      taskItem({ id: "p4", due_date: "2026-08-10", due_time: "09:00", estimated_duration: 0 }),
+    ]);
+
+    expect(rest).toHaveLength(0);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].startMinutes).toBe(8 * 60);
+    expect(groups[0].items.map((i) => (i.kind === "task" ? i.task.id : i.event.id))).toEqual([
+      "p1",
+      "p2",
+      "p3",
+    ]);
+    expect(groups[1].startMinutes).toBe(9 * 60);
+    expect(groups[1].items).toHaveLength(1);
+  });
+
+  it("itens pontuais sem horário caem no grupo null, que vem primeiro", () => {
+    const { groups } = groupPointItems([
+      taskItem({ id: "com-hora", due_date: "2026-08-10", due_time: "07:30", estimated_duration: 0 }),
+      taskItem({ id: "sem-hora", due_date: "2026-08-10", estimated_duration: 0 }),
+    ]);
+
+    expect(groups.map((g) => g.startMinutes)).toEqual([null, 7 * 60 + 30]);
+    expect(groups[0].items[0].kind === "task" && groups[0].items[0].task.id).toBe("sem-hora");
+  });
+
+  it("evento nunca é pontual — vai para `rest` mesmo no mesmo horário das bolinhas", () => {
+    const { groups, rest } = groupPointItems([
+      taskItem({ id: "p1", due_date: "2026-08-10", due_time: "08:00", estimated_duration: 0 }),
+      eventItem({ id: "e1", starts_at: "2026-08-10T08:00:00-03:00" }),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].items).toHaveLength(1);
+    expect(rest).toHaveLength(1);
+    expect(rest[0].kind === "event" && rest[0].event.id).toBe("e1");
+  });
+
+  it("tarefa comum (sem duração) continua em `rest`, na ordem de entrada", () => {
+    const { groups, rest } = groupPointItems([
+      taskItem({ id: "comum", due_date: "2026-08-10", due_time: "08:00" }),
+      taskItem({ id: "pontual", due_date: "2026-08-10", due_time: "08:00", estimated_duration: 0 }),
+      taskItem({ id: "longa", due_date: "2026-08-10", due_time: "08:00", estimated_duration: 60 }),
+    ]);
+
+    expect(rest.map((i) => (i.kind === "task" ? i.task.id : i.event.id))).toEqual(["comum", "longa"]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].items[0].kind === "task" && groups[0].items[0].task.id).toBe("pontual");
+  });
+});
+
 describe("getItemTimeRange", () => {
   it("tarefa com due_time e estimated_duration usa a duração real", () => {
     const range = getItemTimeRange(
@@ -149,6 +266,20 @@ describe("getItemTimeRange", () => {
   it("tarefa com due_time sem estimated_duration usa a duração default", () => {
     const range = getItemTimeRange(taskItem({ id: "t2", due_date: "2026-08-10", due_time: "14:00" }));
     expect(range).toEqual({ startMinutes: 14 * 60, durationMinutes: DEFAULT_ITEM_DURATION_MINUTES });
+  });
+
+  it("tarefa pontual com due_time tem duração 0 (feature 072), não o default de 30", () => {
+    const range = getItemTimeRange(
+      taskItem({ id: "p1", due_date: "2026-08-10", due_time: "08:00", estimated_duration: 0 })
+    );
+    expect(range).toEqual({ startMinutes: 8 * 60, durationMinutes: 0 });
+  });
+
+  it("dose de medicação sem duração também tem duração 0", () => {
+    const range = getItemTimeRange(
+      taskItem({ id: "d1", due_date: "2026-08-10", due_time: "08:00", is_medication: true })
+    );
+    expect(range).toEqual({ startMinutes: 8 * 60, durationMinutes: 0 });
   });
 
   it("tarefa sem due_time não entra na grade (retorna null)", () => {

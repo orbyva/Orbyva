@@ -6,16 +6,22 @@ import {
 } from "@/domain/notes/wordCount";
 
 /**
- * A contagem do rodapé (068). O que precisa ficar provado é o **recorte**: o número conta o que o
+ * A contagem do rodapé. O que precisa ficar provado é o **recorte**: o número conta o que o
  * leitor lê, não o que está no arquivo — senão a nota mais formatada é a que mais mente.
  */
 describe("countWords", () => {
   it("nota vazia dá zero em tudo", () => {
-    expect(countWords("")).toEqual({ words: 0, characters: 0, readingMinutes: 0 });
+    expect(countWords("")).toEqual({
+      words: 0,
+      characters: 0,
+      readingMinutes: 0,
+      minutes: 0,
+    });
     expect(countWords("   \n\n\t")).toEqual({
       words: 0,
       characters: 0,
       readingMinutes: 0,
+      minutes: 0,
     });
   });
 
@@ -70,17 +76,27 @@ describe("countWords", () => {
     expect(countWords("uma    palavra\n\n\noutra").words).toBe(3);
   });
 
+  it("acento é um caractere só, e emoji também", () => {
+    expect(countWords("ção").characters).toBe(3);
+    expect(countWords("café 🚀").characters).toBe(6);
+  });
+
+  it("nota que só tem código conta zero palavras", () => {
+    expect(countWords("```sh\nls -la\n```").words).toBe(0);
+  });
+
   it("o rodapé sai com plural certo", () => {
     expect(formatWordCount(countWords("oi"))).toBe(
       "1 palavra · 2 caracteres · 1 min de leitura"
     );
-    expect(formatWordCount({ words: 12, characters: 1, readingMinutes: 3 })).toBe(
-      "12 palavras · 1 caractere · 3 min de leitura"
-    );
+    expect(
+      formatWordCount({ words: 12, characters: 1, readingMinutes: 3, minutes: 3 })
+    ).toBe("12 palavras · 1 caractere · 3 min de leitura");
   });
 
   it("o tempo de leitura arredonda para cima e nunca é zero com texto", () => {
     expect(countWords("uma palavra").readingMinutes).toBe(1);
+    expect(countWords("uma palavra").minutes).toBe(1);
 
     const muitas = Array.from(
       { length: READING_WORDS_PER_MINUTE * 2 + 1 },
@@ -88,5 +104,6 @@ describe("countWords", () => {
     ).join(" ");
     expect(countWords(muitas).words).toBe(READING_WORDS_PER_MINUTE * 2 + 1);
     expect(countWords(muitas).readingMinutes).toBe(3);
+    expect(countWords(muitas).minutes).toBe(3);
   });
 });

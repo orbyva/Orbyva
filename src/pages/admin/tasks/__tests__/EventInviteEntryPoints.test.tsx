@@ -82,6 +82,7 @@ function makeEvent(overrides: Partial<ProjectEvent> = {}): ProjectEvent {
   return {
     id: "event-1",
     project_id: "project-1",
+    task_id: null,
     title: "Reunião de kickoff",
     starts_at: todayAtNoon(),
     ends_at: null,
@@ -115,9 +116,10 @@ function ProjectFormHarness({ events }: { events: ProjectEvent[] }) {
       form={form}
       setForm={setForm}
       events={events}
+      tasks={[]}
       tags={[]}
       onSave={vi.fn()}
-      onAddEvent={vi.fn()}
+      onSaveEvent={vi.fn()}
       onDeleteEvent={vi.fn()}
       onCreateTag={vi.fn()}
     />

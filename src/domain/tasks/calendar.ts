@@ -15,6 +15,8 @@ interface CalendarTask {
   /** Tarefa pontual (feature 070) — instante sem duração, desenhada como bolinha na agenda em vez
    * de bloco no canvas de horas. */
   is_quick?: boolean | null;
+  /** Dose de medicação (feature 064) — pontual por natureza, ver `isPointTask`. */
+  is_medication?: boolean | null;
 }
 
 interface CalendarEvent {
@@ -95,6 +97,73 @@ function parseTimeToMinutes(time: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
+/**
+ * Tarefa **pontual** (feature 072): acontece num instante, não ocupa um intervalo — remédio,
+ * trocar lençol, trocar escova. Na Agenda ela não vira bloco retangular, vira bolinha marcável.
+ *
+ * Duas cláusulas, por motivos diferentes:
+ * - `estimated_duration === 0` é o controle explícito do usuário. A partir da 072 vale
+ *   **`null` = não sei quanto dura** (bloco de 30 min, como sempre) e **`0` = pontual**. Nenhuma
+ *   linha existente muda de significado: até aqui ninguém gravava `0`.
+ * - dose de medicação (`is_medication`) **sem** duração informada é pontual por natureza — evita
+ *   um `update` em dado de produção só por efeito visual. Com duração informada (> 0) o usuário
+ *   mandou o contrário, e o contrário vale.
+ *
+ * Evento nunca é pontual: `project_event` tem `starts_at`/`ends_at` reais.
+ */
+export function isPointTask(task: CalendarTask): boolean {
+  // Feature 070/071: `is_quick` já tem fileira própria (`QuickTaskDotRow`, com ícone, previsto ×
+  // tomado e toast de dose). Sem este early-return a mesma dose (is_medication + is_quick) caía
+  // também em `PointTaskDots` (072) — duas bolinhas / labels diferentes no merge.
+  if (task.is_quick === true) return false;
+  if (task.estimated_duration === 0) return true;
+  return !!task.is_medication && (task.estimated_duration ?? null) === null;
+}
+
+/** Uma fileira de bolinhas: todos os itens pontuais que caem no mesmo horário do dia.
+ * `startMinutes` é `null` para os pontuais sem `due_time` (faixa "Sem horário"). */
+export interface PointItemGroup<T extends CalendarTask = CalendarTask, E extends CalendarEvent = CalendarEvent> {
+  startMinutes: number | null;
+  items: CalendarItem<T, E>[];
+}
+
+/**
+ * Separa os itens pontuais de um dia dos demais e agrupa os pontuais por horário — é o que impede
+ * três remédios das 08:00 de virarem três retângulos dividindo a largura da coluna pelo algoritmo
+ * de colunas de `layoutTimedItems` (que continua genérico: quem filtra é o chamador).
+ *
+ * As fileiras saem ordenadas por horário, com o grupo sem horário (`startMinutes: null`) primeiro.
+ * `rest` preserva a ordem de entrada e é o que segue para `splitTimedItems`/`layoutTimedItems`.
+ */
+export function groupPointItems<T extends CalendarTask, E extends CalendarEvent>(
+  items: CalendarItem<T, E>[]
+): { groups: PointItemGroup<T, E>[]; rest: CalendarItem<T, E>[] } {
+  const rest: CalendarItem<T, E>[] = [];
+  // `null` vira a chave -1 no mapa: chave numérica única, e qualquer horário real é >= 0.
+  const NO_TIME_KEY = -1;
+  const byStart = new Map<number, CalendarItem<T, E>[]>();
+
+  for (const item of items) {
+    if (item.kind !== "task" || !isPointTask(item.task)) {
+      rest.push(item);
+      continue;
+    }
+    const key = item.task.due_time ? parseTimeToMinutes(item.task.due_time) : NO_TIME_KEY;
+    const list = byStart.get(key);
+    if (list) list.push(item);
+    else byStart.set(key, [item]);
+  }
+
+  const groups = [...byStart.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([key, groupItems]) => ({
+      startMinutes: key === NO_TIME_KEY ? null : key,
+      items: groupItems,
+    }));
+
+  return { groups, rest };
+}
+
 export interface ItemTimeRange {
   /** Minutos desde meia-noite (hora local) em que o item começa. */
   startMinutes: number;
@@ -114,6 +183,11 @@ export function getItemTimeRange<T extends CalendarTask, E extends CalendarEvent
   if (item.kind === "task") {
     if (!item.task.due_time) return null;
     const startMinutes = parseTimeToMinutes(item.task.due_time);
+    // Pontual (feature 072) não ocupa intervalo nenhum: duração 0. Quem desenha é a fileira de
+    // bolinhas, que só precisa do `startMinutes` — o default de 30 min existe apenas para dar
+    // altura a um bloco retangular, e inventar altura aqui é o que fazia três remédios das 08:00
+    // virarem três retângulos concorrentes.
+    if (isPointTask(item.task)) return { startMinutes, durationMinutes: 0 };
     const durationMinutes =
       item.task.estimated_duration && item.task.estimated_duration > 0
         ? item.task.estimated_duration

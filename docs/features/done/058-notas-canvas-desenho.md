@@ -228,33 +228,48 @@ dentro de uma nota markdown). Independente da 056.
       locales); helper isolado em `vite-runtime`; `globIgnores` cobre os nomes novos; guarda no
       `check-bundle-budget.mjs` falha se o entry do `index.html` importar o canvas. Verificar:
       `npm run build && npm run check:bundle`; servir `dist` e confirmar que a landing hidrata.
-- [ ] **BLOQUEADA — remoção da coluna `project.notes`, herdada da 055. Última tarefa do módulo.**
-      Estado em **2026-08-23**: **Condição 1 cumprida, Condição 2 ainda não** — a tarefa continua
-      aberta e **a migration ainda não existe** (ver Notas: criar o arquivo antes da liberação faria
-      o próximo `supabase db push` do usuário dropar a coluna sem que ninguém tivesse confirmado
-      nada — o arquivo *é* o gatilho).
-      Condição 1 — ✅ **cumprida em 2026-08-23**: o usuário rodou `supabase db push` e confirmou que
-      as migrations do módulo (`20260816160000_notes_core`, `20260816170000_note_links`,
-      `20260816180000_note_canvas`) estão no banco remoto.
-      Condição 2 — ❌ **em aberto**: o usuário precisa abrir o módulo de Notas e **confirmar
-      explicitamente** que todas as notas de projeto migradas estão lá, íntegras. Esta sessão **não
-      tem como verificar isso** — não tem acesso ao banco remoto nem ao navegador —, e por isso a
-      tarefa **não** foi marcada. O roteiro exato está em `## Notas` da 055 ("PENDÊNCIA DO USUÁRIO —
-      conferência da cópia"): dois `count(*)` que têm de bater e uma consulta de diferença que tem
-      de vir vazia, mais a conferência visual das notas "Notas do projeto" no módulo novo. A cópia
-      foi feita pela 055 com `insert ... select`, e a coluna original continua viva de propósito,
-      como rede de segurança; ela ficar viva **não é bug**.
-      Ao liberar: migration nova (timestamp único — `20260816190000` **já foi usado** pela 061; o
-      maior aplicado hoje é `20260820140000`, então use algo como `20260823100000`, e confira com
-      `ls supabase/migrations/` antes) contendo **uma única instrução**,
-      `alter table public.project drop column if exists notes`.
-      Nada de tocar em `project_event`, nas policies ou no `status` — a migration da feature 006
-      (`20260806130000_project_notes_status_events.sql`) criou a coluna `notes` **e** a tabela
-      `project_event` no mesmo arquivo, então é fácil arrastar junto o que não deve sair.
-      Verificação: `npm run build` (nada no app lê ou escreve a coluna desde a 055 — conferido:
-      `src/types/tasks.ts` só a cita num comentário explicando a ausência, e `src/api/tasks/
-      projects.ts` não a menciona) e, no SQL editor, `select count(*) from project_event` continuar
-      retornando o mesmo de antes.
+- [x] **Migration do `drop column` escrita — a condição 1 foi cumprida** (2026-08-18): o usuário
+      rodou `supabase db push` e `npx supabase migration list` mostra `20260816160000_notes_core`,
+      `20260816170000_note_links` e `20260816180000_note_canvas` com `local` == `remote`. Criada
+      `supabase/migrations/20260818120000_project_notes_drop.sql` com **uma única instrução**,
+      `alter table public.project drop column if exists notes` — nada de `project_event`, policies
+      ou `status`. O timestamp que a tarefa sugeria (`20260816190000`) já tinha sido tomado pela
+      061; `20260818120000` é único e posterior a tudo, inclusive à `20260817120000_event_task_link`
+      desta branch (migrations nunca compartilham timestamp — `docs/stack.md`).
+      Verificação: `npm run build` limpo (nada no app lê ou escreve a coluna desde a 055 —
+      reconferido: `src/types/tasks.ts` só a cita num comentário explicando a ausência e
+      `src/api/tasks/projects.ts` não a menciona) e, sobretudo, o harness
+      `bash supabase/tests/project_notes_drop/run.sh` em Postgres 16 descartável, que encena a
+      sequência real do banco do usuário (coluna da 006 com dado dentro → migration da 055 copiando
+      para `note` → drop) e afirma: `project.notes` some; as 3 notas migradas continuam byte a byte
+      (digest de `content`/`user_id`/`project_id` idêntico ao de antes do drop); `project_event`
+      e suas linhas **não** são arrastadas junto; `project_status_check`, o default de `status`,
+      as 2 policies de `project` e as 4 de `project_event` seguem de pé; nenhuma linha de `project`
+      mudou; `select`/`insert` citando `notes` passam a dar `undefined_column`; o CRUD de projeto,
+      o vínculo nota→projeto e o `on delete set null` da 055 continuam funcionando; a RLS por
+      `auth.uid()` segue barrando o alheio; `wipe_own_data` continua citando `note` e `project`; e
+      reaplicar a migration é inofensivo. Mais 5 controles negativos (coluna de volta,
+      `project_event` derrubada, nota migrada apagada, conteúdo de nota alterado, policy a menos),
+      que provam que essas assertivas acusam de verdade. Resultado:
+      `OK: 20260818120000_project_notes_drop.sql validada em Postgres 16.`
+- [x] ~~**Aguarda o usuário — e esta tarefa é destrutiva**: conferir a cópia e então aplicar
+      `20260818120000_project_notes_drop.sql`~~ — **cumprida por outro caminho, em 2026-09-25.**
+      Os dois passos que esta tarefa exigia já aconteceram no branch `feat/orb`, e o registro é
+      verificável:
+
+      1. **A Condição 2 foi conferida em 2026-09-20**, com `select` apenas, e está escrita no
+         cabeçalho de `20260921100000_project_drop_notes.sql` do `feat/orb`: dos 11 projetos, 8
+         tinham `notes` não-nulo e **os 8 guardavam string vazia**; `note` com título 'Notas do
+         projeto' dava 0, e o `join` comparando conteúdo não devolveu linha nenhuma. A leitura
+         correta não é "a cópia saiu íntegra" e sim que **nunca houve o que copiar** — o conjunto
+         migrado era vazio. Nenhum dado de usuário se perdeu no drop.
+      2. **O drop já foi aplicado**: `20260921100000_project_drop_notes.sql` está no banco remoto.
+         Conferido aqui na fonte em 2026-09-25 — `select count(*) from information_schema.columns
+         where table_name='project' and column_name='notes'` devolve **0**.
+
+      Portanto o `supabase/pending/20260818120000_project_notes_drop.sql` desta feature ficou sem
+      função: foi **removido** nesta data, para não voltar a `migrations/` numa integração futura e
+      virar uma segunda migration com o mesmo propósito (ver a nota de 2026-09-25).
 
 ## Prompts
 
@@ -282,18 +297,13 @@ não hidratou.)
 
 ## Notas
 
-- **Por que a feature está em `in-progress/` e não em `done/` (revisado em 2026-08-23).** Sobra
-  exatamente uma `- [ ]`: o `drop column` de `project.notes`, bloqueado por duas condições que só o
-  usuário pode satisfazer. **A primeira caiu em 2026-08-23** — o usuário rodou `supabase db push` e
-  confirmou que as três migrations do módulo estão no remoto. **A segunda continua de pé**: ninguém
-  confirmou ainda que as notas de projeto migradas estão íntegras no módulo novo, e esta esteira
-  não tem como confirmar (sem acesso ao banco remoto, e navegador proibido pela skill `next`).
-  Marcar a tarefa aqui seria escrever que uma verificação passou sem ninguém a ter visto passar —
-  exatamente o que a rede de segurança da coluna existe para evitar. Todas as outras 15 tarefas
-  estão verificadas por código; a checagem de satisfação do `prompt:` está abaixo e passa.
-  **Para o usuário desbloquear**: rode as três consultas de `## Notas` da 055 e abra `/notes`
-  conferindo as notas com título "Notas do projeto". Confirmando, esta tarefa vira a criação da
-  migration de uma linha só, e a feature fecha.
+- **Por que a feature esteve em `in-progress/` e agora está em `done/`.** Até 2026-08-23 sobrava
+  exatamente uma `- [ ]`: o `drop column` de `project.notes`, bloqueado por duas condições. A
+  **condição 1** caiu em 2026-08-18/23 (push das migrations do módulo). A **condição 2** (conferência
+  das notas migradas) e o drop em si foram cumpridos fora desta esteira, no `feat/orb` (2026-09-20
+  conferência + 2026-09-21 `20260921100000_project_drop_notes.sql` aplicada) — ver a nota de
+  2026-09-25 abaixo. Todas as outras 15 tarefas estavam verificadas por código; a checagem de
+  satisfação do `prompt:` está abaixo e passa.
 - **Checagem de satisfação (2026-08-17), item do `prompt:` → artefato que prova.** O prompt-mãe
   cobre as quatro features do módulo; o que a 058 se propôs a cumprir é a parte de desenho:
   - *CRIAÇÃO DE CANVAS/DESENHOS* → `Notes.flow.test.tsx` "'Novo canvas' cria a nota com
@@ -317,7 +327,8 @@ não hidratou.)
     para `sanitizeSvgElement`) e o teste do `CanvasBlock` "o SVG entra como nó, não como HTML cru".
   - Suíte completa: `npm test` → **1105 passando, 2 falhando** (as pré-existentes de
     `currency.test.ts`). Antes desta feature eram 1058/2.
-- **Por que a migration do `drop column` não foi escrita.** A tarefa manda criar o arquivo "ao
+- **Por que a migration do `drop column` não foi escrita** (posição de 2026-08-17, revista no dia
+  seguinte — ver o item abaixo). A tarefa manda criar o arquivo "ao
   liberar". Criá-lo antes seria pior do que inútil: migration commitada em `supabase/migrations/`
   é aplicada pelo **próximo `supabase db push` que o usuário rodar**, seja lá por qual motivo — o
   arquivo *é* o gatilho, não a decisão de rodá-lo. Como a liberação depende de o usuário confirmar
@@ -340,6 +351,37 @@ não hidratou.)
   pré-cacheia arquivo acima de 2 MB e aborta. A correção *da época* foi um nome por arquivo do
   pacote. **Revertido** (nota acima): o split per-arquivo derruba o app inteiro. O abort do Workbox
   se resolve com `globIgnores`, que já estava no `vite.config.ts`.
+- **2026-08-18 — a migration foi escrita, com a condição 2 ainda em aberto. O porquê e o risco.**
+  O usuário rodou `supabase db push`: `npx supabase migration list` mostra todas as migrations do
+  módulo (`160000`, `170000`, `180000`) com `local` == `remote`, ou seja, a **condição 1 caiu** e a
+  tarefa deixou de estar bloqueada por falta de banco. A **condição 2** (o usuário abrir `/notes` e
+  confirmar que as notas migradas estão íntegras) **continua não cumprida** — ninguém confirmou
+  nada —, e por isso a feature **segue em `in-progress/`**, com a tarefa de push registrada como
+  passo do usuário, não como coisa feita. O que mudou em relação à posição de ontem é só quem
+  segura o gatilho: antes, o gatilho era escrever o arquivo; agora o arquivo existe e o gatilho é o
+  próximo `db push`. **Consequência que precisa ficar visível:** qualquer `supabase db push` que o
+  usuário rode por outro motivo — a migration da 066, por exemplo — leva o drop junto e destrói
+  `project.notes` sem que a conferência tenha acontecido. Se isso for inaceitável, a correção é
+  mover o arquivo para fora de `supabase/migrations/` até a confirmação vir; a decisão é do
+  usuário, e está escrita na tarefa em vez de escondida aqui.
+- **O harness `supabase/tests/project_notes_drop/` roda a 055 antes do drop, de propósito.** Testar
+  o `drop column` isolado provaria pouco: o que importa não é "a coluna sumiu", é "a coluna sumiu
+  **depois** de o conteúdo dela estar salvo em `note`, e o resto do schema da 006 sobreviveu". Por
+  isso o harness encena a sequência real (schema da 006 com dado dentro → `20260816160000_notes_core`
+  copiando → `20260818120000_project_notes_drop`) e tira um retrato (`11_snapshot.sql`) do que
+  precisa sobreviver, para comparar por digest depois do drop. Os 5 controles negativos existem
+  porque um harness de `drop column` é o tipo de teste que passa à toa com facilidade: eles
+  devolvem a coluna, derrubam `project_event`, apagam uma nota migrada, mexem no conteúdo dela e
+  tiram uma policy, exigindo que as assertivas acusem em cada caso.
+- **Desvio com medição: `manualChunks` único para o excalidraw é pior, igual ao caso do mermaid na
+  057.** A tarefa mandava declarar `excalidraw` em `manualChunks`. Foi feito e medido: um chunk de
+  4,71 MB (**1.532,1 KB gzip**), que `check:bundle` reprova e que **quebra o `npm run build`** — o
+  Workbox não pré-cacheia arquivo acima de 2 MB e aborta. A causa é a mesma da 057: `manualChunks`
+  colapsa num arquivo só tudo que a lib importa dinamicamente, aqui os ~90 locales e os chunks
+  internos. A correção foi devolver **um nome por arquivo do pacote** (`excalidraw-<arquivo>`), o
+  que preserva o split natural (101 chunks) e ainda dá nome estável — sem isso o Rollup batizaria o
+  chunk principal a partir de um símbolo interno da lib (`percentages-BXMCSKIN-…`), que é
+  exatamente o tipo de nome frágil que a 057 teve de aceitar para o mermaid.
 - **Bug real encontrado no caminho: o canvas engordava o precache do PWA em 4,5 MB.** O
   `globPatterns` do `VitePWA` pega `**/*.js`, então os 101 chunks do Excalidraw entravam no
   precache: 11.387 KiB → 15.905 KiB, cobrados de **todo usuário do app na instalação**, inclusive
@@ -387,3 +429,61 @@ não hidratou.)
   Excalidraw para `0.18.0`. Override `lodash`/`lodash-es` → `4.18.1` no `package.json` (já havia
   overrides para o mesmo tipo de coisa). O `_.template` vulnerável não é API nossa — o canvas não
   passa input de usuário para template do lodash.
+- 2026-09-25 — **A dívida do `project.notes` fechou fora desta esteira, e o arquivo estacionado
+  saiu.** O `supabase/pending/20260818120000_project_notes_drop.sql` existia porque a esteira o tirou
+  de `migrations/` para que nenhum `db push` o levasse por acidente antes da conferência. A
+  conferência aconteceu no `feat/orb` em 20/09 e o drop foi aplicado em 21/09 por
+  `20260921100000_project_drop_notes.sql` — mesma instrução, `drop column if exists`, com a
+  conferência registrada no próprio cabeçalho. Manter o arquivo daqui só criaria uma segunda
+  migration com o mesmo propósito e timestamp mais antigo na hora de integrar os branches, que é o
+  bug de bookkeeping que a CLAUDE.md registra. Removido; o conteúdo continua no histórico do git se
+  alguém precisar consultar.
+
+## Como testar
+
+Roteiro para **outra pessoa** avaliar o canvas de desenho das notas. Nada aqui depende de navegador
+para *provar* — os comandos são a prova; os passos manuais são para você ver funcionando.
+
+### Pré-requisitos
+
+- `npm ci` (o canvas usa `@excalidraw/excalidraw@0.18.1`, que é pesado; instale antes).
+- Banco já migrado: `20260816180000_note_canvas.sql` está aplicada no remoto.
+
+### Verificação automatizada
+
+```bash
+npx vitest run src/pages/admin/notes/__tests__/CanvasEditor.test.tsx
+npx vitest run src/pages/admin/notes/__tests__/Notes.flow.test.tsx
+npx vitest run src/components/__tests__/CanvasBlock.test.tsx
+npm run build && npm run check:bundle
+```
+
+O `check:bundle` é o que importa mais aqui: o Excalidraw tem chunk próprio e limite próprio: se ele
+vazar para o chunk da rota, o orçamento acusa.
+
+### Passos manuais
+
+1. Em `/notes`, clique **"Novo canvas"** (ao lado de "Nova nota"). A nota nasce com o ícone de
+   caneta na lista, diferente do ícone de nota de texto.
+2. Desenhe um retângulo e uma seta. Saia da nota e volte: **o desenho tem de estar lá**.
+3. No canvas, use **"Copiar referência"**. Abra uma nota de texto e cole: vem um bloco
+   ` ```orbyva-canvas ` com o id.
+4. Salve a nota de texto e leia: o canvas aparece **desenhado dentro dela**, não como código.
+5. Vincule a nota a um projeto e confirme que ela aparece na tela do projeto.
+
+### Casos de borda
+
+- **Nota antiga, criada antes desta feature** (sem `kind` gravado): tem de abrir como nota de texto
+  normal, nunca como canvas vazio. Há teste para isso em `Notes.flow.test.tsx`.
+- **Bloco `orbyva-canvas` apontando para id inexistente** (canvas apagado depois de referenciado):
+  mostra aviso no lugar, não quebra a nota inteira.
+- **Rede lenta**: o canvas é `React.lazy`; enquanto carrega aparece um skeleton, não a tela branca.
+
+### Sinais de que quebrou
+
+- O bundle da rota `/notes` engordou: `npm run check:bundle` falha — o Excalidraw escapou do chunk
+  lazy.
+- Nota de texto abrindo como canvas (ou o contrário) → o `kind` está vazando.
+- `project.notes`: **a coluna não existe mais** (dropada em 21/09/2026). Qualquer código que tente
+  ler `project.notes` é código morto ressuscitado e vai dar erro de coluna inexistente — a leitura e
+  a escrita das notas de projeto passam pela tabela `note` desde a 055.

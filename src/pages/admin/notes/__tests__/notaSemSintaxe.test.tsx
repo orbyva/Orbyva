@@ -80,7 +80,7 @@ describe("escrever uma nota inteira sem digitar sintaxe (068)", () => {
     }
 
     // 1. Título pela barra: o botão "Inserir" abre o mesmo menu do `/`.
-    await user.click(screen.getByRole("button", { name: /Inserir/ }));
+    await user.click(screen.getByRole("button", { name: "Inserir" }));
     await waitFor(() =>
       expect(screen.getByRole("option", { name: /Título 1/ })).toBeInTheDocument()
     );
@@ -108,14 +108,14 @@ describe("escrever uma nota inteira sem digitar sintaxe (068)", () => {
     await insertFromMenu(/Código TypeScript/, "/typescript");
     await user.keyboard("const orcamento = 1000;");
 
-    // 6. Segundo título, agora pelo atalho de teclado.
+    // 6. Segundo título pelo menu `/` (nível 2).
     await newBlock();
-    await user.keyboard("{Control>}{Shift>}2{/Shift}{/Control}");
+    await insertFromMenu(/Título 2/, "/h2");
     await user.keyboard("Materiais");
 
-    // 7. Checklist pela barra.
+    // 7. Checklist pelo menu `/`.
     await newBlock();
-    await user.click(screen.getByRole("button", { name: "Checklist" }));
+    await insertFromMenu(/Checklist/, "/checklist");
     await user.keyboard("comprar cimento");
 
     const content = await waitFor(() => {

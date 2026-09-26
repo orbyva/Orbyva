@@ -132,7 +132,7 @@ vi.mock("@/api/health/medications", () => ({
   createMedicationWithDoses: vi.fn(async (input: MedicationCreateRequest) => {
     const medication = { ...input, id: `m${++store.seq}`, active: true } as Medication;
     store.medications.push(medication);
-    store.tasks.push({
+    const dose: Task = {
       id: `t${++store.seq}`,
       project_id: null,
       parent_task_id: null,
@@ -148,8 +148,11 @@ vi.mock("@/api/health/medications", () => ({
       linked_installment_number: null,
       is_medication: true,
       medication_id: medication.id,
-    });
-    return medication;
+    };
+    store.tasks.push(dose);
+    // Desde a reabertura de 2026-08-18 a função devolve também as doses criadas — é delas que sai
+    // a contagem do toast ("2 doses já entraram na sua agenda").
+    return { medication, doses: [dose] };
   }),
   updateMedication: vi.fn(),
   deactivateMedication: vi.fn(async (id: string) => {

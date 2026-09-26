@@ -1,7 +1,7 @@
 import { stripMarkdown } from "@/lib/markdown";
 
 /**
- * # Contagem de palavras da nota (feature 068)
+ * # Contagem de palavras da nota
  *
  * O rodapé do editor mostra quanto texto existe — e "texto" aqui é o que o **leitor** vê, não o que
  * está no arquivo. Contar `#`, `**` e o conteúdo de um bloco de código como palavra deixaria o
@@ -16,6 +16,8 @@ export type NoteWordCount = {
   characters: number;
   /** Minutos de leitura, arredondados para cima. Zero só quando não há palavra nenhuma. */
   readingMinutes: number;
+  /** Alias de `readingMinutes` — consumidores da feature 070 usam este nome. */
+  minutes: number;
 };
 
 /**
@@ -77,13 +79,16 @@ export function countWords(content: string): NoteWordCount {
     stripFencedBlocks(content).replace(HTML_TAG_RE, " ")
   );
 
-  if (!plain) return { words: 0, characters: 0, readingMinutes: 0 };
+  if (!plain) return { words: 0, characters: 0, readingMinutes: 0, minutes: 0 };
 
-  const words = plain.split(/\s+/).length;
+  const words = plain.split(/\s+/).filter(Boolean).length;
+  // `[...plain]` conta **caracteres**, não unidades UTF-16: um emoji é um, "ção" é três.
+  const characters = [...plain].length;
+  const readingMinutes = Math.max(1, Math.ceil(words / READING_WORDS_PER_MINUTE));
   return {
     words,
-    // Caracteres do texto legível, não do arquivo: é a mesma régua da contagem de palavras.
-    characters: plain.length,
-    readingMinutes: Math.max(1, Math.ceil(words / READING_WORDS_PER_MINUTE)),
+    characters,
+    readingMinutes,
+    minutes: readingMinutes,
   };
 }

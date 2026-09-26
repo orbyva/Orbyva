@@ -47,7 +47,7 @@ import {
 import { TaskFormFields } from "./TaskFormFields";
 import type { TaskDueQuickEditValue } from "./TaskDueQuickEdit";
 import { GanttChart } from "./GanttChart";
-import { ProjectFormDialog } from "./ProjectFormDialog";
+import { ProjectFormDialog, type ProjectEventSaveDraft } from "./ProjectFormDialog";
 import { TaskSortToggle } from "./TaskSortToggle";
 import { SeriesOccurrencesDialog } from "./SeriesOccurrencesDialog";
 import { FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
@@ -70,6 +70,7 @@ import {
   fetchTasks,
   saveExternalLinksForTask,
   updateProject,
+  updateProjectEvent,
   updateTask,
   updateTasksSortOrder,
 } from "@/api/tasks";
@@ -88,6 +89,7 @@ import {
   groupTasksByAgendaBucket,
   isSubtaskDueDateValid,
   normalizeExternalLinkDrafts,
+  resolveEventProjectId,
   sortTasksBy,
   sortTasksByCompletedAtDesc,
 } from "@/domain/tasks";
@@ -275,7 +277,11 @@ export default function ProjectDetail() {
       setDependencies(dependencyList);
       setTags(tagList);
       setRecurrings(recurringList);
-      setProjectEvents(eventList.filter((e) => e.project_id === id));
+      // Evento de tarefa conta como evento do projeto da tarefa (feature 068): o `project_id` da
+      // linha é nulo por decisão da 066 (projeto derivado), então o filtro precisa resolver o
+      // vínculo indireto — pelo mapa de **todas** as tarefas, não só as deste projeto.
+      const taskById = new Map(taskList.map((t) => [t.id, t]));
+      setProjectEvents(eventList.filter((e) => resolveEventProjectId(e, taskById) === id));
       // Feature 085: chip de link é enfeite do card. Falha aqui cai para "sem chips" em vez de
       // derrubar o projeto inteiro — por isso fora do `Promise.all`.
       try {
@@ -492,22 +498,40 @@ export default function ProjectDetail() {
     }
   }
 
-  async function handleAddProjectEvent({ title, startsAt }: { title: string; startsAt: string }) {
+  /**
+   * Cria ou edita conforme o `id` do rascunho (feature 068). Re-lança depois do toast: é a rejeição
+   * de `onSave` que mantém o `EventFormDialog` aberto com o que o usuário digitou.
+   */
+  async function handleSaveProjectEvent(draft: ProjectEventSaveDraft) {
     if (!project) return;
     try {
-      await createProjectEvent({
-        project_id: project.id,
-        title,
-        starts_at: new Date(startsAt).toISOString(),
-        ends_at: null,
-      });
+      if (draft.id) {
+        await updateProjectEvent({
+          id: draft.id,
+          title: draft.title,
+          starts_at: draft.starts_at,
+          ends_at: draft.ends_at,
+        });
+      } else {
+        await createProjectEvent({
+          project_id: project.id,
+          task_id: null,
+          title: draft.title,
+          starts_at: draft.starts_at,
+          ends_at: draft.ends_at,
+        });
+      }
       load();
     } catch (error) {
       toast({
         title: "Erro",
-        description: getErrorMessage(error, "Não foi possível adicionar o evento."),
+        description: getErrorMessage(
+          error,
+          draft.id ? "Não foi possível salvar o evento." : "Não foi possível adicionar o evento."
+        ),
         variant: "destructive",
       });
+      throw error;
     }
   }
 
@@ -1181,8 +1205,9 @@ export default function ProjectDetail() {
           tags={tags}
           onCreateTag={handleCreateTag}
           events={projectEvents}
+          tasks={tasks}
           onSave={handleSaveProject}
-          onAddEvent={handleAddProjectEvent}
+          onSaveEvent={handleSaveProjectEvent}
           onDeleteEvent={handleDeleteProjectEvent}
         />
       )}

@@ -32,7 +32,7 @@ O usuário quer acompanhar ingestão de água e alimentação dentro do cuidado 
 - [x] `npm run lint` — 0 erros (13 warnings pré-existentes de `react-refresh/only-export-components`, nenhum em arquivo desta feature)
 - [x] `npm run test` — cobre domínio puro: verificar que `getHabitInsights` (em `src/domain/habits/`) continua correto com hábitos de saúde no conjunto, incluindo streak e taxa do dia — 4 testes novos em `src/domain/habits/__tests__/insights.test.ts`; suíte inteira: 1185 passando, 2 falhando (as pré-existentes de `src/lib/__tests__/currency.test.ts`, alheias à feature)
 - [x] Substituir a verificação manual no navegador por cobertura automatizada (a skill `next` proíbe Chrome; verificação visual vira teste): criar pelo atalho → hábito nasce com `is_health` e aparece na seção Hoje (`HealthDashboard.habits.test.tsx`), badge de saúde na página de Hábitos (`Habits.health-badge.test.tsx`), check-in que sobe/desce o contador e grava o `habit_log` do dia, hábito sem `is_health` fora do Health Dashboard (`health.habits.test.ts` + teste de UI)
-- [x] **Migration aplicada pelo usuário** (2026-08-23): o usuário rodou `supabase db push` e confirmou que `supabase/migrations/20260816200000_habit_is_health.sql` está no banco remoto. A coluna `habit.is_health` existe, então a degradação defensiva (seção "Hoje" vazia, atalho criando hábito sem a flag) deixa de valer. A migration já estava validada em Postgres 16 descartável (`bash supabase/tests/habit_is_health/run.sh`). **A conferência no banco real e o teste de fumaça na conta NÃO foram executados por esta sessão** — estão registrados em `## Notas` como pendência explícita do usuário, com o SQL e os passos exatos.
+- [x] **Migration aplicada no banco remoto** (2026-08-18, confirmada de novo em 2026-08-23): o usuário rodou `supabase db push` e `npx supabase migration list` mostra `20260816200000_habit_is_health` com `local` == `remote`. A coluna `habit.is_health` e o índice parcial existem no banco real, então a seção "Hoje" deixa de degradar para vazia e o atalho passa a criar o hábito **com** a flag. Verificação: a saída do `migration list` (leitura — esta sessão nunca roda `db push`); schema, RLS (inclusive `habit_log`, que não tem `user_id` próprio), idempotência e 6 controles negativos já estavam provados em Postgres 16 por `bash supabase/tests/habit_is_health/run.sh`. **A conferência no banco real e o teste de fumaça na conta NÃO foram executados por esta sessão** — estão registrados em `## Notas` como pendência explícita do usuário, com o SQL e os passos exatos.
 
 ## Prompts
 - 2026-08-16 — "- SUB-MÓDULO DE VIDA.SAÚDE
@@ -56,10 +56,15 @@ O usuário quer acompanhar ingestão de água e alimentação dentro do cuidado 
 - **Desvio do plano (timestamp da migration)**: o refino previa `20260816120200`, mas as migrations já commitadas vão até `20260816190000` (061) — um timestamp anterior entraria fora de ordem na fila de pendentes, erro real que a 061 pegou. A migration desta feature é `20260816200000_habit_is_health.sql`.
 - **Migration validada sem tocar o banco remoto**: `supabase/tests/habit_is_health/` sobe um Postgres 16 descartável em Docker, aplica a migration duas vezes (idempotência) sobre o schema anterior à 062 e roda assertivas de schema, de RLS (incluindo `habit_log`, que não tem `user_id` próprio) e 6 controles negativos que sabotam o banco e exigem que as assertivas acusem. `bash supabase/tests/habit_is_health/run.sh` → `OK`.
 - A migration acrescenta também o índice parcial `habit_user_health_idx on public.habit (user_id) where is_health`, para o dashboard não varrer os hábitos não-saúde.
-- **PENDÊNCIA DO USUÁRIO — conferência pós-push (2026-08-23).** A migration está aplicada (o usuário
-  rodou `supabase db push` e confirmou), mas o que segue **não foi executado nem visto passar por
-  esta sessão** — o SQL toca o banco remoto e o resto é interface, e esta esteira não alcança
-  nenhum dos dois.
+- **Fechamento (2026-08-18) — a migration foi aplicada pelo usuário e a feature foi para `done/`.**
+  A confirmação veio de `npx supabase migration list` (`20260816200000` com `local` == `remote`),
+  **não** de teste manual: a skill `next` proíbe navegador e esta sessão nunca roda `supabase db
+  push` (é passo do usuário, aplica em produção). Confirmada de novo em 2026-08-23. Com a coluna no
+  banco, a degradação defensiva descrita acima (lista vazia, hábito criado sem a flag) deixa de
+  acontecer — ela continua no código como rede de segurança, não como estado corrente.
+- **PENDÊNCIA DO USUÁRIO — conferência pós-push (2026-08-23).** A migration está aplicada, mas o que
+  segue **não foi executado nem visto passar por esta sessão** — o SQL toca o banco remoto e o resto
+  é interface, e esta esteira não alcança nenhum dos dois.
 
   No SQL editor:
   ```sql
@@ -83,3 +88,14 @@ O usuário quer acompanhar ingestão de água e alimentação dentro do cuidado 
   Saúde. Tudo isso já tem equivalente automatizado passando (`HealthDashboard.habits.test.tsx`,
   `Habits.health-badge.test.tsx`, `health.habits.test.ts`) — o roteiro só confirma contra o banco e
   o dado reais.
+- **Checagem de satisfação no fechamento (2026-08-18).** Recorte do `prompt:` → artefato:
+  *acompanhamento de "CONTROLE ... PARA ALIMENTAÇÃO"/"PARA INGESTÃO DE ÁGUA"* → `habit.is_health`
+  validada em Postgres 16 e agora aplicada no remoto; `habits.is-health.test.ts` (5) na propagação
+  da flag; `health.habits.test.ts` (7) no cruzamento com o `habit_log` de hoje;
+  `HealthDashboard.habits.test.tsx` (9) no contador, no check-in com rollback de erro e na criação
+  pelo atalho com sugestões; `Habits.health-badge.test.tsx` (4) no badge; `insights.test.ts` (4)
+  na não-regressão dos insights. A parte de *notificação* desses dois itens é da 063, por decisão
+  do refino registrada acima. Suíte completa reexecutada com
+  `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4` (o `npm test` puro é
+  instável nesta máquina): **161 arquivos, 1427 testes, 0 falhando** — as 2 falhas de
+  `currency.test.ts` citadas acima foram corrigidas no commit `eb47042`.

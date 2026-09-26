@@ -49,6 +49,8 @@ vi.mock("@/api/tasks", () => ({
   createTask: vi.fn(),
   deleteTask: vi.fn(),
   updateTask: vi.fn(),
+  createProjectEvent: vi.fn(),
+  updateProjectEvent: vi.fn(),
   deleteProjectEvent: vi.fn(),
 }));
 
@@ -483,6 +485,7 @@ describe("AgendaGrid — filtro de projeto compartilhado (feature 097)", () => {
       {
         id: "ev-1",
         project_id: ALPHA.id,
+        task_id: null,
         title: EVENTO_DO_ALPHA,
         starts_at: `${DIA_EVENTOS}T10:00:00`,
       },
@@ -490,6 +493,7 @@ describe("AgendaGrid — filtro de projeto compartilhado (feature 097)", () => {
       {
         id: "ev-2",
         project_id: null,
+        task_id: null,
         title: EVENTO_SEM_PROJETO,
         starts_at: `${DIA_EVENTOS}T11:00:00`,
       },

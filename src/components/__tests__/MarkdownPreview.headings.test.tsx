@@ -6,9 +6,9 @@ import {
 } from "@/components/MarkdownPreview";
 
 /**
- * Título com `id` (`rehype-slug`) e âncora de hover (feature 067). O `id` é o que torna possível
- * linkar um trecho de nota e é a base do sumário da 068 — por isso o teste afirma o slug em si, e
- * não só "renderizou um h2".
+ * Título com `id` (`rehypeHeadingIds` / mesmo algoritmo do sumário) e âncora de hover.
+ * O `id` é o que torna possível linkar um trecho de nota e é a base do sumário — por isso o
+ * teste afirma o slug em si (sem acento, repetidos a partir de `-2`), e não só "renderizou um h2".
  */
 describe("MarkdownPreview — títulos com id (rehype-slug)", () => {
   it("dá id de slug a todo nível de título", () => {
@@ -17,7 +17,7 @@ describe("MarkdownPreview — títulos com id (rehype-slug)", () => {
     );
 
     expect(container.querySelector("h1")).toHaveAttribute("id", "etapas-da-obra");
-    expect(container.querySelector("h2")).toHaveAttribute("id", "orçamento");
+    expect(container.querySelector("h2")).toHaveAttribute("id", "orcamento");
     expect(container.querySelector("h3")).toHaveAttribute("id", "detalhe");
   });
 
@@ -27,28 +27,37 @@ describe("MarkdownPreview — títulos com id (rehype-slug)", () => {
     );
 
     const ids = [...container.querySelectorAll("h2")].map((h) => h.id);
-    expect(ids).toEqual(["etapas", "etapas-1"]);
+    // Mesmo algoritmo do GitHub / `uniqueHeadingId`: o segundo ganha `-2`.
+    expect(ids).toEqual(["etapas", "etapas-2"]);
   });
 
   it("cada título ganha uma âncora apontando para o próprio id", () => {
-    render(<MarkdownPreview content={"## Orçamento\n\n### Materiais"} />);
+    const { container } = render(
+      <MarkdownPreview content={"## Orçamento\n\n### Materiais"} />
+    );
 
-    const anchors = screen.getAllByRole("link", { name: HEADING_ANCHOR_LABEL });
+    const anchors = [
+      ...container.querySelectorAll<HTMLAnchorElement>("a.markdown-heading-anchor"),
+    ];
     expect(anchors.map((a) => a.getAttribute("href"))).toEqual([
-      "#orçamento",
+      "#orcamento",
       "#materiais",
     ]);
+    expect(anchors[0].getAttribute("title")).toBe(HEADING_ANCHOR_LABEL);
     // A âncora nasce dentro do próprio título, senão o `group-hover` não a alcançaria.
-    expect(anchors[0].closest("h2")).toHaveAttribute("id", "orçamento");
+    expect(anchors[0].closest("h2")).toHaveAttribute("id", "orcamento");
   });
 
   it("a âncora fica invisível até o hover, mas continua no DOM (teclado e leitor de tela)", () => {
-    render(<MarkdownPreview content="# Título" />);
+    const { container } = render(<MarkdownPreview content="# Título" />);
 
-    const anchor = screen.getByRole("link", { name: HEADING_ANCHOR_LABEL });
+    const anchor = container.querySelector("a.markdown-heading-anchor");
+    expect(anchor).not.toBeNull();
     expect(anchor).toHaveClass("opacity-0");
     expect(anchor).toHaveClass("group-hover:opacity-100");
-    expect(anchor.closest("h1")).toHaveClass("group");
+    expect(anchor?.closest("h1")).toHaveClass("group");
+    // Fora da árvore de acessibilidade — o título continua se chamando só o texto.
+    expect(anchor).toHaveAttribute("aria-hidden", "true");
   });
 
   it("o texto do título continua sendo o texto do título, com a formatação de dentro", () => {
@@ -60,7 +69,7 @@ describe("MarkdownPreview — títulos com id (rehype-slug)", () => {
   });
 
   it("quem passa `components` continua conseguindo sobrescrever o título", () => {
-    render(
+    const { container } = render(
       <MarkdownPreview
         content="# Meu"
         components={{ h1: ({ children }) => <h1 data-testid="custom">{children}</h1> }}
@@ -68,6 +77,6 @@ describe("MarkdownPreview — títulos com id (rehype-slug)", () => {
     );
 
     expect(screen.getByTestId("custom")).toHaveTextContent("Meu");
-    expect(screen.queryByRole("link", { name: HEADING_ANCHOR_LABEL })).toBeNull();
+    expect(container.querySelector("a.markdown-heading-anchor")).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FilePlus2 } from "lucide-react";
 import { defaultUrlTransform } from "react-markdown";
 import type { Components } from "react-markdown";
@@ -30,6 +30,7 @@ export function NoteMarkdownPreview({
   notes,
   onCreateNote,
   onToggleTaskItem,
+  onToggleTask,
   className,
 }: {
   content: string;
@@ -38,10 +39,12 @@ export function NoteMarkdownPreview({
   /** Chamado pelo chip de link quebrado, com o título que falta. */
   onCreateNote?: (title: string) => void;
   /**
-   * Torna a checklist clicável (feature 067). É repassado direto ao `MarkdownPreview`: só a nota
+   * Torna a checklist clicável. É repassado direto ao `MarkdownPreview`: só a nota
    * passa esse handler, porque só ela tem um Markdown que o preview pode reescrever.
+   * `onToggleTask` é o mesmo contrato sob o nome da feature 070.
    */
   onToggleTaskItem?: (index: number) => void;
+  onToggleTask?: (index: number) => void;
   className?: string;
 }) {
   const navigate = useNavigate();
@@ -55,7 +58,16 @@ export function NoteMarkdownPreview({
 
   const components = useMemo<Components>(
     () => ({
-      a({ href, children }) {
+      /**
+       * Este override vê **todos** os links do markdown, não só os wiki-links — inclusive os que a
+       * própria nota gera: marcador de footnote, `↩` de volta e âncora de seção. Por
+       * isso ele repassa o resto das props (`node` fora, que é do hast): sem isso o
+       * `data-footnote-ref` e a classe `data-footnote-backref` se perdem, e com eles o estilo e a
+       * navegação da footnote dentro de uma nota.
+       */
+      a({ href, children, ...rest }) {
+        // `node` é o nó do hast, não atributo de DOM — repassá-lo vira warning do React.
+        delete rest.node;
         const missingTitle = href ? parseMissingWikiLinkHref(href) : null;
 
         if (missingTitle !== null) {
@@ -77,13 +89,14 @@ export function NoteMarkdownPreview({
           );
         }
 
-        // Rota interna (wiki-link resolvido). `navigate` em vez de `<Link>`: o preview da
+        // Rota interna (wiki-link resolvido). `navigate` em vez de só `<Link>`: o preview da
         // descrição da tarefa vive dentro de um Dialog do Radix, e o clique no `<Link>` era
         // engolido pelo trap de foco — a URL não mudava. Cmd/Ctrl+clique segue o href nativo.
         if (href?.startsWith("/")) {
           return (
-            <a
-              href={href}
+            <Link
+              to={href}
+              {...rest}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -94,12 +107,24 @@ export function NoteMarkdownPreview({
               }}
             >
               {children}
+            </Link>
+          );
+        }
+
+        /**
+         * Fragmento: é navegação **dentro da própria nota** (footnote, âncora de seção). Sem este
+         * ramo ele cairia no de link externo e abriria outra aba para rolar a mesma página.
+         */
+        if (href?.startsWith("#")) {
+          return (
+            <a href={href} {...rest}>
+              {children}
             </a>
           );
         }
 
         return (
-          <a href={href} target="_blank" rel="noreferrer noopener">
+          <a href={href} target="_blank" rel="noreferrer noopener" {...rest}>
             {children}
           </a>
         );
@@ -114,6 +139,7 @@ export function NoteMarkdownPreview({
       className={className}
       components={components}
       onToggleTaskItem={onToggleTaskItem}
+      onToggleTask={onToggleTask}
       urlTransform={(url) =>
         url.startsWith(WIKI_LINK_MISSING_SCHEME) ? url : defaultUrlTransform(url)
       }

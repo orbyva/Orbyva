@@ -4,6 +4,7 @@ import {
   filterCategoriesByProject,
   groupItemsByCategory,
   UNCATEGORIZED_GROUP_ID,
+  UNCATEGORIZED_GROUP_NAME,
 } from "@/domain/shopping/filters";
 import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
 
@@ -76,15 +77,17 @@ describe("groupItemsByCategory", () => {
 
 /** Feature 066: categoria virou opcional — item solto (`shopping_category_id` nulo) tem grupo próprio. */
 describe("groupItemsByCategory — itens sem categoria", () => {
-  it("item sem categoria cai no grupo sem categoria (category null)", () => {
+  it("item sem categoria cai no grupo sem categoria (category null, synthetic)", () => {
     const groups = groupItemsByCategory(
       [item("solto", null), item("i1", "c1")],
       [category("c1")]
     );
     const uncategorized = groups.find((g) => g.category === null);
     expect(uncategorized).toBeDefined();
+    expect(uncategorized?.synthetic).toBe(true);
     expect(uncategorized?.items.map((i) => i.id)).toEqual(["solto"]);
     expect(groups[0].items.map((i) => i.id)).toEqual(["i1"]);
+    expect(UNCATEGORIZED_GROUP_NAME).toBe("Sem categoria");
   });
 
   it("o grupo sem categoria vem sempre por último", () => {
@@ -154,6 +157,25 @@ describe("groupItemsByCategory — itens sem categoria", () => {
     expect(groups[0].items.map((i) => i.id)).toEqual(["solto"]);
   });
 });
+
+
+  it("com includeUncategorized: false (filtro de projeto ativo), o grupo some", () => {
+    const groups = groupItemsByCategory(
+      [item("solto", null), item("i1", "c1")],
+      [category("c1")],
+      { includeUncategorized: false }
+    );
+    expect(groups.some((g) => g.category === null)).toBe(false);
+    expect(groups).toHaveLength(1);
+  });
+
+  it("com includeUncategorized: false e só itens nulos, não devolve grupo nenhum", () => {
+    expect(
+      groupItemsByCategory([item("solto", null)], [], {
+        includeUncategorized: false,
+      })
+    ).toEqual([]);
+  });
 
 describe("filterCategoriesByProject", () => {
   const obra = { ...category("c1", "Materiais"), project_id: "p1" };

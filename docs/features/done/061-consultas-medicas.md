@@ -67,9 +67,10 @@ O usuário pediu que consultas "virem eventos no calendário geral". O app tem d
 - [x] `npm run lint` — 0 erros (13 warnings pré-existentes de `react-refresh/only-export-components`, nenhum em arquivo desta feature)
 - [x] `npm run test` — cobre apenas o domínio puro: adicionar caso em `src/domain/tasks/` verificando que uma série marcada como consulta gera ocorrências nas datas esperadas via `computeMissingOccurrences` — feito em `src/domain/tasks/__tests__/consultation.test.ts` (retorno a cada 3 meses: datas geradas, ocorrência já materializada, retorno que ainda não chegou, `until`, série sem repetição)
 - [x] Verificação manual no navegador: substituída por cobertura automatizada — a skill `next` proíbe Chrome como rede de segurança, mesmo caminho que a 049 tomou. Cada item do roteiro tem hoje um artefato: consulta não recorrente no dia certo do calendário geral com o estetoscópio (`AgendaGrid.consultation.test.tsx`, casos 1 e 3); recorrente mensal com as ocorrências materializadas (`tasks.recurring-materialization.test.ts` para o insert + `AgendaGrid.consultation.test.tsx` casos 4 e 5 para a exibição); "Compareceu às HH:mm" no histórico da série (`TaskList.consultation-occurrences.test.tsx` e `ProjectDetail.consultation-occurrences.test.tsx`); tarefa comum e medicação renderizando como antes (`AgendaGrid.consultation.test.tsx` caso 2 e 6 + os testes de medicação da 049, que passam sem alteração). O que **não** dá para cobrir sem banco (RLS, `not null default false`, idempotência da migration) está no harness `supabase/tests/task_consultation/run.sh`, em Postgres 16 real
-- [x] **Migration aplicada pelo usuário** (2026-08-23): o usuário rodou `supabase db push` e
-      confirmou que `supabase/migrations/20260816190000_task_consultation.sql` está no banco remoto,
-      junto com as das features 050, 051, 052, 055, 056 e 058. A coluna `task.is_consultation`
+- [x] **Migration aplicada no banco remoto** (2026-08-18, confirmada de novo em 2026-08-23): o usuário rodou `supabase db push` e
+      `npx supabase migration list` mostra `20260816190000_task_consultation` com `local` ==
+      `remote`. A coluna `task.is_consultation` existe no banco remoto, junto com as das features
+      050, 051, 052, 055, 056 e 058. A coluna `task.is_consultation`
       existe, então agendar consulta e a seção Consultas do dashboard passam a funcionar de ponta a
       ponta.
       **O roteiro de conferência pós-push NÃO foi executado por esta sessão** — as duas consultas
@@ -178,7 +179,24 @@ O usuário pediu que consultas "virem eventos no calendário geral". O app tem d
 - Vitest neste repo cobre domínio puro, sem I/O — ele não valida RLS nem insert no Supabase. Por isso a verificação de banco desta feature é manual e está descrita passo a passo.
 - **Checagem de satisfação** (skill `next`), contra o recorte do `prompt:` que esta feature cumpre — "CONSULTAS (VIRAM EVENTOS NO CALENDÁRIO GERAL)". Rastreabilidade item a item: *consulta existe como entidade* → harness em Postgres 16 (`OK: 20260816190000_task_consultation.sql validada em Postgres 16.`, com dois controles negativos falhando como esperado); *dá pra criar uma* → `ConsultationQuickCreateDialog.test.tsx` (5) + o fluxo ponta a ponta em `HealthDashboard.flow.test.tsx`; *vira evento no calendário **geral*** → `AgendaGrid.consultation.test.tsx` (6), no `AgendaGrid`, que é a Agenda de `/tasks/agenda` e a aba Agenda de Tarefas, não o dashboard de Saúde; *consulta periódica* → `tasks.recurring-materialization.test.ts` (o insert com a flag) + `consultation.test.ts` (as datas); *comparecimento* → `TaskList.consultation-occurrences.test.tsx` (4) e `ProjectDetail.consultation-occurrences.test.tsx` (2). Suíte completa: **1156 passando, 2 falhando** — as 2 são as pré-existentes e alheias de `src/lib/__tests__/currency.test.ts` (documentadas nas Notas da 049). `npm run check:bundle`: "Bundle budget OK".
 - ~~Não vai para `done/` mesmo com o pedido cumprido: sobra a tarefa de `supabase db push`.~~
-  **Superado em 2026-08-23**: o usuário rodou o push e confirmou. A feature foi para `done/`.
+  **Resolvido em 2026-08-18** (confirmado de novo em 2026-08-23): o usuário rodou o push. A feature
+  foi para `done/`.
+- **Fechamento (2026-08-18) — a migration foi aplicada pelo usuário e a feature foi para `done/`.**
+  A confirmação veio de `npx supabase migration list` (`20260816190000` com `local` == `remote`),
+  **não** de teste manual: a skill `next` proíbe navegador e esta sessão nunca roda `supabase db
+  push` (é passo do usuário, aplica em produção).
+- **Passo remanescente, do usuário, fora do código:** o teste de fumaça na conta real — agendar uma
+  consulta única e ver o estetoscópio no dia certo do calendário geral, agendar uma recorrente
+  mensal e conferir as ocorrências materializadas, marcar uma como concluída e ver "Compareceu às
+  HH:mm". Não virou tarefa em aberto porque não há código a escrever: cada item já tem artefato
+  automatizado (`AgendaGrid.consultation.test.tsx`, `tasks.recurring-materialization.test.ts`,
+  `TaskList.consultation-occurrences.test.tsx`, `ProjectDetail.consultation-occurrences.test.tsx`).
+- **Checagem de satisfação reconfirmada no fechamento (2026-08-18):** a rastreabilidade acima, item
+  a item do recorte "CONSULTAS (VIRAM EVENTOS NO CALENDÁRIO GERAL)", continua válida. Suíte
+  completa reexecutada com `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4`
+  (o `npm test` puro é instável nesta máquina, com timeouts de 5 s em arquivos alheios): **161
+  arquivos, 1427 testes, 0 falhando** — as 2 falhas de `currency.test.ts` citadas acima foram
+  corrigidas no commit `eb47042`.
 - **PENDÊNCIA DO USUÁRIO — conferência pós-push (2026-08-23).** A migration está aplicada, mas o
   roteiro abaixo **não foi executado nem visto passar por esta sessão** (SQL no banco remoto e teste
   de fumaça na interface — nenhum dos dois é alcançável daqui).
@@ -229,6 +247,7 @@ O usuário pediu que consultas "virem eventos no calendário geral". O app tem d
   duas vezes em `Promise.all` — a consulta de medicação e a de consulta médica só diferem na flag,
   e duplicar a cadeia de `.eq/.gte/.order` seria duas fontes de verdade pro mesmo critério.
 - Desvio do plano (pequeno, espelha a 049): `emptyTask()` em `src/domain/tasks/taskDraft.ts` também ganhou `is_consultation: false`, e o `toMatchObject` de `taskDraft.test.ts` foi atualizado. Sem isso o draft do form completo mandaria `undefined` para a coluna `not null` numa edição de consulta.
+
 ### Rodada de 2026-08-23 (recorrência semanal)
 
 - **Checagem de satisfação** (skill `next`) do pedido "agendar consulta deve permitir também

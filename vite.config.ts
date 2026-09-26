@@ -29,6 +29,25 @@ function preloadCriticalFonts(): Plugin {
   };
 }
 
+/**
+ * Pacotes de gramática que só entram por `import()` — o realce dentro de ` ```lang ` do editor de
+ * notas (feature 070). Cada linguagem vira um chunk **próprio e nomeado** (`cm-lang-python-…`),
+ * como o excalidraw faz por arquivo, por dois motivos medidos nesta feature:
+ *
+ * 1. sem regra nenhuma (deixando o Rollup decidir), `@lezer/javascript` e `@lezer/css` acabavam
+ *    **dentro** do chunk `codemirror` — eles também são alcançáveis pelo grafo estático via
+ *    `lang-markdown → lang-html`, e o vendor pulava de 138,9 KB para 201,5 KB gzip, estourando o
+ *    teto de 200 KB. Um `manualChunks` explícito os tira de lá;
+ * 2. o nome estável é o que faz `check-bundle-budget.mjs` classificá-los como vendor lazy. Sem
+ *    nome, o Rollup os batiza de `index-…` (o arquivo de entrada de cada pacote se chama
+ *    `index.js`) e o orçamento os confunde com o chunk de **entrada** do app — a mesma armadilha
+ *    que a 069 documentou com o `lowlight`.
+ */
+const LAZY_FENCE_GRAMMAR_RE =
+  /node_modules\/(?:@codemirror\/lang-|@lezer\/)(javascript|json|css|html|sql|python)\//;
+/** Modos legados (`shell`) não têm pacote `@lezer` próprio: vêm todos de `legacy-modes`. */
+const LEGACY_MODES_RE = /node_modules\/@codemirror\/legacy-modes\//;
+
 export default defineConfig({
   plugins: [
     viteSafariHmrNoReload(),
@@ -234,6 +253,11 @@ export default defineConfig({
            */
           if (RECHARTS_D3_RE.test(id)) return "d3";
           if (id.includes("framer-motion")) return "motion";
+          // Gramática de fence: um chunk por linguagem, antes da regra genérica de `@codemirror`
+          // (que puxaria tudo para o vendor fixo do editor). Ver a constante acima.
+          const fenceGrammar = LAZY_FENCE_GRAMMAR_RE.exec(id);
+          if (fenceGrammar) return `cm-lang-${fenceGrammar[1]}`;
+          if (LEGACY_MODES_RE.test(id)) return "cm-lang-shell";
           // CodeMirror (editor de notas, feature 056) é vendor pesado e só carrega na rota de
           // notas — sem chunk próprio ele entraria no chunk da rota e estouraria o teto de 160 KB.
           if (
@@ -247,12 +271,6 @@ export default defineConfig({
             return "codemirror";
           }
           /**
-           * Runtime do Vite (preload helper). Sem chunk próprio, o Rollup joga o helper no
-           * primeiro vendor grande que o usa — no caso o Excalidraw — e o `index` importa esse
-           * vendor só para ter `__vitePreload`. Em produção (2026-08-31) isso puxou 4,7 MB de
-           * canvas no boot e explodiu com `TypeError: $ is not a function`.
-           */
-          /**
            * Excalidraw **não** entra em `manualChunks`. Forçar nome (um arquivo só ou um por
            * arquivo do pacote) coloca o grafo do canvas no mesmo chunk do helper de preload, e o
            * boot da landing importa os 4,7 MB. O `React.lazy` / `import()` do `ExcalidrawCanvas`
@@ -260,6 +278,20 @@ export default defineConfig({
            * cobrem o precache. O guarda em `check-bundle-budget.mjs` falha se o `index`
            * importar o canvas.
            */
+          /**
+           * `lowlight` + `highlight.js` (realce de código das notas, feature 069) só são baixados
+           * quando uma nota tem bloco de código — o `CodeBlock` os importa dinamicamente. O nome
+           * próprio existe para o orçamento de bundle: sem ele o Rollup batiza o chunk de
+           * `index-…` (o arquivo de entrada do lowlight se chama `index.js`) e
+           * `check-bundle-budget.mjs` o confunde com o chunk de entrada do app, dando a ele o teto
+           * de 380 KB em vez do de vendor lazy.
+           */
+          if (
+            id.includes("node_modules/lowlight") ||
+            id.includes("node_modules/highlight.js")
+          ) {
+            return "lowlight";
+          }
           if (id.includes("@sentry")) return "sentry";
           if (id.includes("@supabase")) return "supabase";
           if (id.includes("@radix-ui")) return "radix";
@@ -312,7 +344,11 @@ export default defineConfig({
         rewrite: (p) => p.replace(/^\/spotify-media/, ""),
       },
     },
-    allowedHosts: ["localhost", "6cd8-45-238-124-170.ngrok-free.app"]
+    allowedHosts: [
+      "localhost",
+      "6cd8-45-238-124-170.ngrok-free.app",
+      "5757-146-70-163-204.ngrok-free.app",
+    ],
   },
   test: {
     globals: true,
