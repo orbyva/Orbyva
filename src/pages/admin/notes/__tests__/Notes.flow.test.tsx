@@ -219,7 +219,11 @@ describe("Notas — fluxo fim a fim", () => {
       () => expect(store.notes[0].title).toBe("Pauta da reunião"),
       AUTOSAVE
     );
-    expect(await screen.findByText("Salvo", {}, AUTOSAVE)).toBeInTheDocument();
+    // "Salvo às HH:mm": o horário é parte do indicador, não enfeite — num editor sem botão Salvar,
+    // é o que diz ao usuário *quando* gravou. Assertiva por regex para não depender do relógio.
+    expect(
+      await screen.findByText(/^Salvo às \d{2}:\d{2}$/, {}, AUTOSAVE)
+    ).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Conteúdo"), "- decidir o orçamento");
     await waitFor(

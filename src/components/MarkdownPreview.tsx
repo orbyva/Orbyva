@@ -87,6 +87,7 @@ export function MarkdownPreview({
       <ReactMarkdown
         remarkPlugins={MARKDOWN_REMARK_PLUGINS}
         rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
+        remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
         components={merged}
         urlTransform={urlTransform}
       >
@@ -95,6 +96,20 @@ export function MarkdownPreview({
     </div>
   );
 }
+
+/**
+ * Rótulos das footnotes do GFM.
+ *
+ * Sem isto o `mdast-util-gfm-footnote` escreve "Footnotes" no `#footnote-label` e "Back to
+ * reference 1" no `aria-label` do `↩`. Os dois são invisíveis na tela — e por isso passam
+ * despercebidos —, mas são exatamente o que o leitor de tela anuncia, num app inteiro em português.
+ * Texto em inglês aí é bug de acessibilidade, não detalhe de tradução.
+ */
+const REMARK_REHYPE_OPTIONS = {
+  footnoteLabel: "Notas de rodapé",
+  footnoteBackLabel: (referenceIndex: number) =>
+    `Voltar à referência ${referenceIndex + 1}`,
+};
 
 /**
  * Tabela larga rola dentro do próprio container, em vez de esticar a página (feature 067).

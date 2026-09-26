@@ -55,7 +55,24 @@ export function NoteMarkdownPreview({
 
   const components = useMemo<Components>(
     () => ({
-      a({ href, children }) {
+      a({ href, children, ...rest }) {
+        /**
+         * Âncora **dentro da própria nota** (`#user-content-fn-1` de footnote, `#slug` de título).
+         *
+         * Precisa vir antes de tudo e precisa repassar `rest`: o marcador de footnote carrega
+         * `data-footnote-ref` e `id`, e o `↩` carrega a classe `data-footnote-backref` — são as
+         * âncoras que o estilo usa e que o link de volta precisa para fechar o ciclo. Sem este
+         * ramo, os dois caíam no `target="_blank"` do fim e **abriam outra aba para rolar a mesma
+         * página**, sem estilo nenhum.
+         */
+        if (href?.startsWith("#")) {
+          return (
+            <a href={href} {...rest}>
+              {children}
+            </a>
+          );
+        }
+
         const missingTitle = href ? parseMissingWikiLinkHref(href) : null;
 
         if (missingTitle !== null) {
@@ -99,7 +116,7 @@ export function NoteMarkdownPreview({
         }
 
         return (
-          <a href={href} target="_blank" rel="noreferrer noopener">
+          <a href={href} target="_blank" rel="noreferrer noopener" {...rest}>
             {children}
           </a>
         );
