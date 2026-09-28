@@ -116,22 +116,28 @@ prova a migration sem tocar no banco remoto (`supabase/tests/icon_asset/run.sh`)
       nome e o argumento da RPC em `setActiveOrbAvatar`, e que `deleteOrbAvatar` chama
       `storage.remove` com o caminho `{userId}/{uuid}.png` antes do delete da linha.
 - [x] Rodar `npm test -- src/api/__tests__/orbAvatars.test.ts`, `npm run lint` e `npm run build`.
-- [ ] **Aplicar a migration no banco remoto** — `supabase db push`. Depende de confirmação do
-      usuário: não há Supabase local neste projeto e o push escreve no banco compartilhado
-      (`CLAUDE.md`, "Banco de dados"). A migration já está provada em Postgres 16 por
-      `bash supabase/tests/orb_avatar/run.sh`; o que falta é só aplicá-la. Enquanto não for
-      aplicada, `public.orb_avatar`, `public.orb_avatar_set_active` e o bucket `orb-avatars` não
-      existem para o app — as features 152, 153 e 154 não têm onde gravar, e os passos 3 e 4 de
-      `## Como testar` falham com `relation "public.orb_avatar" does not exist`.
+- [x] **Aplicar a migration no banco remoto** — `supabase db push`, rodado em 28/09/2026 com
+      confirmação do usuário (não há Supabase local neste projeto e o push escreve no banco
+      compartilhado — `CLAUDE.md`, "Banco de dados"). O `--dry-run` listou só
+      `20260924113000_orb_avatar.sql`; o push terminou em `Finished supabase db push.` sem erro,
+      com os `NOTICE ... skipping` dos `drop ... if exists` que tornam a migration idempotente. A
+      confirmação é `supabase migration list`, onde `20260924113000` passou a vir com `remote`
+      preenchido. `public.orb_avatar`, `public.orb_avatar_set_active` e o bucket `orb-avatars`
+      agora existem para o app — as 152, 153 e 154 têm onde gravar.
 
 ## Prompts
 
 ## Notas
 
-- **`supabase db push` não foi rodado.** A migration está escrita e provada em Postgres 16
-  (`bash supabase/tests/orb_avatar/run.sh`), mas não foi aplicada no banco remoto: não há Supabase
-  local neste projeto e o push escreve no banco compartilhado, o que o `CLAUDE.md` põe atrás de
-  confirmação do usuário. É a única tarefa aberta do arquivo.
+- **`supabase db push` rodado em 28/09/2026**, com confirmação do usuário. A prova de que a
+  migration faz o que diz continua sendo o harness em Postgres 16
+  (`bash supabase/tests/orb_avatar/run.sh`); a prova de que ela *chegou ao banco remoto* é o
+  `supabase migration list`, que passou a trazer `20260924113000` com `remote` preenchido.
+- **A conferência objeto a objeto no banco remoto ficou para quem for seguir o `## Como testar`.**
+  Um `supabase db dump --schema public` para grepar `orb_avatar` direto no remoto foi barrado pelo
+  sandbox desta sessão (leitura de produção), então o que está registrado aqui é o estado que o CLI
+  reporta depois de aplicar, não um `select` independente. Os passos 3 e 4 do `## Como testar` são
+  exatamente essa conferência e continuam valendo como o roteiro manual da feature.
 - **A lista do `wipe_own_data` veio de `20260823120000_link_icon_rule.sql:124-156`, não de
   `20260823110000_icon_asset.sql:95-126`** como dizia a tarefa. `link_icon_rule` é a redefinição
   **mais recente** da função e tem uma entrada a mais (`'link_icon_rule'`): copiar a lista da
