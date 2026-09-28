@@ -28,7 +28,7 @@ pastas — nenhum número se repete, mesmo entre pastas diferentes.
 docs/features/to-refine/     descrição bruta, sem formato nem número
       ↓  /refine
 docs/features/in-planning/   desenho: Contexto, Estrutura, Decisões, Perguntas em aberto
-      ↓  /attack             ← sempre manual, nunca automático
+      ↓  /attack             ← só com toda `**Resposta:**` preenchida
 docs/features/todo/          feature com ## Tarefas e ## Como testar
       ↓  /next
 docs/features/in-progress/   primeira tarefa marcada
@@ -38,9 +38,18 @@ docs/features/done/
 
 - `/quick-code` é o atalho fora da esteira: mudança em que ler o código já dá certeza do resultado
   vai direto, sem arquivo em `docs/features/`. O critério de corte é **certeza, não tamanho**.
-- `/pipeline` é a esteira autônoma: refina `to-refine/`, delega implementação (um implementador por
-  vez) e só para quando `to-refine/`, `todo/` e `in-progress/` esvaziarem. Ela **nunca** roda
-  `/attack` sozinha — virar planning em feature é decisão do usuário, arquivo por arquivo.
+- `/pipeline` é a esteira autônoma de ponta a ponta: refina `to-refine/`, **ataca sozinha todo
+  planning pronto**, delega implementação (um implementador por vez) e só para quando `to-refine/`,
+  os plannings prontos, `todo/` e `in-progress/` esvaziarem. Rodar `/pipeline` com material pronto
+  deve terminar tudo na mesma sessão.
+  - **Pronto = nenhuma `**Resposta:**` vazia no planning.** É o único portão do ataque automático:
+    pergunta em aberto segura o arquivo em `in-planning/` e a esteira segue com as outras frentes,
+    sem atacar pela metade e sem seguir as recomendadas por conta própria.
+  - **Um implementador por vez continua valendo.** `attack` numera as features na ordem real de
+    implementação e declara `Depende de:` em cada uma — paralelizar quebra essa ordem, além de
+    conflitar arquivo e git. Agentes separados, um de cada vez.
+  - Ataques, ao contrário, rodam em paralelo — com **bloco de NNN reservado por planning** pelo
+    orquestrador, senão dois agentes leem a mesma lista de pastas e geram o mesmo número.
 - `/pitstop` dá o panorama do estado atual sem alterar nada.
 
 Toda feature carrega o prompt que a originou:
