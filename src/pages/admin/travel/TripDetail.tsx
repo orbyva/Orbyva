@@ -95,6 +95,7 @@ import {
 import { TripExpenseFormDialog } from "./components/TripExpenseFormDialog";
 import { TripSplitRegisterDialog } from "./components/TripSplitRegisterDialog";
 import { TripMilestoneFormDialog } from "./components/TripMilestoneFormDialog";
+import { TripRoundTripDialog } from "./components/TripRoundTripDialog";
 
 const emptyExpenseForm = () => ({
   description: "",
@@ -130,6 +131,7 @@ export default function TripDetail() {
   useBreadcrumbTitle(trip?.title);
 
   const [editTripOpen, setEditTripOpen] = useState(false);
+  const [roundTripOpen, setRoundTripOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [showPacking, setShowPacking] = useState(false);
 
@@ -1400,6 +1402,8 @@ export default function TripDetail() {
           onEditActivity={openActivityEdit}
           onAddActivity={openAddActivity}
           onAddTransfer={openAddTransfer}
+          hasRoundTrip={Boolean(trip.origin_label)}
+          onManageRoundTrip={() => setRoundTripOpen(true)}
           onReload={load}
           onVisitStatusChange={handleVisitStatusChange}
           onBeforeCompleteVisit={handleBeforeCompleteVisit}
@@ -1468,6 +1472,13 @@ export default function TripDetail() {
         trip={trip}
         open={editTripOpen}
         onOpenChange={setEditTripOpen}
+        onSaved={load}
+      />
+
+      <TripRoundTripDialog
+        trip={trip}
+        open={roundTripOpen}
+        onOpenChange={setRoundTripOpen}
         onSaved={load}
       />
 

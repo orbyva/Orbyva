@@ -127,6 +127,8 @@ type TripItineraryTabProps = {
   onAddActivity: (dayId: string) => void;
   /** Deslocamento como atividade do dia. */
   onAddTransfer?: (dayId: string) => void;
+  hasRoundTrip?: boolean;
+  onManageRoundTrip?: () => void;
   onReload: () => void;
   onVisitStatusChange: (
     actId: string,
@@ -222,6 +224,8 @@ export function TripItineraryTab({
   onEditActivity,
   onAddActivity,
   onAddTransfer,
+  hasRoundTrip = false,
+  onManageRoundTrip,
   onReload,
   onVisitStatusChange,
   onActivityDeleted,
@@ -403,6 +407,21 @@ export function TripItineraryTab({
 
   return (
     <TabsContent value="itinerary" className="mt-4 space-y-3">
+      {onManageRoundTrip ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={onManageRoundTrip}
+          >
+            <Plane className="h-3.5 w-3.5" />
+            {hasRoundTrip ? "Editar ida e volta" : "Adicionar ida e volta"}
+          </Button>
+        </div>
+      ) : null}
+
       {disableRoutes ? (
         <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 dark:border-amber-400/20 dark:bg-amber-500/15">
           <span
