@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   addDays,
   addMonths,
@@ -12,7 +11,7 @@ import {
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CornerDownRight, DollarSign, ExternalLink, Plus, Stethoscope, Trash2, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, CornerDownRight, DollarSign, Plus, Stethoscope, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -24,6 +23,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FORM_DIALOG_CONTENT_CLASS_LG } from "@/components/FormLabel";
+import { ProjectPill } from "@/components/tasks/ProjectPill";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { AgendaHourGrid } from "./AgendaHourGrid";
 import { EventFormDialog } from "./EventFormDialog";
@@ -1118,12 +1118,11 @@ export function AgendaGrid({
         extraActions={
           <>
             {editingEventProject ? (
-              <Button variant="outline" size="sm" className="gap-1.5" asChild>
-                <Link to={`/tasks/projects/${editingEventProject.id}`}>
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Ir para o projeto
-                </Link>
-              </Button>
+              <ProjectPill
+                project={editingEventProject}
+                to={`/tasks/projects/${editingEventProject.id}`}
+                className="text-xs"
+              />
             ) : null}
             {/* Feature 076: convidar — só no evento com projeto próprio (não cópia por convite). */}
             {eventDialog.editing?.project_id ? (

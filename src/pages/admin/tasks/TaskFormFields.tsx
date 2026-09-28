@@ -41,6 +41,7 @@ import type {
 } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import type { Dimension } from "@/types/dimensions";
+import { PROJECT_FALLBACK_COLOR } from "@/lib/design-tokens";
 
 /** Quantas letras da descrição aparecem no gatilho colapsado antes das reticências. */
 const DESCRIPTION_SUMMARY_MAX = 80;
@@ -290,7 +291,7 @@ export function TaskFormFields({
                     className="h-2 w-2 shrink-0 rounded-full"
                     style={{
                       backgroundColor:
-                        projects.find((p) => p.id === form.project_id)?.color ?? "#94a3b8",
+                        projects.find((p) => p.id === form.project_id)?.color ?? PROJECT_FALLBACK_COLOR,
                     }}
                   />
                   <span className="truncate">

@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { PageShell } from "@/components/PageShell";
+import { ProjectPill } from "@/components/tasks/ProjectPill";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import {
   deleteShoppingCategory,
@@ -144,11 +145,8 @@ export default function ShoppingList() {
     () => projects.find((project) => project.id === projectFilter) ?? null,
     [projects, projectFilter]
   );
-  const projectNameById = useMemo(
-    () =>
-      Object.fromEntries(
-        projects.map((project) => [project.id, project.name])
-      ) as Record<string, string | undefined>,
+  const projectById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project])),
     [projects]
   );
   const pendingByCategory = useMemo(
@@ -314,7 +312,11 @@ export default function ShoppingList() {
         />
       ) : (
         <div className="space-y-4">
-          {groups.map(({ category, items: categoryItems, synthetic }) => (
+          {groups.map(({ category, items: categoryItems, synthetic }) => {
+            const categoryProject = category?.project_id
+              ? projectById.get(category.project_id) ?? null
+              : null;
+            return (
             <section
               key={category?.id ?? UNCATEGORIZED_GROUP_ID}
               className="space-y-2.5 rounded-xl border bg-card p-3.5 shadow-sm sm:p-5"
@@ -353,13 +355,13 @@ export default function ShoppingList() {
                       categorias visíveis são do mesmo projeto e o nome já está no cabeçalho da
                       página — repeti-lo em cada seção seria ruído.
                     */}
-                    {category &&
-                      !projectFilter &&
-                      projectNameById[category.project_id ?? ""] && (
-                        <Badge variant="secondary" className="shrink-0 text-[10px]">
-                          {projectNameById[category.project_id ?? ""]}
-                        </Badge>
-                      )}
+                    {categoryProject && !projectFilter && (
+                      <ProjectPill
+                        project={categoryProject}
+                        to={`/tasks/projects/${categoryProject.id}`}
+                        className="shrink-0"
+                      />
+                    )}
                   </div>
                   {category?.description && (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -440,7 +442,8 @@ export default function ShoppingList() {
                 </ul>
               )}
             </section>
-          ))}
+            );
+          })}
         </div>
       )}
 

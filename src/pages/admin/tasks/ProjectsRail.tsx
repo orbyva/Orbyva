@@ -1,6 +1,7 @@
 import { FolderKanban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/types/tasks";
+import { PROJECT_FALLBACK_COLOR } from "@/lib/design-tokens";
 
 /**
  * Coluna de projetos à esquerda da aba Lista (`TaskList.tsx`). Dispara o mesmo `projectFilter`
@@ -48,7 +49,7 @@ export function ProjectsRail({
           >
             <span
               className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: project.color ?? "#94a3b8" }}
+              style={{ backgroundColor: project.color ?? PROJECT_FALLBACK_COLOR }}
             />
             <span className="truncate">{project.name}</span>
           </button>

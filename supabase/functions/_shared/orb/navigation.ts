@@ -179,8 +179,10 @@ export const ORB_SCREENS: readonly OrbScreen[] = [
     id: "notes",
     label: "Notas",
     path: "/notes",
-    hint: "Notas e canvas.",
-    filters: [BUSCA_LIVRE("no título e no corpo da nota")],
+    hint: "Notas e canvas. Também é a tela para 'as notas do projeto X'.",
+    // Feature 114 — `project` entra no FIM, como manda a convenção do arquivo: acrescentar no meio
+    // muda o prefixo cacheado do prompt. `/notes` lê o parâmetro e recorta a lista pelo projeto.
+    filters: [BUSCA_LIVRE("no título e no corpo da nota"), FILTRO_PROJETO],
   },
   {
     id: "note_detail",

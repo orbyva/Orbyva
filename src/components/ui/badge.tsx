@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
@@ -20,10 +21,20 @@ const badgeVariants = cva(
   },
 );
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
+export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {
+  /**
+   * Empresta o visual do badge ao elemento filho em vez de embrulhá-lo num `<div>` (feature 111):
+   * é o que permite ao `ProjectPill` ser um `<span>` ou um `<Link>` conforme o lugar — `<div>`
+   * dentro do `<button>` do `PopoverTrigger` não é markup válido, e `<button>` dentro de `<button>`
+   * é pior ainda. Padrão do shadcn (mesmo mecanismo do `Button`), aditivo: sem `asChild` o `Badge`
+   * continua sendo exatamente o `<div>` de sempre.
+   */
+  asChild?: boolean;
+}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+function Badge({ className, variant, asChild = false, ...props }: BadgeProps) {
+  const Comp = asChild ? Slot : "div";
+  return <Comp className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
 export { Badge, badgeVariants };

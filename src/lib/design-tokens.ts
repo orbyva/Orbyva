@@ -17,6 +17,16 @@ export const moduleColors = {
   health: "hsl(350 89% 60%)",
 } as const;
 
+/**
+ * Cor da bolinha do pill de um projeto **sem `color` definida** no banco — projeto sem cor não
+ * deixa de ter pill. Era um literal `"#94a3b8"` repetido à mão em quatro arquivos de tarefas
+ * (feature 111); mudar o cinza em um deles e esquecer os outros era questão de tempo.
+ *
+ * Hex cru (não `hsl(var(--…))`) de propósito: o valor vai para `style={{ backgroundColor }}`, no
+ * mesmo lugar onde entra `project.color`, que também é hex vindo do banco.
+ */
+export const PROJECT_FALLBACK_COLOR = "#94a3b8";
+
 export const statusBadgeStyles: Record<string, string> = {
   OK: "bg-success/15 text-success border-success/30",
   ATENCAO: "bg-warning/15 text-warning border-warning/30",

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { AgendaGrid } from "@/pages/admin/tasks/AgendaGrid";
@@ -18,6 +18,9 @@ import type { Project, ProjectEvent } from "@/types/tasks";
  * assumia que todo evento tinha projeto (cor do chip, badge, link "Ir para o projeto"), então este
  * arquivo trava o comportamento do evento sem projeto: ele aparece, com cor neutra, com rótulo
  * próprio, e sem link para um projeto que não existe.
+ *
+ * Feature 112: o botão separado "Ir para o projeto" saiu — quem leva ao projeto agora é o próprio
+ * pill colorido. As afirmações abaixo passaram a ser sobre o pill, não sobre o botão.
  */
 
 vi.mock("@/api/tasks", () => ({
@@ -125,7 +128,7 @@ describe("AgendaGrid — evento sem projeto (recebido por convite, feature 076)"
     );
   });
 
-  it("abrir o evento sem projeto mostra o rótulo de convite e não oferece 'Ir para o projeto'", async () => {
+  it("abrir o evento sem projeto mostra o rótulo de convite e nenhum link para projeto", async () => {
     const user = userEvent.setup();
     mockedFetchProjectEvents.mockResolvedValue([
       makeEvent({ id: "event-convite", project_id: null, title: "Reunião do convite" }),
@@ -135,13 +138,20 @@ describe("AgendaGrid — evento sem projeto (recebido por convite, feature 076)"
     await user.click(screen.getByText("Reunião do convite"));
 
     expect(await screen.findByText("Recebido por convite")).toBeInTheDocument();
-    expect(screen.queryByText("Ir para o projeto")).not.toBeInTheDocument();
-    expect(screen.queryByText("Lançamento")).not.toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    // Feature 112: nem o botão antigo, nem o pill-link novo — não há projeto para onde ir.
+    expect(within(dialog).queryByText("Ir para o projeto")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("link")).toBeNull();
+    expect(within(dialog).queryByText("Lançamento")).not.toBeInTheDocument();
+    // O rótulo neutro é badge morto: sem bolinha de cor de projeto.
+    expect(
+      within(dialog).getByText("Recebido por convite").querySelector('span[aria-hidden="true"]')
+    ).toBeNull();
     // Excluir continua disponível: a cópia é do convidado, ele pode apagar.
     expect(screen.getByText("Excluir")).toBeInTheDocument();
   });
 
-  it("evento com projeto continua mostrando o projeto e o link, sem regressão", async () => {
+  it("evento com projeto leva ao projeto pelo pill colorido, sem botão separado", async () => {
     const user = userEvent.setup();
     mockedFetchProjectEvents.mockResolvedValue([
       makeEvent({ id: "event-com", project_id: "project-1", title: "Evento com projeto" }),
@@ -150,8 +160,16 @@ describe("AgendaGrid — evento sem projeto (recebido por convite, feature 076)"
     await renderLoaded();
     await user.click(screen.getByText("Evento com projeto"));
 
-    expect(await screen.findByText("Lançamento")).toBeInTheDocument();
-    expect(screen.getByText("Ir para o projeto")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog");
+    const pill = within(dialog).getByRole("link", { name: /Lançamento/ });
+    expect(pill).toHaveAttribute("href", "/tasks/projects/project-1");
+    // A bolinha sai na cor do projeto — era exatamente o que o badge cinza de antes não mostrava.
+    expect(pill.querySelector('span[aria-hidden="true"]')).toHaveStyle({
+      backgroundColor: "#8b5cf6",
+    });
+    // O botão separado sumiu: o pill é o único caminho para o projeto.
+    expect(within(dialog).queryByText("Ir para o projeto")).not.toBeInTheDocument();
+    expect(within(dialog).getAllByRole("link")).toHaveLength(1);
     expect(screen.queryByText("Recebido por convite")).not.toBeInTheDocument();
   });
 });

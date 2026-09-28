@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import ShoppingList from "@/pages/admin/shopping/ShoppingList";
 import { ProjectShoppingSection } from "@/pages/admin/shopping/ProjectShoppingSection";
+import { PROJECT_FALLBACK_COLOR } from "@/lib/design-tokens";
 import type { ShoppingCategory, ShoppingItem } from "@/types/shopping";
 
 /**
@@ -19,7 +20,7 @@ const { store } = vi.hoisted(() => ({
   store: {
     categories: [] as ShoppingCategory[],
     items: [] as ShoppingItem[],
-    projects: [] as { id: string; name: string }[],
+    projects: [] as { id: string; name: string; color?: string | null }[],
   },
 }));
 
@@ -74,8 +75,9 @@ function deleteProject(projectId: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   store.projects = [
-    { id: "p1", name: "Obra da casa" },
-    { id: "p2", name: "Setup do estúdio" },
+    // Cor de verdade: é ela que o pill do projeto (feature 112) tem de pintar na bolinha.
+    { id: "p1", name: "Obra da casa", color: "#ff6600" },
+    { id: "p2", name: "Setup do estúdio", color: "#2266ff" },
   ];
   store.categories = [
     { id: "c1", name: "Materiais", project_id: "p1" },
@@ -184,5 +186,72 @@ describe("Lista de Compras — itens por categoria de um projeto específico", (
     expect(
       screen.queryByRole("heading", { name: "Materiais", level: 2 })
     ).toBeNull();
+  });
+});
+
+/**
+ * Feature 112: o nome do projeto na seção deixou de ser um `Badge` cinza morto e virou o
+ * `ProjectPill` — bolinha na cor do projeto e link para a página dele. Como Chrome é proibido na
+ * esteira, é aqui que isso fica provado.
+ */
+describe("Lista de Compras — pill do projeto na seção da categoria (feature 112)", () => {
+  /** A bolinha do pill: o span decorativo de dentro do link. */
+  function dotOf(pill: HTMLElement): HTMLElement {
+    const dot = pill.querySelector<HTMLElement>('span[aria-hidden="true"]');
+    if (!dot) throw new Error("bolinha do pill não encontrada");
+    return dot;
+  }
+
+  it("sem filtro, a categoria de projeto mostra o pill com a cor do projeto e link para ele", async () => {
+    renderList();
+
+    await screen.findByRole("heading", { name: "Materiais", level: 2 });
+    const pill = within(sectionFor("Materiais")).getByRole("link", {
+      name: /Obra da casa/,
+    });
+    expect(pill).toHaveAttribute("href", "/tasks/projects/p1");
+    expect(dotOf(pill)).toHaveStyle({ backgroundColor: "#ff6600" });
+    // Cada seção leva ao **seu** projeto, não ao primeiro da lista.
+    const outro = within(sectionFor("Áudio")).getByRole("link", {
+      name: /Setup do estúdio/,
+    });
+    expect(outro).toHaveAttribute("href", "/tasks/projects/p2");
+    expect(dotOf(outro)).toHaveStyle({ backgroundColor: "#2266ff" });
+  });
+
+  it("o badge cinza sem cor não existe mais na seção", async () => {
+    const { container } = renderList();
+
+    await screen.findByRole("heading", { name: "Materiais", level: 2 });
+    expect(container.querySelector(".bg-secondary")).toBeNull();
+  });
+
+  it("com ?project=p1 na URL, o pill some das seções — o nome já está no topo", async () => {
+    renderList("/shopping-list?project=p1");
+
+    await screen.findByRole("heading", { name: "Materiais", level: 2 });
+    expect(
+      within(sectionFor("Materiais")).queryByRole("link", { name: /Obra da casa/ })
+    ).toBeNull();
+  });
+
+  it("categoria sem projeto não ganha pill nenhum", async () => {
+    renderList();
+
+    await screen.findByRole("heading", { name: "Mercado", level: 2 });
+    expect(within(sectionFor("Mercado")).queryByRole("link")).toBeNull();
+    expect(within(sectionFor("Mercado")).queryByText("Sem projeto")).toBeNull();
+  });
+
+  it("projeto sem cor cai no cinza padrão, e o pill continua clicável", async () => {
+    store.projects = [{ id: "p1", name: "Obra da casa", color: null }];
+    renderList();
+
+    await screen.findByRole("heading", { name: "Materiais", level: 2 });
+    const pill = within(sectionFor("Materiais")).getByRole("link", {
+      name: /Obra da casa/,
+    });
+    expect(dotOf(pill)).toHaveStyle({ backgroundColor: PROJECT_FALLBACK_COLOR });
+    expect(pill).toHaveAttribute("href", "/tasks/projects/p1");
   });
 });

@@ -15,6 +15,7 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ModuleGuide, ModuleGuideButton } from "@/components/ModuleGuide";
 import { PageShell } from "@/components/PageShell";
+import { ProjectPill } from "@/components/tasks/ProjectPill";
 import { TableLoadingSkeleton } from "@/components/TableLoadingSkeleton";
 import { createNote, deleteNote, fetchNotes, updateNote } from "@/api/notes/notes";
 import { deleteNoteFolder, fetchNoteFolders, updateNoteFolder } from "@/api/notes/folders";
@@ -38,6 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTouchDrag } from "@/hooks/useTouchDrag";
 import { formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
+import { looksLikeId } from "@/lib/ids";
 import { cn } from "@/lib/utils";
 import type { Note, NoteFolder, NoteKind } from "@/types/notes";
 import type { Project, Tag } from "@/types/tasks";
@@ -63,10 +65,13 @@ export default function Notes() {
   const dragNoteIdRef = useRef<string | null>(null);
   const dragFolderIdRef = useRef<string | null>(null);
   const skipOpenAfterDrag = useRef(false);
+  const loadSequence = useRef(0);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const folderNav = parseFolderParam(searchParams.get("folder"));
+  const projectFilter = searchParams.get("project");
+  const validProjectFilter = projectFilter && looksLikeId(projectFilter) ? projectFilter : null;
 
   function setFolderNav(next: FolderNav) {
     const params = new URLSearchParams(searchParams);
@@ -81,45 +86,47 @@ export default function Notes() {
    * quando só os parâmetros mudam, então ler no `useState` inicial pegaria apenas a primeira.
    */
   useEffect(() => {
-    const busca = searchParams.get("q");
-    if (busca !== null) setQuery(busca);
+    setQuery(searchParams.get("q") ?? "");
   }, [searchParams]);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
+    setLoading(true);
     try {
       const [noteList, folderList, projectList, tagList] = await Promise.all([
-        fetchNotes(),
+        projectFilter && !validProjectFilter
+          ? Promise.resolve([])
+          : fetchNotes({ projectId: validProjectFilter }),
         fetchNoteFolders(),
         fetchProjects(),
         fetchTags(),
       ]);
+      if (sequence !== loadSequence.current) return;
       setNotes(noteList);
       setFolders(folderList);
       setProjects(projectList);
       setTags(tagList);
     } catch (error) {
+      if (sequence !== loadSequence.current) return;
       toast({
         variant: "destructive",
         title: "Erro",
         description: getErrorMessage(error, "Não foi possível carregar as notas."),
       });
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
-  }, [toast]);
+  }, [projectFilter, validProjectFilter, toast]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const projectNameById = useMemo(
-    () =>
-      Object.fromEntries(projects.map((p) => [p.id, p.name])) as Record<
-        string,
-        string | undefined
-      >,
+  const projectById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project])),
     [projects]
   );
+  const filteredProject = projectFilter ? projectById.get(projectFilter) ?? null : null;
   const folderNameById = useMemo(
     () =>
       Object.fromEntries(folders.map((f) => [f.id, f.name])) as Record<
@@ -157,7 +164,7 @@ export default function Notes() {
       const note = await createNote({
         title: "",
         content: "",
-        project_id: openFolder?.project_id ?? null,
+        project_id: validProjectFilter ?? openFolder?.project_id ?? null,
         folder_id: openFolder?.id ?? null,
         kind,
         canvas_data: kind === "canvas" ? { elements: [] } : null,
@@ -336,8 +343,12 @@ export default function Notes() {
     (notes.length === 0 ? (
       <EmptyState
         icon={NotebookPen}
-        title="Nenhuma nota ainda"
-        description="Crie uma nota para guardar o que não cabe numa tarefa — pauta de reunião, rascunho, decisão de projeto."
+        title={projectFilter ? "Nenhuma nota neste projeto" : "Nenhuma nota ainda"}
+        description={
+          projectFilter
+            ? `${filteredProject ? `O projeto "${filteredProject.name}"` : "Este projeto"} ainda não tem nota. A que você criar aqui já nasce vinculada a ele.`
+            : "Crie uma nota para guardar o que não cabe numa tarefa — pauta de reunião, rascunho, decisão de projeto."
+        }
         action={
           <Button onClick={() => handleCreate("markdown")} disabled={creating}>
             Nova nota
@@ -348,7 +359,11 @@ export default function Notes() {
       <EmptyState
         icon={NotebookPen}
         title="Nenhuma nota encontrada"
-        description={`Nada com "${query}" no título nem no conteúdo.`}
+        description={
+          projectFilter
+            ? `Nada com "${query}" no título nem no conteúdo das notas ${filteredProject ? `de "${filteredProject.name}"` : "deste projeto"}.`
+            : `Nada com "${query}" no título nem no conteúdo.`
+        }
       />
     ) : visibleNotes.length === 0 ? (
       <EmptyState
@@ -485,7 +500,9 @@ export default function Notes() {
                   const elementCount = isCanvas
                     ? canvasElementCount(note.canvas_data)
                     : 0;
-                  const projectName = projectNameById[note.project_id ?? ""];
+                  const project = note.project_id
+                    ? projectById.get(note.project_id) ?? null
+                    : null;
                   const folderName =
                     folderNav == null
                       ? folderNameById[note.folder_id ?? ""]
@@ -524,17 +541,7 @@ export default function Notes() {
                         >
                           <GripVertical className="h-3.5 w-3.5" />
                         </span>
-                        <button
-                          type="button"
-                          className="min-w-0 flex-1 text-left"
-                          onClick={() => {
-                            if (skipOpenAfterDrag.current) {
-                              skipOpenAfterDrag.current = false;
-                              return;
-                            }
-                            navigate(notesDetailHref(note.id, folderNav));
-                          }}
-                        >
+                        <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             {isCanvas ? (
                               <PenTool
@@ -547,7 +554,13 @@ export default function Notes() {
                                 aria-label="Nota"
                               />
                             )}
-                            <h2 className="truncate font-semibold">{note.title}</h2>
+                            <button
+                              type="button"
+                              className="min-w-0 text-left"
+                              onClick={() => navigate(notesDetailHref(note.id, folderNav))}
+                            >
+                              <h2 className="truncate font-semibold">{note.title}</h2>
+                            </button>
                             {folderName && (
                               <Badge
                                 variant="outline"
@@ -556,37 +569,49 @@ export default function Notes() {
                                 {folderName}
                               </Badge>
                             )}
-                            {projectName && (
-                              <Badge
-                                variant="secondary"
-                                className="shrink-0 text-[10px]"
-                              >
-                                {projectName}
-                              </Badge>
+                            {project && (
+                              <ProjectPill
+                                project={project}
+                                to={`/tasks/projects/${project.id}`}
+                                className="shrink-0"
+                              />
                             )}
                           </div>
-                          {isCanvas ? (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {elementCount === 0
-                                ? "Canvas vazio"
-                                : `Canvas · ${elementCount} ${
-                                    elementCount === 1 ? "elemento" : "elementos"
-                                  }`}
+                          <div
+                            className="cursor-pointer"
+                            onClick={() => {
+                              if (skipOpenAfterDrag.current) {
+                                skipOpenAfterDrag.current = false;
+                                return;
+                              }
+                              navigate(notesDetailHref(note.id, folderNav));
+                            }}
+                            tabIndex={-1}
+                            aria-hidden="true"
+                          >
+                            {isCanvas ? (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {elementCount === 0
+                                  ? "Canvas vazio"
+                                  : `Canvas · ${elementCount} ${
+                                      elementCount === 1 ? "elemento" : "elementos"
+                                    }`}
+                              </p>
+                            ) : excerpt ? (
+                              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                {excerpt}
+                              </p>
+                            ) : (
+                              <p className="mt-1 text-xs italic text-muted-foreground">
+                                Nota vazia
+                              </p>
+                            )}
+                            <p className="mt-1.5 text-[11px] text-muted-foreground">
+                              Editada em {formatDateBR(note.updated_at)}
                             </p>
-                          ) : excerpt ? (
-                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                              {excerpt}
-                            </p>
-                          ) : (
-                            <p className="mt-1 text-xs italic text-muted-foreground">
-                              Nota vazia
-                            </p>
-                          )}
-                          <p className="mt-1.5 text-[11px] text-muted-foreground">
-                            Editada em {formatDateBR(note.updated_at)}
-                          </p>
-                        </button>
-                        <div data-no-note-drag>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1" data-no-note-drag>
                           <ConfirmDeleteDialog
                             title="Excluir esta nota?"
                             description="O conteúdo dela será perdido."

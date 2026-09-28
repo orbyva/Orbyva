@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { Project } from "@/types/tasks";
+import { PROJECT_FALLBACK_COLOR } from "@/lib/design-tokens";
 
 /**
  * Substitui o `<Select>` (dropdown) de Projeto no formulário de tarefa (`TaskList.tsx`) por uma
@@ -51,7 +52,7 @@ export function ProjectPicker({
           >
             <span
               className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: project.color ?? "#94a3b8" }}
+              style={{ backgroundColor: project.color ?? PROJECT_FALLBACK_COLOR }}
             />
             <span className="truncate">{project.name}</span>
           </button>

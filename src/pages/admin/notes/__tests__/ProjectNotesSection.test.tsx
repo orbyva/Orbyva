@@ -133,6 +133,34 @@ describe("Notas do projeto (dentro da página do projeto)", () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * Feature 114 — a ponte projeto → `/notes`. É o "link dentro do projeto para notas do projeto"
+   * pedido pelo usuário: sem ele, `fetchNotes({ projectId })` existe mas nenhuma URL o alcança.
+   */
+  it("o cabeçalho tem o link 'Ver todas em Notas' apontando para /notes?project=<id>", async () => {
+    renderSection();
+
+    const link = await screen.findByRole("link", { name: "Ver todas em Notas" });
+    expect(link).toHaveAttribute("href", "/notes?project=p1");
+    // É um `<a>` de verdade (Button asChild), não um botão que finge: abre em nova aba, tem href.
+    expect(link.tagName).toBe("A");
+  });
+
+  it("o link aparece mesmo com o projeto sem nota nenhuma, e ao lado de 'Nova nota'", async () => {
+    render(
+      <MemoryRouter>
+        <ProjectNotesSection projectId="p9" showHeading={false} />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Nenhuma nota neste projeto");
+    const region = screen.getByRole("region", { name: "Notas do projeto" });
+    expect(
+      within(region).getByRole("link", { name: "Ver todas em Notas" })
+    ).toHaveAttribute("href", "/notes?project=p9");
+    expect(within(region).getAllByRole("button", { name: "Nova nota" })).not.toHaveLength(0);
+  });
+
   it("criar pela página do projeto já nasce vinculada e abre o editor", async () => {
     const user = userEvent.setup();
     renderSection();

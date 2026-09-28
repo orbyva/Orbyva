@@ -253,3 +253,57 @@ describe("`task` — destino por id na tela de tarefas (feature 102)", () => {
     expect(String((result as { error: string }).error)).toContain("não filtra por");
   });
 });
+
+/**
+ * Feature 114 — `/notes?project=<id>`. Sem `project` no elenco de filtros da tela `notes`, a Orb
+ * recusa ("a tela notes não filtra por project") e o recorte novo fica inalcançável por ela.
+ */
+describe("`project` na tela de notas (feature 114)", () => {
+  it("a tela `notes` declara `project`, no FIM da lista de filtros", () => {
+    const notas = findOrbScreen("notes")!;
+    const filtro = notas.filters.find((f) => f.field === "project");
+    expect(filtro?.param).toBe("project");
+    // Último da lista: acrescentar no meio muda o prefixo cacheado do prompt (regra de `registry.ts`).
+    expect(notas.filters[notas.filters.length - 1].field).toBe("project");
+    // A busca livre, que já existia, continua lá — o filtro novo soma, não substitui.
+    expect(notas.filters.some((f) => f.field === "search")).toBe(true);
+  });
+
+  it("`open_screen` resolve o projeto pelo nome e monta `/notes?project=<id>`", async () => {
+    const db = fakeDb({ project: [{ id: "p-7", name: "Obra da casa" }] });
+    const { ok, result } = await runOrbTool(
+      "open_screen",
+      { screen: "notes", project: "obra da casa" },
+      ctx(db)
+    );
+
+    expect(ok).toBe(true);
+    expect(result).toMatchObject({ path: "/notes?project=p-7", screen: "notes", label: "Notas" });
+    // E o caminho que a tool montou passa pela validação do client, que é quem chama `navigate()`.
+    expect(isOrbNavigablePath((result as { path: string }).path)).toBe(true);
+  });
+
+  it("o recorte soma com a busca livre em vez de substituí-la", async () => {
+    const db = fakeDb({ project: [{ id: "p-7", name: "Obra da casa" }] });
+    const { ok, result } = await runOrbTool(
+      "open_screen",
+      { screen: "notes", project: "obra da casa", search: "pauta" },
+      ctx(db)
+    );
+
+    expect(ok).toBe(true);
+    expect(result).toMatchObject({ path: "/notes?q=pauta&project=p-7" });
+  });
+
+  it("filtro que a tela de notas continua não aceitando segue recusado", async () => {
+    const db = fakeDb({});
+    const { ok, result } = await runOrbTool(
+      "open_screen",
+      { screen: "notes", status: "done" },
+      ctx(db)
+    );
+
+    expect(ok).toBe(false);
+    expect(String((result as { error: string }).error)).toContain("não filtra por");
+  });
+});
