@@ -57,6 +57,8 @@ vi.mock("@/api/notes/notes", () => ({
       kind: "markdown",
       canvas_data: null,
       ...draft,
+      // Espelha `normalizeNoteDraft`: rascunho sem pasta nasce na raiz, não `undefined`.
+      folder_id: draft.folder_id ?? null,
       title: "Sem título",
     };
     store.notes.push(created);
@@ -92,6 +94,7 @@ function makeNote(over: Partial<Note> = {}): Note {
     title: "Materiais",
     content: "cimento e areia",
     project_id: "11111111-1111-4111-8111-111111111111",
+    folder_id: null,
     kind: "markdown",
     canvas_data: null,
     updated_at: new Date(Date.UTC(2026, 7, 16, 12, 0)).toISOString(),
@@ -263,9 +266,7 @@ describe("Notas — recorte por projeto na URL (feature 114)", () => {
     renderNotes("/notes?project=nao-existe");
 
     expect(await screen.findByText("Nenhuma nota neste projeto")).toBeInTheDocument();
-    expect(
-      screen.getByText(/^Este projeto ainda não tem nota/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/O endereço contém um projeto inválido/)).toBeInTheDocument();
     // Nada de `undefined` no texto e nenhum toast de falha: a consulta só não casou nada.
     expect(screen.queryByText(/undefined/)).toBeNull();
     expect(toastMock).not.toHaveBeenCalled();

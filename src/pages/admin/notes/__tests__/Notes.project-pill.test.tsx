@@ -60,6 +60,7 @@ function makeNote(over: Partial<Note> = {}): Note {
     title: "Materiais",
     content: "cimento e areia",
     project_id: "p1",
+    folder_id: null,
     kind: "markdown",
     canvas_data: null,
     updated_at: new Date(Date.UTC(2026, 7, 16, 12, 0)).toISOString(),

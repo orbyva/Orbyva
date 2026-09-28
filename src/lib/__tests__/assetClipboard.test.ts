@@ -234,7 +234,11 @@ describe("copyAssetToClipboard", () => {
 describe("transcodeToPngBlob", () => {
   const png = new Blob(["png"], { type: "image/png" });
   let created: FakeImg[] = [];
-  let toBlob: ReturnType<typeof vi.fn>;
+  // A assinatura precisa vir junto: o `Mock` genérico do vitest 4 não é chamável, e este
+  // dublê é invocado direto pelo `toBlob` do canvas falso.
+  let toBlob: ReturnType<
+    typeof vi.fn<(cb: (blob: Blob | null) => void, type?: string) => void>
+  >;
   let canvas: { width: number; height: number; getContext: () => unknown; toBlob: unknown };
   let drawn: unknown[][] = [];
   let failLoad = false;

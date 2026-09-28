@@ -111,6 +111,7 @@ function canvasNote(over: Partial<Note> = {}): Note {
     title: "Arquitetura",
     content: "",
     project_id: null,
+    folder_id: null,
     kind: "canvas",
     canvas_data: toCanvasData([rect], { viewBackgroundColor: "#ffffff" }),
     ...over,
