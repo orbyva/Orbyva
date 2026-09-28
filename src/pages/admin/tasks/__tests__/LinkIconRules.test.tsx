@@ -46,10 +46,6 @@ vi.mock("@/api/tasks", () => ({
   updateLinkIconRule: vi.fn(),
   deleteLinkIconRule: vi.fn(),
   reorderLinkIconRules: vi.fn(),
-  fetchIconAssets: vi.fn().mockResolvedValue([]),
-  uploadIconAsset: vi.fn(),
-  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
-  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   // `/tasks/tags` é a outra tela de configuração do módulo e é de lá que sai o link para esta.
   fetchTags: vi.fn(),
   fetchTasks: vi.fn(),
@@ -57,6 +53,16 @@ vi.mock("@/api/tasks", () => ({
   updateTag: vi.fn(),
   deleteTag: vi.fn(),
 }));
+
+// Feature 131: a biblioteca de assets importa `@/api/tasks/iconAssets` direto (nunca o barril, que
+// arrastaria a API de tarefas inteira para o chunk de quem a monta) — é este mock que a intercepta.
+vi.mock("@/api/tasks/iconAssets", () => ({
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
+}));
+
 
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({

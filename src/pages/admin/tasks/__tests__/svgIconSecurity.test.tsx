@@ -4,12 +4,17 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TaskIconPicker } from "@/pages/admin/tasks/TaskIconPicker";
 import { TaskIconBadge } from "@/pages/admin/tasks/TaskIconBadge";
-import { fetchIconAssets, uploadIconAsset } from "@/api/tasks";
+import { fetchIconAssets, uploadIconAsset } from "@/api/tasks/iconAssets";
 
 vi.mock("@/api/tasks", () => ({
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
   saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
+}));
+
+// Feature 131: quem sobe o ícone é `@/components/assets/AssetUploadControls`, que importa
+// `@/api/tasks/iconAssets` direto — é este mock que intercepta o upload agora.
+vi.mock("@/api/tasks/iconAssets", () => ({
   uploadIconAsset: vi.fn(),
   fetchIconAssets: vi.fn().mockResolvedValue([]),
   deleteIconAsset: vi.fn().mockResolvedValue(undefined),
@@ -158,7 +163,7 @@ describe("segurança do SVG colado (feature 086)", () => {
   // "melhorar" a prévia amanhã trocando o `<img>` por markup embutido.
   it("nenhum arquivo do caminho do ícone usa dangerouslySetInnerHTML", () => {
     const files = [
-      "src/pages/admin/tasks/SvgIconPasteField.tsx",
+      "src/components/assets/SvgIconPasteField.tsx",
       "src/pages/admin/tasks/TaskIconPicker.tsx",
       "src/pages/admin/tasks/TaskIconBadge.tsx",
       "src/api/tasks/iconAssets.ts",

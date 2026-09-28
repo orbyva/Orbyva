@@ -7,7 +7,7 @@ import {
   SVG_ICON_REMOVED_WARNING,
   SvgIconPasteField,
   svgDataUri,
-} from "@/pages/admin/tasks/SvgIconPasteField";
+} from "@/components/assets/SvgIconPasteField";
 
 /**
  * O campo de colar SVG (feature 086) visto pelo que o usuário faz nele: colar, ver a prévia do que

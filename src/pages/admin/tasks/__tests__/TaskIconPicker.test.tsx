@@ -1,22 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { TaskIconPicker } from "@/pages/admin/tasks/TaskIconPicker";
 import {
   ICON_DELETE_WARNING,
   ICON_LIBRARY_EMPTY,
   ICON_LIBRARY_ERROR,
-  TaskIconPicker,
-} from "@/pages/admin/tasks/TaskIconPicker";
+} from "@/components/assets/AssetLibrary";
 import { TASK_ICON_PRESETS } from "@/pages/admin/tasks/TaskIconBadge";
 import { SHOPPING_TASK_ICON_KEY } from "@/domain/shopping/taskLink";
 import { MEDICATION_TASK_ICON_KEY } from "@/domain/health/medication";
-import { SVG_ICON_REMOVED_WARNING } from "@/pages/admin/tasks/SvgIconPasteField";
+import { SVG_ICON_REMOVED_WARNING } from "@/components/assets/SvgIconPasteField";
 import {
   deleteIconAsset,
   fetchIconAssets,
   renameIconAsset,
   uploadIconAsset,
-} from "@/api/tasks";
+} from "@/api/tasks/iconAssets";
 import type { IconAsset } from "@/types/tasks";
 
 vi.mock("@/api/tasks", () => ({
@@ -24,6 +24,14 @@ vi.mock("@/api/tasks", () => ({
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
   saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
+}));
+
+/**
+ * Feature 131: a biblioteca importa `@/api/tasks/iconAssets` **direto**, nunca o barril — senão o
+ * grafo inteiro da API de tarefas iria junto para o chunk de quem a montar. Consequência para o
+ * teste: é este mock que intercepta as quatro funções; o do barril acima já não as alcança.
+ */
+vi.mock("@/api/tasks/iconAssets", () => ({
   uploadIconAsset: vi.fn(),
   fetchIconAssets: vi.fn().mockResolvedValue([]),
   deleteIconAsset: vi.fn().mockResolvedValue(undefined),

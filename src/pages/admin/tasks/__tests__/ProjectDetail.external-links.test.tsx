@@ -41,10 +41,6 @@ vi.mock("@/api/tasks", () => ({
   deleteTask: vi.fn(),
   deleteTasks: vi.fn(),
   createTag: vi.fn(),
-  uploadIconAsset: vi.fn(),
-  fetchIconAssets: vi.fn().mockResolvedValue([]),
-  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
-  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   updateProject: vi.fn(),
   createProjectEvent: vi.fn(),
   deleteProjectEvent: vi.fn(),
@@ -52,6 +48,16 @@ vi.mock("@/api/tasks", () => ({
   updateTimeEntry: vi.fn(),
   deleteTimeEntry: vi.fn(),
 }));
+
+// Feature 131: a biblioteca de assets importa `@/api/tasks/iconAssets` direto (nunca o barril, que
+// arrastaria a API de tarefas inteira para o chunk de quem a monta) — é este mock que a intercepta.
+vi.mock("@/api/tasks/iconAssets", () => ({
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
+}));
+
 
 // Feature 106: a outra metade de "Referenciada em" vem das notas. Só o que é novo é dublado — o
 // resto do módulo continua real, como estes testes já esperavam.

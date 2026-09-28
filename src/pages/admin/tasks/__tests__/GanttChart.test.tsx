@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, type ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import type { Project, Task } from "@/types/tasks";
 import { formatDateTimeBR } from "@/lib/currency";
 
@@ -104,15 +105,20 @@ vi.mock("@/api/tasks", () => ({
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
   saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
-  // Feature 086: o popover de ícone carrega a biblioteca do usuário ao abrir.
-  fetchIconAssets: vi.fn().mockResolvedValue([]),
-  uploadIconAsset: vi.fn(),
-  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
-  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   updateTask: vi.fn(),
   createDependency: vi.fn(),
   deleteDependency: vi.fn(),
 }));
+
+// Feature 131: a biblioteca de assets importa `@/api/tasks/iconAssets` direto (nunca o barril, que
+// arrastaria a API de tarefas inteira para o chunk de quem a monta) — é este mock que a intercepta.
+vi.mock("@/api/tasks/iconAssets", () => ({
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
+}));
+
 
 import { GanttBarContent, GanttChart } from "@/pages/admin/tasks/GanttChart";
 import { createDependency, deleteDependency, updateTask } from "@/api/tasks";
@@ -348,14 +354,19 @@ describe("GanttChart — quick actions no card (feature 039)", () => {
       }),
     ];
     return render(
-      <GanttChart
-        tasks={ganttTasks}
-        projects={ganttProjects}
-        fullTasks={fullTasks}
-        fullProjects={[makeProject()]}
-        quickActionProjects={quickActionProjects}
-        {...overrides}
-      />
+      // O Gantt é elemento de rota no app, e o popover de quick actions monta o
+      // `ProjectBadgeButton`, que desde a feature 113 tem um `<Link>` ("Ir para o projeto") —
+      // `<Link>` sem Router acima estoura em `useContext(...) is null`.
+      <MemoryRouter>
+        <GanttChart
+          tasks={ganttTasks}
+          projects={ganttProjects}
+          fullTasks={fullTasks}
+          fullProjects={[makeProject()]}
+          quickActionProjects={quickActionProjects}
+          {...overrides}
+        />
+      </MemoryRouter>
     );
   }
 
@@ -522,13 +533,17 @@ describe("GanttChart — popover de quick actions sobrevive ao scroll virtualiza
       }),
     ];
     return render(
-      <GanttChart
-        tasks={ganttTasks}
-        projects={ganttProjects}
-        fullTasks={fullTasks}
-        fullProjects={[makeProject()]}
-        {...overrides}
-      />
+      // Mesmo motivo do bloco da feature 039: o `ProjectBadgeButton` dentro do popover de quick
+      // actions renderiza um `<Link>` desde a feature 113 e precisa de Router acima.
+      <MemoryRouter>
+        <GanttChart
+          tasks={ganttTasks}
+          projects={ganttProjects}
+          fullTasks={fullTasks}
+          fullProjects={[makeProject()]}
+          {...overrides}
+        />
+      </MemoryRouter>
     );
   }
 

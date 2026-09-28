@@ -8,7 +8,9 @@ import { emptyTask } from "@/domain/tasks/taskDraft";
 import { DUE_DATE_SHORTCUTS, dueDateForShortcut } from "@/domain/tasks/agenda";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR } from "@/lib/currency";
-import { fetchTasksMentioningTask, uploadIconAsset } from "@/api/tasks";
+import { PROJECT_FALLBACK_COLOR } from "@/lib/design-tokens";
+import { fetchTasksMentioningTask } from "@/api/tasks";
+import { uploadIconAsset } from "@/api/tasks/iconAssets";
 import { fetchNotesMentioningTask } from "@/api/notes/notes";
 import type { Note } from "@/types/notes";
 import type {
@@ -33,14 +35,20 @@ vi.mock("@/api/tasks", () => ({
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
   saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
-  uploadIconAsset: vi.fn(),
-  fetchIconAssets: vi.fn().mockResolvedValue([]),
-  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
-  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   fetchEntriesForTask: vi.fn().mockResolvedValue([]),
   updateTimeEntry: vi.fn(),
   deleteTimeEntry: vi.fn(),
 }));
+
+// Feature 131: a biblioteca de assets importa `@/api/tasks/iconAssets` direto (nunca o barril, que
+// arrastaria a API de tarefas inteira para o chunk de quem a monta) — é este mock que a intercepta.
+vi.mock("@/api/tasks/iconAssets", () => ({
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
+}));
+
 
 vi.mock("@/api/recurring", () => ({
   createRecurringApi: vi.fn(),
@@ -68,6 +76,14 @@ vi.mock("@/hooks/use-toast", () => ({
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return { id: "project-1", name: "Projeto Alpha", status: "active", tag_ids: [], ...overrides };
+}
+
+/** A bolinha do bloco somente-leitura "Herdado da tarefa principal" (feature 111). */
+function inheritedProjectDot(): HTMLElement {
+  const row = screen.getByText("Herdado da tarefa principal").parentElement;
+  const dot = row?.querySelector<HTMLElement>('span[style*="background-color"]');
+  if (!dot) throw new Error("bolinha do projeto herdado não encontrada");
+  return dot;
 }
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -266,6 +282,21 @@ describe("TaskFormFields — painel único (feature 080)", () => {
 
     expect(screen.getByText("Herdado da tarefa principal")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sem projeto" })).not.toBeInTheDocument();
+    // Feature 111: `makeProject()` não tem `color`, então a bolinha do bloco herdado tem de cair
+    // na constante de fallback — não ficar transparente.
+    expect(inheritedProjectDot()).toHaveStyle({ backgroundColor: PROJECT_FALLBACK_COLOR });
+  });
+
+  it("subtarefa em edição pinta a bolinha do projeto herdado com a cor do projeto (feature 111)", () => {
+    render(
+      <Harness
+        editing={makeTask({ id: "sub-1", parent_task_id: "parent-1" })}
+        projects={[makeProject({ color: "#0ea5e9" })]}
+        initialForm={{ ...emptyTask(), parent_task_id: "parent-1", project_id: "project-1" }}
+      />
+    );
+
+    expect(inheritedProjectDot()).toHaveStyle({ backgroundColor: "#0ea5e9" });
   });
 
   it("a seção Registros de tempo só existe em modo edição", () => {
