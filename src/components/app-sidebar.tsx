@@ -78,9 +78,8 @@ const NAV_VIDA: NavItem = {
   icon: Target,
   items: [
     { title: "Hábitos", url: "/habits" },
-    // Feature 071: até aqui só se chegava em `/life/health` pelo card do hub ou pela URL — trocar a
-    // criação de medicação de lugar sem isto seria trocar um lugar ruim por um lugar escondido. A
-    // posição (logo depois de Hábitos) é a mesma que `HOME_MODULES` já usa no hub.
+    // Mesma posição do card em `HOME_MODULES` (logo depois de "Hábitos"). `isNavItemActive` casa
+    // por prefixo, então o item fica ativo também em `/life/health/medications`.
     { title: "Saúde", url: "/life/health" },
     { title: "Metas", url: "/goals" },
     { title: "Lugares", url: "/places" },

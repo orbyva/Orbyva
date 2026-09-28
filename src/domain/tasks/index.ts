@@ -19,3 +19,4 @@ export * from "./medication";
 export * from "./consultation";
 export * from "./svgIcon";
 export * from "./linkIconRules";
+export * from "./events";

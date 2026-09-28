@@ -88,7 +88,7 @@ describe("NoteEditor — barra de formatação", () => {
     renderEditor("");
 
     await user.click(screen.getByRole("textbox", { name: "Conteúdo" }));
-    await user.click(screen.getByRole("button", { name: /Inserir/ }));
+    await user.click(screen.getByRole("button", { name: "Inserir" }));
 
     await waitFor(() =>
       expect(screen.getByRole("option", { name: /Tabela/ })).toBeInTheDocument()
@@ -226,7 +226,7 @@ describe("NoteEditor — rodapé de contagem", () => {
 });
 
 /**
- * O modo "Dividido" (068). A decisão diz que ele **não existe** abaixo de `lg` — e "não existe" é
+ * O modo "Dividir" (068/070). A decisão diz que ele **não existe** abaixo de `lg` — e "não existe" é
  * diferente de "está escondido no CSS": aba escondida continua alcançável por teclado.
  */
 describe("NoteEditor — modo Dividido", () => {
@@ -253,13 +253,13 @@ describe("NoteEditor — modo Dividido", () => {
     setViewportMatches(false);
     renderEditor("# Reforma");
 
-    expect(screen.queryByRole("tab", { name: "Dividido" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Dividir" })).toBeNull();
     expect(screen.getByRole("tab", { name: "Escrever" })).toBeInTheDocument();
   });
 
   it("sem `matchMedia` nenhum (jsdom cru), o app não quebra e o modo some", () => {
     renderEditor("# Reforma");
-    expect(screen.queryByRole("tab", { name: "Dividido" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Dividir" })).toBeNull();
   });
 
   it("a partir de `lg`, o gatilho aparece e mostra editor e preview ao mesmo tempo", async () => {
@@ -267,7 +267,7 @@ describe("NoteEditor — modo Dividido", () => {
     setViewportMatches(true);
     renderEditor("# Reforma");
 
-    await user.click(screen.getByRole("tab", { name: "Dividido" }));
+    await user.click(screen.getByRole("tab", { name: "Dividir" }));
 
     // As duas metades vivas no mesmo painel: o editor (contenteditable) e o preview (o `<h1>`).
     expect(screen.getByRole("textbox", { name: "Conteúdo" })).toBeInTheDocument();
@@ -281,7 +281,7 @@ describe("NoteEditor — modo Dividido", () => {
     setViewportMatches(true);
     renderEditor("# Reforma");
 
-    await user.click(screen.getByRole("tab", { name: "Dividido" }));
+    await user.click(screen.getByRole("tab", { name: "Dividir" }));
 
     const panel = screen.getAllByRole("tabpanel")[0];
     const columns = [...panel.querySelectorAll(".overflow-y-auto")];

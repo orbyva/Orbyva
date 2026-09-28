@@ -920,6 +920,7 @@ describe("TaskFormFields — Referenciada em (feature 106)", () => {
     return {
       id: "note-9",
       project_id: null,
+      folder_id: null,
       title: "Reforma da sala",
       content: `Depende de [subir painel](orbyva-task:${TASK_REF_ID})`,
       kind: "markdown",

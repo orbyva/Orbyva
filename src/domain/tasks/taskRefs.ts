@@ -7,7 +7,8 @@
  * fábrica solta e acabar com dois parsers de tarefa discordando.
  *
  * Não confundir com o que já existe e não é isto: `note_link` (feature 056) é vínculo explícito
- * feito fora do texto, e a checklist do Markdown (`- [ ] fazer x`, `domain/notes/taskList.ts`) é
+ * feito fora do texto, e a checklist do Markdown (`- [ ] fazer x`,
+ * `domain/notes/markdownCommands.ts`) é
  * marcação solta no corpo da nota, que não é linha de `public.task` nenhuma. Esta aqui é texto que
  * aponta para uma tarefa de verdade, por id.
  *

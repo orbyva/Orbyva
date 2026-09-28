@@ -57,6 +57,8 @@ function note(projectId: string | null): Note {
     title: "Reforma",
     content: "",
     project_id: projectId,
+    // Pastas de notas (099): a coluna é nullable, "sem pasta" é a raiz.
+    folder_id: null,
     kind: "markdown",
     canvas_data: null,
   };

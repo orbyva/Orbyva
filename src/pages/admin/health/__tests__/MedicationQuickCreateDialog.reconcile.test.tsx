@@ -32,6 +32,13 @@ vi.mock("@/hooks/use-toast", () => ({
   toast: toastMock,
 }));
 
+// O dialog passou a usar `useNavigate` (ação "Ver na agenda" no toast). Este arquivo não cobre
+// navegação — só a reconciliação de doses — então o hook é mockado sem `MemoryRouter`.
+vi.mock("react-router-dom", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-router-dom")>()),
+  useNavigate: () => vi.fn(),
+}));
+
 vi.mock("@/lib/supabase", () => {
   function tableRows(table: string): AnyRow[] {
     if (table === "medication") return store.medication;

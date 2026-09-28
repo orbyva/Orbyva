@@ -25,7 +25,12 @@ function stateFor(doc: string, cursor = 0): EditorState {
   return state;
 }
 
-type Deco = { from: number; to: number; kind: "mark" | "replace"; class?: string };
+type Deco = {
+  from: number;
+  to: number;
+  kind: "mark" | "replace" | "line";
+  class?: string;
+};
 
 function decorationsOf(doc: string, cursor = 0): Deco[] {
   const state = stateFor(doc, cursor);
@@ -33,7 +38,10 @@ function decorationsOf(doc: string, cursor = 0): Deco[] {
   const found: Deco[] = [];
   set.between(0, state.doc.length, (from, to, value) => {
     const cls = (value.spec as { class?: string }).class;
-    found.push({ from, to, kind: cls ? "mark" : "replace", class: cls });
+    // Decoração de **linha** é um ponto (`from === to`) no começo da linha; `mark` e `replace`
+    // sempre cobrem um trecho (feature 070).
+    const kind = from === to ? "line" : cls ? "mark" : "replace";
+    found.push({ from, to, kind, class: cls });
   });
   return found;
 }
@@ -50,6 +58,14 @@ function marked(doc: string, cursor = 0): [string, string][] {
   return decorationsOf(doc, cursor)
     .filter((d) => d.kind === "mark")
     .map((d) => [d.class ?? "", doc.slice(d.from, d.to)]);
+}
+
+/** Classes de linha, com o número da linha que cada uma pinta. */
+function lineClasses(doc: string, cursor = 0): [string, number][] {
+  const state = stateFor(doc, cursor);
+  return decorationsOf(doc, cursor)
+    .filter((d) => d.kind === "line")
+    .map((d) => [d.class ?? "", state.doc.lineAt(d.from).number]);
 }
 
 describe("live preview — decorações", () => {
@@ -123,11 +139,79 @@ describe("live preview — decorações", () => {
     expect(hidden(doc, doc.length)).toEqual([]);
   });
 
+  /**
+   * Feature 070: o live preview passou a cobrir também link, lista, citação e bloco de código —
+   * o que uma nota de verdade tem em toda página.
+   */
+  it("pinta o fundo de todas as linhas do bloco de código, cercas incluídas", () => {
+    const doc = "texto\n```ts\nconst a = 1;\n```";
+    expect(lineClasses(doc, 0)).toEqual([
+      ["cm-md-fence-line", 2],
+      ["cm-md-fence-line", 3],
+      ["cm-md-fence-line", 4],
+    ]);
+    // A linguagem do fence sai em cinza menor, como um rótulo.
+    expect(marked(doc, 0)).toContainEqual(["cm-md-code-info", "ts"]);
+  });
+
+  it("marca a barra da citação em todas as linhas dela, sem esconder o `>`", () => {
+    const doc = "> uma citação\n> em duas linhas";
+    expect(lineClasses(doc, 0)).toEqual([
+      ["cm-md-quote-line", 1],
+      ["cm-md-quote-line", 2],
+    ]);
+    expect(marked(doc, 0)).toContainEqual(["cm-md-quote-mark", ">"]);
+    // O `>` continua no documento e na tela: escondê-lo tiraria como sair da citação.
+    expect(hidden(doc, 0)).toEqual([]);
+  });
+
+  it("citação dentro de citação não pinta a mesma linha duas vezes", () => {
+    const doc = "> > aninhada";
+    expect(lineClasses(doc, 0)).toEqual([["cm-md-quote-line", 1]]);
+  });
+
+  it("destaca o marcador da lista, com ou sem número", () => {
+    expect(marked("- item", 6)).toContainEqual(["cm-md-list-mark", "-"]);
+    expect(marked("1. item", 7)).toContainEqual(["cm-md-list-mark", "1."]);
+    expect(marked("- [ ] tarefa", 12)).toContainEqual(["cm-md-list-mark", "-"]);
+  });
+
+  it("colore o link e destaca a URL, sem esconder nem reescrever nada", () => {
+    const doc = "veja o [site](https://orbyva.app) aqui";
+    const classes = marked(doc, doc.length);
+    expect(classes).toContainEqual(["cm-md-link", "[site](https://orbyva.app)"]);
+    expect(classes).toContainEqual(["cm-md-url", "https://orbyva.app"]);
+    expect(hidden(doc, doc.length)).toEqual([]);
+  });
+
   it("as decorações são view-only: o documento continua idêntico", () => {
     const doc = "# Título\n\n**negrito** com `código`";
     const state = stateFor(doc, doc.length);
     buildLivePreviewDecorations(state);
     // Nenhuma decoração toca o texto — é o contrato de "markdown na veia".
+    expect(state.doc.toString()).toBe(doc);
+  });
+
+  it("nem com os recursos novos: link, lista, citação e fence também são só view", () => {
+    const doc = [
+      "# Título",
+      "",
+      "> citação com [link](https://orbyva.app)",
+      "",
+      "- item",
+      "1. numerado",
+      "",
+      "```ts",
+      "const a = 1;",
+      "```",
+    ].join("\n");
+    const state = stateFor(doc, 0);
+    const set = buildLivePreviewDecorations(state);
+    // Há decoração de sobra…
+    let count = 0;
+    set.between(0, state.doc.length, () => void (count += 1));
+    expect(count).toBeGreaterThan(5);
+    // …e mesmo assim o documento é byte a byte o que o usuário escreveu.
     expect(state.doc.toString()).toBe(doc);
   });
 });
@@ -137,28 +221,28 @@ describe("live preview — decorações", () => {
  * a marcação volta a aparecer na linha do cursor, e o documento nunca muda.
  */
 describe("live preview — citação, lista e link (068)", () => {
-  it("marca a citação inteira e esconde o `>` junto do espaço", () => {
+  it("marca a citação inteira e destaca o `>` (sem esconder — a barra de linha já orienta)", () => {
     const doc = "> prazo do cartório\n\noutra linha";
-    // Cursor na última linha: a citação não é a linha ativa.
-    expect(hidden(doc, doc.length)).toEqual(["> "]);
-    expect(marked(doc, doc.length)).toEqual([
-      ["cm-md-quote", "> prazo do cartório"],
+    // Cursor na última linha: a citação não é a linha ativa, mas o `>` fica visível com classe.
+    expect(hidden(doc, doc.length)).toEqual([]);
+    expect(marked(doc, doc.length)).toContainEqual([
+      "cm-md-quote-mark",
+      ">",
     ]);
+    expect(lineClasses(doc, doc.length)).toContainEqual(["cm-md-quote-line", 1]);
   });
 
-  it("com o cursor na citação, o `>` reaparece", () => {
+  it("com o cursor na citação, o `>` continua marcado", () => {
     const doc = "> prazo do cartório\n\noutra linha";
     expect(hidden(doc, 5)).toEqual([]);
+    expect(marked(doc, 5)).toContainEqual(["cm-md-quote-mark", ">"]);
   });
 
-  it("o `-` da lista vira um marcador (widget), não some", () => {
+  it("o `-` da lista fica destacado (classe), não some", () => {
     const doc = "- comprar cimento\noutra linha";
-    const decorations = decorationsOf(doc, doc.length).filter(
-      (d) => d.kind === "replace"
-    );
-    expect(decorations).toHaveLength(1);
-    // Só o hífen é trocado; o espaço depois dele continua separando o texto.
-    expect(doc.slice(decorations[0].from, decorations[0].to)).toBe("-");
+    // Feature 070: o marcador recebe classe; trocá-lo por widget quebraria a edição do hífen.
+    expect(hidden(doc, doc.length)).toEqual([]);
+    expect(marked(doc, doc.length)).toContainEqual(["cm-md-list-mark", "-"]);
   });
 
   it("lista numerada mantém o número: `1.` é conteúdo, não marcação", () => {
@@ -166,26 +250,25 @@ describe("live preview — citação, lista e link (068)", () => {
     expect(hidden(doc, doc.length)).toEqual([]);
   });
 
-  it("com o cursor na linha da lista, o `-` volta a aparecer", () => {
+  it("com o cursor na linha da lista, o `-` continua destacado", () => {
     const doc = "- comprar cimento\noutra linha";
     expect(decorationsOf(doc, 3).filter((d) => d.kind === "replace")).toEqual([]);
+    expect(marked(doc, 3)).toContainEqual(["cm-md-list-mark", "-"]);
   });
 
-  it("link esconde colchetes, parênteses e URL, deixando só o texto", () => {
+  it("link destaca o endereço; fora da linha ativa, só a marcação `[]()` some", () => {
     const doc = "veja o [site da obra](https://exemplo.com) hoje\noutra linha";
-    expect(hidden(doc, doc.length)).toEqual([
-      "[",
-      "]",
-      "(",
-      "https://exemplo.com",
-      ")",
+    // Cursor na outra linha: colchetes/parênteses somem; a URL continua (é conteúdo, não só marcação).
+    expect(hidden(doc, doc.length)).toEqual(["[", "]", "(", ")"]);
+    const classes = marked(doc, doc.length);
+    expect(classes).toContainEqual([
+      "cm-md-link",
+      "[site da obra](https://exemplo.com)",
     ]);
-    expect(marked(doc, doc.length)).toEqual([
-      ["cm-md-link", "[site da obra](https://exemplo.com)"],
-    ]);
+    expect(classes).toContainEqual(["cm-md-url", "https://exemplo.com"]);
   });
 
-  it("com o cursor na linha do link, a marcação e a URL voltam", () => {
+  it("com o cursor na linha do link, a marcação e a URL continuam", () => {
     const doc = "veja o [site da obra](https://exemplo.com) hoje\noutra linha";
     expect(hidden(doc, 3)).toEqual([]);
   });

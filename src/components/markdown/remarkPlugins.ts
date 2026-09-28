@@ -13,13 +13,15 @@ import { remarkCallout } from "@/components/markdown/remarkCallout";
  *
  * Começa com `remark-gfm` (tabela, riscado, checklist, autolink), que é o que já existia.
  *
- * `remarkCallout` (067) é o primeiro plugin escrito aqui dentro: marca `> [!NOTE]` para o
- * `CalloutBlock` desenhar. Ele só **anota** o nó — nada de HTML.
+ * `remarkCallout` é o primeiro plugin escrito aqui dentro: marca `> [!NOTE]` para o
+ * `CalloutBlock` desenhar. Ele só **anota** o nó — nada de HTML. Título opcional na mesma linha
+ * (dialeto Obsidian) vira atributo; tipo desconhecido continua citação comum.
  *
- * `remark-math` (067) reconhece `$…$` e `$$…$$` e os entrega como `code.language-math`, que é
- * exatamente o formato que o `blockRegistry` já sabe rotear — por isso quem desenha a fórmula é o
- * `MathBlock`, registrado lá, e não um `rehype-katex` que arrastaria o KaTeX para dentro deste
- * chunk. Ver Decisões da 067.
+ * `remark-math` só **parseia** `$…$` e `$$…$$`; ele não desenha nada. O que ele entrega ao hast é
+ * `code.language-math` — o mesmo formato de fence que o `blockRegistry` já sabe rotear — e é por
+ * lá que `MathBlock`/`InlineMath` entram. Sem eles, uma fórmula degrada para o código-fonte em
+ * monoespaçada: legível, nunca em branco. O **rendering** é `katex`, carregado por `import()`
+ * dinâmico dentro do componente — não aqui, senão ele entraria no chunk da rota.
  *
  * **Cuidado com plugins que produzem HTML cru**: sem `rehype-raw` o `react-markdown` ignora HTML, e
  * é assim que o preview fica livre de XSS sem sanitizador (decisão da 055). Plugin que dependa de

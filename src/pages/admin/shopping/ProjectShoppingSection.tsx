@@ -32,6 +32,10 @@ const SECTION_TITLE = "Compras do projeto";
  *
  * É deliberadamente somente-leitura: editar, excluir e criar tarefa continuam sendo da Lista de
  * Compras, para onde o link leva já filtrado. Ver Notas da feature 052.
+ *
+ * Desde a feature 071 é o conteúdo da aba **"Compras"** (`?tab=compras`), ao lado de "Notas" —
+ * antes ficava empilhada abaixo das abas. Como o `TabsContent` do Radix desmonta o conteúdo
+ * inativo, os `fetch` daqui só acontecem quando o usuário abre a aba.
  */
 export function ProjectShoppingSection({
   projectId,

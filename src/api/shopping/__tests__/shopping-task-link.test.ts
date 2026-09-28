@@ -228,6 +228,36 @@ describe("createTaskFromShoppingItem", () => {
       "row level security"
     );
   });
+
+  /**
+   * Reabertura 2026-08-18: item sem categoria é estado legítimo. Criar tarefa a partir dele não
+   * pode nem quebrar nem ir ao banco buscar uma categoria que não existe.
+   */
+  it("item SEM categoria vira tarefa sem consultar shopping_category", async () => {
+    resultsByTable.shopping_item = {
+      data: { ...ITEM, shopping_category_id: null },
+      error: null,
+    };
+
+    await createTaskFromShoppingItem("item-1");
+
+    expect(callsTo("shopping_category")).toHaveLength(0);
+
+    const [taskCall] = callsTo("task");
+    expect(taskCall.op).toBe("insert");
+    const [row] = taskCall.payload as Record<string, unknown>[];
+    expect(row).toMatchObject({
+      title: "Comprar Café",
+      icon_key: "shopping-cart",
+      linked_shopping_item_id: "item-1",
+      status: "todo",
+      user_id: "user-1",
+    });
+    // Sem categoria, a descrição cai para o rótulo do módulo — e não vaza "undefined".
+    expect(row.description).toContain("Lista de Compras");
+    expect(row.description).not.toContain("Mercado");
+    expect(row.description).not.toContain("undefined");
+  });
 });
 
 describe("fetchTaskLinksForItems", () => {

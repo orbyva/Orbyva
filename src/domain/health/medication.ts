@@ -158,6 +158,7 @@ export function computeMissingDoses(
   return missing;
 }
 
+
 /**
  * Uma dose já materializada, do ponto de vista da **reconciliação** (feature 074): além da chave
  * (`due_date`, `dose_time`) que `computeMissingDoses` usa, precisa do `id` (é o que vai ser

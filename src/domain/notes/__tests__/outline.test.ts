@@ -64,17 +64,19 @@ describe("extractHeadings", () => {
   });
 
   it("título repetido ganha slug distinto", () => {
+    // Mesmo algoritmo do preview (`uniqueHeadingId`): o segundo vira `-2`, como no GitHub.
     expect(slugs("# Etapas\n\n# Etapas\n\n# Etapas")).toEqual([
       "etapas",
-      "etapas-1",
       "etapas-2",
+      "etapas-3",
     ]);
   });
 
   it("acento vira slug sem acento e emoji some do slug, mas fica no texto", () => {
     const headings = extractHeadings("# Reunião de segunda\n\n## Prazo 🚧 curto");
-    expect(headings[0].slug).toBe("reunião-de-segunda");
+    expect(headings[0].slug).toBe("reuniao-de-segunda");
     expect(headings[1].text).toBe("Prazo 🚧 curto");
+    expect(headings[1].slug).toBe("prazo-curto");
   });
 
   it("`#` dentro de bloco de código não vira título", () => {

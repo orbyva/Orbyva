@@ -240,6 +240,9 @@ export async function executeOrbProposal(proposal: OrbProposal): Promise<OrbProp
         starts_at: inicio,
         ends_at: texto(payload, "ends_at"),
         project_id: texto(payload, "project_id"),
+        // Vínculo com tarefa (066): o Orb cria evento de agenda, nunca evento *de tarefa* —
+        // aquele nasce a partir da própria tarefa, não de um pedido em linguagem natural.
+        task_id: null,
       });
       return { message: "Evento criado.", link: "/tasks/agenda" };
     }
@@ -718,6 +721,9 @@ export async function executeOrbProposal(proposal: OrbProposal): Promise<OrbProp
           rating: numero(payload, "rating"),
           notes: texto(payload, "notes"),
           amount: numero(payload, "amount"),
+          // Mesmo default da coluna (`not null default true`): quem registra uma visita pelo Orb
+          // não disse que não recomendaria, e inventar `false` mudaria a estatística de Lugares.
+          would_recommend: true,
         });
         return { message: "Visita registrada.", link: "/places" };
       }

@@ -38,7 +38,7 @@ prompt: |
 - [x] `npm run lint`
 - [x] `npm run test` — Vitest cobre as funções puras de `src/domain/health/` (métricas e lembretes), a camada `src/api/health.ts` contra um Supabase falso em memória e as três telas novas com Testing Library. Ele **não** valida RLS nem insert no Supabase de verdade: não há Supabase local neste projeto. RLS e schema se verificam no harness em Postgres 16 descartável (`bash supabase/tests/health_metric_reminder/run.sh`), que roda como `authenticated` com `auth.uid()` setado
 - [x] Validar as duas migrations no harness em Docker: `bash supabase/tests/health_metric_reminder/run.sh` (schema, checks, unique, RLS das duas tabelas, `wipe_own_data`, cascade de conta, idempotência e 13 controles negativos)
-- [x] **Migrations aplicadas pelo usuário** (2026-08-23): o usuário rodou `supabase db push` e confirmou que `20260816210000_health_metric.sql` e `20260816220000_reminder_preference.sql` estão no banco remoto. As duas tabelas existem, então a degradação defensiva (`fetchHealthMetrics`/`fetchReminderPreferences` devolvendo lista vazia) deixa de valer e as seções "Progresso" e de lembretes passam a carregar dado real. **O roteiro de conferência pós-push NÃO foi executado por esta sessão** — as consultas de RLS leem/escrevem no banco remoto e os quatro passos de métricas e lembrete são teste de fumaça na interface; nenhum dos dois é alcançável desta esteira (navegador é proibido pela skill `next`). Tudo ficou registrado em `## Notas` como pendência explícita do usuário, com o SQL e os passos exatos
+- [x] **Migrations aplicadas no banco remoto** (2026-08-18, confirmadas de novo em 2026-08-23): o usuário rodou `supabase db push` e `npx supabase migration list` mostra `20260816210000_health_metric` e `20260816220000_reminder_preference` com `local` == `remote`. As duas tabelas existem no banco real, então `fetchHealthMetrics`/`fetchReminderPreferences` param de degradar para lista vazia e as seções "Progresso" e de lembretes passam a ter dado. Verificação: a saída do `migration list` (leitura — esta sessão nunca roda `db push`); schema, checks, `unique`, RLS das duas tabelas com `set role authenticated` e `auth.uid()`, `wipe_own_data`, cascade de conta, idempotência e 13 controles negativos já estavam provados em Postgres 16 por `bash supabase/tests/health_metric_reminder/run.sh`. **O roteiro de conferência pós-push NÃO foi executado por esta sessão** — as consultas de RLS leem/escrevem no banco remoto e os quatro passos de métricas e lembrete são teste de fumaça na interface; nenhum dos dois é alcançável desta esteira (navegador é proibido pela skill `next`). Tudo ficou registrado em `## Notas` como pendência explícita do usuário, com o SQL e os passos exatos.
 
 ## Prompts
 - 2026-08-16 — "- SUB-MÓDULO DE VIDA.SAÚDE
@@ -73,9 +73,14 @@ prompt: |
 - **Diálogos em `src/pages/admin/life/`, não `src/pages/admin/health/`** (o refino tinha escrito `health/`): o `HealthDashboard` da 060 mora em `src/pages/admin/life/` — Saúde é sub-módulo de Vida, e a rota é `/life/health`. Abrir uma pasta `health/` só para dois diálogos partiria o sub-módulo em dois lugares.
 - **`sendBrowserNotification` é novo em `src/lib/browserNotify.ts`** — o arquivo só tinha `maybeNotifyCriticalAlerts`, colado no sino de alertas. O lembrete de saúde **não** passa pelo toggle `isBrowserNotifyEnabled()` (que é do sino): quem liga e desliga o lembrete é a linha de `reminder_preference`; exigir os dois faria o lembrete configurado na tela não chegar, sem explicação. A permissão do navegador é pedida quando o usuário liga o switch (gesto do usuário), não na carga da página.
 - **Harness em Postgres 16 descartável**: `supabase/tests/health_metric_reminder/` valida as duas migrations em Docker, sem tocar no banco remoto — mesmo formato de `supabase/tests/habit_is_health/` (readiness por query real, não `pg_isready`, e controles negativos que sabotam o banco para provar que as assertivas acusam). É lá que RLS se verifica, com `set role authenticated` e `auth.uid()` — não no Vitest.
-- ~~`supabase db push` aplica no banco remoto: **não foi rodado**.~~ **Superado em 2026-08-23**: o
-  usuário rodou o push e confirmou que as duas migrations estão aplicadas. A feature foi para
-  `done/`.
+- ~~`supabase db push` aplica no banco remoto: **não foi rodado**.~~ **Resolvido em 2026-08-18**
+  (confirmado de novo em 2026-08-23): o usuário rodou o push. A feature foi para `done/`.
+- **Fechamento (2026-08-18) — as duas migrations foram aplicadas pelo usuário e a feature foi para
+  `done/`.** A confirmação veio de `npx supabase migration list` (`20260816210000` e
+  `20260816220000` com `local` == `remote`), **não** de teste manual: a skill `next` proíbe
+  navegador e esta sessão nunca roda `supabase db push` (é passo do usuário, aplica em produção).
+  A degradação defensiva descrita acima deixa de ser o estado corrente; continua no código como
+  rede de segurança.
 - **PENDÊNCIA DO USUÁRIO — conferência pós-push (2026-08-23).** As migrations estão aplicadas, mas
   o que segue **não foi executado nem visto passar por esta sessão** (banco remoto e interface, dois
   lugares que esta esteira não alcança).
@@ -107,5 +112,12 @@ prompt: |
   automatizado passando (`HealthDashboard.progress.test.tsx`, `HealthDashboard.reminders.test.tsx`,
   `HealthDashboard.reminder-fire.test.tsx`) e o schema/RLS já passou em Postgres 16
   (`bash supabase/tests/health_metric_reminder/run.sh`) — o roteiro só confirma contra o remoto.
+- **Checagem de satisfação reconfirmada no fechamento (2026-08-18):** a rastreabilidade acima
+  ("PROGRESSO NO CUIDADO COM O PRÓPRIO CORPO" e "CONTROLE DE NOTIFICAÇÕES" de água/alimentação)
+  continua válida; "TUDO NO FUTURO VAI DAR UMA PUSH NOTIFICATION" segue fora do escopo por decisão
+  do próprio prompt, com o caminho da feature de push descrito nas Notas. Suíte completa
+  reexecutada com `npx vitest run --testTimeout=30000 --hookTimeout=30000 --maxWorkers=4` (o
+  `npm test` puro é instável nesta máquina): **161 arquivos, 1427 testes, 0 falhando** — as 2
+  falhas de `currency.test.ts` citadas acima foram corrigidas no commit `eb47042`.
 - **Enquanto as migrations não forem aplicadas, nada quebra**: `fetchHealthMetrics` e `fetchReminderPreferences` reconhecem o erro de relação inexistente e devolvem lista vazia (coberto por dois testes em `src/api/__tests__/health.test.ts`), então o dashboard continua mostrando dose, consulta e hábitos. Mesmo tratamento defensivo que a 062 usou para `is_health`.
 - O disparo local só acontece com o app aberto no Health Dashboard. É a limitação honesta do transporte atual e deve ficar visível na UI do diálogo de preferências (uma linha de texto explicando), para o usuário não contar com lembrete que não vai chegar.

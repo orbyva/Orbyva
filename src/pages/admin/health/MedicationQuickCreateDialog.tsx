@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ToastAction } from "@/components/ui/toast";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -44,6 +46,18 @@ interface MedicationQuickCreateDialogProps {
 /** `HH:MM` a partir do que o banco devolve (`HH:MM:SS`), para o `<input type="time">`. */
 function toInputTime(value: string): string {
   return value.slice(0, 5);
+}
+
+/**
+ * O que o toast diz depois de salvar. É o retorno visível da integração remédio → tarefa: sem ele
+ * o usuário cadastra o tratamento e não tem como saber que as doses viraram tarefas na agenda.
+ */
+function doseFeedback(count: number): string {
+  if (count === 0) {
+    return "Nenhuma dose venceu ainda — elas entram na sua agenda a partir do início do tratamento.";
+  }
+  if (count === 1) return "1 dose já entrou na sua agenda como tarefa.";
+  return `${count} doses já entraram na sua agenda como tarefas.`;
 }
 
 /**
@@ -91,6 +105,7 @@ export function MedicationQuickCreateDialog({
   const [endedOnError, setEndedOnError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const filledTimes = times.filter((time) => time.trim() !== "");
   const canSave = name.trim() !== "" && filledTimes.length > 0 && startedOn !== "";
@@ -176,8 +191,22 @@ export function MedicationQuickCreateDialog({
         await updateMedication({ id: medication!.id, ...payload });
         toast({ title: "Medicação atualizada!", duration: 2000 });
       } else {
-        await createMedicationWithDoses(payload);
-        toast({ title: "Medicação criada!", duration: 2000 });
+        const { doses } = await createMedicationWithDoses(payload);
+        toast({
+          title: "Medicação criada!",
+          description: doseFeedback(doses.length),
+          // Sem dose criada não há o que ver na agenda — a ação levaria a uma tela vazia.
+          action:
+            doses.length > 0 ? (
+              <ToastAction
+                altText="Ver as doses na agenda"
+                onClick={() => navigate("/tasks/agenda")}
+              >
+                Ver na agenda
+              </ToastAction>
+            ) : undefined,
+          duration: 6000,
+        });
         reset();
       }
       onOpenChange(false);

@@ -39,6 +39,7 @@ function makeNote(overrides: Partial<Note> = {}): Note {
   return {
     id: "note-1",
     project_id: null,
+    folder_id: null,
     title: "Reforma da sala",
     content: `Depende de [subir painel](orbyva-task:${TASK_ID})`,
     kind: "markdown",
