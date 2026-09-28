@@ -118,3 +118,28 @@ export interface OrbTurnRequest {
   today: string;
   timezone: string;
 }
+
+/**
+ * Uma versão da Orb gerada por IA (feature 151) — espelha `public.orb_avatar`
+ * (`supabase/migrations/20260924113000_orb_avatar.sql`), uma linha por geração.
+ *
+ * `prompt` e `model` não são metadado decorativo: são o que permite repetir ou variar uma versão
+ * que deu certo depois que o secret do modelo mudar.
+ *
+ * `is_active` é a versão que o app mostra — **no máximo uma por dono**, garantido pelo índice
+ * único parcial `orb_avatar_one_active_idx`, não pelo client. Nenhuma ativa é estado válido: é o
+ * estado de todo usuário hoje, e nele o app cai na esfera CSS (`OrbSphere`). Escreva este campo
+ * só pela RPC `orb_avatar_set_active` (`setActiveOrbAvatar`), nunca por dois updates.
+ */
+export interface OrbAvatar {
+  id: string;
+  user_id: string;
+  /** O pedido enviado ao modelo de imagem. */
+  prompt: string;
+  /** URL pública do PNG em `orb-avatars/{userId}/{uuid}.png`. */
+  url: string;
+  /** Modelo que gerou esta versão (valor de `ORB_IMAGE_MODEL` na hora da geração). */
+  model: string;
+  is_active: boolean;
+  created_at: string;
+}
