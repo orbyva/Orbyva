@@ -38,6 +38,34 @@ vi.mock("@/api/tasks", () => ({
   deleteProjectEvent: vi.fn(),
 }));
 
+/**
+ * Dois módulos que o form de tarefa alcança e que o barrel `@/api/tasks` acima não cobre:
+ *
+ * - `@/api/tasks/tasks` — o `TASK->` da 104 (`useTaskRefExtensions`) o importa **dinamicamente**,
+ *   então o mock do barrel não o intercepta;
+ * - `@/api/notes/notes` — o "Referenciada em" da 106 chama `fetchNotesMentioningTask` ao abrir o
+ *   form.
+ *
+ * Sem estes mocks os dois disparam chamada real e rejeitam com `AuthRequiredError` **fora** do
+ * teste: os casos passavam, mas a rejeição não tratada derrubava o exit code da suíte inteira — CI
+ * vermelho com tudo verde na tela.
+ */
+vi.mock("@/api/tasks/tasks", () => ({
+  fetchTasks: vi.fn(async () => []),
+  createTask: vi.fn(),
+}));
+
+vi.mock("@/api/notes/notes", () => ({
+  fetchNotes: vi.fn(async () => []),
+  fetchNote: vi.fn(async () => null),
+  fetchNotesMentioning: vi.fn(async () => []),
+  fetchNotesMentioningTask: vi.fn(async () => []),
+  countNotesByProject: vi.fn(async () => 0),
+  createNote: vi.fn(),
+  updateNote: vi.fn(),
+  deleteNote: vi.fn(),
+}));
+
 vi.mock("@/api/recurring", () => ({
   fetchRecurringTransactions: vi.fn(),
 }));
