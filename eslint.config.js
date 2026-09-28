@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'supabase/functions/**', 'mobile/**'] },
+  // `.claude/` guarda worktrees de outras branches dentro da raiz. O flat config não lê o
+  // .gitignore, então sem isto `eslint .` reprova o checkout atual por código que nem é dele.
+  { ignores: ['dist', 'supabase/functions/**', 'mobile/**', '.claude/**'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
