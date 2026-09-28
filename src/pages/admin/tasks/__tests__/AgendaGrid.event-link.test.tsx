@@ -161,8 +161,7 @@ describe("AgendaGrid — evento de projeto, de tarefa e avulso (feature 066)", (
     await user.click(screen.getByRole("button", { name: "Reunião sobre o cimento" }));
     const dialog = await screen.findByRole("dialog");
 
-    expect(within(dialog).getByText("Projeto Alpha")).toBeInTheDocument();
-    expect(within(dialog).getByRole("link", { name: /Ir para o projeto/ })).toHaveAttribute(
+    expect(within(dialog).getByRole("link", { name: "Projeto Alpha" })).toHaveAttribute(
       "href",
       "/tasks/projects/project-1"
     );
@@ -201,8 +200,7 @@ describe("AgendaGrid — evento de projeto, de tarefa e avulso (feature 066)", (
     await user.click(screen.getByRole("button", { name: "Reunião de obra" }));
     const dialog = await screen.findByRole("dialog");
 
-    expect(within(dialog).getByText("Projeto Alpha")).toBeInTheDocument();
-    expect(within(dialog).getByRole("link", { name: /Ir para o projeto/ })).toHaveAttribute(
+    expect(within(dialog).getByRole("link", { name: "Projeto Alpha" })).toHaveAttribute(
       "href",
       "/tasks/projects/project-1"
     );

@@ -343,7 +343,7 @@ describe("AgendaGrid — editar e excluir evento pelo mesmo dialog (feature 067)
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
-  it("'Ir para o projeto' só aparece quando o evento resolve um projeto", async () => {
+  it("o pill navegável só aparece quando o evento resolve um projeto", async () => {
     const user = userEvent.setup();
     const project = makeProject();
     mockedFetchProjects.mockResolvedValue([project]);
@@ -355,7 +355,7 @@ describe("AgendaGrid — editar e excluir evento pelo mesmo dialog (feature 067)
 
     await user.click(screen.getByRole("button", { name: "Com projeto" }));
     const withProject = await screen.findByRole("dialog");
-    expect(within(withProject).getByRole("link", { name: /Ir para o projeto/ })).toHaveAttribute(
+    expect(within(withProject).getByRole("link", { name: "Projeto Alpha" })).toHaveAttribute(
       "href",
       "/tasks/projects/project-1"
     );
@@ -365,7 +365,7 @@ describe("AgendaGrid — editar e excluir evento pelo mesmo dialog (feature 067)
 
     await user.click(screen.getByRole("button", { name: "Avulso" }));
     const standalone = await screen.findByRole("dialog");
-    expect(within(standalone).queryByText("Ir para o projeto")).not.toBeInTheDocument();
+    expect(within(standalone).queryByRole("link", { name: "Projeto Alpha" })).not.toBeInTheDocument();
   });
 });
 
