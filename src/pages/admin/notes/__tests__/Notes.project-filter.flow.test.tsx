@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   MemoryRouter,
@@ -9,6 +9,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import Notes from "@/pages/admin/notes/Notes";
+import { fetchNotes } from "@/api/notes/notes";
 import type { Note, NoteDraft } from "@/types/notes";
 import type { Project } from "@/types/tasks";
 
@@ -302,5 +303,75 @@ describe("Notas — recorte por projeto na URL (feature 114)", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Materiais" })).toBeNull()
     );
+  });
+
+  it("remover ?q na mesma rota limpa a busca antiga", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/notes?q=zzz"]}>
+        <Routes>
+          <Route
+            path="/notes"
+            element={
+              <>
+                <Notes />
+                <TrocarRecorte />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Nenhuma nota encontrada")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "trocar para 22222222-2222-4222-8222-222222222222" }));
+
+    expect(await screen.findByRole("button", { name: "Caixas por cômodo" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Filtrar notas")).toHaveValue("");
+  });
+
+  it("resposta lenta do projeto anterior não sobrescreve o recorte novo", async () => {
+    const user = userEvent.setup();
+    let resolveFirst!: (notes: Note[]) => void;
+    vi.mocked(fetchNotes)
+      .mockImplementationOnce(() => new Promise<Note[]>((resolve) => { resolveFirst = resolve; }))
+      .mockResolvedValueOnce([makeNote({ id: "n3", title: "Caixas por cômodo", project_id: "22222222-2222-4222-8222-222222222222" })]);
+
+    render(
+      <MemoryRouter initialEntries={["/notes?project=11111111-1111-4111-8111-111111111111"]}>
+        <Routes>
+          <Route
+            path="/notes"
+            element={
+              <>
+                <Notes />
+                <TrocarRecorte />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByRole("button", { name: "trocar para 22222222-2222-4222-8222-222222222222" }));
+    expect(await screen.findByRole("button", { name: "Caixas por cômodo" })).toBeInTheDocument();
+
+    await act(async () => {
+      resolveFirst([makeNote({ id: "n1", title: "Materiais", project_id: "11111111-1111-4111-8111-111111111111" })]);
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("button", { name: "Caixas por cômodo" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Materiais" })).toBeNull();
+  });
+
+  it("URL com projeto inválido não envia esse valor ao criar nota", async () => {
+    const user = userEvent.setup();
+    renderNotes("/notes?project=nao-existe");
+
+    await screen.findByText("Nenhuma nota neste projeto");
+    await user.click(screen.getAllByRole("button", { name: "Nova nota" })[1]);
+
+    await waitFor(() => expect(store.created).toHaveLength(1));
+    expect(store.created[0].project_id).toBeNull();
   });
 });

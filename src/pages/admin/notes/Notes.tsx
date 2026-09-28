@@ -345,7 +345,9 @@ export default function Notes() {
         icon={NotebookPen}
         title={projectFilter ? "Nenhuma nota neste projeto" : "Nenhuma nota ainda"}
         description={
-          projectFilter
+          projectFilter && !validProjectFilter
+            ? "O endereço contém um projeto inválido. A nota criada aqui ficará sem projeto."
+            : projectFilter
             ? `${filteredProject ? `O projeto "${filteredProject.name}"` : "Este projeto"} ainda não tem nota. A que você criar aqui já nasce vinculada a ele.`
             : "Crie uma nota para guardar o que não cabe numa tarefa — pauta de reunião, rascunho, decisão de projeto."
         }
