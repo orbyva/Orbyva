@@ -1,6 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUserId } from "@/lib/auth-user";
+import { escapeLikeValue } from "@/lib/likePattern";
 import { normalizeNoteDraft } from "@/domain/notes/noteDraft";
+import { TASK_REF_SCHEME } from "@/domain/tasks/taskRefs";
 import type { Note, NoteDraft, NoteUpdateRequest } from "@/types/notes";
 
 export interface FetchNotesOptions {
@@ -133,8 +135,32 @@ export async function fetchNotesMentioning(
   return data ?? [];
 }
 
-function escapeLikeValue(raw: string): string {
-  return raw.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+/**
+ * Candidatas a "Referenciada em" de uma tarefa: notas cujo `content` traz a marca
+ * `[Rótulo](orbyva-task:<id>)` (feature 106).
+ *
+ * Mesma divisão de trabalho de `fetchNotesMentioning`: o `ilike` é **prefiltro**, não veredito —
+ * quem decide o que é menção de verdade é `mentionsTaskId` (domínio, feature 103), que descarta a
+ * marca escrita dentro de bloco de código. Sem essa confirmação, uma nota que só mostra a sintaxe
+ * num exemplo entraria como menção real.
+ *
+ * A diferença em relação à irmã: aqui a chave é o **id**, não o título. O prefiltro
+ * `%orbyva-task:<uuid>%` é praticamente exato, e renomear a tarefa não derruba menção nenhuma.
+ */
+export async function fetchNotesMentioningTask(taskId: string): Promise<Note[]> {
+  const target = taskId.trim();
+  if (!target) return [];
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("note")
+    .select("*")
+    .eq("user_id", userId)
+    // O id é uuid e não tem curinga, mas escapar é o que mantém isto correto no dia em que a marca
+    // aceitar outra coisa — confiar no formato do id seria o atalho que envelhece mal.
+    .ilike("content", `%${escapeLikeValue(`${TASK_REF_SCHEME}${target}`)}%`)
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
 
 export async function deleteNote(id: string): Promise<void> {

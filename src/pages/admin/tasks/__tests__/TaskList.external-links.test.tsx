@@ -28,6 +28,33 @@ import type { Project, Task, TaskExternalLink } from "@/types/tasks";
  *   chips" em vez de derrubar a lista de tarefas.
  */
 
+/**
+ * Este arquivo monta a `TaskList` inteira (lista + painel denso) dentro de cada caso: é um dos
+ * testes mais caros da suíte, e com o teto padrão de 5s ele passava sozinho mas estourava de forma
+ * intermitente quando a suíte completa roda em paralelo e os workers disputam CPU. O teto maior é
+ * folga para a variação de carga; o que corta o custo é o `fill()` abaixo.
+ */
+vi.setConfig({ testTimeout: 20_000 });
+
+/** `delay: null` tira a espera de um macrotask que o `userEvent` coloca entre cada tecla — nenhum
+ * campo desta tela tem debounce (a URL é validada no blur, o comentário escreve direto no estado),
+ * então a espera só custava tempo. */
+function setupUser() {
+  return userEvent.setup({ delay: null });
+}
+
+/**
+ * Preenche um campo **colando** em vez de digitando tecla a tecla. Cada tecla remontava o painel
+ * denso inteiro, e uma URL de ~40 caracteres sozinha respondia por mais da metade do tempo do
+ * arquivo (o caso mais pesado caiu de ~1,4s para ~0,5s). Colar também é o que se faz de verdade com
+ * uma URL — e o que a tela observa é o mesmo: um `change` com o valor final e o `blur` depois.
+ * Quem precisa provar comportamento **por tecla** (o aviso de protocolo que não pode acusar no meio
+ * da digitação) é o `TaskExternalLinksField.test.tsx`, que continua usando `type`.
+ */
+async function fill(user: ReturnType<typeof setupUser>, el: HTMLElement, text: string) {
+  await user.click(el);
+  await user.paste(text);
+}
 
 // O guia do módulo depende do `AuthProvider` e não tem nada a ver com o que este teste afirma.
 vi.mock("@/components/ModuleGuide", () => ({
@@ -36,6 +63,8 @@ vi.mock("@/components/ModuleGuide", () => ({
 }));
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 106: o formulário em edição procura quem cita a tarefa ("Referenciada em").
+  fetchTasksMentioningTask: vi.fn(async () => []),
   fetchTasks: vi.fn(),
   fetchProjects: vi.fn(),
   fetchTags: vi.fn(),
@@ -48,13 +77,26 @@ vi.mock("@/api/tasks", () => ({
   deleteTask: vi.fn(),
   deleteTasks: vi.fn(),
   createTag: vi.fn(),
+  fetchEntriesForTask: vi.fn().mockResolvedValue([]),
+  updateTimeEntry: vi.fn(),
+  deleteTimeEntry: vi.fn(),
+}));
+
+// Feature 131: a biblioteca de assets importa `@/api/tasks/iconAssets` direto (nunca o barril, que
+// arrastaria a API de tarefas inteira para o chunk de quem a monta) — é este mock que a intercepta.
+vi.mock("@/api/tasks/iconAssets", () => ({
   uploadIconAsset: vi.fn(),
   fetchIconAssets: vi.fn().mockResolvedValue([]),
   deleteIconAsset: vi.fn().mockResolvedValue(undefined),
   renameIconAsset: vi.fn().mockResolvedValue(undefined),
-  fetchEntriesForTask: vi.fn().mockResolvedValue([]),
-  updateTimeEntry: vi.fn(),
-  deleteTimeEntry: vi.fn(),
+}));
+
+
+// Feature 106: a outra metade de "Referenciada em" vem das notas. Só o que é novo é dublado — o
+// resto do módulo continua real, como estes testes já esperavam.
+vi.mock("@/api/notes/notes", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api/notes/notes")>()),
+  fetchNotesMentioningTask: vi.fn(async () => []),
 }));
 
 vi.mock("@/api/recurring", () => ({
@@ -148,22 +190,22 @@ beforeEach(() => {
 
 describe("TaskList — links externos no formulário (feature 085)", () => {
   it("criar com dois links grava os dois depois do createTask, com o id novo e as position em ordem", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     await renderLoaded([]);
     const panel = await openLinksSection(user, await openCreatePanel(user));
 
-    await panel.getByLabelText(/^Título/);
-    await user.type(panel.getByLabelText(/^Título/), "Tarefa com links");
+    await fill(user, panel.getByLabelText(/^Título/), "Tarefa com links");
 
     await user.click(panel.getByRole("button", { name: "Adicionar link" }));
-    await user.type(
+    await fill(
+      user,
       panel.getByLabelText("URL do link 1 de 1"),
       "https://github.com/owner/repo/issues/7"
     );
-    await user.type(panel.getByLabelText("Comentário do link 1 de 1"), "issue de origem");
+    await fill(user, panel.getByLabelText("Comentário do link 1 de 1"), "issue de origem");
 
     await user.click(panel.getByRole("button", { name: "Adicionar link" }));
-    await user.type(panel.getByLabelText("URL do link 2 de 2"), "https://docs.google.com/x");
+    await fill(user, panel.getByLabelText("URL do link 2 de 2"), "https://docs.google.com/x");
 
     await user.click(screen.getByRole("button", { name: "Criar tarefa" }));
 
@@ -178,11 +220,11 @@ describe("TaskList — links externos no formulário (feature 085)", () => {
   });
 
   it("criar sem link nenhum não chama a gravação de links", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     await renderLoaded([]);
     const panel = await openCreatePanel(user);
 
-    await user.type(panel.getByLabelText(/^Título/), "Tarefa sem link");
+    await fill(user, panel.getByLabelText(/^Título/), "Tarefa sem link");
     await user.click(screen.getByRole("button", { name: "Criar tarefa" }));
 
     expect(mockedCreateTask).toHaveBeenCalled();
@@ -190,16 +232,16 @@ describe("TaskList — links externos no formulário (feature 085)", () => {
   });
 
   it("linha em branco esquecida é descartada, não vira link vazio nem erro", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     await renderLoaded([]);
     const panel = await openLinksSection(user, await openCreatePanel(user));
 
-    await user.type(panel.getByLabelText(/^Título/), "Tarefa");
+    await fill(user, panel.getByLabelText(/^Título/), "Tarefa");
     await user.click(panel.getByRole("button", { name: "Adicionar link" }));
-    await user.type(panel.getByLabelText("URL do link 1 de 1"), "https://a.com");
+    await fill(user, panel.getByLabelText("URL do link 1 de 1"), "https://a.com");
     // Segunda linha só com comentário: comentário sem URL não existe.
     await user.click(panel.getByRole("button", { name: "Adicionar link" }));
-    await user.type(panel.getByLabelText("Comentário do link 2 de 2"), "esqueci a URL");
+    await fill(user, panel.getByLabelText("Comentário do link 2 de 2"), "esqueci a URL");
 
     await user.click(screen.getByRole("button", { name: "Criar tarefa" }));
 
@@ -209,7 +251,7 @@ describe("TaskList — links externos no formulário (feature 085)", () => {
   });
 
   it("editar carrega os links existentes no formulário, com comentário e ordem", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedFetchLinksForTask.mockResolvedValue([
       makeLink({ url: "https://github.com/owner/repo/issues/7", comment: "issue", position: 0 }),
       makeLink({ url: "https://docs.google.com/x", comment: "contrato", position: 1 }),
@@ -231,7 +273,7 @@ describe("TaskList — links externos no formulário (feature 085)", () => {
   });
 
   it("remover um link e salvar manda a lista final sem ele, e só ele", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedFetchLinksForTask.mockResolvedValue([
       makeLink({ url: "https://fica.com", comment: "fica", position: 0 }),
       makeLink({ url: "https://sai.com", comment: "sai", position: 1 }),
@@ -253,7 +295,7 @@ describe("TaskList — links externos no formulário (feature 085)", () => {
   });
 
   it("abrir uma tarefa sem link não deixa os links da tarefa anterior na tela", async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedFetchLinksForTask.mockResolvedValueOnce([
       makeLink({ url: "https://a.com", position: 0 }),
     ]);

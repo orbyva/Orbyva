@@ -9,6 +9,7 @@ import {
   openInsertMenu,
   slashMenuAutocomplete,
 } from "@/components/codemirror/slashMenu";
+import { useTaskRefExtensions } from "@/hooks/useTaskRefExtensions";
 import { NoteEditorToolbar } from "@/pages/admin/notes/NoteEditorToolbar";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
 import { createNote, fetchNotes } from "@/api/notes/notes";
@@ -19,14 +20,18 @@ import type { Note } from "@/types/notes";
 
 /**
  * Descrição da tarefa (e da subtarefa — o form é o mesmo) com o editor de Markdown das notas:
- * barra de formatação, menu `/` e wiki-links `[[Título]]` resolvidos contra as notas do usuário.
+ * barra de formatação, menu `/`, wiki-links `[[Título]]` resolvidos contra as notas do usuário e o
+ * `TASK->` da 104 (vincular ou criar tarefa na hora).
  */
 export function TaskDescriptionField({
   value,
   onChange,
+  projectId = null,
 }: {
   value: string;
   onChange: (value: string) => void;
+  /** Projeto do contexto: a tarefa criada por `TASK->` herda o projeto da tarefa em edição. */
+  projectId?: string | null;
 }) {
   const [tab, setTab] = useState<"write" | "preview">("write");
   const [notes, setNotes] = useState<Note[]>([]);
@@ -85,6 +90,8 @@ export function TaskDescriptionField({
     });
   };
 
+  const taskRefExtensions = useTaskRefExtensions(projectId);
+
   const editorExtensions = useMemo(
     () => [
       wikiLinkAutocomplete(() => notesRef.current.map((note) => note.title)),
@@ -96,8 +103,11 @@ export function TaskDescriptionField({
         },
         onOpen: (title, href) => openWikiLink.current(title, href),
       }),
+      // O `TASK->` (104): popup de vincular/criar tarefa + a marca clicável. A identidade do array
+      // vinda do hook é estável, então isto continua sendo um `useMemo` de dependência única.
+      ...taskRefExtensions,
     ],
-    []
+    [taskRefExtensions]
   );
 
   return (
@@ -126,7 +136,7 @@ export function TaskDescriptionField({
             viewRef.current = view;
           }}
           className="min-h-[10rem] [&_.cm-editor]:min-h-[10rem]"
-          placeholder="Markdown — digite / para inserir, [[ para vincular uma nota…"
+          placeholder="Markdown — digite / para inserir, [[ para vincular uma nota, TASK-> para vincular uma tarefa…"
           extensions={editorExtensions}
         />
       </TabsContent>

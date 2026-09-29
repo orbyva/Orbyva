@@ -77,9 +77,11 @@ chega-se por dentro do módulo. É o mesmo tratamento que esta tela recebe.
 - **Onde a tela mora**: rota `/tasks/link-icons`, fora da sidebar (como `/tasks/tags`), alcançada
   por um botão "Configurar ícones" dentro da seção "Links externos" do formulário (085) e por um
   link no cabeçalho de `/tasks/tags`, que é a outra tela de configuração do módulo.
-  **Ponto de produto em aberto** — a alternativa é uma aba dentro de uma tela de configurações do
-  módulo de tarefas, que não existe hoje; a rota própria é a recomendada por ser o padrão já
-  estabelecido, e trocar depois é mover um arquivo.
+  **Fechado em 2026-09-18**: fica a rota própria. O `prompt:` falava em "aba", e a alternativa seria
+  uma aba dentro de uma tela de configurações do módulo de tarefas — que não existe hoje, e criá-la
+  é trabalho novo. A `/pipeline` apresentou as duas opções ao usuário com a rota como recomendada e
+  seguiu com ela depois do minuto de timeout sem resposta. Motivo: é o padrão que `/tasks/tags` já
+  estabeleceu, e trocar depois é mover um arquivo. Se o usuário preferir a aba, é um planning novo.
 - **Carregamento das regras**: hook `useLinkIconRules()` com cache em memória no módulo (as regras
   mudam raramente e são lidas por toda lista de tarefas), invalidado ao salvar/excluir/reordenar na
   tela de configuração. Falha ao carregar → lista vazia, ou seja, todo link cai no fallback: a
@@ -187,9 +189,21 @@ chega-se por dentro do módulo. É o mesmo tratamento que esta tela recebe.
       rota nova em **4,7 KB gzip** de 160 KB de teto (`LinkIconRules-*.js`).
       Único vermelho na rodada cheia: `notaSemSintaxe.test.tsx` estourando o `testTimeout` de 5s —
       intermitência conhecida e pré-existente sob carga; passa isolado (2,1s).
-- [ ] **BLOQUEADA — `supabase db push`.** A migration só vai ao banco remoto com confirmação do
-      usuário (regra do projeto). Depois do push: abrir `/tasks/link-icons`, criar as regras padrão
-      e conferir numa tarefa real que o chip do link do GitHub mudou.
+- [x] **Migration aplicada e regras em uso no remoto (2026-09-20).** A
+      `20260823120000_link_icon_rule.sql` **está no banco remoto** (`supabase migration list
+      --linked`: `local=remote=20260823120000`; zero migrations pendentes no projeto).
+      Conferido por esta sessão via `supabase db query` (só `select`):
+      - `link_icon_rule` tem **8 linhas**, e são exatamente o conjunto padrão, na ordem de
+        `position`: GitHub issue/PR, GitHub repositório, GitLab, Jira (`atlassian.net/browse/`),
+        Figma, Notion, YouTube e Google Docs. Ou seja, o usuário **já passou por `/tasks/link-icons`
+        e criou as regras padrão** — a segunda perna desta tarefa está cumprida.
+      - As regras **casam com dado real**. Rodando cada `pattern` contra os links de verdade em
+        `task_external_link` com o operador `~` do Postgres: os **5 links do GitHub** (PRs em
+        `AltaGrowth/allta` e `NinjaLovers/placai`) resolvem para `icon_key = github` pela regra de
+        menor `position`; os **2 links do Temu** não casam com regra nenhuma e caem no fallback
+        `describeExternalLink` da 085, como desenhado.
+      Resta só o "olhar o chip na tela", que é confirmação visual do usuário — o motor de regras
+      está provado contra o dado de produção.
 
 ## Prompts
 - 2026-08-23 — "- deve ser possível adicionar n links externos a uma tarefa, cada um com seu comentário, e todos com a gestão de ícones+preview"
@@ -251,3 +265,150 @@ Migration validada sem tocar o banco remoto: `bash supabase/tests/link_icon_rule
 `OK: 20260823120000_link_icon_rule.sql validada em Postgres 16.` (controle negativo, schema,
 reaplicação idempotente, degradação deliberada do `wipe_own_data` reparada pela reaplicação, e
 comportamento: constraint, ordem/`position`, desligar sem perder, ícone sem FK, RLS, cascade, wipe).
+
+**Reconferida em 2026-09-18** (rodada nova, depois das features 098/099/100 terem entrado no repo):
+todos os comandos da seção `## Como testar` abaixo rodados de novo, todos verdes — suíte inteira
+**263 arquivos / 2899 testes**, `build` OK, `lint` 0 erros / 88 warnings pré-existentes de
+`react-refresh`, `check:bundle` OK com `LinkIconRules-*.js` em **4,2 KB gzip** de 160 KB, e
+`run.sh` da migration OK em Postgres 16. Nada regrediu; a última tarefa segue bloqueada no usuário.
+
+## Como testar
+
+### 1. Pré-requisitos
+
+- **A migration precisa estar aplicada**: `supabase/migrations/20260823120000_link_icon_rule.sql`
+  cria `public.link_icon_rule`. Ela **ainda não foi ao banco remoto** (é a última tarefa, bloqueada
+  em confirmação do usuário). Enquanto não for, a tela `/tasks/link-icons` abre no estado de erro
+  ("Não foi possível carregar as regras.") e qualquer gravação falha — isso é ambiente, não defeito.
+- A feature **085** (links externos por tarefa, `public.task_external_link`) também precisa estar
+  aplicada, senão não há chip nenhum para decorar.
+- **Docker** rodando, para a validação da migration em Postgres descartável.
+- `npm install` feito; `npm run dev` no ar; logado com a sua conta (as regras são por `user_id`).
+- Ter pelo menos uma tarefa com link externo: `/tasks` → **Nova tarefa** → seção **Links externos** →
+  **Adicionar link** → `https://github.com/facebook/react/issues/123` → salvar.
+
+### 2. Verificação automatizada
+
+Um comando por linha; todos devem terminar sem nenhum `✗`/`FAIL`.
+
+```
+npx vitest run src/domain/tasks/__tests__/linkIconRules.test.ts
+```
+→ **32 testes**. Passou = o casamento por `position`, o "primeira que casa vence", a regra
+desabilitada pulada, a regex inválida pulada sem lançar, e todas as bordas do rótulo
+(`$1/$2#$3` → `owner/repo#123`, grupo inexistente, template vazio, `$$`, corte em 60) estão certos.
+
+```
+npx vitest run src/api/__tests__/linkIconRules.test.ts
+```
+→ **16 testes**. Passou = toda consulta filtra por `user_id`, a listagem ordena por `position`,
+`reorderLinkIconRules` grava as posições em sequência, regex que não compila não chega ao banco, e o
+cache de `useLinkIconRules` não refaz a busca na 2ª montagem mas refaz depois de `invalidate()`.
+
+```
+npx vitest run src/pages/admin/tasks/__tests__/LinkIconRules.test.tsx
+```
+→ **28 testes**. Passou = a rota `/tasks/link-icons` está registrada dentro do grupo `tasks` e
+**não** entra na sidebar; a lista aparece na ordem de `position`; criar manda o `pattern` e o
+template digitados; `pattern` inválido não chama a API e mostra o erro do `RegExp`; a prévia da URL
+de teste mostra o rótulo certo; as setas chamam `reorderLinkIconRules`; excluir pede confirmação; e
+o botão de regras padrão insere as 8 sementes (com a do GitHub específica vencendo a genérica).
+
+```
+npx vitest run src/pages/admin/tasks/__tests__/ExternalLinkChip.rules.test.tsx
+```
+→ **11 testes**. Passou = o chip do card usa as regras: issue do GitHub sai como `owner/repo#123`,
+ícone da biblioteca do usuário sai como `<img>`, sem regra volta ao fallback de host, entre duas que
+casam vence a de `position` menor, regra desabilitada não decora, regex inválida no banco não quebra
+a lista, e falha ao carregar as regras degrada para o fallback.
+
+```
+npx vitest run src/pages/admin/tasks/__tests__/TaskExternalLinksField.test.tsx
+```
+→ **18 testes**. Passou = a prévia por linha do formulário mostra o **mesmo** rótulo que o card, e o
+botão "Configurar ícones" leva a `/tasks/link-icons` em outra aba.
+
+```
+bash supabase/tests/link_icon_rule/run.sh
+```
+→ imprime `OK: 20260823120000_link_icon_rule.sql validada em Postgres 16.` (leva ~40 s: sobe um
+Postgres 16 em Docker). Passou = schema/constraint/índice/FK conferem, a migration é idempotente ao
+reaplicar, `wipe_own_data` passou a cobrir `link_icon_rule` sem perder as tabelas antigas, e a RLS
+barra leitura/insert/update/delete de regra alheia. **Não toca o banco remoto.**
+
+```
+npm run build && npm run lint && npm test && npm run check:bundle
+```
+→ build OK; lint **0 erros** (88 warnings de `react-refresh` são pré-existentes do repo, não desta
+feature); `npm test` **263 arquivos / 2899 testes** verdes; `check:bundle` termina com
+`Bundle budget OK.` e lista `LinkIconRules-*.js` em ~4,2 KB de 160 KB de teto.
+
+### 3. Verificação manual, passo a passo
+
+1. Abra `/tasks/tags`. No cabeçalho há o link **"Ícones de link"** — clique. Esperado: vai para
+   `/tasks/link-icons`, título **"Ícones de link"** e a explicação "A primeira regra que casa
+   vence…". **A tela não está na sidebar** (é configuração do módulo, como `/tasks/tags`) — confira
+   que a barra lateral não ganhou item novo.
+2. Com a lista vazia, aparece o estado **"Nenhuma regra ainda"** com o botão **"Criar regras
+   padrão"**. Clique. Esperado: 8 regras nascem na ordem `GitHub issue/PR`, `GitHub repositório`,
+   `GitLab`, `Jira`, `Figma`, `Notion`, `YouTube`, `Google Docs` — nessa ordem, cada linha com
+   ícone, o `pattern` em fonte monoespaçada e a linha "Rótulo: …".
+3. Vá para `/tasks` e olhe a tarefa com o link do passo de pré-requisito. Esperado: o chip que antes
+   dizia só "Link externo"/host agora mostra o **ícone do GitHub** e o texto **`facebook/react#123`**.
+4. Volte a `/tasks/link-icons` e clique em **Nova regra**. Preencha Nome = `Meu Jira`, Expressão
+   regular = `minhaempresa\.atlassian\.net/browse/([A-Z]+-\d+)`, Texto do rótulo = `$1`, e escolha
+   um ícone pelo botão **"Escolher ícone da regra"** (o mesmo seletor da tarefa: presets, biblioteca
+   da 086, enviar imagem, colar SVG). Em **URL de teste** cole
+   `https://minhaempresa.atlassian.net/browse/ABC-42`. Esperado: a caixa de prévia diz **"A regra
+   casou:"** e mostra o ícone escolhido com o texto **`ABC-42`**. Clique em **Criar regra**.
+5. Na lista, use as setas **↑/↓** para subir `GitHub repositório` acima de `GitHub issue/PR`. Volte
+   a `/tasks` e recarregue. Esperado: o mesmo link de issue agora mostra **`facebook/react`** (a
+   genérica passou a vencer). Desfaça a ordem e confirme que volta a `facebook/react#123`.
+6. Clique no interruptor da regra `GitHub issue/PR` para **desativar**. Esperado: a linha continua na
+   lista com o rótulo "desativada" ao lado do nome; em `/tasks`, o chip cai para a regra seguinte que
+   casar (ou para o host). Reative e confirme que volta.
+7. Abra uma tarefa em edição, na seção **Links externos**. Esperado: a prévia de cada linha ("Assim
+   aparece no card") mostra **exatamente** o mesmo ícone e texto do chip do card. O botão
+   **"Configurar ícones"** abre `/tasks/link-icons` **em outra aba** (de propósito: navegar por cima
+   descartaria o formulário não salvo).
+
+### 4. Casos de borda e caminhos negativos
+
+- **Regex que não compila**: no diálogo, digite `([a-z` em Expressão regular e saia do campo.
+  Esperado: mensagem vermelha com o texto do próprio `RegExp` (`Invalid regular expression: …`)
+  abaixo do campo; **Criar regra** não grava nada.
+- **Pattern longa demais**: cole uma expressão com mais de **200 caracteres**. Esperado: "A expressão
+  deve ter no máximo 200 caracteres." e nada é gravado (a mesma trava existe na API e no banco —
+  `link_icon_rule_pattern_check`).
+- **Sem ícone**: preencha nome e pattern mas não escolha ícone. Esperado: erro no campo Ícone; sem
+  ícone a regra não faria nada visível.
+- **Nome vazio / pattern vazia**: erro no campo correspondente, sem chamada à API.
+- **Template que não resolve**: use `$7` numa regex com 2 grupos. Esperado: o `$7` vira **vazio**
+  (não o literal `$7`); se sobrar só espaço, o rótulo cai no **host** da URL — nunca um chip sem
+  texto. `$$` escreve um `$` literal.
+- **URL de teste que não casa**: a prévia diz **"A regra não casou. Sem ela, o link aparece assim:"**
+  seguido do ícone genérico e do host.
+- **Nenhuma regra** (todas apagadas): todo link volta ao comportamento de antes da feature — ícone
+  `ExternalLink` e o **host** (`github.com`, `docs.google.com`); URL que nem parseia mostra a string
+  cortada. A lista de tarefas continua funcionando normalmente.
+- **Excluir**: o botão de lixeira pede confirmação ("Excluir esta regra?"). Cancelar não apaga.
+  Confirmar apaga só a regra — **os links das tarefas continuam lá**, só voltam ao ícone genérico.
+- **Escopo por usuário**: as regras são por `user_id` com RLS nas 4 operações; outra conta não vê nem
+  altera as suas (provado em `03_assert_behavior.sql`). Apagar a conta / `wipe_own_data` leva as
+  regras junto.
+
+### 5. Sinais de que quebrou
+
+- Tela `/tasks/link-icons` no estado de erro "Não foi possível carregar as regras." com botão
+  **"Tentar de novo"** → quase sempre a **migration não aplicada** (tabela inexistente), não um bug
+  de código.
+- Chips de link sumindo ou lista de tarefas em branco após criar uma regra → uma regex ruim estaria
+  derrubando o render; o comportamento correto é a regra ser **pulada** em silêncio.
+- Chip mostrando o literal `$1/$2#$3` em vez de `owner/repo#123` → o template não está sendo
+  aplicado (`applyLabelTemplate` não foi chamado).
+- Prévia do formulário divergindo do chip do card → alguém voltou a prévia para
+  `describeExternalLink` em vez de `resolveLinkAppearance`.
+- Reordenar não mudar quem vence depois de recarregar → `reorderLinkIconRules` não gravou, ou a
+  listagem perdeu o `order("position")`.
+- No console: `Não foi possível carregar as regras de ícone de link. AuthRequiredError` **durante os
+  testes** é ruído conhecido e inofensivo (ver `## Notas`), não uma falha.

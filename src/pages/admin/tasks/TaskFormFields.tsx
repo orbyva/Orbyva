@@ -21,6 +21,7 @@ import { TaskDescriptionField } from "./TaskDescriptionField";
 import { TaskDueShortcuts } from "./TaskDueShortcuts";
 import { TaskDurationQuickPick } from "./TaskDurationQuickPick";
 import { TaskIconPicker } from "./TaskIconPicker";
+import { TaskMentionsSection } from "./TaskMentionsSection";
 import { TaskNoteButtons } from "./TaskNoteButtons";
 import { TaskPriorityField } from "./TaskPriorityField";
 import { TaskMilestoneField } from "./TaskMilestoneField";
@@ -40,6 +41,7 @@ import type {
 } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
 import type { Dimension } from "@/types/dimensions";
+import { PROJECT_FALLBACK_COLOR } from "@/lib/design-tokens";
 
 /** Quantas letras da descrição aparecem no gatilho colapsado antes das reticências. */
 const DESCRIPTION_SUMMARY_MAX = 80;
@@ -263,8 +265,15 @@ export function TaskFormFields({
           <TaskDescriptionField
             value={description}
             onChange={(next) => setForm((prev) => ({ ...prev, description: next }))}
+            // Feature 104: a tarefa criada por `TASK->` herda o projeto da tarefa em edição.
+            projectId={form.project_id}
           />
         </CollapsibleField>
+
+        {/* Feature 106 — "Referenciada em": quem cita esta tarefa no texto (nota ou descrição de
+            outra tarefa). Só em tarefa que já existe: em "Nova tarefa" não há id, logo não há o
+            que procurar. A própria seção some quando não há menção nenhuma. */}
+        {editing && <TaskMentionsSection taskId={editing.id} />}
 
         {/* Bloco 3 — Projeto em 1/3 e os operadores de tempo nos 2/3 restantes. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -282,7 +291,7 @@ export function TaskFormFields({
                     className="h-2 w-2 shrink-0 rounded-full"
                     style={{
                       backgroundColor:
-                        projects.find((p) => p.id === form.project_id)?.color ?? "#94a3b8",
+                        projects.find((p) => p.id === form.project_id)?.color ?? PROJECT_FALLBACK_COLOR,
                     }}
                   />
                   <span className="truncate">

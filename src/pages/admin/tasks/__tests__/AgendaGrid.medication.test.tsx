@@ -37,6 +37,8 @@ import type { Task } from "@/types/tasks";
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 106: o formulário em edição procura quem cita a tarefa ("Referenciada em").
+  fetchTasksMentioningTask: vi.fn(async () => []),
   // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
@@ -52,6 +54,13 @@ vi.mock("@/api/tasks", () => ({
   countTaskSeries: vi.fn(),
   updateTask: vi.fn(),
   deleteProjectEvent: vi.fn(),
+}));
+
+// Feature 106: a outra metade de "Referenciada em" vem das notas. Só o que é novo é dublado — o
+// resto do módulo continua real, como estes testes já esperavam.
+vi.mock("@/api/notes/notes", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api/notes/notes")>()),
+  fetchNotesMentioningTask: vi.fn(async () => []),
 }));
 
 vi.mock("@/api/recurring", () => ({

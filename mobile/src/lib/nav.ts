@@ -46,6 +46,7 @@ export type AppHref =
   | "/music/form"
   | "/links"
   | "/links/form"
+  | "/orb"
   | "/account"
   | null;
 
@@ -66,7 +67,10 @@ export const NAV_GROUPS: NavGroup[] = [
     title: "Início",
     color: "#6B7CFA",
     icon: "home-outline",
-    items: [{ title: "Dashboard", href: "/home" }],
+    items: [
+      { title: "Dashboard", href: "/home" },
+      { title: "Orb", href: "/orb" },
+    ],
   },
   {
     title: "Finanças",
@@ -150,6 +154,7 @@ function liveQuickAdd(items: QuickAddItem[]): QuickAddItem[] {
 export function quickAddActionsForPath(pathname: string): QuickAddItem[] {
   const path = normalizePath(pathname);
   if (path.endsWith("/form") || path.endsWith("-form")) return [];
+  if (path === "/orb" || path.startsWith("/orb/")) return [];
   if (path === "/account" || path.startsWith("/account/")) return [];
   if (path.startsWith("/finance/budget")) {
     return [

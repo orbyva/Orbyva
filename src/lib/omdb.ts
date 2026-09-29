@@ -126,3 +126,30 @@ export async function findMovieByTitleYear(
   const pick = yearMatch ?? results[0];
   return (await fetchMovieByImdbId(pick.imdb_id)) ?? pick;
 }
+
+/** Like findMovieByTitleYear, but prefers OMDb hits with type === "series". */
+export async function findSeriesByTitleYear(
+  title: string,
+  year?: number | null
+): Promise<Movie | null> {
+  const results = await searchMovies(title);
+  if (!results.length) return null;
+
+  const series = results.filter((r) => r.type === "series");
+  const pool = series.length > 0 ? series : results;
+  const normalized = title.trim().toLowerCase();
+  const exact = pool.find(
+    (r) =>
+      r.title.toLowerCase() === normalized &&
+      (year == null || r.year === year)
+  );
+  if (exact) {
+    const full = (await fetchMovieByImdbId(exact.imdb_id)) ?? exact;
+    return { ...full, type: "series" };
+  }
+
+  const yearMatch = year ? pool.find((r) => r.year === year) : undefined;
+  const pick = yearMatch ?? pool[0];
+  const full = (await fetchMovieByImdbId(pick.imdb_id)) ?? pick;
+  return { ...full, type: "series" };
+}

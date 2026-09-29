@@ -1,0 +1,18 @@
+{
+  "//": "Typecheck do servidor MCP (Node) + do registro compartilhado de tools da Orb. Fora do `tsc -b` do build do app de propósito: o app é browser, isto é Node. Rode com `npm run check:mcp`.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "include": ["mcp", "supabase/functions/_shared/orb"]
+}

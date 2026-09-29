@@ -1,6 +1,33 @@
 import type { Recurring } from "@/types/recurring";
 import { countsAsMonthlySpend } from "@/domain/finance/spendFlags";
 import { NATURE_RECEITA } from "@/domain/finance/spendFlags";
+import {
+  buildPurchaseSimulation,
+  compareYearMonth,
+  formatYm,
+  shiftYearMonth,
+  simulationAmountForYm,
+} from "../../../supabase/functions/_shared/orb/recurring.ts";
+import type {
+  PurchaseSimulation,
+  PurchaseSimulationInput,
+  YearMonth,
+} from "../../../supabase/functions/_shared/orb/recurring.ts";
+
+/**
+ * A aritmética de mês de calendário e a divisão da compra parcelada moram em
+ * `supabase/functions/_shared/orb/recurring.ts`: as tools da Orb simulam com a MESMA conta
+ * (`simulate_month_balance`), e duas implementações divergiriam no arredondamento da última
+ * parcela. Reexportadas aqui para os call sites continuarem importando de `@/domain/recurring`.
+ */
+export {
+  buildPurchaseSimulation,
+  compareYearMonth,
+  formatYm,
+  shiftYearMonth,
+  simulationAmountForYm,
+};
+export type { PurchaseSimulation, PurchaseSimulationInput, YearMonth };
 
 export type ProjectionNature = "receive" | "pay";
 
@@ -13,9 +40,6 @@ export type ProjectionLine = {
   paid: boolean;
   nature: ProjectionNature;
 };
-
-/** month = 1–12 */
-export type YearMonth = { year: number; month: number };
 
 export type MonthProjection = {
   year: number;
@@ -72,14 +96,6 @@ export type LedgerProjectionLine = {
   date: string;
   nature: ProjectionNature;
 };
-
-function padMonth(month: number): string {
-  return String(month).padStart(2, "0");
-}
-
-export function formatYm(year: number, month: number): string {
-  return `${year}-${padMonth(month)}`;
-}
 
 function dueInMonth(dueDate: string, year: number, month: number): boolean {
   // dueDate is YYYY-MM-DD
@@ -171,15 +187,6 @@ export function filterOpenProjectionLines(
   };
 }
 
-function addMonths(ym: YearMonth, delta: number): YearMonth {
-  const idx = ym.year * 12 + (ym.month - 1) + delta;
-  return { year: Math.floor(idx / 12), month: (idx % 12) + 1 };
-}
-
-function compareYm(a: YearMonth, b: YearMonth): number {
-  return a.year * 12 + a.month - (b.year * 12 + b.month);
-}
-
 export type ProjectionSeriesOptions = {
   openOnly?: boolean;
 };
@@ -195,10 +202,10 @@ export function buildProjectionSeries(
   options: ProjectionSeriesOptions = {}
 ): ProjectionSeriesPoint[] {
   const points: ProjectionSeriesPoint[] = [];
-  if (compareYm(from, to) > 0) return points;
+  if (compareYearMonth(from, to) > 0) return points;
 
   let cursor = from;
-  while (compareYm(cursor, to) <= 0) {
+  while (compareYearMonth(cursor, to) <= 0) {
     const m = buildMonthProjection(
       recurringList,
       cursor.year,
@@ -213,7 +220,7 @@ export function buildProjectionSeries(
       payTotal: m.payTotal,
       net: m.net,
     });
-    cursor = addMonths(cursor, 1);
+    cursor = shiftYearMonth(cursor, 1);
   }
   return points;
 }
@@ -228,7 +235,7 @@ export function buildProjectionSeriesTrailing(
   },
   options: ProjectionSeriesOptions = {}
 ): ProjectionSeriesPoint[] {
-  const from = addMonths(end, -(Math.max(1, months) - 1));
+  const from = shiftYearMonth(end, -(Math.max(1, months) - 1));
   return buildProjectionSeries(recurringList, from, end, options);
 }
 
@@ -250,81 +257,11 @@ export function buildProjectionSeriesWindow(
 ): ProjectionSeriesPoint[] {
   const past = Math.max(0, options.past ?? 2);
   const future = Math.max(0, options.future ?? 9);
-  const from = addMonths(anchor, -past);
-  const to = addMonths(anchor, future);
+  const from = shiftYearMonth(anchor, -past);
+  const to = shiftYearMonth(anchor, future);
   return buildProjectionSeries(recurringList, from, to, {
     openOnly: options.openOnly,
   });
-}
-
-export function shiftYearMonth(ym: YearMonth, delta: number): YearMonth {
-  return addMonths(ym, delta);
-}
-
-export function compareYearMonth(a: YearMonth, b: YearMonth): number {
-  return compareYm(a, b);
-}
-
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-export type PurchaseSimulationInput = {
-  total: number;
-  installmentCount: number;
-  start: YearMonth;
-};
-
-export type PurchaseSimulation = {
-  total: number;
-  installmentCount: number;
-  /** Valor típico da parcela (antes do ajuste da última). */
-  installmentValue: number;
-  start: YearMonth;
-  end: YearMonth;
-  /** Valor da simulação por `yyyy-mm`. */
-  byYm: Record<string, number>;
-};
-
-/**
- * Simulação what-if de compra parcelada (não persiste).
- * Divide o total em N parcelas mensais a partir de `start`; a última absorve o arredondamento.
- */
-export function buildPurchaseSimulation(
-  input: PurchaseSimulationInput
-): PurchaseSimulation | null {
-  const count = Math.floor(input.installmentCount);
-  if (!(input.total > 0) || count < 1) return null;
-
-  const base = roundMoney(input.total / count);
-  const byYm: Record<string, number> = {};
-  let allocated = 0;
-
-  for (let i = 0; i < count; i++) {
-    const month = addMonths(input.start, i);
-    const isLast = i === count - 1;
-    const value = isLast ? roundMoney(input.total - allocated) : base;
-    allocated = roundMoney(allocated + value);
-    byYm[formatYm(month.year, month.month)] = value;
-  }
-
-  return {
-    total: input.total,
-    installmentCount: count,
-    installmentValue: base,
-    start: input.start,
-    end: addMonths(input.start, count - 1),
-    byYm,
-  };
-}
-
-export function simulationAmountForYm(
-  simulation: PurchaseSimulation | null | undefined,
-  year: number,
-  month: number
-): number {
-  if (!simulation) return 0;
-  return simulation.byYm[formatYm(year, month)] ?? 0;
 }
 
 /** Extensão mínima de meses futuros no gráfico para caber a simulação. */
@@ -335,7 +272,7 @@ export function futureMonthsForSimulation(
   maxFuture = 23
 ): number {
   if (!simulation) return baseFuture;
-  const needed = compareYm(simulation.end, anchor);
+  const needed = compareYearMonth(simulation.end, anchor);
   if (needed <= 0) return baseFuture;
   return Math.min(maxFuture, Math.max(baseFuture, needed));
 }
@@ -465,8 +402,8 @@ export function buildBalanceSeriesWindow(
 ): ProjectionSeriesPoint[] {
   const past = Math.max(0, options.past ?? 2);
   const future = Math.max(0, options.future ?? 9);
-  const from = addMonths(anchor, -past);
-  const to = addMonths(anchor, future);
+  const from = shiftYearMonth(anchor, -past);
+  const to = shiftYearMonth(anchor, future);
 
   if (options.openOnly) {
     return buildProjectionSeries(recurringList, from, to, { openOnly: true });
@@ -474,7 +411,7 @@ export function buildBalanceSeriesWindow(
 
   const points: ProjectionSeriesPoint[] = [];
   let cursor = from;
-  while (compareYm(cursor, to) <= 0) {
+  while (compareYearMonth(cursor, to) <= 0) {
     const balance = buildMonthCashBalance(
       recurringList,
       cursor.year,
@@ -489,7 +426,7 @@ export function buildBalanceSeriesWindow(
       payTotal: balance.payTotal,
       net: balance.net,
     });
-    cursor = addMonths(cursor, 1);
+    cursor = shiftYearMonth(cursor, 1);
   }
   return points;
 }

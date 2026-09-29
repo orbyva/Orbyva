@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { Children, useMemo } from "react";
+import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FilePlus2 } from "lucide-react";
 import { defaultUrlTransform } from "react-markdown";
 import type { Components } from "react-markdown";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
+import { TaskRefChip } from "@/components/tasks/TaskRefChip";
 import {
   WIKI_LINK_MISSING_SCHEME,
   indexNotesByTitle,
@@ -11,7 +13,20 @@ import {
   parseMissingWikiLinkHref,
   replaceWikiLinks,
 } from "@/domain/notes/wikiLinks";
+import { TASK_REF_SCHEME, parseTaskRefHref, taskRefIds } from "@/domain/tasks/taskRefs";
+import { lookupTaskRef, useTaskRefIndex } from "@/hooks/useTaskRefIndex";
 import type { Note } from "@/types/notes";
+
+/**
+ * O texto de dentro de um `<a>` do `react-markdown` — o rótulo como foi escrito no markdown. Só
+ * serve de fallback quando a tarefa referenciada não existe mais; havendo tarefa, o chip mostra o
+ * título atual dela.
+ */
+function linkText(children: ReactNode): string {
+  return Children.toArray(children)
+    .filter((child): child is string | number => typeof child === "string" || typeof child === "number")
+    .join("");
+}
 
 /**
  * Preview do Markdown de uma nota **com wiki-link resolvido** (feature 056).
@@ -21,9 +36,16 @@ import type { Note } from "@/types/notes";
  * resolver por título em vez de por id (ver Decisões da 056).
  *
  * A conversão acontece no texto do markdown (`replaceWikiLinks`), não em HTML: o preview continua
- * sem `rehype-raw`, e o `urlTransform` só abre exceção para o esquema sintético dos links
- * quebrados — todo o resto continua passando pelo saneamento padrão do `react-markdown`, que é o
- * que barra `javascript:` num link escrito pelo usuário.
+ * sem `rehype-raw`, e o `urlTransform` só abre exceção para os dois esquemas internos (o sintético
+ * dos links quebrados e o `orbyva-task:` das referências de tarefa) — todo o resto continua
+ * passando pelo saneamento padrão do `react-markdown`, que é o que barra `javascript:` num link
+ * escrito pelo usuário.
+ *
+ * **Referência de tarefa (feature 105)**: `[Rótulo](orbyva-task:<id>)` vira `TaskRefChip` com o
+ * estado atual da tarefa. Diferente do `[[…]]`, ela **não** precisa de reescrita prévia do texto —
+ * já é link markdown válido, então chega pronta no componente `a` daqui. O que ela precisa é da
+ * exceção no `urlTransform`: sem ela o `defaultUrlTransform` poda o esquema desconhecido, o `href`
+ * chega vazio e o chip nunca renderiza — sem erro nenhum no console.
  */
 export function NoteMarkdownPreview({
   content,
@@ -48,6 +70,9 @@ export function NoteMarkdownPreview({
   className?: string;
 }) {
   const navigate = useNavigate();
+  /** Os ids citados resolvem **em lote**: uma consulta por chip na tela seria o defeito. */
+  const refIds = useMemo(() => taskRefIds(content), [content]);
+  const taskRefs = useTaskRefIndex(refIds);
   const resolved = useMemo(() => {
     const index = indexNotesByTitle(notes);
     return replaceWikiLinks(content, (title) => {
@@ -68,6 +93,20 @@ export function NoteMarkdownPreview({
       a({ href, children, ...rest }) {
         // `node` é o nó do hast, não atributo de DOM — repassá-lo vira warning do React.
         delete rest.node;
+
+        // Referência de tarefa (105) antes de tudo: é a única cujo href não é uma rota nem um
+        // esquema sintético de wiki-link, e ela vira chip em vez de link.
+        const taskId = href ? parseTaskRefHref(href) : null;
+        if (taskId) {
+          return (
+            <TaskRefChip
+              id={taskId}
+              label={linkText(children)}
+              task={lookupTaskRef(taskRefs, taskId)}
+            />
+          );
+        }
+
         const missingTitle = href ? parseMissingWikiLinkHref(href) : null;
 
         if (missingTitle !== null) {
@@ -130,7 +169,7 @@ export function NoteMarkdownPreview({
         );
       },
     }),
-    [onCreateNote, navigate]
+    [onCreateNote, navigate, taskRefs]
   );
 
   return (
@@ -140,8 +179,13 @@ export function NoteMarkdownPreview({
       components={components}
       onToggleTaskItem={onToggleTaskItem}
       onToggleTask={onToggleTask}
+      // Os dois esquemas internos passam inteiros; o resto segue no saneamento padrão. Tirar
+      // `orbyva-task:` daqui não quebra nada visivelmente — só faz o chip sumir em silêncio, que é
+      // a falha mais provável (e mais muda) desta feature.
       urlTransform={(url) =>
-        url.startsWith(WIKI_LINK_MISSING_SCHEME) ? url : defaultUrlTransform(url)
+        url.startsWith(WIKI_LINK_MISSING_SCHEME) || url.startsWith(TASK_REF_SCHEME)
+          ? url
+          : defaultUrlTransform(url)
       }
     />
   );

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { TaskFormFields } from "@/pages/admin/tasks/TaskFormFields";
@@ -8,7 +8,11 @@ import { emptyTask } from "@/domain/tasks/taskDraft";
 import { DUE_DATE_SHORTCUTS, dueDateForShortcut } from "@/domain/tasks/agenda";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { formatDateBR } from "@/lib/currency";
-import { uploadIconAsset } from "@/api/tasks";
+import { PROJECT_FALLBACK_COLOR } from "@/lib/design-tokens";
+import { fetchTasksMentioningTask } from "@/api/tasks";
+import { uploadIconAsset } from "@/api/tasks/iconAssets";
+import { fetchNotesMentioningTask } from "@/api/notes/notes";
+import type { Note } from "@/types/notes";
 import type {
   Project,
   SubtaskDraft,
@@ -25,18 +29,26 @@ import type {
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 106: o formulário em edição procura quem cita a tarefa ("Referenciada em").
+  fetchTasksMentioningTask: vi.fn(async () => []),
   // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
   saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
-  uploadIconAsset: vi.fn(),
-  fetchIconAssets: vi.fn().mockResolvedValue([]),
-  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
-  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   fetchEntriesForTask: vi.fn().mockResolvedValue([]),
   updateTimeEntry: vi.fn(),
   deleteTimeEntry: vi.fn(),
 }));
+
+// Feature 131: a biblioteca de assets importa `@/api/tasks/iconAssets` direto (nunca o barril, que
+// arrastaria a API de tarefas inteira para o chunk de quem a monta) — é este mock que a intercepta.
+vi.mock("@/api/tasks/iconAssets", () => ({
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
+}));
+
 
 vi.mock("@/api/recurring", () => ({
   createRecurringApi: vi.fn(),
@@ -50,6 +62,8 @@ vi.mock("@/api/notes/noteLinks", () => ({
 }));
 
 vi.mock("@/api/notes/notes", () => ({
+  // Feature 106: a outra metade de "Referenciada em".
+  fetchNotesMentioningTask: vi.fn(async () => []),
   createNote: vi.fn(),
   fetchNotes: vi.fn().mockResolvedValue([]),
 }));
@@ -62,6 +76,14 @@ vi.mock("@/hooks/use-toast", () => ({
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return { id: "project-1", name: "Projeto Alpha", status: "active", tag_ids: [], ...overrides };
+}
+
+/** A bolinha do bloco somente-leitura "Herdado da tarefa principal" (feature 111). */
+function inheritedProjectDot(): HTMLElement {
+  const row = screen.getByText("Herdado da tarefa principal").parentElement;
+  const dot = row?.querySelector<HTMLElement>('span[style*="background-color"]');
+  if (!dot) throw new Error("bolinha do projeto herdado não encontrada");
+  return dot;
 }
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -260,6 +282,21 @@ describe("TaskFormFields — painel único (feature 080)", () => {
 
     expect(screen.getByText("Herdado da tarefa principal")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sem projeto" })).not.toBeInTheDocument();
+    // Feature 111: `makeProject()` não tem `color`, então a bolinha do bloco herdado tem de cair
+    // na constante de fallback — não ficar transparente.
+    expect(inheritedProjectDot()).toHaveStyle({ backgroundColor: PROJECT_FALLBACK_COLOR });
+  });
+
+  it("subtarefa em edição pinta a bolinha do projeto herdado com a cor do projeto (feature 111)", () => {
+    render(
+      <Harness
+        editing={makeTask({ id: "sub-1", parent_task_id: "parent-1" })}
+        projects={[makeProject({ color: "#0ea5e9" })]}
+        initialForm={{ ...emptyTask(), parent_task_id: "parent-1", project_id: "project-1" }}
+      />
+    );
+
+    expect(inheritedProjectDot()).toHaveStyle({ backgroundColor: "#0ea5e9" });
   });
 
   it("a seção Registros de tempo só existe em modo edição", () => {
@@ -898,5 +935,66 @@ describe("TaskFormFields — atalhos de prazo (feature 083)", () => {
     expect(currentForm().due_date).toBe(picked);
     // E a escolha manual não deixa nenhum atalho pressionado por engano.
     expect(within(group).queryAllByRole("button", { pressed: true })).toHaveLength(0);
+  });
+});
+
+/**
+ * Feature 106 — "Referenciada em" dentro do formulário. O comportamento da seção em si está em
+ * `TaskMentionsSection.test.tsx`; aqui se prova só o encaixe: ela existe em tarefa que já existe e
+ * **não** existe em "Nova tarefa", onde não há id para procurar.
+ */
+describe("TaskFormFields — Referenciada em (feature 106)", () => {
+  // Id de verdade: o parser da 103 só reconhece a marca com uuid, então "task-1" nunca casaria.
+  const TASK_REF_ID = "11111111-2222-4333-8444-555555555555";
+
+  function makeNote(): Note {
+    return {
+      id: "note-9",
+      project_id: null,
+      folder_id: null,
+      title: "Reforma da sala",
+      content: `Depende de [subir painel](orbyva-task:${TASK_REF_ID})`,
+      kind: "markdown",
+      canvas_data: null,
+    };
+  }
+
+  beforeEach(() => {
+    vi.mocked(fetchNotesMentioningTask).mockClear().mockResolvedValue([]);
+    vi.mocked(fetchTasksMentioningTask).mockClear().mockResolvedValue([]);
+  });
+
+  it("em tarefa que já existe, lista quem cita a tarefa", async () => {
+    vi.mocked(fetchNotesMentioningTask).mockResolvedValue([makeNote()]);
+
+    render(<Harness editing={makeTask({ id: TASK_REF_ID })} projects={[makeProject()]} />);
+
+    expect(await screen.findByText("Referenciada em")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Reforma da sala" })).toHaveAttribute(
+      "href",
+      "/notes/note-9"
+    );
+    expect(fetchNotesMentioningTask).toHaveBeenCalledWith(TASK_REF_ID);
+    expect(fetchTasksMentioningTask).toHaveBeenCalledWith(TASK_REF_ID);
+  });
+
+  it("em 'Nova tarefa' a seção não aparece e nem consulta nada (não há id)", async () => {
+    render(<Harness projects={[makeProject()]} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Descrição/ })).toBeInTheDocument()
+    );
+    expect(screen.queryByText("Referenciada em")).not.toBeInTheDocument();
+    expect(fetchNotesMentioningTask).not.toHaveBeenCalled();
+    expect(fetchTasksMentioningTask).not.toHaveBeenCalled();
+  });
+
+  it("tarefa que ninguém cita não ganha seção nenhuma no formulário", async () => {
+    render(<Harness editing={makeTask({ id: TASK_REF_ID })} projects={[makeProject()]} />);
+
+    await waitFor(() => expect(fetchNotesMentioningTask).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.queryByText("Referenciada em")).not.toBeInTheDocument()
+    );
   });
 });

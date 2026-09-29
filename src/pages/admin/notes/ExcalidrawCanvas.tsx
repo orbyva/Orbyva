@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { toCanvasData } from "@/domain/notes/canvasScene";
@@ -28,6 +29,18 @@ export interface ExcalidrawCanvasProps {
   onSceneChange?: (data: NoteCanvasData) => void;
   /** Canvas embutido numa nota é só leitura; a página do canvas é editável. */
   readOnly?: boolean;
+  /**
+   * A API imperativa do Excalidraw, entregue uma vez na montagem (feature 172) — é por ela que o
+   * `CanvasEditor` lê o `appState` **vivo** na hora do `Esc`, sem reagir a cada movimento do
+   * ponteiro como faria encaminhar o `appState` do `onChange`.
+   *
+   * O tipo é **estrutural de propósito**: `{ getAppState: () => Record<string, unknown> }`, e não
+   * `ExcalidrawImperativeAPI`. Nomear o tipo da lib aqui o faria vazar para o arquivo que chama, e
+   * este módulo é o único do app autorizado a encostar em `@excalidraw/excalidraw` (ver o cabeçalho
+   * acima e `npm run check:bundle`). Quem recebe a API só pode fazer com ela o que este contrato
+   * promete.
+   */
+  onApiReady?: (api: { getAppState: () => Record<string, unknown> }) => void;
 }
 
 export default function ExcalidrawCanvas({
@@ -35,7 +48,22 @@ export default function ExcalidrawCanvas({
   theme,
   onSceneChange,
   readOnly = false,
+  onApiReady,
 }: ExcalidrawCanvasProps) {
+  /**
+   * Adaptador entre a API da lib e o contrato estrutural — o único lugar onde os dois se tocam.
+   * `useCallback` porque a identidade desta prop é o que o Excalidraw observa para reentregar a
+   * API; recriá-la a cada render repetiria a entrega sem necessidade.
+   */
+  const handleApiReady = useCallback(
+    (api: { getAppState: () => unknown }) => {
+      onApiReady?.({
+        getAppState: () => api.getAppState() as Record<string, unknown>,
+      });
+    },
+    [onApiReady]
+  );
+
   return (
     <Excalidraw
       // `scrollToContent` enquadra o desenho salvo em vez de abrir no canto vazio da tela.
@@ -47,6 +75,7 @@ export default function ExcalidrawCanvas({
       }}
       theme={theme}
       viewModeEnabled={readOnly}
+      excalidrawAPI={onApiReady ? handleApiReady : undefined}
       onChange={
         onSceneChange
           ? (elements, appState, files) =>

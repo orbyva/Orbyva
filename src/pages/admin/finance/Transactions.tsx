@@ -38,6 +38,20 @@ export default function Transactions() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [natureFilter, setNatureFilter] = useState<NatureFilter>("all");
 
+  /**
+   * Filtros vindos da URL (feature 100): é assim que a Orb abre a tela já filtrada, e é o que faz
+   * um link com `?q=&nature=` funcionar. Roda a cada troca de query string — a tela não remonta quando só
+   * os parâmetros mudam, então ler no `useState` inicial pegaria apenas a primeira.
+   */
+  useEffect(() => {
+    const busca = searchParams.get("q");
+    if (busca !== null) setSearch(busca);
+    const natureza = searchParams.get("nature");
+    if (natureza === "Receita" || natureza === "Despesa" || natureza === "Investimento") {
+      setNatureFilter(natureza);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(timer);

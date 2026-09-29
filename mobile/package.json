@@ -10,6 +10,7 @@
     "expo": "~57.0.21",
     "expo-apple-authentication": "~57.0.1",
     "expo-auth-session": "~57.0.11",
+    "expo-clipboard": "^57.0.2",
     "expo-constants": "~57.0.17",
     "expo-crypto": "~57.0.2",
     "expo-device": "~57.0.1",
@@ -43,7 +44,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^3.2.4"
   },
   "scripts": {
     "start": "expo start",
@@ -51,7 +53,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "vitest run"
   },
   "overrides": {
     "decode-uri-component": "0.5.0",

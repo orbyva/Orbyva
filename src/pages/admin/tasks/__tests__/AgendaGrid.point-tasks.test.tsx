@@ -29,6 +29,29 @@ vi.mock("@/api/tasks", () => ({
   deleteProjectEvent: vi.fn(),
 }));
 
+/**
+ * Mesma armadilha do `AgendaGrid.events.test.tsx`: abrir o form de tarefa alcança o "Referenciada
+ * em" da 106 (`fetchNotesMentioningTask`) e o `TASK->` da 104, que importa `@/api/tasks/tasks`
+ * **dinamicamente** — nenhum dos dois é interceptado pelo mock do barrel acima. Sem estes mocks a
+ * chamada real rejeita com `AuthRequiredError` fora do teste: os casos passam, mas a rejeição não
+ * tratada derruba o exit code da suíte inteira.
+ */
+vi.mock("@/api/notes/notes", () => ({
+  fetchNotes: vi.fn(async () => []),
+  fetchNote: vi.fn(async () => null),
+  fetchNotesMentioning: vi.fn(async () => []),
+  fetchNotesMentioningTask: vi.fn(async () => []),
+  countNotesByProject: vi.fn(async () => 0),
+  createNote: vi.fn(),
+  updateNote: vi.fn(),
+  deleteNote: vi.fn(),
+}));
+
+vi.mock("@/api/tasks/tasks", () => ({
+  fetchTasks: vi.fn(async () => []),
+  createTask: vi.fn(),
+}));
+
 vi.mock("@/api/recurring", () => ({
   fetchRecurringTransactions: vi.fn(),
 }));

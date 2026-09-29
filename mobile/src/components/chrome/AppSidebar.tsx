@@ -54,7 +54,7 @@ export function AppSidebar() {
   const [mounted, setMounted] = useState(false);
   const progress = useSharedValue(0);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    Início: path.startsWith("/home") || path === "/",
+    Início: path.startsWith("/home") || path === "/" || path.startsWith("/orb"),
     Finanças: path.startsWith("/finance"),
     Produtividade:
       path.startsWith("/tasks") ||

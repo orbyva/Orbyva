@@ -1,9 +1,12 @@
+import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { CanvasEditor } from "@/pages/admin/notes/CanvasEditor";
+import { ASSETS_PANEL_TITLE } from "@/pages/admin/notes/CanvasAssetsPanel";
 import { updateNote } from "@/api/notes/notes";
+import { fetchIconAssets } from "@/api/tasks/iconAssets";
 import { toCanvasData } from "@/domain/notes/canvasScene";
 import type { Note, NoteCanvasData } from "@/types/notes";
 
@@ -19,11 +22,19 @@ import type { Note, NoteCanvasData } from "@/types/notes";
  */
 
 const { sceneSpy } = vi.hoisted(() => ({
-  sceneSpy: { onSceneChange: null as ((data: NoteCanvasData) => void) | null },
+  sceneSpy: {
+    onSceneChange: null as ((data: NoteCanvasData) => void) | null,
+    /** Quantas vezes o canvas foi **montado**. Uma remontagem recarrega `initialData` e joga fora
+     * a cena que o debounce ainda não gravou — é o defeito que a 132 precisa manter longe. */
+    mounts: 0,
+  },
 }));
 
-vi.mock("@/pages/admin/notes/ExcalidrawCanvas", () => ({
-  default: ({
+vi.mock("@/pages/admin/notes/ExcalidrawCanvas", () => {
+  // Componente nomeado (e não um arrow anônimo em `default:`) porque ele usa `useEffect` para
+  // contar montagens — o `rules-of-hooks` do ESLint só reconhece hook dentro de algo que **parece**
+  // componente, ou seja, com nome em maiúscula.
+  function FakeExcalidrawCanvas({
     initialScene,
     theme,
     onSceneChange,
@@ -31,14 +42,27 @@ vi.mock("@/pages/admin/notes/ExcalidrawCanvas", () => ({
     initialScene: { elements: readonly unknown[] };
     theme: string;
     onSceneChange?: (data: NoteCanvasData) => void;
-  }) => {
+  }) {
     sceneSpy.onSceneChange = onSceneChange ?? null;
+    useEffect(() => {
+      sceneSpy.mounts += 1;
+    }, []);
     return (
       <div data-testid="excalidraw" data-theme={theme}>
         {`elementos recebidos: ${initialScene.elements.length}`}
       </div>
     );
-  },
+  }
+  return { default: FakeExcalidrawCanvas };
+});
+
+// A biblioteca de assets do painel "Orbyva Assets" (132) — mockada para que "abrir um canvas não
+// consulta assets" seja uma afirmação verificável, e não um efeito de o Supabase não responder.
+vi.mock("@/api/tasks/iconAssets", () => ({
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/api/notes/notes", () => ({ updateNote: vi.fn(async () => {}) }));
@@ -88,6 +112,8 @@ function renderEditor(note = canvasNote()) {
 beforeEach(() => {
   vi.clearAllMocks();
   sceneSpy.onSceneChange = null;
+  sceneSpy.mounts = 0;
+  vi.mocked(fetchIconAssets).mockResolvedValue([]);
   document.documentElement.classList.remove("dark");
 });
 
@@ -211,5 +237,69 @@ describe("CanvasEditor", () => {
 
     expect(writeText).toHaveBeenCalledWith("```orbyva-canvas\nc1\n```\n");
     expect(await screen.findByRole("button", { name: /Copiado/ })).toBeInTheDocument();
+  });
+
+  /**
+   * Feature 132 — o painel "Orbyva Assets" passou a dividir a linha com o desenho. Os três testes
+   * abaixo são os de **regressão da mudança de layout**: o desenho continua com altura explícita,
+   * o autosave não mudou, e mexer no painel não remonta o canvas.
+   */
+  describe("painel Orbyva Assets", () => {
+    it("aparece ao lado do desenho, e abrir o canvas não consulta a biblioteca", async () => {
+      renderEditor();
+      const canvas = await screen.findByTestId("excalidraw");
+
+      const panel = document.querySelector("aside");
+      expect(panel).not.toBeNull();
+      expect(
+        screen.getByRole("button", { name: `Abrir ${ASSETS_PANEL_TITLE}` })
+      ).toBeInTheDocument();
+
+      // Irmãos na mesma linha, nesta ordem: painel à esquerda, desenho à direita — e abaixo de
+      // `sm` a mesma ordem vira coluna, com o painel **acima** do desenho.
+      expect(panel?.nextElementSibling?.contains(canvas)).toBe(true);
+      const row = panel?.parentElement as HTMLElement;
+      expect(row.className).toMatch(/(^|\s)flex-col(\s|$)/);
+      expect(row.className).toMatch(/sm:flex-row/);
+      // O Excalidraw se posiciona em absoluto: sem altura explícita no irmão ele colapsa.
+      const canvasBox = panel?.nextElementSibling as HTMLElement;
+      expect(canvasBox.className).toMatch(/h-\[70vh\]/);
+      expect(canvasBox.className).toMatch(/min-h-\[420px\]/);
+
+      // O painel nasce fechado fora da tela larga, e fechado não busca nada: quem nunca usa a
+      // biblioteca não paga uma consulta por canvas aberto.
+      expect(fetchIconAssets).not.toHaveBeenCalled();
+    });
+
+    it("recolher e expandir o painel NÃO remonta o canvas", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      const canvas = await screen.findByTestId("excalidraw");
+      expect(sceneSpy.mounts).toBe(1);
+
+      await user.click(screen.getByRole("button", { name: `Abrir ${ASSETS_PANEL_TITLE}` }));
+      await user.click(screen.getByRole("button", { name: `Recolher ${ASSETS_PANEL_TITLE}` }));
+
+      // Mesma montagem e **mesmo nó**: remontar recarregaria `initialData` e apagaria o traço que
+      // o debounce de 1,5 s ainda não gravou.
+      expect(sceneSpy.mounts).toBe(1);
+      expect(screen.getByTestId("excalidraw")).toBe(canvas);
+    });
+
+    it("o autosave continua igual depois de mexer no painel", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await screen.findByTestId("excalidraw");
+
+      await user.click(screen.getByRole("button", { name: `Abrir ${ASSETS_PANEL_TITLE}` }));
+      sceneSpy.onSceneChange?.(toCanvasData([rect, arrow], {}));
+
+      await waitFor(() => expect(updateNote).toHaveBeenCalledTimes(1), SAVED);
+      expect(vi.mocked(updateNote).mock.calls[0][0]).toMatchObject({
+        id: "c1",
+        canvas_data: { elements: [rect, arrow] },
+      });
+      expect(await screen.findByText("Salvo", {}, SAVED)).toBeInTheDocument();
+    });
   });
 });

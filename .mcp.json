@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "orbyva": {
+      "command": "npx",
+      "args": ["tsx", "mcp/server.ts"],
+      "env": {}
+    }
+  }
+}

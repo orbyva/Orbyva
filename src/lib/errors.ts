@@ -168,6 +168,11 @@ function mapKnownError(message: string, code: string): string | null {
     return "Não foi possível concluir a operação. Tente de novo.";
   }
 
+  // Antes do mapeamento genérico de `API_KEY` (catálogos): a Orb usa GEMINI_API_KEY.
+  if (/Orb não configurada|GEMINI_API_KEY/i.test(text)) {
+    return "A Orb não está configurada no momento. Tente mais tarde.";
+  }
+
   if (
     /VITE_|API[_ ]?KEY|\.env\b|TMDB não configurada|TMDB \d+|SPOTIFY_NOT_CONFIGURED|Google Books|catálogo de (música|cinema|livros).*(indisponível|não configurado)/i.test(
       text

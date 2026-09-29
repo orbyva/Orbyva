@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TaskQuickFields } from "@/pages/admin/tasks/TaskQuickFields";
-import { uploadIconAsset } from "@/api/tasks";
+import { uploadIconAsset } from "@/api/tasks/iconAssets";
 import type { IconAsset, Task } from "@/types/tasks";
 
 /**
@@ -21,11 +21,17 @@ vi.mock("@/api/tasks", () => ({
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
   saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
+}));
+
+// Feature 131: a biblioteca de assets importa `@/api/tasks/iconAssets` direto (nunca o barril, que
+// arrastaria a API de tarefas inteira para o chunk de quem a monta) — é este mock que a intercepta.
+vi.mock("@/api/tasks/iconAssets", () => ({
   uploadIconAsset: vi.fn(),
   fetchIconAssets: vi.fn().mockResolvedValue([]),
   deleteIconAsset: vi.fn().mockResolvedValue(undefined),
   renameIconAsset: vi.fn().mockResolvedValue(undefined),
 }));
+
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: vi.fn() }),

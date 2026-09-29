@@ -74,6 +74,12 @@ describe("getErrorMessage", () => {
     ).toBe("Ops.");
   });
 
+  it("não confunde falta de GEMINI_API_KEY da Orb com catálogo", () => {
+    expect(
+      getErrorMessage(new Error("Orb não configurada: falta GEMINI_API_KEY."))
+    ).toBe("A Orb não está configurada no momento. Tente mais tarde.");
+  });
+
   it("usa fallback quando mensagem vazia", () => {
     expect(getErrorMessage({}, "Tente de novo.")).toBe("Tente de novo.");
   });

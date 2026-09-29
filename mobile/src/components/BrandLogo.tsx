@@ -7,7 +7,7 @@ export function BrandLogo({ size = 40 }: { size?: number }) {
     <View
       style={[
         styles.wrap,
-        { width: size, height: size, borderRadius: Math.round(size * 0.28) },
+        { width: size, height: size },
       ]}
     >
       <Image
@@ -22,7 +22,6 @@ export function BrandLogo({ size = 40 }: { size?: number }) {
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: "#FFFFFF",
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",

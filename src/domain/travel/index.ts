@@ -10,6 +10,7 @@ import type {
   TripWithChecklist,
 } from "@/types/travel";
 import { PLACE_TYPE_LABELS } from "@/domain/places";
+import { tripEffectiveStatus } from "../../../supabase/functions/_shared/orb/domain.ts";
 import { sumTripSpent } from "./spent";
 
 export { sumTripSpent } from "./spent";
@@ -235,13 +236,10 @@ export function enrichTrip(
   const total = progress?.total ?? checklist.length;
   const daysUntilStart = getDaysUntil(trip.start_date);
 
-  let status = trip.status;
-  if (status !== "cancelled" && status !== "completed") {
-    if (daysUntilStart < 0 && getDaysUntil(trip.end_date) >= 0) status = "ongoing";
-    else if (daysUntilStart >= 0 && daysUntilStart <= 30) status = "upcoming";
-    else if (daysUntilStart > 30) status = "planning";
-    else if (getDaysUntil(trip.end_date) < 0) status = "completed";
-  }
+  // A regra do status efetivo mora em `supabase/functions/_shared/orb/domain.ts` porque as tools da
+  // Orb (Deno na Edge, Node no MCP) precisam responder o MESMO status que esta tela mostra — era
+  // uma cópia lá, e cópia de regra é divergência esperando a próxima edição.
+  const status = tripEffectiveStatus(trip.status, daysUntilStart, getDaysUntil(trip.end_date));
 
   return {
     ...trip,

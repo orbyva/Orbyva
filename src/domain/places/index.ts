@@ -6,6 +6,7 @@ import type {
   PlaceVisit,
 } from "@/types/places";
 import type { TripExpenseCategory } from "@/types/travel";
+import { normalizePlaceStatus } from "../../../supabase/functions/_shared/orb/places.ts";
 
 export * from "./placeTypeMeta";
 export { isGoogleMapsUrl } from "./mapsUrl";
@@ -39,13 +40,13 @@ export const PLACE_STATUS_LABELS: Record<PlaceStatus, string> = {
   visited: "Visitado",
 };
 
-export function normalizePlaceStatus(
-  status?: string | null,
-  visitedDate?: string | null
-): PlaceStatus {
-  if (status === "to_visit" || status === "visited") return status;
-  return visitedDate ? "visited" : "to_visit";
-}
+/**
+ * A regra mora em `supabase/functions/_shared/orb/places.ts` porque as tools da Orb
+ * (`query_places`) normalizam o status pela MESMA conta, e este diretório é o único que os dois
+ * runtimes conseguem importar. Reexportado daqui para os consumidores continuarem lendo
+ * `@/domain/places`.
+ */
+export { normalizePlaceStatus };
 
 export function getAverageRating(
   places: { rating?: number | null; status?: PlaceStatus | null; visited_date?: string | null }[]

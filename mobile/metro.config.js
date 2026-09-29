@@ -7,7 +7,9 @@ const config = getDefaultConfig(projectRoot);
 
 // Pasta `mobile/` vive dentro do Vite. Sem isto o Metro sobe até a raiz, lê o
 // `@/*` do web (`./src/*`) e não acha `mobile/src/lib/auth-user.ts`.
-config.watchFolders = [projectRoot];
+// `_shared/orb` (actions/suggestions) é TS puro na pasta do monorepo — a Orb mobile importa daí.
+const sharedOrb = path.resolve(projectRoot, "../supabase/functions/_shared");
+config.watchFolders = [projectRoot, sharedOrb];
 config.resolver.nodeModulesPaths = [path.resolve(projectRoot, "node_modules")];
 config.resolver.disableHierarchicalLookup = true;
 

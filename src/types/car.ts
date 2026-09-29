@@ -1,4 +1,20 @@
-export type VehicleKind = "car" | "motorcycle";
+/**
+ * Os tipos que a REGRA DE ALERTA produz e consome moram junto com ela, em
+ * `supabase/functions/_shared/orb/vehicles.ts` (TS puro, compartilhado com as tools da Orb).
+ * Reexportados aqui para o app continuar importando tudo de `@/types/car`.
+ */
+export type {
+  VehicleKind,
+  MaintenanceType,
+  MaintenanceAlertStatus,
+  MaintenanceScheduleItem,
+  MaintenanceAlert,
+} from "../../supabase/functions/_shared/orb/vehicles.ts";
+
+import type {
+  MaintenanceType,
+  VehicleKind,
+} from "../../supabase/functions/_shared/orb/vehicles.ts";
 
 export type FuelType =
   | "gasoline"
@@ -8,28 +24,7 @@ export type FuelType =
   | "electric"
   | "hybrid";
 
-export type MaintenanceType =
-  | "oil"
-  | "oil_filter"
-  | "air_filter"
-  | "fuel_filter"
-  | "tires"
-  | "brakes"
-  | "battery"
-  | "timing_belt"
-  | "spark_plugs"
-  | "coolant"
-  | "transmission_oil"
-  | "chain"
-  | "drive_belt"
-  | "sprockets"
-  | "fork_oil"
-  | "general_service"
-  | "other";
-
 export type DocumentType = "ipva" | "licensing" | "insurance" | "fine" | "other";
-
-export type MaintenanceAlertStatus = "ok" | "upcoming" | "overdue" | "none";
 
 export interface Vehicle {
   id: string;
@@ -113,30 +108,6 @@ export type VehicleDocumentCreateRequest = Omit<VehicleDocument, "id" | "created
 export type VehicleDocumentUpdateRequest = Partial<VehicleDocumentCreateRequest> & {
   id: string;
 };
-
-export interface MaintenanceScheduleItem {
-  type: MaintenanceType;
-  label: string;
-  status: MaintenanceAlertStatus;
-  lastServiceDate?: string | null;
-  lastKm?: number | null;
-  nextKm?: number | null;
-  nextDate?: string | null;
-  kmRemaining?: number | null;
-  daysRemaining?: number | null;
-  message: string;
-}
-
-export interface MaintenanceAlert {
-  type: MaintenanceType;
-  label: string;
-  status: "upcoming" | "overdue";
-  nextKm?: number | null;
-  nextDate?: string | null;
-  kmRemaining?: number | null;
-  daysRemaining?: number | null;
-  message: string;
-}
 
 export interface DocumentAlert {
   document: VehicleDocument;

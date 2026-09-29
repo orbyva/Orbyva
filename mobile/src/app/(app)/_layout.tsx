@@ -11,7 +11,10 @@ import { QuickAddFab } from "@/components/chrome/QuickAddFab";
 import { QuickAddSheet } from "@/components/chrome/QuickAddSheet";
 import { SearchSheet } from "@/components/chrome/SearchSheet";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
+import { OrbAccessFab } from "@/components/orb/OrbAccessFab";
+import { OrbProposalTray } from "@/components/orb/OrbProposalTray";
 import { ThemedView } from "@/components/themed-view";
+import { OrbProvider } from "@/hooks/useOrb";
 import { AppShellProvider } from "@/hooks/use-app-shell";
 import { ActiveTimerProvider } from "@/hooks/use-active-timer";
 import { useAuth } from "@/hooks/use-auth";
@@ -63,10 +66,16 @@ function AppStack() {
         <Stack.Screen name="books" options={{ headerShown: false }} />
         <Stack.Screen name="music" options={{ headerShown: false }} />
         <Stack.Screen name="links" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="orb"
+          options={{ title: "Orb", keyboardHandlingEnabled: false }}
+        />
         <Stack.Screen name="account" options={{ title: "Conta" }} />
       </Stack>
       <QuickAddFab />
+      <OrbAccessFab />
       <LiveWidget />
+      <OrbProposalTray />
       <QuickAddSheet />
       <AppSidebar />
       <AlertsSheet />
@@ -94,7 +103,9 @@ export default function AppLayout() {
   return (
     <AppShellProvider>
       <ActiveTimerProvider>
-        <AppStack />
+        <OrbProvider>
+          <AppStack />
+        </OrbProvider>
       </ActiveTimerProvider>
     </AppShellProvider>
   );

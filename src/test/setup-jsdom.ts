@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
 /**
@@ -9,6 +9,16 @@ import { afterEach, vi } from "vitest";
  * evita quebrar os testes de lógica pura que rodam em "node".
  */
 if (typeof document !== "undefined") {
+  /**
+   * O autosave da nota grava 800ms depois da última tecla (`NOTE_AUTOSAVE_DEBOUNCE_MS`), e o
+   * `waitFor` do Testing Library desiste em 1000ms por padrão — 200ms de folga. Rodando o arquivo
+   * sozinho sobra; na suíte inteira, com os workers disputando CPU, o timer e o re-render estouram
+   * essa margem e os testes de autosave falham de forma intermitente, sem nada de errado no código.
+   * Três vezes o debounce mata a intermitência e continua abaixo do `testTimeout` de 5000ms, então
+   * uma falha de verdade ainda aparece como asserção — não como teste estourado.
+   */
+  configure({ asyncUtilTimeout: 2500 });
+
   afterEach(() => {
     cleanup();
     // O FocusScope do Radix (Dialog) agenda `setTimeout(0)` no unmount para disparar

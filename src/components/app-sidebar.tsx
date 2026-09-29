@@ -10,6 +10,7 @@ import {
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
+import { OrbSidebarDock } from "@/components/orb/OrbSidebarDock"
 import { TeamSwitcher } from "@/components/team-switcher"
 import {
   Sidebar,
@@ -35,7 +36,12 @@ const NAV_INICIO: NavItem = {
   color: moduleColors.hub,
   url: "#",
   icon: LayoutDashboard,
-  items: [{ title: "Dashboard", url: "/home" }],
+  items: [
+    { title: "Dashboard", url: "/home" },
+    // Orb (feature 098). Entra como item de "Início", e não como grupo próprio, porque todo item de
+    // primeiro nível aqui é um `Collapsible` — uma folha sem sub-itens não navegaria.
+    { title: "Orb", url: "/orb" },
+  ],
 }
 
 const NAV_FINANCE: NavItem = {
@@ -125,6 +131,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={navItems} />
       </SidebarContent>
       <SidebarFooter>
+        {/* A Orb fica no rodapé, e não dentro do `SidebarContent`: ali ela rolaria junto com a
+            navegação e sumiria da tela justo quando a pessoa desce a lista atrás do que perguntar. */}
+        <OrbSidebarDock />
         <NavUser user={navUser} />
       </SidebarFooter>
       <SidebarRail />

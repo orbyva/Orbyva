@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormLabel } from "@/components/FormLabel";
 import { MarkdownCodeEditor } from "@/components/MarkdownCodeEditor";
 import { wikiLinkAutocomplete } from "@/components/codemirror/wikiLinkCompletion";
+import { useTaskRefExtensions } from "@/hooks/useTaskRefExtensions";
 import { wikiLinkNavigation } from "@/components/codemirror/wikiLinkNavigation";
 import {
   openInsertMenu,
@@ -171,11 +172,23 @@ export function NoteEditor({
   const onCreateNoteRef = useRef(onCreateNote);
   onCreateNoteRef.current = onCreateNote;
   const navigate = useNavigate();
+
+  /**
+   * Os campos da nota. Declarados aqui em cima, antes das extensões do editor, porque o `TASK->`
+   * (104) precisa do `projectId` para herdar o projeto na tarefa que cria.
+   */
+  const [title, setTitle] = useState(note.title);
+  const [content, setContent] = useState(note.content);
+  const [projectId, setProjectId] = useState<string | null>(note.project_id);
+  const [folderId, setFolderId] = useState<string | null>(note.folder_id);
+
   /**
    * Linha do cursor (1-based). É o que o sumário usa para saber em que seção o usuário está —
    * na aba "Escrever" não existe HTML nem `id` para observar, existe texto e cursor.
    */
   const [cursorLine, setCursorLine] = useState(1);
+  /** O projeto herdado é o **da nota aberta** — inclusive `null` quando ela não tem projeto. */
+  const taskRefExtensions = useTaskRefExtensions(projectId);
   const editorExtensions = useMemo(
     () => [
       wikiLinkAutocomplete(() =>
@@ -200,8 +213,15 @@ export function NoteEditor({
         const line = update.state.doc.lineAt(update.state.selection.main.head).number;
         setCursorLine(line);
       }),
+      /**
+       * O `TASK->` (104): popup de vincular/criar tarefa e a marca clicável. O mesmo hook que a
+       * descrição de tarefa usa — o projeto herdado aqui é o **da nota aberta**, que é a única
+       * diferença entre os dois campos. A identidade do array vinda do hook é estável, então isto
+       * continua sendo um `useMemo` que não se recria por tecla digitada.
+       */
+      ...taskRefExtensions,
     ],
-    [note.id, navigate]
+    [note.id, navigate, taskRefExtensions]
   );
 
   /**
@@ -220,10 +240,6 @@ export function NoteEditor({
     view.focus();
   }, []);
 
-  const [title, setTitle] = useState(note.title);
-  const [content, setContent] = useState(note.content);
-  const [projectId, setProjectId] = useState<string | null>(note.project_id);
-  const [folderId, setFolderId] = useState<string | null>(note.folder_id);
   /**
    * Rolagem do preview acompanhando a do editor, no modo "Dividir". `requestAnimationFrame` para o
    * ajuste acontecer **uma vez por quadro**: o evento `scroll` dispara dezenas de vezes por
@@ -448,7 +464,9 @@ export function NoteEditor({
         onChange={setContent}
         onCreateEditor={handleCreateEditor}
         className="min-h-[45vh] [&_.cm-editor]:min-h-[45vh]"
-        placeholder="Markdown na veia — # títulos, listas, **negrito**, [[links]] entre notas…"
+        // Os três gatilhos que não se descobrem sozinhos ficam no placeholder: `[[` liga notas,
+        // `/` abre o catálogo de blocos e `TASK->` vincula ou cria tarefa (104).
+        placeholder="Markdown na veia — [[links]] entre notas, / para blocos, TASK-> para tarefas…"
         extensions={editorExtensions}
       />
       <NoteCountFooter content={content} />

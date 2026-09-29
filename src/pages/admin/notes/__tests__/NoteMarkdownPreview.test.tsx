@@ -6,14 +6,18 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { NoteMarkdownPreview } from "@/pages/admin/notes/NoteMarkdownPreview";
 import { NoteEditor } from "@/pages/admin/notes/NoteEditor";
+import { invalidateTaskRefIndex } from "@/hooks/useTaskRefIndex";
 import type { Note } from "@/types/notes";
+import type { TaskRefSummary } from "@/types/tasks";
 
-const { updateNoteMock, toastMock } = vi.hoisted(() => ({
+const { updateNoteMock, toastMock, fetchTaskRefsMock } = vi.hoisted(() => ({
   updateNoteMock: vi.fn(),
   toastMock: vi.fn(),
+  fetchTaskRefsMock: vi.fn(),
 }));
 
 vi.mock("@/api/notes/notes", () => ({ updateNote: updateNoteMock }));
+vi.mock("@/api/tasks/taskRefs", () => ({ fetchTaskRefSummaries: fetchTaskRefsMock }));
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: toastMock }),
   toast: toastMock,
@@ -296,6 +300,159 @@ describe("NoteMarkdownPreview — checklist interativa", () => {
     expect(screen.getByRole("checkbox")).toBeDisabled();
   });
 });
+
+/**
+ * Referência de tarefa na prévia (feature 105): `[Rótulo](orbyva-task:<id>)` vira chip com o estado
+ * **atual** da tarefa, resolvido por id contra o banco (aqui, o falso).
+ */
+describe("NoteMarkdownPreview — referência de tarefa", () => {
+  const TASK_ID = "11111111-1111-4111-8111-111111111111";
+  const GHOST_ID = "00000000-0000-0000-0000-000000000000";
+
+  function taskRow(over: Partial<TaskRefSummary> = {}): TaskRefSummary {
+    return {
+      id: TASK_ID,
+      title: "Revisar contrato",
+      status: "todo",
+      due_date: "2026-09-25",
+      ...over,
+    };
+  }
+
+  beforeEach(() => {
+    invalidateTaskRefIndex();
+    updateNoteMock.mockReset();
+    fetchTaskRefsMock.mockReset();
+    fetchTaskRefsMock.mockResolvedValue([taskRow()]);
+  });
+
+  it("a marca vira chip com o título do banco, não o rótulo velho do texto", async () => {
+    renderPreview(`Depende de [rótulo velho](orbyva-task:${TASK_ID})`, []);
+
+    const chip = await screen.findByRole("link", { name: /Revisar contrato/ });
+    expect(chip).toHaveAttribute("href", `/tasks?task=${TASK_ID}`);
+    expect(chip).toHaveTextContent("Revisar contrato");
+    expect(chip).not.toHaveTextContent("rótulo velho");
+    expect(screen.getByText("25/09/2026")).toBeInTheDocument();
+  });
+
+  it("o `urlTransform` deixa o esquema `orbyva-task:` passar inteiro", async () => {
+    // A armadilha desta feature: sem a exceção, `defaultUrlTransform` poda o esquema, o `href`
+    // chega vazio, `parseTaskRefHref` devolve null e sobra um `<a href="">` — sem erro nenhum no
+    // console. Este assert é o que falha se a exceção for removida.
+    renderPreview(`Depende de [rótulo velho](orbyva-task:${TASK_ID})`, []);
+
+    await screen.findByRole("link", { name: /Revisar contrato/ });
+    expect(
+      document.querySelector('a[href=""]'),
+      "href vazio = urlTransform podou `orbyva-task:` e o chip nunca renderizaria"
+    ).toBeNull();
+    expect(screen.queryByText("rótulo velho")).toBeNull();
+  });
+
+  it("tarefa apagada vira selo de referência removida, sem link e sem tocar no texto", async () => {
+    fetchTaskRefsMock.mockResolvedValue([]);
+    renderPreview(`Depende de [subir painel](orbyva-task:${GHOST_ID})`, []);
+
+    const selo = await screen.findByRole("note", { name: /não existe mais/ });
+    expect(selo).toHaveTextContent("subir painel");
+    expect(screen.queryByRole("link")).toBeNull();
+    // O chip é **render**, nunca gravação: nada do markdown é reescrito porque um id sumiu.
+    expect(updateNoteMock).not.toHaveBeenCalled();
+  });
+
+  it("cinco marcas da mesma tarefa rendem cinco chips e **uma** consulta", async () => {
+    const linha = `[a](orbyva-task:${TASK_ID}) `.repeat(5);
+    renderPreview(linha, []);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("link", { name: /Revisar contrato/ })).toHaveLength(5);
+    });
+    expect(fetchTaskRefsMock).toHaveBeenCalledTimes(1);
+    expect(fetchTaskRefsMock).toHaveBeenCalledWith([TASK_ID]);
+  });
+
+  it("link markdown comum continua `<a>` normal, sem virar chip", async () => {
+    renderPreview("veja o [Google](https://google.com)", []);
+
+    const link = await screen.findByRole("link", { name: "Google" });
+    expect(link).toHaveAttribute("href", "https://google.com");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(fetchTaskRefsMock).not.toHaveBeenCalled();
+  });
+
+  it("`[[Nota]]` e marca de tarefa no mesmo parágrafo renderizam cada um do seu jeito", async () => {
+    renderPreview(
+      `ver [[Obra da casa]] e [x](orbyva-task:${TASK_ID})`,
+      [note("n7", "Obra da casa")]
+    );
+
+    await screen.findByRole("link", { name: /Revisar contrato/ });
+    expect(screen.getByRole("link", { name: "Obra da casa" })).toHaveAttribute(
+      "href",
+      "/notes/n7"
+    );
+  });
+
+  it("a marca dentro de bloco de código fica literal, sem chip e sem consulta", async () => {
+    renderPreview(`escreva \`[x](orbyva-task:${TASK_ID})\` assim`, []);
+
+    await waitFor(() => {
+      expect(screen.getByText(`[x](orbyva-task:${TASK_ID})`).tagName).toBe("CODE");
+    });
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(fetchTaskRefsMock).not.toHaveBeenCalled();
+  });
+
+  it("rótulo vazio na marca usa o título real da tarefa", async () => {
+    renderPreview(`Depende de [](orbyva-task:${TASK_ID})`, []);
+
+    expect(await screen.findByRole("link", { name: /Revisar contrato/ })).toHaveTextContent(
+      "Revisar contrato"
+    );
+  });
+
+  it("tarefa concluída aparece com traço no título", async () => {
+    fetchTaskRefsMock.mockResolvedValue([taskRow({ status: "done", due_date: null })]);
+    renderPreview(`feito: [x](orbyva-task:${TASK_ID})`, []);
+
+    const titulo = await screen.findByText("Revisar contrato");
+    expect(titulo.className).toContain("line-through");
+  });
+
+  it("clicar no chip vai para /tasks?task=<id>, inclusive dentro de um Dialog", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/notes/n1"]}>
+        <Routes>
+          <Route
+            path="/notes/n1"
+            element={
+              <Dialog open>
+                <DialogContent aria-describedby={undefined}>
+                  <DialogTitle>Editar tarefa</DialogTitle>
+                  <NoteMarkdownPreview
+                    content={`ver [x](orbyva-task:${TASK_ID})`}
+                    notes={[]}
+                  />
+                </DialogContent>
+              </Dialog>
+            }
+          />
+          <Route path="/tasks" element={<SearchProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await user.click(await screen.findByRole("link", { name: /Revisar contrato/ }));
+    expect(screen.getByTestId("search")).toHaveTextContent(`?task=${TASK_ID}`);
+  });
+});
+
+function SearchProbe() {
+  const { search } = useLocation();
+  return <div data-testid="search">{search}</div>;
+}
 
 /**
  * Link de âncora (`#…`) dentro de uma nota (feature 069). O override de `a` daqui existe para o

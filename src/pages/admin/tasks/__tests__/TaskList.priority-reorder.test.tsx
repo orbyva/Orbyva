@@ -104,14 +104,20 @@ vi.mock("@/api/tasks", () => ({
   deleteTasks: vi.fn(),
   deleteTaskSeries: vi.fn(),
   createTag: vi.fn(),
-  uploadIconAsset: vi.fn(),
-  fetchIconAssets: vi.fn().mockResolvedValue([]),
-  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
-  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   fetchRunningEntry: vi.fn(async () => store.runningEntry),
   startTimer: vi.fn(),
   stopTimer: vi.fn(),
 }));
+
+// Feature 131: a biblioteca de assets importa `@/api/tasks/iconAssets` direto (nunca o barril, que
+// arrastaria a API de tarefas inteira para o chunk de quem a monta) — é este mock que a intercepta.
+vi.mock("@/api/tasks/iconAssets", () => ({
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
+}));
+
 
 vi.mock("@/api/recurring", () => ({
   fetchRecurringTransactions: vi.fn(async () => []),

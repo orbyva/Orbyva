@@ -1,9 +1,21 @@
 import type { HealthMetric, MetricType } from "@/types/health";
+import {
+  bmiCategory,
+  computeBmi,
+} from "../../../supabase/functions/_shared/orb/domain.ts";
 
 /**
  * Regras puras das métricas corporais (feature 063) — sem I/O, para o Vitest cobrir sem Supabase.
  * A seção "Progresso" do Health Dashboard é só a renderização do que sai daqui.
  */
+
+/**
+ * IMC e faixa do IMC moram em `supabase/functions/_shared/orb/domain.ts`: as tools da Orb (Deno na
+ * Edge, Node no MCP) respondem o mesmo número que o Health Dashboard mostra, e duas contas com o
+ * mesmo nome divergiriam no primeiro ajuste de arredondamento. Reexportados daqui para quem consome
+ * as regras de métricas não precisar saber onde elas moram.
+ */
+export { bmiCategory, computeBmi };
 
 /** Unidade de cada tipo de medição — kg só para peso, cm para o resto. */
 export const METRIC_UNIT: Record<MetricType, string> = {
@@ -34,36 +46,6 @@ export const METRIC_TYPES: MetricType[] = [
   "chest",
   "arm",
 ];
-
-/**
- * IMC a partir do peso (kg) e da altura (cm), arredondado a uma casa — o mesmo arredondamento que a
- * tela mostra, para não haver dois números diferentes chamados "IMC".
- *
- * Devolve `null` quando falta um dos dois (o caso comum: quem só se pesou nunca registrou a altura)
- * ou quando um deles não é um número positivo. IMC não é guardado no banco justamente porque
- * derivaria de dois valores que mudam em datas diferentes.
- */
-export function computeBmi(
-  weightKg: number | null | undefined,
-  heightCm: number | null | undefined
-): number | null {
-  if (weightKg == null || heightCm == null) return null;
-  if (!Number.isFinite(weightKg) || !Number.isFinite(heightCm)) return null;
-  if (weightKg <= 0 || heightCm <= 0) return null;
-  const heightM = heightCm / 100;
-  return Math.round((weightKg / (heightM * heightM)) * 10) / 10;
-}
-
-/**
- * Faixa do IMC, para o card dizer o que o número significa. Os cortes são os da OMS.
- */
-export function bmiCategory(bmi: number | null): string | null {
-  if (bmi == null) return null;
-  if (bmi < 18.5) return "Abaixo do peso";
-  if (bmi < 25) return "Peso normal";
-  if (bmi < 30) return "Sobrepeso";
-  return "Obesidade";
-}
 
 /**
  * Número da medição em pt-BR, sem casa decimal inútil: 78,4 kg e 176 cm (não "176,0"). Até duas

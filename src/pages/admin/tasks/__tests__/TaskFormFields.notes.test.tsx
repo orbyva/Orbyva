@@ -22,24 +22,34 @@ import type {
  */
 
 vi.mock("@/api/tasks", () => ({
+  // Feature 106: o formulário em edição procura quem cita a tarefa ("Referenciada em").
+  fetchTasksMentioningTask: vi.fn(async () => []),
   // Feature 085: os donos do formulário/lista carregam e gravam os links externos.
   fetchExternalLinksForTask: vi.fn().mockResolvedValue([]),
   fetchExternalLinksForTasks: vi.fn().mockResolvedValue({}),
   saveExternalLinksForTask: vi.fn().mockResolvedValue([]),
-  uploadIconAsset: vi.fn(),
-  fetchIconAssets: vi.fn().mockResolvedValue([]),
-  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
-  renameIconAsset: vi.fn().mockResolvedValue(undefined),
   fetchEntriesForTask: vi.fn().mockResolvedValue([]),
   updateTimeEntry: vi.fn(),
   deleteTimeEntry: vi.fn(),
 }));
+
+// Feature 131: a biblioteca de assets importa `@/api/tasks/iconAssets` direto (nunca o barril, que
+// arrastaria a API de tarefas inteira para o chunk de quem a monta) — é este mock que a intercepta.
+vi.mock("@/api/tasks/iconAssets", () => ({
+  uploadIconAsset: vi.fn(),
+  fetchIconAssets: vi.fn().mockResolvedValue([]),
+  deleteIconAsset: vi.fn().mockResolvedValue(undefined),
+  renameIconAsset: vi.fn().mockResolvedValue(undefined),
+}));
+
 
 vi.mock("@/api/recurring", () => ({
   createRecurringApi: vi.fn(),
 }));
 
 vi.mock("@/api/notes/notes", () => ({
+  // Feature 106: a outra metade de "Referenciada em".
+  fetchNotesMentioningTask: vi.fn(async () => []),
   createNote: vi.fn(),
   fetchNotes: vi.fn().mockResolvedValue([]),
 }));

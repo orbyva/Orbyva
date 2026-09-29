@@ -1,31 +1,24 @@
 import type { MaintenanceType, VehicleKind } from "@/types/car";
+import { getTrackedMaintenanceTypes } from "../../../supabase/functions/_shared/orb/vehicles.ts";
 
-export const KM_WARNING = 1000;
-export const DATE_WARNING_DAYS = 30;
+/**
+ * Limiares, rótulos e a lista de tipos acompanhados moram na regra compartilhada
+ * (`supabase/functions/_shared/orb/vehicles.ts`), que é quem os aplica para decidir se uma troca
+ * está atrasada — as tools da Orb usam a MESMA regra. Aqui só reexportamos, para o app continuar
+ * importando tudo de `@/domain/car`.
+ */
+export {
+  KM_WARNING,
+  DATE_WARNING_DAYS,
+  MAINTENANCE_TYPE_LABELS,
+  TRACKED_MAINTENANCE_TYPES,
+  getTrackedMaintenanceTypes,
+  normalizeVehicleKind,
+} from "../../../supabase/functions/_shared/orb/vehicles.ts";
 
 export const VEHICLE_KIND_LABELS: Record<VehicleKind, string> = {
   car: "Carro",
   motorcycle: "Moto",
-};
-
-export const MAINTENANCE_TYPE_LABELS: Record<MaintenanceType, string> = {
-  oil: "Óleo do motor",
-  oil_filter: "Filtro de óleo",
-  air_filter: "Filtro de ar",
-  fuel_filter: "Filtro de combustível",
-  tires: "Pneus",
-  brakes: "Freios",
-  battery: "Bateria",
-  timing_belt: "Correia dentada",
-  spark_plugs: "Velas de ignição",
-  coolant: "Fluido de arrefecimento",
-  transmission_oil: "Óleo de câmbio",
-  chain: "Corrente",
-  drive_belt: "Correia de transmissão",
-  sprockets: "Coroa / pinhão",
-  fork_oil: "Óleo de suspensão",
-  general_service: "Revisão geral",
-  other: "Outro",
 };
 
 const CAR_DEFAULT_KM: Partial<Record<MaintenanceType, number>> = {
@@ -93,53 +86,8 @@ export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   other: "Outro",
 };
 
-const CAR_TRACKED: MaintenanceType[] = [
-  "oil",
-  "oil_filter",
-  "air_filter",
-  "fuel_filter",
-  "tires",
-  "brakes",
-  "battery",
-  "timing_belt",
-  "spark_plugs",
-  "coolant",
-  "transmission_oil",
-  "general_service",
-];
-
-const MOTORCYCLE_TRACKED: MaintenanceType[] = [
-  "oil",
-  "oil_filter",
-  "air_filter",
-  "fuel_filter",
-  "tires",
-  "brakes",
-  "battery",
-  "spark_plugs",
-  "chain",
-  "drive_belt",
-  "sprockets",
-  "fork_oil",
-  "transmission_oil",
-  "general_service",
-];
-
-/** @deprecated Use getTrackedMaintenanceTypes(kind) */
-export const TRACKED_MAINTENANCE_TYPES = CAR_TRACKED;
-
-export function getTrackedMaintenanceTypes(
-  kind: VehicleKind = "car"
-): MaintenanceType[] {
-  return kind === "motorcycle" ? MOTORCYCLE_TRACKED : CAR_TRACKED;
-}
-
 export function getMaintenanceTypesForKind(
   kind: VehicleKind = "car"
 ): MaintenanceType[] {
   return [...getTrackedMaintenanceTypes(kind), "other"];
-}
-
-export function normalizeVehicleKind(value: unknown): VehicleKind {
-  return value === "motorcycle" ? "motorcycle" : "car";
 }

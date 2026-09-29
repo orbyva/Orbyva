@@ -98,10 +98,17 @@ export function ProjectNotesSection({
             {SECTION_TITLE}
           </h2>
         )}
+        {/*
+          A ponte projeto → módulo de Notas (feature 114). Esta seção é somente-leitura e sem
+          busca; quem quiser filtrar, criar canvas ou só ver as notas com mais espaço sai daqui
+          para `/notes?project=<id>`, que abre o módulo já recortado neste projeto.
+        */}
+        <Button asChild variant="ghost" size="sm" className="ml-auto">
+          <Link to={`/notes?project=${projectId}`}>Ver todas em Notas</Link>
+        </Button>
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto"
           onClick={handleCreate}
           disabled={creating}
         >
