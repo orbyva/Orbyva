@@ -44,7 +44,7 @@ A sidebar agrupa o app em cinco blocos:
 - **Cinema** (`/movies`) — para assistir / assistindo / assistidos / abandonei; filmes e séries (TMDB → OMDb); busca ao digitar; episódios com nota; import Letterboxd / TV Time; card Stories
 - **Livros** (`/books`) — para ler / lendo / lidos / abandonei; Google Books com busca ao digitar; marca-página e notas de leitura; opinião e card Stories
 - **Música** (`/music`) — para ouvir / ouvidos; catálogo via Edge Function (Spotify) com fallback MusicBrainz; busca ao digitar; tracklist + nota por faixa; cadastro manual; card Stories
-- **Links** (`/links`) — artigos, vídeos e sites para consumir depois
+- **Links** (`/links`) — artigos, vídeos e sites para consumir depois.
 
 ---
 
