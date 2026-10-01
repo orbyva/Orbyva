@@ -23,6 +23,7 @@ const itineraryProps = {
   onVisitStatusChange: vi.fn(),
   onMoveVisit: vi.fn(),
   onAddSavedPlace: vi.fn(),
+  onOpenAssets: vi.fn(),
 };
 
 describe("deslocamentos de ida e volta depois da criação", () => {
