@@ -9,6 +9,7 @@ import {
   routesModeForTransport,
   suggestedTransportMode,
   transferEndpointsTitle,
+  transportModeHasBoarding,
 } from "@/domain/travel/transportModes";
 
 describe("normalizeTripTransportMode", () => {
@@ -95,5 +96,24 @@ describe("estimateArrivalHHmm", () => {
 describe("estimateDepartHHmm", () => {
   it("subtrai duração da chegada", () => {
     expect(estimateDepartHHmm("12:30", 2.5 * 3600)).toBe("10:00");
+  });
+});
+
+describe("transportModeHasBoarding", () => {
+  it("voo, trem e ônibus têm embarque", () => {
+    expect(transportModeHasBoarding("flight")).toBe(true);
+    expect(transportModeHasBoarding("train")).toBe(true);
+    expect(transportModeHasBoarding("bus")).toBe(true);
+  });
+
+  it("carro e outro não — pedir horário de embarque ali é pedir nada", () => {
+    expect(transportModeHasBoarding("car")).toBe(false);
+    expect(transportModeHasBoarding("other")).toBe(false);
+  });
+
+  it("modo ausente ou desconhecido cai em other, logo sem embarque", () => {
+    expect(transportModeHasBoarding(null)).toBe(false);
+    expect(transportModeHasBoarding(undefined)).toBe(false);
+    expect(transportModeHasBoarding("boat")).toBe(false);
   });
 });

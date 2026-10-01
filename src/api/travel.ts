@@ -35,6 +35,7 @@ import { tripLedgerDescription } from "@/domain/travel/ledger";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { assertTripAccess, fetchMemberTripIds } from "@/lib/tripAccess";
 import { ensureTripOwnerMember } from "@/api/tripMembers";
+import { fetchAssetsForTrip } from "@/api/travel/activityAssets";
 
 // ── Trips ────────────────────────────────────────────────────────────
 
@@ -136,7 +137,37 @@ const EXPENSE_SELECT =
 const DAY_SELECT = "id, trip_id, day_number, date, title, notes";
 
 const ACTIVITY_SELECT =
-  "id, day_id, title, activity_time, arrival_time, notes, place_visit_id, sort_order, link_url, is_reserved, category, visit_status, completed_at, skipped_at, transport_mode, origin_label, origin_lat, origin_lng, origin_place_id, destination_label, destination_lat, destination_lng, destination_place_id, created_by_user_id, created_by_name, created_by_avatar";
+  "id, day_id, title, activity_time, arrival_time, boarding_time, notes, place_visit_id, sort_order, link_url, is_reserved, category, visit_status, completed_at, skipped_at, transport_mode, origin_label, origin_lat, origin_lng, origin_place_id, destination_label, destination_lat, destination_lng, destination_place_id, created_by_user_id, created_by_name, created_by_avatar";
+
+/** O mesmo select **sem** `boarding_time` (feature 102). Entre o deploy do front e o
+ * `supabase db push` existe uma janela em que a coluna não existe, e nela um select que a pede
+ * falha inteiro — o roteiro não abriria. Ver `selectActivities`. */
+const ACTIVITY_SELECT_LEGACY = ACTIVITY_SELECT.replace(", boarding_time", "");
+
+/**
+ * Baixa as atividades de um conjunto de dias, caindo para o select legado quando o banco ainda não
+ * tem `boarding_time`.
+ *
+ * É o espelho de leitura do que `stripMissingActivityColumns` faz na escrita: a coluna nova é
+ * opcional para o app funcionar, então pedir por ela não pode ser motivo para a viagem não abrir.
+ */
+async function selectActivities(dayIds: readonly string[]) {
+  const first = await supabase
+    .from("trip_itinerary_activity")
+    .select(ACTIVITY_SELECT)
+    .in("day_id", dayIds as string[])
+    .order("sort_order", { ascending: true });
+
+  if (!first.error || !String(first.error.message).includes("boarding_time")) {
+    return first;
+  }
+
+  return supabase
+    .from("trip_itinerary_activity")
+    .select(ACTIVITY_SELECT_LEGACY)
+    .in("day_id", dayIds as string[])
+    .order("sort_order", { ascending: true });
+}
 
 const MILESTONE_SELECT =
   "id, trip_id, title, type, due_date, done, notes";
@@ -162,40 +193,54 @@ export async function fetchTripDetailBundle(
   const userId = await getCurrentUserId();
 
   // Wave 1: trip + tudo que depende só de trip_id (RLS filtra o resto).
-  const [tripRes, expensesRes, daysRes, milestonesRes, placesRes, membersRes, stopsRes] =
-    await Promise.all([
-      supabase.from("trip").select(TRIP_LIST_SELECT).eq("id", id).maybeSingle(),
-      supabase
-        .from("trip_expense")
-        .select(EXPENSE_SELECT)
-        .eq("trip_id", id)
-        .order("expense_date", { ascending: false }),
-      supabase
-        .from("trip_itinerary_day")
-        .select(DAY_SELECT)
-        .eq("trip_id", id)
-        .order("day_number", { ascending: true }),
-      supabase
-        .from("trip_milestone")
-        .select(MILESTONE_SELECT)
-        .eq("trip_id", id)
-        .order("due_date", { ascending: true }),
-      supabase
-        .from("place_visit")
-        .select(PLACE_DETAIL_SELECT)
-        .eq("trip_id", id)
-        .order("visited_date", { ascending: false, nullsFirst: false }),
-      supabase
-        .from("trip_member")
-        .select(MEMBER_SELECT)
-        .eq("trip_id", id)
-        .order("joined_at", { ascending: true }),
-      supabase
-        .from("trip_stop")
-        .select(STOP_SELECT)
-        .eq("trip_id", id)
-        .order("sort_order", { ascending: true }),
-    ]);
+  //
+  // Os assets (feature 102) entram aqui, e não numa wave depois das atividades, por causa do
+  // `trip_id` denormalizado na tabela: é ele que troca uma ida serial ao banco por uma paralela em
+  // toda abertura de viagem.
+  const [
+    tripRes,
+    expensesRes,
+    daysRes,
+    milestonesRes,
+    placesRes,
+    membersRes,
+    stopsRes,
+    assetsByActivity,
+  ] = await Promise.all([
+    supabase.from("trip").select(TRIP_LIST_SELECT).eq("id", id).maybeSingle(),
+    supabase
+      .from("trip_expense")
+      .select(EXPENSE_SELECT)
+      .eq("trip_id", id)
+      .order("expense_date", { ascending: false }),
+    supabase
+      .from("trip_itinerary_day")
+      .select(DAY_SELECT)
+      .eq("trip_id", id)
+      .order("day_number", { ascending: true }),
+    supabase
+      .from("trip_milestone")
+      .select(MILESTONE_SELECT)
+      .eq("trip_id", id)
+      .order("due_date", { ascending: true }),
+    supabase
+      .from("place_visit")
+      .select(PLACE_DETAIL_SELECT)
+      .eq("trip_id", id)
+      .order("visited_date", { ascending: false, nullsFirst: false }),
+    supabase
+      .from("trip_member")
+      .select(MEMBER_SELECT)
+      .eq("trip_id", id)
+      .order("joined_at", { ascending: true }),
+    supabase
+      .from("trip_stop")
+      .select(STOP_SELECT)
+      .eq("trip_id", id)
+      .order("sort_order", { ascending: true }),
+    // Já trata tabela/bucket ausentes internamente (devolve `{}`), por isso não tem `.error`.
+    fetchAssetsForTrip(id),
+  ]);
 
   if (tripRes.error) throw new Error(tripRes.error.message);
   if (!tripRes.data) return null;
@@ -252,11 +297,7 @@ export async function fetchTripDetailBundle(
   // Wave 2: filhos de day/expense.
   const [activitiesRes, splitsRes] = await Promise.all([
     dayIds.length > 0
-      ? supabase
-          .from("trip_itinerary_activity")
-          .select(ACTIVITY_SELECT)
-          .in("day_id", dayIds)
-          .order("sort_order", { ascending: true })
+      ? selectActivities(dayIds)
       : Promise.resolve({ data: [] as TripItineraryActivity[], error: null }),
     expenseIds.length > 0
       ? supabase
@@ -277,7 +318,11 @@ export async function fetchTripDetailBundle(
     throw new Error(splitsRes.error.message);
   }
 
-  const activities = (activitiesRes.data ?? []) as TripItineraryActivity[];
+  const activities = ((activitiesRes.data ?? []) as TripItineraryActivity[]).map(
+    // Assets vieram da wave 1 (por `trip_id`); aqui só são distribuídos por atividade. Lista vazia
+    // e não `undefined` porque, chegado aqui, "não há nada anexado" é um fato conhecido.
+    (act) => ({ ...act, assets: assetsByActivity[act.id] ?? [] })
+  );
   const splits = splitsRes.error ? [] : (splitsRes.data ?? []);
 
   const itinerary: TripItineraryDay[] = days.map((day) => ({
@@ -1047,6 +1092,8 @@ function stripMissingActivityColumns(
     stripped = true;
   };
   if (message.includes("arrival_time")) drop("arrival_time");
+  // Feature 102: idem, para a janela entre o deploy e o `supabase db push`.
+  if (message.includes("boarding_time")) drop("boarding_time");
   if (message.includes("transport_mode")) drop("transport_mode");
   if (message.includes("transport_scope")) drop("transport_scope");
   // Endpoints vão juntos: se o schema ainda não tem uma, remove o bloco todo.

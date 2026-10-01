@@ -123,6 +123,14 @@ export interface TripItineraryActivity {
   /** Chegada do deslocamento (quando category = transport). */
   arrival_time?: string | null;
   /**
+   * Embarque do deslocamento (feature 102) — o terceiro instante do voo, anterior a
+   * `activity_time` (a partida) e **não** derivável dela: fecha ~20 min antes, mas varia por
+   * companhia, aeroporto e tipo de voo. É o horário que decide quando sair do hotel.
+   *
+   * Só é oferecido nos modos com portão (voo, trem, ônibus) — ver `transportModeHasBoarding`.
+   */
+  boarding_time?: string | null;
+  /**
    * Modo do deslocamento: flight | train | bus | car | other.
    */
   transport_mode?: string | null;
@@ -152,7 +160,49 @@ export interface TripItineraryActivity {
   created_by_user_id?: string | null;
   created_by_name?: string | null;
   created_by_avatar?: string | null;
+  /**
+   * Arquivos e links anexados a esta linha do roteiro (feature 102). Chega preenchido por
+   * `fetchTripDetailBundle` — ausente significa "não carregado", não "vazio", e por isso o card usa
+   * `assets?.length ?? 0` em vez de assumir lista.
+   */
+  assets?: TripActivityAsset[];
 }
+
+/**
+ * Um asset de uma linha do roteiro (feature 102) — espelha `public.trip_activity_asset`.
+ *
+ * Vale igualmente para visita e deslocamento: os dois querem "coisas importantes anexadas a esta
+ * linha", e o pedido-mãe pede o botão nos dois.
+ *
+ * Arquivo **não** tem URL: o bucket `trip-assets` é privado (um cartão de embarque tem nome, número
+ * de documento e localizador — num bucket público a URL é a senha), então o que se guarda é o
+ * `storage_path` e cada abertura assina uma URL nova via `signedAssetUrl`.
+ */
+export interface TripActivityAsset {
+  id: string;
+  /** Viagem, denormalizada — é o que permite baixar os assets na wave 1 do bundle e o escopo da
+   * RLS. Atividade muda de dia, nunca de viagem, então o valor nunca precisa ser reescrito. */
+  trip_id: string;
+  activity_id: string;
+  kind: TripActivityAssetKind;
+  /** Rótulo editável. `null` = a UI cai para o nome do arquivo ou para o host da URL. */
+  label: string | null;
+  /** Só em `kind = 'link'`: a URL de destino, como o usuário colou. */
+  url: string | null;
+  /** Só em `kind = 'file'`: caminho em `trip-assets`, sempre
+   * `{tripId}/{activityId}/{uuid}.{ext}` — a primeira pasta é o que as policies do bucket leem. */
+  storage_path: string | null;
+  /** Decide se a URL assinada abre inline (pdf/imagem) ou força download. */
+  mime_type: string | null;
+  size_bytes: number | null;
+  position: number;
+  created_by_user_id?: string | null;
+  created_at?: string;
+}
+
+/** `file` = arquivo no bucket privado; `link` = URL externa. Gravado na coluna, não derivado de
+ * "tem `storage_path`?" — é o que o `check` da tabela ancora e o que a UI lê. */
+export type TripActivityAssetKind = "file" | "link";
 
 /** Tipos de visita no roteiro, alinhados a lugares + transporte entre cidades. */
 export type TripActivityCategory =
@@ -240,7 +290,9 @@ export type TripItineraryDayCreateRequest = Omit<TripItineraryDay, "id" | "activ
 
 export type TripItineraryActivityCreateRequest = Omit<
   TripItineraryActivity,
-  "id" | "created_by_user_id" | "created_by_name" | "created_by_avatar"
+  // `assets` é coleção filha (tabela própria), não coluna: deixá-la aqui faria o insert mandar um
+  // campo que `trip_itinerary_activity` não tem.
+  "id" | "created_by_user_id" | "created_by_name" | "created_by_avatar" | "assets"
 >;
 
 export type TripItineraryActivityUpdateRequest = Partial<
