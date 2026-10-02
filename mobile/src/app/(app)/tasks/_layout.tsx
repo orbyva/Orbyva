@@ -24,6 +24,10 @@ export default function TasksStackLayout() {
       <Stack.Screen name="agenda" options={{ title: "Agenda" }} />
       <Stack.Screen name="live" options={{ title: "Live" }} />
       <Stack.Screen name="projects" options={{ headerShown: false }} />
+      <Stack.Screen name="tags" options={{ title: "Tags" }} />
+      <Stack.Screen name="link-icons" options={{ title: "Ícones de link" }} />
+      <Stack.Screen name="event-invites" options={{ title: "Convidar" }} />
+      <Stack.Screen name="event-invite/[token]" options={{ title: "Convite" }} />
       <Stack.Screen
         name="form"
         options={{

@@ -163,6 +163,40 @@ export function nextReminderAt(
   );
 }
 
+/** Linha editável da tela de lembretes: tipo sem preferência gravada aparece desligado, no padrão. */
+export type ReminderRow = {
+  entity_type: ReminderEntityType;
+  frequency: ReminderFrequency;
+  time_of_day: string;
+  enabled: boolean;
+  last_notified_at: string | null;
+  created_at: string | null;
+};
+
+export function reminderRows(preferences: ReminderPreference[]): ReminderRow[] {
+  return REMINDER_ENTITY_TYPES.map((entityType) => {
+    const saved = preferences.find((pref) => pref.entity_type === entityType);
+    return {
+      entity_type: entityType,
+      frequency: saved?.frequency ?? "daily",
+      time_of_day: (saved?.time_of_day ?? DEFAULT_REMINDER_TIME).slice(0, 5),
+      enabled: saved?.enabled ?? false,
+      last_notified_at: saved?.last_notified_at ?? null,
+      created_at: saved?.created_at ?? null,
+    };
+  });
+}
+
+/** "dd/mm/aaaa hh:mm" do próximo disparo; `null` com o lembrete desligado. */
+export function nextReminderLabel(row: ReminderRow, from: Date = new Date()): string | null {
+  const next = nextReminderAt(row, from);
+  if (!next) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(next.getDate())}/${pad(next.getMonth() + 1)}/${next.getFullYear()} ${pad(
+    next.getHours()
+  )}:${pad(next.getMinutes())}`;
+}
+
 /**
  * O lembrete está vencido agora?
  *

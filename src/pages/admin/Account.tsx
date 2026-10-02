@@ -16,7 +16,9 @@ import {
   createPortalSession,
   ensureProfile,
   isBillingConfigured,
+  applyEmailPrefsPatch,
   updateEmailPrefs,
+  type EmailPrefsPatch,
   type UserProfile,
 } from "@/api/billing";
 import { BILLING_ERROR_CODES } from "@/lib/billing-guard";
@@ -108,6 +110,24 @@ export default function Account() {
       track("trial_expired_view");
     }
   }, [searchParams, setSearchParams, toast, refresh]);
+
+  function saveEmailPref(patch: EmailPrefsPatch) {
+    const previous = profile;
+    setProfile((p) => (p ? applyEmailPrefsPatch(p, patch) : p));
+    void updateEmailPrefs(patch)
+      .then((saved) => {
+        setProfile((p) => (p ? { ...p, ...saved } : p));
+        toast({ title: "Preferência salva", duration: 2000 });
+      })
+      .catch((err) => {
+        setProfile(previous);
+        toast({
+          title: "Erro",
+          description: getErrorMessage(err, "Não foi possível salvar a preferência."),
+          variant: "destructive",
+        });
+      });
+  }
 
   async function handleLogout() {
     track("logout");
@@ -570,26 +590,9 @@ export default function Account() {
               className="h-4 w-4"
               checked={profile?.email_digest_enabled !== false}
               disabled={!profile || Boolean(profile.email_unsubscribed_at)}
-              onChange={(e) => {
-                const enabled = e.target.checked;
-                setProfile((p) =>
-                  p ? { ...p, email_digest_enabled: enabled } : p
-                );
-                void updateEmailPrefs({ email_digest_enabled: enabled })
-                  .then(() =>
-                    toast({ title: "Preferência salva", duration: 2000 })
-                  )
-                  .catch((err) =>
-                    toast({
-                      title: "Erro",
-                      description: getErrorMessage(
-                        err,
-                        "Não foi possível salvar a preferência."
-                      ),
-                      variant: "destructive",
-                    })
-                  );
-              }}
+              onChange={(e) =>
+                saveEmailPref({ email_digest_enabled: e.target.checked })
+              }
             />
           </label>
           <label className="flex items-center justify-between gap-3 text-sm">
@@ -599,26 +602,9 @@ export default function Account() {
               className="h-4 w-4"
               checked={Boolean(profile?.email_alerts_enabled)}
               disabled={!profile || Boolean(profile.email_unsubscribed_at)}
-              onChange={(e) => {
-                const enabled = e.target.checked;
-                setProfile((p) =>
-                  p ? { ...p, email_alerts_enabled: enabled } : p
-                );
-                void updateEmailPrefs({ email_alerts_enabled: enabled })
-                  .then(() =>
-                    toast({ title: "Preferência salva", duration: 2000 })
-                  )
-                  .catch((err) =>
-                    toast({
-                      title: "Erro",
-                      description: getErrorMessage(
-                        err,
-                        "Não foi possível salvar a preferência."
-                      ),
-                      variant: "destructive",
-                    })
-                  );
-              }}
+              onChange={(e) =>
+                saveEmailPref({ email_alerts_enabled: e.target.checked })
+              }
             />
           </label>
           <label className="flex items-center justify-between gap-3 text-sm">
@@ -628,28 +614,9 @@ export default function Account() {
               className="h-4 w-4"
               checked={Boolean(profile?.email_habit_reminder_enabled)}
               disabled={!profile || Boolean(profile.email_unsubscribed_at)}
-              onChange={(e) => {
-                const enabled = e.target.checked;
-                setProfile((p) =>
-                  p ? { ...p, email_habit_reminder_enabled: enabled } : p
-                );
-                void updateEmailPrefs({
-                  email_habit_reminder_enabled: enabled,
-                })
-                  .then(() =>
-                    toast({ title: "Preferência salva", duration: 2000 })
-                  )
-                  .catch((err) =>
-                    toast({
-                      title: "Erro",
-                      description: getErrorMessage(
-                        err,
-                        "Não foi possível salvar a preferência."
-                      ),
-                      variant: "destructive",
-                    })
-                  );
-              }}
+              onChange={(e) =>
+                saveEmailPref({ email_habit_reminder_enabled: e.target.checked })
+              }
             />
           </label>
           <label className="flex items-center justify-between gap-3 text-sm">
@@ -659,33 +626,9 @@ export default function Account() {
               className="h-4 w-4"
               checked={Boolean(profile?.email_unsubscribed_at)}
               disabled={!profile}
-              onChange={(e) => {
-                const unsubscribed = e.target.checked;
-                setProfile((p) =>
-                  p
-                    ? {
-                        ...p,
-                        email_unsubscribed_at: unsubscribed
-                          ? new Date().toISOString()
-                          : null,
-                      }
-                    : p
-                );
-                void updateEmailPrefs({ unsubscribed })
-                  .then(() =>
-                    toast({ title: "Preferência salva", duration: 2000 })
-                  )
-                  .catch((err) =>
-                    toast({
-                      title: "Erro",
-                      description: getErrorMessage(
-                        err,
-                        "Não foi possível salvar a preferência."
-                      ),
-                      variant: "destructive",
-                    })
-                  );
-              }}
+              onChange={(e) =>
+                saveEmailPref({ unsubscribed: e.target.checked })
+              }
             />
           </label>
         </div>

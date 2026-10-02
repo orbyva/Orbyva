@@ -15,6 +15,7 @@ import {
 import {
   createMedicationWithDoses,
   deactivateMedication,
+  EndMedicationError,
   fetchMedicationById,
   reactivateMedication,
   updateMedication,
@@ -161,6 +162,10 @@ export default function MedicationFormScreen() {
                 router.back();
               } catch (err) {
                 fail(getErrorMessage(err, "Não foi possível atualizar."));
+                if (err instanceof EndMedicationError && err.stage === "delete") {
+                  router.back();
+                  return;
+                }
                 setSaving(false);
               }
             })();

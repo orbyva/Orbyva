@@ -448,6 +448,12 @@ export default function HealthScreen() {
                 </Pressable>
               );
             })}
+            <Pressable onPress={() => router.push("/health/reminders")} style={styles.row}>
+              <ThemedText type="linkPrimary">Frequência e horários</ThemedText>
+            </Pressable>
+            <Pressable onPress={() => router.push("/health/reminders")} style={styles.row}>
+              <ThemedText type="linkPrimary">Frequência e horários</ThemedText>
+            </Pressable>
           </ModuleSection>
           ) : null}
         </ScrollView>

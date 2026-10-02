@@ -123,7 +123,7 @@
   },
   "overrides": {
     "@humanfs/node": "^0.16.8",
-    "brace-expansion": "5.0.9",
+    "brace-expansion": "5.0.12",
     "browserslist": "4.28.8",
     "ejs": "^6.0.1",
     "fast-uri": "^4.1.3",

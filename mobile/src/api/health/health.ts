@@ -320,26 +320,79 @@ export async function updateMedication(
   }
 }
 
-export async function deactivateMedication(id: string): Promise<void> {
+export type EndMedicationStage = "deactivate" | "delete";
+
+/** Em que etapa o encerramento parou: "nada foi apagado" e "encerrou, mas as doses ficaram" diferem. */
+export class EndMedicationError extends Error {
+  constructor(
+    readonly stage: EndMedicationStage,
+    message: string,
+    override readonly cause?: unknown
+  ) {
+    super(message);
+    this.name = "EndMedicationError";
+  }
+}
+
+/**
+ * Encerra o tratamento e só então apaga as doses futuras não tomadas; devolve quantas saíram.
+ * A ordem importa: apagar com a `medication` ainda ativa faz a web recriar as doses na próxima carga.
+ */
+export async function endMedicationAndDeleteFutureDoses(medicationId: string): Promise<number> {
   const userId = await getCurrentUserId();
+
   const { error } = await supabase
     .from("medication")
     .update({ active: false })
-    .eq("id", id)
+    .eq("id", medicationId)
     .eq("user_id", userId);
-  if (error) throw new Error(error.message);
+  if (error) {
+    throw new EndMedicationError(
+      "deactivate",
+      "Não foi possível encerrar o tratamento. Nenhuma dose foi apagada.",
+      error
+    );
+  }
 
   const today = getTodayIso();
-  const { error: delError } = await supabase
-    .from("task")
-    .delete()
-    .eq("user_id", userId)
-    .eq("medication_id", id)
-    .eq("status", "todo")
-    .gte("due_date", today);
-  if (delError && !isMissingMedicationRelation(delError.message)) {
-    throw new Error(delError.message);
+  const futurePending = (query: FutureDoseQuery): FutureDoseQuery =>
+    query
+      .eq("user_id", userId)
+      .eq("medication_id", medicationId)
+      .gte("due_date", today)
+      .is("completed_at", null)
+      .neq("status", "done");
+
+  const counted = await futurePending(
+    supabase.from("task").select("id", { count: "exact", head: true }) as unknown as FutureDoseQuery
+  );
+  const deleted = await futurePending(
+    supabase.from("task").delete() as unknown as FutureDoseQuery
+  );
+  const failure = counted.error ?? deleted.error;
+  if (failure && !isMissingMedicationRelation(failure.message)) {
+    throw new EndMedicationError(
+      "delete",
+      "O tratamento foi encerrado, mas não foi possível apagar as doses futuras. " +
+        "Elas não voltam a ser criadas — tente apagá-las de novo.",
+      failure
+    );
   }
+  return counted.count ?? 0;
+}
+
+type FutureDoseQuery = PromiseLike<{
+  count?: number | null;
+  error: { message: string } | null;
+}> & {
+  eq(column: string, value: unknown): FutureDoseQuery;
+  gte(column: string, value: unknown): FutureDoseQuery;
+  is(column: string, value: null): FutureDoseQuery;
+  neq(column: string, value: unknown): FutureDoseQuery;
+};
+
+export async function deactivateMedication(id: string): Promise<void> {
+  await endMedicationAndDeleteFutureDoses(id);
 }
 
 export async function reactivateMedication(id: string): Promise<void> {

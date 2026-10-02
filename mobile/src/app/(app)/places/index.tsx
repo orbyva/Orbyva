@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 
-import { deletePlace, fetchPlaces } from "@/api/places/places";
+import { deletePlace, enrichPlacesWithOpinions, fetchPlaces } from "@/api/places/places";
 import { ChipBar } from "@/components/ChipBar";
 import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { SearchField } from "@/components/SearchField";
@@ -86,7 +86,7 @@ export default function PlacesScreen() {
 
   const load = useCallback(async () => {
     setError(null);
-    setPlaces(await fetchPlaces());
+    setPlaces(await enrichPlacesWithOpinions(await fetchPlaces()));
   }, []);
 
   useFocusEffect(
@@ -253,7 +253,18 @@ export default function PlacesScreen() {
                       <ThemedText type="small" themeColor="textSecondary">
                         {[
                           PLACE_TYPE_LABELS[place.type] ?? place.type,
-                          place.rating ? `${place.rating.toFixed(1)}★` : null,
+                          (place.opinionSummary?.totalOpinions ?? 0) > 1
+                            ? [
+                                place.opinionSummary?.avgRating != null
+                                  ? `${place.opinionSummary.avgRating.toFixed(1)}★`
+                                  : null,
+                                `${place.opinionSummary?.totalOpinions} opiniões`,
+                              ]
+                                .filter(Boolean)
+                                .join(" ")
+                            : place.rating
+                              ? `${place.rating.toFixed(1)}★`
+                              : null,
                           place.visited_date
                             ? formatDateBR(place.visited_date)
                             : null,

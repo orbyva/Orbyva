@@ -14,10 +14,12 @@ import {
   createPlaceVisitOccurrence,
   deletePlaceVisitOccurrence,
   fetchPlaceById,
+  fetchPlaceOpinions,
   fetchPlaceVisitOccurrences,
 } from "@/api/places/places";
 import { DateField } from "@/components/DateField";
 import { LedgerClassField } from "@/components/LedgerClassField";
+import { PlaceOpinionsCard } from "@/components/places/PlaceOpinionsCard";
 import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
 import { StoryShareCard } from "@/components/share/StoryShareCard";
 import { ThemedText } from "@/components/themed-text";
@@ -36,11 +38,12 @@ import {
 } from "@/domain/places";
 import { buildPlaceShareText } from "@/domain/share";
 import { useAppShell } from "@/hooks/use-app-shell";
+import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import { getTodayIso } from "@/domain/habits";
-import type { PlaceVisit, PlaceVisitOccurrence } from "@/types/places";
+import type { PlaceVisit, PlaceVisitOccurrence, TripPlaceOpinion } from "@/types/places";
 
 export default function PlaceDetailScreen() {
   const theme = useTheme();
@@ -62,6 +65,8 @@ export default function PlaceDetailScreen() {
   const [classId, setClassId] = useState<number | null>(null);
   const [savingVisit, setSavingVisit] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [opinions, setOpinions] = useState<TripPlaceOpinion[]>([]);
+  const { user } = useAuth();
 
   const load = useCallback(async () => {
     const row = await fetchPlaceById(id);
@@ -69,7 +74,12 @@ export default function PlaceDetailScreen() {
     navigation.setOptions({ title: row?.name ?? "Lugar" });
     if (!row) setError("Lugar não encontrado.");
     else {
-      setVisits(await fetchPlaceVisitOccurrences(row.id).catch(() => []));
+      const [visitRows, opinionRows] = await Promise.all([
+        fetchPlaceVisitOccurrences(row.id).catch(() => []),
+        row.trip_id ? fetchPlaceOpinions(row.id).catch(() => []) : Promise.resolve([]),
+      ]);
+      setVisits(visitRows);
+      setOpinions(opinionRows);
     }
   }, [id, navigation]);
 
@@ -161,6 +171,14 @@ export default function PlaceDetailScreen() {
               }
             />
           </Card>
+        ) : null}
+        {place?.trip_id ? (
+          <PlaceOpinionsCard
+            place={place}
+            opinions={opinions}
+            currentUserId={user?.id ?? null}
+            onSaved={load}
+          />
         ) : null}
         {place ? (
           <Card style={styles.card}>

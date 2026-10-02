@@ -30,6 +30,7 @@ import { ChipBar } from "@/components/ChipBar";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { NoteFolderPicker } from "@/components/NoteFolderPicker";
 import { NoteLinksSection } from "@/components/NoteLinksSection";
+import { NoteBacklinksSection } from "@/components/notes/NoteBacklinksSection";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -561,6 +562,7 @@ export default function NoteEditorScreen() {
               onPress={() => void onShare()}
             />
           </View>
+          {noteId ? <NoteBacklinksSection noteId={noteId} title={title} /> : null}
         </ScrollView>
       </KeyboardAvoidingView>
       <StringSelectModal

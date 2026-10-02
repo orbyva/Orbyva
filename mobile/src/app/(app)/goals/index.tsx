@@ -22,7 +22,9 @@ import {
   sumGoalAporteFromLedger,
   updateGoalProgress,
 } from "@/api/goals/goals";
+import { fetchNotesLinkedToMany } from "@/api/notes/mentions";
 import { ChipBar } from "@/components/ChipBar";
+import { EntityNotesSection } from "@/components/notes/EntityNotesSection";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
@@ -51,6 +53,7 @@ import { useFeedback } from "@/hooks/use-toast";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import type { GoalStatus, PersonalGoal } from "@/types/goals";
+import type { Note } from "@/types/notes";
 
 const STATUS_CHIPS: { id: GoalStatus | "all"; label: string }[] = [
   { id: "all", label: "Todas" },
@@ -75,6 +78,7 @@ export default function GoalsScreen() {
   const [routineMonthly, setRoutineMonthly] = useState("");
   const [routineDueDay, setRoutineDueDay] = useState(String(new Date().getDate()));
   const [busy, setBusy] = useState(false);
+  const [notesByGoal, setNotesByGoal] = useState<Record<string, Note[]>>({});
   const hasLoaded = useRef(false);
 
   const load = useCallback(async () => {
@@ -87,6 +91,12 @@ export default function GoalsScreen() {
       ),
     ]);
     setGoals(list);
+    setNotesByGoal(
+      await fetchNotesLinkedToMany(
+        "goal",
+        list.map((goal) => goal.id)
+      ).catch(() => ({}))
+    );
     setMonthSurplus(
       nature ? nature.receita_total - nature.despesa_total : null
     );
@@ -378,6 +388,7 @@ export default function GoalsScreen() {
                       </ThemedText>
                     ) : null}
                   </Pressable>
+                  <EntityNotesSection notes={notesByGoal[goal.id] ?? []} />
                   {insight ? (
                     <View
                       style={[

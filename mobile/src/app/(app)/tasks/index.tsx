@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
 
 import { fetchProjects } from "@/api/tasks/projects";
 import { fetchFirstExternalLinkByTask } from "@/api/tasks/links";
+import { fetchLinkIconRules } from "@/api/tasks/linkIconRules";
 import { fetchTags } from "@/api/tasks/tags";
 import {
   completeTaskApi,
@@ -52,6 +54,7 @@ import {
   PROJECT_FILTER_ALL,
   PROJECT_FILTER_NONE,
   TASK_STATUS_LABELS,
+  type LinkIconRule,
   type Project,
   type Tag,
   type Task,
@@ -74,6 +77,7 @@ export default function TasksScreen() {
   const [linksByTaskId, setLinksByTaskId] = useState<
     Record<string, { url: string; comment: string | null }>
   >({});
+  const [linkRules, setLinkRules] = useState<LinkIconRule[]>([]);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"lista" | "kanban" | "done">("lista");
   const [loading, setLoading] = useState(true);
@@ -84,18 +88,20 @@ export default function TasksScreen() {
 
   const load = useCallback(async () => {
     setError(null);
-    const [nextTasks, nextProjects, nextTags, nextLinks] = await Promise.all([
+    const [nextTasks, nextProjects, nextTags, nextLinks, nextRules] = await Promise.all([
       fetchTasks(),
       fetchProjects(),
       fetchTags(),
       fetchFirstExternalLinkByTask().catch(
         () => ({}) as Record<string, { url: string; comment: string | null }>
       ),
+      fetchLinkIconRules().catch(() => [] as LinkIconRule[]),
     ]);
     setRows(nextTasks);
     setProjects(nextProjects);
     setTags(nextTags);
     setLinksByTaskId(nextLinks);
+    setLinkRules(nextRules);
   }, []);
 
   useFocusEffect(
@@ -379,6 +385,18 @@ export default function TasksScreen() {
               onChange={(id) => setTodayOnly(id === "today")}
             />
           </FilterRow>
+          <View style={styles.configRow}>
+            <Pressable hitSlop={6} onPress={() => router.push("/tasks/tags")}>
+              <ThemedText type="small" style={{ color: theme.primary }}>
+                Gerenciar tags
+              </ThemedText>
+            </Pressable>
+            <Pressable hitSlop={6} onPress={() => router.push("/tasks/link-icons")}>
+              <ThemedText type="small" style={{ color: theme.primary }}>
+                Ícones de link
+              </ThemedText>
+            </Pressable>
+          </View>
           {view === "kanban" ? (
             <TasksKanban
               columns={kanbanSections}
@@ -400,6 +418,7 @@ export default function TasksScreen() {
               onToggleTimer={(task) => void onToggleTimer(task)}
               runningTaskId={runningEntry?.task_id ?? null}
               linksByTaskId={linksByTaskId}
+              linkRules={linkRules}
               childrenByParent={childrenByParent}
               emptyTitle={
                 view === "done"
@@ -421,6 +440,7 @@ export default function TasksScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  configRow: { flexDirection: "row", gap: Spacing.four },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: {
     paddingHorizontal: Spacing.four,

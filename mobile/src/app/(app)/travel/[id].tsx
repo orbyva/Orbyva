@@ -65,8 +65,10 @@ import {
   CLOTHING_META,
   suggestClothingForDay,
   suggestPackingList,
-  type ClothingIconKey,
 } from "@/domain/travel/clothing";
+import { tripWeatherStops } from "@/domain/travel/tripWeather";
+import { CLOTHING_IONICONS, weatherIcon } from "@/components/travel/clothingIcons";
+import { ItineraryDayWeather } from "@/components/travel/ItineraryDayWeather";
 import { getTodayIso } from "@/domain/habits";
 import { PLACE_TYPE_META, normalizePlaceStatus } from "@/domain/places";
 import { formatDurationFriendly } from "@/domain/itinerary/duration";
@@ -100,6 +102,7 @@ import {
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
+import { useTripWeather } from "@/hooks/use-trip-weather";
 import { hexAlpha } from "@/lib/color";
 import { dragListLayout, useDropLanding } from "@/lib/dragMotion";
 import { formatBRL, formatDateBR } from "@/lib/currency";
@@ -109,7 +112,6 @@ import {
   readDismissedSuggestionCities,
 } from "@/lib/savedPlaceSuggestionDismiss";
 import { fetchTravelRoutes, type RouteLegResult } from "@/lib/googleRoutes";
-import { fetchDailyForecast, type WeatherForecast } from "@/lib/googleWeather";
 import { getTripAccess, type TripAccess } from "@/lib/tripAccess";
 import type { PlaceType, PlaceVisit } from "@/types/places";
 import type {
@@ -140,34 +142,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "gastos", label: "Gastos" },
   { id: "pessoas", label: "Pessoas" },
 ];
-
-const CLOTHING_IONICONS: Record<
-  ClothingIconKey,
-  keyof typeof Ionicons.glyphMap
-> = {
-  tank: "body-outline",
-  shirt: "shirt-outline",
-  "long-sleeve": "shirt",
-  jacket: "cloudy-night-outline",
-  coat: "snow-outline",
-  raincoat: "rainy-outline",
-  pants: "walk-outline",
-  "warm-pants": "snow-outline",
-  shorts: "sunny-outline",
-  shoe: "footsteps-outline",
-  umbrella: "umbrella-outline",
-};
-
-function weatherIcon(
-  text?: string | null
-): keyof typeof Ionicons.glyphMap {
-  const raw = (text ?? "").toLowerCase();
-  if (/chuva|rain|tempest|storm|thunder/.test(raw)) return "rainy-outline";
-  if (/neve|snow/.test(raw)) return "snow-outline";
-  if (/nublado|cloud|overcast/.test(raw)) return "cloudy-outline";
-  if (/sol|sunny|clear|céu limpo/.test(raw)) return "sunny-outline";
-  return "partly-sunny-outline";
-}
 
 function activityIconName(act: TripItineraryActivity): string {
   if (isTransportActivity(act)) {
@@ -215,7 +189,6 @@ export default function TripDetailScreen() {
   const [members, setMembers] = useState<TripMember[]>([]);
   const [milestones, setMilestones] = useState<TripMilestone[]>([]);
   const [access, setAccess] = useState<TripAccess | null>(null);
-  const [forecast, setForecast] = useState<WeatherForecast | null>(null);
   const [routes, setRoutes] = useState<
     { from: string; to: string; leg: RouteLegResult | null }[]
   >([]);
@@ -352,21 +325,6 @@ export default function TripDetailScreen() {
     navigation.setOptions({ title: row?.title ?? "Viagem" });
     if (!row) setError("Viagem não encontrada.");
 
-    const weatherPoint =
-      row?.destination_lat != null && row.destination_lng != null
-        ? { lat: row.destination_lat, lng: row.destination_lng }
-        : nextStops.find((s) => s.lat != null && s.lng != null);
-    if (weatherPoint?.lat != null && weatherPoint.lng != null) {
-      void fetchDailyForecast({
-        lat: weatherPoint.lat,
-        lng: weatherPoint.lng,
-      })
-        .then(setForecast)
-        .catch(() => setForecast(null));
-    } else {
-      setForecast(null);
-    }
-
     const routed: { from: string; to: string; leg: RouteLegResult | null }[] =
       [];
     for (let i = 0; i < nextStops.length - 1; i++) {
@@ -423,9 +381,17 @@ export default function TripDetailScreen() {
     () => expenses.reduce((sum, row) => sum + Number(row.amount || 0), 0),
     [expenses]
   );
+  const weatherStops = useMemo(
+    () => tripWeatherStops(trip, stops),
+    [trip, stops]
+  );
+  const weather = useTripWeather(weatherStops);
   const packing = useMemo(
-    () => (forecast?.days?.length ? suggestPackingList(forecast.days) : null),
-    [forecast]
+    () =>
+      weather.packingDays.length > 0
+        ? suggestPackingList(weather.packingDays)
+        : null,
+    [weather.packingDays]
   );
 
   const inputStyle = [
@@ -843,13 +809,37 @@ export default function TripDetailScreen() {
                 />
                 <ThemedText type="smallBold">Clima e mala</ThemedText>
               </View>
-              {forecast?.days?.length ? (
+              {weatherStops.length === 0 ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Adicione paradas com cidade no mapa para ver o clima.
+                </ThemedText>
+              ) : weather.loading ? (
+                <View style={styles.weatherRow}>
+                  <ActivityIndicator size="small" />
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Carregando previsão…
+                  </ThemedText>
+                </View>
+              ) : weather.error ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {weather.error}
+                </ThemedText>
+              ) : weather.packingDays.length === 0 ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Sem previsão para o período da viagem. Ela aparece até 10
+                  dias antes de cada parada.
+                </ThemedText>
+              ) : (
                 <>
-                  {forecast.days.slice(0, 5).map((day) => {
+                  {weather.packingDays.map((day, index) => {
                     const suggestion = suggestClothingForDay(day);
+                    const stopName =
+                      weatherStops.length > 1 && day.date
+                        ? stopForDate(stops, day.date)?.name ?? null
+                        : null;
                     return (
                       <View
-                        key={day.date ?? suggestion.summary}
+                        key={`${day.date ?? "dia"}-${index}`}
                         style={styles.weatherRow}
                       >
                         <Ionicons
@@ -860,6 +850,7 @@ export default function TripDetailScreen() {
                         <View style={styles.flex}>
                           <ThemedText type="smallBold">
                             {day.date ? formatDateBR(day.date) : "Dia"}
+                            {stopName ? ` · ${stopName}` : ""}
                             {day.maxTemperatureC != null
                               ? ` · ${Math.round(day.maxTemperatureC)}°`
                               : ""}
@@ -874,8 +865,18 @@ export default function TripDetailScreen() {
                     );
                   })}
                   {packing ? (
+                    <ThemedText type="smallBold">
+                      O que levar na mala
+                    </ThemedText>
+                  ) : null}
+                  {packing?.summary ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {packing.summary}
+                    </ThemedText>
+                  ) : null}
+                  {packing ? (
                     <View style={styles.packWrap}>
-                      {packing.items.slice(0, 8).map((item) => {
+                      {packing.items.map((item) => {
                         const meta = CLOTHING_META[item];
                         return (
                           <View
@@ -901,10 +902,6 @@ export default function TripDetailScreen() {
                     </View>
                   ) : null}
                 </>
-              ) : (
-                <ThemedText type="small" themeColor="textSecondary">
-                  Adicione paradas com cidade no mapa para ver o clima.
-                </ThemedText>
               )}
             </Card>
             <Card style={styles.card}>
@@ -1126,6 +1123,14 @@ export default function TripDetailScreen() {
                       </ThemedText>
                     </View>
                   </View>
+                  <ItineraryDayWeather
+                    weather={weather}
+                    lat={stop?.lat ?? trip?.destination_lat}
+                    lng={stop?.lng ?? trip?.destination_lng}
+                    dayDate={day.date}
+                    stopLabel={stop?.name ?? null}
+                    isToday={isToday}
+                  />
                   {suggestionAnchor && suggestedPlaces.length > 0 ? (
                     <ItinerarySavedPlaceSuggestions
                       tripId={id}

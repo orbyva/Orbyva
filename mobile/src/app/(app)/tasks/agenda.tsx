@@ -7,6 +7,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from "react-native";
 
@@ -33,8 +34,10 @@ import {
   weekTitle,
   type CalendarItem,
 } from "@/domain/tasks/calendar";
+import { parseEventInviteToken } from "@/domain/tasks/eventInvites";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
+import { useFeedback } from "@/hooks/use-toast";
 import { formatLocalIsoDate } from "@/lib/dates";
 import { getErrorMessage } from "@/lib/errors";
 import {
@@ -84,7 +87,19 @@ export default function AgendaScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dayIso, setDayIso] = useState<string | null>(null);
+  const [inviteInput, setInviteInput] = useState("");
   const hasLoaded = useRef(false);
+  const { fail } = useFeedback();
+
+  function openPastedInvite() {
+    const token = parseEventInviteToken(inviteInput);
+    if (!token) {
+      fail("Cole o link do convite (…/events/invite/…) ou o código dele.");
+      return;
+    }
+    setInviteInput("");
+    router.push({ pathname: "/tasks/event-invite/[token]", params: { token } });
+  }
 
   const load = useCallback(async () => {
     setError(null);
@@ -357,6 +372,39 @@ export default function AgendaScreen() {
         </View>
           </>
         ) : null}
+        <View style={styles.pasteInvite}>
+          <TextInput
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="Recebeu um convite de evento? Cole o link"
+            placeholderTextColor={theme.textSecondary}
+            value={inviteInput}
+            onChangeText={setInviteInput}
+            onSubmitEditing={openPastedInvite}
+            returnKeyType="go"
+            style={[
+              styles.pasteInput,
+              {
+                color: theme.text,
+                borderColor: theme.backgroundSelected,
+                backgroundColor: theme.backgroundElement,
+              },
+            ]}
+          />
+          <Pressable
+            accessibilityRole="button"
+            disabled={!inviteInput.trim()}
+            hitSlop={6}
+            onPress={openPastedInvite}
+          >
+            <ThemedText
+              type="smallBold"
+              style={{ color: inviteInput.trim() ? theme.primary : theme.textSecondary }}
+            >
+              Abrir
+            </ThemedText>
+          </Pressable>
+        </View>
       </ScrollView>
 
       <Modal
@@ -420,6 +468,24 @@ export default function AgendaScreen() {
                         : "Evento de projeto"}
                     </ThemedText>
                   </View>
+                  {item.kind === "event" ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Convidar para ${item.event.title}`}
+                      hitSlop={8}
+                      onPress={() => {
+                        setDayIso(null);
+                        router.push({
+                          pathname: "/tasks/event-invites",
+                          params: { eventId: item.event.id, title: item.event.title },
+                        });
+                      }}
+                    >
+                      <ThemedText type="small" style={{ color: theme.primary }}>
+                        Convidar
+                      </ThemedText>
+                    </Pressable>
+                  ) : null}
                 </Pressable>
               ))
             )}
@@ -432,6 +498,14 @@ export default function AgendaScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  pasteInvite: { flexDirection: "row", alignItems: "center", gap: 10 },
+  pasteInput: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+  },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three },
   monthRow: { flexDirection: "row", alignItems: "center", gap: 8 },

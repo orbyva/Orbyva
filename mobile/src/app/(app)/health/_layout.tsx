@@ -34,6 +34,7 @@ export default function HealthStackLayout() {
           ...formScreenOptions,
         }}
       />
+      <Stack.Screen name="reminders" options={{ title: "Lembretes" }} />
       <Stack.Screen
         name="metric-form"
         options={{

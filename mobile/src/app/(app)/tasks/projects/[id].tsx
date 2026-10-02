@@ -316,13 +316,30 @@ export default function ProjectDetailScreen() {
                 </ThemedText>
               ) : null}
               {upcomingEvents.map((event) => (
-                <ThemedText
-                  key={event.id}
-                  type="small"
-                  themeColor="textSecondary"
-                >
-                  {event.title} · {formatEventWhen(event.starts_at)}
-                </ThemedText>
+                <View key={event.id} style={styles.eventRow}>
+                  <ThemedText
+                    type="small"
+                    themeColor="textSecondary"
+                    style={styles.eventTitle}
+                  >
+                    {event.title} · {formatEventWhen(event.starts_at)}
+                  </ThemedText>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Convidar para ${event.title}`}
+                    hitSlop={8}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/tasks/event-invites",
+                        params: { eventId: event.id, title: event.title },
+                      })
+                    }
+                  >
+                    <ThemedText type="small" style={{ color: theme.primary }}>
+                      Convidar
+                    </ThemedText>
+                  </Pressable>
+                </View>
               ))}
               <Pressable
                 onPress={() =>
@@ -465,6 +482,8 @@ export default function ProjectDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  eventRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  eventTitle: { flex: 1 },
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: {

@@ -1,7 +1,12 @@
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
+import { TaskIconBadge } from "@/components/TaskIconBadge";
 import { ThemedText } from "@/components/themed-text";
 import { Card } from "@/components/ui/Card";
+import {
+  resolveLinkAppearance,
+  type LinkIconRuleShape,
+} from "@/domain/tasks/linkIconRules";
 import { Spacing } from "@/constants/theme";
 import { PRIORITY_COLORS } from "@/domain/tasks/priority";
 import { taskScheduleMeta, todayIsoDate } from "@/domain/tasks/listView";
@@ -20,6 +25,7 @@ export function TasksList({
   onToggleTimer,
   runningTaskId,
   linksByTaskId,
+  linkRules = [],
   childrenByParent,
   emptyTitle = "Nenhuma tarefa em aberto",
   emptyHint = "Use o + para criar uma com título e prazo.",
@@ -33,6 +39,7 @@ export function TasksList({
   onToggleTimer?: (task: Task) => void;
   runningTaskId?: string | null;
   linksByTaskId?: Record<string, { url: string; comment: string | null }>;
+  linkRules?: readonly LinkIconRuleShape[];
   childrenByParent?: Record<string, Task[]>;
   emptyTitle?: string;
   emptyHint?: string;
@@ -88,7 +95,7 @@ export function TasksList({
                 task.linked_recurring_id
                   ? "Recorrente"
                   : null,
-                link?.comment?.trim() || (link ? "Link" : null),
+                link?.comment?.trim() || null,
               ]
                 .filter(Boolean)
                 .join(" · ");
@@ -164,16 +171,7 @@ export function TasksList({
                         </ThemedText>
                       </Pressable>
                     ) : null}
-                    {link ? (
-                      <Pressable
-                        onPress={() => void openExternalUrl(link.url)}
-                        hitSlop={8}
-                      >
-                        <ThemedText type="small" themeColor="textSecondary">
-                          Abrir
-                        </ThemedText>
-                      </Pressable>
-                    ) : null}
+                    {link ? <LinkChip url={link.url} rules={linkRules} /> : null}
                   </View>
                   {children.map((child) => {
                     const childDone = child.status === "done";
@@ -236,14 +234,7 @@ export function TasksList({
                           </ThemedText>
                         </Pressable>
                         {childLink ? (
-                          <Pressable
-                            onPress={() => void openExternalUrl(childLink.url)}
-                            hitSlop={8}
-                          >
-                            <ThemedText type="small" themeColor="textSecondary">
-                              Abrir
-                            </ThemedText>
-                          </Pressable>
+                          <LinkChip url={childLink.url} rules={linkRules} />
                         ) : null}
                       </View>
                     );
@@ -255,6 +246,36 @@ export function TasksList({
         </View>
       ))}
     </View>
+  );
+}
+
+function LinkChip({
+  url,
+  rules,
+}: {
+  url: string;
+  rules: readonly LinkIconRuleShape[];
+}) {
+  const theme = useTheme();
+  const appearance = resolveLinkAppearance(url, rules);
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={`Abrir ${appearance.label}`}
+      onPress={() => void openExternalUrl(url)}
+      hitSlop={8}
+      style={styles.linkChip}
+    >
+      <TaskIconBadge
+        iconKey={appearance.iconKey}
+        iconUrl={appearance.iconUrl}
+        size={14}
+        color={theme.textSecondary}
+      />
+      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+        {appearance.label}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -327,4 +348,11 @@ const styles = StyleSheet.create({
   overdue: { color: "#E11D48" },
   childDone: { textDecorationLine: "line-through", opacity: 0.55 },
   empty: { gap: Spacing.one, paddingVertical: Spacing.four },
+  linkChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    maxWidth: 140,
+    marginTop: 2,
+  },
 });

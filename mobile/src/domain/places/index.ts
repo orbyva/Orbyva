@@ -1,4 +1,10 @@
-import type { PlaceFilter, PlaceStatus, PlaceType, PlaceVisit } from "@/types/places";
+import type {
+  PlaceFilter,
+  PlaceOpinionSummary,
+  PlaceStatus,
+  PlaceType,
+  PlaceVisit,
+} from "@/types/places";
 
 export { placeTypeMeta, PLACE_TYPE_META } from "@/domain/places/placeTypeMeta";
 export type { PlaceTypeIconKey, PlaceTypeTone } from "@/domain/places/placeTypeMeta";
@@ -151,6 +157,24 @@ export function filterPlaces<
 
     return true;
   });
+}
+
+/** Agrega opiniões de vários membros sobre um lugar (mesma regra da web). */
+export function summarizePlaceOpinions(
+  opinions: { rating?: number | null; would_recommend?: boolean }[]
+): PlaceOpinionSummary {
+  const rated = opinions.filter((o) => o.rating != null && o.rating > 0);
+  const avgRating =
+    rated.length > 0
+      ? Math.round((rated.reduce((s, o) => s + (o.rating ?? 0), 0) / rated.length) * 10) / 10
+      : null;
+  return {
+    avgRating,
+    ratedCount: rated.length,
+    recommendYes: opinions.filter((o) => o.would_recommend !== false).length,
+    recommendNo: opinions.filter((o) => o.would_recommend === false).length,
+    totalOpinions: opinions.length,
+  };
 }
 
 export function formatRating(rating: number): string {

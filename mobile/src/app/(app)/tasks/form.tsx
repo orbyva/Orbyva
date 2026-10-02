@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 
+import { EndMedicationError, endMedicationAndDeleteFutureDoses } from "@/api/health/health";
 import { fetchProjects } from "@/api/tasks/projects";
 import {
   fetchExternalLinksForTask,
@@ -30,6 +31,8 @@ import {
 } from "@/api/tasks/tasks";
 import { ChipBar } from "@/components/ChipBar";
 import { ChoiceChip } from "@/components/ChoiceChip";
+import { ColorDots } from "@/components/ColorDots";
+import { TaskMentionsSection } from "@/components/tasks/TaskMentionsSection";
 import { DateField } from "@/components/DateField";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { SubtaskFormRow } from "@/components/SubtaskFormRow";
@@ -40,7 +43,6 @@ import { Banner } from "@/components/ui/Banner";
 import { FormButton } from "@/components/ui/FormButton";
 import { FormSection } from "@/components/ui/FormSection";
 import { Spacing } from "@/constants/theme";
-import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
 import { PRIORITY_OPTIONS } from "@/domain/tasks/priority";
 import {
   formatRecurrenceSummary,
@@ -93,7 +95,7 @@ const STATUS_CHIPS = (Object.keys(TASK_STATUS_LABELS) as TaskStatus[]).map(
 
 export default function TaskFormScreen() {
   const theme = useTheme();
-  const { fail } = useFeedback();
+  const { fail, ok } = useFeedback();
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ projectId?: string; id?: string }>();
@@ -147,6 +149,7 @@ export default function TaskFormScreen() {
   const [parentTaskId, setParentTaskId] = useState<string | null>(null);
   const [parentDueDate, setParentDueDate] = useState<string | null>(null);
   const [parentTitle, setParentTitle] = useState<string | null>(null);
+  const [medicationId, setMedicationId] = useState<string | null>(null);
 
   const isSubtask = Boolean(parentTaskId);
   const isInstance = Boolean(originId);
@@ -221,6 +224,7 @@ export default function TaskFormScreen() {
             setEndMode("never");
           }
           setParentTaskId(task.parent_task_id);
+          setMedicationId(task.medication_id ?? null);
           setParentDueDate(parent?.due_date ?? null);
           setParentTitle(parent?.title ?? null);
           setChildren(task.parent_task_id ? [] : sortSubtasks(childRows));
@@ -421,6 +425,41 @@ export default function TaskFormScreen() {
 
   function onDelete() {
     if (!editId) return;
+    if (medicationId) {
+      Alert.alert(
+        "Excluir dose",
+        "Apagar só esta dose não impede que ela volte enquanto o tratamento estiver ativo. " +
+          "Encerrar o tratamento apaga as doses futuras ainda não tomadas.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Encerrar tratamento",
+            style: "destructive",
+            onPress: () =>
+              runDelete(async () => {
+                try {
+                  const removed = await endMedicationAndDeleteFutureDoses(medicationId);
+                  ok(
+                    `Tratamento encerrado · ${removed} dose${removed === 1 ? "" : "s"} apagada${removed === 1 ? "" : "s"}`
+                  );
+                } catch (err) {
+                  if (err instanceof EndMedicationError && err.stage === "delete") {
+                    fail(err.message);
+                    return;
+                  }
+                  throw err;
+                }
+              }),
+          },
+          {
+            text: "Só esta dose",
+            style: "destructive",
+            onPress: () => runDelete(() => deleteTaskApi(editId)),
+          },
+        ]
+      );
+      return;
+    }
     const buttons: {
       text: string;
       style?: "cancel" | "destructive";
@@ -1221,6 +1260,11 @@ export default function TaskFormScreen() {
                 setLinks((cur) => [...cur, { url: "", comment: "" }])
               }
             />
+            <FormButton
+              label="Configurar ícones"
+              compact
+              onPress={() => router.push("/tasks/link-icons")}
+            />
           </Field>
           </FormSection>
 
@@ -1322,6 +1366,8 @@ export default function TaskFormScreen() {
           </Field>
           </FormSection>
 
+          {editId ? <TaskMentionsSection taskId={editId} /> : null}
+
           <FormButton
             label={editId ? "Salvar alterações" : "Criar tarefa"}
             tone="primary"
@@ -1357,30 +1403,6 @@ export default function TaskFormScreen() {
         onClose={() => setProjectPickerOpen(false)}
       />
     </ThemedView>
-  );
-}
-
-function ColorDots({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  return (
-    <View style={styles.chipRow}>
-      {CATEGORY_COLORS.map((color) => (
-        <Pressable
-          key={color}
-          onPress={() => onChange(color)}
-          style={[
-            styles.colorDot,
-            { backgroundColor: color },
-            value.toLowerCase() === color.toLowerCase() && styles.colorDotOn,
-          ]}
-        />
-      ))}
-    </View>
   );
 }
 
@@ -1433,14 +1455,6 @@ const styles = StyleSheet.create({
   },
   tagChip: { flexDirection: "row", alignItems: "center", gap: 8 },
   tagDot: { width: 8, height: 8, borderRadius: 4 },
-  colorDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  colorDotOn: { borderColor: "#0B0F1A" },
   linkBlock: { gap: 8 },
   subRow: {
     flexDirection: "row",

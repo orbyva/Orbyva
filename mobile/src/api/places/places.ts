@@ -1,15 +1,18 @@
 import {
   normalizePlaceStatus,
+  summarizePlaceOpinions,
   withNormalizedPlaceStatus,
 } from "@/domain/places";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { supabase } from "@/lib/supabase";
+import { assertTripAccess } from "@/lib/tripAccess";
 import { createTransaction } from "@/api/finance/transactions";
 import type {
   PlaceStatus,
   PlaceType,
   PlaceVisit,
   PlaceVisitOccurrence,
+  TripPlaceOpinion,
 } from "@/types/places";
 
 const PLACE_LIST_SELECT =
@@ -119,10 +122,12 @@ export async function createPlace(input: {
     .single();
   if (error) throw new Error(error.message);
   const row = data as unknown as Record<string, unknown>;
-  return withNormalizedPlaceStatus({
+  const created = withNormalizedPlaceStatus({
     ...(row as unknown as PlaceVisit),
     trip: asTrip(row.trip),
   });
+  await syncOwnOpinion({ ...input, id: created.id, status });
+  return created;
 }
 
 export async function updatePlace(input: {
@@ -163,6 +168,7 @@ export async function updatePlace(input: {
     .eq("id", input.id)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
+  await syncOwnOpinion(input);
 }
 
 /** Vincula um lugar salvo (sem viagem) a esta viagem. */
@@ -241,6 +247,132 @@ export async function deletePlaceVisitOccurrence(id: string): Promise<void> {
     .delete()
     .eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+function isMissingOpinionTable(error: { message: string; code?: string }): boolean {
+  return error.message.includes("trip_place_opinion") || error.code === "42P01";
+}
+
+/** A opinião do autor gravada na própria linha do lugar, usada quando não há `trip_place_opinion`. */
+function legacyOpinion(place: PlaceVisit): TripPlaceOpinion {
+  return {
+    id: "legacy",
+    place_visit_id: place.id,
+    user_id: place.user_id ?? "",
+    rating: place.rating,
+    notes: place.notes,
+    would_recommend: place.would_recommend,
+  };
+}
+
+/** Opiniões dos membros da viagem sobre o lugar, com o nome de cada um quando houver. */
+export async function fetchPlaceOpinions(placeVisitId: string): Promise<TripPlaceOpinion[]> {
+  const place = await fetchPlaceById(placeVisitId);
+  if (!place) throw new Error("Lugar não encontrado.");
+
+  const { data, error } = await supabase
+    .from("trip_place_opinion")
+    .select("*")
+    .eq("place_visit_id", placeVisitId)
+    .order("updated_at", { ascending: false });
+  if (error) {
+    if (isMissingOpinionTable(error)) return [legacyOpinion(place)];
+    throw new Error(error.message);
+  }
+
+  const opinions = (data ?? []) as TripPlaceOpinion[];
+  if (opinions.length === 0) return place.user_id ? [legacyOpinion(place)] : [];
+  if (!place.trip_id) return opinions;
+
+  const { data: members } = await supabase
+    .from("trip_member")
+    .select("user_id, display_name")
+    .eq("trip_id", place.trip_id);
+  const nameByUser = new Map(
+    ((members ?? []) as { user_id: string; display_name: string | null }[]).map((m) => [
+      m.user_id,
+      m.display_name,
+    ])
+  );
+  return opinions.map((o) => ({ ...o, display_name: nameByUser.get(o.user_id) ?? null }));
+}
+
+/** Grava a opinião do usuário atual sobre um lugar de viagem (uma por membro). */
+export async function upsertPlaceOpinion(
+  placeVisitId: string,
+  opinion: { rating?: number | null; notes?: string | null; would_recommend?: boolean }
+): Promise<void> {
+  const userId = await getCurrentUserId();
+  const place = await fetchPlaceById(placeVisitId);
+  if (!place?.trip_id) {
+    throw new Error("Opiniões em grupo só valem para lugares de viagem.");
+  }
+  await assertTripAccess(place.trip_id);
+
+  const { error } = await supabase.from("trip_place_opinion").upsert(
+    {
+      place_visit_id: placeVisitId,
+      user_id: userId,
+      rating: opinion.rating ?? null,
+      notes: opinion.notes?.trim() || null,
+      would_recommend: opinion.would_recommend !== false,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "place_visit_id,user_id" }
+  );
+  if (error) throw new Error(error.message);
+}
+
+/** Resumo das opiniões em lote; lugar sem opinião gravada conta a própria linha como uma. */
+export async function enrichPlacesWithOpinions(places: PlaceVisit[]): Promise<PlaceVisit[]> {
+  if (places.length === 0) return places;
+  const { data, error } = await supabase
+    .from("trip_place_opinion")
+    .select("place_visit_id, rating, would_recommend")
+    .in(
+      "place_visit_id",
+      places.map((p) => p.id)
+    );
+
+  const byPlace = new Map<string, { rating?: number | null; would_recommend?: boolean }[]>();
+  if (!error && data) {
+    for (const row of data as {
+      place_visit_id: string;
+      rating: number | null;
+      would_recommend: boolean;
+    }[]) {
+      const list = byPlace.get(row.place_visit_id) ?? [];
+      list.push({ rating: row.rating, would_recommend: row.would_recommend });
+      byPlace.set(row.place_visit_id, list);
+    }
+  }
+  return places.map((place) => ({
+    ...place,
+    opinionSummary: summarizePlaceOpinions(
+      byPlace.get(place.id) ?? [{ rating: place.rating, would_recommend: place.would_recommend }]
+    ),
+  }));
+}
+
+/** Lugar de viagem visitado: a opinião do autor também vai para `trip_place_opinion`. */
+async function syncOwnOpinion(place: {
+  id: string;
+  trip_id?: string | null;
+  status: PlaceStatus;
+  rating?: number | null;
+  notes?: string | null;
+  would_recommend?: boolean;
+}): Promise<void> {
+  if (!place.trip_id || place.status !== "visited") return;
+  try {
+    await upsertPlaceOpinion(place.id, {
+      rating: place.rating ?? null,
+      notes: place.notes ?? null,
+      would_recommend: place.would_recommend !== false,
+    });
+  } catch {
+    // tabela ainda não existe / sem acesso: o lugar já foi salvo
+  }
 }
 
 export async function deletePlace(id: string): Promise<void> {

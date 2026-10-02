@@ -101,17 +101,43 @@ prompt: |-
 - Recomendada: RPC — é o padrão já usado em `profiles` e honra o "sem UPDATE para authenticated"
   escrito em `20240101000300_billing.sql:30-31`; RLS não filtra coluna, quem filtraria seria
   `grant update (col)`, que um `grant` amplo futuro reabre sem aviso.
-- **Resposta:**
+- **Resposta:** RPC `security definer` (recomendada aceita pelo usuário em 2026-10-02).
 
 ### P2 — Esta rodada conserta só `profiles` ou cria guarda geral contra update que casa zero linhas?
 - Recomendada: só `profiles` — são ~77 chamadas `.update()` em `src/api/`, varrer todas é feature
   própria; o risco fica registrado aqui.
-- **Resposta:**
+- **Resposta:** só `profiles` (recomendada aceita pelo usuário em 2026-10-02).
 
 ### P3 — Entra nesta rodada um unsubscribe por token no e-mail, ou só o conserto de `/account`?
 - Recomendada: só o conserto — o rodapé volta a ser verdade assim que `/account` grava; link por
   token e `List-Unsubscribe` pedem Edge Function nova.
-- **Resposta:**
+- **Resposta:** só o conserto (recomendada aceita pelo usuário em 2026-10-02).
+
+## Tarefas
+- [x] `supabase/migrations/20261002110000_email_prefs_rpc.sql`: RPC `update_email_prefs(p_digest,
+  p_alerts, p_habit_reminder, p_unsubscribed)` — `security definer`, `where id = auth.uid()`, null =
+  coluna intocada, devolve o estado gravado; `revoke all from public` + `grant execute to
+  authenticated`. Timestamp único conferido contra `supabase/migrations/`.
+- [x] `src/api/billing.ts`: `updateEmailPrefs` passa a chamar a RPC, confere o estado devolvido contra
+  o pedido e lança "A preferência não foi gravada" se não bateu ou se não voltou linha. Novo helper
+  puro `applyEmailPrefsPatch` para o estado otimista.
+- [x] `src/pages/admin/Account.tsx`: os quatro toggles passam por `saveEmailPref`, que volta ao
+  estado anterior no erro e aplica o estado devolvido pelo banco no sucesso.
+- [x] `src/api/__tests__/emailPrefs.test.ts`: RPC chamada só com os campos pedidos e sem `from()`
+  direto; estado divergente, resposta vazia e erro da RPC viram exceção; `applyEmailPrefsPatch`.
+- [x] `e2e/email-prefs.spec.ts`: JWT real no PostgREST — RPC grava, releitura confirma, `PATCH` direto
+  em `plan` continua sem efeito. Pula sem `E2E_EMAIL`/`E2E_PASSWORD`.
+- [ ] **AGUARDA O USUÁRIO — `supabase db push`** para aplicar a migration no banco remoto. Até lá a
+  tela mostra erro ao salvar (a RPC não existe), em vez do sucesso falso de antes.
+- [ ] Rodar `npx playwright test e2e/email-prefs.spec.ts` com `E2E_EMAIL`/`E2E_PASSWORD` depois do push.
+
+## Como testar
+1. Aplicar a migration (`supabase db push`).
+2. `npx vitest run src/api/__tests__/emailPrefs.test.ts` — 7 testes passam.
+3. Com `E2E_EMAIL`/`E2E_PASSWORD` definidos: `npx playwright test e2e/email-prefs.spec.ts` — passa,
+   não pula.
+4. Em `/account`, desligar "Digest semanal", recarregar a página: o toggle continua desligado.
 
 ## Prompts
-(vazio até haver iteração nova)
+- 2026-10-02 — "Faça isso no Web. [...] E faça isso no mobile: [...] Conta - Preferências de e-mail
+  (updateEmailPrefs)." Usuário escolheu corrigir a web pela 191 e então levar ao mobile (feature 193).

@@ -1,3 +1,4 @@
+import { countTagUsage } from "@/domain/tasks/tags";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { supabase } from "@/lib/supabase";
 import type { Tag } from "@/types/tasks";
@@ -11,6 +12,21 @@ export async function fetchTags(): Promise<Tag[]> {
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Tag[];
+}
+
+/** Uso de cada tag somando tarefas e projetos. */
+export async function fetchTagUsage(): Promise<Map<string, number>> {
+  const userId = await getCurrentUserId();
+  const [tasks, projects] = await Promise.all([
+    supabase.from("task").select("tag_ids").eq("user_id", userId),
+    supabase.from("project").select("tag_ids").eq("user_id", userId),
+  ]);
+  if (tasks.error) throw new Error(tasks.error.message);
+  if (projects.error) throw new Error(projects.error.message);
+  return countTagUsage([
+    ...((tasks.data ?? []) as { tag_ids?: string[] | null }[]),
+    ...((projects.data ?? []) as { tag_ids?: string[] | null }[]),
+  ]);
 }
 
 export async function createTagApi(

@@ -16,6 +16,14 @@ import {
 
 import { deleteOwnAccount, wipeOwnData } from "@/api/account";
 import {
+  applyEmailPrefsPatch,
+  EMAIL_PREF_OPTIONS,
+  fetchEmailPrefs,
+  updateEmailPrefs,
+  type EmailPrefsPatch,
+  type EmailPrefsState,
+} from "@/api/emailPrefs";
+import {
   exportFinanceCsv,
   exportGoalsCsv,
   exportHabitsCsv,
@@ -65,6 +73,7 @@ export default function AccountScreen() {
   const [deleteText, setDeleteText] = useState("");
   const [guideId, setGuideId] = useState<ModuleGuideId | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
+  const [emailPrefs, setEmailPrefs] = useState<EmailPrefsState | null>(null);
 
   const name =
     (user?.user_metadata?.full_name as string | undefined) ||
@@ -89,6 +98,9 @@ export default function AccountScreen() {
 
   useEffect(() => {
     void loadEnabledAlertKinds().then(setEnabledKinds);
+    void fetchEmailPrefs()
+      .then(setEmailPrefs)
+      .catch(() => undefined);
     void Promise.all([ensureReferralCode(), countReferrals()])
       .then(([code, n]) => {
         setInviteUrl(inviteUrlForCode(code));
@@ -112,6 +124,19 @@ export default function AccountScreen() {
 
   async function toggleKind(kind: AppAlertKind, value: boolean) {
     setEnabledKinds(await setAlertKindEnabled(kind, value));
+  }
+
+  async function saveEmailPref(patch: EmailPrefsPatch) {
+    if (!emailPrefs) return;
+    const previous = emailPrefs;
+    setEmailPrefs(applyEmailPrefsPatch(previous, patch));
+    try {
+      setEmailPrefs(await updateEmailPrefs(patch));
+      ok("Preferência salva");
+    } catch (err) {
+      setEmailPrefs(previous);
+      fail(getErrorMessage(err, "Não foi possível salvar a preferência."));
+    }
   }
 
   async function runExport(key: string, fn: () => Promise<void>) {
@@ -243,6 +268,31 @@ export default function AccountScreen() {
               />
             </View>
           ))}
+        </Card>
+
+        <Card style={styles.block}>
+          <ThemedText type="smallBold">E-mails</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Digest, alertas e lembrete de hábitos. Login, confirmação e reset sempre são enviados.
+          </ThemedText>
+          {EMAIL_PREF_OPTIONS.map((option) => (
+            <View key={option.key} style={styles.prefRow}>
+              <ThemedText style={styles.prefText}>{option.label}</ThemedText>
+              <Switch
+                value={Boolean(emailPrefs?.[option.key])}
+                disabled={!emailPrefs || Boolean(emailPrefs.email_unsubscribed_at)}
+                onValueChange={(value) => void saveEmailPref({ [option.key]: value })}
+              />
+            </View>
+          ))}
+          <View style={styles.prefRow}>
+            <ThemedText style={styles.prefText}>Pausar todos os e-mails de produto</ThemedText>
+            <Switch
+              value={Boolean(emailPrefs?.email_unsubscribed_at)}
+              disabled={!emailPrefs}
+              onValueChange={(value) => void saveEmailPref({ unsubscribed: value })}
+            />
+          </View>
         </Card>
 
         <Card style={styles.block}>

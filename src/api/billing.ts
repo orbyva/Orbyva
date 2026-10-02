@@ -251,29 +251,67 @@ export type EmailPrefsPatch = {
   unsubscribed?: boolean;
 };
 
-export async function updateEmailPrefs(
+export type EmailPrefsState = {
+  email_digest_enabled: boolean;
+  email_alerts_enabled: boolean;
+  email_habit_reminder_enabled: boolean;
+  email_unsubscribed_at: string | null;
+};
+
+/** Estado otimista da tela: o que o perfil vira se o patch for gravado. */
+export function applyEmailPrefsPatch<T extends Partial<EmailPrefsState>>(
+  profile: T,
   patch: EmailPrefsPatch
-): Promise<void> {
-  const userId = await getCurrentUserId();
-  const payload: Record<string, unknown> = {};
+): T {
+  const next = { ...profile };
   if (patch.email_digest_enabled !== undefined) {
-    payload.email_digest_enabled = patch.email_digest_enabled;
+    next.email_digest_enabled = patch.email_digest_enabled;
   }
   if (patch.email_alerts_enabled !== undefined) {
-    payload.email_alerts_enabled = patch.email_alerts_enabled;
+    next.email_alerts_enabled = patch.email_alerts_enabled;
   }
   if (patch.email_habit_reminder_enabled !== undefined) {
-    payload.email_habit_reminder_enabled = patch.email_habit_reminder_enabled;
+    next.email_habit_reminder_enabled = patch.email_habit_reminder_enabled;
   }
-  if (patch.unsubscribed === true) {
-    payload.email_unsubscribed_at = new Date().toISOString();
+  if (patch.unsubscribed !== undefined) {
+    next.email_unsubscribed_at = patch.unsubscribed
+      ? (profile.email_unsubscribed_at ?? new Date().toISOString())
+      : null;
   }
-  if (patch.unsubscribed === false) {
-    payload.email_unsubscribed_at = null;
-  }
-  const { error } = await supabase
-    .from("profiles")
-    .update(payload)
-    .eq("id", userId);
+  return next;
+}
+
+const EMAIL_PREFS_NOT_SAVED = "A preferência não foi gravada. Tente de novo.";
+
+/**
+ * `profiles` não tem policy de UPDATE para `authenticated` (billing fechado de propósito), então a
+ * escrita passa pela RPC `update_email_prefs`. Ela devolve o estado gravado e ele é conferido contra
+ * o pedido: update que não casa linha volta `error: null`, e isso não pode virar "salvo".
+ */
+export async function updateEmailPrefs(
+  patch: EmailPrefsPatch
+): Promise<EmailPrefsState> {
+  const { data, error } = await supabase.rpc("update_email_prefs", {
+    p_digest: patch.email_digest_enabled ?? null,
+    p_alerts: patch.email_alerts_enabled ?? null,
+    p_habit_reminder: patch.email_habit_reminder_enabled ?? null,
+    p_unsubscribed: patch.unsubscribed ?? null,
+  });
   if (error) throw new Error(error.message);
+
+  const row = (Array.isArray(data) ? data[0] : data) as EmailPrefsState | undefined;
+  if (!row) throw new Error(EMAIL_PREFS_NOT_SAVED);
+
+  const mismatch =
+    (patch.email_digest_enabled !== undefined &&
+      row.email_digest_enabled !== patch.email_digest_enabled) ||
+    (patch.email_alerts_enabled !== undefined &&
+      row.email_alerts_enabled !== patch.email_alerts_enabled) ||
+    (patch.email_habit_reminder_enabled !== undefined &&
+      row.email_habit_reminder_enabled !== patch.email_habit_reminder_enabled) ||
+    (patch.unsubscribed !== undefined &&
+      Boolean(row.email_unsubscribed_at) !== patch.unsubscribed);
+  if (mismatch) throw new Error(EMAIL_PREFS_NOT_SAVED);
+
+  return row;
 }
