@@ -22,6 +22,7 @@ import { QuickAddExpenseFab } from "@/components/QuickAddExpenseFab"
 import { QuickAddHost } from "@/components/QuickAddHost"
 import { QuickAddProvider } from "@/hooks/useQuickAdd"
 import { OrbProvider, useOrbContext } from "@/hooks/useOrb"
+import { OrbAvatarProvider } from "@/hooks/useOrbAvatar"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { AlertsBell } from "@/components/AlertsBell"
 import { MobileBottomNav } from "@/components/MobileBottomNav"
@@ -195,6 +196,7 @@ export default function AdminLayout() {
     {/* A conversa da Orb vive ACIMA do `Outlet` (feature 100): ela navega, e um estado dentro da
         página seria destruído pela navegação que ela mesma pediu. */}
     <OrbProvider>
+    <OrbAvatarProvider>
     <SidebarProvider>
       <AppSidebar />
       <SidebarMobileCloser />
@@ -269,6 +271,7 @@ export default function AdminLayout() {
       </ActiveTimerProvider>
       </BreadcrumbTitleProvider>
     </SidebarProvider>
+    </OrbAvatarProvider>
     </OrbProvider>
     </QuickAddProvider>
   )

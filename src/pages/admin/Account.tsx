@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { InviteFriendsCard } from "@/components/InviteFriendsCard";
+import { OrbAvatarSection } from "@/pages/admin/account/OrbAvatarSection";
 
 export default function Account() {
   const { user } = useAuth();
@@ -449,6 +450,8 @@ export default function Account() {
           })}
         </ul>
       </section>
+
+      {hasAccess ? <OrbAvatarSection /> : null}
 
       <section className="rounded-xl border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">

@@ -18,6 +18,63 @@ import type { OrbAvatar } from "@/types/orb";
  * e não `task-icons`, porque o de lá tem teto de 1 MB e um PNG de 1024² estoura isso com folga. */
 export const ORB_AVATAR_BUCKET = "orb-avatars";
 
+export type OrbAvatarReference = { mime: "image/png" | "image/jpeg" | "image/webp"; data: string };
+
+/** Erro da `orb-avatar` com a mensagem em PT-BR que ela devolveu; `remaining` vem no 429 da cota. */
+export class OrbAvatarGenerateError extends Error {
+  readonly remaining?: number;
+
+  constructor(message: string, remaining?: number) {
+    super(message);
+    this.name = "OrbAvatarGenerateError";
+    this.remaining = remaining;
+  }
+}
+
+/**
+ * Gera uma versão nova pela Edge Function `orb-avatar` (feature 152), que sobe o PNG e grava a
+ * linha ela mesma — aqui só se chama e se lê a resposta.
+ *
+ * Em status ≠ 2xx o `invoke` devolve só "Edge Function returned a non-2xx status code"; a mensagem
+ * útil (cota do dia, imagem grande, recusa do modelo) está no corpo, em `error.context`.
+ */
+export async function generateOrbAvatar(input: {
+  prompt: string;
+  references: OrbAvatarReference[];
+}): Promise<{ avatar: OrbAvatar; remaining: number }> {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate()
+  ).padStart(2, "0")}`;
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo";
+
+  const { data, error } = await supabase.functions.invoke("orb-avatar", {
+    body: { prompt: input.prompt, references: input.references, today, timezone },
+  });
+
+  if (error) {
+    const context = (error as { context?: Response }).context;
+    let payload: { error?: unknown; remaining?: unknown } | null = null;
+    if (context && typeof context.json === "function") {
+      try {
+        payload = await context.json();
+      } catch {
+        payload = null;
+      }
+    }
+    if (payload && typeof payload.error === "string" && payload.error) {
+      throw new OrbAvatarGenerateError(
+        payload.error,
+        typeof payload.remaining === "number" ? payload.remaining : undefined
+      );
+    }
+    throw new Error(error.message || "Não foi possível gerar a versão da Orb.");
+  }
+
+  const { remaining, ...avatar } = data as OrbAvatar & { remaining: number };
+  return { avatar, remaining };
+}
+
 /** As versões do usuário, mais recentes primeiro — a ordem da galeria. */
 export async function fetchOrbAvatars(): Promise<OrbAvatar[]> {
   const userId = await getCurrentUserId();
