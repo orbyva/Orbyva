@@ -16,7 +16,7 @@ import {
 export * from "@/domain/recurring";
 
 const RECURRING_SELECT =
-  "id, user_id, class_id, value, description, frequency, validity, due_day, installment_count, payment_start_date, status, created_at, paid_parcels, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))";
+  "id, user_id, class_id, value, description, frequency, validity, due_day, installment_count, payment_start_date, status, created_at, paid_parcels, link_url, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))";
 
 export async function fetchRecurringTransactions(
   startDateTZString: string | null = null,
@@ -76,6 +76,8 @@ export async function updateRecurringApi(
     installment_count: data.installment_count,
     payment_start_date: data.payment_start_date,
     status: data.status,
+    // Valor cru, não `|| undefined`: `null` aqui é "o usuário apagou o link".
+    link_url: data.link_url,
   };
 
   const { error } = await supabase

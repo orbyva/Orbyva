@@ -890,3 +890,65 @@ describe("query_transactions: página cheia vira truncated", () => {
     expect(resultado).not.toHaveProperty("truncated");
   });
 });
+
+/* ── Link da recorrência (feature 206) ───────────────────────────────────────────────────────── */
+
+describe("query_recurring: link", () => {
+  /**
+   * `link_url` é o que responde "onde eu pago a luz?". Duas coisas podem sumir sem o build
+   * reclamar: a coluna na string do `.select(...)` (e aí toda linha volta com `undefined`), e a
+   * chave no objeto de retorno (e aí o modelo nunca vê o link, mesmo com a coluna preenchida).
+   * Cada caso aqui fixa uma delas.
+   */
+  const linha = (link: string | null) => ({
+    id: "rec-1",
+    value: "189.90",
+    description: "Luz",
+    frequency: "Mensal",
+    validity: "2026-12-10",
+    due_day: 10,
+    installment_count: 12,
+    payment_start_date: "2026-01-10",
+    status: true,
+    paid_parcels: [1, 2],
+    link_url: link,
+    class: { name: "Luz", type: { name: "Casa", nature: { name: "Despesa" } } },
+  });
+
+  it("devolve o link no payload", async () => {
+    const db = fakeDb({
+      recurring_transaction: [linha("https://www.enel.com.br/pagar")],
+    });
+
+    const resultado = await rodar("query_recurring", {}, db);
+
+    const recorrencias = resultado.recurring as { link_url: string | null }[];
+    expect(recorrencias[0].link_url).toBe("https://www.enel.com.br/pagar");
+  });
+
+  it("sem link, a chave existe com null em vez de desaparecer", async () => {
+    const db = fakeDb({ recurring_transaction: [linha(null)] });
+
+    const resultado = await rodar("query_recurring", {}, db);
+
+    const recorrencias = resultado.recurring as Record<string, unknown>[];
+    expect("link_url" in recorrencias[0]).toBe(true);
+    expect(recorrencias[0].link_url).toBeNull();
+  });
+
+  it("o select montado pede a coluna", async () => {
+    const log: Recorded[] = [];
+    const db = fakeDb({ recurring_transaction: [linha(null)] }, log);
+
+    await rodar("query_recurring", {}, db);
+
+    // O `fakeDb` não executa filtro: ele registra a query montada — e a string do `.select(...)`
+    // entra como NOME do filtro (`select:<colunas>`), não como valor. É esta assertiva que prova
+    // que a leitura no Postgres traria o campo.
+    const leitura = leituraDe(log, "recurring_transaction");
+    const select =
+      leitura.filters.find(([chave]) => chave.startsWith("select:"))?.[0] ?? "";
+    expect(select).toContain("link_url");
+    expect(select).toContain("paid_parcels");
+  });
+});

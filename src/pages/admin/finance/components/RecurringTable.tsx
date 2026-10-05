@@ -1,4 +1,4 @@
-import { ChevronDown, CheckCircle, Pen, Trash2, Repeat, ArrowUpDown, RotateCcw } from "lucide-react";
+import { ChevronDown, CheckCircle, ExternalLink, Pen, Trash2, Repeat, ArrowUpDown, RotateCcw } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -323,9 +323,26 @@ export function RecurringTable({
                     </TableCell>
 
                     <TableCell>
-                      <span className="line-clamp-2 font-medium leading-snug">
-                        {displayName}
-                      </span>
+                      {/* Âncora do link ao lado do nome, não na coluna "Ações" (148px, 5 botões).
+                          `?.trim()` e não só o valor: linha legada com `"   "` não vira ícone
+                          quebrado. Sem `stopPropagation`: a `TableRow` não tem handler de clique. */}
+                      <div className="flex items-start gap-1.5">
+                        <span className="line-clamp-2 font-medium leading-snug">
+                          {displayName}
+                        </span>
+                        {item.link_url?.trim() ? (
+                          <a
+                            href={item.link_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted"
+                            aria-label={`Abrir link de ${displayName}`}
+                            title="Abrir link"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        ) : null}
+                      </div>
                       {item.status === false ? (
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
                           Arquivada

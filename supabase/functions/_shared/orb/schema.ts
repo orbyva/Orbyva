@@ -168,6 +168,11 @@ export const ORB_TABLES: readonly OrbTable[] = [
       { name: "payment_start_date", type: "date" },
       { name: "validity", type: "date", description: "Até quando vale." },
       { name: "status", type: "boolean", description: "true = ativa." },
+      {
+        name: "link_url",
+        type: "text",
+        description: "Link da recorrência (ex.: onde se faz o pagamento).",
+      },
       CRIADO_EM,
     ],
   },

@@ -274,6 +274,8 @@ export async function executeOrbProposal(proposal: OrbProposal): Promise<OrbProp
         installment_count: parcelas,
         payment_start_date: start,
         status: payload.status === false ? false : true,
+        // A Orb lê o link, não grava: `propose_create` não tem o campo (feature 206).
+        link_url: null,
       });
       return { message: "Recorrência criada.", link: "/finance/recurring" };
     }

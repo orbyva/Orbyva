@@ -273,6 +273,7 @@ interface RecurringRow {
   payment_start_date: string | null;
   status: boolean;
   paid_parcels: number[] | null;
+  link_url: string | null;
   class: { name: string; type: { name: string; nature: { name: string } | null } | null } | null;
 }
 
@@ -297,7 +298,7 @@ export const queryRecurring: OrbTool = {
     let query = ctx.db
       .from("recurring_transaction")
       .select(
-        "id, value, description, frequency, validity, due_day, installment_count, payment_start_date, status, paid_parcels, class:class_id(name, type:type_id(name, nature:nature_id(name)))"
+        "id, value, description, frequency, validity, due_day, installment_count, payment_start_date, status, paid_parcels, link_url, class:class_id(name, type:type_id(name, nature:nature_id(name)))"
       )
       .eq("user_id", ctx.userId);
     if (bool(input, "only_active") !== false) query = query.eq("status", true);
@@ -323,6 +324,9 @@ export const queryRecurring: OrbTool = {
           installments_remaining: total === null ? null : Math.max(0, total - paid),
           payment_start_date: row.payment_start_date,
           validity: row.validity,
+          // Feature 206: é o que responde "onde eu pago a luz?". A chave existe sempre, com
+          // `null` quando não há link — campo que desaparece o modelo lê como "não sei".
+          link_url: row.link_url ?? null,
         };
       }),
     };

@@ -58,6 +58,7 @@ function defaultRecurringCreateRequest(): RecurringCreateRequest {
     installment_count: plan.installment_count,
     payment_start_date,
     status: true,
+    link_url: null,
   };
 }
 

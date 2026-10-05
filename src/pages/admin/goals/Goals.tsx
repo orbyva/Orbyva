@@ -701,6 +701,7 @@ export default function Goals() {
         installment_count: months,
         payment_start_date: new Date().toISOString().split("T")[0],
         status: true,
+        link_url: null,
       });
 
       toast({

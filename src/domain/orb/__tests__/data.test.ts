@@ -176,3 +176,61 @@ describe("query_data", () => {
     expect(findOrbTable("nature")?.scope.kind).toBe("global");
   });
 });
+
+/* ── Link da recorrência (feature 206) ───────────────────────────────────────────────────────── */
+
+describe("recurring_transaction: link_url fora de defaultColumns", () => {
+  /**
+   * A coluna entra em `columns` (para `describe_data` contar que ela existe) e fica **fora** de
+   * `defaultColumns`: a lista padrão de `query_data` é contrato de tamanho de payload, e crescer
+   * ela por engano é exatamente o defeito que este bloco pega.
+   */
+  it("está em columns e não em defaultColumns", () => {
+    const tabela = findOrbTable("recurring_transaction")!;
+    expect(tabela.columns.map((coluna) => coluna.name)).toContain("link_url");
+    expect(tabela.defaultColumns).not.toContain("link_url");
+    expect(tabela.defaultColumns).toEqual([
+      "id",
+      "description",
+      "value",
+      "frequency",
+      "due_day",
+      "status",
+    ]);
+  });
+
+  it("query_data sem colunas não pede link_url; pedindo, pede", async () => {
+    const semColunas: Recorded[] = [];
+    const { ok } = await runOrbTool(
+      "query_data",
+      { table: "recurring_transaction" },
+      ctx(fakeDb({ recurring_transaction: [] }, semColunas))
+    );
+    expect(ok).toBe(true);
+    const selectPadrao =
+      semColunas[0].filters.find(([chave]) => chave.startsWith("select:"))?.[0] ?? "";
+    expect(selectPadrao).not.toContain("link_url");
+
+    const comColunas: Recorded[] = [];
+    const pedido = await runOrbTool(
+      "query_data",
+      { table: "recurring_transaction", columns: ["id", "link_url"] },
+      ctx(fakeDb({ recurring_transaction: [] }, comColunas))
+    );
+    // Se a coluna não estivesse em `columns`, `query_data` recusaria com "não tem a coluna".
+    expect(pedido.ok).toBe(true);
+    const selectPedido =
+      comColunas[0].filters.find(([chave]) => chave.startsWith("select:"))?.[0] ?? "";
+    expect(selectPedido).toContain("link_url");
+  });
+
+  it("describe_data da tabela lista link_url", async () => {
+    const { ok, result } = await runOrbTool(
+      "describe_data",
+      { table: "recurring_transaction" },
+      ctx(fakeDb({}))
+    );
+    expect(ok).toBe(true);
+    expect(JSON.stringify(result)).toContain("link_url");
+  });
+});

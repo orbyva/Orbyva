@@ -3,11 +3,14 @@ import type { RecurringCreateRequest } from "@/types/recurring";
 import { useEffect, useMemo, useState } from "react";
 import {
   MAX_SPLIT_INSTALLMENTS,
+  RECURRING_LINK_HINT,
   buildFixedYearPlan,
   countMonthsThroughYearEnd,
   getTotalFromInstallments,
   isFixedRecurringPlan,
+  isHttpLink,
   normalizeFixedFrequency,
+  normalizeRecurringLink,
   splitInstallmentValue,
 } from "@/domain/recurring";
 import { formatBRL } from "@/lib/currency";
@@ -200,6 +203,11 @@ export function RecurringFormDialog({
       return setFormError("Informe o dia de vencimento (1 a 31).");
     }
 
+    // Link é opcional: vazio não bloqueia. Preenchido, só `http(s)` passa — o projeto avisa em vez
+    // de corrigir a URL do usuário.
+    const link = normalizeRecurringLink(newRecurring.link_url);
+    if (link && !isHttpLink(link)) return setFormError(RECURRING_LINK_HINT);
+
     if (isSplit) {
       if (!newRecurring.installment_count || newRecurring.installment_count < 1) {
         return setFormError("Informe o número de parcelas.");
@@ -221,7 +229,9 @@ export function RecurringFormDialog({
 
     setFormError("");
 
-    const payload = isSplit
+    // `link_url: link` nos **dois** ramos, depois do spread/`applyFixedYearFields` (que faz spread
+    // do `rec`): é o que garante valor normalizado no banco — e `null` quando o usuário apagou.
+    const payload: RecurringCreateRequest = isSplit
       ? {
           ...newRecurring,
           validity: null,
@@ -231,8 +241,9 @@ export function RecurringFormDialog({
             totalValue as number,
             newRecurring.installment_count!
           ),
+          link_url: link,
         }
-      : applyFixedYearFields(newRecurring);
+      : { ...applyFixedYearFields(newRecurring), link_url: link };
 
     setNewRecurring(payload);
     createRecurring(payload);
@@ -314,6 +325,22 @@ export function RecurringFormDialog({
                 setNewRecurring({
                   ...newRecurring,
                   description: e.target.value,
+                })
+              }
+            />
+          </FormField>
+
+          {/* `htmlFor`/`id` explícitos: `FormField` não associa label e controle sozinho. */}
+          <FormField label="Link" optional htmlFor="recurring-link-url">
+            <Input
+              id="recurring-link-url"
+              type="text"
+              placeholder="https://…"
+              value={newRecurring.link_url ?? ""}
+              onChange={(e) =>
+                setNewRecurring({
+                  ...newRecurring,
+                  link_url: e.target.value,
                 })
               }
             />

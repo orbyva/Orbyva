@@ -1,4 +1,4 @@
-import { ChevronDown, CheckCircle, Pen, Trash2, RotateCcw } from "lucide-react";
+import { ChevronDown, CheckCircle, ExternalLink, Pen, Trash2, RotateCcw } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -98,7 +98,25 @@ export function RecurringTableMobile({
                 <div className="flex items-start gap-3">
                   <RecurringIcon recurring={item} />
                   <div className="min-w-0 flex-1 space-y-1">
-                    <p className="font-medium leading-snug">{displayName}</p>
+                    {/* Wrapper `flex` para o nome manter o `min-w-0 flex-1` e o ícone não cortar
+                        a descrição. Mesma âncora da tabela desktop. */}
+                    <div className="flex items-start gap-1.5">
+                      <p className="min-w-0 flex-1 font-medium leading-snug">
+                        {displayName}
+                      </p>
+                      {item.link_url?.trim() ? (
+                        <a
+                          href={item.link_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted"
+                          aria-label={`Abrir link de ${displayName}`}
+                          title="Abrir link"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
+                    </div>
                     {item.status === false ? (
                       <p className="text-[11px] text-muted-foreground">
                         Arquivada

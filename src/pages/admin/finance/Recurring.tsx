@@ -76,6 +76,7 @@ function defaultRecurringCreateRequest(): RecurringCreateRequest {
     installment_count: plan.installment_count,
     payment_start_date,
     status: true,
+    link_url: null,
   };
 }
 
@@ -312,6 +313,7 @@ export default function Recurring() {
       installment_count: recurringItem.installment_count,
       payment_start_date: recurringItem.payment_start_date,
       status: true,
+      link_url: recurringItem.link_url ?? null,
     });
     setIsEditing(true);
     setOpen(true);
