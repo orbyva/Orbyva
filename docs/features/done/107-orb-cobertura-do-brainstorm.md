@@ -108,8 +108,15 @@ Origem: planning `in-planning/107-…` (2026-09-24), com P1–P5 respondidos pel
   (parágrafo no campo), sem ida/volta, inventou Carro sem perguntar
 - 2026-09-24 — "Pode" (implementar gaps restantes: livro novo, hábito, veículo, episódio/série,
   medicação, consulta)
+- 2026-10-05 — "Aplique tudo recomendado" (repetição das mesmas respostas, dada sobre a cópia
+  esquecida em `in-planning/`; nada novo a implementar)
 
 ## Notas
+
+- 2026-10-05 — uma cópia do planning original (perguntas sem resposta) tinha ficado em
+  `in-planning/` e fazia a 107 parecer pendente. Removida; esta é a versão canônica.
+  `npx vitest run src/domain/orb src/components/orb src/api/__tests__/orbActions*`: 27 arquivos,
+  351 testes passando.
 
 - Planning original em `in-planning/`; ataques para `todo/` sem começar implementação — `/next`
   puxa a Onda 0.

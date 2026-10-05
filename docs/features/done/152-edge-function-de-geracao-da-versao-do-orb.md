@@ -61,70 +61,96 @@ do usuário, chave só no secret).
   `requestId`, duração e tamanho em bytes.
 
 ## Tarefas
-- [ ] Criar `supabase/functions/orb-avatar/request.ts` (puro): `MAX_REFERENCES = 3`,
+- [x] Criar `supabase/functions/orb-avatar/request.ts` (puro): `MAX_REFERENCES = 3`,
       `MAX_REFERENCE_BASE64_BYTES` (600 KB), `MAX_TOTAL_BASE64_BYTES` (1,8 MB), `MAX_PROMPT_CHARS`
       (500), `REFERENCE_MIMES = ["image/png","image/jpeg","image/webp"]` e
       `parseGenerateRequest(body): { prompt, references, today, timezone }` — lançando erro com
       mensagem em PT-BR para prompt vazio/comprido, mais de 3 referências, mime fora da lista,
       base64 vazio ou grande demais, `today` fora de `^\d{4}-\d{2}-\d{2}$`.
-- [ ] Criar `supabase/functions/orb-avatar/prompt.ts` (puro): `buildOrbImagePrompt(userPrompt)` —
+- [x] Criar `supabase/functions/orb-avatar/prompt.ts` (puro): `buildOrbImagePrompt(userPrompt)` —
       instrução fixa descrevendo o que a Orb é (esfera, quadrado 1:1, fundo sólido ou transparente,
       sem texto e sem marca d'água, PNG) + o pedido do usuário no fim. Mesma ideia de
       `orb-agent/prompt.ts`: o volátil vai no fim.
-- [ ] Criar `supabase/functions/orb-avatar/gemini.ts` (puro): `buildImageRequest({model, prompt,
+- [x] Criar `supabase/functions/orb-avatar/gemini.ts` (puro): `buildImageRequest({model, prompt,
       references})` devolvendo o objeto de `generateContent` (partes `inlineData` das referências +
       parte de texto, `config.responseModalities: ["IMAGE"]`) e `extractPngBase64(response)`
       devolvendo `{ base64 }` ou um erro tipado para (a) `finishReason` de recusa — reaproveite a
       lista `RECUSAS` de `orb-agent/index.ts:160-168`, inclusive `IMAGE_SAFETY` — e (b) resposta sem
       nenhuma parte de imagem. Tipar contra uma interface mínima local, **sem** importar
       `npm:@google/genai` (o arquivo é typechecado pelo `tsc -b` do app quando o teste o importa).
-- [ ] Escrever `src/domain/orb/__tests__/orbAvatarRequest.test.ts`: caminho feliz e uma assertiva
+- [x] Escrever `src/domain/orb/__tests__/orbAvatarRequest.test.ts`: caminho feliz e uma assertiva
       por recusa de `parseGenerateRequest`; `buildOrbImagePrompt` contendo o texto do usuário e a
       instrução de 1:1/sem texto; `buildImageRequest` montando uma parte por referência na ordem
       recebida; `extractPngBase64` devolvendo o base64 de uma resposta falsa, e erro específico para
       recusa e para resposta sem imagem.
-- [ ] Criar `supabase/functions/orb-avatar/index.ts` — esqueleto copiando
+- [x] Criar `supabase/functions/orb-avatar/index.ts` — esqueleto copiando
       `orb-agent/index.ts:186-215`: `corsHeadersForRequest`, `OPTIONS` → 200, método ≠ POST → 405,
       `GEMINI_API_KEY` ausente → 503 com mensagem em PT-BR, `Authorization` ausente ou `getUser()`
       falhando → 401, corpo acima de `MAX_BODY_BYTES` (2,5 MB) → 413, `parseGenerateRequest`
       lançando → 400 com a mensagem dela.
-- [ ] No mesmo `index.ts`: cota diária — conta linhas de `orb_avatar` do usuário com `created_at`
+- [x] No mesmo `index.ts`: cota diária — conta linhas de `orb_avatar` do usuário com `created_at`
       dentro do dia dele (use `instantFromLocalTime(today, "00:00", timezone)` de
       `supabase/functions/_shared/orb/helpers.ts` para o início e o dia seguinte como fim
       exclusivo); `>= ORB_IMAGE_DAILY_LIMIT` (padrão 10) → 429 com
       `{ error, remaining: 0, limit }` e mensagem dizendo quando volta.
-- [ ] No mesmo `index.ts`: chamada real — `new GoogleGenAI({ apiKey })` (mesmo import
+- [x] No mesmo `index.ts`: chamada real — `new GoogleGenAI({ apiKey })` (mesmo import
       `npm:@google/genai@2.21.0` do `orb-agent`), `ai.models.generateContent(buildImageRequest(...))`
       com `model = Deno.env.get("ORB_IMAGE_MODEL") || "gemini-2.5-flash-image"`, `extractPngBase64`
       no retorno; recusa → 422, sem imagem → 502, erro do provedor → 502 com a mensagem dele.
       Orçamento de tempo próprio (`AbortSignal.timeout`, 60 s) — geração de imagem é mais lenta que
       um turno de texto.
-- [ ] No mesmo `index.ts`: persistir — base64 → `Uint8Array`, upload em
+- [x] No mesmo `index.ts`: persistir — base64 → `Uint8Array`, upload em
       `orb-avatars/{user.id}/{crypto.randomUUID()}.png` (`contentType: "image/png"`,
       `upsert: false`), `getPublicUrl`, insert em `orb_avatar` (`user_id`, `prompt` do usuário,
       `url`, `model`, `is_active: false`) com `.select().single()`, e resposta 200 com
       `{ id, url, prompt, model, created_at, remaining }`. Falha no insert depois do upload: devolve
       erro e deixa o arquivo órfão (mesma escolha documentada em `src/api/tasks/iconAssets.ts:64-67`).
-- [ ] Criar `scripts/orb-avatar-smoke.ts` espelhando `scripts/orb-smoke.ts` (lê `GEMINI_API_KEY` do
+- [x] Criar `scripts/orb-avatar-smoke.ts` espelhando `scripts/orb-smoke.ts` (lê `GEMINI_API_KEY` do
       `.env` da raiz, sem Deno e sem banco): importa `prompt.ts` e `gemini.ts` da função, manda uma
       imagem de referência pequena embutida no próprio script, faz a chamada real e imprime modelo,
       duração e tamanho do PNG recebido — gravando o arquivo em `/tmp` para inspeção. Registrar
       `"orb:avatar-smoke": "tsx scripts/orb-avatar-smoke.ts"` em `package.json`.
-- [ ] Rodar `npm run orb:avatar-smoke` e confirmar que volta um PNG de verdade (é esta a prova do
+- [x] Rodar `npm run orb:avatar-smoke` e confirmar que volta um PNG de verdade (é esta a prova do
       contrato com o modelo antes de qualquer deploy). Se o id padrão do modelo não existir na conta,
       ajuste `ORB_IMAGE_MODEL` no `.env`, confirme, e troque o padrão no código para o id que
       funcionou — anotando em `## Notas`.
-- [ ] Acrescentar em `docs/stack.md`, na seção "Orb e MCP", um item sobre a função `orb-avatar`:
+- [x] Acrescentar em `docs/stack.md`, na seção "Orb e MCP", um item sobre a função `orb-avatar`:
       para que serve, que ela é a única que grava direto (fora do fluxo de tools), e os secrets
       `ORB_IMAGE_MODEL` / `ORB_IMAGE_DAILY_LIMIT`.
-- [ ] Rodar `npm test -- src/domain/orb/__tests__/orbAvatarRequest.test.ts`, `npm run lint`,
+- [x] Rodar `npm test -- src/domain/orb/__tests__/orbAvatarRequest.test.ts`, `npm run lint`,
       `npm run build` e `npm run check:mcp`.
-- [ ] Deploy: `supabase functions deploy orb-avatar` e os secrets — **confirmar com o usuário antes
+- **Pendência com o usuário (fora da conclusão):** Deploy: `supabase functions deploy orb-avatar` e os secrets — **confirmar com o usuário antes
       de rodar** (mesma régua do `supabase db push`: é ambiente remoto).
 
 ## Prompts
 
+- 05/10/26 — "Pode continuar" (seguir a fila do `todo/` que não depende do usuário).
+
 ## Notas
+
+- **Smoke real passou**: `npm run orb:avatar-smoke` com o padrão `gemini-2.5-flash-image` devolveu
+  PNG 1024×1024 (assinatura conferida) em ~8 s, 0,9–1,5 MB — dentro do teto de 5 MB do bucket. O
+  id padrão funcionou; nada trocado no código.
+- **Fundo**: a instrução do planning pedia "fundo sólido ou transparente". Na primeira chamada real
+  o modelo devolveu RGB **sem alfa** com um xadrez desenhado imitando transparência — na esfera
+  isso apareceria como quadriculado. A instrução passou a pedir fundo liso e a proibir o xadrez; a
+  segunda chamada veio com fundo liso. Teste próprio trava isso em `buildOrbImagePrompt`.
+- **Janela do dia testável**: a feature apontava "contagem do dia em UTC" como sinal de quebra; a
+  conta saiu do `index.ts` para `dailyWindow`/`remainingToday` em `request.ts` (puros, testados com
+  São Paulo e virada de mês) em vez de ficar só no runtime.
+- **Sem checagem de tipo do `index.ts`**: o Deno não está instalado na máquina, então o arquivo de
+  runtime não passa por `deno check`. O que ele usa do SDK (`config.abortSignal`,
+  `responseModalities`) foi conferido no `.d.ts` do `@google/genai` instalado, e o contrato com o
+  modelo pelo smoke; auth, contagem, upload e insert só se provam com a função publicada (roteiro
+  abaixo, passo 3).
+- Verificação: 21 testes em `orbAvatarRequest.test.ts`; `npm test` 3829 passando; `tsc -b`,
+  `npm run build` e `npm run check:mcp` sem erro; `npm run lint` com 0 erros (30 avisos que já
+  existiam).
+- A resposta 200 devolve a linha inteira (`user_id` e `is_active` inclusos, além do que a tarefa
+  listava) — a 153 usa o retorno direto como `OrbAvatar` na galeria.
+- **Falta só o deploy** (`supabase functions deploy orb-avatar` + secrets opcionais), que é
+  ambiente remoto e espera o sim do usuário.
+- 2026-10-05 — concluída na limpeza dos `.md` a pedido do usuário ("Pode concluir direto"); o usuário vai commitar; publicar a função (`supabase functions deploy orb-avatar`) fica com ele.
 
 ## Como testar
 

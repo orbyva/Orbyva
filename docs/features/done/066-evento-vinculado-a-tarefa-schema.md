@@ -122,9 +122,11 @@ dependem dela.
   `AgendaGrid`/`AgendaHourGrid`/`ProjectFormDialog`/`ProjectDetail` (que mockam `@/api/tasks`: se o
   módulo ganhar `updateProjectEvent`, os mocks `vi.mock("@/api/tasks", ...)` desses arquivos precisam
   da função nova, mesmo problema registrado nas Notas da feature 065)
-- [ ] **Aguarda o usuário**: aplicar `supabase/migrations/20260817120000_event_task_link.sql` no banco
+- [x] **Aguarda o usuário**: aplicar `supabase/migrations/20260817120000_event_task_link.sql` no banco
   remoto (`supabase db push`) — nunca rodar sem confirmação explícita; as features 067 e 068 só
-  funcionam de verdade depois disso
+  funcionam de verdade depois disso. **2026-10-05:** já aplicada — `supabase migration list` mostra
+  `20260817120000` local e remoto, e `supabase db push --dry-run` responde "Remote database is up
+  to date".
 
 ## Prompts
 

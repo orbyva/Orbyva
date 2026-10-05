@@ -33,6 +33,56 @@ Migrations são nomeadas `YYYYMMDDHHMMSS_slug.sql` — nunca duas com o mesmo ti
 - Toda mutação usa `useToast` (`@/hooks/use-toast`) + `getErrorMessage` (`@/lib/errors`) para erros amigáveis.
 - Cor de módulo nova → `moduleColors` em `src/lib/design-tokens.ts` + variável CSS em `src/index.css` (light e dark).
 
+## Convenções de UI do mobile
+
+O app Expo (`mobile/`) usa a identidade do web com padrões nativos (features 201–207).
+
+- **Tokens**: `mobile/src/constants/theme.ts` — `Colors` (paleta do `src/index.css` em hex, claro e
+  escuro), `ModuleColors`, `Radius`, `Spacing`. `tokenParity.test.ts` lê o CSS do web e falha se um
+  lado mudar sem o outro: cor nova ou alterada no web vai para o `theme.ts` no mesmo commit.
+- **Tipografia**: Plus Jakarta Sans (texto) e Syne (título de tela, título de destaque, valores
+  grandes), carregadas no `app/_layout.tsx`. Estilo de texto sai de `TypeScale`
+  (`mobile/src/domain/ui/typography.ts`) ou de `ThemedText type=…`. Peso = família (`fontFor`):
+  no Android `fontWeight` não escolhe o arquivo de uma fonte customizada.
+- **Primitivas**: `mobile/src/components/ui` (`Button`, `Card`, `Badge`, `Input`, `Chip`, `Tabs`,
+  `ListRow`, `ScreenHeader`, `EmptyState`, `Sheet`…), com os nomes de variante do shadcn do web.
+  O estilo de cada uma sai de `resolve*Style` em `mobile/src/domain/ui/variants/` — puro, testado
+  em `variants.test.ts` (cor só dos tokens, alvo de toque ≥ 44, fonte carregada).
+- **Regra**: tela não escreve cor hex, `rgba(`, `fontSize`, `fontWeight`, `fontFamily` nem
+  `borderRadius` numérico ≥ 6 — usa token, `ThemedText`/`TypeScale`, `Radius` e primitiva. O
+  teste-guarda (`styleGuard.test.ts`) varre **todo** `mobile/src`, menos `components/share` (arte
+  própria dos cards de story), `constants` e as fontes de token (`domain/ui/typography.ts`,
+  `domain/ui/variants`, `domain/ui/color.ts`). Exceção legítima (cor que é dado, espelho de tabela
+  do web) é marcada: `// token-livre: <motivo>` na linha ou `// token-livre-início: <motivo>` …
+  `// token-livre-fim` no bloco. Todo `_layout.tsx` com header nativo usa `HeaderTitle`.
+- **Sem apelidos**: o tema só tem o vocabulário do web (`foreground`, `card`, `muted`, `border`,
+  `destructive`…; `Radius.xl|lg|md|sm|full`). `FormButton` saiu — botão é `Button`.
+- **Cor com significado** (status de orçamento e de tarefa, natureza, saldo, prioridade) sai do
+  domínio como nome de token (`domain/ui/semanticTone.ts`, `PRIORITY_TONE`); a tela resolve com
+  `theme[tone]`. Cor escolhida pelo usuário é dado e fica como veio; cor inicial gravada no banco
+  vira constante ao lado da paleta (`domain/dimensions/listView.ts`). Vencimento vira `Badge`
+  (`carAlertBadge`); cor de módulo vem de `useModuleColors()` e tons dela por `hexAlpha`
+  (ex.: heatmap de hábitos, `domain/habits/habitColors.ts`).
+- **Tipografia fora da escala**: `weightStyle(peso)` e `MonoInline` para trecho dentro de outro
+  `Text`; `TypeScale.nano` só em grade densa (calendário, legenda sobre capa); véu de modal é `SCRIM`;
+  véu e texto sobre capa/foto são `scrim(alpha)` e `ON_MEDIA` (não seguem o tema); variação
+  clara de um token sobre fundo colorido é `lighten(hex, amount)` (`lib/color.ts`).
+- **Navegação** (feature 208): sem barra inferior nem faixa de abas — chrome fixo novo foi vetado
+  por ocupar tela. Em tela raiz (item exato da sidebar, `navLeafForPath` em `lib/nav.ts`) o título
+  do header é `GroupHeaderTitle` (`headerTitle: groupHeaderTitle` em todo stack) e abre as páginas
+  do grupo; arrastar da borda esquerda abre a sidebar (`SidebarEdgeSwipe`). Por isso tela raiz não
+  tem voltar por gesto (`gestureEnabled: false` no stack raiz e nas raízes empilhadas do módulo);
+  detalhe e formulário mantêm o gesto nativo. Header: busca · Orb · sino. Único FAB é o `+`, na cor
+  do grupo da tela (`quickAddModuleForPath`) com o texto de `ModuleForegrounds`.
+  `lib/__tests__/nav.layouts.test.ts` trava as três regras nos layouts.
+- **Busca** é `SearchField` (lupa + visual do `Input`); liga/desliga é `ToggleRow` (`Switch`
+  nativo); título do header nativo usa `HeaderTitle` (Syne) no `headerTitleStyle` do stack.
+- **Migração de uma onda**: scripts em `mobile/scripts/` (`codemod-theme-names.py`,
+  `codemod-forms.py`, `codemod-literal-colors.py`, `codemod-text-inputs.py`, `codemod-radius.py`,
+  `codemod-empty-states.py`) fazem o grosso mecânico; `tidy-file.py` remove estilo morto e junta
+  imports de `@/components/ui`; `prune-unused-imports.py` tira o import que o `tsc` aponta.
+  O `tsconfig` do mobile tem `noUnusedLocals` — import que sobra de uma troca quebra o typecheck.
+
 ## Orb e MCP
 
 A Orb é a IA do Orbyva. Desenho completo em `docs/planning/orb-ia/`; o que está no ar veio das
@@ -54,6 +104,16 @@ features 098 (base), 099 (revisão) e 100 (barra lateral, navegação, cartões,
   (`open_screen`, `propose_create`, `ask_user`). Host MCP não tem tela do Orbyva: não há para onde
   navegar, confirmar criação nem coletar resposta em chips, então o catálogo dele continua sendo
   leitura e simulação.
+- **Versões da Orb** (feature 152): Edge Function própria `orb-avatar` (não ramo do `orb-agent`,
+  não tool do registro) recebe prompt + até 3 referências em base64, gera um PNG no modelo de
+  imagem do Gemini e **grava ela mesma** — arquivo em `orb-avatars/{userId}/{uuid}.png` e linha em
+  `orb_avatar` com `is_active: false`. É a única peça da Orb que grava fora do fluxo de proposta:
+  a cota diária conta as linhas do dia do usuário (fuso dele), então quem gera tem de deixar rastro.
+  Secrets: `ORB_IMAGE_MODEL` (padrão `gemini-2.5-flash-image`) e `ORB_IMAGE_DAILY_LIMIT` (padrão
+  10). Lógica pura em `request.ts`/`prompt.ts`/`gemini.ts` (testada em
+  `src/domain/orb/__tests__/orbAvatarRequest.test.ts`); contrato com o modelo provado por
+  `npm run orb:avatar-smoke`. O modelo devolve RGB sem alfa: pedir "transparente" vira xadrez
+  desenhado, por isso a instrução pede fundo liso.
 - **Navegação** (`open_screen`): catálogo de telas em `_shared/orb/navigation.ts` — caminho, filtros
   aceitos e valores de cada tela. O servidor monta a URL; o client **valida de novo** contra o mesmo
   catálogo (`isOrbNavigablePath`) antes de chamar `navigate()`. Filtro na URL só funciona porque as

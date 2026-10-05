@@ -46,55 +46,83 @@ página não crescer mais.
   legenda. Editar a imagem gerada está fora do escopo desta rodada.
 
 ## Tarefas
-- [ ] Criar `src/domain/orb/avatarImage.ts` (puro, sem DOM): `MAX_REFERENCES = 3`,
+- [x] Criar `src/domain/orb/avatarImage.ts` (puro, sem DOM): `MAX_REFERENCES = 3`,
       `REFERENCE_MAX_EDGE = 768`, `REFERENCE_MIMES`, `isSupportedReferenceMime(mime)` e
       `targetSize({ width, height }, maxEdge)` — preserva a proporção, arredonda para inteiro e
       **nunca amplia** imagem menor que o teto.
-- [ ] Escrever `src/domain/orb/__tests__/avatarImage.test.ts`: retrato, paisagem, quadrado, imagem
+- [x] Escrever `src/domain/orb/__tests__/avatarImage.test.ts`: retrato, paisagem, quadrado, imagem
       menor que o teto (volta igual), 1 px, e mime não suportado.
-- [ ] Criar `src/lib/orbAvatarReference.ts`: `fileToReference(file)` — `createImageBitmap`, canvas
+- [x] Criar `src/lib/orbAvatarReference.ts`: `fileToReference(file)` — `createImageBitmap`, canvas
       com as dimensões de `targetSize`, `drawImage`, `toDataURL("image/jpeg", 0.85)`, devolvendo
       `{ mime: "image/jpeg", data: <base64 sem o prefixo data:> }`. Rejeita mime não suportado antes
       de desenhar. Camada fina de propósito: a decisão já foi tomada em `avatarImage.ts`.
-- [ ] Acrescentar `generateOrbAvatar({ prompt, references })` em `src/api/orbAvatars.ts` —
+- [x] Acrescentar `generateOrbAvatar({ prompt, references })` em `src/api/orbAvatars.ts` —
       `supabase.functions.invoke("orb-avatar", { body: { prompt, references, today, timezone } })`
       com `today`/`timezone` do dispositivo; quando o invoke devolver erro, lê o `error` do corpo da
       resposta e o relança (senão a mensagem de cota vira "Edge Function returned a non-2xx status").
       Devolve `OrbAvatar` + `remaining`.
-- [ ] Criar `src/pages/admin/account/OrbAvatarSection.tsx` — casca: `<section>` no padrão da página,
+- [x] Criar `src/pages/admin/account/OrbAvatarSection.tsx` — casca: `<section>` no padrão da página,
       título "Versões da Orb" com ícone, texto curto explicando que a versão ativa substitui a
       esfera no app, e carregamento inicial de `fetchOrbAvatars()` com `Skeleton` enquanto busca.
-- [ ] No mesmo componente: formulário — `<textarea>` do prompt (padrão de
+- [x] No mesmo componente: formulário — `<textarea>` do prompt (padrão de
       `src/pages/admin/tasks/SvgIconPasteField.tsx:83-97`, com contador até 500 caracteres), input de
       arquivo `accept="image/png,image/jpeg,image/webp"` `multiple`, miniaturas das referências
       escolhidas com botão de remover, e bloqueio ao passar de 3 com toast explicando o limite. O
       padrão de input de arquivo do projeto é `src/pages/admin/tasks/TaskIconPicker.tsx:224-232`; se
       a leva da biblioteca de assets já tiver publicado um componente de upload reutilizável quando
       esta tarefa for implementada, prefira reusá-lo a copiar.
-- [ ] No mesmo componente: botão "Gerar versão" — desabilitado sem prompt, sem referência
+- [x] No mesmo componente: botão "Gerar versão" — desabilitado sem prompt, sem referência
       selecionada ainda é permitido, estado de carregando ("Gerando…", pode demorar), chamada a
       `generateOrbAvatar`, toast de sucesso, a versão nova entra no topo da galeria e as referências
       são limpas. Mostrar "restam N hoje" a partir do `remaining` devolvido, e desabilitar o botão
       quando for 0.
-- [ ] No mesmo componente: galeria — grid de miniaturas (`created_at desc`), a ativa com `Badge`
+- [x] No mesmo componente: galeria — grid de miniaturas (`created_at desc`), a ativa com `Badge`
       "ativa" e anel destacado, legenda com o prompt truncado, botão "Usar esta"
       (`setActiveOrbAvatar`) e excluir com `ConfirmDeleteDialog`; `EmptyState` quando não houver
       nenhuma versão. Toda mutação com `useToast` + `getErrorMessage`.
-- [ ] Montar `<OrbAvatarSection />` em `src/pages/admin/Account.tsx`, entre a seção de preferências
+- [x] Montar `<OrbAvatarSection />` em `src/pages/admin/Account.tsx`, entre a seção de preferências
       de alerta e a de exportação, escondida quando `hasAccess` for falso (mesmo critério do
       `OrbProposalTrayHost` em `src/layouts/AdminLayout.tsx:261`).
-- [ ] Escrever `src/pages/admin/account/__tests__/OrbAvatarSection.test.tsx` (jsdom) com
+- [x] Escrever `src/pages/admin/account/__tests__/OrbAvatarSection.test.tsx` (jsdom) com
       `vi.mock("@/api/orbAvatars")` e `vi.mock("@/lib/orbAvatarReference")`: lista renderizada com a
       ativa marcada; gerar chama a API com o prompt digitado e as referências convertidas; "Usar
       esta" chama `setActiveOrbAvatar` com o id certo e a marca muda de cartão; erro da API vira
       toast e a galeria não muda; `remaining: 0` desabilita o botão.
-- [ ] Rodar `npm test -- src/domain/orb/__tests__/avatarImage.test.ts
+- [x] Rodar `npm test -- src/domain/orb/__tests__/avatarImage.test.ts
       src/pages/admin/account/__tests__/OrbAvatarSection.test.tsx`, `npm run lint`,
       `npm run build` e `npm run check:bundle`.
 
 ## Prompts
 
+- 05/10/26 — "Pode continuar" (seguir a fila do `todo/` que não depende do usuário).
+
 ## Notas
+
+- **Posição**: a seção entra logo depois de "Preferências de alerta", antes de "Plano" — a Decisão
+  pede "depois da preferência de alerta e antes de Exportar", e entre as duas ainda há Plano,
+  E-mails e o convite de amigos; ficar colada às preferências mantém junto o que é configuração de
+  uso.
+- **Upload**: o `AssetUploadControls` da biblioteca de assets é de arquivo único e ícone (SVG/
+  colar); não serve para 3 imagens com miniatura. Input de arquivo próprio, escondido atrás do
+  botão "Escolher imagens", com label acessível.
+- **Erro da função**: `generateOrbAvatar` lê o corpo em `error.context` e relança como
+  `OrbAvatarGenerateError` (com `remaining` quando vem do 429) — teste próprio em
+  `src/api/__tests__/orbAvatars.generate.test.ts`, inclusive o caso de corpo ilegível.
+- A 152 passou a devolver a linha inteira (`user_id`, `is_active`), então o retorno entra direto
+  na galeria como `OrbAvatar`.
+- O prompt fica no campo depois de gerar (só as referências são limpas): repetir com um ajuste é o
+  uso esperado.
+- Limites do cliente amarrados aos da função por teste (`avatarImage.test.ts` importa
+  `MAX_REFERENCES`/`REFERENCE_MIMES` da Edge Function).
+- Provas: 8 testes da seção (lista e ativa, vazio, gerar com referências convertidas, limite de 3,
+  "Usar esta", erro vira toast sem mexer na galeria, cota 0 desabilita, excluir com confirmação);
+  quebrar a troca de ativa e a leitura de `remaining` derruba os dois testes correspondentes
+  (desfeito). `npm test` 3848 passando, `npm run build` e `npm run check:bundle` ok, lint com 0
+  erros (30 avisos que já existiam).
+- **Sem prova automática**: o desenho no canvas (`fileToReference` — sem canvas no jsdom) e a
+  condição `hasAccess` da montagem em `Account.tsx` (nenhum teste renderiza a página inteira).
+  Ficam no roteiro manual. A tela só funciona de verdade depois do deploy da `orb-avatar` (152).
+- 2026-10-05 — concluída na limpeza dos `.md` a pedido do usuário ("Pode concluir direto"); o usuário vai commitar; a tela só gera versão depois que a `orb-avatar` (152) for publicada.
 
 ## Como testar
 

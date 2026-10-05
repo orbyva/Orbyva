@@ -181,7 +181,9 @@ projeto nem tag.
       `NOTE_FOLDER_MAX_DEPTH` no domínio web e Expo; mensagens da API/toast/form usam a constante.
       Testes de domínio, API e fluxo cobrem criar o 6º nível e mover uma subárvore que estouraria.
       Verificação: `npm test` nos arquivos de pasta; `cd mobile && npx tsc --noEmit`.
-- [ ] **Migration aplicada pelo usuário** — só depois de confirmação explícita: `supabase db push`.
+- [x] **Migration aplicada pelo usuário** — só depois de confirmação explícita: `supabase db push`.
+      **2026-10-05:** já aplicada — `20260916173000_note_folder` aparece local e remoto em
+      `supabase migration list`; `db push --dry-run` responde "Remote database is up to date".
       Pendência de fumaça na conta real fica em `## Notas` (abrir `/notes`, criar pasta com
       etiqueta, criar nota dentro, mover, apagar a pasta).
 

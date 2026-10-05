@@ -26,7 +26,8 @@ prompt: |-
   vira erro, erro da RPC propaga, defaults da leitura, pausar/retomar.
 - [x] `mobile/src/app/(app)/account.tsx`: card "E-mails" com os quatro `Switch`, rollback no erro.
 - [x] `npx tsc --noEmit` e `npx vitest run` no `mobile/`.
-- [ ] **AGUARDA O USUÁRIO — `supabase db push`** (migration da 191).
+- [x] **AGUARDA O USUÁRIO — `supabase db push`** (migration da 191). **2026-10-05:** já aplicada
+  (`supabase migration list` / `db push --dry-run` "Remote database is up to date").
 
 ## Como testar
 1. Aplicar a migration da 191 (`supabase db push`).

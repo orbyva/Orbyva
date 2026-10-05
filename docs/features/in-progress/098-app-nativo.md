@@ -914,6 +914,10 @@ Faça o seguinte: Deixe igual está no mobile para os 2, mas, coloque a logo do 
 
 ## Notas
 
+- 2026-10-05 — projeto EAS criado pelo usuário (`eas init`, `@pedroynk/orbyva`). Como a config é
+  dinâmica (`app.config.ts`), o CLI não grava sozinho: `owner` e `extra.eas.projectId`
+  (`04e17d35-f6ca-4ab8-ab71-a61b09294152`) entraram no `app.json`, que o `app.config.ts` repassa —
+  `npx expo config` resolve os dois. Push ainda depende de credenciais Apple/Firebase.
 - Fundação está na lista porque sem ela Finanças não tem onde morar; não é um sexto grupo de
   produto. Login cai numa tab Finanças até o grupo Início existir.
 - “Migrar módulo” aqui não significa reescrever cada feature `done/` daquele grupo. A v1 de cada

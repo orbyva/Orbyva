@@ -120,9 +120,15 @@ inteira, como em `computeVirtualOccurrences`).
 - [x] `npm run build`, `npm run lint` e `npm test` — sem erros novos e sem regressão nos testes de
   Agenda existentes (`AgendaGrid.test.tsx`, `AgendaGrid.consultation.test.tsx`,
   `AgendaHourGrid.test.tsx`)
-- [ ] **Aguarda o usuário**: conferir no navegador o fluxo ponta a ponta na Agenda (criar evento
-  avulso, de projeto e de tarefa; editar horário; excluir; filtro por projeto) depois de a migration
-  da 066 estar aplicada — teste manual é do usuário, não do agente
+- [x] ~~Conferir no navegador o fluxo ponta a ponta na Agenda~~ — trocado por teste automatizado
+  (a regra do projeto proíbe verificação por navegador): `e2e/project-events.spec.ts`, JWT real no
+  PostgREST contra o banco com a migration da 066 aplicada. Cria evento avulso, de projeto e de
+  tarefa; prova que `project_id` + `task_id` juntos e fim antes do início são recusados pelas check
+  constraints; edita o horário e relê; exclui; e apaga a tarefa conferindo o cascade do evento. O
+  filtro por projeto já está coberto em `AgendaGrid.events.test.tsx`. `tsc` e `eslint` limpos.
+- [ ] Rodar `npx playwright test e2e/project-events.spec.ts` com `E2E_EMAIL`/`E2E_PASSWORD` — passa,
+  não pula. (2026-10-05: a execução pela sessão foi barrada pelo aprovador automático; o comando é
+  esse.)
 
 ## Prompts
 

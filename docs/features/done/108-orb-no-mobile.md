@@ -58,6 +58,14 @@ Plan: `docs/superpowers/plans/2026-09-25-orb-mobile.md`
 - 2026-09-25 — Sim [porte cartões visuais]. Falta o que agora?
 - 2026-09-25 — Faça então os 4 (resultados, clarify, creates, uso/copiar/capacidades)
 
+## Notas
+
+- 05/10/26 — Arquivo estava em `todo/` com todas as tarefas marcadas e o código no ar (commit
+  `e375b2d`); movido para `in-progress/` aguardando a conferência do usuário. A feature 208 tirou o
+  `OrbAccessFab` da fase 2: a Orb agora é um ícone no header (`HeaderOrbButton`), com o mesmo ponto
+  de proposta pendente.
+- 2026-10-05 — concluída na limpeza dos `.md` a pedido do usuário ("Pode concluir direto"); conferência no celular fica com o usuário (ver Como testar).
+
 ## Como testar
 
 1. `cd mobile && npm test && npx tsc --noEmit`

@@ -44,45 +44,68 @@ Orb aparece — `OrbSidebarDock.tsx:99` (28 px, colapsada), `:115` (30 px, expan
   recarregar a página.
 
 ## Tarefas
-- [ ] Criar `src/hooks/useOrbAvatar.tsx`: contexto com `{ url: string | null; refresh: () => void }`,
+- [x] Criar `src/hooks/useOrbAvatar.tsx`: contexto com `{ url: string | null; refresh: () => void }`,
       `OrbAvatarProvider` que chama `fetchActiveOrbAvatar()` uma vez ao montar (silenciando erro — a
       esfera CSS é o fallback) e `useOrbAvatar()` que devolve `{ url: null, refresh: noop }` quando
       não há provider.
-- [ ] Montar `<OrbAvatarProvider>` dentro do `OrbProvider` em `src/layouts/AdminLayout.tsx:196`, de
+- [x] Montar `<OrbAvatarProvider>` dentro do `OrbProvider` em `src/layouts/AdminLayout.tsx:196`, de
       forma que tanto o dock quanto o `OrbProposalTrayHost` fiquem dentro dele.
-- [ ] Acrescentar em `src/index.css`, logo depois do bloco da esfera (`:457-531`), as classes
+- [x] Acrescentar em `src/index.css`, logo depois do bloco da esfera (`:457-531`), as classes
       `.orb-avatar` (círculo, `overflow: hidden`, a mesma `box-shadow` e a mesma `animation:
       orb-pulse 5.5s ease-in-out infinite` de `.orb-sphere`), `.orb-avatar--thinking`
       (`animation-duration: 1.6s`) e `.orb-avatar__img` (`width/height: 100%`, `object-fit: cover`,
       `display: block`).
-- [ ] Acrescentar `.orb-avatar` e `.orb-avatar--thinking` ao bloco
+- [x] Acrescentar `.orb-avatar` e `.orb-avatar--thinking` ao bloco
       `@media (prefers-reduced-motion: reduce)` de `src/index.css:524-531` — quem pediu menos
       movimento vê o PNG parado, não um substituto.
-- [ ] Alterar `src/components/orb/OrbSphere.tsx`: consumir `useOrbAvatar()`; havendo `url` e sem
+- [x] Alterar `src/components/orb/OrbSphere.tsx`: consumir `useOrbAvatar()`; havendo `url` e sem
       falha de carregamento, renderizar `<img src={url} alt="" decoding="async" className="orb-avatar__img">`
       dentro de um `<span className={cn("orb-avatar", pensando && "orb-avatar--thinking")}>` com
       `width`/`height` iguais a `size`; sem `url`, exatamente o desenho CSS de hoje. Manter o
       `aria-hidden` da casca e a assinatura de props intacta.
-- [ ] No mesmo arquivo: `onError` do `<img>` marca estado local de falha e cai para a esfera CSS;
+- [x] No mesmo arquivo: `onError` do `<img>` marca estado local de falha e cai para a esfera CSS;
       atualizar o comentário de bloco do componente, que hoje afirma que a esfera nunca é imagem.
-- [ ] Conferir que `src/components/orb/OrbSidebarDock.tsx:99`, `:115` e
+- [x] Conferir que `src/components/orb/OrbSidebarDock.tsx:99`, `:115` e
       `src/components/orb/OrbProposalTray.tsx:67` **não** mudaram (`git diff --stat` deve mostrar só
       `OrbSphere.tsx`, `index.css`, o hook novo, o layout e a seção de `/account`).
-- [ ] Escrever `src/components/orb/__tests__/OrbSphere.test.tsx` (jsdom): sem provider renderiza
+- [x] Escrever `src/components/orb/__tests__/OrbSphere.test.tsx` (jsdom): sem provider renderiza
       `.orb-sphere` e nenhum `<img>`; com `url` no provider renderiza o `<img>` com aquele `src` e
       sem `.orb-sphere`; `state="thinking"` com `url` aplica `.orb-avatar--thinking`; disparar
       `error` no `<img>` volta para `.orb-sphere`; `size` continua chegando ao elemento.
-- [ ] Ligar a atualização: em `src/pages/admin/account/OrbAvatarSection.tsx`, chamar o `refresh()` do
+- [x] Ligar a atualização: em `src/pages/admin/account/OrbAvatarSection.tsx`, chamar o `refresh()` do
       `useOrbAvatar()` depois de ativar uma versão com sucesso e depois de excluir a versão ativa;
       acrescentar ao teste da seção (`src/pages/admin/account/__tests__/OrbAvatarSection.test.tsx`)
       uma assertiva de que `refresh` foi chamado nos dois casos.
-- [ ] Rodar `npm test -- src/components/orb/__tests__/OrbSphere.test.tsx
+- [x] Rodar `npm test -- src/components/orb/__tests__/OrbSphere.test.tsx
       src/pages/admin/account/__tests__/OrbAvatarSection.test.tsx`, a suíte inteira (`npm test`),
       `npm run lint` e `npm run build`.
 
 ## Prompts
 
+- 05/10/26 — "Pode continuar" (seguir a fila do `todo/` que não depende do usuário).
+
 ## Notas
+
+- **Falha por URL, não booleano**: a `OrbSphere` guarda *qual* URL falhou. Com um booleano, depois de
+  uma imagem quebrada a esfera ficaria no CSS mesmo após o usuário ativar outra versão; assim a nova
+  URL tenta carregar de novo (teste próprio).
+- `OrbAvatarContext` é exportado para os testes injetarem a URL sem dublar a API; o padrão do
+  projeto para hook irmão de provider (`eslint-disable` do `react-refresh`, como em `useOrb.tsx`)
+  vale para ele também.
+- `refresh()` é chamado ao ativar e **só** ao excluir a versão ativa — excluir uma inativa não muda
+  a esfera (teste cobre os três casos).
+- Os números de linha do `index.css` citados no planning estavam desatualizados (o bloco da esfera
+  está em ~990); as classes novas entram logo depois dele, e as duas entram no mesmo
+  `prefers-reduced-motion`.
+- `OrbSidebarDock.tsx` e `OrbProposalTray.tsx` intactos (`git diff --stat` vazio para os dois).
+- Provas: 7 testes da `OrbSphere` (sem provider, provider sem URL, com URL, `thinking`, erro de
+  carregamento, `size`, nova URL após falha); desligar o fallback derruba o teste de erro
+  (desfeito). `npm test` 3856 passando, `npm run build` e `npm run check:bundle` ok, lint sem erro
+  e sem aviso novo.
+- **Sem prova automática**: o provider buscar uma vez por sessão no `AdminLayout` (nenhum teste
+  renderiza o layout com a API real) e a pulsação visual. Ficam no roteiro manual, que depende do
+  deploy da `orb-avatar` (152) para haver versão a ativar.
+- 2026-10-05 — concluída na limpeza dos `.md` a pedido do usuário ("Pode concluir direto"); o usuário vai commitar; a esfera só troca depois que existir versão ativa (depende da 152 publicada).
 
 ## Como testar
 

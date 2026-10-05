@@ -127,8 +127,10 @@ prompt: |-
   direto; estado divergente, resposta vazia e erro da RPC viram exceção; `applyEmailPrefsPatch`.
 - [x] `e2e/email-prefs.spec.ts`: JWT real no PostgREST — RPC grava, releitura confirma, `PATCH` direto
   em `plan` continua sem efeito. Pula sem `E2E_EMAIL`/`E2E_PASSWORD`.
-- [ ] **AGUARDA O USUÁRIO — `supabase db push`** para aplicar a migration no banco remoto. Até lá a
+- [x] **AGUARDA O USUÁRIO — `supabase db push`** para aplicar a migration no banco remoto. Até lá a
   tela mostra erro ao salvar (a RPC não existe), em vez do sucesso falso de antes.
+  **2026-10-05:** já aplicada — `20261002110000_email_prefs_rpc` local e remoto em
+  `supabase migration list`; `db push --dry-run` responde "Remote database is up to date".
 - [ ] Rodar `npx playwright test e2e/email-prefs.spec.ts` com `E2E_EMAIL`/`E2E_PASSWORD` depois do push.
 
 ## Como testar

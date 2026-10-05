@@ -202,8 +202,11 @@ de todo mundo que já entra com Google — nada disso existe.
       **200**, então o handler de CORS responde mesmo com `SITE_URL` ausente (cai no fallback em vez
       de estourar). Ou seja: o que falta é **só** a chave do Resend — no instante em que ela existir,
       o caminho já está de pé, sem republicar.
-- [ ] **AGUARDA O USUÁRIO — cadastrar `RESEND_API_KEY` (e `RESEND_FROM`/`SITE_URL`). É isto, e só
+- [x] **AGUARDA O USUÁRIO — cadastrar `RESEND_API_KEY` (e `RESEND_FROM`/`SITE_URL`). É isto, e só
       isto, que impede a feature de ir para `done/`.**
+      **2026-10-05:** cadastrados — `supabase secrets list` mostra os três, e `event-invite-email`
+      está ACTIVE (v2). Falta só o teste ponta a ponta com duas contas reais (caixa de entrada),
+      descrito no fim desta tarefa.
       **Apuração de 2026-09-20 (esta sessão, só leitura):** o quadro é pior do que "falta um
       deploy", e é melhor saber antes de rodar o comando.
       1. `supabase functions list` confirma que **`event-invite-email` não está publicada**: o
@@ -472,6 +475,7 @@ rodar a suíte pode topar com isso e achar que a 076 quebrou algo.
 
 A única coisa que continua faltando é a mesma de 2026-08-23: `supabase functions deploy
 event-invite-email` e o teste com caixa de entrada real. Nada de implementação.
+- 2026-10-05 — concluída na limpeza dos `.md` a pedido do usuário ("Pode concluir direto"); o teste com duas contas reais (e-mail com `.ics` chegando) fica com o usuário.
 
 ## Como testar
 
