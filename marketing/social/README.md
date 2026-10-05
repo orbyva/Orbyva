@@ -13,6 +13,7 @@ node render.mjs posts         # out/posts/*.png        1080×1350
 node render.mjs videos        # out/videos/*.mp4       1080×1920 + capa
 node render.mjs profile       # out/profile/*.png      1080×1080
 node render.mjs highlights    # out/highlights/*.png   1080×1920
+node render.mjs stories       # out/stories/*.png      1080×1920
 node render.mjs videos v5     # filtra pelo nome do arquivo
 node render.mjs contact       # remonta out/feed-grid.png
 ```
@@ -31,7 +32,8 @@ Se o Playwright não achar o Chromium, o script procura o binário no cache e us
 | `lib/mark.svg` | mark oficial vetorizado de `public/logo-mark.png` (o traço também vive em `kit.js`, com o comando que o regera) |
 | `posts/` | 16 peças de feed |
 | `videos/` | 16 peças verticais; `<meta name="duration">` define a duração |
-| `highlights/` | 10 capas de Destaques |
+| `highlights/` | 26 capas de Destaques: uma por grupo e por item da sidebar, na mesma ordem, e Dúvidas |
+| `stories/` | stories avulsos para Destaques (`duvidas-*`: as perguntas do FAQ da landing, uma por tela; `novidades-*`: lançamentos) |
 | `profile/` | foto de perfil |
 | `out/` | saída renderizada (não versionar) |
 

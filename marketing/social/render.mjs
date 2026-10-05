@@ -6,6 +6,7 @@
  *   node render.mjs videos           → out/videos/*.mp4     (1080×1920)
  *   node render.mjs profile          → out/profile/*.png    (1080×1080)
  *   node render.mjs highlights       → out/highlights/*.png (1080×1920)
+ *   node render.mjs stories          → out/stories/*.png    (1080×1920)
  *   node render.mjs all
  *   node render.mjs posts 03         → só as peças cujo nome contém "03"
  *
@@ -30,6 +31,7 @@ const SIZES = {
   videos: { width: 1080, height: 1920 },
   profile: { width: 1080, height: 1080 },
   highlights: { width: 1080, height: 1920 },
+  stories: { width: 1080, height: 1920 },
 };
 
 async function listPieces(kind, filter) {
@@ -291,7 +293,7 @@ async function launchChromium() {
 }
 
 const kinds = process.argv[2] === "all" || !process.argv[2]
-  ? ["posts", "videos", "profile", "highlights"]
+  ? ["posts", "videos", "profile", "highlights", "stories"]
   : [process.argv[2]];
 const filter = process.argv[3];
 
