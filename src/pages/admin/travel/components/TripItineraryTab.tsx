@@ -13,6 +13,7 @@ import {
   MapPin,
   Minus,
   MoreHorizontal,
+  Paperclip,
   Pencil,
   Plane,
   Plus,
@@ -79,6 +80,7 @@ import {
 import {
   TRIP_TRANSPORT_MODE_LABELS,
   normalizeTripTransportMode,
+  transportModeHasBoarding,
 } from "@/domain/travel/transportModes";
 import { formatRating, isGoogleMapsUrl, placeTypeMeta } from "@/domain/places";
 import type { TripMember } from "@/types/tripSharing";
@@ -124,6 +126,8 @@ type TripItineraryTabProps = {
   disableRoutes?: boolean;
   onEditDay: (day: TripItineraryDay) => void;
   onEditActivity: (act: TripItineraryActivity) => void;
+  /** Abre os assets (arquivos e links) da linha — vale igual para visita e deslocamento. */
+  onOpenAssets: (act: TripItineraryActivity) => void;
   onAddActivity: (dayId: string) => void;
   /** Deslocamento como atividade do dia. */
   onAddTransfer?: (dayId: string) => void;
@@ -222,6 +226,7 @@ export function TripItineraryTab({
   disableRoutes = false,
   onEditDay,
   onEditActivity,
+  onOpenAssets,
   onAddActivity,
   onAddTransfer,
   hasRoundTrip = false,
@@ -502,6 +507,7 @@ export function TripItineraryTab({
             isDropTarget={dropDayId === day.id && dragVisitId != null}
             onEditDay={onEditDay}
             onEditActivity={onEditActivity}
+            onOpenAssets={onOpenAssets}
             onAddActivity={onAddActivity}
             onAddTransfer={onAddTransfer}
           onReload={onReload}
@@ -579,6 +585,7 @@ function DayBlock({
   isDropTarget,
   onEditDay,
   onEditActivity,
+  onOpenAssets,
   onAddActivity,
   onAddTransfer,
   onReload,
@@ -617,6 +624,7 @@ function DayBlock({
   isDropTarget: boolean;
   onEditDay: (day: TripItineraryDay) => void;
   onEditActivity: (act: TripItineraryActivity) => void;
+  onOpenAssets: (act: TripItineraryActivity) => void;
   onAddActivity: (dayId: string) => void;
   onAddTransfer?: (dayId: string) => void;
   onReload: () => void;
@@ -880,6 +888,15 @@ function DayBlock({
               category === "transport" ? "other" : category;
             const categoryTone = placeTypeMeta(placeTypeForUi).tone;
             const arrive = act.arrival_time?.trim() || null;
+            // Embarque só existe em deslocamento com portão: em carro o campo não é oferecido, e
+            // dado antigo pode ter sobrado se o modo mudou depois — a regra do domínio manda.
+            const boarding =
+              isTransfer && transportModeHasBoarding(act.transport_mode)
+                ? act.boarding_time?.trim() || null
+                : null;
+            // `?? 0` e não `.length`: `assets` ausente quer dizer "não carregado", e contador
+            // nenhum é melhor que um zero que mente.
+            const assetCount = act.assets?.length ?? 0;
             const place = act.place_visit_id
               ? placeById.get(act.place_visit_id)
               : undefined;
@@ -1060,6 +1077,15 @@ function DayBlock({
                   </div>
 
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                    {boarding ? (
+                      // Item próprio, antes da partida: a seta de `partida → chegada` significa
+                      // trajeto, e embarque não é trajeto. É também o horário que decide quando
+                      // sair do hotel, então vem primeiro.
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-1.5 py-px font-medium tabular-nums text-sky-700 dark:text-sky-300">
+                        <Plane className="h-3 w-3" aria-hidden />
+                        Embarque {boarding}
+                      </span>
+                    ) : null}
                     {act.activity_time ? (
                       <span className="inline-flex items-center gap-1 font-medium tabular-nums text-foreground">
                         <Clock className="h-3 w-3" aria-hidden />
@@ -1135,6 +1161,36 @@ function DayBlock({
                   </Avatar>
                 ) : null}
 
+                {/* Assets: o mesmo botão em visita e em deslocamento — os dois querem "coisas
+                    importantes anexadas a esta linha". Mostra a contagem quando há algo, para o
+                    card dizer que existe documento sem precisar abrir. */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "-my-0.5 h-8 shrink-0 gap-1 px-1.5 text-muted-foreground",
+                    assetCount > 0 && "text-foreground"
+                  )}
+                  aria-label={
+                    assetCount > 0
+                      ? `Assets de ${act.title}: ${assetCount}`
+                      : `Anexar assets em ${act.title}`
+                  }
+                  title="Arquivos e links desta linha do roteiro"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenAssets(act);
+                  }}
+                >
+                  <Paperclip className="h-4 w-4" />
+                  {assetCount > 0 ? (
+                    <span className="text-[11px] font-semibold tabular-nums">
+                      {assetCount}
+                    </span>
+                  ) : null}
+                </Button>
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -1178,6 +1234,10 @@ function DayBlock({
                     <DropdownMenuItem onClick={() => onEditActivity(act)}>
                       <Pencil className="h-3.5 w-3.5" />
                       Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onOpenAssets(act)}>
+                      <Paperclip className="h-3.5 w-3.5" />
+                      Assets{assetCount > 0 ? ` (${assetCount})` : ""}
                     </DropdownMenuItem>
                     {act.link_url && !isGoogleMapsUrl(act.link_url) ? (
                       <DropdownMenuItem asChild>

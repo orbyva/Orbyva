@@ -59,6 +59,20 @@ export function suggestedTransportMode(cityChanged: boolean): TripTransportMode 
   return cityChanged ? "flight" : "car";
 }
 
+/**
+ * Modos em que "embarque" quer dizer algo (feature 102): os que têm portão com hora de fechar.
+ *
+ * Em carro e "outro" não há embarque — pedir o horário ali seria pedir nada, e um campo vazio que
+ * nunca se preenche é pior que campo ausente. A regra mora aqui, e não no componente, para o card e
+ * o formulário concordarem sem repetir a lista.
+ */
+export function transportModeHasBoarding(
+  mode: string | null | undefined
+): boolean {
+  const normalized = normalizeTripTransportMode(mode);
+  return normalized === "flight" || normalized === "train" || normalized === "bus";
+}
+
 export function transferEndpointsTitle(
   originLabel: string,
   destinationLabel: string

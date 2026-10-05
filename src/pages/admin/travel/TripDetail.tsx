@@ -62,8 +62,10 @@ import {
   hasRequiredTransferEndpoints,
   normalizeTripTransportMode,
   transferEndpointsTitle,
+  transportModeHasBoarding,
 } from "@/domain/travel/transportModes";
 import type {
+  TripActivityAsset,
   TripExpense,
   TripExpenseCategory,
   TripFull,
@@ -96,6 +98,7 @@ import { TripExpenseFormDialog } from "./components/TripExpenseFormDialog";
 import { TripSplitRegisterDialog } from "./components/TripSplitRegisterDialog";
 import { TripMilestoneFormDialog } from "./components/TripMilestoneFormDialog";
 import { TripRoundTripDialog } from "./components/TripRoundTripDialog";
+import { TripActivityAssetsDialog } from "./components/TripActivityAssetsDialog";
 
 const emptyExpenseForm = () => ({
   description: "",
@@ -143,11 +146,15 @@ export default function TripDetail() {
   });
   const [editingActivity, setEditingActivity] =
     useState<TripItineraryActivity | null>(null);
+  /** Linha do roteiro cujos assets estão abertos (feature 102) — `null` = diálogo fechado. */
+  const [assetsActivity, setAssetsActivity] =
+    useState<TripItineraryActivity | null>(null);
   const [addingDayId, setAddingDayId] = useState<string | null>(null);
   const [activityForm, setActivityForm] = useState<ActivityForm>({
     title: "",
     activity_time: "",
     arrival_time: "",
+    boarding_time: "",
     transport_mode: "other",
     notes: "",
     link_url: "",
@@ -568,6 +575,7 @@ export default function TripDetail() {
       title: "",
       activity_time: "",
       arrival_time: "",
+      boarding_time: "",
       transport_mode: "other",
       notes: "",
       link_url: "",
@@ -614,6 +622,7 @@ export default function TripDetail() {
       title: act.title,
       activity_time: act.activity_time ?? "",
       arrival_time: act.arrival_time ?? "",
+      boarding_time: act.boarding_time ?? "",
       transport_mode: normalizeTripTransportMode(act.transport_mode),
       notes: act.notes ?? "",
       link_url: act.link_url ?? "",
@@ -790,6 +799,11 @@ export default function TripDetail() {
             destination_place_id: form.destination!.place_id,
             transport_mode: form.transport_mode,
             arrival_time: form.arrival_time.trim() || null,
+            // Só grava embarque no modo que tem embarque: trocar de voo para carro limpa o campo em
+            // vez de deixar um horário órfão que a UI nunca mais mostraria.
+            boarding_time: transportModeHasBoarding(form.transport_mode)
+              ? form.boarding_time.trim() || null
+              : null,
           }
         : {
             origin_label: null,
@@ -802,6 +816,7 @@ export default function TripDetail() {
             destination_place_id: null,
             transport_mode: null,
             arrival_time: null,
+            boarding_time: null,
           };
 
       if (addingDayId) {
@@ -953,6 +968,26 @@ export default function TripDetail() {
         itinerary: prev.itinerary.map((day) => ({
           ...day,
           activities: (day.activities ?? []).filter((act) => act.id !== actId),
+        })),
+      };
+    });
+  }
+
+  /** Sobe a lista nova de assets para o estado local — o contador do card acompanha sem o bundle
+   * inteiro voltar, no mesmo espírito de `patchActivityDeletedLocal`. */
+  function patchActivityAssetsLocal(
+    actId: string,
+    assets: TripActivityAsset[]
+  ) {
+    setTrip((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        itinerary: prev.itinerary.map((day) => ({
+          ...day,
+          activities: (day.activities ?? []).map((act) =>
+            act.id === actId ? { ...act, assets } : act
+          ),
         })),
       };
     });
@@ -1408,6 +1443,7 @@ export default function TripDetail() {
           onVisitStatusChange={handleVisitStatusChange}
           onBeforeCompleteVisit={handleBeforeCompleteVisit}
           onActivityDeleted={patchActivityDeletedLocal}
+          onOpenAssets={setAssetsActivity}
           onMoveVisit={moveVisitToDay}
           onAddSavedPlace={handleAddSavedPlaceToDay}
         />
@@ -1503,6 +1539,19 @@ export default function TripDetail() {
         form={activityForm}
         places={places}
         onSave={(f) => void handleSaveActivity(f)}
+      />
+
+      <TripActivityAssetsDialog
+        open={!!assetsActivity}
+        onOpenChange={(open) => {
+          if (!open) setAssetsActivity(null);
+        }}
+        tripId={trip.id}
+        activity={assetsActivity}
+        onAssetsChange={patchActivityAssetsLocal}
+        // Viagem encerrada: a lista continua abrível (é justamente quando se quer rever o
+        // comprovante), só não se anexa nem apaga mais nada.
+        readOnly={tripFinished}
       />
 
       <TripExpenseFormDialog

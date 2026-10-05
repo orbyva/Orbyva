@@ -35,6 +35,7 @@ import {
   transferEndpointHasCoords,
   transferEndpointsTitle,
   transportModeHint,
+  transportModeHasBoarding,
   type TransferEndpoint,
   type TripTransportMode,
 } from "@/domain/travel/transportModes";
@@ -49,6 +50,8 @@ export type ActivityForm = {
   title: string;
   activity_time: string;
   arrival_time: string;
+  /** Embarque (feature 102) — só chega preenchido/salvo em modo com portão. */
+  boarding_time: string;
   transport_mode: TripTransportMode;
   notes: string;
   link_url: string;
@@ -122,6 +125,9 @@ export function TripEditActivityDialog({
     transferEndpointHasCoords(form.destination);
   const canEstimateMode =
     category === "transport" && canEstimateTransferArrival(transportMode);
+  // Embarque só nos modos com portão (voo, trem, ônibus). A regra é do domínio para o card e o
+  // formulário concordarem sem repetir a lista.
+  const hasBoarding = transportModeHasBoarding(transportMode);
   const hasDepart = Boolean(form.activity_time.trim());
   const hasArrive = Boolean(form.arrival_time.trim());
   const canEstimate =
@@ -433,6 +439,25 @@ export function TripEditActivityDialog({
               </FormField>
             )}
           </FormFieldRow>
+
+          {category === "transport" && hasBoarding ? (
+            // Fora da `FormFieldRow` de cima de propósito: ali os dois campos são as pontas do
+            // trajeto (saída e chegada), e embarque não é ponta de trajeto — é o horário que decide
+            // quando sair do hotel.
+            <FormField
+              label="Embarque"
+              optional
+              hint="Fecha antes da partida e varia por companhia — não dá para calcular."
+            >
+              <OptionalTimeInput
+                value={form.boarding_time}
+                onChange={(next) =>
+                  setForm((prev) => ({ ...prev, boarding_time: next }))
+                }
+                aria-label="Horário de embarque"
+              />
+            </FormField>
+          ) : null}
 
           {canEstimateMode ? (
             <div className="space-y-1">
