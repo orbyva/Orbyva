@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="10">
+<title>V11 · Orb</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+</head>
+<body>
+
+<div class="stage stage--story s-ink" data-eyebrow="Orb" data-module="orb" data-sig="br">
+  <div class="scenes">
+
+    <div class="swap">
+      <div class="head head--sm a" style="--d:.15s; --x:7.40s">E se o app<br>te <span class="acc">respondesse</span>?</div>
+      <div class="head head--sm a" style="--d:7.80s">Pergunte. A <span style="color:var(--m-orb-light)">Orb</span><br>responde.</div>
+    </div>
+
+    <!-- OrbChat: pergunta → resposta com o número da conta → proposta que espera o clique -->
+    <div class="card a" style="--d:1.40s; padding:34px 38px 40px">
+      <div class="rowf ac g20" style="padding-bottom:26px; border-bottom:2px solid var(--hair)">
+        <span class="orb" style="--os:76px"></span>
+        <div>
+          <div class="ui-name" style="font-size:34px">Orb</div>
+          <div class="ui-cap" style="font-size:24px">Conectada ao seu Orbyva</div>
+        </div>
+      </div>
+
+      <div class="col g20" style="margin-top:30px">
+        <div class="bubble bubble--me a" style="--in:k-left; --d:2.00s">
+          Quanto ainda posso gastar com lazer este mês?
+        </div>
+
+        <div class="rowf g16 a" style="--d:3.10s; align-items:flex-start">
+          <span class="orb" style="--os:44px; margin-top:10px"></span>
+          <div class="bubble bubble--orb">
+            Restam <b data-count="182.40" data-count-fmt="brl" style="--d:3.40s; --dur:1.1s"></b>
+            em Lazer até o dia 31.
+          </div>
+        </div>
+
+        <div class="bubble bubble--me a" style="--in:k-left; --d:4.60s">
+          Lança o cinema de ontem, R$ 48,90.
+        </div>
+
+        <div class="rowf g16 a" style="--d:5.50s; align-items:flex-start">
+          <span class="orb" style="--os:44px; margin-top:10px"></span>
+          <div class="proposal f1">
+            <div class="ui-label" style="font-size:21px">Novo lançamento</div>
+            <div class="rowf jb ac" style="margin-top:12px">
+              <span class="ui-name" style="font-size:30px">Cinema · Lazer</span>
+              <span class="ui-num ui-num--xs" style="font-size:30px">R$ 48,90</span>
+            </div>
+            <div class="rowf g12" style="margin-top:18px">
+              <span class="btn" style="font-size:24px; padding:14px 26px">Confirmar</span>
+              <span class="btn btn--ghost" style="font-size:24px; padding:14px 26px">Descartar</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rowf">
+      <span class="chip chip--ok a" style="--in:k-right; --d:6.40s; font-size:26px; padding:14px 26px">
+        <span data-icon="check"></span>Só grava com o seu clique
+      </span>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="8">
+<title>V14 · Veículos</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+</head>
+<body>
+
+<div class="stage stage--story s-paper" data-eyebrow="Veículos" data-module="car" data-sig="br">
+  <div class="scenes">
+
+    <div class="swap">
+      <div class="head head--sm a" style="--d:.15s; --x:6.20s">Quando foi a<br>troca de óleo?</div>
+      <div class="head head--sm a" style="--d:6.60s">Manutenção<br>com <span style="color:var(--m-car)">data</span>.</div>
+    </div>
+
+    <!-- Cronograma (Car.tsx): o atrasado chama atenção, o resto em dia -->
+    <div class="card a" style="--d:1.40s; padding:16px 38px">
+      <div class="row a" style="--in:k-right; --d:1.90s">
+        <div class="f1">
+          <div class="ui-name" style="font-size:32px">Troca de óleo</div>
+          <div class="ui-cap" style="font-size:24px; margin-top:6px">Venceu em 28/07/2026</div>
+        </div>
+        <span class="chip chip--bad nudge" style="--d:2.10s; --nd:4.20s"><span data-icon="alert"></span>Atrasada</span>
+      </div>
+      <div class="row a" style="--in:k-right; --d:2.30s">
+        <div class="f1">
+          <div class="ui-name" style="font-size:32px">IPVA 2026</div>
+          <div class="ui-cap" style="font-size:24px; margin-top:6px">Vence em 15/08/2026</div>
+        </div>
+        <span class="chip chip--warn"><span data-icon="clock"></span>Em 5 dias</span>
+      </div>
+      <div class="row a" style="--in:k-right; --d:2.70s">
+        <div class="f1">
+          <div class="ui-name" style="font-size:32px">Revisão 40.000 km</div>
+          <div class="ui-cap" style="font-size:24px; margin-top:6px">Vence em 02/09/2026</div>
+        </div>
+        <span class="chip chip--warn"><span data-icon="clock"></span>Em 23 dias</span>
+      </div>
+      <div class="row a" style="--in:k-right; --d:3.10s">
+        <div class="f1">
+          <div class="ui-name" style="font-size:32px">Seguro</div>
+          <div class="ui-cap" style="font-size:24px; margin-top:6px">Vence em 11/01/2027</div>
+        </div>
+        <span class="chip chip--ok"><span data-icon="check"></span>Em dia</span>
+      </div>
+    </div>
+
+    <div class="rowf">
+      <span class="chip chip--mut a" style="--in:k-right; --d:4.80s; font-size:26px; padding:14px 26px">
+        <span data-icon="bell"></span>Alertas avisam antes de vencer
+      </span>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

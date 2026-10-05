@@ -215,6 +215,7 @@ const FEED_ORDER = [
   "05-recorrencias", "06-habitos", "13-saude",
   "14-tarefas", "08-viagens", "09-lugares",
   "11-entretenimento", "10-veiculos", "15-notas-compras",
+  "16-orb",
 ]; // igual à tabela de ordem em docs/social-media.md § 4
 
 async function contactSheet() {
@@ -234,7 +235,7 @@ async function contactSheet() {
   await run("ffmpeg", [
     "-y", "-loglevel", "error",
     "-i", path.join(tmp, "%02d.png"),
-    "-vf", "scale=360:450,tile=3x5:margin=16:padding=10:color=#1b1b1d",
+    "-vf", `scale=360:450,tile=3x${Math.ceil(FEED_ORDER.length / 3)}:margin=16:padding=10:color=#1b1b1d`,
     "-frames:v", "1",
     out,
   ]);

@@ -29,8 +29,8 @@ Se o Playwright não achar o Chromium, o script procura o binário no cache e us
 | `lib/anim.css` | camada de animação dos vídeos (fade, slide, scale, barra, contagem, traço) |
 | `lib/kit.js` | injeta lockup, rodapé, assinatura de órbita, ícones, heatmap e números |
 | `lib/mark.svg` | mark oficial vetorizado de `public/logo-mark.png` (o traço também vive em `kit.js`, com o comando que o regera) |
-| `posts/` | 15 peças de feed |
-| `videos/` | 10 peças verticais; `<meta name="duration">` define a duração |
+| `posts/` | 16 peças de feed |
+| `videos/` | 16 peças verticais; `<meta name="duration">` define a duração |
 | `highlights/` | 10 capas de Destaques |
 | `profile/` | foto de perfil |
 | `out/` | saída renderizada (não versionar) |

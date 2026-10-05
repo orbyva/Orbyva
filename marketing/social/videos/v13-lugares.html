@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="8">
+<title>V13 · Lugares</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+</head>
+<body>
+
+<div class="stage stage--story s-ink" data-eyebrow="Lugares" data-module="travel" data-sig="br">
+  <div class="scenes">
+
+    <div class="swap">
+      <div class="head head--sm a" style="--d:.15s; --x:6.20s">Aquele lugar<br>que te <span class="acc">indicaram</span>?</div>
+      <div class="head head--sm a" style="--d:6.60s">Agora fica<br><span class="acc">anotado</span>.</div>
+    </div>
+
+    <!-- Places.tsx: Para visitar × Visitados, com nota -->
+    <div class="card a" style="--d:1.40s; padding:36px 36px 40px">
+      <div class="lcol" style="--m:var(--m-travel)">
+        <h3>Para visitar</h3>
+        <div class="it a" style="--in:k-right; --d:1.90s"><span class="tick"></span><div class="f1"><div class="nm">Casa do Porco</div><div class="ct">Restaurantes</div></div></div>
+        <div class="it a" style="--in:k-right; --d:2.08s"><span class="tick"></span><div class="f1"><div class="nm">Coffee Lab</div><div class="ct">Cafés</div></div></div>
+        <div class="it a" style="--in:k-right; --d:2.26s"><span class="tick"></span><div class="f1"><div class="nm">MASP</div><div class="ct">Museus</div></div></div>
+      </div>
+
+      <hr class="hair a" style="--in:k-fade; --d:3.00s; margin:30px 0">
+
+      <div class="lcol" style="--m:var(--m-travel)">
+        <h3 class="a" style="--in:k-fade; --d:3.20s">Visitados</h3>
+        <div class="it a" style="--in:k-right; --d:3.50s">
+          <span class="tick on" style="--m:var(--m-travel)"><span data-icon="check"></span></span>
+          <div class="f1"><div class="nm">Pinacoteca</div></div>
+          <span class="stars" data-stars="5"></span>
+        </div>
+        <div class="it a" style="--in:k-right; --d:3.68s">
+          <span class="tick on" style="--m:var(--m-travel)"><span data-icon="check"></span></span>
+          <div class="f1"><div class="nm">Bar Pirajá</div></div>
+          <span class="stars" data-stars="4"></span>
+        </div>
+        <div class="it a" style="--in:k-right; --d:3.86s">
+          <span class="tick on" style="--m:var(--m-travel)"><span data-icon="check"></span></span>
+          <div class="f1"><div class="nm">Mercado Municipal</div></div>
+          <span class="stars" data-stars="4"></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>

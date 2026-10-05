@@ -76,6 +76,7 @@ const MODULE_VARS = {
   car: "--m-car",
   health: "--m-health",
   productivity: "--m-productivity",
+  orb: "--m-orb",
 };
 
 function el(html) {

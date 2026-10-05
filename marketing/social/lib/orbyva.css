@@ -72,6 +72,9 @@
   --m-car: #fa802e;
   --m-health: #f43e5c;
   --m-productivity: #8033e6;
+  /* corpo da esfera da Orb: hsl(266 78% 55%) em src/index.css (.orb-sphere) */
+  --m-orb: #8033e6;
+  --m-orb-light: #b98af5;
 
   --ok: #23d163;
   --warn: #f6a823;
@@ -1206,6 +1209,92 @@ body {
   width: 100%;
   height: 100%;
   stroke-width: 1.5;
+}
+
+/* esfera da Orb — mesma receita de .orb-sphere em src/index.css (corpo, redemoinho, reflexo) */
+.orb {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--os, 96px);
+  height: var(--os, 96px);
+  border-radius: 9999px;
+  overflow: hidden;
+  background: radial-gradient(circle at 32% 28%, hsl(266 90% 78%) 0%, hsl(266 78% 55%) 38%, hsl(239 84% 38%) 72%, hsl(239 84% 22%) 100%);
+  box-shadow:
+    0 0 0 2px hsl(266 78% 55% / 0.35),
+    0 12px 36px -10px hsl(266 78% 45% / 0.6),
+    0 0 calc(var(--os, 96px) * 0.45) calc(var(--os, 96px) * -0.05) hsl(266 90% 60% / 0.5);
+}
+
+.orb::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: conic-gradient(from 0deg, transparent 0deg, hsl(199 89% 62% / 0.55) 70deg, transparent 150deg, hsl(310 90% 70% / 0.45) 240deg, transparent 330deg);
+  animation: orb-drift 14s linear infinite;
+}
+
+.orb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 30% 24%, hsl(0 0% 100% / 0.85) 0%, hsl(0 0% 100% / 0.12) 22%, transparent 45%),
+    radial-gradient(circle at 70% 82%, hsl(199 89% 70% / 0.35) 0%, transparent 55%);
+}
+
+.orb--thinking::before {
+  animation-duration: 3.2s;
+}
+
+@keyframes orb-drift {
+  to { transform: rotate(360deg); }
+}
+
+/* balões do chat da Orb (OrbMessageBubble) */
+.bubble {
+  max-width: 82%;
+  border-radius: 28px;
+  padding: 24px 30px;
+  font-weight: 500;
+  font-size: 30px;
+  line-height: 1.4;
+}
+
+.bubble--me {
+  margin-left: auto;
+  border-bottom-right-radius: 10px;
+  background: color-mix(in srgb, var(--sky) 18%, transparent);
+  color: var(--fg);
+}
+
+.bubble--orb {
+  border-top-left-radius: 10px;
+  background: var(--surf);
+  border: 2px solid var(--surf-line);
+}
+
+.bubble b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* cartão de proposta da Orb (OrbActionCard): só grava depois do clique */
+.proposal {
+  border-radius: 22px;
+  border: 2px solid color-mix(in srgb, var(--m-orb) 45%, transparent);
+  background: color-mix(in srgb, var(--m-orb) 10%, transparent);
+  padding: 26px 30px 30px;
+}
+
+.proposal .ui-label {
+  color: var(--m-orb-light);
+}
+
+.s-paper .proposal .ui-label {
+  color: var(--m-orb);
 }
 
 /* utilitários de layout */

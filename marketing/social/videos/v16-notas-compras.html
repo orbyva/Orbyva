@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="8">
+<title>V16 · Notas e Compras</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+</head>
+<body>
+
+<div class="stage stage--story s-paper" data-eyebrow="Produtividade" data-module="productivity" data-sig="br">
+  <div class="scenes">
+
+    <div class="swap">
+      <div class="head head--sm a" style="--d:.15s; --x:6.20s">Anotou<br>onde <span style="color:var(--m-productivity)">mesmo</span>?</div>
+      <div class="head head--sm a" style="--d:6.60s">Notas e compras<br><span style="color:var(--m-productivity)">no mesmo lugar</span>.</div>
+    </div>
+
+    <!-- Notes.tsx -->
+    <div class="card a" style="--d:1.40s; padding:32px 38px 36px">
+      <div class="lcol" style="--m:var(--m-productivity)">
+        <h3>Notas</h3>
+        <div class="it a" style="--in:k-right; --d:1.80s"><div class="f1">
+          <div class="nm">Pauta da obra</div><div class="ct">Obra da casa</div>
+        </div></div>
+        <div class="it a" style="--in:k-right; --d:1.98s"><div class="f1">
+          <div class="nm">Fluxo do projeto</div><div class="ct">Canvas · 12 elementos</div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ShoppingList.tsx: o item é marcado e risca -->
+    <div class="card a" style="--d:2.80s; padding:32px 38px 36px">
+      <div class="lcol" style="--m:var(--m-productivity)">
+        <h3>Lista de Compras</h3>
+        <div class="it gone">
+          <span class="tick on" style="--m:var(--ok)"><span data-icon="check"></span></span>
+          <div class="f1"><div class="nm">Cimento</div><div class="ct">Obra</div></div>
+        </div>
+        <div class="it">
+          <span class="swap">
+            <span class="tick"></span>
+            <span class="tick on a" style="--m:var(--ok); --in:k-scale; --d:4.30s"><span data-icon="check"></span></span>
+          </span>
+          <div class="f1">
+            <div class="swap">
+              <div class="nm a" style="--in:k-fade; --d:0s; --dur:.01s; --x:4.30s; --xdur:.2s">Areia</div>
+              <div class="nm a" style="--in:k-fade; --d:4.30s; text-decoration:line-through; color:var(--mut)">Areia</div>
+            </div>
+            <div class="ct">Obra</div>
+          </div>
+        </div>
+        <div class="it">
+          <span class="tick"></span>
+          <div class="f1"><div class="nm">Café</div><div class="ct">Sem categoria</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rowf">
+      <span class="chip chip--mut a" style="--in:k-right; --d:5.00s; font-size:26px; padding:14px 26px">
+        Item da lista vira Tarefa
+      </span>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/kit.js"></script>
+</body>
+</html>
