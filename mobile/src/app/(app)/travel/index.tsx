@@ -7,7 +7,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -16,19 +15,20 @@ import { fetchTripsForList } from "@/api/travel/travel";
 import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
-import { Spacing } from "@/constants/theme";
+import { Banner, Card, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { TRIP_STATUS_LABELS, tripListBucket } from "@/domain/travel";
 import { useAppShell } from "@/hooks/use-app-shell";
-import { useTheme } from "@/hooks/use-theme";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import type { TripWithChecklist } from "@/types/travel";
 
 export default function TravelScreen() {
   const theme = useTheme();
+  const moduleColors = useModuleColors();
   const router = useRouter();
   const { bottomInset } = useAppShell();
   const [trips, setTrips] = useState<TripWithChecklist[]>([]);
@@ -112,19 +112,17 @@ export default function TravelScreen() {
             style={[
               styles.invite,
               {
-                borderColor: theme.backgroundSelected,
-                backgroundColor: theme.backgroundElement,
+                borderColor: theme.border,
+                backgroundColor: theme.muted,
               },
             ]}
           >
-            <TextInput
+            <Input
               placeholder="Colar link ou token de convite"
-              placeholderTextColor={theme.textSecondary}
               value={inviteRaw}
               onChangeText={setInviteRaw}
               autoCapitalize="none"
               autoCorrect={false}
-              style={[styles.inviteInput, { color: theme.text }]}
             />
             <Pressable
               onPress={() => {
@@ -141,7 +139,7 @@ export default function TravelScreen() {
             </Pressable>
           </View>
           {visible.length === 0 ? (
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               Nenhuma viagem neste filtro.
             </ThemedText>
           ) : (
@@ -161,22 +159,22 @@ export default function TravelScreen() {
                     style={[
                       styles.card,
                       ongoing && {
-                        borderColor: "#22A37A66",
-                        backgroundColor: "#22A37A0D",
+                        borderColor: hexAlpha(moduleColors.travel, 0.4),
+                        backgroundColor: hexAlpha(moduleColors.travel, 0.05),
                       },
                     ]}
                   >
                     <View style={styles.top}>
                       <View style={styles.copy}>
                         <View style={styles.badgeRow}>
-                          <Ionicons name="airplane-outline" size={14} color={theme.primary} />
-                          <ThemedText type="small" themeColor="textSecondary">
+                          <Ionicons name="airplane-outline" size={14} color={moduleColors.travel} />
+                          <ThemedText type="small" themeColor="mutedForeground">
                             {TRIP_STATUS_LABELS[trip.status]}
                           </ThemedText>
                         </View>
                         <ThemedText type="smallBold">{trip.title}</ThemedText>
                         {trip.destination ? (
-                          <ThemedText type="small" themeColor="textSecondary">
+                          <ThemedText type="small" themeColor="mutedForeground">
                             {trip.destination}
                           </ThemedText>
                         ) : null}
@@ -186,16 +184,16 @@ export default function TravelScreen() {
                           <ThemedText type="title" style={{ color: theme.primary }}>
                             {trip.daysUntilStart}
                           </ThemedText>
-                          <ThemedText type="small" themeColor="textSecondary">
+                          <ThemedText type="small" themeColor="mutedForeground">
                             dias
                           </ThemedText>
                         </View>
                       ) : null}
                     </View>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {formatDateBR(trip.start_date)} → {formatDateBR(trip.end_date)}
                     </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {[
                         trip.budget != null
                           ? `Orçamento ${formatBRL(trip.budget)}`
@@ -232,10 +230,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
     minHeight: 48,
   },
-  inviteInput: { flex: 1, fontSize: 16, minHeight: 44 },
 });

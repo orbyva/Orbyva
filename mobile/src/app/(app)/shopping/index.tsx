@@ -23,9 +23,8 @@ import { fetchProjects } from "@/api/tasks/projects";
 import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
-import { Spacing } from "@/constants/theme";
+import { Banner, Card, EmptyState } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   filterShoppingByProject,
   formatShoppingQty,
@@ -215,12 +214,11 @@ export default function ShoppingScreen() {
             </FilterRow>
           ) : null}
           {groups.length === 0 ? (
-            <View style={styles.empty}>
-              <ThemedText type="smallBold">Lista vazia</ThemedText>
-              <ThemedText themeColor="textSecondary">
-                Use o + para adicionar um item. O check no app reflete no web.
-              </ThemedText>
-            </View>
+            <EmptyState
+              icon="cart-outline"
+              title="Lista vazia"
+              description="Use o + para adicionar um item. O check no app reflete no web."
+            />
           ) : (
             groups.map((group) => (
               <View key={group.key} style={styles.section}>
@@ -238,10 +236,10 @@ export default function ShoppingScreen() {
                     <View
                       style={[
                         styles.dot,
-                        { backgroundColor: group.color || theme.textSecondary },
+                        { backgroundColor: group.color || theme.mutedForeground },
                       ]}
                     />
-                    <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
+                    <ThemedText type="small" themeColor="mutedForeground" style={styles.flex}>
                       {group.label}
                       {group.key === "uncategorized" ? "" : " · editar"}
                     </ThemedText>
@@ -258,7 +256,7 @@ export default function ShoppingScreen() {
                     }
                     hitSlop={8}
                   >
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       Adicionar
                     </ThemedText>
                   </Pressable>
@@ -275,7 +273,7 @@ export default function ShoppingScreen() {
                           styles.row,
                           index > 0 && {
                             borderTopWidth: StyleSheet.hairlineWidth,
-                            borderTopColor: theme.backgroundSelected,
+                            borderTopColor: theme.border,
                           },
                           { opacity: busyId === item.id ? 0.5 : 1 },
                         ]}
@@ -290,7 +288,7 @@ export default function ShoppingScreen() {
                             {
                               borderColor: purchased
                                 ? theme.primary
-                                : theme.textSecondary,
+                                : theme.mutedForeground,
                               backgroundColor: purchased
                                 ? theme.primary
                                 : "transparent",
@@ -315,7 +313,7 @@ export default function ShoppingScreen() {
                           {qty ? (
                             <ThemedText
                               type="small"
-                              themeColor="textSecondary"
+                              themeColor="mutedForeground"
                             >
                               {qty}
                             </ThemedText>
@@ -333,7 +331,7 @@ export default function ShoppingScreen() {
                             }}
                             hitSlop={8}
                           >
-                            <ThemedText type="small" themeColor="textSecondary">
+                            <ThemedText type="small" themeColor="mutedForeground">
                               Tarefa
                             </ThemedText>
                           </Pressable>
@@ -354,7 +352,7 @@ export default function ShoppingScreen() {
                               )
                             }
                           >
-                            <ThemedText type="small" themeColor="textSecondary">
+                            <ThemedText type="small" themeColor="mutedForeground">
                               Criar tarefa
                             </ThemedText>
                           </Pressable>
@@ -369,7 +367,7 @@ export default function ShoppingScreen() {
                             <Ionicons
                               name="open-outline"
                               size={18}
-                              color={theme.textSecondary}
+                              color={theme.mutedForeground}
                             />
                           </Pressable>
                         ) : null}
@@ -383,7 +381,7 @@ export default function ShoppingScreen() {
                           <Ionicons
                             name="trash-outline"
                             size={18}
-                            color={theme.danger}
+                            color={theme.destructive}
                           />
                         </Pressable>
                       </View>
@@ -419,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.two,
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: 8, height: 8, borderRadius: Radius.full },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -430,7 +428,7 @@ const styles = StyleSheet.create({
   check: {
     width: 22,
     height: 22,
-    borderRadius: 6,
+    borderRadius: Radius.sm,
     borderWidth: 2,
   },
   copy: { flex: 1, gap: 2 },
@@ -441,7 +439,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   purchased: { textDecorationLine: "line-through", opacity: 0.55 },
-  empty: { gap: Spacing.one, paddingVertical: Spacing.four },
   banner: {
     marginHorizontal: Spacing.four,
     marginTop: Spacing.two,

@@ -1,3 +1,5 @@
+import type { ModuleColorKey } from "@/constants/theme";
+
 export type AppHref =
   | "/home"
   | "/finance"
@@ -57,7 +59,7 @@ export type NavLeaf = {
 
 export type NavGroup = {
   title: string;
-  color: string;
+  module: ModuleColorKey;
   icon: "home-outline" | "wallet-outline" | "checkbox-outline" | "leaf-outline" | "film-outline";
   items: NavLeaf[];
 };
@@ -65,7 +67,7 @@ export type NavGroup = {
 export const NAV_GROUPS: NavGroup[] = [
   {
     title: "Início",
-    color: "#6B7CFA",
+    module: "hub",
     icon: "home-outline",
     items: [
       { title: "Dashboard", href: "/home" },
@@ -74,7 +76,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: "Finanças",
-    color: "#0EA5E9",
+    module: "finance",
     icon: "wallet-outline",
     items: [
       { title: "Dashboard", href: "/finance" },
@@ -86,7 +88,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: "Produtividade",
-    color: "#A855F7",
+    module: "productivity",
     icon: "checkbox-outline",
     items: [
       { title: "Tarefas", href: "/tasks" },
@@ -99,7 +101,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: "Vida",
-    color: "#22A37A",
+    module: "life",
     icon: "leaf-outline",
     items: [
       { title: "Hábitos", href: "/habits" },
@@ -112,7 +114,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: "Conteúdo",
-    color: "#D46BE8",
+    module: "entertainment",
     icon: "film-outline",
     items: [
       { title: "Cinema", href: "/movies" },
@@ -333,6 +335,39 @@ export function quickAddActionsForPath(pathname: string): QuickAddItem[] {
 export function normalizePath(pathname: string): string {
   const stripped = pathname.replace(/\/\([^/]+\)/g, "");
   return stripped || "/";
+}
+
+function topSegment(path: string): string {
+  return `/${path.split("/")[1] ?? ""}`;
+}
+
+/** Grupo da sidebar dono do caminho (pelo primeiro segmento), inclusive detalhe e formulário. */
+export function groupForPath(pathname: string): NavGroup | null {
+  const path = normalizePath(pathname);
+  const top = path === "/" ? "/home" : topSegment(path);
+  return (
+    NAV_GROUPS.find((group) =>
+      group.items.some((leaf) => leaf.href && topSegment(leaf.href) === top)
+    ) ?? null
+  );
+}
+
+/** Tela raiz = item exato da sidebar. Detalhe e formulário não são. */
+export function navLeafForPath(
+  pathname: string
+): { group: NavGroup; leaf: NavLeaf } | null {
+  let path = normalizePath(pathname);
+  if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+  if (path === "/") path = "/home";
+  for (const group of NAV_GROUPS) {
+    const leaf = group.items.find((item) => item.href === path);
+    if (leaf) return { group, leaf };
+  }
+  return null;
+}
+
+export function quickAddModuleForPath(pathname: string): ModuleColorKey {
+  return groupForPath(pathname)?.module ?? "hub";
 }
 
 export function isNavActive(pathname: string, href: AppHref): boolean {

@@ -3,8 +3,10 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { Radius } from "@/constants/theme";
 import { fetchAppAlerts, subscribeAppAlerts } from "@/api/alerts";
 import { ThemedText } from "@/components/themed-text";
+import { TypeScale } from "@/domain/ui/typography";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import {
@@ -64,10 +66,10 @@ export function HeaderAlertsButton() {
       hitSlop={8}
       style={styles.hit}
     >
-      <Ionicons name="notifications-outline" size={22} color={theme.text} />
+      <Ionicons name="notifications-outline" size={22} color={theme.foreground} />
       {unread > 0 ? (
-        <View style={styles.badge}>
-          <ThemedText style={styles.badgeText}>
+        <View style={[styles.badge, { backgroundColor: theme.destructive }]}>
+          <ThemedText style={styles.badgeText} themeColor="destructiveForeground">
             {unread > 9 ? "9+" : unread}
           </ThemedText>
         </View>
@@ -90,11 +92,10 @@ const styles = StyleSheet.create({
     top: 2,
     minWidth: 16,
     height: 16,
-    borderRadius: 8,
-    backgroundColor: "#E11D48",
+    borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 3,
   },
-  badgeText: { color: "#fff", fontSize: 9, fontWeight: "700", lineHeight: 12 },
+  badgeText: TypeScale.nano,
 });

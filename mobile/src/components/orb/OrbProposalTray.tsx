@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbActionCard } from "@/components/orb/OrbActionCard";
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
+import { scrim } from "@/domain/ui/color";
 import { useOrbContext } from "@/hooks/useOrb";
 import { useFeedback } from "@/hooks/use-toast";
 import { useTheme } from "@/hooks/use-theme";
@@ -53,8 +54,8 @@ export function OrbProposalTray() {
         style={[
           styles.panel,
           {
-            backgroundColor: theme.surface,
-            borderColor: theme.backgroundSelected,
+            backgroundColor: theme.card,
+            borderColor: theme.border,
           },
         ]}
       >
@@ -96,11 +97,11 @@ const styles = StyleSheet.create({
   panel: {
     width: "100%",
     maxWidth: 400,
-    borderRadius: Radius.card,
+    borderRadius: Radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.two,
     gap: Spacing.two,
-    shadowColor: "#0B0F1A",
+    shadowColor: scrim(1),
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },

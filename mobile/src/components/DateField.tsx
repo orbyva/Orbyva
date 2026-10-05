@@ -4,12 +4,13 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
 
-import { ThemedText } from "@/components/themed-text";
+import { useInputStyle } from "@/components/ui";
 import { useOptionalThemeScheme } from "@/hooks/use-theme-preference";
 import { useTheme } from "@/hooks/use-theme";
 import { formatDateBR } from "@/lib/currency";
@@ -29,14 +30,17 @@ export function DateField({
   onChange,
   style,
   maximumDate,
+  invalid,
 }: {
   value: string;
   onChange: (iso: string) => void;
   style?: StyleProp<ViewStyle>;
   maximumDate?: string | null;
+  invalid?: boolean;
 }) {
   const theme = useTheme();
   const themeVariant = useOptionalThemeScheme();
+  const field = useInputStyle({ invalid });
   const [open, setOpen] = useState(false);
   const date = isoToDate(value);
   const max = maximumDate ? isoToDate(maximumDate) : undefined;
@@ -52,7 +56,7 @@ export function DateField({
 
   if (Platform.OS === "ios") {
     return (
-      <View style={[styles.iosWrap, style]}>
+      <View style={[field.container, styles.iosWrap, style]}>
         <DateTimePicker
           value={date}
           mode="date"
@@ -71,8 +75,8 @@ export function DateField({
 
   return (
     <View>
-      <Pressable onPress={() => setOpen(true)} style={style}>
-        <ThemedText>{formatDateBR(value)}</ThemedText>
+      <Pressable onPress={() => setOpen(true)} style={[field.container, style]}>
+        <Text style={field.text}>{formatDateBR(value)}</Text>
       </Pressable>
       {open ? (
         <DateTimePicker

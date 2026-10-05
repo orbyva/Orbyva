@@ -20,7 +20,7 @@ import {
 import { OrbComposer } from "@/components/orb/OrbComposer";
 import { OrbMessageBubble } from "@/components/orb/OrbMessageBubble";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { orbChatKeyboardInset } from "@/domain/orb/composerLayout";
 import { useOrbContext } from "@/hooks/useOrb";
 import { useOrbChat } from "@/hooks/useOrbChat";
@@ -118,7 +118,7 @@ export function OrbChat() {
               <ThemedText type="subtitle" style={styles.emptyTitle}>
                 Converse com a Orb
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.emptyHint}>
+              <ThemedText type="small" themeColor="mutedForeground" style={styles.emptyHint}>
                 Pergunte sobre suas finanças, tarefas, hábitos e o resto do Orbyva.
               </ThemedText>
               <OrbCapabilitiesSeal />
@@ -140,8 +140,8 @@ export function OrbChat() {
                 style={[
                   styles.chip,
                   {
-                    borderColor: theme.backgroundSelected,
-                    backgroundColor: theme.backgroundElement,
+                    borderColor: theme.border,
+                    backgroundColor: theme.muted,
                   },
                 ]}
               >
@@ -159,6 +159,7 @@ export function OrbChat() {
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
+          removeClippedSubviews={false}
           onContentSizeChange={() =>
             listRef.current?.scrollToEnd({ animated: true })
           }
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
   chips: { width: "100%", gap: Spacing.two, marginTop: Spacing.two },
   chip: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },

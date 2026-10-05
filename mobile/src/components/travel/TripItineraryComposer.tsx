@@ -1,6 +1,8 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { useState } from "react";
-import { StyleSheet, TextInput, View } from "react-native";
+import {
+  StyleSheet,
+  View,
+} from "react-native";
 
 import { createPlace } from "@/api/places/places";
 import { createItineraryActivity } from "@/api/travel/travel";
@@ -10,7 +12,7 @@ import {
   type PlaceCatalogPick,
 } from "@/components/PlaceCatalogSearch";
 import { ThemedText } from "@/components/themed-text";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { PLACE_TYPE_LABELS } from "@/domain/places";
 import {
@@ -23,7 +25,6 @@ import {
   type TransferEndpoint,
   type TripTransportMode,
 } from "@/domain/travel/transportModes";
-import { useTheme } from "@/hooks/use-theme";
 import { estimateTransferTimes } from "@/lib/estimateTripLeg";
 import { getErrorMessage } from "@/lib/errors";
 import type { PlaceType, PlaceVisit } from "@/types/places";
@@ -58,7 +59,6 @@ export function TripItineraryComposer({
   fail: (message: string) => void;
   sortOrder?: number;
 }) {
-  const theme = useTheme();
   const [busy, setBusy] = useState(false);
   const [visitPick, setVisitPick] = useState<PlaceCatalogPick | null>(null);
   const [visitPlaceId, setVisitPlaceId] = useState<string | null>(null);
@@ -72,14 +72,6 @@ export function TripItineraryComposer({
   const [estimateNote, setEstimateNote] = useState<string | null>(null);
   const [estimating, setEstimating] = useState(false);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   const selectedPlace = tripPlaces.find((place) => place.id === visitPlaceId);
 
@@ -201,7 +193,7 @@ export function TripItineraryComposer({
           />
           {tripPlaces.length > 0 ? (
             <View style={styles.field}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Ou um lugar já desta viagem
               </ThemedText>
               <View style={styles.chips}>
@@ -219,24 +211,20 @@ export function TripItineraryComposer({
               </View>
             </View>
           ) : null}
-          <TextInput
+          <Input
             placeholder="Horário (ex. 09:30) — opcional"
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle}
             value={visitTime}
             onChangeText={setVisitTime}
           />
-          <TextInput
+          <Input
             placeholder="Observação — opcional"
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle}
             value={visitNotes}
             onChangeText={setVisitNotes}
           />
         </>
       ) : (
         <>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Origem
           </ThemedText>
           <PlaceCatalogSearch
@@ -248,10 +236,8 @@ export function TripItineraryComposer({
             onPick={(hit) => setOrigin(pickToEndpoint(hit))}
           />
           {!origin?.place_id ? (
-            <TextInput
+            <Input
               placeholder="Ou digite a origem"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={origin?.label ?? ""}
               onChangeText={(value) =>
                 setOrigin((cur) => ({
@@ -263,7 +249,7 @@ export function TripItineraryComposer({
               }
             />
           ) : null}
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Destino
           </ThemedText>
           <PlaceCatalogSearch
@@ -275,10 +261,8 @@ export function TripItineraryComposer({
             onPick={(hit) => setDestination(pickToEndpoint(hit))}
           />
           {!destination?.place_id ? (
-            <TextInput
+            <Input
               placeholder="Ou digite o destino"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={destination?.label ?? ""}
               onChangeText={(value) =>
                 setDestination((cur) => ({
@@ -300,20 +284,16 @@ export function TripItineraryComposer({
               />
             ))}
           </View>
-          <TextInput
+          <Input
             placeholder="Saída HH:mm — opcional"
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle}
             value={depart}
             onChangeText={(value) => {
               setDepart(value);
               setEstimateNote(null);
             }}
           />
-          <TextInput
+          <Input
             placeholder="Chegada HH:mm — opcional"
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle}
             value={arrive}
             onChangeText={(value) => {
               setArrive(value);
@@ -322,32 +302,37 @@ export function TripItineraryComposer({
           />
           {canEstimateTransferArrival(mode) ? (
             <>
-              <FormButton
+              <Button
                 label={estimating ? "Estimando…" : "Estimar pela rota"}
-                compact
-                busy={estimating}
+                loading={estimating}
                 disabled={estimating || (!depart.trim() && !arrive.trim())}
                 onPress={() => void onEstimate()}
+                variant="outline"
+                size="sm"
               />
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {estimateNote ?? transportModeHint(mode)}
               </ThemedText>
             </>
           ) : (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {transportModeHint(mode)}
             </ThemedText>
           )}
         </>
       )}
-      <FormButton
+      <Button
         label={kind === "visit" ? "Adicionar visita" : "Adicionar deslocamento"}
-        tone="primary"
-        busy={busy}
+        loading={busy}
         disabled={busy}
         onPress={() => void onSubmit()}
+        size="lg"
       />
-      <FormButton label="Cancelar" onPress={onCancel} />
+      <Button
+        label="Cancelar"
+        onPress={onCancel}
+        variant="outline"
+      />
     </View>
   );
 }
@@ -356,12 +341,4 @@ const styles = StyleSheet.create({
   body: { gap: Spacing.two },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
 });

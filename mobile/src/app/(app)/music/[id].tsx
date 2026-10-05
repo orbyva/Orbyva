@@ -17,9 +17,7 @@ import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
 import { StoryShareCard } from "@/components/share/StoryShareCard";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { ModuleSection } from "@/components/ui/ModuleSection";
+import { Banner, Button, ModuleSection } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import {
   ALBUM_STATUS_LABELS,
@@ -36,7 +34,7 @@ import {
 import { buildAlbumShareText, usableCoverUri } from "@/domain/share";
 import { getTodayIso } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
-import { useTheme } from "@/hooks/use-theme";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
@@ -46,6 +44,7 @@ const RATING_CYCLE = [null, 7, 8, 9, 10] as const;
 
 export default function AlbumDetailScreen() {
   const theme = useTheme();
+  const moduleColors = useModuleColors();
   const router = useRouter();
   const navigation = useNavigation();
   const { fail } = useFeedback();
@@ -167,11 +166,11 @@ export default function AlbumDetailScreen() {
                 <Ionicons
                   name={album.is_favorite ? "heart" : "heart-outline"}
                   size={22}
-                  color={album.is_favorite ? theme.danger : theme.textSecondary}
+                  color={album.is_favorite ? theme.destructive : theme.mutedForeground}
                 />
               </Pressable>
             </View>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {[
                 formatArtists(album.artists),
                 ALBUM_TYPE_LABELS[album.album_type],
@@ -185,22 +184,22 @@ export default function AlbumDetailScreen() {
           </View>
         </View>
         {album.status !== "listened" ? (
-          <FormButton
+          <Button
             label="Marcar como Ouvido"
-            tone="primary"
             disabled={busy}
             onPress={() => setReviewOpen(true)}
+            size="lg"
           />
         ) : null}
         {album.notes ? <ThemedText type="small">{album.notes}</ThemedText> : null}
         {album.status === "listened" ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {album.would_recommend === false ? "Não recomendaria" : "Recomendaria"}
           </ThemedText>
         ) : null}
 
         {tracks.length > 0 ? (
-          <ModuleSection title="Faixas" icon="musical-notes-outline" tint="#F43F5E">
+          <ModuleSection title="Faixas" icon="musical-notes-outline" tint={moduleColors.entertainment}>
             {tracks.map((track) => {
               const key = trackRatingKey(track.disc, track.position);
               const rating = album.track_ratings?.[key];
@@ -213,13 +212,13 @@ export default function AlbumDetailScreen() {
                   <ThemedText type="small" style={styles.trackTitle} numberOfLines={1}>
                     {track.position}. {track.title}
                   </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {rating != null ? rating : formatTrackLength(track.lengthMs)}
                   </ThemedText>
                 </Pressable>
               );
             })}
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Toque na faixa para ciclar a nota (7–10).
             </ThemedText>
           </ModuleSection>
@@ -227,26 +226,28 @@ export default function AlbumDetailScreen() {
 
         <View style={styles.footerActions}>
           {album.status === "listened" ? (
-            <FormButton
+            <Button
               label="Voltar para a fila"
               disabled={busy}
               onPress={() => void setStatus("to_listen")}
+              variant="outline"
             />
           ) : null}
-          <FormButton
+          <Button
             label="Editar"
-            tone={album.status === "listened" ? "primary" : "neutral"}
             onPress={() =>
               router.push({
                 pathname: "/music/form",
                 params: { id: album.musicbrainz_id },
               })
             }
+            variant={album.status === "listened" ? "default" : "outline"}
           />
           {album.status === "listened" ? (
-            <FormButton
+            <Button
               label="Compartilhar"
               onPress={() => setShareOpen(true)}
+              variant="outline"
             />
           ) : null}
         </View>

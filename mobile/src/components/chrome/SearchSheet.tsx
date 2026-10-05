@@ -16,7 +16,8 @@ import {
 } from "@/api/search";
 import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { SCRIM } from "@/domain/ui/color";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -89,11 +90,11 @@ export function SearchSheet() {
             {loading ? (
               <ActivityIndicator color={theme.primary} />
             ) : query.trim().length < 2 ? (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Digite pelo menos 2 letras.
               </ThemedText>
             ) : hits.length === 0 ? (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Nada encontrado.
               </ThemedText>
             ) : (
@@ -104,14 +105,14 @@ export function SearchSheet() {
                     close();
                     router.push(hit.href as never);
                   }}
-                  style={[styles.row, { borderColor: theme.backgroundSelected }]}
+                  style={[styles.row, { borderColor: theme.border }]}
                 >
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {SEARCH_KIND_LABEL[hit.kind]}
                   </ThemedText>
                   <ThemedText type="smallBold">{hit.title}</ThemedText>
                   {hit.subtitle ? (
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {hit.subtitle}
                     </ThemedText>
                   ) : null}
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(11,15,26,0.45)",
+    backgroundColor: SCRIM,
   },
   sheet: {
     maxHeight: "80%",
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
   body: { maxHeight: 420 },
   row: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: 12,
     marginBottom: 8,
     gap: 2,

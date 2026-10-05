@@ -5,9 +5,9 @@ import { fetchReminderPreferences, upsertReminderPreference } from "@/api/health
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Card } from "@/components/ui";
 import { TimeField } from "@/components/TimeField";
-import { Card } from "@/components/ui/Card";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   nextReminderLabel,
   REMINDER_ENTITY_DESCRIPTION,
@@ -80,7 +80,7 @@ export default function HealthRemindersScreen() {
   return (
     <ThemedView style={styles.flex}>
       <ScrollView contentContainerStyle={styles.body}>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Os lembretes aparecem enquanto o Orbyva estiver aberto. Notificação com o app fechado ainda
           não está disponível.
         </ThemedText>
@@ -91,7 +91,7 @@ export default function HealthRemindersScreen() {
               <View style={styles.header}>
                 <View style={styles.headerText}>
                   <ThemedText type="smallBold">{REMINDER_ENTITY_LABEL[row.entity_type]}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {REMINDER_ENTITY_DESCRIPTION[row.entity_type]}
                   </ThemedText>
                 </View>
@@ -117,10 +117,10 @@ export default function HealthRemindersScreen() {
                   <TimeField
                     value={row.time_of_day}
                     onChange={(time_of_day) => void persist({ ...row, time_of_day })}
-                    style={[styles.time, { borderColor: theme.backgroundSelected }]}
+                    style={[styles.time, { borderColor: theme.border }]}
                   />
                   {next ? (
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       Próximo: {next}
                     </ThemedText>
                   ) : null}
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   time: {
     minHeight: 44,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
     justifyContent: "center",

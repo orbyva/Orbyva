@@ -1,12 +1,11 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Linking,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -18,10 +17,8 @@ import {
 } from "@/api/links/links";
 import { createTagApi, fetchTags } from "@/api/tasks/tags";
 import { ChoiceChip } from "@/components/ChoiceChip";
-import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
+import { Banner, Button, Field, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import {
   isValidContentLinkUrl,
@@ -111,14 +108,6 @@ export default function LinkFormScreen() {
     };
   }, [editId]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   function onChangeUrl(next: string) {
     setUrl(next);
@@ -205,22 +194,18 @@ export default function LinkFormScreen() {
       >
           <Banner message={error} />
           <Field label="Título" required>
-            <TextInput
+            <Input
               placeholder="Como você vai reconhecer"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={title}
               onChangeText={setTitle}
             />
           </Field>
           <Field label="URL" required>
-            <TextInput
+            <Input
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
               placeholder="https://"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={url}
               onChangeText={onChangeUrl}
             />
@@ -250,10 +235,9 @@ export default function LinkFormScreen() {
             </View>
           </Field>
           <Field label="Notas">
-            <TextInput
+            <Input
               placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={[inputStyle, styles.multiline]}
+              style={styles.multiline}
               multiline
               value={notes}
               onChangeText={setNotes}
@@ -282,10 +266,8 @@ export default function LinkFormScreen() {
                 />
               ))}
             </View>
-            <TextInput
+            <Input
               placeholder="Nova tag"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={newTag}
               onChangeText={setNewTag}
               onSubmitEditing={() => {
@@ -319,24 +301,25 @@ export default function LinkFormScreen() {
             />
           </Field>
           {editId && isValidContentLinkUrl(url) ? (
-            <FormButton
+            <Button
               label="Abrir no navegador"
               onPress={() => void Linking.openURL(normalizeContentLinkUrl(url))}
+              variant="outline"
             />
           ) : null}
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Adicionar"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir link"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -344,52 +327,11 @@ export default function LinkFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   multiline: { minHeight: 96, paddingTop: 12, textAlignVertical: "top" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

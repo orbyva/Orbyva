@@ -3,7 +3,9 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import type { LedgerTransaction } from "@/types/finance";
 
@@ -30,6 +32,7 @@ export function MonthLedger({
   headerBg: string;
   rowBg: string;
 }) {
+  const theme = useTheme();
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
 
@@ -47,7 +50,7 @@ export function MonthLedger({
       <View style={styles.head}>
         <View style={styles.headText}>
           <ThemedText type="smallBold">Transações neste mês</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {rows.length} {rows.length === 1 ? "transação" : "transações"} de{" "}
             {nature} em {monthLabel}
             {selectedType ? ` · ${selectedType}` : ""}
@@ -55,7 +58,7 @@ export function MonthLedger({
           </ThemedText>
         </View>
         {selectedType ? (
-          <Pressable onPress={onClearFilter} style={styles.chip} hitSlop={8}>
+          <Pressable onPress={onClearFilter} style={[styles.chip, { backgroundColor: hexAlpha(theme.primary, 0.16) }]} hitSlop={8}>
             <ThemedText type="smallBold">{selectedType} ×</ThemedText>
           </Pressable>
         ) : onSeeAll ? (
@@ -66,23 +69,23 @@ export function MonthLedger({
       </View>
 
       <View style={[styles.tableHead, { backgroundColor: headerBg }]}>
-        <ThemedText type="small" style={styles.colDate} themeColor="textSecondary">
+        <ThemedText type="small" style={styles.colDate} themeColor="mutedForeground">
           Data
         </ThemedText>
-        <ThemedText type="small" style={styles.colFlex} themeColor="textSecondary">
+        <ThemedText type="small" style={styles.colFlex} themeColor="mutedForeground">
           Subcategoria
         </ThemedText>
         <ThemedText
           type="small"
           style={styles.colValue}
-          themeColor="textSecondary"
+          themeColor="mutedForeground"
         >
           Valor
         </ThemedText>
       </View>
 
       {rows.length === 0 ? (
-        <ThemedText themeColor="textSecondary" style={styles.empty}>
+        <ThemedText themeColor="mutedForeground" style={styles.empty}>
           Nenhuma transação encontrada.
         </ThemedText>
       ) : (
@@ -100,14 +103,14 @@ export function MonthLedger({
               <View style={styles.subRow}>
                 <TypeIcon
                   name={tx.class?.type?.lucide_icon}
-                  color={tx.class?.type?.hex_color || "#64748B"}
+                  color={tx.class?.type?.hex_color || theme.mutedForeground}
                   size={14}
                 />
                 <ThemedText numberOfLines={1} style={styles.subName}>
                   {tx.class?.name || "—"}
                 </ThemedText>
               </View>
-              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+              <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
                 {tx.description || "Sem descrição"}
               </ThemedText>
             </View>
@@ -132,7 +135,7 @@ export function MonthLedger({
               Anterior
             </ThemedText>
           </Pressable>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {page} / {totalPages}
           </ThemedText>
           <Pressable
@@ -165,15 +168,14 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(14,165,233,0.16)",
+    borderRadius: Radius.full,
   },
   tableHead: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     gap: 8,
   },
   row: {
@@ -181,7 +183,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     gap: 8,
   },
   colDate: { width: 72 },

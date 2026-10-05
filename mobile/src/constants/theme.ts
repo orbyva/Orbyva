@@ -1,35 +1,77 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
+ * Paleta do web (`src/index.css`) convertida para hex — `tokenParity.test.ts` falha se um lado
+ * mudar sem o outro. Hex porque `hexAlpha` (`lib/color.ts`) só aceita hex.
  */
 
 import { Platform } from 'react-native';
 
-export const Colors = {
-  light: {
-    text: '#0B0F1A',
-    background: '#F8FAFC',
-    surface: '#FFFFFF',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-    primary: '#0EA5E9',
-    danger: '#E11D48',
-    success: '#16A34A',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#0B0F1A',
-    surface: '#16181D',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-    primary: '#0EA5E9',
-    danger: '#FB7185',
-    success: '#4ADE80',
-  },
-} as const;
+const light = {
+  background: '#F8F8F7',
+  foreground: '#0C0A09',
+  card: '#FFFFFF',
+  cardForeground: '#0C0A09',
+  popover: '#FFFFFF',
+  popoverForeground: '#0C0A09',
+  primary: '#0A7AAE',
+  primaryForeground: '#FFFFFF',
+  secondary: '#F0F0EF',
+  secondaryForeground: '#1C1917',
+  muted: '#F0F0EF',
+  mutedForeground: '#726A65',
+  accent: '#E3F4FC',
+  accentForeground: '#085F87',
+  destructive: '#DC2828',
+  destructiveForeground: '#FFFFFF',
+  success: '#1CA64F',
+  successForeground: '#FFFFFF',
+  warning: '#DB7706',
+  warningForeground: '#FFFFFF',
+  border: '#E7E5E4',
+  input: '#E7E5E4',
+  ring: '#0B84BC',
+  chart1: '#0B84BC',
+  chart2: '#AF20C5',
+  chart3: '#1FB757',
+  chart4: '#DC2828',
+  chart5: '#DB7706',
+  chart6: '#1C9C91',
+};
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+const dark: typeof light = {
+  background: '#080C16',
+  foreground: '#F8FAFC',
+  card: '#0C1322',
+  cardForeground: '#F8FAFC',
+  popover: '#0C1322',
+  popoverForeground: '#F8FAFC',
+  primary: '#18ADF2',
+  primaryForeground: '#FFFFFF',
+  secondary: '#18212F',
+  secondaryForeground: '#F8FAFC',
+  muted: '#18212F',
+  mutedForeground: '#94A3B8',
+  accent: '#0C2C3B',
+  accentForeground: '#9EDDFA',
+  destructive: '#DF3A3A',
+  destructiveForeground: '#F8FAFC',
+  success: '#23D163',
+  successForeground: '#FFFFFF',
+  warning: '#F6A823',
+  warningForeground: '#FFFFFF',
+  border: '#1D283A',
+  input: '#1D283A',
+  ring: '#18ADF2',
+  chart1: '#18ADF2',
+  chart2: '#DC6EED',
+  chart3: '#23D163',
+  chart4: '#DF3A3A',
+  chart5: '#F6A823',
+  chart6: '#2BCABD',
+};
+
+export const Colors = { light, dark };
+
+export type ThemeColor = keyof typeof Colors.light;
 
 export const Fonts = Platform.select({
   ios: {
@@ -70,18 +112,64 @@ export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const FabSize = 56;
 export const MaxContentWidth = 800;
 
+/**
+ * `lg` = `--radius` do web (0.625rem); `md`/`sm` seguem o `tailwind.config.js`. `xl` é o
+ * `rounded-xl` padrão do Tailwind (não derivado do `--radius`), usado pelo `Card` do web.
+ */
 export const Radius = {
-  card: 16,
-  input: 14,
-  chip: 999,
-  control: 12,
+  xl: 12,
+  lg: 10,
+  md: 8,
+  sm: 6,
+  full: 999,
 } as const;
 
-/** Cores de grupo da sidebar / hub, alinhadas ao web (`moduleColors`). */
+/** Cores de grupo da sidebar / hub — mesmas variáveis do web (`--hub`, `--productivity`, …). */
 export const ModuleColors = {
-  hub: "#6B7CFA",
-  finance: "#0EA5E9",
-  productivity: "#A855F7",
-  life: "#22A37A",
-  entertainment: "#D46BE8",
+  light: {
+    hub: '#1216D3',
+    finance: light.primary,
+    productivity: '#8033E6',
+    life: '#10B77F',
+    health: '#F43E5C',
+    entertainment: '#AF20C5',
+    travel: '#188B81',
+    car: '#F97015',
+  },
+  dark: {
+    hub: '#6467F2',
+    finance: dark.primary,
+    productivity: '#A56EED',
+    life: '#22C38E',
+    health: '#F43E5C',
+    entertainment: '#DC6EED',
+    travel: '#2BCABD',
+    car: '#FA802E',
+  },
 } as const;
+
+export type ModuleColorKey = keyof typeof ModuleColors.light;
+
+/** Texto/ícone sobre a cor do módulo (`--<módulo>-foreground` do web). */
+export const ModuleForegrounds: Record<'light' | 'dark', Record<ModuleColorKey, string>> = {
+  light: {
+    hub: '#FFFFFF',
+    finance: light.primaryForeground,
+    productivity: '#FFFFFF',
+    life: '#FFFFFF',
+    health: '#FFFFFF',
+    entertainment: '#FFFFFF',
+    travel: '#FFFFFF',
+    car: '#FFFFFF',
+  },
+  dark: {
+    hub: '#FFFFFF',
+    finance: dark.primaryForeground,
+    productivity: '#FFFFFF',
+    life: '#FFFFFF',
+    health: '#FFFFFF',
+    entertainment: '#0B111E',
+    travel: '#FFFFFF',
+    car: '#FFFFFF',
+  },
+};

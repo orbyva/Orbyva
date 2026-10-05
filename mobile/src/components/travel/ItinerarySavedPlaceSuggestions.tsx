@@ -4,9 +4,9 @@ import type { SharedValue } from "react-native-reanimated";
 
 import { VisitDragHandle } from "@/components/travel/VisitDragHandle";
 import { ThemedText } from "@/components/themed-text";
+import { Button } from "@/components/ui";
 import { TypeIcon } from "@/components/TypeIcon";
-import { FormButton } from "@/components/ui/FormButton";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { PLACE_TYPE_LABELS, placeTypeMeta } from "@/domain/places";
 import {
   suggestionHeading,
@@ -80,7 +80,7 @@ export function ItinerarySavedPlaceSuggestions({
           <ThemedText type="smallBold">
             {suggestionHeading(places.length, city.name)}
           </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Adicione no roteiro deste dia.
           </ThemedText>
         </View>
@@ -90,7 +90,7 @@ export function ItinerarySavedPlaceSuggestions({
           onPress={() => onDismiss(city)}
           style={styles.dismiss}
         >
-          <Ionicons name="close" size={18} color={theme.textSecondary} />
+          <Ionicons name="close" size={18} color={theme.mutedForeground} />
         </Pressable>
       </View>
       <ScrollView
@@ -108,8 +108,8 @@ export function ItinerarySavedPlaceSuggestions({
               style={[
                 styles.row,
                 {
-                  borderColor: hexAlpha(theme.text, 0.08),
-                  backgroundColor: theme.surface,
+                  borderColor: hexAlpha(theme.foreground, 0.08),
+                  backgroundColor: theme.card,
                   opacity: busy ? 0.55 : 1,
                 },
               ]}
@@ -134,18 +134,17 @@ export function ItinerarySavedPlaceSuggestions({
                 <ThemedText type="smallBold" numberOfLines={1}>
                   {place.name}
                 </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
                   {PLACE_TYPE_LABELS[place.type]}
                   {onTrip ? " · Na lista da viagem" : ""}
                 </ThemedText>
               </View>
-              <FormButton
+              <Button
                 label="Adicionar"
-                compact
-                tone="primary"
                 disabled={busy}
-                busy={busy}
+                loading={busy}
                 onPress={() => onAdd(place)}
+                size="sm"
               />
             </View>
           );
@@ -158,7 +157,7 @@ export function ItinerarySavedPlaceSuggestions({
 const styles = StyleSheet.create({
   box: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: Radius.xl,
     padding: Spacing.two,
     gap: Spacing.two,
   },
@@ -166,7 +165,7 @@ const styles = StyleSheet.create({
   pin: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -183,7 +182,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     paddingVertical: 4,
     paddingRight: 6,
     paddingLeft: 2,
@@ -191,7 +190,7 @@ const styles = StyleSheet.create({
   icon: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
   },

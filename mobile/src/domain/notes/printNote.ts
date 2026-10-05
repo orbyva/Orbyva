@@ -36,7 +36,7 @@ export function buildNotePrintHtml(title: string, content: string): string {
       font-family: -apple-system, system-ui, Helvetica, Arial, sans-serif;
       font-size: 11pt;
       line-height: 1.5;
-      color: #111;
+      color: #111; /* token-livre: impressão em papel branco, fora do tema */
       margin: 0;
     }
     h1 {

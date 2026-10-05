@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -24,10 +23,8 @@ import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { FormBlock } from "@/components/ui/FormSection";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, Field, FormBlock, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   buildFixedYearPlan,
   countMonthsThroughYearEnd,
@@ -35,6 +32,11 @@ import {
   MAX_SPLIT_INSTALLMENTS,
   normalizeFixedFrequency,
 } from "@/domain/recurring/constants";
+import {
+  isHttpLink,
+  normalizeRecurringLink,
+  RECURRING_LINK_HINT,
+} from "@/domain/recurring/links";
 import {
   getTotalFromInstallments,
   splitInstallmentValue,
@@ -86,6 +88,7 @@ function defaultRecurring(): RecurringCreateRequest {
     installment_count: null,
     payment_start_date: todayIsoDate(),
     status: true,
+    link_url: null,
   });
 }
 
@@ -133,6 +136,7 @@ export default function RecurringFormScreen() {
       installment_count: existing.installment_count,
       payment_start_date: existing.payment_start_date,
       status: existing.status,
+      link_url: existing.link_url ?? null,
     };
     const split = !isFixedRecurringPlan(existing);
     setPlanMode(split ? "split" : "fixed");
@@ -252,18 +256,25 @@ export default function RecurringFormScreen() {
       return;
     }
 
+    const link = normalizeRecurringLink(rec.link_url);
+    if (link && !isHttpLink(link)) {
+      fail(RECURRING_LINK_HINT);
+      return;
+    }
+
     setError(null);
     setSaving(true);
     try {
       const payload = isSplit
         ? {
             ...rec,
+            link_url: link,
             validity: null,
             frequency: "Mensal",
             installment_count: rec.installment_count!,
             value: splitInstallmentValue(totalValue!, rec.installment_count!),
           }
-        : applyFixedYearFields({ ...rec, value: value! });
+        : applyFixedYearFields({ ...rec, value: value!, link_url: link });
       if (isEditing && editId) {
         await updateRecurringApi(editId, payload);
       } else {
@@ -284,14 +295,6 @@ export default function RecurringFormScreen() {
     }
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   if (loading) {
     return (
@@ -322,13 +325,13 @@ export default function RecurringFormScreen() {
                 {
                   backgroundColor: !isSplit
                     ? theme.primary
-                    : theme.backgroundElement,
+                    : theme.muted,
                 },
               ]}
             >
               <ThemedText
                 type="smallBold"
-                style={!isSplit ? styles.modeOn : undefined}
+                themeColor={!isSplit ? "primaryForeground" : undefined}
               >
                 Mensal fixa
               </ThemedText>
@@ -340,13 +343,13 @@ export default function RecurringFormScreen() {
                 {
                   backgroundColor: isSplit
                     ? theme.primary
-                    : theme.backgroundElement,
+                    : theme.muted,
                 },
               ]}
             >
               <ThemedText
                 type="smallBold"
-                style={isSplit ? styles.modeOn : undefined}
+                themeColor={isSplit ? "primaryForeground" : undefined}
               >
                 Parcelada (Nx)
               </ThemedText>
@@ -368,10 +371,8 @@ export default function RecurringFormScreen() {
 
           <FormBlock title="Detalhes">
           <Field label="Descrição" required>
-            <TextInput
+            <Input
               placeholder="Ex: Cartão Nubank, Aluguel..."
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={rec.description}
               onChangeText={(description) =>
                 setRec((cur) => ({ ...cur, description }))
@@ -396,11 +397,9 @@ export default function RecurringFormScreen() {
                   : "Cobrado todo mês"
             }
           >
-            <TextInput
+            <Input
               keyboardType="number-pad"
               placeholder="0,00"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={
                 isSplit
                   ? totalValue != null
@@ -417,16 +416,27 @@ export default function RecurringFormScreen() {
               }}
             />
           </Field>
+
+          <Field label="Link" hint="Onde se paga, por exemplo">
+            <Input
+              placeholder="https://"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              value={rec.link_url ?? ""}
+              onChangeText={(link_url) =>
+                setRec((cur) => ({ ...cur, link_url }))
+              }
+            />
+          </Field>
           </FormBlock>
 
           <FormBlock title="Agenda">
           {isSplit ? (
             <Field label="Nº de parcelas" required>
-              <TextInput
+              <Input
                 keyboardType="number-pad"
                 placeholder="Ex: 12"
-                placeholderTextColor={theme.textSecondary}
-                style={inputStyle}
                 value={rec.installment_count ? String(rec.installment_count) : ""}
                 onChangeText={(raw) => {
                   const n = raw.replace(/\D/g, "");
@@ -457,13 +467,13 @@ export default function RecurringFormScreen() {
                         {
                           backgroundColor: active
                             ? theme.primary
-                            : theme.backgroundElement,
+                            : theme.muted,
                         },
                       ]}
                     >
                       <ThemedText
                         type="smallBold"
-                        style={active ? styles.modeOn : undefined}
+                        themeColor={active ? "primaryForeground" : undefined}
                       >
                         {freq}
                       </ThemedText>
@@ -475,7 +485,7 @@ export default function RecurringFormScreen() {
           )}
 
           {installmentValue != null && rec.installment_count ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Cada parcela: {formatBRL(installmentValue)} · {rec.installment_count}x
               mensais
               {totalValue != null
@@ -485,13 +495,13 @@ export default function RecurringFormScreen() {
           ) : null}
 
           {fixedPreview?.kind === "monthly" ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Gera {fixedPreview.count}{" "}
               {fixedPreview.count === 1 ? "mês" : "meses"} · até dez/{fixedPreview.year}
             </ThemedText>
           ) : null}
           {fixedPreview?.kind === "annual" ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Gera 1 cobrança · em {fixedPreview.year}
             </ThemedText>
           ) : null}
@@ -511,16 +521,13 @@ export default function RecurringFormScreen() {
                 }
                 setRec((cur) => ({ ...cur, payment_start_date: iso }));
               }}
-              style={inputStyle}
             />
           </Field>
 
           <Field label="Dia de vencimento" required>
-            <TextInput
+            <Input
               keyboardType="number-pad"
               placeholder="Ex: 10"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={rec.due_day ? String(rec.due_day) : ""}
               onChangeText={(raw) => {
                 const n = raw.replace(/\D/g, "");
@@ -533,17 +540,16 @@ export default function RecurringFormScreen() {
           </Field>
           </FormBlock>
 
-          <FormButton
+          <Button
             label={isEditing ? "Salvar alterações" : "Salvar recorrência"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {isEditing && editId ? (
-            <FormButton
+            <Button
               label="Excluir recorrência"
-              tone="danger"
               disabled={saving}
               onPress={() =>
                 Alert.alert(
@@ -576,6 +582,7 @@ export default function RecurringFormScreen() {
                   ]
                 )
               }
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -584,64 +591,17 @@ export default function RecurringFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  hint,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {hint ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          {hint}
-        </ThemedText>
-      ) : null}
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 6 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   modeRow: { flexDirection: "row", gap: 8 },
   modeBtn: {
     flex: 1,
     height: 40,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
-  modeOn: { color: "#0B0F1A" },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  danger: { alignItems: "center", paddingVertical: 12 },
-  dangerLabel: { color: "#E11D48" },
-  error: { color: "#E11D48", textAlign: "center" },
 });

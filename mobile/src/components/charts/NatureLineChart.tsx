@@ -3,13 +3,12 @@ import { StyleSheet, View, useWindowDimensions } from "react-native";
 import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { monthShortLabel } from "@/domain/finance/insights";
-import { formatBRL } from "@/lib/currency";
+import { useTheme } from "@/hooks/use-theme";
 import { hexAlpha } from "@/lib/color";
+import { formatBRL } from "@/lib/currency";
 import type { ValueByNatureYearMonth } from "@/types/finance";
-
-import { CHART_EXPENSE, CHART_INCOME } from "./DonutChart";
 
 export function NatureLineChart({
   series,
@@ -18,6 +17,9 @@ export function NatureLineChart({
   series: ValueByNatureYearMonth[];
   textColor: string;
 }) {
+  const theme = useTheme();
+  const income = theme.success;
+  const expense = theme.destructive;
   const { width: screenW } = useWindowDimensions();
   const width = Math.max(280, screenW - Spacing.four * 2);
   const height = 200;
@@ -53,7 +55,7 @@ export function NatureLineChart({
 
   if (points.length === 0) {
     return (
-      <ThemedText themeColor="textSecondary">
+      <ThemedText themeColor="mutedForeground">
         Sem histórico de meses ainda.
       </ThemedText>
     );
@@ -73,7 +75,7 @@ export function NatureLineChart({
         <Polyline
           points={receitaLine}
           fill="none"
-          stroke={CHART_INCOME}
+          stroke={income}
           strokeWidth={2.5}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -81,7 +83,7 @@ export function NatureLineChart({
         <Polyline
           points={despesaLine}
           fill="none"
-          stroke={CHART_EXPENSE}
+          stroke={expense}
           strokeWidth={2.5}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -92,7 +94,7 @@ export function NatureLineChart({
             cx={p.x}
             cy={p.yReceita}
             r={selected?.key === p.key ? 5 : 3}
-            fill={CHART_INCOME}
+            fill={income}
             onPress={() =>
               setSelectedKey((cur) => (cur === p.key ? null : p.key))
             }
@@ -104,7 +106,7 @@ export function NatureLineChart({
             cx={p.x}
             cy={p.yDespesa}
             r={selected?.key === p.key ? 5 : 3}
-            fill={CHART_EXPENSE}
+            fill={expense}
             onPress={() =>
               setSelectedKey((cur) => (cur === p.key ? null : p.key))
             }
@@ -143,8 +145,8 @@ export function NatureLineChart({
           style={[
             styles.selectedCard,
             {
-              backgroundColor: hexAlpha(CHART_INCOME, 0.08),
-              borderColor: hexAlpha(CHART_EXPENSE, 0.28),
+              backgroundColor: hexAlpha(income, 0.08),
+              borderColor: hexAlpha(expense, 0.28),
             },
           ]}
         >
@@ -153,35 +155,35 @@ export function NatureLineChart({
           </ThemedText>
           <View style={styles.selectedRow}>
             <View style={styles.selectedCol}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Receita
               </ThemedText>
-              <ThemedText type="value" style={{ color: CHART_INCOME }}>
+              <ThemedText type="value" style={{ color: income }}>
                 {formatBRL(selected.row.receita_total)}
               </ThemedText>
             </View>
             <View style={styles.selectedCol}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Despesa
               </ThemedText>
-              <ThemedText type="value" style={{ color: CHART_EXPENSE }}>
+              <ThemedText type="value" style={{ color: expense }}>
                 {formatBRL(selected.row.despesa_total)}
               </ThemedText>
             </View>
           </View>
         </View>
       ) : (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Toque num mês para ver os valores.
         </ThemedText>
       )}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: CHART_INCOME }]} />
+          <View style={[styles.dot, { backgroundColor: income }]} />
           <ThemedText type="small">Receita</ThemedText>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: CHART_EXPENSE }]} />
+          <View style={[styles.dot, { backgroundColor: expense }]} />
           <ThemedText type="small">Despesa</ThemedText>
         </View>
       </View>
@@ -193,7 +195,7 @@ const styles = StyleSheet.create({
   wrap: { gap: Spacing.two },
   selectedCard: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 10,
@@ -202,5 +204,5 @@ const styles = StyleSheet.create({
   selectedCol: { flex: 1, gap: 2 },
   legend: { flexDirection: "row", gap: Spacing.three },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: 8, height: 8, borderRadius: Radius.full },
 });

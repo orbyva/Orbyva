@@ -1,20 +1,27 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { type Href, usePathname, useRouter } from "expo-router";
 import { Pressable, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ThemedText } from "@/components/themed-text";
 import { FabSize } from "@/constants/theme";
+import { scrim } from "@/domain/ui/color";
 import { useAppShell } from "@/hooks/use-app-shell";
-import { useTheme } from "@/hooks/use-theme";
-import { normalizePath, quickAddActionsForPath } from "@/lib/nav";
+import { useModuleColors, useModuleForegrounds } from "@/hooks/use-theme";
+import {
+  normalizePath,
+  quickAddActionsForPath,
+  quickAddModuleForPath,
+} from "@/lib/nav";
 
 export function QuickAddFab() {
-  const theme = useTheme();
+  const moduleColors = useModuleColors();
+  const moduleForegrounds = useModuleForegrounds();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const { setAlertsOpen, quickAddOpen, setQuickAddOpen } = useAppShell();
   const actions = quickAddActionsForPath(normalizePath(pathname));
+  const module = quickAddModuleForPath(pathname);
   const direct =
     actions.length === 1 && actions[0]?.href ? actions[0] : null;
 
@@ -45,14 +52,16 @@ export function QuickAddFab() {
       style={[
         styles.fab,
         {
-          backgroundColor: theme.primary,
+          backgroundColor: moduleColors[module],
           bottom: Math.max(insets.bottom, 12) + 12,
         },
       ]}
     >
-      <ThemedText type="smallBold" style={styles.label}>
-        {quickAddOpen && !direct ? "×" : "+"}
-      </ThemedText>
+      <Ionicons
+        name={quickAddOpen && !direct ? "close" : "add"}
+        size={30}
+        color={moduleForegrounds[module]}
+      />
     </Pressable>
   );
 }
@@ -67,11 +76,10 @@ const styles = StyleSheet.create({
     borderRadius: FabSize / 2,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#0B0F1A",
+    shadowColor: scrim(1),
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-  label: { color: "#0B0F1A", fontSize: 28, lineHeight: 32 },
 });

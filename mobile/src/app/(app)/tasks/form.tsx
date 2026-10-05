@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -38,11 +37,9 @@ import { StringSelectModal } from "@/components/StringSelectModal";
 import { SubtaskFormRow } from "@/components/SubtaskFormRow";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner, Button, Field, FormSection, Input, useInputStyle } from "@/components/ui";
 import { TimeField } from "@/components/TimeField";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { FormSection } from "@/components/ui/FormSection";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { PRIORITY_OPTIONS } from "@/domain/tasks/priority";
 import {
   formatRecurrenceSummary,
@@ -56,6 +53,7 @@ import {
   isSubtaskDueDateValid,
   sortSubtasks,
 } from "@/domain/tasks/subtasks";
+import { DEFAULT_TAG_COLOR } from "@/domain/dimensions/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { formatDateBR } from "@/lib/currency";
@@ -95,6 +93,7 @@ const STATUS_CHIPS = (Object.keys(TASK_STATUS_LABELS) as TaskStatus[]).map(
 
 export default function TaskFormScreen() {
   const theme = useTheme();
+  const field = useInputStyle();
   const { fail, ok } = useFeedback();
   const router = useRouter();
   const navigation = useNavigation();
@@ -119,10 +118,10 @@ export default function TaskFormScreen() {
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [newTag, setNewTag] = useState("");
-  const [newTagColor, setNewTagColor] = useState("#A855F7");
+  const [newTagColor, setNewTagColor] = useState(DEFAULT_TAG_COLOR);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [editTagName, setEditTagName] = useState("");
-  const [editTagColor, setEditTagColor] = useState("#A855F7");
+  const [editTagColor, setEditTagColor] = useState(DEFAULT_TAG_COLOR);
   const [repeat, setRepeat] = useState<"none" | RecurrenceFrequency>("none");
   const [interval, setInterval] = useState("1");
   const [until, setUntil] = useState<string | null>(null);
@@ -503,7 +502,7 @@ export default function TaskFormScreen() {
       const created = await createTagApi(trimmed, newTagColor);
       setTags((cur) => [...cur, created].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
       setTagIds((cur) => [...cur, created.id]);
-      setNewTagColor("#A855F7");
+      setNewTagColor(DEFAULT_TAG_COLOR);
     } catch (err) {
       fail(getErrorMessage(err, "Não foi possível criar a tag."));
     }
@@ -518,7 +517,7 @@ export default function TaskFormScreen() {
   function startEditTag(tag: Tag) {
     setEditingTag(tag);
     setEditTagName(tag.name);
-    setEditTagColor(tag.color || "#A855F7");
+    setEditTagColor(tag.color || DEFAULT_TAG_COLOR);
   }
 
   async function saveEditTag() {
@@ -726,14 +725,6 @@ export default function TaskFormScreen() {
     ]);
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   if (loading) {
     return (
@@ -769,17 +760,15 @@ export default function TaskFormScreen() {
         >
           <Banner message={error} />
           {isSubtask && parentTitle ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Subtarefa de “{parentTitle}”
             </ThemedText>
           ) : null}
 
           <Field label="Título" required>
-            <TextInput
+            <Input
               autoFocus={!editId}
               placeholder="O que precisa ser feito?"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={title}
               onChangeText={setTitle}
             />
@@ -788,7 +777,7 @@ export default function TaskFormScreen() {
           <Field label="Projeto">
             <Pressable
               onPress={() => setProjectPickerOpen(true)}
-              style={inputStyle}
+              style={field.container}
             >
               <ThemedText>{projectName}</ThemedText>
             </Pressable>
@@ -824,7 +813,6 @@ export default function TaskFormScreen() {
                   value={dueDate}
                   onChange={setDueDate}
                   maximumDate={maxDueDate}
-                  style={inputStyle}
                 />
                 <View style={styles.chipRow}>
                   <ChoiceChip
@@ -834,7 +822,7 @@ export default function TaskFormScreen() {
                   />
                 </View>
                 {dueTime ? (
-                  <TimeField value={dueTime} onChange={setDueTime} style={inputStyle} />
+                  <TimeField value={dueTime} onChange={setDueTime} />
                 ) : null}
                 <ChipBar
                   options={[
@@ -845,33 +833,31 @@ export default function TaskFormScreen() {
                   onChange={(id) => setIsQuick(id === "quick")}
                 />
                 {!isQuick ? (
-                  <TextInput
+                  <Input
                     keyboardType="number-pad"
                     placeholder="Duração em minutos"
-                    placeholderTextColor={theme.textSecondary}
-                    style={inputStyle}
                     value={durationMinutes}
                     onChangeText={(value) =>
                       setDurationMinutes(value.replace(/\D/g, "").slice(0, 4))
                     }
                   />
                 ) : (
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     Pontual vira bolinha na grade de horas, sem duração.
                   </ThemedText>
                 )}
               </>
             ) : (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Vai para a inbox até você definir uma data.
               </ThemedText>
             )}
             {dueDateError ? (
-              <ThemedText type="small" themeColor="danger">
+              <ThemedText type="small" themeColor="destructive">
                 {dueDateError}
               </ThemedText>
             ) : isSubtask && parentDueDate ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 No máximo {formatDateBR(parentDueDate)} (tarefa principal).
               </ThemedText>
             ) : null}
@@ -936,7 +922,7 @@ export default function TaskFormScreen() {
                       <View
                         style={[
                           styles.tagDot,
-                          { backgroundColor: tag.color || "#A855F7" },
+                          { backgroundColor: tag.color || DEFAULT_TAG_COLOR },
                         ]}
                       />
                       <ThemedText
@@ -956,45 +942,41 @@ export default function TaskFormScreen() {
             ) : null}
             {editingTag ? (
               <View style={styles.field}>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Editar tag
                 </ThemedText>
-                <TextInput
+                <Input
                   placeholder="Nome"
-                  placeholderTextColor={theme.textSecondary}
-                  style={inputStyle}
                   value={editTagName}
                   onChangeText={setEditTagName}
                 />
                 <ColorDots value={editTagColor} onChange={setEditTagColor} />
                 <View style={styles.chipRow}>
-                  <FormButton
+                  <Button
                     label="Salvar"
-                    tone="primary"
-                    compact
-                    flex
                     onPress={() => void saveEditTag()}
+                    size="sm"
+                    style={{ flex: 1 }}
                   />
-                  <FormButton
+                  <Button
                     label="Excluir"
-                    tone="danger"
-                    compact
-                    flex
                     onPress={() => confirmDeleteTag(editingTag)}
+                    variant="destructive"
+                    size="sm"
+                    style={{ flex: 1 }}
                   />
-                  <FormButton
+                  <Button
                     label="Cancelar"
-                    compact
-                    flex
                     onPress={() => setEditingTag(null)}
+                    variant="outline"
+                    size="sm"
+                    style={{ flex: 1 }}
                   />
                 </View>
               </View>
             ) : null}
-            <TextInput
+            <Input
               placeholder="Nova tag"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={newTag}
               onChangeText={setNewTag}
               onSubmitEditing={() => void addTag()}
@@ -1003,7 +985,7 @@ export default function TaskFormScreen() {
             {newTag.trim() ? (
               <ColorDots value={newTagColor} onChange={setNewTagColor} />
             ) : (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Segure uma tag para editar ou excluir.
               </ThemedText>
             )}
@@ -1042,17 +1024,16 @@ export default function TaskFormScreen() {
                 </View>
                 {repeat !== "none" ? (
                   <>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       A cada
                     </ThemedText>
-                    <TextInput
+                    <Input
                       keyboardType="number-pad"
                       value={interval}
                       onChangeText={(value) => {
                         setInterval(value.replace(/\D/g, "") || "1");
                         setRepeatDirty(true);
                       }}
-                      style={inputStyle}
                     />
                     {repeat === "weekly" ? (
                       <>
@@ -1090,7 +1071,7 @@ export default function TaskFormScreen() {
                           ))}
                         </View>
                         {weekdays.length === 0 ? (
-                          <ThemedText type="small" themeColor="textSecondary">
+                          <ThemedText type="small" themeColor="mutedForeground">
                             {WEEKDAYS_EMPTY_HINT}
                           </ThemedText>
                         ) : null}
@@ -1116,7 +1097,7 @@ export default function TaskFormScreen() {
                         />
                       </View>
                     ) : null}
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       Termina
                     </ThemedText>
                     <View style={styles.chipRow}>
@@ -1149,32 +1130,31 @@ export default function TaskFormScreen() {
                             setUntil(value);
                             setRepeatDirty(true);
                           }}
-                          style={inputStyle}
                         />
-                        <FormButton
+                        <Button
                           label="Remover término"
-                          compact
                           onPress={() => {
                             setUntil(null);
                             setEndMode("never");
                             setRepeatDirty(true);
                           }}
+                          variant="outline"
+                          size="sm"
                         />
                       </>
                     ) : null}
                     {endMode === "count" ? (
                       <>
-                        <TextInput
+                        <Input
                           keyboardType="number-pad"
                           value={endCount}
                           onChangeText={(value) => {
                             setEndCount(value.replace(/\D/g, "") || "1");
                             setRepeatDirty(true);
                           }}
-                          style={inputStyle}
                           accessibilityLabel="Número de ocorrências"
                         />
-                        <ThemedText type="small" themeColor="textSecondary">
+                        <ThemedText type="small" themeColor="mutedForeground">
                           ocorrências
                         </ThemedText>
                       </>
@@ -1183,7 +1163,7 @@ export default function TaskFormScreen() {
                 ) : null}
               </>
             ) : null}
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {repeatHint}
             </ThemedText>
           </Field>
@@ -1203,13 +1183,12 @@ export default function TaskFormScreen() {
             {links.map((link, index) => (
               <View key={`link-${index}`} style={styles.linkBlock}>
                 <View style={styles.subRow}>
-                  <TextInput
+                  <Input
                     autoCapitalize="none"
                     autoCorrect={false}
                     keyboardType="url"
                     placeholder="https://"
-                    placeholderTextColor={theme.textSecondary}
-                    style={[inputStyle, styles.flex]}
+                    style={styles.flex}
                     value={link.url}
                     onChangeText={(value) =>
                       setLinks((cur) =>
@@ -1219,10 +1198,8 @@ export default function TaskFormScreen() {
                       )
                     }
                   />
-                  <FormButton
+                  <Button
                     label="Excluir"
-                    tone="danger"
-                    compact
                     onPress={() =>
                       setLinks((cur) =>
                         cur.length === 1
@@ -1230,12 +1207,12 @@ export default function TaskFormScreen() {
                           : cur.filter((_, rowIndex) => rowIndex !== index)
                       )
                     }
+                    variant="destructive"
+                    size="sm"
                   />
                 </View>
-                <TextInput
+                <Input
                   placeholder="Comentário (opcional)"
-                  placeholderTextColor={theme.textSecondary}
-                  style={inputStyle}
                   value={link.comment}
                   onChangeText={(value) =>
                     setLinks((cur) =>
@@ -1246,24 +1223,27 @@ export default function TaskFormScreen() {
                   }
                 />
                 {link.url.trim() ? (
-                  <FormButton
+                  <Button
                     label="Abrir"
-                    compact
                     onPress={() => openExternalUrl(link.url)}
+                    variant="outline"
+                    size="sm"
                   />
                 ) : null}
               </View>
             ))}
-            <FormButton
+            <Button
               label="Adicionar link"
               onPress={() =>
                 setLinks((cur) => [...cur, { url: "", comment: "" }])
               }
+              variant="outline"
             />
-            <FormButton
+            <Button
               label="Configurar ícones"
-              compact
               onPress={() => router.push("/tasks/link-icons")}
+              variant="outline"
+              size="sm"
             />
           </Field>
           </FormSection>
@@ -1313,10 +1293,10 @@ export default function TaskFormScreen() {
             {draftSubtasks.map((childTitle, index) => (
               <View key={`draft-${index}`} style={styles.subRow}>
                 <View
-                  style={[styles.subCheck, { borderColor: theme.textSecondary }]}
+                  style={[styles.subCheck, { borderColor: theme.mutedForeground }]}
                 />
-                <TextInput
-                  style={[inputStyle, styles.subInput]}
+                <Input
+                  style={styles.subInput}
                   value={childTitle}
                   onChangeText={(value) =>
                     setDraftSubtasks((cur) =>
@@ -1327,18 +1307,16 @@ export default function TaskFormScreen() {
                   }
                   returnKeyType="done"
                 />
-                <FormButton
+                <Button
                   label="Excluir"
-                  tone="danger"
-                  compact
                   onPress={() => removeDraft(index)}
+                  variant="destructive"
+                  size="sm"
                 />
               </View>
             ))}
-            <TextInput
+            <Input
               placeholder="Nova subtarefa"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={subtaskTitle}
               onChangeText={setSubtaskTitle}
               onSubmitEditing={() => void addSubtask()}
@@ -1354,11 +1332,10 @@ export default function TaskFormScreen() {
             hint={description.trim() ? "Preenchida" : undefined}
           >
           <Field label="Descrição">
-            <TextInput
+            <Input
               multiline
               placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={[inputStyle, styles.area]}
+              style={styles.area}
               value={description}
               onChangeText={setDescription}
               textAlignVertical="top"
@@ -1368,20 +1345,20 @@ export default function TaskFormScreen() {
 
           {editId ? <TaskMentionsSection taskId={editId} /> : null}
 
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Criar tarefa"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
 
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir tarefa"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -1406,55 +1383,28 @@ export default function TaskFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
   field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   area: { minHeight: 120, paddingTop: 12 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   weekday: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
   },
   tagChip: { flexDirection: "row", alignItems: "center", gap: 8 },
-  tagDot: { width: 8, height: 8, borderRadius: 4 },
+  tagDot: { width: 8, height: 8, borderRadius: Radius.full },
   linkBlock: { gap: 8 },
   subRow: {
     flexDirection: "row",
@@ -1464,7 +1414,7 @@ const styles = StyleSheet.create({
   subCheck: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: Radius.full,
     borderWidth: 2,
   },
   subInput: {
@@ -1472,14 +1422,4 @@ const styles = StyleSheet.create({
     minHeight: 40,
     paddingHorizontal: 10,
   },
-  subDone: { textDecorationLine: "line-through", opacity: 0.55 },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  error: { color: "#E11D48", textAlign: "center" },
 });

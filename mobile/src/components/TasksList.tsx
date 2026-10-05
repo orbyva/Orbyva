@@ -2,13 +2,13 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { TaskIconBadge } from "@/components/TaskIconBadge";
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
+import { Card, EmptyState } from "@/components/ui";
 import {
   resolveLinkAppearance,
   type LinkIconRuleShape,
 } from "@/domain/tasks/linkIconRules";
-import { Spacing } from "@/constants/theme";
-import { PRIORITY_COLORS } from "@/domain/tasks/priority";
+import { Radius, Spacing } from "@/constants/theme";
+import { PRIORITY_TONE } from "@/domain/tasks/priority";
 import { taskScheduleMeta, todayIsoDate } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { openExternalUrl } from "@/lib/url";
@@ -68,10 +68,11 @@ export function TasksList({
 
   if (visible.length === 0) {
     return (
-      <View style={styles.empty}>
-        <ThemedText type="smallBold">{emptyTitle}</ThemedText>
-        <ThemedText themeColor="textSecondary">{emptyHint}</ThemedText>
-      </View>
+      <EmptyState
+        icon="checkbox-outline"
+        title={emptyTitle}
+        description={emptyHint}
+      />
     );
   }
 
@@ -79,7 +80,7 @@ export function TasksList({
     <View style={styles.stack}>
       {visible.map((section) => (
         <View key={section.id} style={styles.section}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {section.label} · {section.items.length}
           </ThemedText>
           <Card>
@@ -105,7 +106,7 @@ export function TasksList({
                   style={[
                     index > 0 && {
                       borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: theme.backgroundSelected,
+                      borderTopColor: theme.border,
                     },
                   ]}
                 >
@@ -138,7 +139,7 @@ export function TasksList({
                           <View
                             style={[
                               styles.prio,
-                              { backgroundColor: PRIORITY_COLORS[task.priority] },
+                              { backgroundColor: theme[PRIORITY_TONE[task.priority]] },
                             ]}
                           />
                         ) : null}
@@ -151,8 +152,7 @@ export function TasksList({
                       </View>
                       <ThemedText
                         type="small"
-                        themeColor="textSecondary"
-                        style={overdue ? styles.overdue : undefined}
+                        themeColor={overdue ? "destructive" : "mutedForeground"}
                       >
                         {meta}
                       </ThemedText>
@@ -211,7 +211,7 @@ export function TasksList({
                               <View
                                 style={[
                                   styles.prio,
-                                  { backgroundColor: PRIORITY_COLORS[child.priority] },
+                                  { backgroundColor: theme[PRIORITY_TONE[child.priority]] },
                                 ]}
                               />
                             ) : null}
@@ -227,8 +227,7 @@ export function TasksList({
                           </View>
                           <ThemedText
                             type="small"
-                            themeColor="textSecondary"
-                            style={childOverdue ? styles.overdue : undefined}
+                            themeColor={childOverdue ? "destructive" : "mutedForeground"}
                           >
                             {taskScheduleMeta(child)}
                           </ThemedText>
@@ -270,9 +269,9 @@ function LinkChip({
         iconKey={appearance.iconKey}
         iconUrl={appearance.iconUrl}
         size={14}
-        color={theme.textSecondary}
+        color={theme.mutedForeground}
       />
-      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+      <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
         {appearance.label}
       </ThemedText>
     </Pressable>
@@ -294,7 +293,7 @@ function Check({
   busy: boolean;
   label: string;
   onPress: () => void;
-  theme: { primary: string; textSecondary: string };
+  theme: { primary: string; mutedForeground: string; destructive: string };
 }) {
   return (
     <Pressable
@@ -307,7 +306,7 @@ function Check({
       style={[
         styles.check,
         {
-          borderColor: overdue ? "#E11D48" : theme.textSecondary,
+          borderColor: overdue ? theme.destructive : theme.mutedForeground,
           backgroundColor: checked ? theme.primary : "transparent",
           opacity: busy ? 0.4 : 1,
         },
@@ -337,17 +336,15 @@ const styles = StyleSheet.create({
   check: {
     width: 22,
     height: 22,
-    borderRadius: 11,
+    borderRadius: Radius.full,
     borderWidth: 2,
     marginTop: 2,
   },
   copy: { flex: 1, gap: 2 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   title: { flex: 1 },
-  prio: { width: 8, height: 8, borderRadius: 4 },
-  overdue: { color: "#E11D48" },
+  prio: { width: 8, height: 8, borderRadius: Radius.full },
   childDone: { textDecorationLine: "line-through", opacity: 0.55 },
-  empty: { gap: Spacing.one, paddingVertical: Spacing.four },
   linkChip: {
     flexDirection: "row",
     alignItems: "center",

@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import {
@@ -16,7 +17,6 @@ import {
   fetchValueByTypeForMonth,
 } from "@/api/finance/dashboard";
 import {
-  CHART_FALLBACK,
   DonutChart,
   type DonutSlice,
 } from "@/components/charts/DonutChart";
@@ -25,7 +25,7 @@ import { NatureLineChart } from "@/components/charts/NatureLineChart";
 import { MonthLedger } from "@/components/MonthLedger";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
+import { Banner, Card } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import {
   buildMomTrends,
@@ -36,9 +36,9 @@ import {
   calculateProjectedMonthBalance,
   getRecurringDueAlerts,
 } from "@/domain/recurring/alerts";
+import { sharedValueSize } from "@/domain/ui/fitText";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
-import { tintedSurface } from "@/lib/color";
 import { formatBRL } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import type {
@@ -62,12 +62,13 @@ function slicesForNature(
     .map((row) => ({
       label: row.type_name,
       value: row.total_value,
-      color: row.type_color || CHART_FALLBACK,
+      color: row.type_color || null,
     }));
 }
 
 export default function FinanceDashboardScreen() {
   const theme = useTheme();
+  const { width: screenW } = useWindowDimensions();
   const { bottomInset } = useAppShell();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -199,6 +200,11 @@ export default function FinanceDashboardScreen() {
     }
   }
 
+  const kpiValueSize = sharedValueSize(
+    [receita, despesa, saldo, projected.projectedBalance].map(formatBRL),
+    (screenW - Spacing.four * 2 - Spacing.two) / 2 - KPI_PADDING * 2
+  );
+
   if (loading) {
     return (
       <ThemedView style={styles.center}>
@@ -223,30 +229,34 @@ export default function FinanceDashboardScreen() {
         <View style={styles.kpiRow}>
           <Kpi
             label="Receita"
+            valueSize={kpiValueSize}
             value={formatBRL(receita)}
             hint={mom.receita}
             accent={theme.success}
           />
           <Kpi
             label="Despesa"
+            valueSize={kpiValueSize}
             value={formatBRL(despesa)}
             hint={mom.despesa}
-            accent={theme.danger}
+            accent={theme.destructive}
           />
         </View>
         <View style={styles.kpiRow}>
           <Kpi
             label="Saldo"
+            valueSize={kpiValueSize}
             value={formatBRL(saldo)}
             hint={mom.saldo}
-            accent={saldo < 0 ? theme.danger : theme.primary}
+            accent={saldo < 0 ? theme.destructive : theme.primary}
           />
           <Kpi
             label="Saldo previsto"
+            valueSize={kpiValueSize}
             value={formatBRL(projected.projectedBalance)}
             hint={`A pagar: ${formatBRL(committed.pay)} · A receber: ${formatBRL(committed.receive)}`}
             accent={
-              projected.projectedBalance < 0 ? theme.danger : theme.success
+              projected.projectedBalance < 0 ? theme.destructive : theme.success
             }
           />
         </View>
@@ -257,7 +267,7 @@ export default function FinanceDashboardScreen() {
             {alerts.map((alert) => (
               <ThemedText
                 key={`${alert.recurring.id}-${alert.installmentNumber}`}
-                themeColor="textSecondary"
+                themeColor="mutedForeground"
               >
                 {alert.status === "overdue" ? "Atrasada · " : "Vence · "}
                 {alert.message}
@@ -276,7 +286,7 @@ export default function FinanceDashboardScreen() {
             value={donutTab}
             onChange={selectDonutTab}
           />
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Toque uma fatia para ver o valor e filtrar o extrato.
           </ThemedText>
           <DonutChart
@@ -286,7 +296,7 @@ export default function FinanceDashboardScreen() {
             )}
             background={theme.background}
             selectedLabel={selectedType}
-            selectedRowBg={theme.backgroundSelected}
+            selectedRowBg={theme.border}
             onSlicePress={(slice) => {
               setSelectedType((cur) =>
                 cur === slice.label ? null : slice.label
@@ -309,17 +319,17 @@ export default function FinanceDashboardScreen() {
                 params: { id: String(tx.id) },
               })
             }
-            headerBg={theme.backgroundSelected}
-            rowBg={theme.backgroundElement}
+            headerBg={theme.border}
+            rowBg={theme.muted}
           />
         </View>
 
         <View style={styles.block}>
           <ThemedText type="smallBold">Receita e despesa no tempo</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Últimos 12 meses
           </ThemedText>
-          <NatureLineChart series={series} textColor={theme.text} />
+          <NatureLineChart series={series} textColor={theme.foreground} />
         </View>
       </ScrollView>
     </ThemedView>
@@ -331,51 +341,41 @@ function Kpi({
   value,
   hint,
   accent,
+  valueSize,
 }: {
   label: string;
   value: string;
   hint?: string | null;
   accent: string;
+  valueSize: { fontSize: number; lineHeight: number };
 }) {
   return (
-    <View style={[styles.kpi, tintedSurface(accent)]}>
-      <ThemedText
-        type="smallBold"
-        style={[styles.kpiLabel, { color: accent, borderBottomColor: accent }]}
-      >
+    <Card style={styles.kpi}>
+      <View style={[styles.kpiBar, { backgroundColor: accent }]} />
+      <ThemedText type="micro" themeColor="mutedForeground" style={styles.kpiLabel}>
         {label}
       </ThemedText>
-      <ThemedText type="smallBold" style={[styles.kpiValue, { color: accent }]}>
+      <ThemedText type="value" numberOfLines={1} style={[valueSize, { color: accent }]}>
         {value}
       </ThemedText>
       {hint ? (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="caption" themeColor="mutedForeground">
           {hint}
         </ThemedText>
       ) : null}
-    </View>
+    </Card>
   );
 }
+
+const KPI_PADDING = Spacing.three;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
   kpiRow: { flexDirection: "row", gap: Spacing.two },
-  kpi: {
-    flex: 1,
-    borderRadius: 16,
-    padding: Spacing.three,
-    gap: 6,
-    borderWidth: 1,
-  },
-  kpiLabel: {
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    borderBottomWidth: 2,
-    paddingBottom: 6,
-  },
-  kpiValue: { fontSize: 18, lineHeight: 24 },
+  kpi: { flex: 1, gap: 4, padding: KPI_PADDING, overflow: "hidden" },
+  kpiBar: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3 },
+  kpiLabel: { textTransform: "uppercase", letterSpacing: 0.4 },
   block: { gap: Spacing.two },
-  error: { color: "#E11D48" },
 });

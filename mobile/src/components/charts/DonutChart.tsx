@@ -3,12 +3,10 @@ import { Pressable, StyleSheet, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import { formatBRL } from "@/lib/currency";
-
-export const CHART_INCOME = "#16A34A";
-export const CHART_EXPENSE = "#E11D48";
-export const CHART_FALLBACK = "#A1A1AA";
 
 export type DonutSlice = {
   label: string;
@@ -52,6 +50,8 @@ export function DonutChart({
   selectedRowBg?: string;
   onSlicePress?: (slice: DonutSlice) => void;
 }) {
+  const theme = useTheme();
+  const fallback = theme.mutedForeground;
   const size = 196;
   const cx = size / 2;
   const cy = size / 2;
@@ -85,7 +85,7 @@ export function DonutChart({
               cx={cx}
               cy={cy}
               r={(rOuter + rInner) / 2}
-              stroke={CHART_FALLBACK}
+              stroke={fallback}
               strokeWidth={rOuter - rInner}
               fill="none"
               opacity={0.35}
@@ -96,7 +96,7 @@ export function DonutChart({
                 cx={cx}
                 cy={cy}
                 r={rOuter}
-                fill={paths[0].color || CHART_FALLBACK}
+                fill={paths[0].color || fallback}
                 onPress={() => onSlicePress?.(paths[0])}
               />
               <Circle cx={cx} cy={cy} r={rInner} fill={background} />
@@ -115,7 +115,7 @@ export function DonutChart({
                     p.start,
                     Math.min(p.end, 359.999)
                   )}
-                  fill={p.color || CHART_FALLBACK}
+                  fill={p.color || fallback}
                   opacity={active ? 1 : 0.35}
                   onPress={() => onSlicePress?.(p)}
                 />
@@ -132,7 +132,7 @@ export function DonutChart({
             {holeTitle}
           </ThemedText>
           {selected ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {formatBRL(selected.value)}
             </ThemedText>
           ) : null}
@@ -140,7 +140,7 @@ export function DonutChart({
       </View>
       <View style={styles.legend}>
         {slices.length === 0 ? (
-          <ThemedText themeColor="textSecondary">
+          <ThemedText themeColor="mutedForeground">
             Sem dados neste recorte.
           </ThemedText>
         ) : (
@@ -154,13 +154,13 @@ export function DonutChart({
                   styles.legendRow,
                   active && selectedRowBg
                     ? { backgroundColor: selectedRowBg }
-                    : active && styles.legendRowActive,
+                    : active && { backgroundColor: hexAlpha(theme.primary, 0.12) },
                 ]}
               >
                 <View
                   style={[
                     styles.swatch,
-                    { backgroundColor: s.color || CHART_FALLBACK },
+                    { backgroundColor: s.color || fallback },
                   ]}
                 />
                 <ThemedText style={styles.legendLabel} numberOfLines={1}>
@@ -193,9 +193,8 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 6,
     paddingHorizontal: 4,
-    borderRadius: 8,
+    borderRadius: Radius.md,
   },
-  legendRowActive: { backgroundColor: "rgba(14,165,233,0.12)" },
   swatch: { width: 10, height: 10, borderRadius: 2 },
   legendLabel: { flex: 1 },
 });

@@ -103,6 +103,7 @@ export function typeIdAtPoint(
   return null;
 }
 
+// token-livre-início: paleta de cor escolhida pelo usuário e gravada no banco
 export const CATEGORY_COLORS = [
   "#0EA5E9",
   "#22A37A",
@@ -115,6 +116,12 @@ export const CATEGORY_COLORS = [
   "#14B8A6",
   "#F59E0B",
 ] as const;
+
+/** Cor inicial de uma etiqueta nova no formulário de tarefa (gravada no dado). */
+export const DEFAULT_TAG_COLOR = "#A855F7";
+/** Cor inicial na tela de etiquetas (gravada no dado). */
+export const NEUTRAL_TAG_COLOR = "#94a3b8";
+// token-livre-fim
 
 export function normalizeHexColor(raw: string): string | null {
   const t = raw.trim();

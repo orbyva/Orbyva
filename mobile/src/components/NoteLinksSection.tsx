@@ -5,7 +5,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -19,9 +18,10 @@ import {
 import { fetchProjects } from "@/api/tasks/projects";
 import { fetchTasks } from "@/api/tasks/tasks";
 import { ChipBar } from "@/components/ChipBar";
+import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   NOTE_LINK_PICK_TYPES,
   NOTE_LINK_TYPE_LABEL,
@@ -162,13 +162,13 @@ export function NoteLinksSection({ noteId }: { noteId: string }) {
               style={[
                 styles.chip,
                 {
-                  backgroundColor: theme.backgroundElement,
-                  borderColor: theme.backgroundSelected,
+                  backgroundColor: theme.muted,
+                  borderColor: theme.border,
                 },
               ]}
             >
               <Pressable onPress={() => openLink(link)} style={styles.chipCopy}>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {NOTE_LINK_TYPE_LABEL[link.entity_type]}
                 </ThemedText>
                 <ThemedText type="smallBold" numberOfLines={1} style={styles.chipLabel}>
@@ -176,13 +176,13 @@ export function NoteLinksSection({ noteId }: { noteId: string }) {
                 </ThemedText>
               </Pressable>
               <Pressable onPress={() => void onRemove(link)} hitSlop={8}>
-                <Ionicons name="close" size={14} color={theme.danger} />
+                <Ionicons name="close" size={14} color={theme.destructive} />
               </Pressable>
             </View>
           ))}
         </View>
       ) : (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Nada vinculado ainda.
         </ThemedText>
       )}
@@ -191,8 +191,8 @@ export function NoteLinksSection({ noteId }: { noteId: string }) {
         style={[
           styles.addBtn,
           {
-            backgroundColor: theme.backgroundElement,
-            borderColor: theme.backgroundSelected,
+            backgroundColor: theme.muted,
+            borderColor: theme.border,
           },
         ]}
       >
@@ -235,26 +235,17 @@ export function NoteLinksSection({ noteId }: { noteId: string }) {
                 setQuery("");
               }}
             />
-            <TextInput
+            <SearchField
               placeholder={`Buscar ${NOTE_LINK_TYPE_LABEL[pickType].toLowerCase()}`}
-              placeholderTextColor={theme.textSecondary}
               value={query}
               onChangeText={setQuery}
-              style={[
-                styles.search,
-                {
-                  color: theme.text,
-                  borderColor: theme.backgroundSelected,
-                  backgroundColor: theme.backgroundElement,
-                },
-              ]}
             />
             <ScrollView
               contentContainerStyle={styles.list}
               keyboardShouldPersistTaps="handled"
             >
               {available.length === 0 ? (
-                <ThemedText themeColor="textSecondary">
+                <ThemedText themeColor="mutedForeground">
                   Nada para vincular neste recorte.
                 </ThemedText>
               ) : (
@@ -264,7 +255,7 @@ export function NoteLinksSection({ noteId }: { noteId: string }) {
                     onPress={() => void onPick(opt.id)}
                     style={[
                       styles.row,
-                      { backgroundColor: theme.backgroundElement },
+                      { backgroundColor: theme.muted },
                     ]}
                   >
                     <ThemedText>{opt.label}</ThemedText>
@@ -288,7 +279,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     maxWidth: "100%",
-    borderRadius: 999,
+    borderRadius: Radius.full,
     borderWidth: 1,
     paddingLeft: 12,
     paddingRight: 8,
@@ -301,7 +292,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -315,13 +306,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.two,
   },
   modalBody: { flex: 1, paddingHorizontal: Spacing.four, gap: Spacing.two },
-  search: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
   list: { paddingBottom: 48, gap: Spacing.two },
-  row: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14 },
+  row: { borderRadius: Radius.xl, paddingHorizontal: 14, paddingVertical: 14 },
 });

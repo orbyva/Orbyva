@@ -18,9 +18,8 @@ import { SearchField } from "@/components/SearchField";
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
-import { Spacing } from "@/constants/theme";
+import { Banner, Card } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   filterPlaces,
   getAverageRating,
@@ -184,7 +183,7 @@ export default function PlacesScreen() {
           }
         >
           {avgRating != null ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Média {avgRating}★
               {recommendPct != null ? ` · ${recommendPct}% recomendaria` : ""}
             </ThemedText>
@@ -226,7 +225,7 @@ export default function PlacesScreen() {
             ) : null}
           </FilterRow>
           {visible.length === 0 ? (
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               Nenhum lugar neste filtro.
             </ThemedText>
           ) : (
@@ -250,7 +249,7 @@ export default function PlacesScreen() {
                     </View>
                     <View style={styles.copy}>
                       <ThemedText type="smallBold">{place.name}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {[
                           PLACE_TYPE_LABELS[place.type] ?? place.type,
                           (place.opinionSummary?.totalOpinions ?? 0) > 1
@@ -284,7 +283,7 @@ export default function PlacesScreen() {
                     <Ionicons
                       name="trash-outline"
                       size={18}
-                      color={theme.danger}
+                      color={theme.destructive}
                     />
                   </Pressable>
                 </Card>
@@ -318,7 +317,7 @@ const styles = StyleSheet.create({
   iconWell: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
-import { StyleSheet, Switch, TextInput, View } from "react-native";
+import { StyleSheet, Switch, View } from "react-native";
 
 import { upsertPlaceOpinion } from "@/api/places/places";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Card, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { formatRating, summarizePlaceOpinions } from "@/domain/places";
-import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import type { PlaceVisit, TripPlaceOpinion } from "@/types/places";
@@ -27,7 +25,6 @@ export function PlaceOpinionsCard({
   currentUserId: string | null;
   onSaved: () => void | Promise<void>;
 }) {
-  const theme = useTheme();
   const { ok, fail } = useFeedback();
   const mine = opinions.find((o) => o.user_id === currentUserId) ?? null;
   const [rating, setRating] = useState<number | null>(null);
@@ -62,7 +59,7 @@ export function PlaceOpinionsCard({
     <Card style={styles.card}>
       <ThemedText type="smallBold">Opiniões da viagem</ThemedText>
       {summary.totalOpinions > 0 ? (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           {[
             summary.avgRating != null ? `${formatRating(summary.avgRating)}★ de média` : null,
             `${summary.totalOpinions} opini${summary.totalOpinions === 1 ? "ão" : "ões"}`,
@@ -81,7 +78,7 @@ export function PlaceOpinionsCard({
             {opinion.would_recommend === false ? " · não recomenda" : " · recomenda"}
           </ThemedText>
           {opinion.notes?.trim() ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {opinion.notes.trim()}
             </ThemedText>
           ) : null}
@@ -105,27 +102,19 @@ export function PlaceOpinionsCard({
         <ThemedText style={styles.flex}>Recomendo</ThemedText>
         <Switch value={recommend} onValueChange={setRecommend} />
       </View>
-      <TextInput
+      <Input
         placeholder="Comentário (opcional)"
-        placeholderTextColor={theme.textSecondary}
         value={notes}
         onChangeText={setNotes}
         multiline
-        style={[
-          styles.input,
-          {
-            color: theme.text,
-            borderColor: theme.backgroundSelected,
-            backgroundColor: theme.backgroundElement,
-          },
-        ]}
+containerStyle={styles.input}
       />
-      <FormButton
+      <Button
         label={saving ? "Salvando…" : mine ? "Atualizar opinião" : "Salvar opinião"}
-        tone="primary"
         disabled={saving}
-        busy={saving}
+        loading={saving}
         onPress={() => void save()}
+        size="lg"
       />
     </Card>
   );
@@ -139,11 +128,6 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   flex: { flex: 1 },
   input: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 16,
   },
 });

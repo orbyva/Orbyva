@@ -8,7 +8,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -18,10 +17,10 @@ import { fetchProjects } from "@/api/tasks/projects";
 import { fetchTags } from "@/api/tasks/tags";
 import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { NoteFolderTree } from "@/components/NoteFolderTree";
+import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
+import { Banner, Card, EmptyState } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import {
   filterNotes,
@@ -226,19 +225,11 @@ export default function NotesScreen() {
             />
           }
         >
-          <TextInput
+          <SearchField
             value={search}
             onChangeText={setSearch}
             placeholder="Buscar notas"
-            placeholderTextColor={theme.textSecondary}
-            style={[
-              styles.search,
-              {
-                color: theme.text,
-                borderColor: theme.backgroundSelected,
-                backgroundColor: theme.backgroundElement,
-              },
-            ]}
+style={styles.search}
           />
           {projectChips.length > 2 ? (
             <FilterRow>
@@ -272,10 +263,11 @@ export default function NotesScreen() {
             onDelete={(folder) => void handleDeleteFolder(folder)}
           />
           {emptyTitle ? (
-            <View style={styles.empty}>
-              <ThemedText type="smallBold">{emptyTitle}</ThemedText>
-              <ThemedText themeColor="textSecondary">{emptyCopy}</ThemedText>
-            </View>
+            <EmptyState
+              icon="document-text-outline"
+              title={emptyTitle}
+              description={emptyCopy}
+            />
           ) : (
             visible.map((note) => {
               const excerpt =
@@ -311,7 +303,7 @@ export default function NotesScreen() {
                         <Ionicons
                           name="trash-outline"
                           size={18}
-                          color={theme.danger}
+                          color={theme.destructive}
                         />
                       </Pressable>
                     </View>
@@ -322,13 +314,13 @@ export default function NotesScreen() {
                       {excerpt ? (
                         <ThemedText
                           type="small"
-                          themeColor="textSecondary"
+                          themeColor="mutedForeground"
                           numberOfLines={2}
                         >
                           {excerpt}
                         </ThemedText>
                       ) : null}
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {[folderName, projectName, formatDateBR(note.updated_at)]
                           .filter(Boolean)
                           .join(" · ")}
@@ -354,11 +346,6 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   search: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
     marginBottom: Spacing.one,
   },
   card: {
@@ -377,7 +364,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  empty: { gap: Spacing.one, paddingVertical: Spacing.four },
   banner: {
     marginHorizontal: Spacing.four,
     marginTop: Spacing.two,

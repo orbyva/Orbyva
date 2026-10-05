@@ -13,7 +13,7 @@ import { createTransaction, deleteTransaction } from "@/api/finance/transactions
 import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
 
 const RECURRING_SELECT =
-  "id, user_id, class_id, value, description, frequency, validity, due_day, installment_count, payment_start_date, status, created_at, paid_parcels, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))";
+  "id, user_id, class_id, value, description, frequency, validity, due_day, installment_count, payment_start_date, status, created_at, paid_parcels, link_url, class:class_id(id, name, type:type_id(name, hex_color, lucide_icon, exclude_from_spend, nature:nature_id(name)))";
 
 function withInstallments(rec: Recurring): Recurring {
   return {
@@ -94,6 +94,7 @@ export async function updateRecurringApi(
       installment_count: data.installment_count,
       payment_start_date: data.payment_start_date,
       status: data.status,
+      link_url: data.link_url,
     })
     .eq("id", id)
     .eq("user_id", userId);

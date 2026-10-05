@@ -1,24 +1,21 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { Radius } from "@/constants/theme";
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
+import { Card, EmptyState } from "@/components/ui";
+import { natureTone } from "@/domain/ui/semanticTone";
 import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import type { Transaction } from "@/types/finance";
 
-function natureColor(name?: string | null): string {
-  if (name === "Receita") return "#16A34A";
-  if (name === "Investimento") return "#0F766E";
-  return "#E11D48";
-}
-
 function NatureBadge({ nature }: { nature: string }) {
-  const color = natureColor(nature);
+  const color = useTheme()[natureTone(nature)];
   return (
-    <View style={[styles.badge, { borderColor: `${color}55` }]}>
-      <ThemedText type="small" style={{ color, fontSize: 12 }}>
+    <View style={[styles.badge, { borderColor: hexAlpha(color, 0.33) }]}>
+      <ThemedText type="caption" style={{ color }}>
         {nature}
       </ThemedText>
     </View>
@@ -38,12 +35,11 @@ export function TransactionsList({
 
   if (transactions.length === 0) {
     return (
-      <View style={styles.empty}>
-        <ThemedText type="smallBold">Nenhuma transação encontrada</ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Adicione um lançamento ou ajuste os filtros de busca.
-        </ThemedText>
-      </View>
+      <EmptyState
+        icon="receipt-outline"
+        title="Nenhuma transação encontrada"
+        description="Adicione um lançamento ou ajuste os filtros de busca."
+      />
     );
   }
 
@@ -51,7 +47,7 @@ export function TransactionsList({
     <Card>
       {transactions.map((tx, index) => {
         const nature = tx.class?.type?.nature?.name ?? "";
-        const swatch = tx.class?.type?.hex_color || natureColor(nature);
+        const swatch = tx.class?.type?.hex_color || theme[natureTone(nature)];
         return (
           <View
             key={tx.id}
@@ -59,7 +55,7 @@ export function TransactionsList({
               styles.row,
               index > 0 && {
                 borderTopWidth: StyleSheet.hairlineWidth,
-                borderTopColor: theme.backgroundSelected,
+                borderTopColor: theme.border,
               },
             ]}
           >
@@ -81,7 +77,7 @@ export function TransactionsList({
                   <ThemedText numberOfLines={2}>
                     {tx.description || "·"}
                   </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                  <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
                     {tx.class?.type?.name}
                     {tx.class?.name ? ` · ${tx.class.name}` : ""}
                   </ThemedText>
@@ -90,13 +86,13 @@ export function TransactionsList({
               </View>
               <ThemedText
                 type="smallBold"
-                style={{ color: natureColor(nature) }}
+                style={{ color: theme[natureTone(nature)] }}
               >
                 {formatBRL(tx.value)}
               </ThemedText>
             </View>
             <View style={styles.bottom}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {formatDateBR(tx.transaction_at)}
               </ThemedText>
               <View style={styles.actions}>
@@ -106,7 +102,7 @@ export function TransactionsList({
                   hitSlop={8}
                   style={styles.actionBtn}
                 >
-                  <Ionicons name="create-outline" size={18} color={theme.text} />
+                  <Ionicons name="create-outline" size={18} color={theme.foreground} />
                 </Pressable>
                 <Pressable
                   accessibilityLabel="Excluir transação"
@@ -114,7 +110,7 @@ export function TransactionsList({
                   hitSlop={8}
                   style={styles.actionBtn}
                 >
-                  <Ionicons name="trash-outline" size={18} color="#E11D48" />
+                  <Ionicons name="trash-outline" size={18} color={theme.destructive} />
                 </Pressable>
               </View>
             </View>
@@ -126,7 +122,6 @@ export function TransactionsList({
 }
 
 const styles = StyleSheet.create({
-  empty: { paddingVertical: 24, gap: 6, paddingHorizontal: 8 },
   row: {
     paddingHorizontal: 14,
     paddingVertical: 14,
@@ -142,7 +137,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 1,
@@ -151,7 +146,7 @@ const styles = StyleSheet.create({
   badge: {
     alignSelf: "flex-start",
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },

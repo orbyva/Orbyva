@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  TextInput,
   View,
 } from "react-native";
 
@@ -27,10 +26,8 @@ import { PlaceCatalogSearch } from "@/components/PlaceCatalogSearch";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { FormBlock } from "@/components/ui/FormSection";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, Field, FormBlock, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { TRIP_STATUS_LABELS } from "@/domain/travel";
 import {
@@ -221,14 +218,6 @@ export default function TripFormScreen() {
     };
   }, [editId]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     const trimmed = title.trim();
@@ -430,24 +419,22 @@ export default function TripFormScreen() {
           <Banner message={error} />
           <FormBlock title="Essencial">
           <Field label="Título" required>
-            <TextInput
+            <Input
               autoFocus={!editId}
               placeholder="Férias em Lisboa"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={title}
               onChangeText={setTitle}
             />
           </Field>
           <Field label="Início">
-            <DateField value={startDate} onChange={setStartDate} style={inputStyle} />
+            <DateField value={startDate} onChange={setStartDate} />
           </Field>
           <Field label="Fim">
-            <DateField value={endDate} onChange={setEndDate} style={inputStyle} />
+            <DateField value={endDate} onChange={setEndDate} />
           </Field>
           </FormBlock>
           <FormBlock title="Paradas">
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Cidades, estados ou países do roteiro — o destino da viagem sai
             daqui.
           </ThemedText>
@@ -491,10 +478,8 @@ export default function TripFormScreen() {
                   }
                 />
                 {!stop.place_id ? (
-                  <TextInput
+                  <Input
                     placeholder="Ou digite o nome manualmente"
-                    placeholderTextColor={theme.textSecondary}
-                    style={inputStyle}
                     value={stop.name}
                     onChangeText={(value) =>
                       setStops((cur) =>
@@ -514,7 +499,6 @@ export default function TripFormScreen() {
                       )
                     )
                   }
-                  style={inputStyle}
                 />
                 <DateField
                   value={stop.end_date}
@@ -525,18 +509,17 @@ export default function TripFormScreen() {
                       )
                     )
                   }
-                  style={inputStyle}
                 />
-                <FormButton
+                <Button
                   label="Remover parada"
-                  tone="danger"
                   onPress={() =>
                     setStops((cur) => cur.filter((_, i) => i !== index))
                   }
+                  variant="destructive"
                 />
               </View>
             ))}
-            <FormButton
+            <Button
               label="Adicionar parada"
               onPress={() =>
                 setStops((cur) => [
@@ -544,6 +527,7 @@ export default function TripFormScreen() {
                   { name: "", start_date: startDate, end_date: endDate },
                 ])
               }
+              variant="outline"
             />
           </Field>
           </FormBlock>
@@ -552,8 +536,8 @@ export default function TripFormScreen() {
             style={[
               styles.round,
               {
-                backgroundColor: theme.surface,
-                borderColor: theme.backgroundSelected,
+                backgroundColor: theme.card,
+                borderColor: theme.border,
               },
             ]}
           >
@@ -564,15 +548,15 @@ export default function TripFormScreen() {
                     ? "Deslocamentos de ida e volta"
                     : "Incluir deslocamentos de ida e volta"}
                 </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Gera trechos de transporte no roteiro entre origem e paradas.
                 </ThemedText>
               </View>
               <Switch
                 value={includeRoundTrip}
                 onValueChange={setIncludeRoundTrip}
-                trackColor={{ false: theme.backgroundSelected, true: theme.primary }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: theme.input, true: theme.primary }}
+                ios_backgroundColor={theme.input}
               />
             </View>
             {includeRoundTrip ? (
@@ -594,10 +578,8 @@ export default function TripFormScreen() {
                     }
                   />
                   {!homeOrigin?.place_id ? (
-                    <TextInput
+                    <Input
                       placeholder="Ou digite o nome manualmente"
-                      placeholderTextColor={theme.textSecondary}
-                      style={inputStyle}
                       value={homeOrigin?.label ?? ""}
                       onChangeText={(value) =>
                         setHomeOrigin((cur) => ({
@@ -623,10 +605,8 @@ export default function TripFormScreen() {
                   </View>
                 </Field>
                 <Field label="Ida · saída">
-                  <TextInput
+                  <Input
                     placeholder="HH:mm"
-                    placeholderTextColor={theme.textSecondary}
-                    style={inputStyle}
                     value={outboundDepart}
                     onChangeText={(value) => {
                       setOutboundDepart(value);
@@ -635,10 +615,8 @@ export default function TripFormScreen() {
                   />
                 </Field>
                 <Field label="Ida · chegada">
-                  <TextInput
+                  <Input
                     placeholder="HH:mm"
-                    placeholderTextColor={theme.textSecondary}
-                    style={inputStyle}
                     value={outboundArrive}
                     onChangeText={(value) => {
                       setOutboundArrive(value);
@@ -648,19 +626,20 @@ export default function TripFormScreen() {
                 </Field>
                 {canEstimateTransferArrival(roundTripMode) ? (
                   <View style={styles.field}>
-                    <FormButton
+                    <Button
                       label={
                         estimatingLeg === "outbound"
                           ? "Estimando ida…"
                           : "Estimar ida pela rota"
                       }
-                      compact
                       disabled={
                         estimatingLeg != null ||
                         (!outboundDepart.trim() && !outboundArrive.trim())
                       }
-                      busy={estimatingLeg === "outbound"}
+                      loading={estimatingLeg === "outbound"}
                       onPress={() => void handleEstimateLeg("outbound")}
+                      variant="outline"
+                      size="sm"
                     />
                     {!transferEndpointHasCoords(homeOrigin) ||
                     !stops.some(
@@ -671,30 +650,28 @@ export default function TripFormScreen() {
                           lng: stop.lng ?? null,
                         })
                     ) ? (
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         Origem e 1ª parada precisam de coordenadas.
                       </ThemedText>
                     ) : null}
                     {outboundEstimateNote ? (
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {outboundEstimateNote}
                       </ThemedText>
                     ) : (
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {transportModeHint(roundTripMode)}
                       </ThemedText>
                     )}
                   </View>
                 ) : (
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {transportModeHint(roundTripMode)}
                   </ThemedText>
                 )}
                 <Field label="Volta · saída">
-                  <TextInput
+                  <Input
                     placeholder="HH:mm"
-                    placeholderTextColor={theme.textSecondary}
-                    style={inputStyle}
                     value={returnDepart}
                     onChangeText={(value) => {
                       setReturnDepart(value);
@@ -703,10 +680,8 @@ export default function TripFormScreen() {
                   />
                 </Field>
                 <Field label="Volta · chegada">
-                  <TextInput
+                  <Input
                     placeholder="HH:mm"
-                    placeholderTextColor={theme.textSecondary}
-                    style={inputStyle}
                     value={returnArrive}
                     onChangeText={(value) => {
                       setReturnArrive(value);
@@ -716,22 +691,23 @@ export default function TripFormScreen() {
                 </Field>
                 {canEstimateTransferArrival(roundTripMode) ? (
                   <View style={styles.field}>
-                    <FormButton
+                    <Button
                       label={
                         estimatingLeg === "return"
                           ? "Estimando volta…"
                           : "Estimar volta pela rota"
                       }
-                      compact
                       disabled={
                         estimatingLeg != null ||
                         (!returnDepart.trim() && !returnArrive.trim())
                       }
-                      busy={estimatingLeg === "return"}
+                      loading={estimatingLeg === "return"}
                       onPress={() => void handleEstimateLeg("return")}
+                      variant="outline"
+                      size="sm"
                     />
                     {returnEstimateNote ? (
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {returnEstimateNote}
                       </ThemedText>
                     ) : null}
@@ -743,11 +719,9 @@ export default function TripFormScreen() {
 
           <FormBlock title="Detalhes">
             <Field label="Orçamento">
-              <TextInput
+              <Input
                 keyboardType="decimal-pad"
                 placeholder="Opcional"
-                placeholderTextColor={theme.textSecondary}
-                style={inputStyle}
                 value={budget}
                 onChangeText={setBudget}
               />
@@ -765,28 +739,26 @@ export default function TripFormScreen() {
               </View>
             </Field>
             <Field label="Notas">
-              <TextInput
+              <Input
                 placeholder="Opcional"
-                placeholderTextColor={theme.textSecondary}
-                style={inputStyle}
                 value={notes}
                 onChangeText={setNotes}
               />
             </Field>
           </FormBlock>
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Criar viagem"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir viagem"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -795,25 +767,6 @@ export default function TripFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -821,22 +774,9 @@ const styles = StyleSheet.create({
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
   field: { gap: 8 },
   stop: { gap: 8, marginBottom: Spacing.two },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
   round: {
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
@@ -849,12 +789,4 @@ const styles = StyleSheet.create({
   },
   copy: { flex: 1, gap: 2 },
   roundBody: { paddingHorizontal: 14, paddingBottom: 14, gap: Spacing.three },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

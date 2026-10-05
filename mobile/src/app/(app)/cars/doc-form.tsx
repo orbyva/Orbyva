@@ -1,13 +1,11 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -19,9 +17,8 @@ import {
 } from "@/api/car/car";
 import { DateField } from "@/components/DateField";
 import { ChoiceChip } from "@/components/ChoiceChip";
-import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Field, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { DOCUMENT_TYPE_LABELS } from "@/domain/car";
@@ -71,14 +68,6 @@ export default function DocumentFormScreen() {
     };
   }, [editId]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     if (!vehicleId && !editId) {
@@ -145,15 +134,14 @@ export default function DocumentFormScreen() {
           </Field>
           {type === "other" ? (
             <Field label="Qual documento">
-              <TextInput
-                style={inputStyle}
+              <Input
                 value={customType}
                 onChangeText={setCustomType}
               />
             </Field>
           ) : null}
           <Field label="Vencimento">
-            <DateField value={dueDate} onChange={setDueDate} style={inputStyle} />
+            <DateField value={dueDate} onChange={setDueDate} />
           </Field>
           <ChoiceChip
             label={paid ? "Pago" : "Em aberto"}
@@ -161,12 +149,12 @@ export default function DocumentFormScreen() {
             onPress={() => setPaid((cur) => !cur)}
             style={{ alignSelf: "flex-start" }}
           />
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Salvar documento"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -174,48 +162,10 @@ export default function DocumentFormScreen() {
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

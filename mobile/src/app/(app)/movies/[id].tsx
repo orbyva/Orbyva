@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -37,10 +36,8 @@ import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
 import { StoryShareCard } from "@/components/share/StoryShareCard";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { ModuleSection } from "@/components/ui/ModuleSection";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, Chip, Input, ModuleSection } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   formatMovieRating,
   getMovieRatingLabel,
@@ -53,7 +50,7 @@ import {
 import { buildMovieShareText, usableCoverUri } from "@/domain/share";
 import { getTodayIso } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
-import { useTheme } from "@/hooks/use-theme";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { formatDateBR } from "@/lib/currency";
 import { hexAlpha } from "@/lib/color";
@@ -74,6 +71,7 @@ function airedEpisodes(episodes: TmdbEpisode[]): TmdbEpisode[] {
 
 export default function MovieDetailScreen() {
   const theme = useTheme();
+  const moduleColors = useModuleColors();
   const router = useRouter();
   const navigation = useNavigation();
   const { fail, ok } = useFeedback();
@@ -422,11 +420,11 @@ export default function MovieDetailScreen() {
                 <Ionicons
                   name={movie.is_favorite ? "heart" : "heart-outline"}
                   size={22}
-                  color={movie.is_favorite ? theme.danger : theme.textSecondary}
+                  color={movie.is_favorite ? theme.destructive : theme.mutedForeground}
                 />
               </Pressable>
             </View>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {[
                 MOVIE_TYPE_LABELS[movie.type],
                 movie.year || null,
@@ -437,7 +435,7 @@ export default function MovieDetailScreen() {
                 .join(" · ")}
             </ThemedText>
             {progress ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {progress.watched}/{progress.total} episódios · {progress.percent}%
               </ThemedText>
             ) : null}
@@ -446,23 +444,23 @@ export default function MovieDetailScreen() {
 
         {movie.status === MovieStatus.WATCHING ? (
           <View style={styles.footerActions}>
-            <FormButton
+            <Button
               label="Terminei"
-              tone="primary"
               disabled={busy}
               onPress={() => setReviewOpen(true)}
+              size="lg"
             />
-            <FormButton
+            <Button
               label="Abandonei"
-              tone="danger"
               disabled={busy}
               onPress={() => void setStatus(MovieStatus.ABANDONED)}
+              variant="destructive"
             />
           </View>
         ) : null}
 
         {movie.plot ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {movie.plot}
           </ThemedText>
         ) : null}
@@ -470,7 +468,7 @@ export default function MovieDetailScreen() {
           <ThemedText type="small">Direção · {movie.director}</ThemedText>
         ) : null}
         {movie.actors.length > 0 ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {movie.actors.join(", ")}
           </ThemedText>
         ) : null}
@@ -478,26 +476,27 @@ export default function MovieDetailScreen() {
           <ThemedText type="small">{movie.notes}</ThemedText>
         ) : null}
         {movie.status === MovieStatus.WATCHED ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {movie.would_recommend === false ? "Não recomendaria" : "Recomendaria"}
           </ThemedText>
         ) : null}
 
         {movie.type === "series" ? (
           <View style={styles.notify}>
-            <FormButton
+            <Button
               label={movie.notify_new_episodes ? "Avisos ligados" : "Avisar novos"}
               disabled={busy}
               onPress={() => void toggleNotify()}
+              variant="outline"
             />
             {nextEpisode?.air_date ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Próximo: T{nextEpisode.season_number}E{nextEpisode.episode_number}
                 {nextEpisode.name ? ` · ${nextEpisode.name}` : ""} ·{" "}
                 {formatDateBR(nextEpisode.air_date.slice(0, 10))}
               </ThemedText>
             ) : (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Sino avisa quando um episódio novo sair (TMDB).
               </ThemedText>
             )}
@@ -505,40 +504,22 @@ export default function MovieDetailScreen() {
         ) : null}
 
         {movie.type === "series" && seasons.length > 0 ? (
-          <ModuleSection title="Episódios" icon="tv-outline" tint="#D46BE8">
+          <ModuleSection title="Episódios" icon="tv-outline" tint={moduleColors.entertainment}>
             <View style={styles.seasonChips}>
               {seasons.map((season) => {
                 const active = openSeason === season.season_number;
                 return (
-                  <Pressable
+                  <Chip
                     key={season.season_number}
-                    accessibilityRole="button"
+                    label={`T${season.season_number}`}
                     accessibilityLabel={`Temporada ${season.season_number}`}
+                    selected={active}
                     onPress={() => {
                       if (openSeason === season.season_number) return;
                       setOpenEpisode(null);
                       setOpenSeason(season.season_number);
                     }}
-                    style={[
-                      styles.seasonChip,
-                      active
-                        ? {
-                            backgroundColor: theme.primary,
-                            borderColor: theme.primary,
-                          }
-                        : {
-                            backgroundColor: theme.surface,
-                            borderColor: theme.backgroundSelected,
-                          },
-                    ]}
-                  >
-                    <ThemedText
-                      type="smallBold"
-                      style={{ color: active ? "#FFFFFF" : theme.text }}
-                    >
-                      T{season.season_number}
-                    </ThemedText>
-                  </Pressable>
+                  />
                 );
               })}
             </View>
@@ -552,7 +533,7 @@ export default function MovieDetailScreen() {
                 <Ionicons
                   name="checkmark-done-outline"
                   size={16}
-                  color={theme.text}
+                  color={theme.foreground}
                 />
                 <ThemedText type="smallBold">
                   {seasonAllWatched
@@ -577,10 +558,10 @@ export default function MovieDetailScreen() {
                       {
                         borderColor: watched
                           ? hexAlpha(theme.primary, 0.32)
-                          : theme.backgroundSelected,
+                          : theme.border,
                         backgroundColor: watched
                           ? hexAlpha(theme.primary, 0.06)
-                          : theme.surface,
+                          : theme.card,
                       },
                     ]}
                   >
@@ -602,15 +583,15 @@ export default function MovieDetailScreen() {
                                 borderColor: theme.primary,
                               }
                             : {
-                                backgroundColor: theme.surface,
-                                borderColor: theme.backgroundSelected,
+                                backgroundColor: theme.card,
+                                borderColor: theme.border,
                               },
                         ]}
                       >
                         <Ionicons
                           name="checkmark"
                           size={16}
-                          color={watched ? "#FFFFFF" : theme.textSecondary}
+                          color={watched ? theme.primaryForeground : theme.mutedForeground}
                         />
                       </Pressable>
                       <Pressable
@@ -623,7 +604,7 @@ export default function MovieDetailScreen() {
                           <View
                             style={[
                               styles.episodeBadge,
-                              { borderColor: theme.backgroundSelected },
+                              { borderColor: theme.border },
                             ]}
                           >
                             <ThemedText type="smallBold">
@@ -642,10 +623,10 @@ export default function MovieDetailScreen() {
                               opinionOpen ? "chevron-down" : "chevron-forward"
                             }
                             size={16}
-                            color={theme.textSecondary}
+                            color={theme.mutedForeground}
                           />
                         </View>
-                        <ThemedText type="small" themeColor="textSecondary">
+                        <ThemedText type="small" themeColor="mutedForeground">
                           {[
                             episode.air_date
                               ? formatDateBR(episode.air_date)
@@ -663,16 +644,16 @@ export default function MovieDetailScreen() {
                       <View
                         style={[
                           styles.episodeOpinion,
-                          { borderTopColor: theme.backgroundSelected },
+                          { borderTopColor: theme.border },
                         ]}
                       >
                         {episode.overview ? (
-                          <ThemedText type="small" themeColor="textSecondary">
+                          <ThemedText type="small" themeColor="mutedForeground">
                             {episode.overview}
                           </ThemedText>
                         ) : null}
                         <View style={styles.field}>
-                          <ThemedText type="small" themeColor="textSecondary">
+                          <ThemedText type="small" themeColor="mutedForeground">
                             Sua nota
                           </ThemedText>
                           <ScorePicker
@@ -682,32 +663,23 @@ export default function MovieDetailScreen() {
                           />
                         </View>
                         <View style={styles.field}>
-                          <ThemedText type="small" themeColor="textSecondary">
+                          <ThemedText type="small" themeColor="mutedForeground">
                             Comentário
                           </ThemedText>
-                          <TextInput
+                          <Input
                             placeholder="O que achou deste episódio?"
-                            placeholderTextColor={theme.textSecondary}
-                            style={[
-                              styles.episodeNotes,
-                              {
-                                color: theme.text,
-                                borderColor: theme.backgroundSelected,
-                                backgroundColor: theme.background,
-                              },
-                            ]}
+containerStyle={styles.episodeNotes}
                             multiline
                             value={draftNotes}
                             onChangeText={setDraftNotes}
                           />
                         </View>
-                        <FormButton
+                        <Button
                           label="Salvar nota do episódio"
-                          tone="primary"
-                          compact
-                          busy={episodeBusy}
+                          loading={episodeBusy}
                           disabled={episodeBusy}
                           onPress={() => void saveEpisodeOpinion(episode)}
+                          size="sm"
                         />
                       </View>
                     ) : null}
@@ -720,38 +692,43 @@ export default function MovieDetailScreen() {
 
         <View style={styles.footerActions}>
           {movie.status === MovieStatus.TO_WATCH ? (
-            <FormButton
+            <Button
               label="Começar"
-              tone="primary"
               disabled={busy}
               onPress={() => void setStatus(MovieStatus.WATCHING)}
+              size="lg"
             />
           ) : null}
           {movie.status === MovieStatus.ABANDONED ? (
-            <FormButton
+            <Button
               label="Retomar"
-              tone="primary"
               disabled={busy}
               onPress={() => void setStatus(MovieStatus.WATCHING)}
+              size="lg"
             />
           ) : null}
-          <FormButton
+          <Button
             label="Editar"
-            tone={movie.status === MovieStatus.WATCHED ? "primary" : "neutral"}
             onPress={() =>
               router.push({
                 pathname: "/movies/form",
                 params: { id: movie.imdb_id },
               })
             }
+            variant={movie.status === MovieStatus.WATCHED ? "default" : "outline"}
           />
           {movie.status === MovieStatus.WATCHED ? (
-            <FormButton
+            <Button
               label="Compartilhar"
               onPress={() => setShareOpen(true)}
+              variant="outline"
             />
           ) : null}
-          <FormButton label="Excluir" tone="danger" onPress={onDelete} />
+          <Button
+            label="Excluir"
+            onPress={onDelete}
+            variant="destructive"
+          />
         </View>
       </ScrollView>
       <ReviewSheet
@@ -836,14 +813,6 @@ const styles = StyleSheet.create({
   footerActions: { gap: 8 },
   notify: { gap: 6 },
   seasonChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  seasonChip: {
-    minWidth: 40,
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
   seasonToggle: {
     alignSelf: "flex-start",
     flexDirection: "row",
@@ -852,7 +821,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   episodeCard: {
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     overflow: "hidden",
   },
@@ -865,7 +834,7 @@ const styles = StyleSheet.create({
   episodeCheck: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: Radius.md,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -879,7 +848,7 @@ const styles = StyleSheet.create({
   },
   episodeBadge: {
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: Radius.sm,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
@@ -892,12 +861,7 @@ const styles = StyleSheet.create({
   },
   field: { gap: 6 },
   episodeNotes: {
-    minHeight: 72,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
     paddingTop: 10,
-    fontSize: 15,
     textAlignVertical: "top",
   },
 });

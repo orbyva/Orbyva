@@ -1,21 +1,26 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
+import { Radius } from "@/constants/theme";
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
+import { Card, EmptyState } from "@/components/ui";
 import {
   getRecurringActionCopy,
   getRemainingInfo,
 } from "@/domain/recurring/copy";
 import { formatInstallmentPlanSummary } from "@/domain/recurring/formatters";
+import { linkLabel, normalizeRecurringLink } from "@/domain/recurring/links";
 import {
   isRecurringPaidInMonth,
   recurringInstallmentInMonth,
 } from "@/domain/recurring/alerts";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 import { hexAlpha } from "@/lib/color";
 import { formatBRL, formatDateBR } from "@/lib/currency";
+import { openExternalUrl } from "@/lib/url";
 import type { Recurring } from "@/types/recurring";
 
 export function RecurringList({
@@ -46,12 +51,11 @@ export function RecurringList({
 
   if (items.length === 0) {
     return (
-      <View style={styles.empty}>
-        <ThemedText type="smallBold">Nenhuma recorrência neste mês</ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Cadastre uma conta fixa ou compra parcelada, ou mude o mês.
-        </ThemedText>
-      </View>
+      <EmptyState
+        icon="repeat-outline"
+        title="Nenhuma recorrência neste mês"
+        description="Cadastre uma conta fixa ou compra parcelada, ou mude o mês."
+      />
     );
   }
 
@@ -64,9 +68,10 @@ export function RecurringList({
         const monthInst = recurringInstallmentInMonth(item, year, month);
         const paidInMonth = isRecurringPaidInMonth(item, year, month);
         const open = !!expanded[item.id];
-        const color = item.class?.type?.hex_color || "#64748B";
+        const color = item.class?.type?.hex_color || theme.mutedForeground;
         const busy = busyId === item.id;
-        const actionColor = copy.isReceive ? theme.success : theme.danger;
+        const link = normalizeRecurringLink(item.link_url);
+        const actionColor = copy.isReceive ? theme.success : theme.destructive;
 
         return (
           <View
@@ -75,7 +80,7 @@ export function RecurringList({
               styles.row,
               index > 0 && {
                 borderTopWidth: StyleSheet.hairlineWidth,
-                borderTopColor: theme.backgroundSelected,
+                borderTopColor: theme.border,
               },
             ]}
           >
@@ -96,28 +101,46 @@ export function RecurringList({
                   </ThemedText>
                   <ThemedText
                     type="small"
-                    themeColor="textSecondary"
+                    themeColor="mutedForeground"
                     numberOfLines={1}
                   >
                     {item.class?.type?.name}
                     {item.class?.name ? ` · ${item.class.name}` : ""}
                   </ThemedText>
                   {lastPaidAtById[item.id] ? (
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       Pago em {formatDateBR(lastPaidAtById[item.id])}
                     </ThemedText>
+                  ) : null}
+                  {link ? (
+                    <Pressable
+                      onPress={() => openExternalUrl(link)}
+                      hitSlop={6}
+                      style={styles.link}
+                      accessibilityRole="link"
+                      accessibilityLabel={`Abrir link de ${item.description || "recorrência"}`}
+                    >
+                      <Ionicons name="link-outline" size={14} color={theme.primary} />
+                      <ThemedText
+                        type="small"
+                        numberOfLines={1}
+                        style={[styles.linkText, { color: theme.primary }]}
+                      >
+                        {linkLabel(link)}
+                      </ThemedText>
+                    </Pressable>
                   ) : null}
                 </View>
               </View>
               <ThemedText
                 type="smallBold"
-                style={{ color: actionColor, fontSize: 16 }}
+                style={[TypeScale.bodyStrong, { color: actionColor }]}
               >
                 {formatBRL(item.value)}
               </ThemedText>
             </View>
             {item.status === false ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Arquivada
               </ThemedText>
             ) : null}
@@ -126,15 +149,15 @@ export function RecurringList({
               <View
                 style={[
                   styles.plan,
-                  { backgroundColor: theme.backgroundElement },
+                  { backgroundColor: theme.muted },
                 ]}
               >
                 <ThemedText type="smallBold">{plan.title}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {plan.subtitle}
                 </ThemedText>
                 {remaining ? (
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {remaining.paid}/{remaining.total} {copy.progressPaidLabel}
                     {" · resto "}
                     {formatBRL(remaining.remainingAmount)}
@@ -151,7 +174,7 @@ export function RecurringList({
                   styles.pay,
                   {
                     backgroundColor: paidInMonth
-                      ? theme.backgroundElement
+                      ? theme.muted
                       : actionColor,
                   },
                 ]}
@@ -159,7 +182,7 @@ export function RecurringList({
                 <ThemedText
                   type="smallBold"
                   style={
-                    paidInMonth ? undefined : { color: "#FFFFFF", fontSize: 15 }
+                    paidInMonth ? undefined : { color: theme.primaryForeground }
                   }
                 >
                   {paidInMonth
@@ -177,7 +200,7 @@ export function RecurringList({
                   onPress={() => onManage(item)}
                   style={[
                     styles.ghost,
-                    { borderColor: theme.backgroundSelected },
+                    { borderColor: theme.border },
                   ]}
                 >
                   <ThemedText type="small">Opções</ThemedText>
@@ -189,8 +212,8 @@ export function RecurringList({
                 }
                 style={[
                   styles.ghost,
-                  { borderColor: theme.backgroundSelected },
-                  open && { backgroundColor: theme.backgroundElement },
+                  { borderColor: theme.border },
+                  open && { backgroundColor: theme.muted },
                 ]}
               >
                 <ThemedText type="small">
@@ -204,7 +227,7 @@ export function RecurringList({
                 style={[
                   styles.parcels,
                   {
-                    borderColor: theme.backgroundSelected,
+                    borderColor: theme.border,
                     backgroundColor: theme.background,
                   },
                 ]}
@@ -212,10 +235,10 @@ export function RecurringList({
                 <View
                   style={[
                     styles.parcelHead,
-                    { borderBottomColor: theme.backgroundSelected },
+                    { borderBottomColor: theme.border },
                   ]}
                 >
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {remaining
                       ? `${remaining.paid}/${remaining.total} ${copy.progressPaidLabel} · resto ${formatBRL(remaining.remainingAmount)}`
                       : "Parcelas"}
@@ -224,7 +247,7 @@ export function RecurringList({
                 {typeof item.installments === "string" ? (
                   <ThemedText
                     type="small"
-                    themeColor="textSecondary"
+                    themeColor="mutedForeground"
                     style={styles.parcelPad}
                   >
                     {item.installments}
@@ -239,7 +262,7 @@ export function RecurringList({
                           styles.parcel,
                           instIndex > 0 && {
                             borderTopWidth: StyleSheet.hairlineWidth,
-                            borderTopColor: theme.backgroundSelected,
+                            borderTopColor: theme.border,
                           },
                           paid && { opacity: 0.72 },
                         ]}
@@ -250,14 +273,14 @@ export function RecurringList({
                             {
                               backgroundColor: paid
                                 ? hexAlpha(theme.success, 0.16)
-                                : theme.backgroundElement,
+                                : theme.muted,
                             },
                           ]}
                         >
                           <ThemedText
                             type="smallBold"
                             style={{
-                              color: paid ? theme.success : theme.textSecondary,
+                              color: paid ? theme.success : theme.mutedForeground,
                             }}
                           >
                             {inst.number}
@@ -274,14 +297,14 @@ export function RecurringList({
                             {
                               borderColor: paid
                                 ? hexAlpha(theme.success, 0.4)
-                                : theme.backgroundSelected,
+                                : theme.border,
                             },
                           ]}
                         >
                           <ThemedText
                             type="small"
                             style={{
-                              color: paid ? theme.success : theme.textSecondary,
+                              color: paid ? theme.success : theme.mutedForeground,
                             }}
                           >
                             {paid ? copy.doneBadge : copy.openBadge}
@@ -296,14 +319,14 @@ export function RecurringList({
                             styles.parcelAction,
                             {
                               backgroundColor: paid
-                                ? theme.backgroundElement
+                                ? theme.muted
                                 : hexAlpha(actionColor, 0.14),
                             },
                           ]}
                         >
                           <ThemedText
                             type="smallBold"
-                            style={{ color: paid ? theme.text : actionColor }}
+                            style={{ color: paid ? theme.foreground : actionColor }}
                           >
                             {paid
                               ? copy.isReceive
@@ -318,7 +341,7 @@ export function RecurringList({
                 ) : (
                   <ThemedText
                     type="small"
-                    themeColor="textSecondary"
+                    themeColor="mutedForeground"
                     style={styles.parcelPad}
                   >
                     Sem parcelas calculadas.
@@ -334,7 +357,6 @@ export function RecurringList({
 }
 
 const styles = StyleSheet.create({
-  empty: { paddingVertical: 24, gap: 6, paddingHorizontal: 8 },
   row: {
     paddingHorizontal: 14,
     paddingVertical: 14,
@@ -350,14 +372,16 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 1,
   },
   copy: { flex: 1, minWidth: 0, gap: 4 },
+  link: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" },
+  linkText: { flexShrink: 1 },
   plan: {
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 2,
@@ -366,20 +390,20 @@ const styles = StyleSheet.create({
   ghost: {
     flex: 1,
     height: 40,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   pay: {
     height: 46,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   parcels: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     overflow: "hidden",
   },
   parcelHead: {
@@ -398,19 +422,19 @@ const styles = StyleSheet.create({
   parcelNum: {
     width: 26,
     height: 26,
-    borderRadius: 8,
+    borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
   parcelDate: { flex: 1 },
   badge: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   parcelAction: {
-    borderRadius: 8,
+    borderRadius: Radius.md,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },

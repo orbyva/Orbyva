@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -23,9 +22,7 @@ import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
 import { StoryShareCard } from "@/components/share/StoryShareCard";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { ModuleSection } from "@/components/ui/ModuleSection";
+import { Banner, Button, Input, ModuleSection } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import {
   BOOK_STATUS_LABELS,
@@ -39,7 +36,7 @@ import {
 import { buildBookShareText, usableCoverUri } from "@/domain/share";
 import { getTodayIso } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
-import { useTheme } from "@/hooks/use-theme";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
@@ -47,6 +44,7 @@ import type { Book, BookNote, BookStatus } from "@/types/books";
 
 export default function BookDetailScreen() {
   const theme = useTheme();
+  const moduleColors = useModuleColors();
   const router = useRouter();
   const navigation = useNavigation();
   const { fail } = useFeedback();
@@ -167,14 +165,6 @@ export default function BookDetailScreen() {
     );
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   return (
     <ThemedView style={styles.flex}>
@@ -201,11 +191,11 @@ export default function BookDetailScreen() {
                 <Ionicons
                   name={book.is_favorite ? "heart" : "heart-outline"}
                   size={22}
-                  color={book.is_favorite ? theme.danger : theme.textSecondary}
+                  color={book.is_favorite ? theme.destructive : theme.mutedForeground}
                 />
               </Pressable>
             </View>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {[
                 formatAuthors(book.authors),
                 book.published_year,
@@ -219,56 +209,54 @@ export default function BookDetailScreen() {
         </View>
         {book.status === "reading" ? (
           <View style={styles.footerActions}>
-            <FormButton
+            <Button
               label="Terminei"
-              tone="primary"
               disabled={busy}
               onPress={() => setReviewOpen(true)}
+              size="lg"
             />
-            <FormButton
+            <Button
               label="Abandonei"
-              tone="danger"
               disabled={busy}
               onPress={() => void setStatus("abandoned")}
+              variant="destructive"
             />
           </View>
         ) : null}
         {book.description ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {book.description}
           </ThemedText>
         ) : null}
         {book.notes ? <ThemedText type="small">{book.notes}</ThemedText> : null}
         {book.status === "read" ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {book.would_recommend === false ? "Não recomendaria" : "Recomendaria"}
           </ThemedText>
         ) : null}
 
-        <ModuleSection title="Notas de leitura" icon="create-outline" tint="#F59E0B">
-          <TextInput
+        <ModuleSection title="Notas de leitura" icon="create-outline" tint={moduleColors.entertainment}>
+          <Input
             placeholder="Página (opcional)"
-            placeholderTextColor={theme.textSecondary}
             keyboardType="number-pad"
-            style={inputStyle}
             value={notePage}
             onChangeText={(value) => setNotePage(value.replace(/\D/g, ""))}
           />
-          <TextInput
+          <Input
             placeholder="Comentário"
-            placeholderTextColor={theme.textSecondary}
-            style={[inputStyle, styles.multiline]}
+            style={styles.multiline}
             multiline
             value={noteBody}
             onChangeText={setNoteBody}
           />
-          <FormButton
+          <Button
             label="Adicionar nota"
             disabled={busy}
             onPress={() => void addNote()}
+            variant="outline"
           />
           {notes.length === 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Nenhuma nota ainda.
             </ThemedText>
           ) : (
@@ -285,32 +273,33 @@ export default function BookDetailScreen() {
 
         <View style={styles.footerActions}>
           {book.status === "to_read" ? (
-            <FormButton
+            <Button
               label="Começar"
-              tone="primary"
               disabled={busy}
               onPress={() => void setStatus("reading")}
+              size="lg"
             />
           ) : null}
           {book.status === "abandoned" ? (
-            <FormButton
+            <Button
               label="Retomar"
-              tone="primary"
               disabled={busy}
               onPress={() => void setStatus("reading")}
+              size="lg"
             />
           ) : null}
-          <FormButton
+          <Button
             label="Editar"
-            tone={book.status === "read" ? "primary" : "neutral"}
             onPress={() =>
               router.push({ pathname: "/books/form", params: { id: book.google_id } })
             }
+            variant={book.status === "read" ? "default" : "outline"}
           />
           {book.status === "read" ? (
-            <FormButton
+            <Button
               label="Compartilhar"
               onPress={() => setShareOpen(true)}
+              variant="outline"
             />
           ) : null}
         </View>
@@ -383,12 +372,5 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   title: { flex: 1 },
   footerActions: { gap: 8 },
-  input: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
   multiline: { minHeight: 80, paddingTop: 10, textAlignVertical: "top" },
 });

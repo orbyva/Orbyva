@@ -2,7 +2,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { choiceChipColors } from "@/lib/color";
 
@@ -39,7 +39,7 @@ export function SelectListModal({
         </View>
         <ScrollView contentContainerStyle={styles.list}>
           {options.length === 0 ? (
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               Nada para escolher neste recorte.
             </ThemedText>
           ) : (
@@ -61,7 +61,7 @@ export function SelectListModal({
                     {opt.label}
                   </ThemedText>
                   {opt.hint ? (
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {opt.hint}
                     </ThemedText>
                   ) : null}
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   row: {
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 2,

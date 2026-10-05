@@ -10,9 +10,9 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui";
 import { Radius, Spacing } from "@/constants/theme";
-import { PRIORITY_COLORS } from "@/domain/tasks/priority";
+import { PRIORITY_TONE } from "@/domain/tasks/priority";
 import { taskScheduleMeta, todayIsoDate } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { dragItemEntering, dragListLayout, useDropLanding } from "@/lib/dragMotion";
@@ -165,11 +165,11 @@ export function TasksKanban({
               style={{ width: columnWidth }}
             >
               <Card style={styles.column}>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {column.label} · {column.items.length}
                 </ThemedText>
                 {column.items.length === 0 ? (
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     Solte aqui
                   </ThemedText>
                 ) : (
@@ -203,6 +203,7 @@ export function TasksKanban({
             {
               backgroundColor: theme.background,
               borderColor: theme.primary,
+              shadowColor: theme.foreground,
             },
             ghostStyle,
           ]}
@@ -302,7 +303,7 @@ const KanbanCard = memo(function KanbanCard({
       style={[
         styles.card,
         {
-          backgroundColor: theme.backgroundElement,
+          backgroundColor: theme.muted,
           opacity: dragging ? 0.35 : 1,
         },
       ]}
@@ -316,7 +317,7 @@ const KanbanCard = memo(function KanbanCard({
             <Ionicons
               name="reorder-three-outline"
               size={22}
-              color={theme.textSecondary}
+              color={theme.mutedForeground}
             />
           </Animated.View>
         </GestureDetector>
@@ -332,7 +333,7 @@ const KanbanCard = memo(function KanbanCard({
           style={[
             styles.check,
             {
-              borderColor: overdue ? "#E11D48" : theme.textSecondary,
+              borderColor: overdue ? theme.destructive : theme.mutedForeground,
               backgroundColor: done ? theme.primary : "transparent",
               opacity: busyId === task.id ? 0.4 : 1,
             },
@@ -348,7 +349,7 @@ const KanbanCard = memo(function KanbanCard({
               <View
                 style={[
                   styles.prio,
-                  { backgroundColor: PRIORITY_COLORS[task.priority] },
+                  { backgroundColor: theme[PRIORITY_TONE[task.priority]] },
                 ]}
               />
             ) : null}
@@ -361,8 +362,7 @@ const KanbanCard = memo(function KanbanCard({
           </View>
           <ThemedText
             type="small"
-            themeColor="textSecondary"
-            style={overdue ? styles.overdue : undefined}
+            themeColor={overdue ? "destructive" : "mutedForeground"}
           >
             {meta}
           </ThemedText>
@@ -389,7 +389,7 @@ const KanbanCard = memo(function KanbanCard({
               style={[
                 styles.check,
                 {
-                  borderColor: childOverdue ? "#E11D48" : theme.textSecondary,
+                  borderColor: childOverdue ? theme.destructive : theme.mutedForeground,
                   backgroundColor: childDone ? theme.primary : "transparent",
                 },
               ]}
@@ -404,7 +404,7 @@ const KanbanCard = memo(function KanbanCard({
                   <View
                     style={[
                       styles.prio,
-                      { backgroundColor: PRIORITY_COLORS[child.priority] },
+                      { backgroundColor: theme[PRIORITY_TONE[child.priority]] },
                     ]}
                   />
                 ) : null}
@@ -417,8 +417,7 @@ const KanbanCard = memo(function KanbanCard({
               </View>
               <ThemedText
                 type="small"
-                themeColor="textSecondary"
-                style={childOverdue ? styles.overdue : undefined}
+                themeColor={childOverdue ? "destructive" : "mutedForeground"}
               >
                 {taskScheduleMeta(child)}
               </ThemedText>
@@ -439,7 +438,7 @@ const styles = StyleSheet.create({
     minHeight: 160,
   },
   card: {
-    borderRadius: Radius.control,
+    borderRadius: Radius.md,
     overflow: "hidden",
   },
   row: {
@@ -453,16 +452,15 @@ const styles = StyleSheet.create({
   check: {
     width: 22,
     height: 22,
-    borderRadius: 11,
+    borderRadius: Radius.full,
     borderWidth: 2,
     marginTop: 2,
   },
   copy: { flex: 1, gap: 2 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   title: { flex: 1 },
-  prio: { width: 8, height: 8, borderRadius: 4 },
+  prio: { width: 8, height: 8, borderRadius: Radius.full },
   doneTitle: { textDecorationLine: "line-through", opacity: 0.55 },
-  overdue: { color: "#E11D48" },
   childRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -478,10 +476,9 @@ const styles = StyleSheet.create({
     zIndex: 80,
     maxWidth: 240,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    shadowColor: "#0B0F1A",
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

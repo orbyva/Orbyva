@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 
 import { executeOrbProposal } from "@/api/orbActions";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Button } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { useOrbContext, type OrbProposalState } from "@/hooks/useOrb";
 import { getErrorMessage } from "@/lib/errors";
 import { useTheme } from "@/hooks/use-theme";
@@ -54,8 +55,8 @@ export function OrbActionCard({
 
   if (estado.status === "discarded") {
     return (
-      <View style={[styles.card, { borderColor: theme.backgroundSelected }]}>
-        <ThemedText type="small" themeColor="textSecondary">
+      <View style={[styles.card, { borderColor: theme.border }]}>
+        <ThemedText type="small" themeColor="mutedForeground">
           Proposta descartada.
         </ThemedText>
       </View>
@@ -67,14 +68,14 @@ export function OrbActionCard({
       style={[
         styles.card,
         {
-          borderColor: theme.backgroundSelected,
-          backgroundColor: theme.backgroundElement,
+          borderColor: theme.border,
+          backgroundColor: theme.muted,
         },
       ]}
     >
       <ThemedText type="smallBold">{proposal.label}</ThemedText>
       {proposal.fields.map((field) => (
-        <ThemedText key={field.label} type="small" themeColor="textSecondary">
+        <ThemedText key={field.label} type="small" themeColor="mutedForeground">
           {field.label} · {field.value}
         </ThemedText>
       ))}
@@ -94,7 +95,7 @@ export function OrbActionCard({
         </View>
       ) : estado.status === "error" ? (
         <View style={styles.col}>
-          <ThemedText type="small" style={{ color: "#dc2626" }}>
+          <ThemedText type="small" themeColor="destructive">
             {estado.message}
           </ThemedText>
           <Pressable onPress={() => void confirmar()} style={styles.retry}>
@@ -103,26 +104,18 @@ export function OrbActionCard({
         </View>
       ) : (
         <View style={styles.row}>
-          <Pressable
+          <Button
+            label="Criar"
+            disabled={estado.status === "saving"}
+            loading={estado.status === "saving"}
             onPress={() => void confirmar()}
+          />
+          <Button
+            label="Descartar"
+            variant="outline"
             disabled={estado.status === "saving"}
-            style={[styles.btn, { backgroundColor: theme.primary }]}
-          >
-            {estado.status === "saving" ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <ThemedText type="smallBold" style={{ color: "#fff" }}>
-                Criar
-              </ThemedText>
-            )}
-          </Pressable>
-          <Pressable
             onPress={descartar}
-            disabled={estado.status === "saving"}
-            style={[styles.btn, { borderColor: theme.backgroundSelected, borderWidth: 1 }]}
-          >
-            <ThemedText type="smallBold">Descartar</ThemedText>
-          </Pressable>
+          />
         </View>
       )}
     </View>
@@ -132,19 +125,12 @@ export function OrbActionCard({
 const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: Spacing.three,
     gap: Spacing.one,
     marginTop: Spacing.two,
   },
   row: { flexDirection: "row", gap: Spacing.two, alignItems: "center", marginTop: Spacing.two },
   col: { gap: Spacing.two, marginTop: Spacing.two },
-  btn: {
-    borderRadius: 10,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    minWidth: 88,
-    alignItems: "center",
-  },
   retry: { alignSelf: "flex-start" },
 });

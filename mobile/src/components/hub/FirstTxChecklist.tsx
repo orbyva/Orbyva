@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { fetchTransactionsQuery } from "@/api/finance/transactions";
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
@@ -77,7 +77,7 @@ export function FirstTxChecklist() {
           </Pressable>
         ) : null}
       </View>
-      <ThemedText type="small" themeColor="textSecondary" style={{ color: theme.textSecondary }}>
+      <ThemedText type="small" themeColor="mutedForeground" style={{ color: theme.mutedForeground }}>
         Some sozinho quando os dois estiverem feitos.
       </ThemedText>
     </Card>

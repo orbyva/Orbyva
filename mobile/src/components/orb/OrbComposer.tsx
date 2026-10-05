@@ -1,16 +1,16 @@
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from "react-native";
+import { StyleSheet, TextInput, View } from "react-native";
 
-import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Button } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 
+/**
+ * Espelha `src/components/orb/OrbComposer.tsx`: cartão arredondado com o campo de uma linha que
+ * cresce até um teto e o botão redondo de seta dentro, alinhado à última linha. Não usa o `Input`
+ * multiline do design system porque ele fixa altura mínima de formulário (96px).
+ */
 export function OrbComposer({
   disabled,
   streaming,
@@ -24,6 +24,8 @@ export function OrbComposer({
 }) {
   const theme = useTheme();
   const [text, setText] = useState("");
+  const [focused, setFocused] = useState(false);
+  const canSend = Boolean(text.trim()) && !disabled;
 
   function submit() {
     const trimmed = text.trim();
@@ -33,86 +35,81 @@ export function OrbComposer({
   }
 
   return (
-    <View style={[styles.row, { borderTopColor: theme.backgroundSelected, backgroundColor: theme.background }]}>
-      <TextInput
-        value={text}
-        onChangeText={setText}
-        placeholder="Pergunte à Orb…"
-        placeholderTextColor={theme.textSecondary}
-        multiline
-        editable={!disabled && !streaming}
+    <View style={[styles.bar, { borderTopColor: theme.border, backgroundColor: theme.background }]}>
+      <View
         style={[
-          styles.input,
+          styles.card,
           {
-            color: theme.text,
-            backgroundColor: theme.backgroundElement,
-            borderColor: theme.backgroundSelected,
+            backgroundColor: theme.card,
+            borderColor: focused ? theme.ring : theme.border,
           },
         ]}
-      />
-      {streaming ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Parar"
-          onPress={onStop}
-          style={[styles.btn, { backgroundColor: theme.textSecondary }]}
-        >
-          <ThemedText type="smallBold" style={{ color: "#fff" }}>
-            Parar
-          </ThemedText>
-        </Pressable>
-      ) : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Enviar"
-          onPress={submit}
-          disabled={!text.trim() || disabled}
-          style={[
-            styles.btn,
-            {
-              backgroundColor: theme.primary,
-              opacity: !text.trim() || disabled ? 0.4 : 1,
-            },
-          ]}
-        >
-          {disabled ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <ThemedText type="smallBold" style={{ color: "#fff" }}>
-              Enviar
-            </ThemedText>
-          )}
-        </Pressable>
-      )}
+      >
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder="Pergunte à Orb…"
+          placeholderTextColor={theme.mutedForeground}
+          selectionColor={theme.primary}
+          multiline
+          editable={!disabled && !streaming}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          accessibilityLabel="Mensagem para a Orb"
+          style={[styles.input, { color: theme.foreground }]}
+        />
+        {streaming ? (
+          <Button
+            size="icon"
+            variant="secondary"
+            icon="stop"
+            accessibilityLabel="Parar"
+            onPress={onStop}
+            style={styles.send}
+          />
+        ) : (
+          <Button
+            size="icon"
+            icon="arrow-up"
+            accessibilityLabel="Enviar"
+            disabled={!canSend}
+            loading={disabled}
+            onPress={submit}
+            style={styles.send}
+          />
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: Spacing.two,
+  bar: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  input: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 120,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.two,
-    fontSize: 16,
+  card: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: Spacing.one,
+    borderWidth: 1,
+    borderRadius: Radius.xl,
+    padding: 6,
   },
-  btn: {
-    borderRadius: 12,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    minWidth: 72,
-    alignItems: "center",
-    justifyContent: "center",
+  input: {
+    ...TypeScale.body,
+    flex: 1,
+    minHeight: 36,
+    maxHeight: 120,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 8,
+    textAlignVertical: "center",
+  },
+  send: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.full,
   },
 });

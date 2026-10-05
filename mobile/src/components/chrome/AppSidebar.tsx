@@ -22,26 +22,22 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandLogo } from "@/components/BrandLogo";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { scrim } from "@/domain/ui/color";
+import { weightStyle } from "@/domain/ui/typography";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useAuth } from "@/hooks/use-auth";
-import { useTheme } from "@/hooks/use-theme";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
 import { useThemePreference } from "@/hooks/use-theme-preference";
+import { hexAlpha } from "@/lib/color";
 import { isNavActive, NAV_GROUPS, normalizePath, type AppHref } from "@/lib/nav";
 
 const OPEN_MS = 200;
 const CLOSE_MS = 160;
 
-function hexAlpha(hex: string, alpha: number): string {
-  const n = hex.replace("#", "");
-  const r = Number.parseInt(n.slice(0, 2), 16);
-  const g = Number.parseInt(n.slice(2, 4), 16);
-  const b = Number.parseInt(n.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 export function AppSidebar() {
   const theme = useTheme();
+  const moduleColors = useModuleColors();
   const router = useRouter();
   const pathname = usePathname();
   const path = normalizePath(pathname);
@@ -158,7 +154,7 @@ export function AppSidebar() {
               </View>
             </Pressable>
             <Pressable onPress={close} hitSlop={8} style={styles.close}>
-              <Ionicons name="close" size={20} color={theme.textSecondary} />
+              <Ionicons name="close" size={20} color={theme.mutedForeground} />
             </Pressable>
           </View>
 
@@ -171,6 +167,7 @@ export function AppSidebar() {
               const items = group.items.filter((item) => item.href);
               if (items.length === 0) return null;
               const expanded = Boolean(openGroups[group.title]);
+              const groupColor = moduleColors[group.module];
               const groupActive = items.some((item) =>
                 isNavActive(path, item.href)
               );
@@ -185,24 +182,24 @@ export function AppSidebar() {
                     }
                     style={[
                       styles.groupBtn,
-                      groupActive && { backgroundColor: hexAlpha(group.color, 0.12) },
+                      groupActive && { backgroundColor: hexAlpha(groupColor, 0.12) },
                     ]}
                   >
                     <View
                       style={[
                         styles.groupIcon,
-                        { backgroundColor: hexAlpha(group.color, 0.16) },
+                        { backgroundColor: hexAlpha(groupColor, 0.16) },
                       ]}
                     >
-                      <Ionicons name={group.icon} size={16} color={group.color} />
+                      <Ionicons name={group.icon} size={16} color={groupColor} />
                     </View>
-                    <ThemedText type="smallBold" style={{ flex: 1, color: group.color }}>
+                    <ThemedText type="smallBold" style={{ flex: 1, color: groupColor }}>
                       {group.title}
                     </ThemedText>
                     <Ionicons
                       name={expanded ? "chevron-down" : "chevron-forward"}
                       size={16}
-                      color={theme.textSecondary}
+                      color={theme.mutedForeground}
                     />
                   </Pressable>
                   {expanded
@@ -215,21 +212,21 @@ export function AppSidebar() {
                             style={[
                               styles.leaf,
                               active && {
-                                backgroundColor: hexAlpha(group.color, 0.14),
+                                backgroundColor: hexAlpha(groupColor, 0.14),
                               },
                             ]}
                           >
                             <View
                               style={[
                                 styles.leafDot,
-                                { backgroundColor: group.color },
+                                { backgroundColor: groupColor },
                               ]}
                             />
                             <ThemedText
                               style={{
                                 flex: 1,
-                                color: theme.text,
-                                fontWeight: active ? "700" : "500",
+                                color: theme.foreground,
+                                ...weightStyle(active ? 700 : 500),
                               }}
                             >
                               {item.title}
@@ -252,13 +249,13 @@ export function AppSidebar() {
               onPress={toggleScheme}
               style={[
                 styles.themeBtn,
-                { backgroundColor: theme.backgroundElement },
+                { backgroundColor: theme.muted },
               ]}
             >
               <Ionicons
                 name={scheme === "dark" ? "sunny-outline" : "moon-outline"}
                 size={18}
-                color={theme.text}
+                color={theme.foreground}
               />
             </Pressable>
             <Pressable
@@ -266,19 +263,19 @@ export function AppSidebar() {
               style={[
                 styles.account,
                 {
-                  backgroundColor: theme.backgroundElement,
+                  backgroundColor: theme.muted,
                 },
                 isNavActive(path, "/account") && {
-                  backgroundColor: theme.backgroundSelected,
+                  backgroundColor: theme.border,
                 },
               ]}
             >
-              <View style={[styles.groupIcon, { backgroundColor: theme.backgroundSelected }]}>
-                <Ionicons name="person-outline" size={16} color={theme.text} />
+              <View style={[styles.groupIcon, { backgroundColor: theme.border }]}>
+                <Ionicons name="person-outline" size={16} color={theme.foreground} />
               </View>
               <View style={styles.accountCopy}>
                 <ThemedText type="smallBold">Conta</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
                   {user?.email ?? "sem e-mail"}
                 </ThemedText>
               </View>
@@ -294,7 +291,7 @@ const styles = StyleSheet.create({
   overlay: { flex: 1 },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "#0B0F1A",
+    backgroundColor: scrim(1),
   },
   backdropHit: {
     ...StyleSheet.absoluteFill,
@@ -305,7 +302,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: scrim(1),
     shadowOpacity: 0.28,
     shadowRadius: 24,
     shadowOffset: { width: 8, height: 0 },
@@ -331,12 +328,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     paddingHorizontal: 10,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
   },
   groupIcon: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -348,9 +345,9 @@ const styles = StyleSheet.create({
     marginRight: 4,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
   },
-  leafDot: { width: 6, height: 6, borderRadius: 3 },
+  leafDot: { width: 6, height: 6, borderRadius: Radius.full },
   footer: {
     flexDirection: "row",
     alignItems: "center",
@@ -360,7 +357,7 @@ const styles = StyleSheet.create({
   themeBtn: {
     width: 48,
     height: 48,
-    borderRadius: 14,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -369,7 +366,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    borderRadius: 14,
+    borderRadius: Radius.xl,
     paddingHorizontal: 12,
     paddingVertical: 12,
   },

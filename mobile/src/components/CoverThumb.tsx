@@ -27,7 +27,7 @@ export function CoverThumb({
   }
   return (
     <View
-      style={[styles.base, size, { backgroundColor: theme.backgroundElement }]}
+      style={[styles.base, size, { backgroundColor: theme.muted }]}
     >
       <ThemedText type="smallBold">{fallback.slice(0, 1).toUpperCase()}</ThemedText>
     </View>
@@ -36,7 +36,7 @@ export function CoverThumb({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: Radius.control,
+    borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",

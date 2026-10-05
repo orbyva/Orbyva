@@ -1,9 +1,8 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { TypeScale, weightStyle } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 import { BRAND } from "@/lib/brand";
-
-const SKY = "#0EA5E9";
 
 export function BrandWordmark({
   showSubtitle = true,
@@ -15,13 +14,13 @@ export function BrandWordmark({
   return (
     <View style={styles.wrap} accessibilityLabel={BRAND.name}>
       <Text style={styles.name} numberOfLines={1}>
-        <Text style={styles.accent}>O</Text>
-        <Text style={{ color: theme.text }}>RBYV</Text>
-        <Text style={styles.accent}>Ʌ</Text>
+        <Text style={{ color: theme.primary }}>O</Text>
+        <Text style={{ color: theme.foreground }}>RBYV</Text>
+        <Text style={{ color: theme.primary }}>Ʌ</Text>
       </Text>
       {showSubtitle ? (
         <Text
-          style={[styles.wedge, { color: theme.textSecondary }]}
+          style={[styles.wedge, { color: theme.mutedForeground }]}
           numberOfLines={1}
         >
           {BRAND.wedge}
@@ -34,16 +33,14 @@ export function BrandWordmark({
 const styles = StyleSheet.create({
   wrap: { minWidth: 0, gap: 2 },
   name: {
-    fontSize: 15,
-    fontWeight: "700",
+    ...TypeScale.label,
+    ...weightStyle(700),
     letterSpacing: 1.6,
     textTransform: "uppercase",
-    lineHeight: 18,
   },
-  accent: { color: SKY },
   wedge: {
-    fontSize: 10,
+    ...TypeScale.nano,
+    ...weightStyle(400),
     letterSpacing: 0.4,
-    lineHeight: 13,
   },
 });

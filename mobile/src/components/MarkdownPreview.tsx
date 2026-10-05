@@ -1,12 +1,14 @@
 import { type ReactNode } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
+import { Radius } from "@/constants/theme";
 import { MermaidBlock } from "@/components/MermaidBlock";
 import {
   indexNotesByTitle,
   normalizeWikiTitle,
   wikiLinkPlainSegments,
 } from "@/domain/notes/wikiLinks";
+import { MonoInline, TypeScale, weightStyle } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 
 const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
@@ -67,6 +69,21 @@ function Inline({
       </Text>
     );
   }
+  return <WikiInline text={text} color={color} wiki={wiki} style={style} />;
+}
+
+function WikiInline({
+  text,
+  color,
+  wiki,
+  style,
+}: {
+  text: string;
+  color: string;
+  wiki: WikiPreviewHandlers;
+  style?: object;
+}) {
+  const theme = useTheme();
   const byTitle = indexNotesByTitle(wiki.notes);
   const segments = wikiLinkPlainSegments(text);
   return (
@@ -82,7 +99,7 @@ function Inline({
             onPress={() =>
               id ? wiki.onOpen(id) : wiki.onCreate(segment.title)
             }
-            style={styles.wiki}
+            style={[styles.wiki, { color: theme.primary }]}
           >
             {segment.title}
             {id ? "" : " +"}
@@ -101,11 +118,11 @@ export function MarkdownPreview({
   wiki?: WikiPreviewHandlers;
 }) {
   const theme = useTheme();
-  const color = theme.text;
+  const color = theme.foreground;
 
   if (!text.trim()) {
     return (
-      <Text style={[styles.body, { color: theme.textSecondary }]}>
+      <Text style={[styles.body, { color: theme.mutedForeground }]}>
         Nada para pré-visualizar.
       </Text>
     );
@@ -131,7 +148,7 @@ export function MarkdownPreview({
           <View
             style={[
               styles.codeWrap,
-              { backgroundColor: theme.backgroundSelected },
+              { backgroundColor: theme.border },
             ]}
           >
             <Text style={[styles.codeBlock, { color }]}>
@@ -253,41 +270,25 @@ export function MarkdownPreview({
 
 const styles = StyleSheet.create({
   stack: { gap: 10 },
-  body: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: "500",
-  },
-  h1: { fontSize: 22, lineHeight: 28, fontWeight: "700" },
-  h2: { fontSize: 18, lineHeight: 26, fontWeight: "700" },
-  h3: { fontSize: 16, lineHeight: 24, fontWeight: "700" },
-  bold: { fontWeight: "700" },
+  body: TypeScale.body,
+  h1: TypeScale.title,
+  h2: TypeScale.heading,
+  h3: TypeScale.bodyStrong,
+  bold: weightStyle(700),
   italic: { fontStyle: "italic" },
-  wiki: { color: "#0EA5E9", fontWeight: "700", textDecorationLine: "underline" },
+  wiki: { ...weightStyle(700), textDecorationLine: "underline" },
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
   },
-  mark: {
-    width: 22,
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: "500",
-  },
+  mark: { ...TypeScale.body, width: 22 },
   rowBody: { flex: 1, minWidth: 0 },
   gap: { height: 8 },
-  code: {
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-    fontSize: 14,
-  },
-  codeBlock: {
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-    fontSize: 13,
-    lineHeight: 20,
-  },
+  code: MonoInline,
+  codeBlock: TypeScale.mono,
   codeWrap: {
-    borderRadius: 8,
+    borderRadius: Radius.md,
     padding: 10,
   },
 });

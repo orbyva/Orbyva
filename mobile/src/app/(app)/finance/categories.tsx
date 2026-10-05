@@ -8,7 +8,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
   type StyleProp,
   type ViewStyle,
@@ -28,12 +27,12 @@ import {
 } from "@/api/finance/dimensions";
 import { ClassDragRow } from "@/components/ClassDragRow";
 import { ChoiceChip } from "@/components/ChoiceChip";
+import { SearchField } from "@/components/SearchField";
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { CollapsibleChrome } from "@/components/ui/CollapsibleChrome";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, CollapsibleChrome, EmptyState, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   filterDimensionTree,
   moveClassToType,
@@ -357,30 +356,21 @@ export default function CategoriesScreen() {
             <>
               <Banner message={error} />
               {notice ? (
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {notice}
                 </ThemedText>
               ) : null}
             </>
           }
         >
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Segure o punho da subcategoria e solte em outra categoria para
             reassociar.
           </ThemedText>
-          <TextInput
+          <SearchField
             value={search}
             onChangeText={setSearch}
             placeholder="Buscar categoria ou subcategoria"
-            placeholderTextColor={theme.textSecondary}
-            style={[
-              styles.search,
-              {
-                color: theme.text,
-                borderColor: theme.backgroundSelected,
-                backgroundColor: theme.backgroundElement,
-              },
-            ]}
           />
           <View style={styles.chips}>
             <ChoiceChip
@@ -418,22 +408,24 @@ export default function CategoriesScreen() {
             }
           >
             {filtered.length === 0 ? (
-              <ThemedText themeColor="textSecondary">
-                Nenhuma categoria neste recorte. Use o + para criar.
-              </ThemedText>
+              <EmptyState
+                icon="pricetags-outline"
+                title="Nenhuma categoria neste recorte"
+                description="Use o + para criar."
+              />
             ) : (
               filtered.map((nature) => (
                 <View key={nature.id} style={styles.nature}>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {nature.name}
                   </ThemedText>
                   {nature.types.length === 0 ? (
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       Sem categorias nesta natureza.
                     </ThemedText>
                   ) : (
                     nature.types.map((type) => {
-                      const color = type.hex_color || theme.textSecondary;
+                      const color = type.hex_color || theme.mutedForeground;
                       const adding = addingTypeId === type.id;
                       return (
                         <TypeDropCard
@@ -443,8 +435,8 @@ export default function CategoriesScreen() {
                           style={[
                             styles.card,
                             {
-                              backgroundColor: theme.backgroundElement,
-                              borderColor: theme.backgroundSelected,
+                              backgroundColor: theme.muted,
+                              borderColor: theme.border,
                             },
                           ]}
                         >
@@ -476,7 +468,7 @@ export default function CategoriesScreen() {
                               <Ionicons
                                 name="create-outline"
                                 size={18}
-                                color={theme.textSecondary}
+                                color={theme.mutedForeground}
                               />
                             </Pressable>
                             <Pressable
@@ -488,47 +480,25 @@ export default function CategoriesScreen() {
                               <Ionicons
                                 name="trash-outline"
                                 size={18}
-                                color={theme.textSecondary}
+                                color={theme.mutedForeground}
                               />
                             </Pressable>
                           </View>
                           {type.classes.map((cls) =>
                             editingClassId === cls.id ? (
                               <View key={cls.id} style={styles.addRow}>
-                                <TextInput
+                                <Input
                                   autoFocus
                                   value={className}
                                   onChangeText={setClassName}
                                   placeholder="Nome da subcategoria"
-                                  placeholderTextColor={theme.textSecondary}
-                                  style={[
-                                    styles.classInput,
-                                    {
-                                      color: theme.text,
-                                      borderColor: theme.backgroundSelected,
-                                      backgroundColor: theme.background,
-                                    },
-                                  ]}
                                 />
-                                <Pressable
-                                  disabled={savingClass}
+                                <Button
+                                  label="Salvar"
+                                  loading={savingClass}
                                   onPress={() => void renameClass(cls.id)}
-                                  style={[
-                                    styles.addSave,
-                                    { backgroundColor: theme.primary },
-                                  ]}
-                                >
-                                  {savingClass ? (
-                                    <ActivityIndicator color="#0B0F1A" />
-                                  ) : (
-                                    <ThemedText
-                                      type="smallBold"
-                                      style={styles.addSaveLabel}
-                                    >
-                                      Salvar
-                                    </ThemedText>
-                                  )}
-                                </Pressable>
+                                  size="sm"
+                                />
                                 <Pressable
                                   onPress={() => {
                                     setEditingClassId(null);
@@ -558,41 +528,19 @@ export default function CategoriesScreen() {
                           )}
                           {adding ? (
                             <View style={styles.addRow}>
-                              <TextInput
+                              <Input
                                 autoFocus
                                 value={className}
                                 onChangeText={setClassName}
                                 placeholder="Nome da subcategoria"
-                                placeholderTextColor={theme.textSecondary}
-                                style={[
-                                  styles.classInput,
-                                  {
-                                    color: theme.text,
-                                    borderColor: theme.backgroundSelected,
-                                    backgroundColor: theme.background,
-                                  },
-                                ]}
                                 onSubmitEditing={() => void addClass(type.id)}
                               />
-                              <Pressable
-                                disabled={savingClass}
+                              <Button
+                                label="Salvar"
+                                loading={savingClass}
                                 onPress={() => void addClass(type.id)}
-                                style={[
-                                  styles.addSave,
-                                  { backgroundColor: theme.primary },
-                                ]}
-                              >
-                                {savingClass ? (
-                                  <ActivityIndicator color="#0B0F1A" />
-                                ) : (
-                                  <ThemedText
-                                    type="smallBold"
-                                    style={styles.addSaveLabel}
-                                  >
-                                    Salvar
-                                  </ThemedText>
-                                )}
-                              </Pressable>
+                                size="sm"
+                              />
                               <Pressable
                                 onPress={() => {
                                   setAddingTypeId(null);
@@ -632,7 +580,11 @@ export default function CategoriesScreen() {
           pointerEvents="none"
           style={[
             styles.ghost,
-            { backgroundColor: theme.background, borderColor: theme.primary },
+            {
+              backgroundColor: theme.background,
+              borderColor: theme.primary,
+              shadowColor: theme.foreground,
+            },
             ghostStyle,
           ]}
         >
@@ -649,24 +601,12 @@ export default function CategoriesScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  search: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
   list: { padding: Spacing.four, gap: Spacing.four },
   nature: { gap: Spacing.two },
   card: {
     borderWidth: 2,
-    borderRadius: 14,
+    borderRadius: Radius.xl,
     padding: 14,
     gap: 8,
   },
@@ -674,27 +614,12 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
   typeName: { flex: 1 },
   addRow: { gap: 8 },
-  classInput: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    fontSize: 16,
-  },
-  addSave: {
-    height: 40,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addSaveLabel: { color: "#0B0F1A" },
-  error: { color: "#E11D48" },
   ghost: {
     position: "absolute",
     left: 0,
@@ -702,10 +627,9 @@ const styles = StyleSheet.create({
     zIndex: 80,
     minWidth: 140,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    shadowColor: "#0B0F1A",
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

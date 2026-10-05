@@ -19,7 +19,7 @@ export function MenuButton() {
       hitSlop={8}
       style={{ paddingHorizontal: 4, marginRight: 4 }}
     >
-      <Ionicons name="menu-outline" size={24} color={theme.text} />
+      <Ionicons name="menu-outline" size={24} color={theme.foreground} />
     </Pressable>
   );
 }

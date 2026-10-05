@@ -21,8 +21,8 @@ export function MentionList({
   return (
     <View style={styles.block}>
       <View style={styles.caption}>
-        {icon ? <Ionicons name={icon} size={12} color={theme.textSecondary} /> : null}
-        <ThemedText type="small" themeColor="textSecondary">
+        {icon ? <Ionicons name={icon} size={12} color={theme.mutedForeground} /> : null}
+        <ThemedText type="small" themeColor="mutedForeground">
           {caption}
         </ThemedText>
       </View>
@@ -38,7 +38,7 @@ export function MentionList({
             {row.title || "Sem título"}
           </ThemedText>
           {row.excerpt ? (
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+            <ThemedText type="small" themeColor="mutedForeground" numberOfLines={2}>
               {row.excerpt}
             </ThemedText>
           ) : null}

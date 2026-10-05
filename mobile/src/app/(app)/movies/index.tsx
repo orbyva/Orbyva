@@ -21,7 +21,7 @@ import { SearchField } from "@/components/SearchField";
 import { SurpriseChip } from "@/components/SurpriseChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
+import { Banner } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { CATALOG_SORT_OPTIONS, sortMovies } from "@/domain/entertainment/sort";
 import {
@@ -322,7 +322,7 @@ export default function MoviesScreen() {
             <SurpriseChip onPress={surprise} />
           </View>
           {visible.length === 0 ? (
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               Nenhum título neste filtro.
             </ThemedText>
           ) : (

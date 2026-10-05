@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -27,10 +26,9 @@ import { ChipBar } from "@/components/ChipBar";
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
+import { Banner, Button, Input } from "@/components/ui";
 import { TimeField } from "@/components/TimeField";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
 import { todayIsoDate } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
@@ -209,14 +207,6 @@ export default function ProjectFormScreen() {
     ]);
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   if (loading) {
     return (
@@ -239,34 +229,31 @@ export default function ProjectFormScreen() {
         >
           <Banner message={error} />
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Nome *
             </ThemedText>
-            <TextInput
+            <Input
               autoFocus={!editId}
               placeholder="Ex: Reforma, Viagem, App"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={name}
               onChangeText={setName}
             />
           </View>
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Descrição
             </ThemedText>
-            <TextInput
+            <Input
               multiline
               placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={[inputStyle, styles.area]}
+              style={styles.area}
               value={description}
               onChangeText={setDescription}
               textAlignVertical="top"
             />
           </View>
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Status
             </ThemedText>
             <ChipBar
@@ -276,7 +263,7 @@ export default function ProjectFormScreen() {
             />
           </View>
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Cor
             </ThemedText>
             <View style={styles.swatches}>
@@ -287,7 +274,7 @@ export default function ProjectFormScreen() {
                   style={[
                     styles.swatch,
                     { backgroundColor: hex },
-                    color === hex && styles.swatchOn,
+                    color === hex && [styles.swatchOn, { borderColor: theme.foreground }],
                   ]}
                 />
               ))}
@@ -295,11 +282,11 @@ export default function ProjectFormScreen() {
           </View>
           {editId ? (
             <View style={styles.field}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Eventos
               </ThemedText>
               {events.length === 0 ? (
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Nenhum evento neste projeto.
                 </ThemedText>
               ) : (
@@ -307,59 +294,56 @@ export default function ProjectFormScreen() {
                   <View key={event.id} style={styles.eventRow}>
                     <View style={styles.flex}>
                       <ThemedText type="smallBold">{event.title}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {formatEventWhen(event.starts_at)}
                       </ThemedText>
                     </View>
-                    <FormButton
+                    <Button
                       label="Excluir"
-                      tone="danger"
-                      compact
                       onPress={() => removeEvent(event)}
+                      variant="destructive"
+                      size="sm"
                     />
                   </View>
                 ))
               )}
-              <TextInput
+              <Input
                 placeholder="Título do evento"
-                placeholderTextColor={theme.textSecondary}
-                style={inputStyle}
                 value={eventTitle}
                 onChangeText={setEventTitle}
               />
               <DateField
                 value={eventDate}
                 onChange={setEventDate}
-                style={inputStyle}
               />
               <TimeField
                 value={eventTime}
                 onChange={setEventTime}
-                style={inputStyle}
               />
-              <FormButton
+              <Button
                 label="Adicionar evento"
                 onPress={() => void addEvent()}
+                variant="outline"
               />
             </View>
           ) : (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Eventos entram depois de criar o projeto.
             </ThemedText>
           )}
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Criar projeto"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir projeto"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -373,29 +357,13 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
   field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
   area: { minHeight: 96, paddingTop: 12 },
   swatches: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  swatch: { width: 36, height: 36, borderRadius: 18 },
-  swatchOn: { borderWidth: 3, borderColor: "#0B0F1A" },
+  swatch: { width: 36, height: 36, borderRadius: Radius.full },
+  swatchOn: { borderWidth: 3 },
   eventRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  error: { color: "#E11D48", textAlign: "center" },
 });

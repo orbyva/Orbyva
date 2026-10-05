@@ -1,14 +1,12 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -20,11 +18,8 @@ import {
   fetchHabitById,
   updateHabit,
 } from "@/api/habits/habits";
-import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { FormSection } from "@/components/ui/FormSection";
+import { Banner, Button, Field, FormSection, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
@@ -113,14 +108,6 @@ export default function HabitFormScreen() {
     };
   }, [editId]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     const trimmed = name.trim();
@@ -204,11 +191,9 @@ export default function HabitFormScreen() {
         >
           <Banner message={error} />
           <Field label="Nome" required>
-            <TextInput
+            <Input
               autoFocus={!editId}
               placeholder={kind === "avoid" ? "Sem delivery" : "Beber água"}
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={name}
               onChangeText={setName}
             />
@@ -237,21 +222,18 @@ export default function HabitFormScreen() {
               ))}
             </View>
             {frequency === "weekly" ? (
-              <TextInput
+              <Input
                 keyboardType="number-pad"
                 value={target}
                 onChangeText={(value) =>
                   setTarget(value.replace(/\D/g, "") || "1")
                 }
-                style={inputStyle}
               />
             ) : null}
           </Field>
           <Field label="Descrição">
-            <TextInput
+            <Input
               placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={description}
               onChangeText={setDescription}
             />
@@ -289,28 +271,27 @@ export default function HabitFormScreen() {
             </View>
             {goalId ? (
               <Field label="Quanto somar a cada check-in">
-                <TextInput
+                <Input
                   keyboardType="decimal-pad"
-                  style={inputStyle}
                   value={goalIncrement}
                   onChangeText={setGoalIncrement}
                 />
               </Field>
             ) : null}
           </FormSection>
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Criar hábito"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir hábito"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -319,51 +300,10 @@ export default function HabitFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

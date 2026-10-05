@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
 } from "react-native";
 
 import {
@@ -22,8 +21,7 @@ import { fetchProjects } from "@/api/tasks/projects";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
+import { Banner, Button, Input, useInputStyle } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
 import {
@@ -46,6 +44,7 @@ type Picker = "parent" | "project" | "tag" | null;
 
 export default function NoteFolderFormScreen() {
   const theme = useTheme();
+  const field = useInputStyle();
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ id?: string; parentId?: string }>();
@@ -226,14 +225,6 @@ export default function NoteFolderFormScreen() {
     }
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
   const parentLabel =
     parentId == null
       ? "Raiz"
@@ -267,54 +258,50 @@ export default function NoteFolderFormScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Banner message={error} />
-          <TextInput
+          <Input
             autoFocus={!editId}
             placeholder="Nome da pasta"
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle}
             value={name}
             onChangeText={setName}
           />
-          <Pressable onPress={() => setPicker("parent")} style={inputStyle}>
-            <ThemedText type="small" themeColor="textSecondary">
+          <Pressable onPress={() => setPicker("parent")} style={field.container}>
+            <ThemedText type="small" themeColor="mutedForeground">
               Dentro de
             </ThemedText>
             <ThemedText>{parentLabel}</ThemedText>
           </Pressable>
-          <Pressable onPress={() => setPicker("project")} style={inputStyle}>
-            <ThemedText type="small" themeColor="textSecondary">
+          <Pressable onPress={() => setPicker("project")} style={field.container}>
+            <ThemedText type="small" themeColor="mutedForeground">
               Projeto
             </ThemedText>
             <ThemedText>{projectLabel}</ThemedText>
           </Pressable>
-          <Pressable onPress={() => setPicker("tag")} style={inputStyle}>
-            <ThemedText type="small" themeColor="textSecondary">
+          <Pressable onPress={() => setPicker("tag")} style={field.container}>
+            <ThemedText type="small" themeColor="mutedForeground">
               Etiqueta
             </ThemedText>
             <ThemedText>{tagLabel}</ThemedText>
           </Pressable>
-          <TextInput
+          <Input
             placeholder="Nova etiqueta"
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle}
             value={newTag}
             onChangeText={setNewTag}
             onSubmitEditing={() => void onCreateTag()}
             returnKeyType="done"
           />
-          <FormButton
+          <Button
             label={editId ? "Salvar pasta" : "Criar pasta"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir pasta"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -366,14 +353,5 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.two,
     paddingBottom: 40,
-  },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    justifyContent: "center",
-    fontSize: 16,
   },
 });

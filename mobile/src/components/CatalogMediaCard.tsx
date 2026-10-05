@@ -3,9 +3,12 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { CoverThumb } from "@/components/CoverThumb";
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui";
 import { Radius } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
+import { ON_MEDIA, scrim } from "@/domain/ui/color";
+import { TypeScale } from "@/domain/ui/typography";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 
 export function CatalogMediaCard({
   coverUri,
@@ -37,6 +40,7 @@ export function CatalogMediaCard({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const moduleColors = useModuleColors();
   const showProgress = progress != null;
 
   return (
@@ -54,20 +58,20 @@ export function CatalogMediaCard({
             </View>
           ) : showProgress ? (
             <View style={styles.rating}>
-              <Ionicons name="film-outline" size={11} color="#FFFFFF" />
+              <Ionicons name="film-outline" size={11} color={ON_MEDIA} />
               <ThemedText style={styles.ratingText}>{progress}%</ThemedText>
             </View>
           ) : null}
           {favorite ? (
             <View style={styles.heart}>
-              <ThemedText style={styles.heartText}>♥</ThemedText>
+              <ThemedText style={[styles.heartText, { color: moduleColors.health }]}>♥</ThemedText>
             </View>
           ) : null}
           {showProgress ? (
             <>
               {progressLabel ? (
                 <View style={styles.progressCaption}>
-                  <Ionicons name="film-outline" size={11} color="#FFFFFF" />
+                  <Ionicons name="film-outline" size={11} color={ON_MEDIA} />
                   <ThemedText style={styles.progressCaptionText} numberOfLines={2}>
                     {progressLabel}
                   </ThemedText>
@@ -77,7 +81,10 @@ export function CatalogMediaCard({
                 <View
                   style={[
                     styles.progressFill,
-                    { width: `${Math.min(100, progress)}%` },
+                    {
+                      width: `${Math.min(100, progress)}%`,
+                      backgroundColor: theme.primary,
+                    },
                   ]}
                 />
               </View>
@@ -89,7 +96,7 @@ export function CatalogMediaCard({
             {title}
           </ThemedText>
           {meta ? (
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+            <ThemedText type="small" themeColor="mutedForeground" numberOfLines={2}>
               {meta}
             </ThemedText>
           ) : null}
@@ -110,7 +117,7 @@ export function CatalogMediaCard({
               hitSlop={8}
               style={[
                 styles.action,
-                { backgroundColor: `${theme.primary}18` },
+                { backgroundColor: hexAlpha(theme.primary, 0.1) },
               ]}
             >
               <ThemedText type="smallBold" style={{ color: theme.primary }}>
@@ -127,7 +134,7 @@ export function CatalogMediaCard({
           onPress={onDelete}
           style={styles.deleteBtn}
         >
-          <Ionicons name="trash-outline" size={18} color={theme.danger} />
+          <Ionicons name="trash-outline" size={18} color={theme.destructive} />
         </Pressable>
       ) : null}
     </Card>
@@ -150,14 +157,14 @@ const styles = StyleSheet.create({
   deleteBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
   },
   coverWrap: {
     position: "relative",
-    borderRadius: Radius.control,
+    borderRadius: Radius.md,
     overflow: "hidden",
   },
   rating: {
@@ -167,22 +174,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(11,15,26,0.82)",
-    borderRadius: 6,
+    backgroundColor: scrim(0.82),
+    borderRadius: Radius.sm,
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
-  ratingText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
+  ratingText: { ...TypeScale.micro, color: ON_MEDIA },
   heart: {
     position: "absolute",
     top: 6,
     right: 6,
-    backgroundColor: "rgba(11,15,26,0.72)",
-    borderRadius: 8,
+    backgroundColor: scrim(0.72),
+    borderRadius: Radius.md,
     paddingHorizontal: 5,
     paddingVertical: 2,
   },
-  heartText: { color: "#FB7185", fontSize: 12 },
+  heartText: TypeScale.micro,
   progressCaption: {
     position: "absolute",
     left: 0,
@@ -193,13 +200,12 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 5,
     paddingVertical: 5,
-    backgroundColor: "rgba(11,15,26,0.78)",
+    backgroundColor: scrim(0.78),
   },
   progressCaptionText: {
     flex: 1,
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "700",
+    ...TypeScale.nano,
+    color: ON_MEDIA,
   },
   progressTrack: {
     position: "absolute",
@@ -207,14 +213,14 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 3,
-    backgroundColor: "rgba(11,15,26,0.35)",
+    backgroundColor: scrim(0.35),
   },
-  progressFill: { height: 3, backgroundColor: "#0EA5E9" },
+  progressFill: { height: 3 },
   copy: { flex: 1, gap: 6, justifyContent: "center", paddingVertical: 2 },
   progressRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   action: {
     alignSelf: "flex-start",
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 10,
     paddingVertical: 6,
     marginTop: 2,

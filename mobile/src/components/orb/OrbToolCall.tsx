@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { orbToolLabel } from "@/domain/orb/toolLabel";
 import {
   linhasCompactasVisiveis,
@@ -29,8 +29,8 @@ export function OrbToolCallCard({ tool }: { tool: OrbToolCall }) {
       style={[
         styles.card,
         {
-          borderColor: theme.backgroundSelected,
-          backgroundColor: theme.backgroundElement,
+          borderColor: theme.border,
+          backgroundColor: theme.muted,
         },
       ]}
     >
@@ -55,7 +55,7 @@ export function OrbToolCallCard({ tool }: { tool: OrbToolCall }) {
             {tool.status === "running" ? `Consultando ${label}…` : label}
           </ThemedText>
           {tool.status !== "running" && curto ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {curto}
               {expansivel ? (aberto ? " · ocultar" : " · ver") : ""}
             </ThemedText>
@@ -71,14 +71,14 @@ export function OrbToolCallCard({ tool }: { tool: OrbToolCall }) {
                 {linha.titulo}
               </ThemedText>
               {linha.meta ? (
-                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
                   {linha.meta}
                 </ThemedText>
               ) : null}
             </View>
           ))}
           {detalhe.restantes > 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               +{detalhe.restantes} {detalhe.restantes === 1 ? "item" : "itens"}
             </ThemedText>
           ) : null}
@@ -91,7 +91,7 @@ export function OrbToolCallCard({ tool }: { tool: OrbToolCall }) {
 const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     padding: Spacing.two,
     gap: Spacing.one,
     marginTop: Spacing.one,

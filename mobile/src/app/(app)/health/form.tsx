@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -25,8 +24,7 @@ import { DateField } from "@/components/DateField";
 import { TimeField } from "@/components/TimeField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
+import { Banner, Button, Field, Input, useInputStyle } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { useTheme } from "@/hooks/use-theme";
@@ -37,6 +35,7 @@ const UNIT_CHIPS = ["comprimido", "gotas", "ml", "mg", "UI"];
 
 export default function MedicationFormScreen() {
   const theme = useTheme();
+  const inputStyle = useInputStyle().container;
   const router = useRouter();
   const navigation = useNavigation();
   const { fail, ok } = useFeedback();
@@ -96,14 +95,6 @@ export default function MedicationFormScreen() {
     };
   }, [editId]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     const trimmed = name.trim();
@@ -196,21 +187,17 @@ export default function MedicationFormScreen() {
         >
           <Banner message={error} />
           <Field label="Nome" required>
-            <TextInput
+            <Input
               autoFocus={!editId}
               placeholder="Losartana"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={name}
               onChangeText={setName}
             />
           </Field>
           <Field label="Dose">
-            <TextInput
+            <Input
               keyboardType="decimal-pad"
               placeholder="2"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={doseAmount}
               onChangeText={setDoseAmount}
             />
@@ -230,28 +217,28 @@ export default function MedicationFormScreen() {
               <View key={`${time}-${index}`} style={styles.timeRow}>
                 <TimeField value={time} onChange={(next) => {
                   setTimes((cur) => cur.map((t, i) => (i === index ? next : t)));
-                }} style={[inputStyle, { flex: 1 }]} />
+                }} style={{ flex: 1 }} />
                 {times.length > 1 ? (
-                  <FormButton
+                  <Button
                     label="Remover"
-                    tone="danger"
-                    compact
                     onPress={() =>
                       setTimes((cur) => cur.filter((_, i) => i !== index))
                     }
+                    variant="destructive"
+                    size="sm"
                   />
                 ) : null}
               </View>
             ))}
-            <FormButton
+            <Button
               label="Adicionar horário"
               onPress={() => setTimes((cur) => [...cur, "20:00"])}
+              variant="outline"
             />
           </Field>
           <Field label="A cada quantos dias">
-            <TextInput
+            <Input
               keyboardType="number-pad"
-              style={inputStyle}
               value={intervalDays}
               onChangeText={(value) =>
                 setIntervalDays(value.replace(/\D/g, "") || "1")
@@ -259,14 +246,14 @@ export default function MedicationFormScreen() {
             />
           </Field>
           <Field label="Início">
-            <DateField value={startedOn} onChange={setStartedOn} style={inputStyle} />
+            <DateField value={startedOn} onChange={setStartedOn} />
           </Field>
           <Field label="Término programado">
             {endedOn ? (
               <>
-                <DateField value={endedOn} onChange={setEndedOn} style={inputStyle} />
+                <DateField value={endedOn} onChange={setEndedOn} />
                 <Pressable onPress={() => setEndedOn(null)}>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     Contínuo
                   </ThemedText>
                 </Pressable>
@@ -276,32 +263,30 @@ export default function MedicationFormScreen() {
                 onPress={() => setEndedOn(getTodayIso())}
                 style={inputStyle}
               >
-                <ThemedText themeColor="textSecondary">Definir término</ThemedText>
+                <ThemedText themeColor="mutedForeground">Definir término</ThemedText>
               </Pressable>
             )}
           </Field>
           <Field label="Instruções">
-            <TextInput
+            <Input
               placeholder="Em jejum, etc."
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={instructions}
               onChangeText={setInstructions}
             />
           </Field>
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Criar medicação"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {editId ? (
-            <FormButton
+            <Button
               label={active ? "Encerrar medicação" : "Reativar medicação"}
-              tone={active ? "danger" : "neutral"}
               disabled={saving}
               onPress={onToggleActive}
+              variant={active ? "destructive" : "outline"}
             />
           ) : null}
         </ScrollView>
@@ -310,56 +295,15 @@ export default function MedicationFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
   timeRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.three,
   },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

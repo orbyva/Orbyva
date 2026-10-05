@@ -40,7 +40,7 @@ export function PlaceCatalogSearch({
   return (
     <>
       {denied && requestUserLocation ? (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Localização negada, a busca funciona, mas sem priorizar lugares
           próximos.
         </ThemedText>

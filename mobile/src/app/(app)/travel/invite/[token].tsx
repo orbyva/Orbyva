@@ -5,8 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet } from "react-native";
 import { acceptTripInvite, fetchInviteByToken } from "@/api/travel/members";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
+import { Banner, Button, Card } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
@@ -80,22 +79,16 @@ export default function TripInviteScreen() {
         <ThemedText type="title">
           {invite?.trip_title ?? "Convite de viagem"}
         </ThemedText>
-        <ThemedText themeColor="textSecondary">
+        <ThemedText themeColor="mutedForeground">
           Aceite para ver o roteiro, os gastos conjuntos e os prazos.
         </ThemedText>
-        <Pressable
+        <Button
+          label="Aceitar convite"
+          size="lg"
           disabled={accepting || !invite}
+          loading={accepting}
           onPress={() => void onAccept()}
-          style={[styles.primary, { backgroundColor: theme.primary }]}
-        >
-          {accepting ? (
-            <ActivityIndicator color="#0B0F1A" />
-          ) : (
-            <ThemedText type="smallBold" style={styles.primaryLabel}>
-              Aceitar convite
-            </ThemedText>
-          )}
-        </Pressable>
+        />
         <Pressable onPress={() => router.replace("/travel")}>
           <ThemedText type="linkPrimary">Voltar para viagens</ThemedText>
         </Pressable>
@@ -108,12 +101,4 @@ const styles = StyleSheet.create({
   body: { flex: 1, padding: Spacing.four, gap: Spacing.three },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   card: { padding: Spacing.three, gap: Spacing.two },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

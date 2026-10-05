@@ -10,6 +10,7 @@ import {
 import { fetchTransactionsQuery } from "@/api/finance/transactions";
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
+import { SCRIM } from "@/domain/ui/color";
 import { useTheme } from "@/hooks/use-theme";
 import { getModuleGuide, type ModuleGuideId } from "@/lib/moduleGuides";
 
@@ -39,14 +40,14 @@ export function ModuleGuideSheet({
               <ThemedText type="linkPrimary">Fechar</ThemedText>
             </Pressable>
           </View>
-          <ThemedText themeColor="textSecondary">{guide.hook}</ThemedText>
+          <ThemedText themeColor="mutedForeground">{guide.hook}</ThemedText>
           <ScrollView style={styles.body}>
             {guide.steps.map((step, i) => (
               <View key={step.title} style={styles.step}>
                 <ThemedText type="smallBold">
                   {i + 1}. {step.title}
                 </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {step.body}
                 </ThemedText>
               </View>
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(11,15,26,0.45)",
+    backgroundColor: SCRIM,
   },
   sheet: {
     maxHeight: "80%",

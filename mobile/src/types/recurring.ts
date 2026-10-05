@@ -25,6 +25,7 @@ export interface Recurring {
   created_at: string;
   paid_parcels: number[];
   installments?: Installments;
+  link_url?: string | null;
 }
 
 export type DueAlertStatus = "overdue" | "upcoming";
@@ -48,6 +49,8 @@ export interface RecurringCreateRequest {
   installment_count: number | null;
   payment_start_date: string | null;
   status: boolean;
+  /** Obrigatório: o update monta o payload por lista branca, e `null` é "apagou o link". */
+  link_url: string | null;
 }
 
 export interface RecurringUpdateRequest extends Partial<RecurringCreateRequest> {

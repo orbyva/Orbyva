@@ -6,8 +6,7 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { acceptEventInvite, getEventInviteByToken } from "@/api/tasks/eventInvites";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Card } from "@/components/ui/Card";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Card } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import {
   eventInviteState,
@@ -80,43 +79,55 @@ export default function EventInviteAcceptScreen() {
         {state.kind === "loading" ? (
           <View style={styles.center}>
             <ActivityIndicator color={theme.primary} />
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Verificando convite…
             </ThemedText>
           </View>
         ) : state.kind === "error" ? (
           <>
             <ThemedText type="subtitle">{state.title}</ThemedText>
-            <ThemedText themeColor="textSecondary">{state.description}</ThemedText>
-            <FormButton label="Ir para a agenda" onPress={goAgenda} />
+            <ThemedText themeColor="mutedForeground">{state.description}</ThemedText>
+            <Button
+              label="Ir para a agenda"
+              onPress={goAgenda}
+              variant="outline"
+            />
           </>
         ) : state.kind === "other-email" ? (
           <>
             <ThemedText type="subtitle">Convite para outra conta</ThemedText>
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               Este convite foi enviado para {state.invite.email}, e você está logado como{" "}
               {user?.email ?? "outra conta"}. Entre com a conta convidada para aceitar.
             </ThemedText>
-            <FormButton label="Ir para a agenda" onPress={goAgenda} />
+            <Button
+              label="Ir para a agenda"
+              onPress={goAgenda}
+              variant="outline"
+            />
           </>
         ) : state.kind === "accepted-by-me" ? (
           <>
             <ThemedText type="subtitle">Você já aceitou este convite</ThemedText>
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               {state.invite.event_title ?? "O evento"} já está na sua agenda.
             </ThemedText>
-            <FormButton label="Ver na agenda" tone="primary" onPress={goAgenda} />
+            <Button
+              label="Ver na agenda"
+              onPress={goAgenda}
+              size="lg"
+            />
           </>
         ) : (
           <>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               CONVITE DE EVENTO
             </ThemedText>
             <ThemedText type="subtitle">{state.invite.event_title ?? "Evento"}</ThemedText>
             {state.invite.event_starts_at ? (
               <View style={styles.when}>
-                <Ionicons name="calendar-outline" size={16} color={theme.textSecondary} />
-                <ThemedText themeColor="textSecondary">
+                <Ionicons name="calendar-outline" size={16} color={theme.mutedForeground} />
+                <ThemedText themeColor="mutedForeground">
                   {formatEventWhen(state.invite.event_starts_at)}
                   {state.invite.event_ends_at
                     ? ` — ${formatEventWhen(state.invite.event_ends_at).slice(-5)}`
@@ -124,15 +135,15 @@ export default function EventInviteAcceptScreen() {
                 </ThemedText>
               </View>
             ) : null}
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Aceitar cria uma cópia deste evento na sua agenda. Ninguém passa a ver o resto da sua
               conta.
             </ThemedText>
-            <FormButton
+            <Button
               label={accepting ? "Adicionando…" : "Aceitar convite"}
-              tone="primary"
-              busy={accepting}
+              loading={accepting}
               onPress={() => void accept()}
+              size="lg"
             />
           </>
         )}

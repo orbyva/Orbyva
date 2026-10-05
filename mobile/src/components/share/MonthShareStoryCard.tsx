@@ -8,7 +8,7 @@ import {
 } from "@/components/share/ShareStoryChrome";
 import { SHARE_H, SHARE_W } from "@/components/share/shareStory";
 import { monthLabel, monthRemainingVsPlan } from "@/domain/monthShare";
-import { BRAND_COLORS } from "@/lib/brand";
+import { BRAND_COLORS } from "@/components/share/brandColors";
 import { formatBRL } from "@/lib/currency";
 
 export function MonthShareStoryCard({

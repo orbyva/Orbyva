@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
+import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { choiceChipColors } from "@/lib/color";
 
@@ -54,24 +55,16 @@ export function StringSelectModal({
           </Pressable>
         </View>
         {searchable ? (
-          <TextInput
+          <SearchField
             placeholder="Buscar"
-            placeholderTextColor={theme.textSecondary}
             value={query}
             onChangeText={setQuery}
-            style={[
-              styles.search,
-              {
-                color: theme.text,
-                borderColor: theme.backgroundSelected,
-                backgroundColor: theme.backgroundElement,
-              },
-            ]}
+style={styles.search}
           />
         ) : null}
         <ScrollView contentContainerStyle={styles.list}>
           {visibleOptions.length === 0 ? (
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               Nada para escolher neste recorte.
             </ThemedText>
           ) : (
@@ -115,13 +108,8 @@ const styles = StyleSheet.create({
   },
   search: {
     marginHorizontal: Spacing.four,
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
     marginBottom: Spacing.two,
   },
   list: { padding: Spacing.four, gap: Spacing.two, paddingBottom: 48 },
-  row: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14 },
+  row: { borderRadius: Radius.xl, paddingHorizontal: 14, paddingVertical: 14 },
 });

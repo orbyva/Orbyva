@@ -1,12 +1,17 @@
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 
 import { DateField } from "@/components/DateField";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
-import { FormButton } from "@/components/ui/FormButton";
-import { Spacing } from "@/constants/theme";
-import { PRIORITY_COLORS, PRIORITY_OPTIONS } from "@/domain/tasks/priority";
+import { Button, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
+import { PRIORITY_TONE, PRIORITY_OPTIONS } from "@/domain/tasks/priority";
 import { isSubtaskDueDateValid } from "@/domain/tasks/subtasks";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 import { formatDateBR } from "@/lib/currency";
 import type { Task, TaskPriority } from "@/types/tasks";
@@ -43,9 +48,9 @@ export function SubtaskFormRow({
       ? `O prazo não pode passar de ${formatDateBR(parentDueDate)}.`
       : null;
   const inputStyle = {
-    color: theme.text,
-    borderColor: theme.backgroundSelected,
-    backgroundColor: theme.backgroundElement,
+    color: theme.foreground,
+    borderColor: theme.border,
+    backgroundColor: theme.muted,
   };
 
   return (
@@ -59,13 +64,13 @@ export function SubtaskFormRow({
           style={[
             styles.check,
             {
-              borderColor: theme.textSecondary,
+              borderColor: theme.mutedForeground,
               backgroundColor: done ? theme.primary : "transparent",
               opacity: busy ? 0.4 : 1,
             },
           ]}
         />
-        <TextInput
+        <Input
           style={[
             styles.title,
             inputStyle,
@@ -76,8 +81,18 @@ export function SubtaskFormRow({
           onEndEditing={(event) => onRename(event.nativeEvent.text)}
           returnKeyType="done"
         />
-        <FormButton label="Abrir" compact onPress={onOpen} />
-        <FormButton label="Excluir" tone="danger" compact onPress={onDelete} />
+        <Button
+          label="Abrir"
+          onPress={onOpen}
+          variant="outline"
+          size="sm"
+        />
+        <Button
+          label="Excluir"
+          onPress={onDelete}
+          variant="destructive"
+          size="sm"
+        />
       </View>
 
       <View style={styles.meta}>
@@ -85,7 +100,7 @@ export function SubtaskFormRow({
           <View
             style={[
               styles.dot,
-              { backgroundColor: PRIORITY_COLORS[task.priority] },
+              { backgroundColor: theme[PRIORITY_TONE[task.priority]] },
             ]}
           />
         ) : null}
@@ -117,17 +132,17 @@ export function SubtaskFormRow({
           style={[styles.date, inputStyle]}
         />
       ) : (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Sem prazo — a subtarefa fica na inbox.
         </ThemedText>
       )}
 
       {dueError ? (
-        <ThemedText type="small" themeColor="danger">
+        <ThemedText type="small" themeColor="destructive">
           {dueError}
         </ThemedText>
       ) : parentDueDate ? (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           No máximo {formatDateBR(parentDueDate)} (tarefa principal).
         </ThemedText>
       ) : null}
@@ -152,24 +167,24 @@ const styles = StyleSheet.create({
   check: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: Radius.full,
     borderWidth: 2,
   },
   title: {
     flex: 1,
     minHeight: 40,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 10,
-    fontSize: 16,
+    ...TypeScale.body,
   },
   done: { textDecorationLine: "line-through", opacity: 0.55 },
   meta: { flexDirection: "row", alignItems: "center", gap: 8 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: 8, height: 8, borderRadius: Radius.full },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, flex: 1 },
   date: {
     minHeight: 44,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
     justifyContent: "center",

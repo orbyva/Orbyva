@@ -20,7 +20,7 @@ import { SearchField } from "@/components/SearchField";
 import { SurpriseChip } from "@/components/SurpriseChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
+import { Banner } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { CATALOG_SORT_OPTIONS, sortAlbums } from "@/domain/entertainment/sort";
 import {
@@ -267,7 +267,7 @@ export default function MusicScreen() {
             <SurpriseChip onPress={surprise} />
           </View>
           {visible.length === 0 ? (
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               Nenhum álbum neste filtro.
             </ThemedText>
           ) : (
@@ -337,9 +337,4 @@ const styles = StyleSheet.create({
   banner: { marginHorizontal: Spacing.four, marginTop: Spacing.three },
   list: { padding: Spacing.four, gap: Spacing.three },
   filters: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
 });

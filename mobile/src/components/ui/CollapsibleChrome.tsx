@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { hexAlpha } from "@/lib/color";
 import { hapticLight } from "@/lib/haptics";
@@ -44,8 +44,8 @@ export function CollapsibleChrome({
             styles.toggle,
             open
               ? {
-                  backgroundColor: theme.backgroundElement,
-                  borderColor: theme.backgroundSelected,
+                  backgroundColor: theme.muted,
+                  borderColor: theme.border,
                 }
               : {
                   backgroundColor: hexAlpha(theme.primary, 0.14),
@@ -58,7 +58,7 @@ export function CollapsibleChrome({
               styles.iconWell,
               {
                 backgroundColor: open
-                  ? theme.backgroundSelected
+                  ? theme.border
                   : hexAlpha(theme.primary, 0.22),
               },
             ]}
@@ -66,7 +66,7 @@ export function CollapsibleChrome({
             <Ionicons
               name="funnel-outline"
               size={16}
-              color={open ? theme.textSecondary : theme.primary}
+              color={open ? theme.mutedForeground : theme.primary}
             />
           </View>
           <View style={styles.copy}>
@@ -79,7 +79,7 @@ export function CollapsibleChrome({
             {!open && hint ? (
               <ThemedText
                 type="small"
-                themeColor="textSecondary"
+                themeColor="mutedForeground"
                 numberOfLines={1}
               >
                 {hint}
@@ -89,7 +89,7 @@ export function CollapsibleChrome({
           <Ionicons
             name={open ? "chevron-up" : "chevron-down"}
             size={18}
-            color={!open ? theme.primary : theme.textSecondary}
+            color={!open ? theme.primary : theme.mutedForeground}
           />
         </Pressable>
       ) : null}
@@ -115,13 +115,13 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     borderWidth: 1,
   },
   iconWell: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },

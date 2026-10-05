@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import type { OrbAskUser } from "@/domain/orb/clarify";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -21,8 +21,8 @@ export function OrbClarifyCard({
       style={[
         styles.card,
         {
-          borderColor: theme.backgroundSelected,
-          backgroundColor: theme.backgroundElement,
+          borderColor: theme.border,
+          backgroundColor: theme.muted,
         },
       ]}
     >
@@ -56,7 +56,7 @@ export function OrbClarifyCard({
 const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: Spacing.three,
     gap: Spacing.two,
     marginTop: Spacing.two,
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.one },
   chip: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: Spacing.two,
     paddingVertical: 6,
   },

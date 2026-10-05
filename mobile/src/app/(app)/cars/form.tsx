@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -7,7 +7,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -19,11 +18,8 @@ import {
 } from "@/api/car/car";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
-import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { FormBlock } from "@/components/ui/FormSection";
+import { Banner, Button, Field, FormBlock, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import {
   FUEL_TYPE_LABELS,
@@ -105,14 +101,6 @@ export default function VehicleFormScreen() {
     };
   }, [editId]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     if (!brand.trim() || !model.trim()) {
@@ -218,41 +206,37 @@ export default function VehicleFormScreen() {
             </View>
           </Field>
           <Field label="Marca" required>
-            <TextInput
+            <Input
               autoFocus={!editId}
-              style={inputStyle}
               value={brand}
               onChangeText={setBrand}
             />
           </Field>
           <Field label="Modelo" required>
-            <TextInput style={inputStyle} value={model} onChangeText={setModel} />
+            <Input value={model} onChangeText={setModel} />
           </Field>
           <Field label="Ano">
-            <TextInput
+            <Input
               keyboardType="number-pad"
-              style={inputStyle}
               value={year}
               onChangeText={setYear}
             />
           </Field>
           <Field label="Placa">
-            <TextInput
+            <Input
               autoCapitalize="characters"
-              style={inputStyle}
               value={plate}
               onChangeText={setPlate}
             />
           </Field>
           <Field label="Cor">
-            <TextInput style={inputStyle} value={color} onChangeText={setColor} />
+            <Input value={color} onChangeText={setColor} />
           </Field>
           </FormBlock>
           <FormBlock title="Uso">
           <Field label="Km atual">
-            <TextInput
+            <Input
               keyboardType="number-pad"
-              style={inputStyle}
               value={km}
               onChangeText={setKm}
             />
@@ -275,15 +259,12 @@ export default function VehicleFormScreen() {
               <DateField
                 value={purchaseDate ?? getTodayIso()}
                 onChange={(iso) => setPurchaseDate(iso)}
-                style={inputStyle}
               />
             </Field>
             <Field label="Valor de compra">
-              <TextInput
+              <Input
                 keyboardType="decimal-pad"
                 placeholder="Opcional"
-                placeholderTextColor={theme.textSecondary}
-                style={inputStyle}
                 value={purchaseValue}
                 onChangeText={setPurchaseValue}
               />
@@ -291,28 +272,26 @@ export default function VehicleFormScreen() {
           </FormBlock>
           <FormBlock title="Detalhes">
           <Field label="Notas">
-            <TextInput
+            <Input
               placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={notes}
               onChangeText={setNotes}
             />
           </Field>
           </FormBlock>
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Criar veículo"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir veículo"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -321,51 +300,10 @@ export default function VehicleFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

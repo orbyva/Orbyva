@@ -6,7 +6,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -22,11 +21,12 @@ import {
 } from "@/api/tasks/tasks";
 import { ChipBar } from "@/components/ChipBar";
 import { FilterRow, FilterSelect } from "@/components/FilterSelect";
+import { SearchField } from "@/components/SearchField";
 import { TasksKanban } from "@/components/TasksKanban";
 import { TasksList } from "@/components/TasksList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
+import { Banner } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { PRIORITY_OPTIONS } from "@/domain/tasks/priority";
 import {
@@ -322,26 +322,17 @@ export default function TasksScreen() {
             value={view}
             onChange={setView}
           />
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {view === "lista"
               ? "Pendentes nas caixas da agenda: atrasadas, hoje, semana, mês, depois e sem data."
               : view === "kanban"
                 ? "Segure o punho e solte em outra coluna para mudar o status."
                 : "Concluídas recentes — o check reabre."}
           </ThemedText>
-          <TextInput
+          <SearchField
             placeholder="Buscar tarefas"
-            placeholderTextColor={theme.textSecondary}
             value={query}
             onChangeText={setQuery}
-            style={[
-              styles.search,
-              {
-                color: theme.text,
-                borderColor: theme.backgroundSelected,
-                backgroundColor: theme.backgroundElement,
-              },
-            ]}
           />
           <FilterRow>
             {projectChips.length > 2 ? (
@@ -446,13 +437,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
     gap: Spacing.three,
-  },
-  search: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
   },
   banner: {
     marginHorizontal: Spacing.four,

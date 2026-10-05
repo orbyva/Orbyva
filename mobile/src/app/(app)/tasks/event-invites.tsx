@@ -8,7 +8,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -20,9 +19,8 @@ import {
 } from "@/api/tasks/eventInvites";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Card } from "@/components/ui/Card";
-import { FormButton } from "@/components/ui/FormButton";
-import { Spacing } from "@/constants/theme";
+import { Button, Card, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   EVENT_INVITE_STATUS_LABEL,
   eventInviteUrl,
@@ -133,7 +131,7 @@ export default function EventInvitesScreen() {
   if (!eventId) {
     return (
       <ThemedView style={styles.center}>
-        <ThemedText themeColor="textSecondary">Evento não encontrado.</ThemedText>
+        <ThemedText themeColor="mutedForeground">Evento não encontrado.</ThemedText>
       </ThemedView>
     );
   }
@@ -142,16 +140,15 @@ export default function EventInvitesScreen() {
     <ThemedView style={styles.flex}>
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Card style={styles.card}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             E-mail de quem você quer convidar
           </ThemedText>
-          <TextInput
+          <Input
             autoCapitalize="none"
             autoComplete="email"
             autoCorrect={false}
             keyboardType="email-address"
             placeholder="nome@dominio.com"
-            placeholderTextColor={theme.textSecondary}
             value={email}
             onChangeText={(value) => {
               setEmail(value);
@@ -160,53 +157,53 @@ export default function EventInvitesScreen() {
             onBlur={() => {
               if (email.trim()) setEmailError(validateInviteEmail(email));
             }}
-            style={[
-              styles.input,
-              {
-                color: theme.text,
-                borderColor: emailError ? theme.danger : theme.backgroundSelected,
-                backgroundColor: theme.backgroundElement,
-              },
-            ]}
           />
           {emailError ? (
-            <ThemedText type="small" style={{ color: theme.danger }}>
+            <ThemedText type="small" style={{ color: theme.destructive }}>
               {emailError}
             </ThemedText>
           ) : (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Ela recebe um link para aceitar e o evento vai para a agenda dela. O anexo do e-mail
               já adiciona no Google, Apple ou Outlook Calendar.
             </ThemedText>
           )}
           <View style={styles.row}>
-            <FormButton
+            <Button
               label={sending ? "Enviando…" : "Enviar convite"}
-              tone="primary"
-              flex
-              busy={sending}
+              loading={sending}
               onPress={() => void send()}
+              size="lg"
+              style={{ flex: 1 }}
             />
-            <FormButton
+            <Button
               label="Copiar link"
-              flex
               disabled={sending}
               onPress={() => void linkOnly()}
+              variant="outline"
+              style={{ flex: 1 }}
             />
           </View>
           {fallbackLink ? (
-            <View style={[styles.fallback, { borderColor: theme.backgroundSelected }]}>
+            <View style={[styles.fallback, { borderColor: theme.border }]}>
               <ThemedText type="smallBold">Link do convite</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" selectable>
+              <ThemedText type="small" themeColor="mutedForeground" selectable>
                 {fallbackLink}
               </ThemedText>
               <View style={styles.row}>
-                <FormButton label="Copiar" compact flex onPress={() => void copy(fallbackLink)} />
-                <FormButton
+                <Button
+                  label="Copiar"
+                  onPress={() => void copy(fallbackLink)}
+                  variant="outline"
+                  size="sm"
+                  style={{ flex: 1 }}
+                />
+                <Button
                   label="Compartilhar"
-                  compact
-                  flex
                   onPress={() => void Share.share({ message: fallbackLink })}
+                  variant="outline"
+                  size="sm"
+                  style={{ flex: 1 }}
                 />
               </View>
             </View>
@@ -217,7 +214,7 @@ export default function EventInvitesScreen() {
         {loading ? (
           <ActivityIndicator color={theme.primary} />
         ) : invites.length === 0 ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Ninguém foi convidado ainda.
           </ThemedText>
         ) : (
@@ -232,7 +229,7 @@ export default function EventInvitesScreen() {
                     styles.inviteRow,
                     index > 0 && {
                       borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: theme.backgroundSelected,
+                      borderTopColor: theme.border,
                     },
                   ]}
                 >
@@ -240,7 +237,7 @@ export default function EventInvitesScreen() {
                     <ThemedText type="smallBold" numberOfLines={1}>
                       {who}
                     </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {EVENT_INVITE_STATUS_LABEL[invite.status] ?? invite.status}
                     </ThemedText>
                   </View>
@@ -265,7 +262,7 @@ export default function EventInvitesScreen() {
                     <IconButton
                       icon="trash-outline"
                       label={`Cancelar convite de ${who}`}
-                      color={theme.danger}
+                      color={theme.destructive}
                       onPress={() => void revoke(invite)}
                     />
                   ) : null}
@@ -299,7 +296,7 @@ function IconButton({
       onPress={onPress}
       style={styles.iconBtn}
     >
-      <Ionicons name={icon} size={18} color={color ?? theme.textSecondary} />
+      <Ionicons name={icon} size={18} color={color ?? theme.mutedForeground} />
     </Pressable>
   );
 }
@@ -311,8 +308,7 @@ const styles = StyleSheet.create({
   card: { gap: 10, padding: Spacing.three },
   list: { padding: 0 },
   row: { flexDirection: "row", gap: 10 },
-  input: { minHeight: 44, borderRadius: 12, borderWidth: 1, paddingHorizontal: 14 },
-  fallback: { gap: 6, borderWidth: 1, borderStyle: "dashed", borderRadius: 10, padding: 10 },
+  fallback: { gap: 6, borderWidth: 1, borderStyle: "dashed", borderRadius: Radius.lg, padding: 10 },
   inviteRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,30 +1,23 @@
 import { useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
-  View,
 } from "react-native";
 
 import { createConsultation } from "@/api/health/health";
 import { DateField } from "@/components/DateField";
 import { TimeField } from "@/components/TimeField";
-import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Field, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
-import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function ConsultFormScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const navigation = useNavigation();
   const { fail } = useFeedback();
@@ -38,14 +31,6 @@ export default function ConsultFormScreen() {
     navigation.setOptions({ title: "Nova consulta" });
   }, [navigation]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     const trimmed = title.trim();
@@ -81,36 +66,32 @@ export default function ConsultFormScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Field label="Consulta" required>
-            <TextInput
+            <Input
               autoFocus
               placeholder="Clínico geral"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={title}
               onChangeText={setTitle}
             />
           </Field>
           <Field label="Data">
-            <DateField value={dueDate} onChange={setDueDate} style={inputStyle} />
+            <DateField value={dueDate} onChange={setDueDate} />
           </Field>
           <Field label="Horário">
-            <TimeField value={dueTime} onChange={setDueTime} style={inputStyle} />
+            <TimeField value={dueTime} onChange={setDueTime} />
           </Field>
           <Field label="Notas">
-            <TextInput
+            <Input
               placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={notes}
               onChangeText={setNotes}
             />
           </Field>
-          <FormButton
+          <Button
             label="Agendar consulta"
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -118,44 +99,8 @@ export default function ConsultFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

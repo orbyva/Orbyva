@@ -89,7 +89,7 @@ export function resolveNatureForCreate(
 }
 
 /** Defaults for type created inline from the transaction picker. */
-export const QUICK_CREATE_TYPE_COLOR = "#64748b";
+export const QUICK_CREATE_TYPE_COLOR = "#64748b"; // token-livre: cor gravada no banco
 export const QUICK_CREATE_TYPE_ICON = "tag";
 
 /** Show "Não achou…? Crie agora" when searching and nothing exact matched. */

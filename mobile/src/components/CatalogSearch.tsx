@@ -86,7 +86,7 @@ export function CatalogSearch<T>({
 
   if (!enabled) {
     return (
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="small" themeColor="mutedForeground">
         {unavailableHint}
       </ThemedText>
     );
@@ -104,7 +104,7 @@ export function CatalogSearch<T>({
       />
       {loading ? <ActivityIndicator color={theme.primary} /> : null}
       {error ? (
-        <ThemedText type="small" themeColor="danger">
+        <ThemedText type="small" themeColor="destructive">
           {error}
         </ThemedText>
       ) : null}
@@ -133,7 +133,7 @@ export function CatalogSearch<T>({
                   </ThemedText>
                   <ThemedText
                     type="small"
-                    themeColor="textSecondary"
+                    themeColor="mutedForeground"
                     numberOfLines={2}
                   >
                     {view.subtitle}

@@ -3,7 +3,8 @@ import { useEffect } from "react";
 import { Alert, Modal, Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { SCRIM } from "@/domain/ui/color";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { normalizePath, quickAddActionsForPath } from "@/lib/nav";
@@ -66,12 +67,12 @@ export function QuickAddSheet() {
               }}
               style={[
                 styles.row,
-                { backgroundColor: theme.backgroundElement },
+                { backgroundColor: theme.muted },
               ]}
             >
               <ThemedText type="smallBold">{action.label}</ThemedText>
               {action.href ? null : (
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Em breve
                 </ThemedText>
               )}
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(11,15,26,0.45)",
+    backgroundColor: SCRIM,
   },
   sheet: {
     borderTopLeftRadius: 20,
@@ -104,7 +105,7 @@ const styles = StyleSheet.create({
   },
   row: {
     minHeight: 48,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",

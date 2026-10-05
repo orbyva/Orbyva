@@ -1,3 +1,4 @@
+import type { ThemeColor } from "@/constants/theme";
 import type { TaskPriority } from "@/types/tasks";
 
 export const PRIORITY_OPTIONS: [TaskPriority | null, string][] = [
@@ -13,8 +14,9 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   high: "Alta",
 };
 
-export const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  low: "#0EA5E9",
-  medium: "#D97706",
-  high: "#E11D48",
+/** Token da prioridade: baixa no `primary`, média em alerta, alta destrutiva. */
+export const PRIORITY_TONE: Record<TaskPriority, ThemeColor> = {
+  low: "primary",
+  medium: "warning",
+  high: "destructive",
 };

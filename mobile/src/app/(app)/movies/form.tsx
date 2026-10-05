@@ -1,14 +1,12 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -28,10 +26,8 @@ import { CatalogSearch } from "@/components/CatalogSearch";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
 import { RecommendField } from "@/components/RecommendField";
-import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
+import { Banner, Button, Field, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { appendActivityDate } from "@/domain/entertainment/insights";
 import {
@@ -169,14 +165,6 @@ export default function MovieFormScreen() {
     }
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     const trimmed = title.trim();
@@ -288,9 +276,10 @@ export default function MovieFormScreen() {
                 onSelect={(hit) => void onPickHit(hit)}
               />
               {!manual ? (
-                <FormButton
+                <Button
                   label="Cadastrar na mão"
                   onPress={() => setManual(true)}
+                  variant="outline"
                 />
               ) : null}
             </>
@@ -299,21 +288,17 @@ export default function MovieFormScreen() {
           {manual ? (
             <>
               <Field label="Título" required>
-                <TextInput
+                <Input
                   autoFocus={!editId && !catalogId}
                   placeholder="Nome do filme ou série"
-                  placeholderTextColor={theme.textSecondary}
-                  style={inputStyle}
                   value={title}
                   onChangeText={setTitle}
                 />
               </Field>
               <Field label="Ano">
-                <TextInput
+                <Input
                   keyboardType="number-pad"
                   placeholder="2024"
-                  placeholderTextColor={theme.textSecondary}
-                  style={inputStyle}
                   value={year}
                   onChangeText={(value) => setYear(value.replace(/\D/g, "").slice(0, 4))}
                 />
@@ -343,11 +328,9 @@ export default function MovieFormScreen() {
                 </View>
               </Field>
               <Field label="Nota (0–10)">
-                <TextInput
+                <Input
                   keyboardType="decimal-pad"
                   placeholder="Opcional"
-                  placeholderTextColor={theme.textSecondary}
-                  style={inputStyle}
                   value={rating}
                   onChangeText={setRating}
                 />
@@ -357,7 +340,6 @@ export default function MovieFormScreen() {
                   <DateField
                     value={activityDate}
                     onChange={setActivityDate}
-                    style={inputStyle}
                   />
                 </Field>
               ) : null}
@@ -368,28 +350,27 @@ export default function MovieFormScreen() {
                 />
               ) : null}
               <Field label="Notas">
-                <TextInput
+                <Input
                   placeholder="Opcional"
-                  placeholderTextColor={theme.textSecondary}
-                  style={[inputStyle, styles.multiline]}
+                  style={styles.multiline}
                   multiline
                   value={notes}
                   onChangeText={setNotes}
                 />
               </Field>
-              <FormButton
+              <Button
                 label={editId ? "Salvar alterações" : "Adicionar"}
-                tone="primary"
                 disabled={saving}
-                busy={saving}
+                loading={saving}
                 onPress={() => void onSave()}
+                size="lg"
               />
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir título"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
             </>
@@ -400,52 +381,11 @@ export default function MovieFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   multiline: { minHeight: 96, paddingTop: 12, textAlignVertical: "top" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

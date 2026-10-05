@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { fetchLastInteractedEntry } from "@/api/tasks/timeEntries";
@@ -9,26 +9,46 @@ import { completeTaskApi, fetchTaskById } from "@/api/tasks/tasks";
 import { ThemedText } from "@/components/themed-text";
 import { Radius } from "@/constants/theme";
 import { elapsedSeconds, formatDuration } from "@/domain/tasks/timeTracking";
+import { scrim } from "@/domain/ui/color";
 import { useActiveTimer } from "@/hooks/use-active-timer";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  liveWidgetMode,
+  readLiveWidgetHidden,
+  writeLiveWidgetHidden,
+} from "@/lib/liveWidgetVisibility";
+import { normalizePath, quickAddActionsForPath } from "@/lib/nav";
 import type { Task, TaskTimeEntry } from "@/types/tasks";
 
 export function LiveWidget() {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const hasQuickAdd =
+    quickAddActionsForPath(normalizePath(usePathname())).length > 0;
   const { fail, ok } = useFeedback();
   const { runningEntry, start, stop } = useActiveTimer();
   const [lastEntry, setLastEntry] = useState<TaskTimeEntry | null>(null);
   const [task, setTask] = useState<Task | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [dismissed, setDismissed] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [completing, setCompleting] = useState(false);
 
   useEffect(() => {
-    setHidden(false);
+    let cancelled = false;
+    void readLiveWidgetHidden().then((value) => {
+      if (!cancelled) setHidden(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    setDismissed(false);
   }, [runningEntry?.id]);
 
   useEffect(() => {
@@ -68,9 +88,46 @@ export function LiveWidget() {
     return () => clearInterval(timer);
   }, [runningEntry]);
 
-  if (hidden) return null;
-  if (!active || !task) return null;
-  if (!runningEntry && task.status === "done") return null;
+  const mode = liveWidgetMode({
+    hasTask: Boolean(active && task),
+    running: Boolean(runningEntry),
+    taskDone: task?.status === "done",
+    dismissed,
+    hidden,
+  });
+  if (mode === "none" || !task) return null;
+
+  const anchor = {
+    bottom: Math.max(insets.bottom, 12) + 12,
+    right: hasQuickAdd ? 88 : 16,
+  };
+
+  function setHiddenPreference(next: boolean) {
+    setHidden(next);
+    void writeLiveWidgetHidden(next);
+  }
+
+  if (mode === "collapsed") {
+    return (
+      <Pressable
+        onPress={() => setHiddenPreference(false)}
+        hitSlop={6}
+        style={[
+          styles.collapsed,
+          anchor,
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Mostrar o timer"
+      >
+        <Ionicons
+          name="timer-outline"
+          size={20}
+          color={runningEntry ? theme.primary : theme.mutedForeground}
+        />
+      </Pressable>
+    );
+  }
 
   const seconds = runningEntry
     ? elapsedSeconds(
@@ -110,7 +167,7 @@ export function LiveWidget() {
           ? { ...current, status: "done" }
           : current
       );
-      setHidden(true);
+      setDismissed(true);
       ok("Tarefa concluída");
     } finally {
       setCompleting(false);
@@ -121,14 +178,15 @@ export function LiveWidget() {
     <View
       style={[
         styles.wrap,
-        { bottom: Math.max(insets.bottom, 12) + 12, backgroundColor: theme.surface },
+        anchor,
+        { backgroundColor: theme.card },
       ]}
     >
       <Pressable onPress={() => router.push("/tasks/live")} style={styles.copy}>
         <ThemedText type="smallBold" numberOfLines={1}>
           {task.title}
         </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           {runningEntry ? formatDuration(seconds) : "Retomar"}
         </ThemedText>
       </Pressable>
@@ -140,7 +198,7 @@ export function LiveWidget() {
           style={styles.iconBtn}
           accessibilityLabel="Parar e concluir"
         >
-          <Ionicons name="checkmark" size={18} color={theme.text} />
+          <Ionicons name="checkmark" size={18} color={theme.foreground} />
         </Pressable>
       ) : null}
       <Pressable
@@ -152,16 +210,16 @@ export function LiveWidget() {
         <Ionicons
           name={runningEntry ? "stop" : "play"}
           size={14}
-          color="#FFFFFF"
+          color={theme.primaryForeground}
         />
       </Pressable>
       <Pressable
-        onPress={() => setHidden(true)}
+        onPress={() => setHiddenPreference(true)}
         hitSlop={8}
         style={styles.iconBtn}
-        accessibilityLabel="Tirar cronômetro da tela"
+        accessibilityLabel="Esconder o timer"
       >
-        <Ionicons name="close" size={18} color={theme.textSecondary} />
+        <Ionicons name="close" size={18} color={theme.mutedForeground} />
       </Pressable>
     </View>
   );
@@ -171,15 +229,29 @@ const styles = StyleSheet.create({
   wrap: {
     position: "absolute",
     left: 16,
-    right: 88,
     zIndex: 45,
-    borderRadius: Radius.card,
+    borderRadius: Radius.xl,
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    shadowColor: "#0B0F1A",
+    shadowColor: scrim(1),
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  collapsed: {
+    position: "absolute",
+    zIndex: 45,
+    width: 44,
+    height: 44,
+    borderRadius: Radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: scrim(1),
     shadowOpacity: 0.18,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -189,7 +261,7 @@ const styles = StyleSheet.create({
   action: {
     width: 32,
     height: 32,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
   },

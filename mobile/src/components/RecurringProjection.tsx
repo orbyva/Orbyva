@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   StyleSheet,
-  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
@@ -12,7 +11,9 @@ import * as Haptics from "expo-haptics";
 
 import { fetchAvulsoLedgerInRange } from "@/api/finance/transactions";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
+import { netTone } from "@/domain/ui/semanticTone";
 import { useTheme } from "@/hooks/use-theme";
 import { formatBRL, formatMoneyInput, moneyFromDigits } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
@@ -148,7 +149,7 @@ export function RecurringProjection({
       <View style={styles.monthRow}>
         <Pressable
           onPress={() => selectMonth(shiftYearMonth(anchor, -1), true)}
-          style={[styles.monthBtn, { backgroundColor: theme.backgroundElement }]}
+          style={[styles.monthBtn, { backgroundColor: theme.muted }]}
         >
           <ThemedText type="smallBold">‹</ThemedText>
         </Pressable>
@@ -157,20 +158,20 @@ export function RecurringProjection({
         </ThemedText>
         <Pressable
           onPress={() => selectMonth(shiftYearMonth(anchor, 1), true)}
-          style={[styles.monthBtn, { backgroundColor: theme.backgroundElement }]}
+          style={[styles.monthBtn, { backgroundColor: theme.muted }]}
         >
           <ThemedText type="smallBold">›</ThemedText>
         </Pressable>
       </View>
 
       {error ? (
-        <ThemedText type="small" style={styles.error}>
+        <ThemedText type="small" themeColor="destructive">
           {error}
         </ThemedText>
       ) : null}
 
       <View>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Toque uma barra para focar o mês e filtrar a lista.
         </ThemedText>
         <View style={[styles.chart, { width, height }]}>
@@ -180,7 +181,7 @@ export function RecurringProjection({
               y={height / 2}
               width={width}
               height={1}
-              fill={theme.backgroundSelected}
+              fill={theme.border}
             />
             {series.map((point, i) => {
               const selected = sameYm(point, focused);
@@ -195,7 +196,7 @@ export function RecurringProjection({
                   width={Math.max(4, barW - 6)}
                   height={Math.max(2, h)}
                   rx={2}
-                  fill={point.net >= 0 ? "#16A34A" : "#E11D48"}
+                  fill={theme[netTone(point.net)]}
                   fillOpacity={selected ? 1 : 0.38}
                 />
               );
@@ -207,7 +208,7 @@ export function RecurringProjection({
                   x={8 + i * barW + barW / 2}
                   y={height - 4}
                   fontSize={9}
-                  fill={theme.textSecondary}
+                  fill={theme.mutedForeground}
                   fontWeight={sameYm(point, focused) ? "700" : "400"}
                   textAnchor="middle"
                 >
@@ -239,16 +240,16 @@ export function RecurringProjection({
             key={`${focusedPoint.year}-${focusedPoint.month}`}
             entering={FadeInDown.duration(220)}
             layout={LinearTransition.duration(180)}
-            style={[styles.focus, { backgroundColor: theme.backgroundElement }]}
+            style={[styles.focus, { backgroundColor: theme.muted }]}
           >
             <ThemedText type="smallBold">{monthTitle(focusedPoint)}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               +{formatBRL(focusedPoint.receiveTotal)} · −
               {formatBRL(focusedPoint.payTotal)}
             </ThemedText>
             <ThemedText
               type="smallBold"
-              style={{ color: focusedPoint.net >= 0 ? "#16A34A" : "#E11D48" }}
+              themeColor={netTone(focusedPoint.net)}
             >
               {formatBRL(focusedPoint.net)}
             </ThemedText>
@@ -267,7 +268,7 @@ export function RecurringProjection({
               }
               style={[
                 styles.row,
-                { backgroundColor: theme.backgroundElement },
+                { backgroundColor: theme.muted },
                 selected && {
                   borderWidth: 1,
                   borderColor: theme.primary,
@@ -277,15 +278,15 @@ export function RecurringProjection({
               <ThemedText type="smallBold" style={styles.rowMonth}>
                 {monthTitle(point)}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 +{formatBRL(point.receiveTotal)}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 −{formatBRL(point.payTotal)}
               </ThemedText>
               <ThemedText
                 type="smallBold"
-                style={{ color: point.net >= 0 ? "#16A34A" : "#E11D48" }}
+                themeColor={netTone(point.net)}
               >
                 {formatBRL(point.net)}
               </ThemedText>
@@ -296,7 +297,7 @@ export function RecurringProjection({
 
       <Pressable
         onPress={() => setSimOpen((cur) => !cur)}
-        style={[styles.simToggle, { backgroundColor: theme.backgroundElement }]}
+        style={[styles.simToggle, { backgroundColor: theme.muted }]}
       >
         <ThemedText type="smallBold">
           {simOpen ? "Ocultar simulação" : "Simular compra parcelada"}
@@ -304,42 +305,24 @@ export function RecurringProjection({
       </Pressable>
 
       {simOpen ? (
-        <View style={[styles.sim, { backgroundColor: theme.backgroundElement }]}>
-          <ThemedText type="small" themeColor="textSecondary">
+        <View style={[styles.sim, { backgroundColor: theme.muted }]}>
+          <ThemedText type="small" themeColor="mutedForeground">
             Não grava nada — só soma as parcelas no gráfico.
           </ThemedText>
-          <TextInput
+          <Input
             keyboardType="number-pad"
             placeholder="Valor total"
-            placeholderTextColor={theme.textSecondary}
             value={simTotal != null ? formatMoneyInput(simTotal) : ""}
             onChangeText={(raw) => setSimDigits(raw.replace(/\D/g, ""))}
-            style={[
-              styles.input,
-              {
-                color: theme.text,
-                borderColor: theme.backgroundSelected,
-                backgroundColor: theme.background,
-              },
-            ]}
           />
-          <TextInput
+          <Input
             keyboardType="number-pad"
             placeholder="Parcelas"
-            placeholderTextColor={theme.textSecondary}
             value={simCount}
             onChangeText={setSimCount}
-            style={[
-              styles.input,
-              {
-                color: theme.text,
-                borderColor: theme.backgroundSelected,
-                backgroundColor: theme.background,
-              },
-            ]}
           />
           {simulation ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {simulation.installmentCount}× de{" "}
               {formatBRL(simulation.installmentValue)} a partir de{" "}
               {monthTitle(simulation.start)}
@@ -357,7 +340,7 @@ const styles = StyleSheet.create({
   monthBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -365,7 +348,7 @@ const styles = StyleSheet.create({
   chart: { marginTop: 8 },
   list: { gap: 8 },
   row: {
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: "row",
@@ -375,24 +358,16 @@ const styles = StyleSheet.create({
   rowMonth: { flex: 1 },
   focus: {
     marginTop: 10,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 2,
   },
   simToggle: {
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     paddingHorizontal: 14,
     paddingVertical: 12,
     alignItems: "center",
   },
-  sim: { borderRadius: 12, padding: 14, gap: 10 },
-  input: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
-  error: { color: "#E11D48" },
+  sim: { borderRadius: Radius.xl, padding: 14, gap: 10 },
 });

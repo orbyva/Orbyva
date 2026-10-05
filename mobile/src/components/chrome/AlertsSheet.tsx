@@ -11,7 +11,9 @@ import {
 
 import { fetchAppAlerts, type AppAlert } from "@/api/alerts";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { SCRIM } from "@/domain/ui/color";
+import { alertSeverityTone } from "@/domain/ui/semanticTone";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import {
@@ -22,13 +24,6 @@ import {
   loadEnabledAlertKinds,
 } from "@/lib/alertPrefs";
 import type { AppAlertKind } from "@/domain/alerts";
-
-function severityColor(severity: AppAlert["severity"]): string {
-  if (severity === "danger") return "#E11D48";
-  if (severity === "warning") return "#D97706";
-  if (severity === "success") return "#16A34A";
-  return "#64748B";
-}
 
 export function AlertsSheet() {
   const theme = useTheme();
@@ -102,14 +97,14 @@ export function AlertsSheet() {
             {loading ? (
               <ActivityIndicator color={theme.primary} />
             ) : visible.length === 0 ? (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Nenhum alerta no momento.
               </ThemedText>
             ) : (
               visible.map((alert) => (
                 <View
                   key={alert.id}
-                  style={[styles.row, { borderColor: theme.backgroundSelected }]}
+                  style={[styles.row, { borderColor: theme.border }]}
                 >
                   <Pressable
                     onPress={() => {
@@ -119,19 +114,19 @@ export function AlertsSheet() {
                     style={styles.rowText}
                   >
                     <ThemedText type="smallBold">{alert.title}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {alert.message}
                     </ThemedText>
                   </Pressable>
                   <Pressable onPress={() => void onDismiss(alert.id)} hitSlop={8}>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       Dispensar
                     </ThemedText>
                   </Pressable>
                   <View
                     style={[
                       styles.dot,
-                      { backgroundColor: severityColor(alert.severity) },
+                      { backgroundColor: theme[alertSeverityTone(alert.severity)] },
                     ]}
                   />
                 </View>
@@ -148,7 +143,7 @@ export function AlertsSheet() {
               close();
               router.push("/home");
             }}
-            style={[styles.home, { borderColor: theme.backgroundSelected }]}
+            style={[styles.home, { borderColor: theme.border }]}
           >
             <ThemedText type="smallBold">Ver painel do dia</ThemedText>
           </Pressable>
@@ -162,7 +157,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(11,15,26,0.45)",
+    backgroundColor: SCRIM,
   },
   sheet: {
     maxHeight: "75%",
@@ -182,16 +177,16 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 10,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: 12,
     marginBottom: 8,
   },
-  dot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
+  dot: { width: 8, height: 8, borderRadius: Radius.full, marginTop: 6 },
   rowText: { flex: 1, gap: 2 },
   restore: { alignItems: "center", paddingVertical: 4 },
   home: {
     height: 44,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",

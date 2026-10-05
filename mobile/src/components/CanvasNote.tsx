@@ -144,18 +144,18 @@ export function CanvasNote({
           onChange({
             elements: [
               ...elements,
-              makeFreedraw(stroke.current, theme.text),
+              makeFreedraw(stroke.current, theme.foreground),
             ],
           });
           stroke.current = [];
         },
       }),
-    [editable, elements, onChange, theme.text, view.minX, view.minY]
+    [editable, elements, onChange, theme.foreground, view.minX, view.minY]
   );
 
   return (
     <View
-      style={[styles.wrap, { backgroundColor: theme.backgroundElement }]}
+      style={[styles.wrap, { backgroundColor: theme.muted }]}
       onLayout={(event) => {
         const { width } = event.nativeEvent.layout;
         layout.current.scale = width / view.width;
@@ -169,7 +169,7 @@ export function CanvasNote({
       >
         {elements.map((el, index) => {
           const key = el.id ?? `el-${index}`;
-          const strokeColor = el.strokeColor || theme.text;
+          const strokeColor = el.strokeColor || theme.foreground;
           const fill =
             el.backgroundColor && el.backgroundColor !== "transparent"
               ? el.backgroundColor
@@ -243,7 +243,7 @@ export function CanvasNote({
         })}
       </Svg>
       {editable ? (
-        <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+        <ThemedText type="small" themeColor="mutedForeground" style={styles.hint}>
           Arraste o dedo para desenhar. Desenhos do web aparecem aqui; formas
           complexas continuam editáveis no computador.
         </ThemedText>
@@ -254,7 +254,7 @@ export function CanvasNote({
 
 const styles = StyleSheet.create({
   wrap: {
-    borderRadius: Radius.card,
+    borderRadius: Radius.xl,
     overflow: "hidden",
     minHeight: 240,
   },

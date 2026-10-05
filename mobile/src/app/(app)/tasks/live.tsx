@@ -21,8 +21,8 @@ import { ChipBar } from "@/components/ChipBar";
 import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, EmptyState } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   elapsedSeconds,
   formatDuration,
@@ -249,25 +249,24 @@ export default function LiveScreen() {
       >
         <Banner message={error} />
         {runningEntry ? (
-          <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText type="small" themeColor="textSecondary">
+          <View style={[styles.card, { backgroundColor: theme.muted }]}>
+            <ThemedText type="small" themeColor="mutedForeground">
               Rodando
             </ThemedText>
             <ThemedText type="smallBold">
               {runningTask?.title ?? "Tarefa"}
             </ThemedText>
             <ThemedText type="title">{formatDuration(runningSeconds)}</ThemedText>
-            <Pressable
+            <Button
+              label="Parar"
+              variant="destructive"
+              leftIcon="stop"
+              size="lg"
               onPress={() => void onStop()}
-              style={[styles.primary, { backgroundColor: theme.danger }]}
-            >
-              <ThemedText type="smallBold" style={{ color: "#FFFFFF" }}>
-                Parar
-              </ThemedText>
-            </Pressable>
+            />
           </View>
         ) : (
-          <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+          <View style={[styles.card, { backgroundColor: theme.muted }]}>
             <ThemedText type="smallBold">Iniciar timer</ThemedText>
             <FilterSelect
               label="Tarefa"
@@ -278,14 +277,12 @@ export default function LiveScreen() {
               ]}
               onChange={(id) => setSelectedTaskId(id === "none" ? "" : id)}
             />
-            <Pressable
+            <Button
+              label="Começar"
+              leftIcon="play"
+              size="lg"
               onPress={() => void onStart()}
-              style={[styles.primary, { backgroundColor: theme.primary }]}
-            >
-              <ThemedText type="smallBold" style={{ color: "#FFFFFF" }}>
-                Começar
-              </ThemedText>
-            </Pressable>
+            />
           </View>
         )}
         <ChipBar
@@ -307,13 +304,11 @@ export default function LiveScreen() {
           </FilterRow>
         ) : null}
         {groups.length === 0 ? (
-          <ThemedText themeColor="textSecondary">
-            Nenhum registro neste filtro.
-          </ThemedText>
+          <EmptyState icon="timer-outline" title="Nenhum registro neste filtro" />
         ) : (
           groups.map((group) => (
             <View key={group.dayIso} style={styles.day}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {formatDateBR(group.dayIso)}
               </ThemedText>
               {group.entries.map((entry) => {
@@ -324,7 +319,7 @@ export default function LiveScreen() {
                     key={entry.raw.id}
                     style={[
                       styles.row,
-                      { backgroundColor: theme.backgroundElement },
+                      { backgroundColor: theme.muted },
                     ]}
                   >
                     <Pressable
@@ -340,7 +335,7 @@ export default function LiveScreen() {
                       <ThemedText type="smallBold">
                         {task?.title ?? "Tarefa"}
                       </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {formatDuration(seconds)}
                         {entry.endedAt ? "" : " · agora"}
                       </ThemedText>
@@ -354,7 +349,7 @@ export default function LiveScreen() {
                       <Ionicons
                         name="trash-outline"
                         size={18}
-                        color={theme.danger}
+                        color={theme.destructive}
                       />
                     </Pressable>
                   </View>
@@ -372,16 +367,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three },
-  card: { borderRadius: 16, padding: 14, gap: 10 },
-  primary: {
-    height: 44,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  card: { borderRadius: Radius.xl, padding: 14, gap: 10 },
   day: { gap: 8 },
   row: {
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: 12,
     flexDirection: "row",
     alignItems: "center",

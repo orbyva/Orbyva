@@ -3,7 +3,9 @@ import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Colors } from "@/constants/theme";
+import { Colors, Radius } from "@/constants/theme";
+import { diagramAspectRatio } from "@/domain/orb/bubbleLayout";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 
 const TABLE =
@@ -27,6 +29,7 @@ function utf8ToBase64(value: string): string {
 export function MermaidBlock({ source }: { source: string }) {
   const theme = useTheme();
   const [failed, setFailed] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState(() => diagramAspectRatio());
   const uri = useMemo(() => {
     const payload = JSON.stringify({
       code: source,
@@ -40,12 +43,12 @@ export function MermaidBlock({ source }: { source: string }) {
   if (failed) {
     return (
       <View
-        style={[styles.fallback, { backgroundColor: theme.backgroundSelected }]}
+        style={[styles.fallback, { backgroundColor: theme.border }]}
       >
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Diagrama (prévia indisponível)
         </ThemedText>
-        <Text style={[styles.code, { color: theme.text }]}>{source}</Text>
+        <Text style={[styles.code, { color: theme.foreground }]}>{source}</Text>
       </View>
     );
   }
@@ -53,15 +56,18 @@ export function MermaidBlock({ source }: { source: string }) {
   return (
     <Image
       source={{ uri }}
-      style={styles.image}
+      style={[styles.image, { aspectRatio }]}
       contentFit="contain"
+      onLoad={(event) =>
+        setAspectRatio(diagramAspectRatio(event.source.width, event.source.height))
+      }
       onError={() => setFailed(true)}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  image: { width: "100%", minHeight: 160, borderRadius: 8 },
-  fallback: { borderRadius: 8, padding: 10, gap: 6 },
-  code: { fontSize: 13, lineHeight: 18 },
+  image: { width: "100%", borderRadius: Radius.md },
+  fallback: { borderRadius: Radius.md, padding: 10, gap: 6 },
+  code: TypeScale.mono,
 });

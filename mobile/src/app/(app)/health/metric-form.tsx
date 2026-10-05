@@ -1,31 +1,26 @@
 import { useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
 import { recordHealthMetric } from "@/api/health/health";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
-import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Field, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { METRIC_LABEL, METRIC_TYPES, METRIC_UNIT } from "@/domain/health/metrics";
-import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import type { MetricType } from "@/types/health";
 
 export default function MetricFormScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const navigation = useNavigation();
   const { fail } = useFeedback();
@@ -39,14 +34,6 @@ export default function MetricFormScreen() {
     navigation.setOptions({ title: "Nova medição" });
   }, [navigation]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     const parsed = Number.parseFloat(value.replace(",", "."));
@@ -94,12 +81,10 @@ export default function MetricFormScreen() {
             </View>
           </Field>
           <Field label={`Valor (${METRIC_UNIT[metricType]})`} required>
-            <TextInput
+            <Input
               autoFocus
               keyboardType="decimal-pad"
               placeholder="0"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={value}
               onChangeText={setValue}
             />
@@ -108,25 +93,22 @@ export default function MetricFormScreen() {
             <DateField
               value={recordedDate}
               onChange={setRecordedDate}
-              style={inputStyle}
               maximumDate={getTodayIso()}
             />
           </Field>
           <Field label="Notas">
-            <TextInput
+            <Input
               placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={notes}
               onChangeText={setNotes}
             />
           </Field>
-          <FormButton
+          <Button
             label="Registrar medição"
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -134,45 +116,9 @@ export default function MetricFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "reac
 
 import { CLOTHING_IONICONS } from "@/components/travel/clothingIcons";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   CLOTHING_LABELS,
   CLOTHING_META,
@@ -102,8 +102,8 @@ export function ItineraryDayWeather({
       style={[
         styles.box,
         {
-          borderColor: hexAlpha(theme.text, 0.15),
-          backgroundColor: hexAlpha(theme.text, 0.03),
+          borderColor: hexAlpha(theme.foreground, 0.15),
+          backgroundColor: hexAlpha(theme.foreground, 0.03),
         },
       ]}
     >
@@ -116,24 +116,24 @@ export function ItineraryDayWeather({
         <Ionicons name="partly-sunny-outline" size={16} color={theme.primary} />
         <View style={styles.flex}>
           <View style={styles.titleRow}>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
+            <ThemedText type="small" themeColor="mutedForeground" style={styles.flex}>
               {`CLIMA${stopLabel ? ` · ${stopLabel}` : ""}`}
             </ThemedText>
             <Ionicons
               name={open ? "chevron-up" : "chevron-down"}
               size={14}
-              color={theme.textSecondary}
+              color={theme.mutedForeground}
             />
           </View>
           {weather.loading ? (
             <View style={styles.titleRow}>
               <ActivityIndicator size="small" />
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Carregando…
               </ThemedText>
             </View>
           ) : message ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {message}
             </ThemedText>
           ) : summary.length > 0 ? (
@@ -143,16 +143,16 @@ export function ItineraryDayWeather({
       </Pressable>
 
       {open && suggestion ? (
-        <View style={[styles.body, { borderTopColor: hexAlpha(theme.text, 0.08) }]}>
+        <View style={[styles.body, { borderTopColor: hexAlpha(theme.foreground, 0.08) }]}>
           {details.length > 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {details.join(" · ")}
             </ThemedText>
           ) : null}
           {suggestion.outfitSegments.map((segment) => (
             <View key={segment.key} style={styles.segment}>
               {suggestion.outfitSegments.length > 1 ? (
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {segment.label}
                   {segment.tempC != null ? ` · ~${Math.round(segment.tempC)}°C` : ""}
                 </ThemedText>
@@ -179,7 +179,7 @@ export function ItineraryDayWeather({
           ))}
           {strip.length > 0 ? (
             <View style={styles.segment}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {suggestion.hourlySlots.length > 0
                   ? `Hora a hora · horário local${stopLabel ? ` (${stopLabel})` : ""}`
                   : "Ao longo do dia"}
@@ -188,7 +188,7 @@ export function ItineraryDayWeather({
                 <View style={styles.strip}>
                   {strip.map((cell) => (
                     <View key={cell.key} style={styles.cell}>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {cell.label}
                       </ThemedText>
                       {cell.item ? (
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   box: {
     borderWidth: 1,
     borderStyle: "dashed",
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
   },
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: Spacing.two,
     paddingVertical: 4,
   },

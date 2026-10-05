@@ -1,7 +1,7 @@
 import { StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 
 export function InsightsStrip({
@@ -14,7 +14,7 @@ export function InsightsStrip({
       {items.map((item) => (
         <View key={item.label} style={styles.cell}>
           <ThemedText type="smallBold">{item.value}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {item.label}
           </ThemedText>
         </View>

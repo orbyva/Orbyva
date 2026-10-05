@@ -1,11 +1,13 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from "react-native";
+import { Modal, Pressable, StyleSheet, View } from "react-native";
 
 import { fetchTransactionsQuery } from "@/api/finance/transactions";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Button } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { ensureDefaultDimensions } from "@/domain/onboarding/defaults";
+import { SCRIM } from "@/domain/ui/color";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
@@ -87,29 +89,23 @@ export function OnboardingHost() {
     <Modal visible={open} animationType="fade" transparent>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: theme.background }]}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Passo {step + 1} de {ONBOARDING_STEPS.length}
           </ThemedText>
           <ThemedText type="smallBold">{current.title}</ThemedText>
-          <ThemedText themeColor="textSecondary">{current.body}</ThemedText>
-          <Pressable
+          <ThemedText themeColor="mutedForeground">{current.body}</ThemedText>
+          <Button
+            label={isLast ? "Registrar primeira transação" : "Continuar"}
+            size="lg"
             disabled={busy}
+            loading={busy}
             onPress={() => void handleNext()}
-            style={[styles.btn, { backgroundColor: theme.primary }]}
-          >
-            {busy ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.btnLabel}>
-                {isLast ? "Registrar primeira transação" : "Continuar"}
-              </ThemedText>
-            )}
-          </Pressable>
+          />
           <Pressable
             onPress={() => void finish("/home")}
             style={styles.skip}
           >
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Pular
             </ThemedText>
           </Pressable>
@@ -124,19 +120,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     padding: Spacing.four,
-    backgroundColor: "rgba(11,15,26,0.45)",
+    backgroundColor: SCRIM,
   },
   sheet: {
-    borderRadius: 20,
+    borderRadius: Radius.xl,
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  btn: {
-    height: 48,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  btnLabel: { color: "#fff" },
   skip: { alignItems: "center", paddingVertical: 8 },
 });

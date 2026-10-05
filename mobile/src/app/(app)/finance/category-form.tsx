@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -7,17 +7,14 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
 import { createTypeApi, fetchDimensions, updateTypeApi } from "@/api/finance/dimensions";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { FormBlock } from "@/components/ui/FormSection";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, Field, FormBlock, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   QUICK_CREATE_TYPE_ICON,
   resolveNatureForCreate,
@@ -175,13 +172,13 @@ export default function CategoryFormScreen() {
                       {
                         backgroundColor: active
                           ? theme.primary
-                          : theme.backgroundElement,
+                          : theme.muted,
                       },
                     ]}
                   >
                     <ThemedText
                       type="smallBold"
-                      style={active ? styles.chipOn : undefined}
+                      themeColor={active ? "primaryForeground" : undefined}
                     >
                       {nature.name}
                     </ThemedText>
@@ -194,20 +191,11 @@ export default function CategoryFormScreen() {
 
           <FormBlock title="Detalhes">
           <Field label="Nome" required>
-            <TextInput
+            <Input
               autoFocus
               value={name}
               onChangeText={setName}
               placeholder="Ex: Alimentação"
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.input,
-                {
-                  color: theme.text,
-                  borderColor: theme.backgroundSelected,
-                  backgroundColor: theme.backgroundElement,
-                },
-              ]}
             />
           </Field>
 
@@ -223,7 +211,7 @@ export default function CategoryFormScreen() {
                     style={[
                       styles.swatch,
                       { backgroundColor: hex },
-                      active && styles.swatchOn,
+                      active && [styles.swatchOn, { borderColor: theme.foreground }],
                     ]}
                   />
                 );
@@ -232,12 +220,12 @@ export default function CategoryFormScreen() {
           </Field>
           </FormBlock>
 
-          <FormButton
+          <Button
             label="Salvar categoria"
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -245,62 +233,24 @@ export default function CategoryFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  chipOn: { color: "#0B0F1A" },
   swatches: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   swatch: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: Radius.full,
   },
   swatchOn: {
     borderWidth: 3,
-    borderColor: "#0B0F1A",
   },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  error: { color: "#E11D48", textAlign: "center" },
 });

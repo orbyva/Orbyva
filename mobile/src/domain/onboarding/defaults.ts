@@ -9,6 +9,7 @@ type SeedType = {
   exclude_from_spend?: boolean;
 };
 
+// token-livre-início: cores dos tipos semeados no banco no onboarding
 const DEFAULT_SEED: SeedType[] = [
   {
     natureName: "Receita",
@@ -54,6 +55,7 @@ const DEFAULT_SEED: SeedType[] = [
     exclude_from_spend: true,
   },
 ];
+// token-livre-fim
 
 export async function ensureDefaultDimensions(): Promise<{
   createdTypes: number;

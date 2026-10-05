@@ -8,7 +8,7 @@ import { OrbClarifyCard } from "@/components/orb/OrbClarifyCard";
 import { OrbResultView } from "@/components/orb/OrbResultView";
 import { OrbToolCallCard } from "@/components/orb/OrbToolCall";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   isOrbAskUser,
   ORB_ASK_USER_TOOL_NAME,
@@ -17,8 +17,10 @@ import {
   isOrbProposal,
   ORB_CREATE_TOOL_NAME,
 } from "@/domain/orb/actionsContract";
+import { orbBubbleWidth } from "@/domain/orb/bubbleLayout";
 import { orbResultView } from "@/domain/orb/results";
 import { formatarTokens } from "@/domain/orb/stream";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 import type { OrbMessage } from "@/types/orb";
 
@@ -117,18 +119,19 @@ export function OrbMessageBubble({
       <View
         style={[
           styles.bubble,
+          orbBubbleWidth(message.role),
           {
-            backgroundColor: isUser ? theme.primary : theme.backgroundElement,
-            borderColor: theme.backgroundSelected,
+            backgroundColor: isUser ? theme.primary : theme.muted,
+            borderColor: theme.border,
           },
         ]}
       >
         {isUser ? (
-          <ThemedText style={{ color: "#fff" }}>{message.content}</ThemedText>
+          <ThemedText themeColor="primaryForeground">{message.content}</ThemedText>
         ) : message.content.trim() ? (
           <MarkdownPreview text={message.content} />
         ) : message.pending ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Pensando…
           </ThemedText>
         ) : null}
@@ -153,7 +156,7 @@ export function OrbMessageBubble({
         {falhasDeCriacao.map((item) => (
           <View
             key={item.id}
-            style={[styles.fail, { borderColor: `${theme.danger}66` }]}
+            style={[styles.fail, { borderColor: `${theme.destructive}66` }]}
           >
             <ThemedText type="small">{item.mensagem}</ThemedText>
           </View>
@@ -164,7 +167,7 @@ export function OrbMessageBubble({
         ))}
 
         {uso.length > 0 ? (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.uso}>
+          <ThemedText type="small" themeColor="mutedForeground" style={styles.uso}>
             {uso.join(" · ")}
           </ThemedText>
         ) : null}
@@ -173,7 +176,7 @@ export function OrbMessageBubble({
           <Pressable onPress={() => onRetry(message.id)} style={styles.retry}>
             <ThemedText
               type="smallBold"
-              style={{ color: isUser ? "#fff" : theme.primary }}
+              themeColor={isUser ? "primaryForeground" : "primary"}
             >
               {message.errorKind === "session" ? "Entrar de novo" : "Tentar de novo"}
             </ThemedText>
@@ -182,7 +185,7 @@ export function OrbMessageBubble({
 
         {mostrarBarra && !isUser ? (
           <Pressable onPress={() => void copiar()} style={styles.copy}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {copiado ? "Copiado" : "Copiar"}
             </ThemedText>
           </Pressable>
@@ -197,18 +200,17 @@ const styles = StyleSheet.create({
   userAlign: { alignItems: "flex-end" },
   assistantAlign: { alignItems: "flex-start" },
   bubble: {
-    maxWidth: "92%",
-    borderRadius: 14,
+    borderRadius: Radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
   },
   retry: { marginTop: Spacing.two },
   copy: { marginTop: Spacing.two, alignSelf: "flex-start" },
-  uso: { marginTop: Spacing.two, fontSize: 11 },
+  uso: { marginTop: Spacing.two, ...TypeScale.micro },
   fail: {
     marginTop: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     padding: Spacing.two,
   },
 });

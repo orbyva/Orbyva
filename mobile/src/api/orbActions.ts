@@ -248,6 +248,7 @@ export async function executeOrbProposal(
         installment_count: numero(payload, "installment_count"),
         payment_start_date: start,
         status: payload.status === false ? false : true,
+        link_url: null,
       });
       return { message: "Recorrência criada.", link: "/finance/recurring" };
     }

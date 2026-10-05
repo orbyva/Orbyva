@@ -5,10 +5,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -25,9 +23,7 @@ import {
 import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { FormSection } from "@/components/ui/FormSection";
+import { Banner, Button, FormSection, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
@@ -213,14 +209,6 @@ export default function ShoppingFormScreen() {
     }
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   if (loading) {
     return (
@@ -243,20 +231,18 @@ export default function ShoppingFormScreen() {
         >
           <Banner message={error} />
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Item *
             </ThemedText>
-            <TextInput
+            <Input
               autoFocus={!editId}
               placeholder="Ex: Leite, pão, detergente"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={title}
               onChangeText={setTitle}
             />
           </View>
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Categoria
             </ThemedText>
             <ChipBar
@@ -287,39 +273,33 @@ export default function ShoppingFormScreen() {
           >
           <View style={styles.row}>
             <View style={[styles.field, styles.flex]}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Quantidade
               </ThemedText>
-              <TextInput
+              <Input
                 keyboardType="decimal-pad"
                 placeholder="2"
-                placeholderTextColor={theme.textSecondary}
-                style={inputStyle}
                 value={quantity}
                 onChangeText={setQuantity}
               />
             </View>
             <View style={[styles.field, styles.flex]}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Unidade
               </ThemedText>
-              <TextInput
+              <Input
                 placeholder="kg, un, pct"
-                placeholderTextColor={theme.textSecondary}
-                style={inputStyle}
                 value={unit}
                 onChangeText={setUnit}
               />
             </View>
           </View>
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Nova categoria
             </ThemedText>
-            <TextInput
+            <Input
               placeholder="Opcional — cria e usa nesta hora"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={newCategory}
               onChangeText={(value) => {
                 setNewCategory(value);
@@ -328,51 +308,49 @@ export default function ShoppingFormScreen() {
             />
           </View>
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Descrição
             </ThemedText>
-            <TextInput
+            <Input
               multiline
               placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={[inputStyle, styles.area]}
+              style={styles.area}
               value={description}
               onChangeText={setDescription}
               textAlignVertical="top"
             />
           </View>
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Link
             </ThemedText>
-            <TextInput
+            <Input
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
               placeholder="https://"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={providerLink}
               onChangeText={setProviderLink}
             />
           </View>
           </FormSection>
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Adicionar"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {editId && !linkedTaskId ? (
-            <FormButton
+            <Button
               label="Criar tarefa"
               disabled={saving}
               onPress={() => void onConvert()}
+              variant="outline"
             />
           ) : null}
           {linkedTaskId ? (
-            <FormButton
+            <Button
               label="Abrir tarefa ligada"
               onPress={() =>
                 router.push({
@@ -380,14 +358,15 @@ export default function ShoppingFormScreen() {
                   params: { id: linkedTaskId },
                 })
               }
+              variant="outline"
             />
           ) : null}
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir item"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -402,27 +381,5 @@ const styles = StyleSheet.create({
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
   field: { gap: 8 },
   row: { flexDirection: "row", gap: 12 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
   area: { minHeight: 96, paddingTop: 12 },
-  chips: { flexDirection: "row", flexWrap: "nowrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  error: { color: "#E11D48", textAlign: "center" },
 });

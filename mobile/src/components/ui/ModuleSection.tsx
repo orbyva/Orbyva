@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 
 export function ModuleSection({
   title,
@@ -29,18 +30,18 @@ export function ModuleSection({
     <View
       style={[
         styles.block,
-        { backgroundColor: theme.surface, borderColor: theme.backgroundSelected },
+        { backgroundColor: theme.card, borderColor: theme.border },
       ]}
     >
-      <View style={[styles.head, { borderBottomColor: theme.backgroundSelected }]}>
-        <View style={[styles.iconWell, { backgroundColor: `${tint}22` }]}>
+      <View style={[styles.head, { borderBottomColor: theme.border }]}>
+        <View style={[styles.iconWell, { backgroundColor: hexAlpha(tint, 0.13) }]}>
           <Ionicons name={icon} size={16} color={tint} />
         </View>
-        <ThemedText type="smallBold" style={styles.title}>
+        <ThemedText type="bodyStrong" style={styles.title}>
           {title}
         </ThemedText>
         {badge ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {badge}
           </ThemedText>
         ) : null}
@@ -57,7 +58,7 @@ export function ModuleSection({
 
 const styles = StyleSheet.create({
   block: {
-    borderRadius: Radius.card,
+    borderRadius: Radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
@@ -65,17 +66,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.two,
-    paddingHorizontal: 14,
+    paddingHorizontal: Spacing.three,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   iconWell: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
   title: { flex: 1 },
-  body: { paddingHorizontal: 14, paddingVertical: 12, gap: Spacing.two },
+  body: { paddingHorizontal: Spacing.three, paddingVertical: 12, gap: Spacing.two },
 });

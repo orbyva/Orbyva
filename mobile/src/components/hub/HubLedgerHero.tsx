@@ -2,8 +2,13 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import type { HubBudgetHighlight } from "@/api/hub";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { heroBudgetBarColor } from "@/domain/hub/heroColors";
 import { monthLabel } from "@/domain/timeline";
+import { scrim } from "@/domain/ui/color";
+import { TypeScale } from "@/domain/ui/typography";
+import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import { formatBRL } from "@/lib/currency";
 import type { RecurringDueAlert } from "@/types/recurring";
 
@@ -33,57 +38,59 @@ export function HubLedgerHero({
   const barPct = budgetHighlight
     ? Math.min(100, budgetHighlight.pct)
     : 0;
-  const barColor =
-    (budgetHighlight?.pct ?? 0) >= 100
-      ? "#FECDD3"
-      : (budgetHighlight?.pct ?? 0) >= 80
-        ? "#FDE68A"
-        : "#FFFFFF";
+  const theme = useTheme();
+  const barColor = heroBudgetBarColor(budgetHighlight?.pct ?? 0, theme);
+  const on = { color: theme.primaryForeground };
+  const muted = { color: hexAlpha(theme.primaryForeground, 0.72) };
+  const hairline = hexAlpha(theme.primaryForeground, 0.22);
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.primary }]}>
       <View style={styles.top}>
         <View style={styles.topText}>
-          <ThemedText style={styles.kicker} numberOfLines={1}>
+          <ThemedText style={[styles.kicker, muted]} numberOfLines={1}>
             Lançamentos · {monthLabel(year, month)}
           </ThemedText>
-          <ThemedText style={styles.muted}>Saldo do mês</ThemedText>
-          <ThemedText style={styles.balance} numberOfLines={1}>
+          <ThemedText style={[styles.muted, muted]}>Saldo do mês</ThemedText>
+          <ThemedText style={[styles.balance, on]} numberOfLines={1}>
             {formatBRL(saldo)}
           </ThemedText>
           {momDespesa ? (
-            <ThemedText style={styles.muted}>Despesa {momDespesa}</ThemedText>
+            <ThemedText style={[styles.muted, muted]}>Despesa {momDespesa}</ThemedText>
           ) : null}
         </View>
-        <Pressable onPress={onOpenFinance} style={styles.chip}>
-          <ThemedText style={styles.chipText}>Finanças</ThemedText>
+        <Pressable
+          onPress={onOpenFinance}
+          style={[styles.chip, { backgroundColor: hexAlpha(theme.primaryForeground, 0.14) }]}
+        >
+          <ThemedText style={[styles.chipText, on]}>Finanças</ThemedText>
         </Pressable>
       </View>
 
-      <View style={styles.totals}>
+      <View style={[styles.totals, { borderTopColor: hairline }]}>
         <View style={styles.totalCol}>
-          <ThemedText style={styles.muted}>Receitas</ThemedText>
-          <ThemedText style={styles.totalValue}>{formatBRL(receita)}</ThemedText>
+          <ThemedText style={[styles.muted, muted]}>Receitas</ThemedText>
+          <ThemedText style={[styles.totalValue, on]}>{formatBRL(receita)}</ThemedText>
         </View>
         <View style={styles.totalCol}>
-          <ThemedText style={styles.muted}>Despesas</ThemedText>
-          <ThemedText style={styles.totalValue}>{formatBRL(despesa)}</ThemedText>
+          <ThemedText style={[styles.muted, muted]}>Despesas</ThemedText>
+          <ThemedText style={[styles.totalValue, on]}>{formatBRL(despesa)}</ThemedText>
         </View>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: scrim(0.12) }]}>
         <Pressable onPress={onOpenFinance} style={styles.footerCell}>
-          <ThemedText style={styles.muted}>Orçamento</ThemedText>
+          <ThemedText style={[styles.muted, muted]}>Orçamento</ThemedText>
           {budgetHighlight ? (
             <View style={styles.budgetBlock}>
-              <ThemedText style={styles.footerValue} numberOfLines={1}>
+              <ThemedText style={[styles.footerValue, on]} numberOfLines={1}>
                 {formatBRL(budgetHighlight.spent)}
-                <ThemedText style={styles.muted}>
+                <ThemedText style={[styles.muted, muted]}>
                   {" "}
                   / {formatBRL(budgetHighlight.planned)}
                 </ThemedText>
               </ThemedText>
-              <View style={styles.barTrack}>
+              <View style={[styles.barTrack, { backgroundColor: hairline }]}>
                 <View
                   style={[
                     styles.barFill,
@@ -91,17 +98,17 @@ export function HubLedgerHero({
                   ]}
                 />
               </View>
-              <ThemedText style={styles.muted}>
+              <ThemedText style={[styles.muted, muted]}>
                 {budgetHighlight.pct.toFixed(0)}% usado
               </ThemedText>
             </View>
           ) : (
-            <ThemedText style={styles.footerValue}>Definir teto</ThemedText>
+            <ThemedText style={[styles.footerValue, on]}>Definir teto</ThemedText>
           )}
         </Pressable>
         <Pressable onPress={onOpenFinance} style={styles.footerCell}>
-          <ThemedText style={styles.muted}>Parcelas</ThemedText>
-          <ThemedText style={styles.footerValue} numberOfLines={2}>
+          <ThemedText style={[styles.muted, muted]}>Parcelas</ThemedText>
+          <ThemedText style={[styles.footerValue, on]} numberOfLines={2}>
             {recurringAlerts[0]?.message ?? "Nada urgente"}
           </ThemedText>
         </Pressable>
@@ -112,8 +119,7 @@ export function HubLedgerHero({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#0EA5E9",
-    borderRadius: 20,
+    borderRadius: Radius.xl,
     overflow: "hidden",
   },
   top: {
@@ -126,34 +132,19 @@ const styles = StyleSheet.create({
   },
   topText: { flex: 1, minWidth: 0, gap: 4 },
   kicker: {
-    color: "rgba(255,255,255,0.72)",
-    fontSize: 10,
-    lineHeight: 14,
-    fontWeight: "700",
+    ...TypeScale.nano,
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
-  muted: {
-    color: "rgba(255,255,255,0.72)",
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "500",
-  },
-  balance: {
-    color: "#fff",
-    fontSize: 28,
-    lineHeight: 36,
-    fontWeight: "700",
-    letterSpacing: -0.4,
-  },
+  muted: TypeScale.micro,
+  balance: { ...TypeScale.display, letterSpacing: -0.4 },
   chip: {
     flexShrink: 0,
-    backgroundColor: "rgba(255,255,255,0.14)",
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  chipText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+  chipText: TypeScale.micro,
   totals: {
     flexDirection: "row",
     gap: Spacing.three,
@@ -161,19 +152,12 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.three,
     paddingTop: Spacing.three,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.22)",
   },
   totalCol: { flex: 1, gap: 2 },
-  totalValue: {
-    color: "#fff",
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: "700",
-  },
+  totalValue: TypeScale.bodyStrong,
   footer: {
     flexDirection: "row",
     marginTop: Spacing.three,
-    backgroundColor: "rgba(0,0,0,0.12)",
   },
   footerCell: {
     flex: 1,
@@ -182,19 +166,13 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     gap: 4,
   },
-  footerValue: {
-    color: "#fff",
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "600",
-  },
+  footerValue: TypeScale.label,
   budgetBlock: { gap: 4 },
   barTrack: {
     height: 4,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.22)",
+    borderRadius: Radius.full,
     overflow: "hidden",
     marginTop: 4,
   },
-  barFill: { height: "100%", borderRadius: 999 },
+  barFill: { height: "100%", borderRadius: Radius.full },
 });

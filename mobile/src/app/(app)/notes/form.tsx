@@ -1,13 +1,11 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -21,13 +19,13 @@ import { NoteFolderPicker } from "@/components/NoteFolderPicker";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { INBOX_FOLDER } from "@/domain/notes/folders";
 import { MERMAID_SNIPPET } from "@/domain/notes/mermaidSnippet";
 import { insertAt } from "@/domain/notes/markdown";
 import { visibleProjects } from "@/domain/tasks/listView";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
 import { getNoteFolderNav } from "@/lib/noteFolderNav";
@@ -114,9 +112,9 @@ export default function NoteCreateScreen() {
   }
 
   const inputStyle = {
-    color: theme.text,
-    borderColor: theme.backgroundSelected,
-    backgroundColor: theme.backgroundElement,
+    color: theme.foreground,
+    borderColor: theme.border,
+    backgroundColor: theme.muted,
   };
   const projectName =
     projectId == null
@@ -136,7 +134,7 @@ export default function NoteCreateScreen() {
             onPress={() => setPickerOpen(true)}
             style={[styles.project, inputStyle]}
           >
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Projeto
             </ThemedText>
             <ThemedText>{projectName}</ThemedText>
@@ -147,10 +145,9 @@ export default function NoteCreateScreen() {
             onChange={setFolderId}
             style={[styles.project, inputStyle]}
           />
-          <TextInput
+          <Input
             autoFocus
             placeholder="Título"
-            placeholderTextColor={theme.textSecondary}
             style={[styles.title, inputStyle]}
             value={title}
             onChangeText={setTitle}
@@ -204,7 +201,7 @@ export default function NoteCreateScreen() {
                   onPress={() =>
                     setContent((cur) => insertAt(cur, { start: cur.length, end: cur.length }, "[[").text)
                   }
-                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                  style={[styles.tool, { backgroundColor: theme.muted }]}
                 >
                   <ThemedText type="smallBold">[[ ]]</ThemedText>
                 </Pressable>
@@ -218,15 +215,14 @@ export default function NoteCreateScreen() {
                       ).text
                     )
                   }
-                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                  style={[styles.tool, { backgroundColor: theme.muted }]}
                 >
                   <ThemedText type="smallBold">Diagrama</ThemedText>
                 </Pressable>
               </View>
-            <TextInput
+            <Input
               multiline
               placeholder="Escreva em markdown… Use [[Título]] para linkar outra nota."
-              placeholderTextColor={theme.textSecondary}
               style={[styles.bodyInput, inputStyle]}
               value={content}
               onChangeText={setContent}
@@ -236,12 +232,12 @@ export default function NoteCreateScreen() {
           )}
             </>
           )}
-          <FormButton
+          <Button
             label="Salvar nota"
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
         </View>
       </KeyboardAvoidingView>
@@ -273,38 +269,27 @@ const styles = StyleSheet.create({
   },
   project: {
     minHeight: 48,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
     justifyContent: "center",
   },
   title: {
     minHeight: 48,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
-    fontSize: 18,
-    fontWeight: "600",
+    ...TypeScale.heading,
   },
   bodyInput: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingTop: 12,
-    fontSize: 16,
-    lineHeight: 24,
+    ...TypeScale.body,
   },
   preview: { paddingVertical: 12, paddingBottom: 24 },
   tools: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  tool: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  error: { color: "#E11D48", textAlign: "center" },
+  tool: { borderRadius: Radius.lg, paddingHorizontal: 10, paddingVertical: 8 },
 });

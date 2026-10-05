@@ -6,7 +6,6 @@ import {
   Linking,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -24,9 +23,7 @@ import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
 import { StoryShareCard } from "@/components/share/StoryShareCard";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
-import { FormButton } from "@/components/ui/FormButton";
+import { Banner, Button, Card, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import {
   formatRating,
@@ -121,7 +118,7 @@ export default function PlaceDetailScreen() {
         {place ? (
           <Card style={styles.card}>
             <ThemedText type="title">{place.name}</ThemedText>
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               {[
                 PLACE_TYPE_LABELS[place.type] ?? place.type,
                 place.status ? PLACE_STATUS_LABELS[place.status] : null,
@@ -131,7 +128,7 @@ export default function PlaceDetailScreen() {
                 .join(" · ")}
             </ThemedText>
             {place.visited_date ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Visitado em {formatDateBR(place.visited_date)}
               </ThemedText>
             ) : null}
@@ -139,36 +136,38 @@ export default function PlaceDetailScreen() {
               <ThemedText>{place.address}</ThemedText>
             ) : null}
             {place.trip?.title ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Viagem: {place.trip.title}
               </ThemedText>
             ) : null}
             {place.amount ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Gasto {formatBRL(place.amount)}
                 {place.transaction_id ? " · no extrato" : ""}
               </ThemedText>
             ) : null}
             {place.notes ? <ThemedText>{place.notes}</ThemedText> : null}
             {maps ? (
-              <FormButton
+              <Button
                 label="Abrir no mapa"
                 onPress={() => void Linking.openURL(maps)}
+                variant="outline"
               />
             ) : null}
-            <FormButton
+            <Button
               label="Compartilhar"
               onPress={() => setShareOpen(true)}
+              variant="outline"
             />
-            <FormButton
+            <Button
               label="Editar"
-              tone="primary"
               onPress={() =>
                 router.push({
                   pathname: "/places/form",
                   params: { id: place.id },
                 })
               }
+              size="lg"
             />
           </Card>
         ) : null}
@@ -188,10 +187,11 @@ export default function PlaceDetailScreen() {
                   ? "Nenhuma visita ainda"
                   : `${visits.length} visita${visits.length === 1 ? "" : "s"}`}
               </ThemedText>
-              <FormButton
+              <Button
                 label={addingVisit ? "Cancelar" : "Nova visita"}
-                compact
                 onPress={() => setAddingVisit((cur) => !cur)}
+                variant="outline"
+                size="sm"
               />
             </View>
             {visits.map((visit) => (
@@ -202,21 +202,19 @@ export default function PlaceDetailScreen() {
                     {visit.rating != null ? ` · ${visit.rating}★` : ""}
                   </ThemedText>
                   {visit.notes ? (
-                    <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+                    <ThemedText type="small" themeColor="mutedForeground" numberOfLines={2}>
                       {visit.notes}
                     </ThemedText>
                   ) : null}
                   {visit.amount ? (
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {formatBRL(visit.amount)}
                       {visit.transaction_id ? " · extrato" : ""}
                     </ThemedText>
                   ) : null}
                 </View>
-                <FormButton
+                <Button
                   label="Excluir"
-                  tone="danger"
-                  compact
                   onPress={() => {
                     Alert.alert("Excluir visita", "Essa ação não tem volta.", [
                       { text: "Cancelar", style: "cancel" },
@@ -236,6 +234,8 @@ export default function PlaceDetailScreen() {
                       },
                     ]);
                   }}
+                  variant="destructive"
+                  size="sm"
                 />
               </View>
             ))}
@@ -244,57 +244,23 @@ export default function PlaceDetailScreen() {
                 <DateField
                   value={visitDate}
                   onChange={setVisitDate}
-                  style={[
-                    styles.input,
-                    {
-                      borderColor: theme.backgroundSelected,
-                      backgroundColor: theme.backgroundElement,
-                    },
-                  ]}
                 />
-                <TextInput
+                <Input
                   keyboardType="decimal-pad"
                   placeholder="Nota 0–5 (opcional)"
-                  placeholderTextColor={theme.textSecondary}
                   value={visitRating}
                   onChangeText={setVisitRating}
-                  style={[
-                    styles.input,
-                    {
-                      color: theme.text,
-                      borderColor: theme.backgroundSelected,
-                      backgroundColor: theme.backgroundElement,
-                    },
-                  ]}
                 />
-                <TextInput
+                <Input
                   keyboardType="decimal-pad"
                   placeholder="Gasto (opcional)"
-                  placeholderTextColor={theme.textSecondary}
                   value={visitAmount}
                   onChangeText={setVisitAmount}
-                  style={[
-                    styles.input,
-                    {
-                      color: theme.text,
-                      borderColor: theme.backgroundSelected,
-                      backgroundColor: theme.backgroundElement,
-                    },
-                  ]}
                 />
-                <TextInput
+                <Input
                   placeholder="Comentário (pratos, ambiente...)"
-                  placeholderTextColor={theme.textSecondary}
                   value={visitNotes}
                   onChangeText={setVisitNotes}
-                  style={[
-                    styles.input,
-                    {
-                      color: theme.text,
-                      borderColor: theme.backgroundSelected,
-                      backgroundColor: theme.backgroundElement,
-                    },
-                  ]}
                 />
                 <LedgerClassField
                   enabled={linkLedger}
@@ -302,11 +268,10 @@ export default function PlaceDetailScreen() {
                   classId={classId}
                   onClassIdChange={setClassId}
                 />
-                <FormButton
+                <Button
                   label={savingVisit ? "Salvando…" : "Salvar visita"}
-                  tone="primary"
                   disabled={savingVisit}
-                  busy={savingVisit}
+                  loading={savingVisit}
                   onPress={() => {
                     void (async () => {
                       setSavingVisit(true);
@@ -344,6 +309,7 @@ export default function PlaceDetailScreen() {
                       }
                     })();
                   }}
+                  size="lg"
                 />
               </>
             ) : null}
@@ -403,13 +369,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three },
   card: { padding: Spacing.three, gap: Spacing.two },
-  input: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
   visitHead: {
     flexDirection: "row",
     alignItems: "center",

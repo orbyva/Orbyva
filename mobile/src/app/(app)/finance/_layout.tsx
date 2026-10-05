@@ -1,7 +1,9 @@
 import { Stack } from "expo-router";
 
+import { groupHeaderTitle } from "@/components/chrome/GroupHeaderTitle";
 import { HeaderChromeRight } from "@/components/chrome/HeaderChromeRight";
 import { StackHeaderLeft } from "@/components/chrome/StackHeaderLeft";
+import { HeaderTitle } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 import { formScreenOptions } from "@/lib/formScreen";
 
@@ -13,7 +15,9 @@ export default function FinanceStackLayout() {
       screenOptions={{
         headerShadowVisible: false,
         headerStyle: { backgroundColor: theme.background },
-        headerTintColor: theme.text,
+        headerTintColor: theme.foreground,
+        headerTitleStyle: HeaderTitle,
+        headerTitle: groupHeaderTitle,
         contentStyle: { backgroundColor: theme.background },
         headerLeft: () => <StackHeaderLeft />,
         headerRight: () => <HeaderChromeRight />,
@@ -21,9 +25,18 @@ export default function FinanceStackLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: "Finanças" }} />
-      <Stack.Screen name="transactions" options={{ title: "Transações" }} />
-      <Stack.Screen name="recurring" options={{ title: "Recorrências" }} />
-      <Stack.Screen name="budget" options={{ title: "Orçamento" }} />
+      <Stack.Screen
+        name="transactions"
+        options={{ gestureEnabled: false, title: "Transações" }}
+      />
+      <Stack.Screen
+        name="recurring"
+        options={{ gestureEnabled: false, title: "Recorrências" }}
+      />
+      <Stack.Screen
+        name="budget"
+        options={{ gestureEnabled: false, title: "Orçamento" }}
+      />
       <Stack.Screen
         name="budget-form"
         options={{
@@ -31,7 +44,10 @@ export default function FinanceStackLayout() {
           ...formScreenOptions,
         }}
       />
-      <Stack.Screen name="categories" options={{ title: "Categorias" }} />
+      <Stack.Screen
+        name="categories"
+        options={{ gestureEnabled: false, title: "Categorias" }}
+      />
       <Stack.Screen
         name="form"
         options={{

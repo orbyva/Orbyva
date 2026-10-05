@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { Radius } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
 import { formatMovieRating, getMovieRatingLabel } from "@/domain/movies";
 import { useTheme } from "@/hooks/use-theme";
@@ -22,7 +23,7 @@ export function ScorePicker({
 
   return (
     <View style={styles.wrap}>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="small" themeColor="mutedForeground">
         {value != null
           ? `${formatMovieRating(value)}/10 · ${getMovieRatingLabel(value)}`
           : "Opcional — toque à esquerda para .5, à direita para inteiro"}
@@ -53,7 +54,7 @@ export function ScorePicker({
                       ? theme.primary
                       : fill === "half"
                         ? hexAlpha(theme.primary, 0.28)
-                        : theme.backgroundElement,
+                        : theme.muted,
                   borderColor: fill === "empty" ? "transparent" : theme.primary,
                 },
               ]}
@@ -70,7 +71,7 @@ export function ScorePicker({
               <ThemedText
                 type="smallBold"
                 style={{
-                  color: fill === "full" ? "#FFFFFF" : theme.text,
+                  color: fill === "full" ? theme.primaryForeground : theme.foreground,
                   zIndex: 1,
                 }}
               >
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   score: {
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,

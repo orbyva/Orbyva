@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet } from "react-native";
 import * as Linking from "expo-linking";
 
-import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui/Banner";
 import { useAuth } from "@/hooks/use-auth";

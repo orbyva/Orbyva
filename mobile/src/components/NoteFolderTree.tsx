@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   INBOX_FOLDER,
   NOTE_FOLDER_MAX_DEPTH,
@@ -14,6 +14,7 @@ import {
   type FolderNode,
 } from "@/domain/notes/folders";
 import { useTheme } from "@/hooks/use-theme";
+import { TypeScale } from "@/domain/ui/typography";
 import { hapticLight } from "@/lib/haptics";
 import type { Note, NoteFolder } from "@/types/notes";
 import type { Project, Tag } from "@/types/tasks";
@@ -114,7 +115,7 @@ export function NoteFolderTree({
   return (
     <View style={styles.wrap}>
       <View style={styles.head}>
-        <ThemedText type="smallBold" themeColor="textSecondary">
+        <ThemedText type="smallBold" themeColor="mutedForeground">
           Pastas
         </ThemedText>
         <Pressable
@@ -142,7 +143,7 @@ export function NoteFolderTree({
       />
       {tree.length > 0 ? (
         <View
-          style={[styles.tree, { borderTopColor: theme.backgroundSelected }]}
+          style={[styles.tree, { borderTopColor: theme.border }]}
         >
           {tree.map((node) => (
             <FolderRow
@@ -189,13 +190,13 @@ function NavRow({
       onPress={onPress}
       style={[
         styles.navRow,
-        active && { backgroundColor: theme.backgroundElement },
+        active && { backgroundColor: theme.muted },
       ]}
     >
       <Ionicons
         name={icon}
         size={16}
-        color={active ? theme.primary : theme.textSecondary}
+        color={active ? theme.primary : theme.mutedForeground}
       />
       <ThemedText
         type={active ? "smallBold" : "small"}
@@ -204,7 +205,7 @@ function NavRow({
       >
         {label}
       </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="small" themeColor="mutedForeground">
         {count}
       </ThemedText>
     </Pressable>
@@ -285,7 +286,7 @@ function FolderRow({
       <View
         style={[
           styles.folderRow,
-          active && { backgroundColor: theme.backgroundElement },
+          active && { backgroundColor: theme.muted },
         ]}
       >
         {hasChildren ? (
@@ -300,7 +301,7 @@ function FolderRow({
             <Ionicons
               name={expanded ? "chevron-down" : "chevron-forward"}
               size={16}
-              color={theme.textSecondary}
+              color={theme.mutedForeground}
             />
           </Pressable>
         ) : (
@@ -315,7 +316,7 @@ function FolderRow({
           <Ionicons
             name={expanded ? "folder-open-outline" : "folder-outline"}
             size={16}
-            color={tag?.color ?? (active ? theme.primary : theme.textSecondary)}
+            color={tag?.color ?? (active ? theme.primary : theme.mutedForeground)}
           />
           <View style={styles.folderCopy}>
             <View style={styles.folderTitleRow}>
@@ -326,7 +327,7 @@ function FolderRow({
               >
                 {node.name}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {count}
               </ThemedText>
             </View>
@@ -337,12 +338,12 @@ function FolderRow({
                     <View
                       style={[
                         styles.pip,
-                        { backgroundColor: project.color ?? "#94a3b8" },
+                        { backgroundColor: project.color ?? theme.mutedForeground },
                       ]}
                     />
                     <ThemedText
                       type="small"
-                      themeColor="textSecondary"
+                      themeColor="mutedForeground"
                       numberOfLines={1}
                       style={styles.metaLabel}
                     >
@@ -418,7 +419,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
@@ -426,7 +427,7 @@ const styles = StyleSheet.create({
   folderRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     paddingRight: 8,
     paddingVertical: 6,
   },
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
   },
-  metaLabel: { flexShrink: 1, fontSize: 11, lineHeight: 14 },
-  pip: { width: 6, height: 6, borderRadius: 3 },
+  metaLabel: { ...TypeScale.micro, flexShrink: 1 },
+  pip: { width: 6, height: 6, borderRadius: Radius.full },
   child: { marginLeft: 14 },
 });

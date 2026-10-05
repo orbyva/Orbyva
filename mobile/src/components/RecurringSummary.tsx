@@ -1,7 +1,8 @@
 import { StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 import { tintedSurface } from "@/lib/color";
 import { formatBRL } from "@/lib/currency";
@@ -31,14 +32,14 @@ export function RecurringSummary({
           {formatBRL(receive)}
         </ThemedText>
       </View>
-      <View style={[styles.card, tintedSurface(theme.danger)]}>
+      <View style={[styles.card, tintedSurface(theme.destructive)]}>
         <ThemedText
           type="smallBold"
-          style={[styles.label, { color: theme.danger, borderBottomColor: theme.danger }]}
+          style={[styles.label, { color: theme.destructive, borderBottomColor: theme.destructive }]}
         >
           {`A pagar no mês${suffix}`}
         </ThemedText>
-        <ThemedText type="smallBold" style={[styles.value, { color: theme.danger }]}>
+        <ThemedText type="smallBold" style={[styles.value, { color: theme.destructive }]}>
           {formatBRL(pay)}
         </ThemedText>
       </View>
@@ -50,18 +51,17 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", gap: Spacing.two },
   card: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     padding: Spacing.three,
     gap: 8,
     borderWidth: 1,
   },
   label: {
+    ...TypeScale.micro,
     textTransform: "uppercase",
     letterSpacing: 0.3,
     borderBottomWidth: 2,
     paddingBottom: 6,
-    fontSize: 11,
-    lineHeight: 14,
   },
-  value: { fontSize: 18, lineHeight: 24 },
+  value: TypeScale.heading,
 });

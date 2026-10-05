@@ -1,7 +1,10 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Button } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 
 type HubStaleNudgeProps = {
   daysWithoutTx: number;
@@ -14,24 +17,26 @@ export function HubStaleNudge({
   onAdd,
   onDismiss,
 }: HubStaleNudgeProps) {
+  const theme = useTheme();
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        { borderColor: hexAlpha(theme.warning, 0.3), backgroundColor: hexAlpha(theme.warning, 0.1) },
+      ]}
+    >
       <View style={styles.copy}>
         <ThemedText type="smallBold">
           Sem lançamentos há {daysWithoutTx} dias.
         </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Um registro rápido mantém os lançamentos em dia.
         </ThemedText>
       </View>
       <View style={styles.actions}>
-        <Pressable onPress={onAdd} style={styles.primary}>
-          <ThemedText type="smallBold" style={styles.primaryText}>
-            Lançar agora
-          </ThemedText>
-        </Pressable>
+        <Button label="Lançar agora" size="sm" onPress={onAdd} />
         <Pressable onPress={onDismiss} hitSlop={8} style={styles.dismiss}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Dispensar
           </ThemedText>
         </Pressable>
@@ -42,21 +47,12 @@ export function HubStaleNudge({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: "rgba(217,119,6,0.3)",
-    backgroundColor: "rgba(217,119,6,0.1)",
     padding: Spacing.three,
     gap: Spacing.two,
   },
   copy: { gap: 4 },
   actions: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  primary: {
-    backgroundColor: "#0EA5E9",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  primaryText: { color: "#0B0F1A" },
   dismiss: { paddingHorizontal: 8, paddingVertical: 8 },
 });

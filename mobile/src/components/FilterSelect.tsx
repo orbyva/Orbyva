@@ -36,7 +36,7 @@ export function FilterSelect({
           {
             backgroundColor: filtered
               ? hexAlpha(theme.primary, 0.14)
-              : theme.backgroundElement,
+              : theme.muted,
             borderColor: filtered ? theme.primary : "transparent",
           },
         ]}
@@ -50,7 +50,7 @@ export function FilterSelect({
         </ThemedText>
         <ThemedText
           type="small"
-          style={{ color: filtered ? theme.primary : theme.textSecondary }}
+          style={{ color: filtered ? theme.primary : theme.mutedForeground }}
         >
           ▾
         </ThemedText>
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    borderRadius: Radius.chip,
+    borderRadius: Radius.full,
     paddingHorizontal: 12,
     paddingVertical: 9,
     maxWidth: 180,

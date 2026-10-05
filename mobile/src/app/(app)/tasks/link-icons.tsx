@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  TextInput,
   View,
 } from "react-native";
 
@@ -23,8 +22,7 @@ import { ChoiceChip } from "@/components/ChoiceChip";
 import { TaskIconBadge } from "@/components/TaskIconBadge";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Card } from "@/components/ui/Card";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Card, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import {
   LINK_ICON_PRESETS,
@@ -169,14 +167,6 @@ export default function LinkIconRulesScreen() {
     );
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   if (loading) {
     return (
@@ -206,7 +196,7 @@ export default function LinkIconRulesScreen() {
   return (
     <ThemedView style={styles.flex}>
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Regras que decidem o ícone e o texto de cada link externo nas tarefas. A primeira regra
           que casa vence — use as setas para escolher quem vem antes.
         </ThemedText>
@@ -214,46 +204,40 @@ export default function LinkIconRulesScreen() {
         {form ? (
           <Card style={styles.card}>
             <ThemedText type="smallBold">{form.id ? "Editar regra" : "Nova regra"}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Nome *
             </ThemedText>
-            <TextInput
+            <Input
               placeholder="GitHub issue"
-              placeholderTextColor={theme.textSecondary}
               value={form.name}
               onChangeText={(name) => setForm({ ...form, name })}
-              style={inputStyle}
             />
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Expressão regular *
             </ThemedText>
-            <TextInput
+            <Input
               autoCapitalize="none"
               autoCorrect={false}
               placeholder="^https?://github\.com/([^/]+)/([^/]+)/issues/(\d+)"
-              placeholderTextColor={theme.textSecondary}
               value={form.pattern}
               onChangeText={(pattern) => setForm({ ...form, pattern })}
-              style={inputStyle}
             />
             {patternError ? (
-              <ThemedText type="small" style={{ color: theme.danger }}>
+              <ThemedText type="small" style={{ color: theme.destructive }}>
                 {patternError}
               </ThemedText>
             ) : null}
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Texto do link ($1…$9 são os grupos capturados; vazio usa o site)
             </ThemedText>
-            <TextInput
+            <Input
               autoCapitalize="none"
               autoCorrect={false}
               placeholder="$1/$2#$3"
-              placeholderTextColor={theme.textSecondary}
               value={form.label_template}
               onChangeText={(label_template) => setForm({ ...form, label_template })}
-              style={inputStyle}
             />
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Ícone
             </ThemedText>
             {form.icon_url ? (
@@ -262,10 +246,11 @@ export default function LinkIconRulesScreen() {
                 <ThemedText type="small" style={styles.flex}>
                   Ícone da sua biblioteca (escolhido na web)
                 </ThemedText>
-                <FormButton
+                <Button
                   label="Usar ícone pronto"
-                  compact
                   onPress={() => setForm({ ...form, icon_url: null })}
+                  variant="outline"
+                  size="sm"
                 />
               </View>
             ) : (
@@ -280,22 +265,20 @@ export default function LinkIconRulesScreen() {
                 ))}
               </View>
             )}
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Testar com uma URL
             </ThemedText>
-            <TextInput
+            <Input
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
               placeholder="https://github.com/owner/repo/issues/123"
-              placeholderTextColor={theme.textSecondary}
               value={testUrl}
               onChangeText={setTestUrl}
-              style={inputStyle}
             />
             {preview ? (
               <View style={styles.preview}>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {previewMatched
                     ? "A regra casou:"
                     : "A regra não casou. Sem ela, o link aparece assim:"}
@@ -314,54 +297,65 @@ export default function LinkIconRulesScreen() {
               </View>
             ) : null}
             <View style={styles.row}>
-              <FormButton
+              <Button
                 label="Salvar"
-                tone="primary"
-                compact
-                flex
-                busy={busy}
+                loading={busy}
                 disabled={!form.name.trim() || !form.pattern.trim() || Boolean(patternError)}
                 onPress={() => void save()}
+                size="sm"
+                style={{ flex: 1 }}
               />
-              <FormButton label="Cancelar" compact flex onPress={() => setForm(null)} />
+              <Button
+                label="Cancelar"
+                onPress={() => setForm(null)}
+                variant="outline"
+                size="sm"
+                style={{ flex: 1 }}
+              />
             </View>
           </Card>
         ) : (
-          <FormButton
+          <Button
             label="Nova regra"
-            tone="primary"
             onPress={() => {
               setForm({ ...EMPTY_FORM });
               setTestUrl("");
             }}
+            size="lg"
           />
         )}
 
         {loadError ? (
           <Card style={styles.card}>
             <ThemedText type="smallBold">{loadError}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Suas regras continuam salvas — os links só aparecem com o ícone genérico até a lista
               voltar.
             </ThemedText>
-            <FormButton label="Tentar de novo" compact onPress={() => void load()} />
+            <Button
+              label="Tentar de novo"
+              onPress={() => void load()}
+              variant="outline"
+              size="sm"
+            />
           </Card>
         ) : rules.length === 0 ? (
           <Card style={styles.card}>
             <ThemedText type="smallBold">Nenhuma regra ainda</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Sem regras, todo link externo aparece com o ícone genérico e o endereço do site.
               Comece pelas prontas — todas editáveis depois.
             </ThemedText>
-            <FormButton
+            <Button
               label="Criar regras padrão"
-              busy={busy}
+              loading={busy}
               onPress={() =>
                 void run(async () => {
                   await createDefaultLinkIconRules(0);
                   ok("Regras padrão criadas");
                 }, "Não foi possível criar as regras padrão.")
               }
+              variant="outline"
             />
           </Card>
         ) : (
@@ -373,7 +367,7 @@ export default function LinkIconRulesScreen() {
                   styles.ruleRow,
                   index > 0 && {
                     borderTopWidth: StyleSheet.hairlineWidth,
-                    borderTopColor: theme.backgroundSelected,
+                    borderTopColor: theme.border,
                   },
                 ]}
               >
@@ -382,17 +376,17 @@ export default function LinkIconRulesScreen() {
                     iconKey={rule.icon_key}
                     iconUrl={rule.icon_url}
                     size={18}
-                    color={rule.enabled ? theme.primary : theme.textSecondary}
+                    color={rule.enabled ? theme.primary : theme.mutedForeground}
                   />
                   <View style={styles.flex}>
                     <ThemedText
                       type="smallBold"
                       numberOfLines={1}
-                      themeColor={rule.enabled ? undefined : "textSecondary"}
+                      themeColor={rule.enabled ? undefined : "mutedForeground"}
                     >
                       {index + 1}. {rule.name}
                     </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                    <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
                       {rule.pattern}
                     </ThemedText>
                   </View>
@@ -424,7 +418,7 @@ export default function LinkIconRulesScreen() {
                   <IconButton
                     icon="trash-outline"
                     label={`Excluir ${rule.name}`}
-                    color={theme.danger}
+                    color={theme.destructive}
                     onPress={() => confirmDelete(rule)}
                   />
                 </View>
@@ -460,7 +454,7 @@ function IconButton({
       onPress={onPress}
       style={[styles.iconBtn, disabled && styles.disabled]}
     >
-      <Ionicons name={icon} size={18} color={color ?? theme.textSecondary} />
+      <Ionicons name={icon} size={18} color={color ?? theme.mutedForeground} />
     </Pressable>
   );
 }
@@ -474,12 +468,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 10 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   preview: { gap: 4 },
-  input: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-  },
   ruleRow: { padding: Spacing.three, gap: 6 },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: Spacing.three },
   iconBtn: { padding: 4 },

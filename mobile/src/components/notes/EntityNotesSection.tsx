@@ -14,7 +14,7 @@ export function EntityNotesSection({
   const router = useRouter();
   if (notes.length === 0) return null;
   return (
-    <View style={[styles.section, { borderTopColor: theme.backgroundSelected }]}>
+    <View style={[styles.section, { borderTopColor: theme.border }]}>
       <MentionList
         caption="Notas"
         icon="document-text-outline"

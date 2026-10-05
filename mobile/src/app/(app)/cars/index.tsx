@@ -15,10 +15,8 @@ import { ChipBar } from "@/components/ChipBar";
 import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
-import { FormButton } from "@/components/ui/FormButton";
-import { Spacing } from "@/constants/theme";
+import { Badge, Banner, Button, Card } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   calculateFuelConsumption,
   DOCUMENT_TYPE_LABELS,
@@ -29,8 +27,10 @@ import {
   MAINTENANCE_TYPE_LABELS,
   vehicleLabel,
 } from "@/domain/car";
+import { carAlertBadge } from "@/domain/ui/semanticTone";
 import { useAppShell } from "@/hooks/use-app-shell";
-import { useTheme } from "@/hooks/use-theme";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
 import type { FuelLog, Maintenance, Vehicle, VehicleDocument } from "@/types/car";
@@ -47,6 +47,7 @@ const FLEET_TABS: { id: FleetTab; label: string }[] = [
 
 export default function CarsScreen() {
   const theme = useTheme();
+  const moduleColors = useModuleColors();
   const router = useRouter();
   const { bottomInset } = useAppShell();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -162,7 +163,7 @@ export default function CarsScreen() {
           {tab === "veiculos" ? (
           <>
           {vehicles.length === 0 ? (
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               Nenhum veículo cadastrado.
             </ThemedText>
           ) : (
@@ -183,7 +184,7 @@ export default function CarsScreen() {
                 >
                   <Card style={styles.card}>
                     <View
-                      style={[styles.iconWell, { backgroundColor: "#22A37A22" }]}
+                      style={[styles.iconWell, { backgroundColor: hexAlpha(moduleColors.car, 0.13) }]}
                     >
                       <Ionicons
                         name={
@@ -192,14 +193,14 @@ export default function CarsScreen() {
                             : "car-outline"
                         }
                         size={20}
-                        color="#22A37A"
+                        color={moduleColors.car}
                       />
                     </View>
                     <View style={styles.copy}>
                       <ThemedText type="smallBold">
                         {vehicleLabel(vehicle)}
                       </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {[
                           vehicle.plate,
                           vehicle.fuel_type
@@ -214,12 +215,11 @@ export default function CarsScreen() {
                           .join(" · ")}
                       </ThemedText>
                       {alertCount > 0 ? (
-                        <ThemedText
-                          type="small"
-                          themeColor={overdue ? "danger" : "textSecondary"}
-                        >
-                          {alertCount} alerta{alertCount > 1 ? "s" : ""}
-                        </ThemedText>
+                        <Badge
+                          label={`${alertCount} alerta${alertCount > 1 ? "s" : ""}`}
+                          variant={carAlertBadge(overdue ? "overdue" : "upcoming")?.variant}
+                          style={styles.alertBadge}
+                        />
                       ) : null}
                     </View>
                   </Card>
@@ -232,18 +232,18 @@ export default function CarsScreen() {
 
           {tab === "cronograma" ? (
             !selected ? (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Cadastre um veículo para ver o cronograma.
               </ThemedText>
             ) : schedule.length === 0 ? (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Nenhum item no cronograma.
               </ThemedText>
             ) : (
               schedule.map((item) => (
                 <Card key={item.type} style={styles.listCard}>
                   <ThemedText type="smallBold">{item.label}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {item.message}
                   </ThemedText>
                 </Card>
@@ -254,7 +254,7 @@ export default function CarsScreen() {
           {tab === "manutencao" ? (
             <>
               {selected ? (
-                <FormButton
+                <Button
                   label="Registrar manutenção"
                   onPress={() =>
                     router.push({
@@ -262,10 +262,11 @@ export default function CarsScreen() {
                       params: { vehicleId: selected.id },
                     })
                   }
+                  variant="outline"
                 />
               ) : null}
               {selectedMaint.length === 0 ? (
-                <ThemedText themeColor="textSecondary">
+                <ThemedText themeColor="mutedForeground">
                   Nenhuma manutenção.
                 </ThemedText>
               ) : (
@@ -285,7 +286,7 @@ export default function CarsScreen() {
                           MAINTENANCE_TYPE_LABELS[item.type] ||
                           item.type}
                       </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {[
                           item.service_date
                             ? formatDateBR(item.service_date)
@@ -307,7 +308,7 @@ export default function CarsScreen() {
           {tab === "combustivel" ? (
             <>
               {selected ? (
-                <FormButton
+                <Button
                   label="Registrar abastecimento"
                   onPress={() =>
                     router.push({
@@ -315,10 +316,11 @@ export default function CarsScreen() {
                       params: { vehicleId: selected.id },
                     })
                   }
+                  variant="outline"
                 />
               ) : null}
               {selectedFuel.length === 0 ? (
-                <ThemedText themeColor="textSecondary">
+                <ThemedText themeColor="mutedForeground">
                   Nenhum abastecimento.
                 </ThemedText>
               ) : (
@@ -337,7 +339,7 @@ export default function CarsScreen() {
                         {formatDateBR(log.date)} ·{" "}
                         {log.liters.toLocaleString("pt-BR")} L
                       </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {[
                           formatBRL(Number(log.total_cost)),
                           `${log.km.toLocaleString("pt-BR")} km`,
@@ -356,7 +358,7 @@ export default function CarsScreen() {
           {tab === "documentos" ? (
             <>
               {selected ? (
-                <FormButton
+                <Button
                   label="Novo documento"
                   onPress={() =>
                     router.push({
@@ -364,10 +366,11 @@ export default function CarsScreen() {
                       params: { vehicleId: selected.id },
                     })
                   }
+                  variant="outline"
                 />
               ) : null}
               {selectedDocs.length === 0 ? (
-                <ThemedText themeColor="textSecondary">
+                <ThemedText themeColor="mutedForeground">
                   Nenhum documento.
                 </ThemedText>
               ) : (
@@ -387,7 +390,7 @@ export default function CarsScreen() {
                           doc.custom_type ??
                           doc.type}
                       </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         Vence {formatDateBR(doc.due_date)}
                         {doc.paid ? " · pago" : " · em aberto"}
                       </ThemedText>
@@ -404,6 +407,7 @@ export default function CarsScreen() {
 }
 
 const styles = StyleSheet.create({
+  alertBadge: { alignSelf: "flex-start" },
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   banner: { marginHorizontal: Spacing.four, marginTop: Spacing.three },
@@ -417,7 +421,7 @@ const styles = StyleSheet.create({
   iconWell: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
   },

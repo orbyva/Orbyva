@@ -7,7 +7,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -20,7 +19,7 @@ import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { TaskIconBadge } from "@/components/TaskIconBadge";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
+import { Banner, Input } from "@/components/ui";
 import { Radius, Spacing } from "@/constants/theme";
 import {
   computeMonthGridDays,
@@ -29,12 +28,14 @@ import {
   groupCalendarItemsByDay,
   monthTitle,
   shiftDays,
-  TASK_STATUS_COLORS,
+  calendarItemColor,
   WEEKDAY_HEADERS,
   weekTitle,
   type CalendarItem,
 } from "@/domain/tasks/calendar";
 import { parseEventInviteToken } from "@/domain/tasks/eventInvites";
+import { SCRIM } from "@/domain/ui/color";
+import { TypeScale } from "@/domain/ui/typography";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
@@ -57,14 +58,6 @@ function shiftMonth(year: number, month: number, delta: number) {
 
 function itemTitle(item: CalendarItem): string {
   return item.kind === "task" ? item.task.title : item.event.title;
-}
-
-function itemColor(item: CalendarItem, projects: Project[]): string {
-  if (item.kind === "task") {
-    return TASK_STATUS_COLORS[item.task.status] ?? "#64748B";
-  }
-  const project = projects.find((row) => row.id === item.event.project_id);
-  return project?.color || "#A855F7";
 }
 
 export default function AgendaScreen() {
@@ -223,7 +216,7 @@ export default function AgendaScreen() {
               }
               setFocusIso(shiftDays(focusIso, view === "week" ? -7 : -1));
             }}
-            style={[styles.monthBtn, { backgroundColor: theme.backgroundElement }]}
+            style={[styles.monthBtn, { backgroundColor: theme.muted }]}
           >
             <ThemedText type="smallBold">‹</ThemedText>
           </Pressable>
@@ -242,7 +235,7 @@ export default function AgendaScreen() {
               }
               setFocusIso(shiftDays(focusIso, view === "week" ? 7 : 1));
             }}
-            style={[styles.monthBtn, { backgroundColor: theme.backgroundElement }]}
+            style={[styles.monthBtn, { backgroundColor: theme.muted }]}
           >
             <ThemedText type="smallBold">›</ThemedText>
           </Pressable>
@@ -286,7 +279,7 @@ export default function AgendaScreen() {
             <ThemedText
               key={`${label}-${index}`}
               type="small"
-              themeColor="textSecondary"
+              themeColor="mutedForeground"
               style={styles.weekLabel}
             >
               {label}
@@ -310,9 +303,9 @@ export default function AgendaScreen() {
                   styles.day,
                   {
                     backgroundColor: cell.inMonth
-                      ? theme.surface
-                      : theme.backgroundElement,
-                    borderColor: isToday ? theme.primary : theme.backgroundSelected,
+                      ? theme.card
+                      : theme.muted,
+                    borderColor: isToday ? theme.primary : theme.border,
                   },
                 ]}
               >
@@ -322,8 +315,8 @@ export default function AgendaScreen() {
                     color: isToday
                       ? theme.primary
                       : cell.inMonth
-                        ? theme.text
-                        : theme.textSecondary,
+                        ? theme.foreground
+                        : theme.mutedForeground,
                   }}
                 >
                   {cell.day}
@@ -338,7 +331,7 @@ export default function AgendaScreen() {
                     <View
                       style={[
                         styles.dot,
-                        { backgroundColor: itemColor(item, projects) },
+                        { backgroundColor: calendarItemColor(item, projects, theme) },
                       ]}
                     />
                     {item.kind === "task" ? (
@@ -356,7 +349,7 @@ export default function AgendaScreen() {
                   </View>
                 ))}
                 {extra > 0 ? (
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     +{extra}
                   </ThemedText>
                 ) : null}
@@ -365,7 +358,7 @@ export default function AgendaScreen() {
           })}
         </View>
         <View style={styles.legend}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Bolinha = status da tarefa · cor do projeto nos eventos · $ em
             pagamento vinculado.
           </ThemedText>
@@ -373,23 +366,15 @@ export default function AgendaScreen() {
           </>
         ) : null}
         <View style={styles.pasteInvite}>
-          <TextInput
+          <Input
             autoCapitalize="none"
             autoCorrect={false}
             placeholder="Recebeu um convite de evento? Cole o link"
-            placeholderTextColor={theme.textSecondary}
             value={inviteInput}
             onChangeText={setInviteInput}
             onSubmitEditing={openPastedInvite}
             returnKeyType="go"
-            style={[
-              styles.pasteInput,
-              {
-                color: theme.text,
-                borderColor: theme.backgroundSelected,
-                backgroundColor: theme.backgroundElement,
-              },
-            ]}
+containerStyle={styles.pasteInput}
           />
           <Pressable
             accessibilityRole="button"
@@ -399,7 +384,7 @@ export default function AgendaScreen() {
           >
             <ThemedText
               type="smallBold"
-              style={{ color: inviteInput.trim() ? theme.primary : theme.textSecondary }}
+              style={{ color: inviteInput.trim() ? theme.primary : theme.mutedForeground }}
             >
               Abrir
             </ThemedText>
@@ -413,9 +398,9 @@ export default function AgendaScreen() {
         animationType="fade"
         onRequestClose={() => setDayIso(null)}
       >
-        <Pressable style={styles.overlay} onPress={() => setDayIso(null)}>
+        <Pressable style={[styles.overlay, { backgroundColor: SCRIM }]} onPress={() => setDayIso(null)}>
           <Pressable
-            style={[styles.sheet, { backgroundColor: theme.surface }]}
+            style={[styles.sheet, { backgroundColor: theme.card }]}
             onPress={() => undefined}
           >
             <ThemedText type="smallBold">
@@ -428,7 +413,7 @@ export default function AgendaScreen() {
                 : ""}
             </ThemedText>
             {dayItems.length === 0 ? (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Nada neste dia.
               </ThemedText>
             ) : (
@@ -438,13 +423,13 @@ export default function AgendaScreen() {
                   onPress={() => openItem(item)}
                   style={[
                     styles.dayRow,
-                    { backgroundColor: theme.backgroundElement },
+                    { backgroundColor: theme.muted },
                   ]}
                 >
                   <View
                     style={[
                       styles.dotLg,
-                      { backgroundColor: itemColor(item, projects) },
+                      { backgroundColor: calendarItemColor(item, projects, theme) },
                     ]}
                   />
                   {item.kind === "task" ? (
@@ -456,7 +441,7 @@ export default function AgendaScreen() {
                   ) : null}
                   <View style={styles.dayCopy}>
                     <ThemedText type="smallBold">{itemTitle(item)}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {item.kind === "task"
                         ? [
                             TASK_STATUS_LABELS[item.task.status],
@@ -501,10 +486,6 @@ const styles = StyleSheet.create({
   pasteInvite: { flexDirection: "row", alignItems: "center", gap: 10 },
   pasteInput: {
     flex: 1,
-    minHeight: 40,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
   },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three },
@@ -512,14 +493,14 @@ const styles = StyleSheet.create({
   monthBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
   monthTitle: { flex: 1, textAlign: "center" },
   todayBtn: { alignSelf: "center" },
   weekHead: { flexDirection: "row" },
-  weekLabel: { flex: 1, textAlign: "center", fontSize: 11 },
+  weekLabel: { ...TypeScale.micro, flex: 1, textAlign: "center" },
   grid: { flexDirection: "row", flexWrap: "wrap" },
   day: {
     width: "14.28%",
@@ -529,17 +510,16 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   chip: { flexDirection: "row", alignItems: "center", gap: 3 },
-  chipText: { flex: 1, fontSize: 10, lineHeight: 12 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  chipText: { ...TypeScale.nano, flex: 1 },
+  dot: { width: 6, height: 6, borderRadius: Radius.full },
   legend: { paddingTop: 4 },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(11,15,26,0.45)",
     justifyContent: "flex-end",
   },
   sheet: {
-    borderTopLeftRadius: Radius.card,
-    borderTopRightRadius: Radius.card,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
     padding: Spacing.four,
     gap: Spacing.two,
   },
@@ -547,9 +527,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: 12,
   },
-  dotLg: { width: 10, height: 10, borderRadius: 5 },
+  dotLg: { width: 10, height: 10, borderRadius: Radius.full },
   dayCopy: { flex: 1, gap: 2 },
 });

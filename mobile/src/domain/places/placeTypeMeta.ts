@@ -17,6 +17,7 @@ export type PlaceTypeTone = {
   fg: string;
 };
 
+// token-livre-início: paleta categórica espelhada de src/domain/places/placeTypeMeta.ts do web
 export const PLACE_TYPE_META: Record<PlaceType, PlaceTypeTone> = {
   restaurant: { icon: "utensils", bg: "rgba(244,63,94,0.15)", fg: "#BE123C" },
   cafe: { icon: "coffee", bg: "rgba(245,158,11,0.18)", fg: "#B45309" },
@@ -28,6 +29,7 @@ export const PLACE_TYPE_META: Record<PlaceType, PlaceTypeTone> = {
   shop: { icon: "shopping-bag", bg: "rgba(236,72,153,0.16)", fg: "#BE185D" },
   other: { icon: "pin", bg: "rgba(100,116,139,0.16)", fg: "#475569" },
 };
+// token-livre-fim
 
 export function placeTypeMeta(type: PlaceType | null | undefined): PlaceTypeTone {
   return (type && PLACE_TYPE_META[type]) || PLACE_TYPE_META.other;

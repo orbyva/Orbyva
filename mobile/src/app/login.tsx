@@ -2,13 +2,11 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 import { Redirect } from "expo-router";
@@ -19,9 +17,9 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
+import { Banner, Button, Input } from "@/components/ui";
 import { ChipBar } from "@/components/ChipBar";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useThemePreference } from "@/hooks/use-theme-preference";
@@ -165,14 +163,6 @@ export default function LoginScreen() {
     });
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      backgroundColor: theme.backgroundElement,
-      borderColor: theme.backgroundSelected,
-    },
-  ];
 
   return (
     <ThemedView style={styles.flex}>
@@ -191,7 +181,7 @@ export default function LoginScreen() {
               <BrandLogo size={56} />
               <BrandWordmark />
             </View>
-            <ThemedText themeColor="textSecondary" style={styles.subtitle}>
+            <ThemedText themeColor="mutedForeground" style={styles.subtitle}>
               {mode === "signup"
                 ? "7 dias grátis com tudo liberado."
                 : "Entre com a mesma conta do web."}
@@ -214,11 +204,11 @@ export default function LoginScreen() {
                 styles.google,
                 {
                   backgroundColor: theme.background,
-                  borderColor: theme.backgroundSelected,
+                  borderColor: theme.border,
                 },
               ]}
             >
-              <Ionicons name="logo-google" size={18} color={theme.text} />
+              <Ionicons name="logo-google" size={18} color={theme.foreground} />
               <ThemedText type="smallBold">Continuar com Google</ThemedText>
             </Pressable>
 
@@ -238,74 +228,54 @@ export default function LoginScreen() {
 
             <View style={styles.divider}>
               <View
-                style={[styles.dividerLine, { backgroundColor: theme.backgroundSelected }]}
+                style={[styles.dividerLine, { backgroundColor: theme.border }]}
               />
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 ou
               </ThemedText>
               <View
-                style={[styles.dividerLine, { backgroundColor: theme.backgroundSelected }]}
+                style={[styles.dividerLine, { backgroundColor: theme.border }]}
               />
             </View>
 
-            <TextInput
+            <Input
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
               placeholder="E-mail"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={email}
               onChangeText={setEmail}
             />
-            <TextInput
+            <Input
               autoCapitalize="none"
               autoComplete={mode === "login" ? "password" : "new-password"}
               placeholder="Senha"
-              placeholderTextColor={theme.textSecondary}
               secureTextEntry
-              style={inputStyle}
               value={password}
               onChangeText={setPassword}
             />
 
             <Banner message={error} />
             {message ? (
-              <ThemedText themeColor="textSecondary">{message}</ThemedText>
+              <ThemedText themeColor="mutedForeground">{message}</ThemedText>
             ) : null}
 
-            <Pressable
-              accessibilityRole="button"
+            <Button
+              label={mode === "signup" ? "Criar conta" : "Entrar"}
+              size="lg"
               disabled={busy}
+              loading={busy}
               onPress={() => void handleEmail()}
-              style={[styles.primary, { backgroundColor: theme.primary }]}
-            >
-              {busy ? (
-                <ActivityIndicator color="#0B0F1A" />
-              ) : (
-                <ThemedText type="smallBold" style={styles.primaryLabel}>
-                  {mode === "signup" ? "Criar conta" : "Entrar"}
-                </ThemedText>
-              )}
-            </Pressable>
+            />
 
-            <Pressable
-              accessibilityRole="button"
+            <Button
+              label="Enviar link mágico"
+              variant="outline"
+              size="lg"
+              leftIcon="mail-outline"
               disabled={busy}
               onPress={() => void handleMagicLink()}
-              style={[
-                styles.magic,
-                {
-                  backgroundColor: theme.backgroundElement,
-                  borderColor: theme.primary,
-                },
-              ]}
-            >
-              <Ionicons name="mail-outline" size={18} color={theme.primary} />
-              <ThemedText type="smallBold" style={{ color: theme.primary }}>
-                Enviar link mágico
-              </ThemedText>
-            </Pressable>
+            />
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -327,32 +297,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
   },
   subtitle: { textAlign: "center" },
-  input: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  magic: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
   google: {
     height: 48,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",

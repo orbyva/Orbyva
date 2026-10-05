@@ -10,7 +10,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 import * as Print from "expo-print";
@@ -34,15 +33,14 @@ import { NoteBacklinksSection } from "@/components/notes/NoteBacklinksSection";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { FormSection } from "@/components/ui/FormSection";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, FormSection, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { MERMAID_SNIPPET } from "@/domain/notes/mermaidSnippet";
 import { insertAt, prefixLines, wrapInline } from "@/domain/notes/markdown";
 import { folderNavForNote } from "@/domain/notes/folders";
 import { buildNotePrintHtml } from "@/domain/notes/printNote";
 import { visibleProjects } from "@/domain/tasks/listView";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 import { getErrorMessage } from "@/lib/errors";
 import { useFeedback } from "@/hooks/use-toast";
@@ -349,16 +347,16 @@ export default function NoteEditorScreen() {
       title: "Nota",
       headerRight: () => (
         <Pressable onPress={onDelete} disabled={deleting} hitSlop={10}>
-          <Ionicons name="trash-outline" size={20} color={theme.danger} />
+          <Ionicons name="trash-outline" size={20} color={theme.destructive} />
         </Pressable>
       ),
     });
-  }, [deleting, navigation, onDelete, theme.danger]);
+  }, [deleting, navigation, onDelete, theme.destructive]);
 
   const inputStyle = {
-    color: theme.text,
-    borderColor: theme.backgroundSelected,
-    backgroundColor: theme.backgroundElement,
+    color: theme.foreground,
+    borderColor: theme.border,
+    backgroundColor: theme.muted,
   };
   const projectName =
     projectId == null
@@ -401,7 +399,7 @@ export default function NoteEditorScreen() {
         >
           <Banner message={error} />
           {statusLabel ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {statusLabel}
             </ThemedText>
           ) : null}
@@ -418,7 +416,7 @@ export default function NoteEditorScreen() {
             <Ionicons
               name="folder-outline"
               size={16}
-              color={theme.textSecondary}
+              color={theme.mutedForeground}
             />
             <ThemedText type="small" numberOfLines={1} style={styles.folderChipLabel}>
               {folderName}
@@ -426,7 +424,7 @@ export default function NoteEditorScreen() {
             <Ionicons
               name="chevron-forward"
               size={14}
-              color={theme.textSecondary}
+              color={theme.mutedForeground}
             />
           </Pressable>
           <FormSection
@@ -439,7 +437,7 @@ export default function NoteEditorScreen() {
               disabled={deleting}
               style={[styles.project, inputStyle]}
             >
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Projeto
               </ThemedText>
               <ThemedText>{projectName}</ThemedText>
@@ -453,9 +451,8 @@ export default function NoteEditorScreen() {
             />
             {noteId ? <NoteLinksSection noteId={noteId} /> : null}
           </FormSection>
-          <TextInput
+          <Input
             placeholder="Título"
-            placeholderTextColor={theme.textSecondary}
             style={[styles.title, inputStyle]}
             value={title}
             onChangeText={onTitleChange}
@@ -495,45 +492,44 @@ export default function NoteEditorScreen() {
               <View style={styles.toolbar}>
                 <Pressable
                   onPressIn={() => applyWrap("**")}
-                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                  style={[styles.tool, { backgroundColor: theme.muted }]}
                 >
                   <ThemedText type="smallBold">N</ThemedText>
                 </Pressable>
                 <Pressable
                   onPressIn={() => applyWrap("*")}
-                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                  style={[styles.tool, { backgroundColor: theme.muted }]}
                 >
                   <ThemedText type="smallBold">I</ThemedText>
                 </Pressable>
                 <Pressable
                   onPressIn={() => applyPrefix("- ")}
-                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                  style={[styles.tool, { backgroundColor: theme.muted }]}
                 >
                   <ThemedText type="smallBold">Lista</ThemedText>
                 </Pressable>
                 <Pressable
                   onPressIn={() => applyPrefix("- [ ] ")}
-                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                  style={[styles.tool, { backgroundColor: theme.muted }]}
                 >
                   <ThemedText type="smallBold">Check</ThemedText>
                 </Pressable>
                 <Pressable
                   onPressIn={() => applyWrap("[[", "]]")}
-                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                  style={[styles.tool, { backgroundColor: theme.muted }]}
                 >
                   <ThemedText type="smallBold">[[ ]]</ThemedText>
                 </Pressable>
                 <Pressable
                   onPressIn={() => applyInsert(`\n\n${MERMAID_SNIPPET}\n`)}
-                  style={[styles.tool, { backgroundColor: theme.backgroundElement }]}
+                  style={[styles.tool, { backgroundColor: theme.muted }]}
                 >
                   <ThemedText type="smallBold">Diagrama</ThemedText>
                 </Pressable>
               </View>
-              <TextInput
+              <Input
                 multiline
                 placeholder="Escreva em markdown…"
-                placeholderTextColor={theme.textSecondary}
                 style={[styles.bodyInput, inputStyle]}
                 value={content}
                 onChangeText={onContentChange}
@@ -547,19 +543,19 @@ export default function NoteEditorScreen() {
             </>
           )}
           <View style={styles.actions}>
-            <FormButton
+            <Button
               label="Exportar PDF"
-              tone="neutral"
-              flex
               disabled={deleting || kind === "canvas"}
               onPress={() => void onExportPdf()}
+              variant="outline"
+              style={{ flex: 1 }}
             />
-            <FormButton
+            <Button
               label="Compartilhar"
-              tone="primary"
-              flex
               disabled={deleting}
               onPress={() => void onShare()}
+              size="lg"
+              style={{ flex: 1 }}
             />
           </View>
           {noteId ? <NoteBacklinksSection noteId={noteId} title={title} /> : null}
@@ -596,14 +592,14 @@ const styles = StyleSheet.create({
   },
   project: {
     minHeight: 48,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
     justifyContent: "center",
   },
   folderChip: {
     minHeight: 36,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     borderWidth: 1,
     paddingHorizontal: 12,
     flexDirection: "row",
@@ -615,29 +611,26 @@ const styles = StyleSheet.create({
   folderChipLabel: { flexShrink: 1 },
   title: {
     minHeight: 44,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
-    fontSize: 18,
-    fontWeight: "600",
+    ...TypeScale.heading,
   },
   bodyInput: {
     minHeight: 280,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingTop: 12,
     paddingBottom: 12,
-    fontSize: 16,
-    lineHeight: 24,
+    ...TypeScale.body,
   },
   previewBox: { paddingVertical: 12 },
   toolbar: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   tool: {
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   actions: { flexDirection: "row", gap: Spacing.two, marginTop: Spacing.two },
-  error: { color: "#E11D48", textAlign: "center" },
 });

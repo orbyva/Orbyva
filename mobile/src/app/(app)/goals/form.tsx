@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -22,8 +21,7 @@ import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
+import { Banner, Button, Field, Input, useInputStyle } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { GOAL_CATEGORY_LABELS } from "@/domain/goals";
 import { getTodayIso } from "@/domain/habits";
@@ -44,6 +42,7 @@ const STATUS_CHIPS: { id: GoalStatus; label: string }[] = [
 
 export default function GoalFormScreen() {
   const theme = useTheme();
+  const inputStyle = useInputStyle().container;
   const router = useRouter();
   const navigation = useNavigation();
   const { fail } = useFeedback();
@@ -99,14 +98,6 @@ export default function GoalFormScreen() {
     };
   }, [editId]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     const trimmed = title.trim();
@@ -187,11 +178,9 @@ export default function GoalFormScreen() {
         >
           <Banner message={error} />
           <Field label="Título" required>
-            <TextInput
+            <Input
               autoFocus={!editId}
               placeholder="Ex.: Ler 12 livros"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={title}
               onChangeText={setTitle}
             />
@@ -209,26 +198,22 @@ export default function GoalFormScreen() {
             </View>
           </Field>
           <Field label="Alvo">
-            <TextInput
+            <Input
               keyboardType="decimal-pad"
-              style={inputStyle}
               value={target}
               onChangeText={setTarget}
             />
           </Field>
           <Field label="Atual">
-            <TextInput
+            <Input
               keyboardType="decimal-pad"
-              style={inputStyle}
               value={current}
               onChangeText={setCurrent}
             />
           </Field>
           <Field label="Unidade">
-            <TextInput
+            <Input
               placeholder="livros, km, R$…"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={unit}
               onChangeText={setUnit}
             />
@@ -236,9 +221,9 @@ export default function GoalFormScreen() {
           <Field label="Prazo">
             {deadline ? (
               <>
-                <DateField value={deadline} onChange={setDeadline} style={inputStyle} />
+                <DateField value={deadline} onChange={setDeadline} />
                 <Pressable onPress={() => setDeadline(null)}>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     Sem prazo
                   </ThemedText>
                 </Pressable>
@@ -248,7 +233,7 @@ export default function GoalFormScreen() {
                 onPress={() => setDeadline(getTodayIso())}
                 style={inputStyle}
               >
-                <ThemedText themeColor="textSecondary">Definir prazo</ThemedText>
+                <ThemedText themeColor="mutedForeground">Definir prazo</ThemedText>
               </Pressable>
             )}
           </Field>
@@ -267,27 +252,25 @@ export default function GoalFormScreen() {
             </Field>
           ) : null}
           <Field label="Descrição">
-            <TextInput
+            <Input
               placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={description}
               onChangeText={setDescription}
             />
           </Field>
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Criar meta"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir meta"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -296,51 +279,10 @@ export default function GoalFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

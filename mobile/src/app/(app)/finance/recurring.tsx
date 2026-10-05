@@ -7,7 +7,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -25,11 +24,11 @@ import { RecurringProjection } from "@/components/RecurringProjection";
 import { RecurringSummary } from "@/components/RecurringSummary";
 import { ChipBar } from "@/components/ChipBar";
 import { ChoiceChip } from "@/components/ChoiceChip";
+import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { CollapsibleChrome } from "@/components/ui/CollapsibleChrome";
-import { Spacing } from "@/constants/theme";
+import { Banner, CollapsibleChrome } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   filterRecurringList,
   getRecurringDueAlerts,
@@ -356,7 +355,7 @@ export default function RecurringScreen() {
                   }}
                   style={[
                     styles.monthBtn,
-                    { backgroundColor: theme.backgroundElement },
+                    { backgroundColor: theme.muted },
                   ]}
                 >
                   <ThemedText type="smallBold">‹</ThemedText>
@@ -372,7 +371,7 @@ export default function RecurringScreen() {
                   }}
                   style={[
                     styles.monthBtn,
-                    { backgroundColor: theme.backgroundElement },
+                    { backgroundColor: theme.muted },
                   ]}
                 >
                   <ThemedText type="smallBold">›</ThemedText>
@@ -385,12 +384,12 @@ export default function RecurringScreen() {
           <>
             <Banner message={error} />
             {notice ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {notice}
               </ThemedText>
             ) : null}
             {tab === "list" ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {filtered.length}{" "}
                 {filtered.length === 1 ? "recorrência" : "recorrências"}
               </ThemedText>
@@ -404,19 +403,10 @@ export default function RecurringScreen() {
                   receive={monthTotals.receive}
                   pay={monthTotals.pay}
                 />
-                <TextInput
+                <SearchField
               placeholder="Buscar descrição, categoria..."
-              placeholderTextColor={theme.textSecondary}
               value={search}
               onChangeText={setSearch}
-              style={[
-                styles.search,
-                {
-                  color: theme.text,
-                  backgroundColor: theme.backgroundElement,
-                  borderColor: theme.backgroundSelected,
-                },
-              ]}
             />
             <View style={styles.chips}>
               {NATURE_CHIPS.map((chip) => {
@@ -425,15 +415,15 @@ export default function RecurringScreen() {
                   chip.id === "receive"
                     ? theme.success
                     : chip.id === "pay"
-                      ? theme.danger
-                      : theme.text;
+                      ? theme.destructive
+                      : theme.foreground;
                 return (
                   <Pressable
                     key={chip.id}
                     onPress={() => setNature(chip.id)}
                     style={[
                       styles.chip,
-                      { backgroundColor: theme.backgroundElement },
+                      { backgroundColor: theme.muted },
                       on && {
                         backgroundColor:
                           chip.id === "all"
@@ -550,24 +540,16 @@ const styles = StyleSheet.create({
   monthBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
   monthTitle: { flex: 1, textAlign: "center" },
-  search: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   list: { padding: Spacing.four, gap: Spacing.three },
-  error: { color: "#E11D48" },
 });

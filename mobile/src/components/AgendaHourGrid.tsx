@@ -6,11 +6,13 @@ import { Radius } from "@/constants/theme";
 import {
   layoutTimedItems,
   splitAgendaItems,
-  TASK_STATUS_COLORS,
+  calendarItemColor,
   type CalendarItem,
 } from "@/domain/tasks/calendar";
+import { taskStatusTone } from "@/domain/ui/semanticTone";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
-import { TASK_STATUS_LABELS, type Project } from "@/types/tasks";
+import { type Project } from "@/types/tasks";
 
 const HOUR_ROW_PX = 48;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -18,14 +20,6 @@ const GRID_HEIGHT = HOUR_ROW_PX * 24;
 
 function itemTitle(item: CalendarItem): string {
   return item.kind === "task" ? item.task.title : item.event.title;
-}
-
-function itemColor(item: CalendarItem, projects: Project[]): string {
-  if (item.kind === "task") {
-    return TASK_STATUS_COLORS[item.task.status] ?? "#64748B";
-  }
-  const project = projects.find((row) => row.id === item.event.project_id);
-  return project?.color || "#A855F7";
 }
 
 function hourLabel(hour: number): string {
@@ -74,7 +68,7 @@ export function AgendaHourGrid({
                 onPress={() => onOpenDay(iso)}
                 style={[styles.headCell, colWidth ? { width: colWidth } : styles.headFlex]}
               >
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {date.toLocaleDateString("pt-BR", { weekday: "short" })}
                 </ThemedText>
                 <ThemedText type="smallBold">{date.getDate()}</ThemedText>
@@ -89,7 +83,7 @@ export function AgendaHourGrid({
                 <ThemedText
                   key={hour}
                   type="small"
-                  themeColor="textSecondary"
+                  themeColor="mutedForeground"
                   style={[styles.hour, { height: HOUR_ROW_PX }]}
                 >
                   {hourLabel(hour)}
@@ -106,7 +100,7 @@ export function AgendaHourGrid({
                   onPress={() => onOpenDay(iso)}
                   style={[
                     styles.dayCol,
-                    { borderColor: theme.backgroundSelected },
+                    { borderColor: theme.border },
                     colWidth ? { width: colWidth } : styles.headFlex,
                   ]}
                 >
@@ -115,7 +109,7 @@ export function AgendaHourGrid({
                       key={hour}
                       style={[
                         styles.hourLine,
-                        { borderColor: theme.backgroundSelected, height: HOUR_ROW_PX },
+                        { borderColor: theme.border, height: HOUR_ROW_PX },
                       ]}
                     />
                   ))}
@@ -129,7 +123,7 @@ export function AgendaHourGrid({
                       pointerEvents="none"
                       style={[
                         styles.untimed,
-                        { backgroundColor: theme.backgroundElement },
+                        { backgroundColor: theme.muted },
                       ]}
                     >
                       {itemIcon(item)}
@@ -153,8 +147,8 @@ export function AgendaHourGrid({
                           height: `${Math.max(entry.heightPercent, 3.2)}%`,
                           left: `${entry.leftPercent}%`,
                           width: `${entry.widthPercent}%`,
-                          borderLeftColor: itemColor(entry.item, projects),
-                          backgroundColor: theme.surface,
+                          borderLeftColor: calendarItemColor(entry.item, projects, theme),
+                          backgroundColor: theme.card,
                         },
                       ]}
                     >
@@ -178,7 +172,7 @@ export function AgendaHourGrid({
                           {
                             top: (minutes / (24 * 60)) * GRID_HEIGHT - 6,
                             backgroundColor:
-                              TASK_STATUS_COLORS[task.status] ?? theme.primary,
+                              theme[taskStatusTone(task.status)],
                           },
                         ]}
                       />
@@ -200,7 +194,7 @@ const styles = StyleSheet.create({
   gutterCol: { width: 40 },
   headCell: { alignItems: "center" },
   headFlex: { flex: 1, alignItems: "center" },
-  hour: { fontSize: 10, lineHeight: 12 },
+  hour: TypeScale.nano,
   dayCol: {
     flex: 1,
     borderLeftWidth: StyleSheet.hairlineWidth,
@@ -213,19 +207,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 2,
     borderLeftWidth: 3,
-    borderRadius: 6,
+    borderRadius: Radius.sm,
     overflow: "hidden",
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 3,
   },
-  blockText: { fontSize: 10, lineHeight: 12 },
+  blockText: TypeScale.nano,
   untimed: {
     position: "absolute",
     top: 2,
     left: 2,
     right: 2,
-    borderRadius: Radius.chip,
+    borderRadius: Radius.full,
     paddingHorizontal: 4,
     paddingVertical: 2,
     zIndex: 2,
@@ -238,7 +232,7 @@ const styles = StyleSheet.create({
     left: 6,
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: Radius.full,
     zIndex: 3,
   },
 });

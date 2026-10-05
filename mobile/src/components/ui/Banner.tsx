@@ -3,6 +3,7 @@ import { StyleSheet, View, type ViewStyle } from "react-native";
 import { ThemedText } from "@/components/themed-text";
 import { Radius } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 
 export function Banner({
   message,
@@ -18,11 +19,11 @@ export function Banner({
     <View
       style={[
         styles.box,
-        { backgroundColor: `${theme.danger}18`, borderColor: `${theme.danger}44` },
+        { backgroundColor: hexAlpha(theme.destructive, 0.09), borderColor: hexAlpha(theme.destructive, 0.27) },
         style,
       ]}
     >
-      <ThemedText type="small" style={{ color: theme.danger }}>
+      <ThemedText type="small" style={{ color: theme.destructive }}>
         {message}
       </ThemedText>
     </View>
@@ -31,9 +32,9 @@ export function Banner({
 
 const styles = StyleSheet.create({
   box: {
-    borderRadius: Radius.control,
+    borderRadius: Radius.lg,
     borderWidth: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 12,
   },
 });

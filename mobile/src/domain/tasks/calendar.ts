@@ -1,5 +1,7 @@
 import { formatLocalIsoDate } from "@/lib/dates";
-import type { ProjectEvent, Task } from "@/types/tasks";
+import type { ThemeColor } from "@/constants/theme";
+import { taskStatusTone } from "@/domain/ui/semanticTone";
+import type { Project, ProjectEvent, Task } from "@/types/tasks";
 
 export type CalendarItem =
   | { kind: "task"; task: Task }
@@ -85,11 +87,19 @@ export function monthTitle(year: number, month: number): string {
 
 export const WEEKDAY_HEADERS = ["D", "S", "T", "Q", "Q", "S", "S"] as const;
 
-export const TASK_STATUS_COLORS: Record<string, string> = {
-  todo: "#64748B",
-  doing: "#0EA5E9",
-  done: "#16A34A",
-};
+/**
+ * Cor de um item da agenda: tarefa pelo status (token), evento pela cor do projeto (dado do
+ * usuário) ou `chart2` quando o projeto não tem cor.
+ */
+export function calendarItemColor(
+  item: CalendarItem,
+  projects: Pick<Project, "id" | "color">[],
+  theme: Record<ThemeColor, string>
+): string {
+  if (item.kind === "task") return theme[taskStatusTone(item.task.status)];
+  const project = projects.find((row) => row.id === item.event.project_id);
+  return project?.color || theme.chart2;
+}
 
 export const DEFAULT_ITEM_DURATION_MINUTES = 30;
 const MINUTES_PER_DAY = 24 * 60;

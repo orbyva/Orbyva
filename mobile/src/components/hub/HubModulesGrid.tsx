@@ -2,8 +2,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
-import { ModuleColors, Spacing } from "@/constants/theme";
+import { Card } from "@/components/ui";
+import { Radius, Spacing, type ModuleColorKey } from "@/constants/theme";
+import { useModuleColors } from "@/hooks/use-theme";
 import { hexAlpha } from "@/lib/color";
 import type { AppHref } from "@/lib/nav";
 
@@ -11,112 +12,113 @@ export const HUB_MODULES: {
   label: string;
   subtitle: string;
   href: AppHref;
-  color: string;
+  /** Grupo do módulo na sidebar do web — cor de `ModuleColors`, segue o tema. */
+  tint: ModuleColorKey;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
   {
     label: "Finanças",
     subtitle: "Lançamentos",
     href: "/finance",
-    color: ModuleColors.finance,
+    tint: "finance",
     icon: "wallet-outline",
   },
   {
     label: "Tarefas",
     subtitle: "Hoje e atrasadas",
     href: "/tasks",
-    color: ModuleColors.productivity,
+    tint: "productivity",
     icon: "checkbox-outline",
   },
   {
     label: "Projetos",
     subtitle: "Tarefas agrupadas",
     href: "/tasks/projects",
-    color: "#7C3AED",
+    tint: "productivity",
     icon: "folder-outline",
   },
   {
     label: "Notas",
     subtitle: "Markdown",
     href: "/notes",
-    color: "#6366F1",
+    tint: "productivity",
     icon: "document-text-outline",
   },
   {
     label: "Compras",
     subtitle: "Lista da casa",
     href: "/shopping",
-    color: "#EC4899",
+    tint: "productivity",
     icon: "cart-outline",
   },
   {
     label: "Hábitos",
     subtitle: "Rotina do dia",
     href: "/habits",
-    color: ModuleColors.life,
+    tint: "life",
     icon: "checkmark-circle-outline",
   },
   {
     label: "Saúde",
     subtitle: "Medicações e consultas",
     href: "/health",
-    color: "#F43F5E",
+    tint: "health",
     icon: "heart-outline",
   },
   {
     label: "Metas",
     subtitle: "Progresso longo prazo",
     href: "/goals",
-    color: "#14B8A6",
+    tint: "life",
     icon: "flag-outline",
   },
   {
     label: "Lugares",
     subtitle: "Onde você esteve",
     href: "/places",
-    color: "#0EA5E9",
+    tint: "life",
     icon: "location-outline",
   },
   {
     label: "Viagens",
     subtitle: "Planeje e viva",
     href: "/travel",
-    color: "#14B8A6",
+    tint: "travel",
     icon: "airplane-outline",
   },
   {
     label: "Veículos",
     subtitle: "Tudo do seu carro",
     href: "/cars",
-    color: "#F97316",
+    tint: "car",
     icon: "car-outline",
   },
   {
     label: "Cinema",
     subtitle: "Filmes e séries",
     href: "/movies",
-    color: ModuleColors.entertainment,
+    tint: "entertainment",
     icon: "film-outline",
   },
   {
     label: "Livros",
     subtitle: "Lendo e lidos",
     href: "/books",
-    color: "#F59E0B",
+    tint: "entertainment",
     icon: "book-outline",
   },
   {
     label: "Música",
     subtitle: "Álbuns e EPs",
     href: "/music",
-    color: "#F43F5E",
+    tint: "entertainment",
     icon: "musical-notes-outline",
   },
   {
     label: "Links",
     subtitle: "Para ver depois",
     href: "/links",
-    color: "#6366F1",
+    tint: "entertainment",
     icon: "link-outline",
   },
 ];
@@ -130,12 +132,15 @@ export function HubModulesGrid({ onOpen }: HubModulesGridProps) {
     (mod): mod is (typeof HUB_MODULES)[number] & { href: Exclude<AppHref, null> } =>
       Boolean(mod.href)
   );
+  const moduleColors = useModuleColors();
 
   return (
     <View style={styles.block}>
       <ThemedText type="smallBold">Módulos</ThemedText>
       <View style={styles.grid}>
-        {live.map((mod) => (
+        {live.map((mod) => {
+          const color = moduleColors[mod.tint];
+          return (
           <Pressable
             key={mod.label}
             onPress={() => onOpen(mod.href)}
@@ -145,18 +150,19 @@ export function HubModulesGrid({ onOpen }: HubModulesGridProps) {
               <View
                 style={[
                   styles.iconWell,
-                  { backgroundColor: hexAlpha(mod.color, 0.16) },
+                  { backgroundColor: hexAlpha(color, 0.16) },
                 ]}
               >
-                <Ionicons name={mod.icon} size={18} color={mod.color} />
+                <Ionicons name={mod.icon} size={18} color={color} />
               </View>
               <ThemedText type="smallBold">{mod.label}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {mod.subtitle}
               </ThemedText>
             </Card>
           </Pressable>
-        ))}
+          );
+        })}
       </View>
     </View>
   );
@@ -182,7 +188,7 @@ const styles = StyleSheet.create({
   iconWell: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,

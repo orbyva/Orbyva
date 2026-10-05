@@ -18,9 +18,8 @@ import { HabitMonthHeatmap } from "@/components/HabitMonthHeatmap";
 import { HabitWeekStrip } from "@/components/HabitWeekStrip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
-import { Spacing } from "@/constants/theme";
+import { Banner, Card } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   calculateStreak,
   frequencyLabel,
@@ -36,15 +35,17 @@ import {
   buildOverallMonthHeatmap,
   shiftMonth,
 } from "@/domain/habits/heatmap";
+import { habitAccent } from "@/domain/habits/habitColors";
 import { getHabitInsights } from "@/domain/habits/insights";
 import { useAppShell } from "@/hooks/use-app-shell";
-import { useTheme } from "@/hooks/use-theme";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import type { Habit, HabitLog } from "@/types/habits";
 
 export default function HabitsScreen() {
   const theme = useTheme();
+  const life = useModuleColors().life;
   const router = useRouter();
   const { fail } = useFeedback();
   const { bottomInset } = useAppShell();
@@ -197,13 +198,13 @@ export default function HabitsScreen() {
             value={view}
             onChange={setView}
           />
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {habits.length === 0
               ? "Crie hábitos para acompanhar a rotina."
               : `Hoje: ${doneCount}/${habits.length}`}
           </ThemedText>
           {habits.length === 0 ? (
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               Use o + para criar um hábito ou um anti-hábito (“Sem delivery”).
             </ThemedText>
           ) : view === "month" ? (
@@ -211,7 +212,7 @@ export default function HabitsScreen() {
               {insights.map((insight) => (
                 <Card key={insight.id} style={styles.card}>
                   <ThemedText type="smallBold">{insight.title}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {insight.detail}
                   </ThemedText>
                 </Card>
@@ -257,6 +258,7 @@ export default function HabitsScreen() {
             habits.map((habit) => {
               const habitLogs = logs.filter((log) => log.habit_id === habit.id);
               const avoid = isAvoidHabit(habit);
+              const accent = habitAccent(avoid, life, theme);
               const done = isCompletedToday(habitLogs, today);
               const streak = calculateStreak(habitLogs);
               const weekPct = getWeekProgress(habit, habitLogs);
@@ -281,16 +283,8 @@ export default function HabitsScreen() {
                       style={[
                         styles.check,
                         {
-                          borderColor: done
-                            ? avoid
-                              ? "#0D9488"
-                              : theme.success
-                            : theme.textSecondary,
-                          backgroundColor: done
-                            ? avoid
-                              ? "#0D9488"
-                              : theme.success
-                            : "transparent",
+                          borderColor: done ? accent : theme.mutedForeground,
+                          backgroundColor: done ? accent : "transparent",
                         },
                       ]}
                     />
@@ -304,7 +298,7 @@ export default function HabitsScreen() {
                       style={styles.copy}
                     >
                       <ThemedText type="smallBold">{habit.name}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {[
                           avoid ? "Anti-hábito" : null,
                           habit.is_health ? "Saúde" : null,
@@ -344,7 +338,7 @@ const styles = StyleSheet.create({
   check: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: Radius.full,
     borderWidth: 2,
     marginTop: 2,
   },

@@ -12,7 +12,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -28,23 +27,31 @@ import {
 import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
+import { Badge, Banner, Button, Card, Input } from "@/components/ui";
 import { Radius, Spacing } from "@/constants/theme";
 import {
   calculateFuelConsumption,
   DOCUMENT_TYPE_LABELS,
   FUEL_TYPE_LABELS,
+  getDocumentAlerts,
   getMaintenanceSchedule,
   MAINTENANCE_TYPE_LABELS,
   vehicleLabel,
 } from "@/domain/car";
+import { carAlertBadge } from "@/domain/ui/semanticTone";
 import { useAppShell } from "@/hooks/use-app-shell";
-import { useTheme } from "@/hooks/use-theme";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
+import { hexAlpha } from "@/lib/color";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
-import type { FuelLog, Maintenance, Vehicle, VehicleDocument } from "@/types/car";
+import type {
+  FuelLog,
+  Maintenance,
+  MaintenanceAlertStatus,
+  Vehicle,
+  VehicleDocument,
+} from "@/types/car";
 
 type Tab = "cronograma" | "manutencao" | "combustivel" | "documentos";
 
@@ -57,6 +64,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function CarDetailScreen() {
   const theme = useTheme();
+  const moduleColors = useModuleColors();
   const navigation = useNavigation();
   const router = useRouter();
   const { fail, ok } = useFeedback();
@@ -119,6 +127,13 @@ export default function CarDetailScreen() {
     () => (vehicle ? getMaintenanceSchedule(vehicle, maintenances) : []),
     [vehicle, maintenances]
   );
+  const docStatus = useMemo(
+    () =>
+      new Map(
+        getDocumentAlerts(documents).map((alert) => [alert.document.id, alert.status])
+      ),
+    [documents]
+  );
 
   async function saveKm() {
     if (!vehicle) return;
@@ -148,14 +163,6 @@ export default function CarDetailScreen() {
     );
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   return (
     <ThemedView style={styles.flex}>
@@ -167,7 +174,7 @@ export default function CarDetailScreen() {
           <>
             <Card style={styles.card}>
               <View style={styles.header}>
-                <View style={[styles.iconWell, { backgroundColor: "#22A37A22" }]}>
+                <View style={[styles.iconWell, { backgroundColor: hexAlpha(moduleColors.car, 0.13) }]}>
                   <Ionicons
                     name={
                       vehicle.kind === "motorcycle"
@@ -175,12 +182,12 @@ export default function CarDetailScreen() {
                         : "car-outline"
                     }
                     size={22}
-                    color="#22A37A"
+                    color={moduleColors.car}
                   />
                 </View>
                 <View style={styles.copy}>
                   <ThemedText type="title">{vehicleLabel(vehicle)}</ThemedText>
-                  <ThemedText themeColor="textSecondary">
+                  <ThemedText themeColor="mutedForeground">
                     {[
                       vehicle.plate,
                       vehicle.color,
@@ -195,27 +202,20 @@ export default function CarDetailScreen() {
               </View>
               {editingKm ? (
                 <View style={styles.kmRow}>
-                  <TextInput
+                  <Input
                     keyboardType="number-pad"
                     value={kmValue}
                     onChangeText={(value) =>
                       setKmValue(value.replace(/\D/g, ""))
                     }
-                    style={[inputStyle, styles.kmInput]}
+                    style={styles.kmInput}
                   />
-                  <Pressable
+                  <Button
+                    label="Salvar km"
                     disabled={savingKm}
+                    loading={savingKm}
                     onPress={() => void saveKm()}
-                    style={[styles.primary, { backgroundColor: theme.primary }]}
-                  >
-                    {savingKm ? (
-                      <ActivityIndicator color="#0B0F1A" />
-                    ) : (
-                      <ThemedText type="smallBold" style={styles.primaryLabel}>
-                        Salvar km
-                      </ThemedText>
-                    )}
-                  </Pressable>
+                  />
                 </View>
               ) : (
                 <Pressable onPress={() => setEditingKm(true)} style={styles.kmRow}>
@@ -226,7 +226,7 @@ export default function CarDetailScreen() {
                 </Pressable>
               )}
               {consumption != null ? (
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Consumo {consumption.toFixed(1).replace(".", ",")} km/l
                 </ThemedText>
               ) : null}
@@ -247,22 +247,14 @@ export default function CarDetailScreen() {
             {tab === "cronograma" ? (
               <>
                 {schedule.length === 0 ? (
-                  <ThemedText themeColor="textSecondary">
+                  <ThemedText themeColor="mutedForeground">
                     Nenhum item no cronograma.
                   </ThemedText>
                 ) : (
                   schedule.map((item) => (
-                    <Card
-                      key={item.type}
-                      style={[
-                        styles.card,
-                        item.status === "overdue" && {
-                          borderColor: theme.danger,
-                        },
-                      ]}
-                    >
-                      <ThemedText type="smallBold">{item.label}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                    <Card key={item.type} style={styles.card}>
+                      <AlertTitle label={item.label} status={item.status} />
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {item.message}
                       </ThemedText>
                     </Card>
@@ -287,14 +279,14 @@ export default function CarDetailScreen() {
                   .filter((item) => item.status !== "ok" && item.status !== "none")
                   .map((item) => (
                     <Card key={item.type} style={styles.card}>
-                      <ThemedText type="smallBold">{item.label}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <AlertTitle label={item.label} status={item.status} />
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {item.message}
                       </ThemedText>
                     </Card>
                   ))}
                 {maintenances.length === 0 ? (
-                  <ThemedText themeColor="textSecondary">
+                  <ThemedText themeColor="mutedForeground">
                     Nenhuma manutenção.
                   </ThemedText>
                 ) : (
@@ -336,7 +328,7 @@ export default function CarDetailScreen() {
                             MAINTENANCE_TYPE_LABELS[item.type] ||
                             item.type}
                         </ThemedText>
-                        <ThemedText type="small" themeColor="textSecondary">
+                        <ThemedText type="small" themeColor="mutedForeground">
                           {[
                             item.service_date
                               ? formatDateBR(item.service_date)
@@ -374,7 +366,7 @@ export default function CarDetailScreen() {
                   <ThemedText type="linkPrimary">Registrar abastecimento</ThemedText>
                 </Pressable>
                 {fuelLogs.length === 0 ? (
-                  <ThemedText themeColor="textSecondary">
+                  <ThemedText themeColor="mutedForeground">
                     Nenhum abastecimento.
                   </ThemedText>
                 ) : (
@@ -422,7 +414,7 @@ export default function CarDetailScreen() {
                           {formatDateBR(log.date)} ·{" "}
                           {log.liters.toLocaleString("pt-BR")} L
                         </ThemedText>
-                        <ThemedText type="small" themeColor="textSecondary">
+                        <ThemedText type="small" themeColor="mutedForeground">
                           {[
                             formatBRL(Number(log.total_cost)),
                             `${log.km.toLocaleString("pt-BR")} km`,
@@ -451,7 +443,7 @@ export default function CarDetailScreen() {
                   <ThemedText type="linkPrimary">Novo documento</ThemedText>
                 </Pressable>
                 {documents.length === 0 ? (
-                  <ThemedText themeColor="textSecondary">Nenhum documento.</ThemedText>
+                  <ThemedText themeColor="mutedForeground">Nenhum documento.</ThemedText>
                 ) : (
                   documents.map((doc) => (
                     <Pressable
@@ -486,12 +478,13 @@ export default function CarDetailScreen() {
                       }}
                     >
                       <Card style={styles.card}>
-                        <ThemedText type="smallBold">
-                          {DOCUMENT_TYPE_LABELS[doc.type] ??
-                            doc.custom_type ??
-                            doc.type}
-                        </ThemedText>
-                        <ThemedText type="small" themeColor="textSecondary">
+                        <AlertTitle
+                          label={
+                            DOCUMENT_TYPE_LABELS[doc.type] ?? doc.custom_type ?? doc.type
+                          }
+                          status={docStatus.get(doc.id)}
+                        />
+                        <ThemedText type="small" themeColor="mutedForeground">
                           Vence {formatDateBR(doc.due_date)}
                           {doc.paid ? " · pago" : " · em aberto"}
                         </ThemedText>
@@ -508,7 +501,26 @@ export default function CarDetailScreen() {
   );
 }
 
+function AlertTitle({
+  label,
+  status,
+}: {
+  label: string;
+  status: MaintenanceAlertStatus | undefined;
+}) {
+  const badge = carAlertBadge(status);
+  return (
+    <View style={styles.alertTitle}>
+      <ThemedText type="smallBold" style={styles.flex}>
+        {label}
+      </ThemedText>
+      {badge ? <Badge label={badge.label} variant={badge.variant} /> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  alertTitle: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three },
@@ -517,25 +529,11 @@ const styles = StyleSheet.create({
   iconWell: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   copy: { flex: 1, gap: 2 },
   kmRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   kmInput: { flex: 1 },
-  input: {
-    height: 44,
-    borderRadius: Radius.input,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-  },
-  primary: {
-    height: 44,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

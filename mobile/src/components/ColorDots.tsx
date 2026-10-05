@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { Radius } from "@/constants/theme";
 import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
+import { useTheme } from "@/hooks/use-theme";
 
 export function ColorDots({
   value,
@@ -9,6 +11,7 @@ export function ColorDots({
   value: string;
   onChange: (next: string) => void;
 }) {
+  const theme = useTheme();
   return (
     <View style={styles.row}>
       {CATEGORY_COLORS.map((color) => (
@@ -20,7 +23,7 @@ export function ColorDots({
           style={[
             styles.dot,
             { backgroundColor: color },
-            value.toLowerCase() === color.toLowerCase() && styles.dotOn,
+            value.toLowerCase() === color.toLowerCase() && { borderColor: theme.foreground },
           ]}
         />
       ))}
@@ -33,9 +36,8 @@ const styles = StyleSheet.create({
   dot: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: Radius.full,
     borderWidth: 2,
     borderColor: "transparent",
   },
-  dotOn: { borderColor: "#0B0F1A" },
 });

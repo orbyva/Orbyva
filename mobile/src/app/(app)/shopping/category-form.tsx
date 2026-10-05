@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -22,9 +21,8 @@ import { fetchProjects } from "@/api/tasks/projects";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, Input, useInputStyle } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
 import { visibleProjects } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
@@ -34,6 +32,7 @@ const NO_PROJECT = "__none__";
 
 export default function ShoppingCategoryFormScreen() {
   const theme = useTheme();
+  const field = useInputStyle();
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ id?: string }>();
@@ -159,14 +158,6 @@ export default function ShoppingCategoryFormScreen() {
     );
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
   const projectName =
     projectId == null
       ? "Sem projeto"
@@ -193,31 +184,29 @@ export default function ShoppingCategoryFormScreen() {
         >
           <Banner message={error} />
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Nome *
             </ThemedText>
-            <TextInput
+            <Input
               autoFocus={!editId}
               placeholder="Ex: Mercado, Farmácia"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={name}
               onChangeText={setName}
             />
           </View>
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Projeto
             </ThemedText>
             <Pressable
               onPress={() => setPickerOpen(true)}
-              style={inputStyle}
+              style={field.container}
             >
               <ThemedText>{projectName}</ThemedText>
             </Pressable>
           </View>
           <View style={styles.field}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Cor
             </ThemedText>
             <View style={styles.colors}>
@@ -228,26 +217,27 @@ export default function ShoppingCategoryFormScreen() {
                   style={[
                     styles.colorDot,
                     { backgroundColor: swatch },
-                    color.toLowerCase() === swatch.toLowerCase() &&
-                      styles.colorDotOn,
+                    color.toLowerCase() === swatch.toLowerCase() && {
+                      borderColor: theme.foreground,
+                    },
                   ]}
                 />
               ))}
             </View>
           </View>
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Criar categoria"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
           {editId ? (
-            <FormButton
+            <Button
               label="Excluir categoria"
-              tone="danger"
               disabled={saving}
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -276,30 +266,12 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
   field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  error: { color: "#E11D48", textAlign: "center" },
   colors: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   colorDot: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: Radius.full,
     borderWidth: 2,
     borderColor: "transparent",
   },
-  colorDotOn: { borderColor: "#0B0F1A" },
 });

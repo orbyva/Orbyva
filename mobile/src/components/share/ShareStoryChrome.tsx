@@ -11,7 +11,7 @@ import Svg, {
 
 import { ShareBrandMark } from "@/components/share/ShareBrandMark";
 import { mosaicCells, SHARE_H, SHARE_W } from "@/components/share/shareStory";
-import { BRAND_COLORS } from "@/lib/brand";
+import { BRAND_COLORS } from "@/components/share/brandColors";
 
 export function OrbyvaWordmark({ size }: { size: number }) {
   return (

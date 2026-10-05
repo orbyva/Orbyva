@@ -2,16 +2,17 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { TIMELINE_MODULE_LABELS } from "@/api/timeline";
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
-import { ModuleColors, Spacing } from "@/constants/theme";
+import { Card } from "@/components/ui";
+import { Radius, Spacing, type ModuleColorKey } from "@/constants/theme";
 import { formatShortDate } from "@/domain/timeline";
-import { useTheme } from "@/hooks/use-theme";
+import { TypeScale } from "@/domain/ui/typography";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
 import { hexAlpha } from "@/lib/color";
 import type { TimelineItem } from "@/types/timeline";
 
-function moduleColor(module: TimelineItem["module"]): string {
-  if (module === "tasks") return ModuleColors.productivity;
-  if (module === "cinema") return ModuleColors.entertainment;
+function moduleColorKey(module: TimelineItem["module"]): ModuleColorKey {
+  if (module === "tasks") return "productivity";
+  if (module === "cinema") return "entertainment";
   if (
     module === "habits" ||
     module === "goals" ||
@@ -19,9 +20,9 @@ function moduleColor(module: TimelineItem["module"]): string {
     module === "places" ||
     module === "car"
   ) {
-    return ModuleColors.life;
+    return "life";
   }
-  return ModuleColors.finance;
+  return "finance";
 }
 
 function TimelineRow({
@@ -35,7 +36,7 @@ function TimelineRow({
   showTopBorder: boolean;
   borderColor: string;
 }) {
-  const color = moduleColor(item.module);
+  const color = useModuleColors()[moduleColorKey(item.module)];
   return (
     <Pressable
       onPress={() => onOpenItem(item)}
@@ -64,22 +65,25 @@ function TimelineRow({
         <ThemedText type="smallBold" numberOfLines={1}>
           {item.title}
         </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+        <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
           {item.subtitle ?? TIMELINE_MODULE_LABELS[item.module]}
         </ThemedText>
       </View>
       <View style={styles.meta}>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           {formatShortDate(item.date)}
         </ThemedText>
         {item.status === "overdue" || item.status === "today" ? (
           <ThemedText
-            style={item.status === "overdue" ? styles.overdue : styles.today}
+            style={styles.status}
+            themeColor={item.status === "overdue" ? "destructive" : "warning"}
           >
             {item.status === "overdue" ? "Atrasado" : "Hoje"}
           </ThemedText>
         ) : item.status === "completed" ? (
-          <ThemedText style={styles.done}>Feito</ThemedText>
+          <ThemedText style={styles.status} themeColor="mutedForeground">
+            Feito
+          </ThemedText>
         ) : null}
       </View>
     </Pressable>
@@ -111,11 +115,11 @@ export function HubUpcoming({
         <View
           style={[
             styles.empty,
-            { borderColor: theme.backgroundSelected },
+            { borderColor: theme.border },
           ]}
         >
           <ThemedText type="smallBold">Agenda leve</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Nada nos próximos 7 dias.
           </ThemedText>
         </View>
@@ -127,7 +131,7 @@ export function HubUpcoming({
               item={item}
               onOpenItem={onOpenItem}
               showTopBorder={index > 0}
-              borderColor={theme.backgroundSelected}
+              borderColor={theme.border}
             />
           ))}
         </Card>
@@ -143,7 +147,7 @@ export function HubUpcoming({
                 item={item}
                 onOpenItem={onOpenItem}
                 showTopBorder={index > 0}
-                borderColor={theme.backgroundSelected}
+                borderColor={theme.border}
               />
             ))}
           </Card>
@@ -169,20 +173,18 @@ const styles = StyleSheet.create({
   },
   moduleBadge: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  moduleLabel: { fontSize: 10 },
+  moduleLabel: TypeScale.nano,
   body: { flex: 1, minWidth: 0, gap: 2 },
   meta: { alignItems: "flex-end", gap: 4 },
-  overdue: { color: "#E11D48", fontSize: 10, fontWeight: "700" },
-  today: { color: "#D97706", fontSize: 10, fontWeight: "700" },
-  done: { color: "#64748B", fontSize: 10, fontWeight: "700" },
+  status: TypeScale.nano,
   empty: {
     borderWidth: 1,
     borderStyle: "dashed",
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     paddingVertical: Spacing.four,
     paddingHorizontal: Spacing.three,
     alignItems: "center",

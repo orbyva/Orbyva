@@ -39,11 +39,11 @@ export function TaskMentionsSection({ taskId }: { taskId: string }) {
 
   const openNote = (id: string) => router.push(`/notes/${id}`);
   return (
-    <View style={[styles.section, { borderTopColor: theme.backgroundSelected }]}>
+    <View style={[styles.section, { borderTopColor: theme.border }]}>
       {notes.length > 0 || tasks.length > 0 ? (
         <View style={styles.head}>
-          <Ionicons name="return-up-back-outline" size={14} color={theme.textSecondary} />
-          <ThemedText type="small" themeColor="textSecondary">
+          <Ionicons name="return-up-back-outline" size={14} color={theme.mutedForeground} />
+          <ThemedText type="small" themeColor="mutedForeground">
             REFERENCIADA EM
           </ThemedText>
         </View>

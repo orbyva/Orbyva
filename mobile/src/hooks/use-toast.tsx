@@ -41,7 +41,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(() => ({ toast }), [toast]);
-  const bg = current?.tone === "success" ? theme.success : theme.danger;
+  const bg = current?.tone === "success" ? theme.success : theme.destructive;
 
   return (
     <ToastContext.Provider value={value}>
@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             onPress={() => setCurrent(null)}
             style={[styles.toast, { backgroundColor: bg }]}
           >
-            <ThemedText type="smallBold" style={styles.label}>
+            <ThemedText type="smallBold" themeColor="primaryForeground">
               {current.message}
             </ThemedText>
           </Pressable>
@@ -90,9 +90,8 @@ const styles = StyleSheet.create({
     zIndex: 200,
   },
   toast: {
-    borderRadius: Radius.control,
+    borderRadius: Radius.md,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  label: { color: "#FFFFFF" },
 });

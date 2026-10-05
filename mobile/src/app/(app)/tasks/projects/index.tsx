@@ -16,9 +16,8 @@ import { ChipBar } from "@/components/ChipBar";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
-import { Spacing } from "@/constants/theme";
+import { Banner, Card, EmptyState } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   groupProjectsByStatus,
   openTasksForProject,
@@ -133,7 +132,7 @@ export default function ProjectsScreen() {
               { backgroundColor: project.color || theme.primary },
             ]}
           />
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {PROJECT_STATUS_LABELS[project.status]}
           </ThemedText>
         </View>
@@ -141,19 +140,19 @@ export default function ProjectsScreen() {
         {project.description ? (
           <ThemedText
             type="small"
-            themeColor="textSecondary"
+            themeColor="mutedForeground"
             numberOfLines={2}
           >
             {project.description}
           </ThemedText>
         ) : null}
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           {openCount === 0
             ? "Sem tarefas em aberto"
             : `${openCount} tarefa${openCount === 1 ? "" : "s"} em aberto`}
         </ThemedText>
         {nextEvent ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Próximo: {nextEvent.title} · {formatEventWhen(nextEvent.starts_at)}
           </ThemedText>
         ) : null}
@@ -199,23 +198,22 @@ export default function ProjectsScreen() {
           ) : null}
           {view === "lista" ? (
             listRows.length === 0 ? (
-              <View style={styles.empty}>
-                <ThemedText type="smallBold">Nenhum projeto ainda</ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  Use o + para criar um projeto.
-                </ThemedText>
-              </View>
+              <EmptyState
+                icon="folder-open-outline"
+                title="Nenhum projeto ainda"
+                description="Use o + para criar um projeto."
+              />
             ) : (
               listRows.map(renderCard)
             )
           ) : (
             kanbanGroups.map((group) => (
               <View key={group.id} style={styles.section}>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {PROJECT_STATUS_LABELS[group.id]} · {group.items.length}
                 </ThemedText>
                 {group.items.length === 0 ? (
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     Vazio
                   </ThemedText>
                 ) : (
@@ -248,14 +246,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.two,
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  chip: {
-    alignSelf: "flex-start",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  empty: { gap: Spacing.one, paddingVertical: Spacing.four },
+  dot: { width: 8, height: 8, borderRadius: Radius.full },
   banner: {
     marginHorizontal: Spacing.four,
     marginTop: Spacing.two,

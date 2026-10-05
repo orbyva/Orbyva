@@ -8,7 +8,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 import Animated, {
@@ -49,6 +48,7 @@ import { ChoiceChip } from "@/components/ChoiceChip";
 import { DateField } from "@/components/DateField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Banner, Button, Card, Input } from "@/components/ui";
 import { TripItineraryComposer } from "@/components/travel/TripItineraryComposer";
 import {
   ItinerarySavedPlaceSuggestions,
@@ -56,10 +56,7 @@ import {
 } from "@/components/travel/ItinerarySavedPlaceSuggestions";
 import { VisitDragHandle } from "@/components/travel/VisitDragHandle";
 import { TypeIcon } from "@/components/TypeIcon";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
-import { FormButton } from "@/components/ui/FormButton";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   CLOTHING_LABELS,
   CLOTHING_META,
@@ -100,6 +97,8 @@ import {
   type GeoAnchor,
 } from "@/domain/travel/savedPlaceSuggestions";
 import { useAppShell } from "@/hooks/use-app-shell";
+import { scrim } from "@/domain/ui/color";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { useTripWeather } from "@/hooks/use-trip-weather";
@@ -170,10 +169,9 @@ function activityTimeLabel(act: TripItineraryActivity): string | null {
   return null;
 }
 
-const SKY = "#0EA5E9";
-
 export default function TripDetailScreen() {
   const theme = useTheme();
+  const transferTint = theme.chart1;
   const navigation = useNavigation();
   const router = useRouter();
   const { fail, ok } = useFeedback();
@@ -394,14 +392,6 @@ export default function TripDetailScreen() {
     [weather.packingDays]
   );
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   function patchVisitStatusLocal(
     actId: string,
@@ -692,9 +682,9 @@ export default function TripDetailScreen() {
                       <Ionicons
                         name="location-outline"
                         size={14}
-                        color={theme.textSecondary}
+                        color={theme.mutedForeground}
                       />
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {trip.destination}
                       </ThemedText>
                     </View>
@@ -743,13 +733,13 @@ export default function TripDetailScreen() {
                       onPress={confirmDeleteTrip}
                       style={[
                         styles.iconBtn,
-                        { backgroundColor: hexAlpha(theme.danger, 0.12) },
+                        { backgroundColor: hexAlpha(theme.destructive, 0.12) },
                       ]}
                     >
                       <Ionicons
                         name="trash-outline"
                         size={18}
-                        color={theme.danger}
+                        color={theme.destructive}
                       />
                     </Pressable>
                   ) : null}
@@ -760,7 +750,7 @@ export default function TripDetailScreen() {
                   <Ionicons
                     name="flag-outline"
                     size={14}
-                    color={theme.textSecondary}
+                    color={theme.mutedForeground}
                   />
                   <ThemedText type="small">
                     {TRIP_STATUS_LABELS[trip.status]}
@@ -770,7 +760,7 @@ export default function TripDetailScreen() {
                   <Ionicons
                     name="calendar-outline"
                     size={14}
-                    color={theme.textSecondary}
+                    color={theme.mutedForeground}
                   />
                   <ThemedText type="small">
                     {formatDateBR(trip.start_date)} –{" "}
@@ -781,7 +771,7 @@ export default function TripDetailScreen() {
                   <Ionicons
                     name="time-outline"
                     size={14}
-                    color={theme.textSecondary}
+                    color={theme.mutedForeground}
                   />
                   <ThemedText type="small">
                     {getTripDuration(trip.start_date, trip.end_date)} dias
@@ -792,7 +782,7 @@ export default function TripDetailScreen() {
                     <Ionicons
                       name="wallet-outline"
                       size={14}
-                      color={theme.textSecondary}
+                      color={theme.mutedForeground}
                     />
                     <ThemedText type="small">{formatBRL(spent)}</ThemedText>
                   </View>
@@ -810,22 +800,22 @@ export default function TripDetailScreen() {
                 <ThemedText type="smallBold">Clima e mala</ThemedText>
               </View>
               {weatherStops.length === 0 ? (
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Adicione paradas com cidade no mapa para ver o clima.
                 </ThemedText>
               ) : weather.loading ? (
                 <View style={styles.weatherRow}>
                   <ActivityIndicator size="small" />
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     Carregando previsão…
                   </ThemedText>
                 </View>
               ) : weather.error ? (
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {weather.error}
                 </ThemedText>
               ) : weather.packingDays.length === 0 ? (
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Sem previsão para o período da viagem. Ela aparece até 10
                   dias antes de cada parada.
                 </ThemedText>
@@ -855,7 +845,7 @@ export default function TripDetailScreen() {
                               ? ` · ${Math.round(day.maxTemperatureC)}°`
                               : ""}
                           </ThemedText>
-                          <ThemedText type="small" themeColor="textSecondary">
+                          <ThemedText type="small" themeColor="mutedForeground">
                             {[day.conditionText, suggestion.outfitPhrase]
                               .filter(Boolean)
                               .join(" · ")}
@@ -870,7 +860,7 @@ export default function TripDetailScreen() {
                     </ThemedText>
                   ) : null}
                   {packing?.summary ? (
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {packing.summary}
                     </ThemedText>
                   ) : null}
@@ -913,7 +903,7 @@ export default function TripDetailScreen() {
                 />
                 <ThemedText type="smallBold">Convites</ThemedText>
               </View>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Quem receber o link pode abrir no app ou colar o token em
                 Viagens.
               </ThemedText>
@@ -961,14 +951,13 @@ export default function TripDetailScreen() {
                     <Ionicons
                       name="trash-outline"
                       size={18}
-                      color={theme.danger}
+                      color={theme.destructive}
                     />
                   </Pressable>
                 </View>
               ))}
-              <FormButton
+              <Button
                 label="Gerar link de convite"
-                tone="primary"
                 onPress={() => {
                   void createTripInvite(id)
                     .then((invite) => {
@@ -981,13 +970,14 @@ export default function TripDetailScreen() {
                       )
                     );
                 }}
+                size="lg"
               />
             </Card>
             {access?.isOwner ? (
-              <FormButton
+              <Button
                 label="Excluir viagem"
-                tone="danger"
                 onPress={confirmDeleteTrip}
+                variant="destructive"
               />
             ) : null}
           </>
@@ -995,14 +985,14 @@ export default function TripDetailScreen() {
         {tab === "paradas" ? (
           <>
             {stops.length === 0 ? (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Nenhuma parada. Edite a viagem para adicionar cidades.
               </ThemedText>
             ) : (
               stops.map((stop) => (
                 <Card key={stop.id} style={styles.card}>
                   <ThemedText type="smallBold">{stop.name}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {formatDateBR(stop.start_date)} – {formatDateBR(stop.end_date)}
                   </ThemedText>
                 </Card>
@@ -1012,7 +1002,7 @@ export default function TripDetailScreen() {
               <ThemedText
                 key={`${route.from}-${route.to}`}
                 type="small"
-                themeColor="textSecondary"
+                themeColor="mutedForeground"
               >
                 {route.from} → {route.to}
                 {route.leg?.available
@@ -1029,7 +1019,7 @@ export default function TripDetailScreen() {
         {tab === "roteiro" ? (
           <>
             {days.length === 0 ? (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Sem dias de roteiro ainda.
               </ThemedText>
             ) : (
@@ -1079,13 +1069,13 @@ export default function TripDetailScreen() {
                         {
                           backgroundColor: isToday
                             ? hexAlpha(theme.primary, 0.15)
-                            : theme.backgroundElement,
+                            : theme.muted,
                         },
                       ]}
                     >
                       <ThemedText
                         type="small"
-                        themeColor={isToday ? "primary" : "textSecondary"}
+                        themeColor={isToday ? "primary" : "mutedForeground"}
                         style={styles.dayWeekday}
                       >
                         {weekday?.toUpperCase() ?? "DIA"}
@@ -1111,13 +1101,13 @@ export default function TripDetailScreen() {
                         {offsetLabel ? (
                           <ThemedText
                             type="small"
-                            themeColor="textSecondary"
+                            themeColor="mutedForeground"
                           >
                             {offsetLabel}
                           </ThemedText>
                         ) : null}
                       </View>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {dateLabel ?? `Dia ${day.day_number}`}
                         {dayTitle ? ` · Dia ${day.day_number}` : ""}
                       </ThemedText>
@@ -1147,7 +1137,7 @@ export default function TripDetailScreen() {
                     />
                   ) : null}
                   {(day.activities ?? []).length === 0 ? (
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       Nenhuma visita neste dia.
                     </ThemedText>
                   ) : null}
@@ -1180,13 +1170,13 @@ export default function TripDetailScreen() {
                           draggingId === act.id ? { opacity: 0.35 } : null,
                           transfer && status === "pending"
                             ? {
-                                borderColor: hexAlpha(SKY, 0.25),
-                                backgroundColor: hexAlpha(SKY, 0.04),
+                                borderColor: hexAlpha(transferTint, 0.25),
+                                backgroundColor: hexAlpha(transferTint, 0.04),
                               }
                             : null,
                           !transfer && status === "pending"
                             ? {
-                                borderColor: hexAlpha(theme.text, 0.08),
+                                borderColor: hexAlpha(theme.foreground, 0.08),
                                 backgroundColor: "transparent",
                               }
                             : null,
@@ -1198,8 +1188,8 @@ export default function TripDetailScreen() {
                             : null,
                           status === "skipped"
                             ? {
-                                borderColor: theme.backgroundSelected,
-                                backgroundColor: hexAlpha(theme.text, 0.04),
+                                borderColor: theme.border,
+                                backgroundColor: hexAlpha(theme.foreground, 0.04),
                               }
                             : null,
                         ]}
@@ -1217,16 +1207,16 @@ export default function TripDetailScreen() {
                             style={[
                               styles.activityIcon,
                               {
-                                borderRadius: 8,
+                                borderRadius: Radius.md,
                                 borderWidth: 1,
-                                borderColor: hexAlpha(SKY, 0.3),
-                                backgroundColor: hexAlpha(SKY, 0.1),
+                                borderColor: hexAlpha(transferTint, 0.3),
+                                backgroundColor: hexAlpha(transferTint, 0.1),
                               },
                             ]}
                           >
                             <TypeIcon
                               name={activityIconName(act)}
-                              color={SKY}
+                              color={transferTint}
                               size={16}
                             />
                           </View>
@@ -1243,7 +1233,7 @@ export default function TripDetailScreen() {
                             style={[
                               styles.activityIcon,
                               {
-                                borderRadius: 8,
+                                borderRadius: Radius.md,
                                 borderWidth: 1,
                                 borderColor:
                                   status === "completed"
@@ -1260,7 +1250,7 @@ export default function TripDetailScreen() {
                               <Ionicons
                                 name="checkmark"
                                 size={16}
-                                color="#FFFFFF"
+                                color={theme.successForeground}
                               />
                             ) : (
                               <TypeIcon
@@ -1284,11 +1274,10 @@ export default function TripDetailScreen() {
                             <ThemedText
                               type="small"
                               style={{
-                                color: SKY,
-                                fontWeight: "700",
+                                ...TypeScale.nano,
+                                color: transferTint,
                                 letterSpacing: 0.4,
                                 textTransform: "uppercase",
-                                fontSize: 10,
                               }}
                             >
                               Deslocamento
@@ -1296,7 +1285,7 @@ export default function TripDetailScreen() {
                             </ThemedText>
                           ) : null}
                           {timeLabel ? (
-                            <ThemedText type="small" themeColor="textSecondary">
+                            <ThemedText type="small" themeColor="mutedForeground">
                               {timeLabel}
                             </ThemedText>
                           ) : null}
@@ -1307,7 +1296,7 @@ export default function TripDetailScreen() {
                             {act.title}
                           </ThemedText>
                           {transfer ? null : (
-                            <ThemedText type="small" themeColor="textSecondary">
+                            <ThemedText type="small" themeColor="mutedForeground">
                               {
                                 ACTIVITY_CATEGORY_LABELS[
                                   place?.type ?? category
@@ -1318,7 +1307,7 @@ export default function TripDetailScreen() {
                           {act.notes?.trim() ? (
                             <ThemedText
                               type="small"
-                              themeColor="textSecondary"
+                              themeColor="mutedForeground"
                             >
                               {act.notes.trim()}
                             </ThemedText>
@@ -1374,19 +1363,20 @@ export default function TripDetailScreen() {
                           <Ionicons
                             name="trash-outline"
                             size={18}
-                            color={theme.danger}
+                            color={theme.destructive}
                           />
                         </Pressable>
                       </Animated.View>
                     );
                   })}
                   <View style={styles.addRow}>
-                    <FormButton
+                    <Button
                       label="Adicionar visita"
-                      flex
                       onPress={() =>
                         setAddingFor({ dayId: day.id, kind: "visit" })
                       }
+                      variant="outline"
+                      style={{ flex: 1 }}
                     />
                     <Pressable
                       accessibilityLabel="Adicionar deslocamento"
@@ -1446,29 +1436,24 @@ export default function TripDetailScreen() {
                   />
                   <ThemedText type="smallBold">Editar item</ThemedText>
                 </View>
-                <TextInput
-                  style={inputStyle}
+                <Input
                   value={editTitle}
                   onChangeText={setEditTitle}
                 />
-                <TextInput
+                <Input
                   placeholder="Horário (ex. 09:30)"
-                  placeholderTextColor={theme.textSecondary}
-                  style={inputStyle}
                   value={editTime}
                   onChangeText={setEditTime}
                 />
                 {isTransportActivity(editingActivity) ? null : (
-                  <TextInput
+                  <Input
                     placeholder="Observação da visita — opcional"
-                    placeholderTextColor={theme.textSecondary}
-                    style={inputStyle}
                     value={editNotes}
                     onChangeText={setEditNotes}
                   />
                 )}
                 {editingActivity.place_visit_id ? (
-                  <FormButton
+                  <Button
                     label="Abrir lugar"
                     onPress={() => {
                       const placeId = editingActivity.place_visit_id;
@@ -1479,11 +1464,11 @@ export default function TripDetailScreen() {
                         params: { id: placeId },
                       });
                     }}
+                    variant="outline"
                   />
                 ) : null}
-                <FormButton
+                <Button
                   label="Salvar"
-                  tone="primary"
                   onPress={() => {
                     void updateItineraryActivity({
                       id: editingActivity.id,
@@ -1500,10 +1485,12 @@ export default function TripDetailScreen() {
                         fail(getErrorMessage(err, "Não foi possível salvar."))
                       );
                   }}
+                  size="lg"
                 />
-                <FormButton
+                <Button
                   label="Cancelar"
                   onPress={() => setEditingActivity(null)}
+                  variant="outline"
                 />
               </Card>
             ) : null}
@@ -1520,7 +1507,7 @@ export default function TripDetailScreen() {
               <ThemedText type="smallBold">Prazos</ThemedText>
             </View>
             {milestones.length === 0 ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Nenhum prazo ainda.
               </ThemedText>
             ) : (
@@ -1577,7 +1564,7 @@ export default function TripDetailScreen() {
                   <Ionicons
                     name={item.done ? "checkbox-outline" : "square-outline"}
                     size={18}
-                    color={item.done ? theme.primary : theme.textSecondary}
+                    color={item.done ? theme.primary : theme.mutedForeground}
                   />
                   <View style={styles.flex}>
                     <ThemedText
@@ -1586,7 +1573,7 @@ export default function TripDetailScreen() {
                     >
                       {item.title}
                     </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {MILESTONE_TYPE_LABELS[item.type] ?? item.type} ·{" "}
                       {formatDateBR(item.due_date)}
                     </ThemedText>
@@ -1594,17 +1581,14 @@ export default function TripDetailScreen() {
                 </Pressable>
               ))
             )}
-            <TextInput
+            <Input
               placeholder="Título do prazo"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={milestoneTitle}
               onChangeText={setMilestoneTitle}
             />
             <DateField
               value={milestoneDate}
               onChange={setMilestoneDate}
-              style={inputStyle}
             />
             <View style={styles.chips}>
               {(Object.keys(MILESTONE_TYPE_LABELS) as TripMilestoneType[]).map(
@@ -1618,7 +1602,7 @@ export default function TripDetailScreen() {
                 )
               )}
             </View>
-            <FormButton
+            <Button
               label="Adicionar prazo"
               onPress={() => {
                 if (!milestoneTitle.trim()) return;
@@ -1640,6 +1624,7 @@ export default function TripDetailScreen() {
                     fail(getErrorMessage(err, "Não foi possível adicionar."))
                   );
               }}
+              variant="outline"
             />
           </Card>
         ) : null}
@@ -1676,7 +1661,7 @@ export default function TripDetailScreen() {
               </View>
               <View style={styles.flex}>
                 <ThemedText type="smallBold">Novo gasto</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Registrar um gasto desta viagem
                 </ThemedText>
               </View>
@@ -1720,7 +1705,7 @@ export default function TripDetailScreen() {
               >
                 <Card style={styles.card}>
                   <ThemedText type="smallBold">{row.description}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {[
                       EXPENSE_CATEGORY_LABELS[row.category],
                       formatBRL(Number(row.amount)),
@@ -1744,7 +1729,7 @@ export default function TripDetailScreen() {
                   {member.display_name ||
                     (member.user_id === access?.userId ? "Você" : "Membro")}
                 </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {member.role === "owner" ? "Dono" : "Editor"}
                 </ThemedText>
                 {access?.isOwner && member.user_id !== access.userId ? (
@@ -1779,7 +1764,7 @@ export default function TripDetailScreen() {
                       );
                     }}
                   >
-                    <ThemedText themeColor="danger">Remover</ThemedText>
+                    <ThemedText themeColor="destructive">Remover</ThemedText>
                   </Pressable>
                 ) : null}
               </Card>
@@ -1803,7 +1788,7 @@ export default function TripDetailScreen() {
                   ]);
                 }}
               >
-                <ThemedText themeColor="danger">Sair da viagem</ThemedText>
+                <ThemedText themeColor="destructive">Sair da viagem</ThemedText>
               </Pressable>
             ) : null}
           </>
@@ -1862,7 +1847,7 @@ const styles = StyleSheet.create({
   iconBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1878,16 +1863,14 @@ const styles = StyleSheet.create({
   dayCal: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
   },
   dayWeekday: {
-    fontSize: 9,
-    fontWeight: "700",
+    ...TypeScale.nano,
     letterSpacing: 0.6,
-    lineHeight: 11,
   },
   dayTitleRow: {
     flexDirection: "row",
@@ -1899,14 +1882,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
   expenseCtaIcon: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1916,7 +1899,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -1926,7 +1909,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 8,
@@ -1938,10 +1921,10 @@ const styles = StyleSheet.create({
     zIndex: 80,
     maxWidth: 240,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    shadowColor: "#0B0F1A",
+    shadowColor: scrim(1),
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
@@ -1950,7 +1933,7 @@ const styles = StyleSheet.create({
   activityIcon: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1958,33 +1941,12 @@ const styles = StyleSheet.create({
   transferBtn: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
   },
-  row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   done: { textDecorationLine: "line-through", opacity: 0.6 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

@@ -11,7 +11,7 @@ export function RecommendField({
 }) {
   return (
     <View style={{ gap: 8 }}>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="small" themeColor="mutedForeground">
         Recomendaria?
       </ThemedText>
       <ChipBar

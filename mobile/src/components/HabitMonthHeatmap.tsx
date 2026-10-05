@@ -8,7 +8,10 @@ import {
   monthHeatmapHeaders,
   monthLabel,
 } from "@/domain/habits/heatmap";
-import { useTheme } from "@/hooks/use-theme";
+import { habitAccent, heatCellColor, missedTint } from "@/domain/habits/habitColors";
+import { TypeScale } from "@/domain/ui/typography";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import type { HabitHeatCell, MonthHeatmap } from "@/types/habits";
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -19,34 +22,12 @@ function chunk<T>(items: T[], size: number): T[][] {
   return rows;
 }
 
-function cellColor(
-  cell: HabitHeatCell,
-  avoid: boolean,
-  theme: ReturnType<typeof useTheme>
-): string {
-  if (cell.status === "future") return theme.backgroundSelected;
-  if (cell.status === "empty") return theme.backgroundElement;
-  if (cell.status === "missed") return "rgba(225, 29, 72, 0.16)";
-  if (cell.status === "partial") {
-    if (cell.rate < 0.34) return "rgba(34, 163, 122, 0.28)";
-    if (cell.rate < 0.67) return "rgba(34, 163, 122, 0.5)";
-    return "rgba(34, 163, 122, 0.7)";
-  }
-  if (cell.status === "done" || (cell.status === "today" && cell.rate >= 1)) {
-    return avoid ? "#0D9488" : theme.success;
-  }
-  if (cell.status === "today" && cell.rate > 0) {
-    return avoid ? "rgba(13, 148, 136, 0.45)" : "rgba(34, 163, 122, 0.45)";
-  }
-  return theme.background;
-}
-
 function HeatCell({
   cell,
-  avoid,
+  accent,
 }: {
   cell: HabitHeatCell | null;
-  avoid: boolean;
+  accent: string;
 }) {
   const theme = useTheme();
   if (!cell) return <View style={styles.cell} />;
@@ -57,7 +38,7 @@ function HeatCell({
       style={[
         styles.cell,
         {
-          backgroundColor: cellColor(cell, avoid, theme),
+          backgroundColor: heatCellColor(cell, accent, theme),
           borderColor: today ? theme.primary : "transparent",
         },
       ]}
@@ -69,7 +50,7 @@ function HeatCell({
             y1="18"
             x2="18"
             y2="0"
-            stroke="rgba(225, 29, 72, 0.45)"
+            stroke={missedTint(theme, 0.45)}
             strokeWidth="1.5"
           />
           <Line
@@ -77,7 +58,7 @@ function HeatCell({
             y1="12"
             x2="12"
             y2="-4"
-            stroke="rgba(225, 29, 72, 0.35)"
+            stroke={missedTint(theme, 0.35)}
             strokeWidth="1.5"
           />
           <Line
@@ -85,7 +66,7 @@ function HeatCell({
             y1="22"
             x2="22"
             y2="6"
-            stroke="rgba(225, 29, 72, 0.35)"
+            stroke={missedTint(theme, 0.35)}
             strokeWidth="1.5"
           />
         </Svg>
@@ -101,6 +82,7 @@ function Swatch({
   color: string;
   striped?: boolean;
 }) {
+  const theme = useTheme();
   return (
     <View style={[styles.swatch, { backgroundColor: color }]}>
       {striped ? (
@@ -110,7 +92,7 @@ function Swatch({
             y1="10"
             x2="10"
             y2="0"
-            stroke="rgba(225, 29, 72, 0.55)"
+            stroke={missedTint(theme, 0.55)}
             strokeWidth="1.2"
           />
         </Svg>
@@ -137,6 +119,7 @@ export function HabitMonthHeatmap({
   showLegend?: boolean;
 }) {
   const theme = useTheme();
+  const accent = habitAccent(avoid, useModuleColors().life, theme);
   const headers = monthHeatmapHeaders();
   const rows = chunk(map.cells, 7);
 
@@ -145,7 +128,7 @@ export function HabitMonthHeatmap({
       <View style={styles.head}>
         <View style={styles.title}>
           {title ? <ThemedText type="smallBold">{title}</ThemedText> : null}
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {onPrev || onNext ? `${monthLabel(map.year, map.month)} · ` : ""}
             {heatmapRateLabel(map)}
           </ThemedText>
@@ -171,7 +154,7 @@ export function HabitMonthHeatmap({
             <ThemedText
               key={`${label}-${index}`}
               type="small"
-              themeColor="textSecondary"
+              themeColor="mutedForeground"
               style={styles.header}
             >
               {label}
@@ -184,7 +167,7 @@ export function HabitMonthHeatmap({
               <HeatCell
                 key={cell?.date ?? `pad-${rowIndex}-${cellIndex}`}
                 cell={cell}
-                avoid={avoid}
+                accent={accent}
               />
             ))}
           </View>
@@ -193,26 +176,26 @@ export function HabitMonthHeatmap({
       {showLegend ? (
         <View style={styles.legend}>
           <View style={styles.legendItem}>
-            <Swatch color={avoid ? "#0D9488" : theme.success} />
-            <ThemedText type="small" themeColor="textSecondary">
+            <Swatch color={accent} />
+            <ThemedText type="small" themeColor="mutedForeground">
               Feito
             </ThemedText>
           </View>
           <View style={styles.legendItem}>
-            <Swatch color="rgba(34, 163, 122, 0.45)" />
-            <ThemedText type="small" themeColor="textSecondary">
+            <Swatch color={hexAlpha(accent, 0.45)} />
+            <ThemedText type="small" themeColor="mutedForeground">
               Parcial
             </ThemedText>
           </View>
           <View style={styles.legendItem}>
-            <Swatch color="rgba(225, 29, 72, 0.16)" striped />
-            <ThemedText type="small" themeColor="textSecondary">
+            <Swatch color={missedTint(theme, 0.16)} striped />
+            <ThemedText type="small" themeColor="mutedForeground">
               Falhou
             </ThemedText>
           </View>
           <View style={styles.legendItem}>
-            <Swatch color={theme.backgroundSelected} />
-            <ThemedText type="small" themeColor="textSecondary">
+            <Swatch color={theme.border} />
+            <ThemedText type="small" themeColor="mutedForeground">
               Futuro
             </ThemedText>
           </View>
@@ -237,8 +220,7 @@ const styles = StyleSheet.create({
   header: {
     flex: 1,
     textAlign: "center",
-    fontSize: 10,
-    lineHeight: 12,
+    ...TypeScale.nano,
   },
   cell: {
     flex: 1,

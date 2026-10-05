@@ -7,7 +7,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -19,12 +18,12 @@ import {
   type NatureFilter,
 } from "@/api/finance/transactions";
 import { ChipBar } from "@/components/ChipBar";
+import { SearchField } from "@/components/SearchField";
 import { TransactionsList } from "@/components/TransactionsList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { CollapsibleChrome } from "@/components/ui/CollapsibleChrome";
-import { Spacing } from "@/constants/theme";
+import { Banner, CollapsibleChrome } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { formatBRL } from "@/lib/currency";
@@ -169,7 +168,7 @@ export default function TransactionsScreen() {
               }}
               style={[
                 styles.monthBtn,
-                { backgroundColor: theme.backgroundElement },
+                { backgroundColor: theme.muted },
               ]}
             >
               <ThemedText type="smallBold">‹</ThemedText>
@@ -185,7 +184,7 @@ export default function TransactionsScreen() {
               }}
               style={[
                 styles.monthBtn,
-                { backgroundColor: theme.backgroundElement },
+                { backgroundColor: theme.muted },
               ]}
             >
               <ThemedText type="smallBold">›</ThemedText>
@@ -196,30 +195,21 @@ export default function TransactionsScreen() {
           <>
             <Banner message={error} />
             {notice ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {notice}
               </ThemedText>
             ) : null}
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {total} {total === 1 ? "transação" : "transações"}
               {totalPages > 1 ? ` · página ${page} de ${totalPages}` : ""}
             </ThemedText>
           </>
         }
       >
-        <TextInput
+        <SearchField
           placeholder="Buscar descrição, categoria..."
-          placeholderTextColor={theme.textSecondary}
           value={search}
           onChangeText={setSearch}
-          style={[
-            styles.search,
-            {
-              color: theme.text,
-              backgroundColor: theme.backgroundElement,
-              borderColor: theme.backgroundSelected,
-            },
-          ]}
         />
         <ChipBar
           options={NATURE_CHIPS}
@@ -262,7 +252,7 @@ export default function TransactionsScreen() {
                 onPress={() => setPage((p) => Math.max(1, p - 1))}
                 style={[
                   styles.pageBtn,
-                  { backgroundColor: theme.backgroundElement },
+                  { backgroundColor: theme.muted },
                   page <= 1 && styles.pageBtnDisabled,
                 ]}
               >
@@ -273,7 +263,7 @@ export default function TransactionsScreen() {
                 onPress={() => setPage((p) => p + 1)}
                 style={[
                   styles.pageBtn,
-                  { backgroundColor: theme.backgroundElement },
+                  { backgroundColor: theme.muted },
                   page >= totalPages && styles.pageBtnDisabled,
                 ]}
               >
@@ -298,24 +288,11 @@ const styles = StyleSheet.create({
   monthBtn: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   monthTitle: { flex: 1, textAlign: "center" },
-  search: {
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
   list: {
     padding: Spacing.four,
     gap: Spacing.two,
@@ -329,8 +306,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
   },
   pageBtnDisabled: { opacity: 0.4 },
-  error: { color: "#E11D48" },
 });

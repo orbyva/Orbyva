@@ -26,8 +26,7 @@ import { FilterSelect } from "@/components/FilterSelect";
 import { SearchField } from "@/components/SearchField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
+import { Banner, Card, EmptyState } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import {
   contentLinkFaviconUrl,
@@ -54,7 +53,6 @@ const STATUS_CHIPS: { id: ContentLinkStatus; label: string }[] = [
   { id: "consumed", label: LINK_STATUS_LABELS.consumed },
 ];
 
-const STAR_ON = "#F59E0B";
 
 const BRAND_ICONS: {
   roots: readonly string[];
@@ -306,9 +304,7 @@ export default function LinksScreen() {
             />
           </View>
           {visible.length === 0 ? (
-            <ThemedText themeColor="textSecondary">
-              Nenhum link neste filtro.
-            </ThemedText>
+            <EmptyState icon="link-outline" title="Nenhum link neste filtro" />
           ) : (
             visible.map((link) => {
               const consumed = link.status === "consumed";
@@ -328,11 +324,11 @@ export default function LinksScreen() {
                     <Ionicons
                       name={consumed ? "checkmark-circle" : "ellipse-outline"}
                       size={22}
-                      color={consumed ? theme.primary : theme.textSecondary}
+                      color={consumed ? theme.primary : theme.mutedForeground}
                     />
                   </Pressable>
                   <View style={styles.sourceIcon}>
-                    <LinkSourceIcon url={link.url} color={theme.text} />
+                    <LinkSourceIcon url={link.url} color={theme.foreground} />
                   </View>
                   <Pressable
                     style={styles.copy}
@@ -353,7 +349,7 @@ export default function LinksScreen() {
                     >
                       {link.title}
                     </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {[
                         LINK_TYPE_LABELS[link.type],
                         domain,
@@ -379,7 +375,7 @@ export default function LinksScreen() {
                     <Ionicons
                       name={link.is_favorite ? "star" : "star-outline"}
                       size={18}
-                      color={link.is_favorite ? STAR_ON : theme.textSecondary}
+                      color={link.is_favorite ? theme.warning : theme.mutedForeground}
                     />
                   </Pressable>
                   <Pressable
@@ -391,7 +387,7 @@ export default function LinksScreen() {
                     <Ionicons
                       name="open-outline"
                       size={18}
-                      color={theme.textSecondary}
+                      color={theme.mutedForeground}
                     />
                   </Pressable>
                   <Pressable
@@ -403,7 +399,7 @@ export default function LinksScreen() {
                     <Ionicons
                       name="trash-outline"
                       size={18}
-                      color={theme.danger}
+                      color={theme.destructive}
                     />
                   </Pressable>
                 </Card>

@@ -1,15 +1,9 @@
-import {
-  Pressable,
-  StyleSheet,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
+import { Pressable, Text, type StyleProp, type ViewStyle } from "react-native";
 
-import { ThemedText } from "@/components/themed-text";
-import { Radius } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
-import { choiceChipColors } from "@/lib/color";
+import { resolveChipStyle } from "@/domain/ui/variants/chip";
+import { useOptionalThemeScheme } from "@/hooks/use-theme-preference";
 
+/** `Chip` com toque longo (reordenar, editar); o visual vem do mesmo resolvedor. */
 export function ChoiceChip({
   label,
   active,
@@ -25,28 +19,20 @@ export function ChoiceChip({
   delayLongPress?: number;
   style?: StyleProp<ViewStyle>;
 }) {
-  const theme = useTheme();
+  const s = resolveChipStyle({ selected: active }, useOptionalThemeScheme());
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      hitSlop={s.hitSlop}
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={delayLongPress}
-      style={[styles.chip, choiceChipColors(theme, active), style]}
+      style={({ pressed }) => [s.container, pressed && { opacity: 0.8 }, style]}
     >
-      <ThemedText
-        type="smallBold"
-        style={active ? { color: theme.primary } : undefined}
-      >
+      <Text style={s.label} numberOfLines={1}>
         {label}
-      </ThemedText>
+      </Text>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  chip: {
-    borderRadius: Radius.chip,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-});

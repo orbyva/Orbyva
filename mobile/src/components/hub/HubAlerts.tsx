@@ -2,8 +2,9 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import type { AppAlert } from "@/domain/alerts";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 
 type HubAlertsProps = {
   alerts: AppAlert[];
@@ -22,7 +23,7 @@ export function HubAlerts({ alerts, extraCount, onPressItem }: HubAlertsProps) {
       <View style={styles.head}>
         <ThemedText type="smallBold">Pontos de atenção</ThemedText>
         {extraCount > 0 ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             +{extraCount} no sino
           </ThemedText>
         ) : null}
@@ -32,11 +33,11 @@ export function HubAlerts({ alerts, extraCount, onPressItem }: HubAlertsProps) {
         <View
           style={[
             styles.empty,
-            { borderColor: theme.backgroundSelected },
+            { borderColor: theme.border },
           ]}
         >
           <ThemedText type="smallBold">Tudo em dia</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Nenhum alerta urgente agora.
           </ThemedText>
         </View>
@@ -48,13 +49,11 @@ export function HubAlerts({ alerts, extraCount, onPressItem }: HubAlertsProps) {
               onPress={() => onPressItem(alert)}
               style={[
                 styles.row,
-                alert.severity === "danger"
-                  ? styles.danger
-                  : styles.warning,
+                tintedRow(alert.severity === "danger" ? theme.destructive : theme.warning),
               ]}
             >
               <ThemedText type="smallBold">{alert.title}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {alert.message}
               </ThemedText>
             </Pressable>
@@ -63,6 +62,10 @@ export function HubAlerts({ alerts, extraCount, onPressItem }: HubAlertsProps) {
       )}
     </View>
   );
+}
+
+function tintedRow(tone: string) {
+  return { backgroundColor: hexAlpha(tone, 0.08), borderColor: hexAlpha(tone, 0.22) };
 }
 
 const styles = StyleSheet.create({
@@ -74,23 +77,15 @@ const styles = StyleSheet.create({
   },
   list: { gap: Spacing.two },
   row: {
-    borderRadius: 14,
+    borderRadius: Radius.xl,
     padding: Spacing.three,
     gap: 4,
     borderWidth: 1,
   },
-  danger: {
-    backgroundColor: "rgba(225,29,72,0.08)",
-    borderColor: "rgba(225,29,72,0.22)",
-  },
-  warning: {
-    backgroundColor: "rgba(217,119,6,0.08)",
-    borderColor: "rgba(217,119,6,0.22)",
-  },
   empty: {
     borderWidth: 1,
     borderStyle: "dashed",
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     paddingVertical: Spacing.four,
     paddingHorizontal: Spacing.three,
     alignItems: "center",

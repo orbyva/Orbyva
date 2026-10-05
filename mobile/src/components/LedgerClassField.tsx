@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { Radius } from "@/constants/theme";
 import { fetchDimensions } from "@/api/finance/dimensions";
 import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import { ThemedText } from "@/components/themed-text";
@@ -33,19 +34,19 @@ export function LedgerClassField({
     <View style={styles.wrap}>
       <Pressable
         onPress={() => onEnabledChange(!enabled)}
-        style={[styles.toggle, { backgroundColor: theme.backgroundElement }]}
+        style={[styles.toggle, { backgroundColor: theme.muted }]}
       >
         <View
           style={[
             styles.dot,
             {
-              backgroundColor: enabled ? theme.primary : theme.backgroundSelected,
+              backgroundColor: enabled ? theme.primary : theme.border,
             },
           ]}
         />
         <View style={styles.copy}>
           <ThemedText type="smallBold">Lançar no extrato</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {hint}
           </ThemedText>
         </View>
@@ -67,9 +68,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: 14,
   },
   copy: { flex: 1, gap: 2 },
-  dot: { width: 18, height: 18, borderRadius: 9, marginTop: 2 },
+  dot: { width: 18, height: 18, borderRadius: Radius.full, marginTop: 2 },
 });

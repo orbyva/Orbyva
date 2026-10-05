@@ -4,10 +4,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -23,7 +21,7 @@ import { ChoiceChip } from "@/components/ChoiceChip";
 import { LedgerClassField } from "@/components/LedgerClassField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Field, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { EXPENSE_CATEGORY_LABELS } from "@/domain/travel";
@@ -118,14 +116,6 @@ export default function TripExpenseFormScreen() {
     return (existing.splits ?? []).find((s) => s.user_id === userId) ?? null;
   }, [existing, userId]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     const parsed = Number.parseFloat(amount.replace(",", "."));
@@ -190,18 +180,15 @@ export default function TripExpenseFormScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Field label="Descrição">
-            <TextInput
+            <Input
               placeholder="Almoço, Uber…"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={description}
               onChangeText={setDescription}
             />
           </Field>
           <Field label="Valor">
-            <TextInput
+            <Input
               keyboardType="decimal-pad"
-              style={inputStyle}
               value={amount}
               onChangeText={setAmount}
             />
@@ -210,7 +197,6 @@ export default function TripExpenseFormScreen() {
             <DateField
               value={expenseDate}
               onChange={setExpenseDate}
-              style={inputStyle}
             />
           </Field>
           <Field label="Categoria">
@@ -259,7 +245,7 @@ export default function TripExpenseFormScreen() {
             </Field>
           ) : null}
           {visibility === "shared" && members.length > 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Rateio igual entre {members.length} pessoa(s).
             </ThemedText>
           ) : null}
@@ -276,7 +262,7 @@ export default function TripExpenseFormScreen() {
               }
             />
           ) : existing?.transaction_id ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Já lançado no extrato — o valor é atualizado ao salvar.
             </ThemedText>
           ) : null}
@@ -292,9 +278,8 @@ export default function TripExpenseFormScreen() {
                 onClassIdChange={setClassId}
                 hint="Registra só a sua parte no extrato pessoal."
               />
-              <FormButton
+              <Button
                 label="Lançar minha fatia"
-                tone="primary"
                 onPress={() => {
                   if (!classId) {
                     fail("Escolha a categoria do extrato.");
@@ -309,15 +294,16 @@ export default function TripExpenseFormScreen() {
                       fail(getErrorMessage(err, "Não foi possível lançar a fatia."))
                     );
                 }}
+                size="lg"
               />
             </Cardish>
           ) : null}
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Salvar gasto"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -329,49 +315,11 @@ function Cardish({ children }: { children: ReactNode }) {
   return <View style={styles.cardish}>{children}</View>;
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
   cardish: { gap: 10 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

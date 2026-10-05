@@ -1,15 +1,12 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
-  View,
 } from "react-native";
 
 import { fetchDimensions } from "@/api/finance/dimensions";
@@ -23,11 +20,8 @@ import {
 } from "@/api/finance/transactions";
 import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import { DateField } from "@/components/DateField";
-import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { FormBlock } from "@/components/ui/FormSection";
+import { Banner, Button, Field, FormBlock, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import {
@@ -171,15 +165,6 @@ export default function TransactionFormScreen() {
     );
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
-
   if (loading) {
     return (
       <ThemedView style={styles.center}>
@@ -222,43 +207,44 @@ export default function TransactionFormScreen() {
 
           <FormBlock title="Detalhes">
           <Field label="Valor" required error={fieldErrors.value}>
-            <TextInput
+            <Input
               keyboardType="number-pad"
               placeholder="0,00"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
+              invalid={Boolean(fieldErrors.value)}
               value={value != null ? formatMoneyInput(value) : ""}
               onChangeText={(raw) => setDigits(raw.replace(/\D/g, ""))}
             />
           </Field>
 
           <Field label="Data" required error={fieldErrors.transaction_at}>
-            <DateField value={dateIso} onChange={setDateIso} style={inputStyle} />
+            <DateField
+              value={dateIso}
+              onChange={setDateIso}
+              invalid={Boolean(fieldErrors.transaction_at)}
+            />
           </Field>
 
           <Field label="Descrição" required error={fieldErrors.description}>
-            <TextInput
+            <Input
               placeholder="Ex: Supermercado, Salário..."
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
+              invalid={Boolean(fieldErrors.description)}
               value={description}
               onChangeText={setDescription}
             />
           </Field>
           </FormBlock>
 
-          <FormButton
+          <Button
             label={isEditing ? "Salvar alterações" : "Adicionar transação"}
-            tone="primary"
-            disabled={saving}
-            busy={saving}
+            size="lg"
+            loading={saving}
             onPress={() => void onSave()}
           />
 
           {isEditing ? (
-            <FormButton
+            <Button
               label="Excluir transação"
-              tone="danger"
+              variant="destructive"
               disabled={saving}
               onPress={onDelete}
             />
@@ -269,57 +255,8 @@ export default function TransactionFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  error,
-  hint,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {hint ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          {hint}
-        </ThemedText>
-      ) : null}
-      {children}
-      {error ? <ThemedText style={styles.fieldError}>{error}</ThemedText> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 6 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  error: { color: "#E11D48", textAlign: "center" },
-  fieldError: { color: "#E11D48", fontSize: 13 },
 });

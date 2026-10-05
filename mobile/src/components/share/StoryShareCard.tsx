@@ -17,7 +17,7 @@ import {
   SHARE_W,
   type CoverVariant,
 } from "@/components/share/shareStory";
-import { BRAND_COLORS } from "@/lib/brand";
+import { BRAND_COLORS } from "@/components/share/brandColors";
 
 export type StoryShareItem = {
   index: string;

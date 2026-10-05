@@ -15,9 +15,8 @@ import { toggleHabitLog } from "@/api/habits/habits";
 import { ChipBar } from "@/components/ChipBar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { ModuleSection } from "@/components/ui/ModuleSection";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, ModuleSection } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { frequencyLabel, getTodayIso } from "@/domain/habits";
 import { formatRate } from "@/domain/health/adherence";
 import { formatPosology, nextDoseSlot } from "@/domain/health/medication";
@@ -38,7 +37,7 @@ import {
   REMINDER_FREQUENCY_LABEL,
 } from "@/domain/health/reminder";
 import { useAppShell } from "@/hooks/use-app-shell";
-import { useTheme } from "@/hooks/use-theme";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { formatDateTimeBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
@@ -57,6 +56,7 @@ function nowHm(): string {
 
 export default function HealthScreen() {
   const theme = useTheme();
+  const moduleColors = useModuleColors();
   const router = useRouter();
   const { fail, ok } = useFeedback();
   const { bottomInset } = useAppShell();
@@ -221,7 +221,7 @@ export default function HealthScreen() {
           <ModuleSection
             title="Hoje"
             icon="water-outline"
-            tint="#0EA5E9"
+            tint={theme.chart1}
             badge={
               healthHabits.length > 0
                 ? `${habitsDone} de ${healthHabits.length}`
@@ -233,7 +233,7 @@ export default function HealthScreen() {
             }
           >
             {healthHabits.length === 0 ? (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Nenhum hábito de saúde. Crie água, alimentação etc. para marcar aqui.
               </ThemedText>
             ) : (
@@ -246,11 +246,11 @@ export default function HealthScreen() {
                   <Ionicons
                     name={entry.doneToday ? "checkmark-circle" : "ellipse-outline"}
                     size={22}
-                    color={entry.doneToday ? "#22A37A" : theme.textSecondary}
+                    color={entry.doneToday ? theme.success : theme.mutedForeground}
                   />
                   <View style={styles.rowCopy}>
                     <ThemedText type="smallBold">{entry.habit.name}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {frequencyLabel(entry.habit)}
                     </ThemedText>
                   </View>
@@ -264,7 +264,7 @@ export default function HealthScreen() {
           <ModuleSection
             title="Progresso"
             icon="pulse-outline"
-            tint="#A855F7"
+            tint={theme.chart2}
             actionLabel="Registrar"
             onAction={() => router.push("/health/metric-form")}
           >
@@ -279,7 +279,7 @@ export default function HealthScreen() {
               const delta = deltaSincePrevious(metrics, type);
               return (
                 <View key={type} style={styles.metricRow}>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {METRIC_LABEL[type]}
                   </ThemedText>
                   <ThemedText type="smallBold">
@@ -301,17 +301,17 @@ export default function HealthScreen() {
           <ModuleSection
             title="Medicações"
             icon="medkit-outline"
-            tint="#22A37A"
+            tint={moduleColors.health}
             actionLabel="Nova"
             onAction={() => router.push("/health/form")}
           >
             {nextDose ? (
               <View style={styles.stack}>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Próxima dose
                 </ThemedText>
                 <ThemedText type="smallBold">{nextDose.title}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {nextDose.due_date
                     ? formatDateTimeBR(
                         nextDose.due_date,
@@ -319,32 +319,25 @@ export default function HealthScreen() {
                       )
                     : "Sem horário"}
                 </ThemedText>
-                <Pressable
+                <Button
+                  label="Marcar tomada"
                   disabled={busy}
+                  loading={busy}
                   onPress={() => void onTake()}
-                  style={[styles.primary, { backgroundColor: theme.primary }]}
-                >
-                  {busy ? (
-                    <ActivityIndicator color="#0B0F1A" />
-                  ) : (
-                    <ThemedText type="smallBold" style={styles.primaryLabel}>
-                      Marcar tomada
-                    </ThemedText>
-                  )}
-                </Pressable>
+                />
               </View>
             ) : (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Nenhuma dose pendente a partir de hoje.
               </ThemedText>
             )}
             {adherenceLabel ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Últimos 30 dias: {adherenceLabel}
               </ThemedText>
             ) : null}
             {treatments.length === 0 ? (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Nenhuma medicação cadastrada.
               </ThemedText>
             ) : (
@@ -363,16 +356,16 @@ export default function HealthScreen() {
                     }
                     style={[
                       styles.medCard,
-                      { backgroundColor: theme.backgroundElement },
+                      { backgroundColor: theme.muted },
                     ]}
                   >
-                    <Ionicons name="medkit-outline" size={16} color="#22A37A" />
+                    <Ionicons name="medkit-outline" size={16} color={moduleColors.health} />
                     <View style={styles.rowCopy}>
                       <ThemedText type="smallBold">{med.name}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {formatPosology(med)}
                       </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {med.active
                           ? next
                             ? `Próxima: ${formatDateTimeBR(next.date, next.time)}`
@@ -392,21 +385,21 @@ export default function HealthScreen() {
           <ModuleSection
             title="Consultas"
             icon="fitness-outline"
-            tint="#0284C7"
+            tint={theme.primary}
             actionLabel="Nova"
             onAction={() => router.push("/health/consult-form")}
           >
             {nextConsult ? (
               <>
                 <ThemedText type="smallBold">{nextConsult.title}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {nextConsult.due_date
                     ? formatDateTimeBR(nextConsult.due_date, nextConsult.due_time)
                     : "Sem data"}
                 </ThemedText>
               </>
             ) : (
-              <ThemedText themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">
                 Nenhuma consulta agendada.
               </ThemedText>
             )}
@@ -415,8 +408,8 @@ export default function HealthScreen() {
           ) : null}
 
           {section === "more" ? (
-          <ModuleSection title="Lembretes" icon="notifications-outline" tint="#F59E0B">
-            <ThemedText type="small" themeColor="textSecondary">
+          <ModuleSection title="Lembretes" icon="notifications-outline" tint={theme.warning}>
+            <ThemedText type="small" themeColor="mutedForeground">
               Preferência no app. Push nativo ainda não entra nesta fatia.
             </ThemedText>
             {REMINDER_ENTITY_TYPES.map((entityType) => {
@@ -431,13 +424,13 @@ export default function HealthScreen() {
                   <Ionicons
                     name={on ? "notifications" : "notifications-off-outline"}
                     size={18}
-                    color={on ? "#F59E0B" : theme.textSecondary}
+                    color={on ? theme.warning : theme.mutedForeground}
                   />
                   <View style={styles.rowCopy}>
                     <ThemedText type="smallBold">
                       {REMINDER_ENTITY_LABEL[entityType]}
                     </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {on
                         ? `${REMINDER_FREQUENCY_LABEL[pref?.frequency ?? "daily"]} · ${
                             pref?.time_of_day?.slice(0, 5) ?? "09:00"
@@ -480,15 +473,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: 10,
   },
-  primary: {
-    height: 44,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 4,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

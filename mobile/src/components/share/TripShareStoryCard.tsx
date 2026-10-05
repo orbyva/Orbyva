@@ -13,7 +13,7 @@ import {
   PLACE_TYPE_EMOJI,
   formatRating,
 } from "@/domain/places";
-import { BRAND_COLORS } from "@/lib/brand";
+import { BRAND_COLORS } from "@/components/share/brandColors";
 import { formatDateBR } from "@/lib/currency";
 import type { PlaceVisit } from "@/types/places";
 import type { Trip } from "@/types/travel";

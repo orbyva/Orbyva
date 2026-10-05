@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -21,7 +20,7 @@ import { ChoiceChip } from "@/components/ChoiceChip";
 import { LedgerClassField } from "@/components/LedgerClassField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Field, Input, useInputStyle } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { MAINTENANCE_TYPE_LABELS } from "@/domain/car";
@@ -31,6 +30,7 @@ import { getErrorMessage } from "@/lib/errors";
 
 export default function MaintenanceFormScreen() {
   const theme = useTheme();
+  const inputStyle = useInputStyle().container;
   const router = useRouter();
   const navigation = useNavigation();
   const { fail } = useFeedback();
@@ -81,14 +81,6 @@ export default function MaintenanceFormScreen() {
     };
   }, [editId]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     if (!vehicleId && !editId) {
@@ -162,28 +154,25 @@ export default function MaintenanceFormScreen() {
           </Field>
           {type === "other" ? (
             <Field label="Qual serviço">
-              <TextInput
-                style={inputStyle}
+              <Input
                 value={customType}
                 onChangeText={setCustomType}
               />
             </Field>
           ) : null}
           <Field label="Data">
-            <DateField value={serviceDate} onChange={setServiceDate} style={inputStyle} />
+            <DateField value={serviceDate} onChange={setServiceDate} />
           </Field>
           <Field label="Km no serviço">
-            <TextInput
+            <Input
               keyboardType="number-pad"
-              style={inputStyle}
               value={km}
               onChangeText={setKm}
             />
           </Field>
           <Field label="Custo">
-            <TextInput
+            <Input
               keyboardType="decimal-pad"
-              style={inputStyle}
               value={cost}
               onChangeText={setCost}
             />
@@ -196,14 +185,13 @@ export default function MaintenanceFormScreen() {
               onClassIdChange={setClassId}
             />
           ) : hasLedger ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Já lançado no extrato — o valor é atualizado ao salvar.
             </ThemedText>
           ) : null}
           <Field label="Próximo km">
-            <TextInput
+            <Input
               keyboardType="number-pad"
-              style={inputStyle}
               value={nextKm}
               onChangeText={setNextKm}
             />
@@ -211,9 +199,9 @@ export default function MaintenanceFormScreen() {
           <Field label="Próxima data">
             {nextDate ? (
               <>
-                <DateField value={nextDate} onChange={setNextDate} style={inputStyle} />
+                <DateField value={nextDate} onChange={setNextDate} />
                 <Pressable onPress={() => setNextDate(null)}>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     Sem data
                   </ThemedText>
                 </Pressable>
@@ -223,16 +211,16 @@ export default function MaintenanceFormScreen() {
                 onPress={() => setNextDate(getTodayIso())}
                 style={inputStyle}
               >
-                <ThemedText themeColor="textSecondary">Definir data</ThemedText>
+                <ThemedText themeColor="mutedForeground">Definir data</ThemedText>
               </Pressable>
             )}
           </Field>
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Registrar manutenção"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -240,48 +228,10 @@ export default function MaintenanceFormScreen() {
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

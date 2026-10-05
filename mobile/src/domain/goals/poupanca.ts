@@ -27,7 +27,7 @@ export async function ensureGoalMetaClass(goalTitle: string): Promise<number> {
     const created = await createTypeApi({
       name: META_TYPE_NAME,
       nature_id: nature.id,
-      hex_color: "#0d9488",
+      hex_color: "#0d9488", // token-livre: cor do tipo gravada no banco
       lucide_icon: "flag",
       exclude_from_spend: true,
     });

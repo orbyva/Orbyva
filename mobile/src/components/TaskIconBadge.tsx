@@ -1,6 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image, StyleSheet } from "react-native";
 
+import { useTheme } from "@/hooks/use-theme";
+
 const PRESET_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   flag: "flag-outline",
   star: "star-outline",
@@ -26,13 +28,15 @@ export function TaskIconBadge({
   iconKey,
   iconUrl,
   size = 12,
-  color = "#64748B",
+  color,
 }: {
   iconKey?: string | null;
   iconUrl?: string | null;
   size?: number;
   color?: string;
 }) {
+  const theme = useTheme();
+  const tint = color ?? theme.mutedForeground;
   if (iconUrl) {
     return (
       <Image
@@ -43,7 +47,7 @@ export function TaskIconBadge({
   }
   const name = iconKey ? PRESET_ICONS[iconKey] : null;
   if (!name) return null;
-  return <Ionicons name={name} size={size} color={color} />;
+  return <Ionicons name={name} size={size} color={tint} />;
 }
 
 const styles = StyleSheet.create({

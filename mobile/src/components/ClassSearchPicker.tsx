@@ -1,22 +1,22 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
 import { createClassApi, createTypeApi } from "@/api/finance/dimensions";
+import { SearchField } from "@/components/SearchField";
 import { TypeIcon } from "@/components/TypeIcon";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Spacing } from "@/constants/theme";
+import { Button, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   listNaturesForCreate,
   listTypesForCreate,
@@ -137,7 +137,8 @@ function ClassOptionRow({
   onPress: () => void;
   fallbackBg: string;
 }) {
-  const color = option.hexColor || "#64748B";
+  const theme = useTheme();
+  const color = option.hexColor || theme.mutedForeground;
   return (
     <Pressable onPress={onPress} style={styles.option}>
       <View
@@ -146,7 +147,7 @@ function ClassOptionRow({
         <TypeIcon name={option.lucideIcon} color={color} size={18} />
       </View>
       <View style={styles.optionCopy}>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+        <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
           {option.typeName} · {option.natureName}
         </ThemedText>
         <ThemedText type="smallBold" numberOfLines={1}>
@@ -327,22 +328,16 @@ export function ClassSearchPicker({
     }
   }
 
-  const fieldColors = {
-    color: theme.text,
-    backgroundColor: theme.backgroundElement,
-    borderColor: theme.backgroundSelected,
-  };
-
   if (natureOptions.length === 0) {
     return (
-      <ThemedText themeColor="textSecondary">
+      <ThemedText themeColor="mutedForeground">
         Cadastre naturezas no web para poder classificar lançamentos.
       </ThemedText>
     );
   }
 
   if (selected) {
-    const color = selected.hexColor || "#64748B";
+    const color = selected.hexColor || theme.mutedForeground;
     return (
       <Pressable
         onPress={() => {
@@ -352,28 +347,28 @@ export function ClassSearchPicker({
         style={[
           styles.selected,
           {
-            borderColor: theme.backgroundSelected,
-            backgroundColor: theme.backgroundElement,
+            borderColor: theme.border,
+            backgroundColor: theme.muted,
           },
         ]}
       >
         <View
           style={[
             styles.iconWrap,
-            { backgroundColor: hexTint(selected.hexColor, theme.backgroundSelected) },
+            { backgroundColor: hexTint(selected.hexColor, theme.border) },
           ]}
         >
           <TypeIcon name={selected.lucideIcon} color={color} size={18} />
         </View>
         <View style={styles.optionCopy}>
-          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+          <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
             {selected.typeName} · {selected.natureName}
           </ThemedText>
           <ThemedText type="smallBold" numberOfLines={1}>
             {selected.name}
           </ThemedText>
         </View>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Trocar
         </ThemedText>
       </Pressable>
@@ -387,12 +382,12 @@ export function ClassSearchPicker({
         style={[
           styles.searchBtn,
           {
-            borderColor: theme.backgroundSelected,
-            backgroundColor: theme.backgroundElement,
+            borderColor: theme.border,
+            backgroundColor: theme.muted,
           },
         ]}
       >
-        <ThemedText themeColor="textSecondary">
+        <ThemedText themeColor="mutedForeground">
           Buscar categoria ou subcategoria
         </ThemedText>
       </Pressable>
@@ -444,21 +439,19 @@ export function ClassSearchPicker({
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={styles.list}
               >
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Nome
                 </ThemedText>
-                <TextInput
+                <Input
                   value={createName}
                   onChangeText={setCreateName}
                   placeholder="Ex: Farmácia"
-                  placeholderTextColor={theme.textSecondary}
                   autoFocus
                   editable={!creating}
-                  style={[styles.field, fieldColors]}
                   onSubmitEditing={() => void submitCreate()}
                 />
 
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Onde salvar
                 </ThemedText>
                 {typeOptions.length > 0 ? (
@@ -476,11 +469,11 @@ export function ClassSearchPicker({
                         borderColor:
                           createMode === "existingType"
                             ? theme.primary
-                            : theme.backgroundSelected,
+                            : theme.border,
                         backgroundColor:
                           createMode === "existingType"
                             ? `${theme.primary}22`
-                            : theme.backgroundElement,
+                            : theme.muted,
                       },
                     ]}
                   >
@@ -496,11 +489,11 @@ export function ClassSearchPicker({
                       borderColor:
                         createMode === "newType"
                           ? theme.primary
-                          : theme.backgroundSelected,
+                          : theme.border,
                       backgroundColor:
                         createMode === "newType"
                           ? `${theme.primary}22`
-                          : theme.backgroundElement,
+                          : theme.muted,
                     },
                   ]}
                 >
@@ -509,7 +502,7 @@ export function ClassSearchPicker({
 
                 {createMode === "existingType" && typeOptions.length > 0
                   ? typeOptions.map((type) => {
-                      const color = type.hexColor || "#64748B";
+                      const color = type.hexColor || theme.mutedForeground;
                       const active = selectedTypeId === type.id;
                       return (
                         <Pressable
@@ -525,10 +518,10 @@ export function ClassSearchPicker({
                             {
                               borderColor: active
                                 ? theme.primary
-                                : theme.backgroundSelected,
+                                : theme.border,
                               backgroundColor: active
                                 ? `${theme.primary}22`
-                                : theme.backgroundElement,
+                                : theme.muted,
                             },
                           ]}
                         >
@@ -538,7 +531,7 @@ export function ClassSearchPicker({
                               {
                                 backgroundColor: hexTint(
                                   type.hexColor,
-                                  theme.backgroundSelected
+                                  theme.border
                                 ),
                               },
                             ]}
@@ -555,7 +548,7 @@ export function ClassSearchPicker({
                             </ThemedText>
                             <ThemedText
                               type="small"
-                              themeColor="textSecondary"
+                              themeColor="mutedForeground"
                               numberOfLines={1}
                             >
                               {type.natureName}
@@ -582,10 +575,10 @@ export function ClassSearchPicker({
                             {
                               borderColor: active
                                 ? theme.primary
-                                : theme.backgroundSelected,
+                                : theme.border,
                               backgroundColor: active
                                 ? `${theme.primary}22`
-                                : theme.backgroundElement,
+                                : theme.muted,
                             },
                           ]}
                         >
@@ -597,61 +590,48 @@ export function ClassSearchPicker({
                 ) : null}
 
                 {createMode === "newType" && preferredNatureName ? (
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     Natureza: {preferredNatureName}
                   </ThemedText>
                 ) : null}
 
                 {createError ? (
-                  <ThemedText style={styles.error}>{createError}</ThemedText>
+                  <ThemedText themeColor="destructive">{createError}</ThemedText>
                 ) : null}
 
-                <Pressable
-                  disabled={creating || !createName.trim()}
+                <Button
+                  label="Criar e usar"
+                  disabled={!createName.trim()}
+                  loading={creating}
                   onPress={() => void submitCreate()}
-                  style={[
-                    styles.primary,
-                    {
-                      backgroundColor: theme.primary,
-                      opacity: creating || !createName.trim() ? 0.6 : 1,
-                    },
-                  ]}
-                >
-                  {creating ? (
-                    <ActivityIndicator color="#0B0F1A" />
-                  ) : (
-                    <ThemedText type="smallBold" style={styles.primaryLabel}>
-                      Criar e usar
-                    </ThemedText>
-                  )}
-                </Pressable>
+                  size="lg"
+                />
               </ScrollView>
             ) : (
               <>
-                <TextInput
+                <SearchField
                   value={query}
                   onChangeText={(next) => {
                     setQuery(next);
                     setPanel("search");
                   }}
                   placeholder="Buscar (ex: Aluguel, Mercado)"
-                  placeholderTextColor={theme.textSecondary}
                   autoFocus
                   autoCorrect={false}
                   editable={!creating}
-                  style={[styles.search, fieldColors]}
+style={styles.search}
                 />
                 <ScrollView
                   keyboardShouldPersistTaps="handled"
                   contentContainerStyle={styles.list}
                 >
                   {showFrequentHint ? (
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       Subcategorias mais usadas
                     </ThemedText>
                   ) : null}
                   {filtered.length === 0 ? (
-                    <ThemedText themeColor="textSecondary" style={styles.empty}>
+                    <ThemedText themeColor="mutedForeground" style={styles.empty}>
                       {trimmedQuery
                         ? "Nenhuma categoria encontrada."
                         : "Digite para buscar ou crie uma nova."}
@@ -661,7 +641,7 @@ export function ClassSearchPicker({
                       <ClassOptionRow
                         key={opt.id}
                         option={opt}
-                        fallbackBg={theme.backgroundSelected}
+                        fallbackBg={theme.border}
                         onPress={() => {
                           onChange(opt);
                           setOpen(false);
@@ -675,7 +655,7 @@ export function ClassSearchPicker({
                       style={[
                         styles.createBlock,
                         filtered.length > 0 && {
-                          borderTopColor: theme.backgroundSelected,
+                          borderTopColor: theme.border,
                           borderTopWidth: StyleSheet.hairlineWidth,
                           paddingTop: Spacing.three,
                           marginTop: Spacing.two,
@@ -683,7 +663,7 @@ export function ClassSearchPicker({
                       ]}
                     >
                       {showCreateCta || filtered.length === 0 ? (
-                        <ThemedText type="small" themeColor="textSecondary">
+                        <ThemedText type="small" themeColor="mutedForeground">
                           Não achou a categoria desejada?
                         </ThemedText>
                       ) : null}
@@ -695,15 +675,15 @@ export function ClassSearchPicker({
                         style={[
                           styles.createBtn,
                           {
-                            borderColor: theme.backgroundSelected,
-                            backgroundColor: theme.backgroundElement,
+                            borderColor: theme.border,
+                            backgroundColor: theme.muted,
                           },
                         ]}
                       >
                         <Ionicons
                           name="add-outline"
                           size={18}
-                          color={theme.textSecondary}
+                          color={theme.mutedForeground}
                         />
                         <ThemedText type="smallBold" numberOfLines={1} style={styles.createLabel}>
                           {showCreateCta
@@ -732,31 +712,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
   },
-  field: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
   search: {
     marginHorizontal: Spacing.four,
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
   },
   searchBtn: {
     minHeight: 48,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
     justifyContent: "center",
   },
   selected: {
     minHeight: 56,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -775,7 +743,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -783,7 +751,7 @@ const styles = StyleSheet.create({
   createBlock: { gap: 8 },
   createBtn: {
     minHeight: 48,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     borderStyle: "dashed",
     paddingHorizontal: 14,
@@ -794,7 +762,7 @@ const styles = StyleSheet.create({
   createLabel: { flex: 1 },
   choice: {
     minHeight: 48,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -803,17 +771,8 @@ const styles = StyleSheet.create({
   natures: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  error: { color: "#E11D48" },
 });

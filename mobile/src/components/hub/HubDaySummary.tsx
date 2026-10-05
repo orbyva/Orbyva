@@ -3,10 +3,11 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import type { HubDaySummary as HubDaySummaryData, HubHabitToday } from "@/api/hub";
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
-import { Spacing } from "@/constants/theme";
+import { Card } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { formatShortDate } from "@/domain/timeline";
-import { useTheme } from "@/hooks/use-theme";
+import { useModuleColors, useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 
 type HubDaySummaryProps = {
   day: HubDaySummaryData;
@@ -28,14 +29,15 @@ export function HubDaySummary({
   busyHabitId,
 }: HubDaySummaryProps) {
   const theme = useTheme();
+  const moduleColors = useModuleColors();
 
   return (
     <View style={styles.block}>
       <ThemedText type="smallBold">Resumo do dia</ThemedText>
       <Card>
         <Pressable onPress={onOpenTasks} style={styles.row}>
-          <View style={[styles.icon, { backgroundColor: "rgba(168,85,247,0.16)" }]}>
-            <Ionicons name="checkbox" size={18} color="#A855F7" />
+          <View style={[styles.icon, { backgroundColor: hexAlpha(moduleColors.productivity, 0.16) }]}>
+            <Ionicons name="checkbox" size={18} color={moduleColors.productivity} />
           </View>
           <View style={styles.body}>
             <ThemedText type="smallBold" numberOfLines={1}>
@@ -45,11 +47,11 @@ export function HubDaySummary({
                   ? `${day.tasksToday} para hoje`
                   : "Nenhuma tarefa atrasada"}
             </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Tarefas do dia
             </ThemedText>
           </View>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {day.tasksToday + day.tasksOverdue > 0
               ? `${day.tasksToday} hoje`
               : "Abrir"}
@@ -61,7 +63,7 @@ export function HubDaySummary({
             style={[
               styles.row,
               {
-                borderTopColor: theme.backgroundSelected,
+                borderTopColor: theme.border,
                 borderTopWidth: StyleSheet.hairlineWidth,
                 alignItems: "flex-start",
               },
@@ -69,9 +71,9 @@ export function HubDaySummary({
           >
             <Pressable
               onPress={onOpenHabits}
-              style={[styles.icon, { backgroundColor: "rgba(34,163,122,0.16)" }]}
+              style={[styles.icon, { backgroundColor: hexAlpha(moduleColors.life, 0.16) }]}
             >
-              <Ionicons name="leaf" size={18} color="#22A37A" />
+              <Ionicons name="leaf" size={18} color={moduleColors.life} />
             </Pressable>
             <View style={styles.body}>
               <Pressable onPress={onOpenHabits}>
@@ -90,7 +92,7 @@ export function HubDaySummary({
                     style={[
                       styles.habitCheck,
                       {
-                        borderColor: habit.done ? theme.success : theme.textSecondary,
+                        borderColor: habit.done ? theme.success : theme.mutedForeground,
                         backgroundColor: habit.done ? theme.success : "transparent",
                       },
                     ]}
@@ -114,13 +116,13 @@ export function HubDaySummary({
             style={[
               styles.row,
               {
-                borderTopColor: theme.backgroundSelected,
+                borderTopColor: theme.border,
                 borderTopWidth: StyleSheet.hairlineWidth,
               },
             ]}
           >
-            <View style={[styles.icon, { backgroundColor: "rgba(212,107,232,0.16)" }]}>
-              <Ionicons name="film" size={18} color="#D46BE8" />
+            <View style={[styles.icon, { backgroundColor: hexAlpha(moduleColors.entertainment, 0.16) }]}>
+              <Ionicons name="film" size={18} color={moduleColors.entertainment} />
             </View>
             <View style={styles.body}>
               <ThemedText type="smallBold" numberOfLines={1}>
@@ -128,7 +130,7 @@ export function HubDaySummary({
                   ? day.lastMovie.title
                   : `${day.moviesToWatch} para assistir`}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {day.lastMovie
                   ? day.moviesToWatch > 0
                     ? `Último filme · ${day.moviesToWatch} na fila`
@@ -142,14 +144,14 @@ export function HubDaySummary({
         {day.nextPayment ? (
           <Pressable
             onPress={onOpenFinance}
-            style={[styles.row, { borderTopColor: theme.backgroundSelected, borderTopWidth: StyleSheet.hairlineWidth }]}
+            style={[styles.row, { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth }]}
           >
-            <View style={[styles.icon, { backgroundColor: "rgba(225,29,72,0.14)" }]}>
-              <Ionicons name="card" size={18} color="#E11D48" />
+            <View style={[styles.icon, { backgroundColor: hexAlpha(theme.destructive, 0.14) }]}>
+              <Ionicons name="card" size={18} color={theme.destructive} />
             </View>
             <View style={styles.body}>
               <ThemedText type="smallBold">Próximo pagamento</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+              <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
                 {day.nextPayment.recurring.description}
                 {` · ${formatShortDate(day.nextPayment.dueDate)}`}
               </ThemedText>
@@ -173,7 +175,7 @@ const styles = StyleSheet.create({
   icon: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -187,7 +189,7 @@ const styles = StyleSheet.create({
   habitCheck: {
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: Radius.full,
     borderWidth: 2,
   },
   habitDone: { textDecorationLine: "line-through", opacity: 0.55 },

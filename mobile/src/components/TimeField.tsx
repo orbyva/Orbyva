@@ -4,12 +4,13 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
 
-import { ThemedText } from "@/components/themed-text";
+import { useInputStyle } from "@/components/ui";
 import { useOptionalThemeScheme } from "@/hooks/use-theme-preference";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -35,6 +36,7 @@ export function TimeField({
   style?: StyleProp<ViewStyle>;
 }) {
   const theme = useTheme();
+  const field = useInputStyle();
   const themeVariant = useOptionalThemeScheme();
   const [open, setOpen] = useState(false);
   const date = parseHm(value);
@@ -50,7 +52,7 @@ export function TimeField({
 
   if (Platform.OS === "ios") {
     return (
-      <View style={[styles.iosWrap, style]}>
+      <View style={[field.container, styles.iosWrap, style]}>
         <DateTimePicker
           value={date}
           mode="time"
@@ -68,8 +70,8 @@ export function TimeField({
 
   return (
     <View>
-      <Pressable onPress={() => setOpen(true)} style={style}>
-        <ThemedText>{value.slice(0, 5)}</ThemedText>
+      <Pressable onPress={() => setOpen(true)} style={[field.container, style]}>
+        <Text style={field.text}>{value.slice(0, 5)}</Text>
       </Pressable>
       {open ? (
         <DateTimePicker

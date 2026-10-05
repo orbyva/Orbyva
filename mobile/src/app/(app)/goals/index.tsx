@@ -7,7 +7,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -27,8 +26,7 @@ import { ChipBar } from "@/components/ChipBar";
 import { EntityNotesSection } from "@/components/notes/EntityNotesSection";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
+import { Banner, Button, Card, Input } from "@/components/ui";
 import { Radius, Spacing } from "@/constants/theme";
 import {
   formatGoalProgress,
@@ -48,7 +46,9 @@ import {
 } from "@/domain/goals/finance";
 import { ensureGoalMetaClass } from "@/domain/goals/poupanca";
 import { useAppShell } from "@/hooks/use-app-shell";
+import { SCRIM } from "@/domain/ui/color";
 import { useTheme } from "@/hooks/use-theme";
+import { hexAlpha } from "@/lib/color";
 import { useFeedback } from "@/hooks/use-toast";
 import { formatBRL, formatDateBR } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
@@ -256,6 +256,7 @@ export default function GoalsScreen() {
         installment_count: months,
         payment_start_date: new Date().toISOString().slice(0, 10),
         status: true,
+        link_url: null,
       });
       ok(`${formatBRL(monthly)} × ${months} em Recorrências`);
       setRoutineGoal(null);
@@ -288,14 +289,6 @@ export default function GoalsScreen() {
     }
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   return (
     <ThemedView style={styles.flex}>
@@ -316,7 +309,7 @@ export default function GoalsScreen() {
         >
           <ChipBar options={STATUS_CHIPS} value={filter} onChange={setFilter} />
           {visible.length === 0 ? (
-            <ThemedText themeColor="textSecondary">
+            <ThemedText themeColor="mutedForeground">
               Nenhuma meta neste filtro.
             </ThemedText>
           ) : (
@@ -346,21 +339,21 @@ export default function GoalsScreen() {
                     <View
                       style={[
                         styles.badge,
-                        { backgroundColor: theme.backgroundElement },
+                        { backgroundColor: theme.muted },
                       ]}
                     >
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {GOAL_CATEGORY_LABELS[goal.category]}
                       </ThemedText>
                     </View>
                     <ThemedText type="subtitle">{goal.title}</ThemedText>
                     {goal.description ? (
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {goal.description}
                       </ThemedText>
                     ) : null}
                     <View style={styles.progressRow}>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {formatGoalProgress(goal)}
                       </ThemedText>
                       <ThemedText type="smallBold">{pct}%</ThemedText>
@@ -368,7 +361,7 @@ export default function GoalsScreen() {
                     <View
                       style={[
                         styles.track,
-                        { backgroundColor: theme.backgroundElement },
+                        { backgroundColor: theme.muted },
                       ]}
                     >
                       <View
@@ -383,7 +376,7 @@ export default function GoalsScreen() {
                       />
                     </View>
                     {goal.deadline ? (
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         Prazo {formatDateBR(goal.deadline)}
                       </ThemedText>
                     ) : null}
@@ -393,13 +386,16 @@ export default function GoalsScreen() {
                     <View
                       style={[
                         styles.finance,
-                        { borderColor: `${theme.primary}33` },
+                        {
+                          borderColor: hexAlpha(theme.primary, 0.2),
+                          backgroundColor: hexAlpha(theme.primary, 0.06),
+                        },
                       ]}
                     >
                       <ThemedText type="smallBold">
                         Meta ← saldo do mês
                       </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {surplusFit?.summary ?? insight.suggestion}
                       </ThemedText>
                       <View style={styles.actions}>
@@ -427,7 +423,7 @@ export default function GoalsScreen() {
                           onPress={() => void onSync(goal)}
                           style={styles.linkBtn}
                         >
-                          <ThemedText type="small" themeColor="textSecondary">
+                          <ThemedText type="small" themeColor="mutedForeground">
                             Sincronizar
                           </ThemedText>
                         </Pressable>
@@ -449,35 +445,26 @@ export default function GoalsScreen() {
       >
         <Pressable style={styles.overlay} onPress={() => setDestinarGoal(null)}>
           <Pressable
-            style={[styles.sheet, { backgroundColor: theme.surface }]}
+            style={[styles.sheet, { backgroundColor: theme.card }]}
             onPress={() => undefined}
           >
             <ThemedText type="smallBold">Destinar valor à meta</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {destinarGoal?.title}
               {destinarMax > 0 ? ` · até ${formatBRL(destinarMax)}` : ""}
             </ThemedText>
-            <TextInput
+            <Input
               keyboardType="decimal-pad"
               value={destinarAmount}
               onChangeText={setDestinarAmount}
               placeholder="0,00"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
             />
-            <Pressable
+            <Button
+              label="Destinar"
               disabled={busy}
+              loading={busy}
               onPress={() => void confirmDestinar()}
-              style={[styles.primary, { backgroundColor: theme.primary }]}
-            >
-              {busy ? (
-                <ActivityIndicator color="#0B0F1A" />
-              ) : (
-                <ThemedText type="smallBold" style={styles.primaryLabel}>
-                  Destinar
-                </ThemedText>
-              )}
-            </Pressable>
+            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -490,50 +477,39 @@ export default function GoalsScreen() {
       >
         <Pressable style={styles.overlay} onPress={() => setRoutineGoal(null)}>
           <Pressable
-            style={[styles.sheet, { backgroundColor: theme.surface }]}
+            style={[styles.sheet, { backgroundColor: theme.card }]}
             onPress={() => undefined}
           >
             <ThemedText type="smallBold">Aportes mensais em Recorrências</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {routineGoal?.title}. Informe quanto guardar por mês até fechar a
               meta.
             </ThemedText>
-            <TextInput
+            <Input
               keyboardType="decimal-pad"
               value={routineMonthly}
               onChangeText={setRoutineMonthly}
               placeholder="Valor mensal"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
             />
-            <TextInput
+            <Input
               keyboardType="number-pad"
               value={routineDueDay}
               onChangeText={(value) =>
                 setRoutineDueDay(value.replace(/\D/g, "").slice(0, 2))
               }
               placeholder="Dia do mês"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
             />
             {routineDraft ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {routineDraft.summary}
               </ThemedText>
             ) : null}
-            <Pressable
+            <Button
+              label="Criar aportes"
               disabled={busy}
+              loading={busy}
               onPress={() => void confirmRoutine()}
-              style={[styles.primary, { backgroundColor: theme.primary }]}
-            >
-              {busy ? (
-                <ActivityIndicator color="#0B0F1A" />
-              ) : (
-                <ThemedText type="smallBold" style={styles.primaryLabel}>
-                  Criar aportes
-                </ThemedText>
-              )}
-            </Pressable>
+            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -550,7 +526,7 @@ const styles = StyleSheet.create({
   cardPress: { gap: 8 },
   badge: {
     alignSelf: "flex-start",
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -559,39 +535,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  track: { height: 8, borderRadius: 999, overflow: "hidden" },
-  fill: { height: 8, borderRadius: 999 },
+  track: { height: 8, borderRadius: Radius.full, overflow: "hidden" },
+  fill: { height: 8, borderRadius: Radius.full },
   finance: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: 12,
     gap: 8,
-    backgroundColor: "rgba(14,165,233,0.06)",
-  },
+      },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   linkBtn: { paddingVertical: 2 },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(11,15,26,0.45)",
+    backgroundColor: SCRIM,
     justifyContent: "flex-end",
   },
   sheet: {
-    borderTopLeftRadius: Radius.card,
-    borderTopRightRadius: Radius.card,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
     padding: Spacing.four,
     gap: Spacing.three,
   },
-  input: {
-    height: 44,
-    borderRadius: Radius.input,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-  },
-  primary: {
-    height: 44,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

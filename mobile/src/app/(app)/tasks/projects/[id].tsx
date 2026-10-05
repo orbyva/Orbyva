@@ -23,8 +23,8 @@ import { TasksKanban } from "@/components/TasksKanban";
 import { TasksList } from "@/components/TasksList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Spacing } from "@/constants/theme";
+import { Banner, EmptyState } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { filterNotesByProject, noteExcerpt } from "@/domain/notes/listView";
 import { formatShoppingQty, groupShoppingItems } from "@/domain/shopping/listView";
 import {
@@ -307,11 +307,11 @@ export default function ProjectDetailScreen() {
         >
           {project ? (
             <View style={styles.head}>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {PROJECT_STATUS_LABELS[project.status]}
               </ThemedText>
               {project.description ? (
-                <ThemedText themeColor="textSecondary">
+                <ThemedText themeColor="mutedForeground">
                   {project.description}
                 </ThemedText>
               ) : null}
@@ -319,7 +319,7 @@ export default function ProjectDetailScreen() {
                 <View key={event.id} style={styles.eventRow}>
                   <ThemedText
                     type="small"
-                    themeColor="textSecondary"
+                    themeColor="mutedForeground"
                     style={styles.eventTitle}
                   >
                     {event.title} · {formatEventWhen(event.starts_at)}
@@ -391,18 +391,15 @@ export default function ProjectDetailScreen() {
           ) : null}
           {tab === "compras" ? (
             shoppingGroups.length === 0 ? (
-              <View style={styles.empty}>
-                <ThemedText type="smallBold">
-                  Nenhuma compra neste projeto
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  Vincule uma categoria da lista de compras a este projeto.
-                </ThemedText>
-              </View>
+              <EmptyState
+                icon="cart-outline"
+                title="Nenhuma compra neste projeto"
+                description="Vincule uma categoria da lista de compras a este projeto."
+              />
             ) : (
               shoppingGroups.map((group) => (
                 <View key={group.key} style={styles.section}>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {group.label}
                   </ThemedText>
                   {group.items.map((item) => (
@@ -442,11 +439,10 @@ export default function ProjectDetailScreen() {
                 <ThemedText type="linkPrimary">Nova nota neste projeto</ThemedText>
               </Pressable>
               {projectNotes.length === 0 ? (
-                <View style={styles.empty}>
-                  <ThemedText type="smallBold">
-                    Nenhuma nota neste projeto
-                  </ThemedText>
-                </View>
+                <EmptyState
+                  icon="document-text-outline"
+                  title="Nenhuma nota neste projeto"
+                />
               ) : (
                 projectNotes.map((note) => (
                   <Pressable
@@ -454,20 +450,20 @@ export default function ProjectDetailScreen() {
                     onPress={() => router.navigate(`/notes/${note.id}`)}
                     style={[
                       styles.card,
-                      { backgroundColor: theme.backgroundElement },
+                      { backgroundColor: theme.muted },
                     ]}
                   >
                     <ThemedText type="smallBold">{note.title}</ThemedText>
                     {noteExcerpt(note.content) ? (
                       <ThemedText
                         type="small"
-                        themeColor="textSecondary"
+                        themeColor="mutedForeground"
                         numberOfLines={2}
                       >
                         {noteExcerpt(note.content)}
                       </ThemedText>
                     ) : null}
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {formatDateBR(note.updated_at)}
                     </ThemedText>
                   </Pressable>
@@ -495,15 +491,9 @@ const styles = StyleSheet.create({
   section: { gap: 8 },
   row: { paddingVertical: 8 },
   card: {
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     padding: Spacing.three,
     gap: 4,
   },
-  empty: { gap: Spacing.one, paddingVertical: Spacing.two },
   done: { textDecorationLine: "line-through", opacity: 0.55 },
-  error: {
-    color: "#E11D48",
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
-  },
 });

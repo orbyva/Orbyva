@@ -37,7 +37,7 @@ export function NoteFolderPicker({
         style={style}
         accessibilityLabel="Pasta"
       >
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Pasta
         </ThemedText>
         <ThemedText>{label}</ThemedText>

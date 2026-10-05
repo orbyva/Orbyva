@@ -9,7 +9,7 @@ import {
 import { useRouter } from "expo-router";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { mapOrbWebPathToMobile } from "@/domain/orb/navigationMap";
 import type {
   OrbBadge,
@@ -21,9 +21,9 @@ import type {
   OrbResultView as Visao,
   OrbRowItem,
 } from "@/domain/orb/results";
+import { TypeScale } from "@/domain/ui/typography";
 import { useTheme } from "@/hooks/use-theme";
-
-const WARNING = "#D97706";
+import { hexAlpha } from "@/lib/color";
 
 function tomBadge(
   theme: ReturnType<typeof useTheme>,
@@ -31,15 +31,15 @@ function tomBadge(
 ): { bg: string; fg: string } {
   switch (tone) {
     case "ok":
-      return { bg: `${theme.success}22`, fg: theme.success };
+      return { bg: hexAlpha(theme.success, 0.13), fg: theme.success };
     case "erro":
-      return { bg: `${theme.danger}22`, fg: theme.danger };
+      return { bg: hexAlpha(theme.destructive, 0.13), fg: theme.destructive };
     case "atencao":
-      return { bg: `${WARNING}22`, fg: WARNING };
+      return { bg: hexAlpha(theme.warning, 0.13), fg: theme.warning };
     case "destaque":
-      return { bg: `${theme.primary}22`, fg: theme.primary };
+      return { bg: hexAlpha(theme.primary, 0.13), fg: theme.primary };
     default:
-      return { bg: theme.backgroundSelected, fg: theme.textSecondary };
+      return { bg: theme.border, fg: theme.mutedForeground };
   }
 }
 
@@ -51,13 +51,13 @@ function tomTexto(
     case "ok":
       return theme.success;
     case "erro":
-      return theme.danger;
+      return theme.destructive;
     case "atencao":
-      return WARNING;
+      return theme.warning;
     case "destaque":
       return theme.primary;
     default:
-      return theme.text;
+      return theme.foreground;
   }
 }
 
@@ -69,11 +69,11 @@ function tomBarra(
     case "ok":
       return theme.success;
     case "erro":
-      return theme.danger;
+      return theme.destructive;
     case "atencao":
-      return WARNING;
+      return theme.warning;
     case "neutro":
-      return theme.textSecondary;
+      return theme.mutedForeground;
     default:
       return theme.primary;
   }
@@ -94,7 +94,7 @@ function Etiqueta({ badge }: { badge: OrbBadge }) {
   const t = tomBadge(theme, badge.tone);
   return (
     <View style={[styles.badge, { backgroundColor: t.bg }]}>
-      <ThemedText type="small" style={{ color: t.fg, fontSize: 10 }}>
+      <ThemedText type="small" style={[TypeScale.nano, { color: t.fg }]}>
         {badge.label}
       </ThemedText>
     </View>
@@ -130,8 +130,8 @@ function Cartoes({ items }: { items: OrbCardItem[] }) {
           style={[
             styles.card,
             {
-              borderColor: theme.backgroundSelected,
-              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              backgroundColor: theme.card,
             },
           ]}
         >
@@ -140,13 +140,13 @@ function Cartoes({ items }: { items: OrbCardItem[] }) {
               {item.title}
             </ThemedText>
             {item.meta ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {item.meta}
               </ThemedText>
             ) : null}
           </View>
           {item.subtitle ? (
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+            <ThemedText type="small" themeColor="mutedForeground" numberOfLines={2}>
               {item.subtitle}
             </ThemedText>
           ) : null}
@@ -172,12 +172,12 @@ function Poster({ item }: { item: OrbPosterItem }) {
       style={[
         styles.poster,
         {
-          borderColor: theme.backgroundSelected,
-          backgroundColor: theme.surface,
+          borderColor: theme.border,
+          backgroundColor: theme.card,
         },
       ]}
     >
-      <View style={[styles.posterImg, { backgroundColor: theme.backgroundElement }]}>
+      <View style={[styles.posterImg, { backgroundColor: theme.muted }]}>
         {item.image && !broken ? (
           <Image
             source={{ uri: item.image }}
@@ -186,7 +186,7 @@ function Poster({ item }: { item: OrbPosterItem }) {
             onError={() => setBroken(true)}
           />
         ) : (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             —
           </ThemedText>
         )}
@@ -200,7 +200,7 @@ function Poster({ item }: { item: OrbPosterItem }) {
         {item.title}
       </ThemedText>
       {item.subtitle ? (
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+        <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
           {item.subtitle}
         </ThemedText>
       ) : null}
@@ -225,8 +225,8 @@ function Linhas({ items }: { items: OrbRowItem[] }) {
       style={[
         styles.rowsBox,
         {
-          borderColor: theme.backgroundSelected,
-          backgroundColor: theme.surface,
+          borderColor: theme.border,
+          backgroundColor: theme.card,
         },
       ]}
     >
@@ -238,7 +238,7 @@ function Linhas({ items }: { items: OrbRowItem[] }) {
             styles.rowItem,
             index > 0 && {
               borderTopWidth: StyleSheet.hairlineWidth,
-              borderTopColor: theme.backgroundSelected,
+              borderTopColor: theme.border,
             },
           ]}
         >
@@ -247,7 +247,7 @@ function Linhas({ items }: { items: OrbRowItem[] }) {
               {item.title}
             </ThemedText>
             {item.subtitle ? (
-              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+              <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
                 {item.subtitle}
               </ThemedText>
             ) : null}
@@ -273,8 +273,8 @@ function Barras({ items }: { items: OrbBarItem[] }) {
       style={[
         styles.barsBox,
         {
-          borderColor: theme.backgroundSelected,
-          backgroundColor: theme.surface,
+          borderColor: theme.border,
+          backgroundColor: theme.card,
         },
       ]}
     >
@@ -287,11 +287,11 @@ function Barras({ items }: { items: OrbBarItem[] }) {
               <ThemedText type="small" style={{ flex: 1 }} numberOfLines={1}>
                 {item.label}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {item.value}
               </ThemedText>
             </View>
-            <View style={[styles.barTrack, { backgroundColor: theme.backgroundElement }]}>
+            <View style={[styles.barTrack, { backgroundColor: theme.muted }]}>
               <View
                 style={[
                   styles.barFill,
@@ -303,7 +303,7 @@ function Barras({ items }: { items: OrbBarItem[] }) {
               />
             </View>
             {item.hint ? (
-              <ThemedText type="small" themeColor="textSecondary" style={{ fontSize: 10 }}>
+              <ThemedText type="small" themeColor="mutedForeground" style={TypeScale.nano}>
                 {item.hint}
               </ThemedText>
             ) : null}
@@ -319,7 +319,7 @@ function BarrasAgrupadas({ groups }: { groups: OrbBarGroup[] }) {
     <View style={styles.stack}>
       {groups.map((grupo) => (
         <View key={grupo.id} style={{ gap: 6 }}>
-          <ThemedText type="smallBold" themeColor="textSecondary">
+          <ThemedText type="smallBold" themeColor="mutedForeground">
             {grupo.title.toUpperCase()}
           </ThemedText>
           <Barras items={grupo.items} />
@@ -338,7 +338,7 @@ export const OrbResultView = memo(function OrbResultView({ view }: { view: Visao
       {view.kind === "bars" ? <Barras items={view.items} /> : null}
       {view.kind === "grouped_bars" ? <BarrasAgrupadas groups={view.groups} /> : null}
       {view.note ? (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           {view.note}
         </ThemedText>
       ) : null}
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   stack: { gap: Spacing.two },
   card: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: Spacing.two,
     gap: 4,
   },
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   },
   badges: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 2 },
   badge: {
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     width: 104,
     marginHorizontal: 4,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     overflow: "hidden",
     paddingBottom: 6,
   },
@@ -383,10 +383,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   posterBadge: { position: "absolute", left: 4, top: 4 },
-  posterTitle: { paddingHorizontal: 6, marginTop: 4, fontSize: 11 },
+  posterTitle: { paddingHorizontal: 6, marginTop: 4, ...TypeScale.micro },
   rowsBox: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     overflow: "hidden",
   },
   rowItem: {
@@ -398,11 +398,11 @@ const styles = StyleSheet.create({
   },
   barsBox: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: Spacing.two,
     gap: Spacing.two,
   },
   barBlock: { gap: 4 },
-  barTrack: { height: 6, borderRadius: 999, overflow: "hidden" },
-  barFill: { height: "100%", borderRadius: 999 },
+  barTrack: { height: 6, borderRadius: Radius.full, overflow: "hidden" },
+  barFill: { height: "100%", borderRadius: Radius.full },
 });

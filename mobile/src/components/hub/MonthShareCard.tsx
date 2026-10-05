@@ -4,8 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { MonthShareStoryCard } from "@/components/share/MonthShareStoryCard";
 import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Card } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { monthLabel, monthRemainingVsPlan, monthShareText } from "@/domain/monthShare";
 import { formatBRL } from "@/lib/currency";
@@ -29,31 +28,31 @@ export function MonthShareCard({
 
   return (
     <Card style={styles.card}>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="small" themeColor="mutedForeground">
         Fechamento do mês
       </ThemedText>
       <ThemedText type="smallBold">{monthLabel(year, month)}</ThemedText>
       <View style={styles.row}>
         <View style={styles.cell}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Receitas
           </ThemedText>
           <ThemedText type="smallBold">{formatBRL(receita)}</ThemedText>
         </View>
         <View style={styles.cell}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Despesas
           </ThemedText>
           <ThemedText type="smallBold">{formatBRL(despesa)}</ThemedText>
         </View>
       </View>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="small" themeColor="mutedForeground">
         Saldo {formatBRL(saldo)} · {leftover.label} {formatBRL(leftover.value)}
       </ThemedText>
-      <FormButton
+      <Button
         label="Compartilhar"
-        tone="primary"
         onPress={() => setOpen(true)}
+        size="lg"
       />
       <OpinionShareSheet
         visible={open}

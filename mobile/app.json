@@ -50,9 +50,13 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0EA5E9",
+          "backgroundColor": "#F8F8F7",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 120,
+          "dark": {
+            "backgroundColor": "#080C16",
+            "image": "./assets/images/splash-icon.png"
+          }
         }
       ],
       "expo-secure-store",
@@ -76,6 +80,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "owner": "pedroynk",
+    "extra": {
+      "eas": {
+        "projectId": "04e17d35-f6ca-4ab8-ab71-a61b09294152"
+      }
     }
   }
 }

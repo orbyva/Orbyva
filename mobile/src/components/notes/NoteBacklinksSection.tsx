@@ -56,17 +56,17 @@ export function NoteBacklinksSection({ noteId, title }: { noteId: string; title:
   const open = (id: string) => router.push(`/notes/${id}`);
 
   return (
-    <View style={[styles.section, { borderTopColor: theme.backgroundSelected }]}>
+    <View style={[styles.section, { borderTopColor: theme.border }]}>
       <View style={styles.head}>
-        <Ionicons name="return-up-back-outline" size={16} color={theme.textSecondary} />
+        <Ionicons name="return-up-back-outline" size={16} color={theme.mutedForeground} />
         <ThemedText type="smallBold">Mencionada em</ThemedText>
       </View>
       {loading ? (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Procurando menções…
         </ThemedText>
       ) : mentions.length === 0 && related.length === 0 ? (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Nenhuma nota aponta para esta. Escreva [[{title.trim() || "o título desta nota"}]] em
           outra nota para criar a ligação.
         </ThemedText>

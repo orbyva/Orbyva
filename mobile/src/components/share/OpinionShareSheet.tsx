@@ -21,8 +21,8 @@ import {
 } from "@/components/share/shareStory";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { FormButton } from "@/components/ui/FormButton";
-import { Spacing } from "@/constants/theme";
+import { Button } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -182,7 +182,7 @@ export function OpinionShareSheet({
         <View style={styles.head}>
           <View style={styles.headCopy}>
             <ThemedText type="smallBold">{sheetTitle}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+            <ThemedText type="small" themeColor="mutedForeground" numberOfLines={2}>
               {title}
             </ThemedText>
           </View>
@@ -200,14 +200,14 @@ export function OpinionShareSheet({
               style={[
                 styles.switchCard,
                 {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.backgroundSelected,
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
                 },
               ]}
             >
               <View style={styles.switchCopy}>
                 <ThemedText type="smallBold">Exibir opinião</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Inclui o comentário no card e no texto.
                 </ThemedText>
               </View>
@@ -215,7 +215,7 @@ export function OpinionShareSheet({
                 value={includeNotes}
                 onValueChange={setIncludeNotes}
                 trackColor={{
-                  false: theme.backgroundSelected,
+                  false: theme.border,
                   true: theme.primary,
                 }}
                 thumbColor="#FFFFFF"
@@ -228,19 +228,19 @@ export function OpinionShareSheet({
               <View
                 style={[
                   styles.photosCard,
-                  { borderColor: theme.backgroundSelected },
+                  { borderColor: theme.border },
                 ]}
               >
                 <View style={styles.photosHead}>
                   <ThemedText type="smallBold">
                     Fotos do mosaico{" "}
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       {photoUris.length}/{limit}
                     </ThemedText>
                   </ThemedText>
                   {photoUris.length ? (
                     <Pressable onPress={() => setPhotoUris([])} hitSlop={8}>
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         Limpar
                       </ThemedText>
                     </Pressable>
@@ -263,14 +263,14 @@ export function OpinionShareSheet({
                         hitSlop={6}
                         style={[
                           styles.photoRemove,
-                          { backgroundColor: theme.surface },
+                          { backgroundColor: theme.card },
                         ]}
                         accessibilityLabel="Remover foto"
                       >
                         <Ionicons
                           name="close"
                           size={12}
-                          color={theme.textSecondary}
+                          color={theme.mutedForeground}
                         />
                       </Pressable>
                     </View>
@@ -280,15 +280,15 @@ export function OpinionShareSheet({
                       onPress={() => void pickPhoto()}
                       style={[
                         styles.photoAdd,
-                        { borderColor: theme.backgroundSelected },
+                        { borderColor: theme.border },
                       ]}
                     >
                       <Ionicons
                         name="image-outline"
                         size={18}
-                        color={theme.textSecondary}
+                        color={theme.mutedForeground}
                       />
-                      <ThemedText type="small" themeColor="textSecondary">
+                      <ThemedText type="small" themeColor="mutedForeground">
                         {photoUris.length === 0 ? "Fotos" : "Mais"}
                       </ThemedText>
                     </Pressable>
@@ -299,7 +299,7 @@ export function OpinionShareSheet({
                   disabled={photoUris.length >= limit}
                   style={[
                     styles.toggle,
-                    { borderColor: theme.backgroundSelected },
+                    { borderColor: theme.border },
                     photoUris.length >= limit ? { opacity: 0.5 } : null,
                   ]}
                 >
@@ -315,14 +315,14 @@ export function OpinionShareSheet({
             ) : (
               <Pressable
                 onPress={() => void pickPhoto()}
-                style={[styles.toggle, { borderColor: theme.backgroundSelected }]}
+                style={[styles.toggle, { borderColor: theme.border }]}
               >
                 <ThemedText type="smallBold">
                   {photoUris.length ? "Trocar foto" : "Anexar foto"}
                 </ThemedText>
                 {photoUris.length ? (
                   <Pressable onPress={() => setPhotoUris([])} hitSlop={8}>
-                    <ThemedText type="small" themeColor="textSecondary">
+                    <ThemedText type="small" themeColor="mutedForeground">
                       Remover
                     </ThemedText>
                   </Pressable>
@@ -341,21 +341,21 @@ export function OpinionShareSheet({
             ) : (
               <View style={styles.previewPlaceholder}>
                 <ActivityIndicator color={theme.primary} />
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   Gerando card...
                 </ThemedText>
               </View>
             )}
           </View>
 
-          <FormButton
+          <Button
             label={sharing ? "Compartilhando..." : "Compartilhar"}
-            tone="primary"
             onPress={() => void share()}
             disabled={sharing}
-            busy={sharing}
+            loading={sharing}
+            size="lg"
           />
-          <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+          <ThemedText type="small" themeColor="mutedForeground" style={styles.hint}>
             O menu do sistema sugere apps de mensagem e redes. O card vai como
             imagem; o texto acompanha se o app aceitar.
           </ThemedText>
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   },
   toggle: {
     minHeight: 48,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   switchCard: {
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
     flexDirection: "row",
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   },
   switchCopy: { flex: 1, gap: 2 },
   photosCard: {
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     padding: 12,
     gap: 12,
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   photoCell: {
     width: "23%",
     aspectRatio: 1,
-    borderRadius: 8,
+    borderRadius: Radius.md,
     overflow: "hidden",
     position: "relative",
   },
@@ -447,14 +447,14 @@ const styles = StyleSheet.create({
     right: 4,
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
   },
   photoAdd: {
     width: "23%",
     aspectRatio: 1,
-    borderRadius: 8,
+    borderRadius: Radius.md,
     borderWidth: 1,
     borderStyle: "dashed",
     alignItems: "center",
@@ -465,12 +465,12 @@ const styles = StyleSheet.create({
   previewImg: {
     width: SHARE_PREVIEW_W,
     height: SHARE_PREVIEW_H,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
   },
   previewPlaceholder: {
     width: SHARE_PREVIEW_W,
     height: SHARE_PREVIEW_H,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,

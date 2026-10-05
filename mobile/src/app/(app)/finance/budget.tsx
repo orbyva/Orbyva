@@ -24,13 +24,13 @@ import { shiftYearMonth } from "@/api/finance/transactions";
 import { BudgetList } from "@/components/BudgetList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { CollapsibleChrome } from "@/components/ui/CollapsibleChrome";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, CollapsibleChrome } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   getBudgetRealizedValue,
   groupBudgetsByType,
 } from "@/domain/budget/listView";
+import { TypeScale } from "@/domain/ui/typography";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
 import { hexAlpha, tintedSurface } from "@/lib/color";
@@ -181,8 +181,8 @@ export default function BudgetScreen() {
   const overBudget = plannedExpense > 0 && spentExpense > plannedExpense;
   const spentPct =
     plannedExpense > 0 ? (spentExpense / plannedExpense) * 100 : 0;
-  const spentAccent = theme.danger;
-  const ceilingAccent = overBudget ? theme.danger : "#D97706";
+  const spentAccent = theme.destructive;
+  const ceilingAccent = overBudget ? theme.destructive : theme.warning;
 
   const unusedSuggestions = useMemo(() => {
     const keys = new Set(
@@ -288,7 +288,7 @@ export default function BudgetScreen() {
                 }}
                 style={[
                   styles.monthBtn,
-                  { backgroundColor: theme.backgroundElement },
+                  { backgroundColor: theme.muted },
                 ]}
               >
                 <ThemedText type="smallBold">‹</ThemedText>
@@ -304,7 +304,7 @@ export default function BudgetScreen() {
                 }}
                 style={[
                   styles.monthBtn,
-                  { backgroundColor: theme.backgroundElement },
+                  { backgroundColor: theme.muted },
                 ]}
               >
                 <ThemedText type="smallBold">›</ThemedText>
@@ -316,7 +316,7 @@ export default function BudgetScreen() {
           <>
             <Banner message={error} />
             {notice ? (
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 {notice}
               </ThemedText>
             ) : null}
@@ -367,7 +367,7 @@ export default function BudgetScreen() {
             >
               {formatBRL(plannedExpense)}
             </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               {overBudget
                 ? `${formatBRL(spentExpense - plannedExpense)} acima`
                 : `${formatBRL(Math.max(0, plannedExpense - spentExpense))} restantes`}
@@ -375,7 +375,7 @@ export default function BudgetScreen() {
           </View>
         </View>
         {overflows.length > 0 ? (
-          <ThemedText type="small" style={styles.alertTitle}>
+          <ThemedText type="small" themeColor="destructive">
             {overflows.length === 1
               ? "1 estouro neste mês"
               : `${overflows.length} estouros neste mês`}
@@ -383,28 +383,28 @@ export default function BudgetScreen() {
         ) : null}
         <View style={styles.kpis}>
           <View
-            style={[styles.kpiMuted, { backgroundColor: theme.backgroundElement }]}
+            style={[styles.kpiMuted, { backgroundColor: theme.muted }]}
           >
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Receita
             </ThemedText>
             <ThemedText type="smallBold">{formatBRL(spentIncome)}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Orçado {formatBRL(plannedIncome)}
             </ThemedText>
           </View>
         </View>
 
         {overflows.length > 0 ? (
-          <View style={styles.alert}>
-            <ThemedText type="smallBold" style={styles.alertTitle}>
+          <View style={[styles.alert, { backgroundColor: hexAlpha(theme.destructive, 0.08) }]}>
+            <ThemedText type="smallBold" themeColor="destructive">
               Estouro de orçamento
             </ThemedText>
             {overflows.map((row) => (
               <ThemedText
                 key={`${row.id}-${row.class_id ?? "p"}`}
                 type="small"
-                style={styles.alertText}
+                themeColor="destructive"
               >
                 {row.type_name}
                 {row.class_name ? ` · ${row.class_name}` : ""}: gasto{" "}
@@ -416,35 +416,31 @@ export default function BudgetScreen() {
         ) : null}
 
         <View style={styles.actions}>
-          <Pressable
+          <Button
+            label="Criar teto"
+            leftIcon="add"
             onPress={() =>
               router.push({
                 pathname: "/finance/budget-form",
                 params: { year: String(year), month: String(month) },
               })
             }
-            style={[styles.actionBtn, { backgroundColor: theme.primary }]}
-          >
-            <ThemedText type="smallBold" style={styles.actionOn}>
-              Criar teto
-            </ThemedText>
-          </Pressable>
-          <Pressable
+            style={styles.actionBtn}
+          />
+          <Button
+            label="Duplicar mês"
+            variant="secondary"
+            leftIcon="copy-outline"
             onPress={() => setDupOpen((cur) => !cur)}
-            style={[
-              styles.actionBtn,
-              { backgroundColor: theme.backgroundElement },
-            ]}
-          >
-            <ThemedText type="smallBold">Duplicar mês</ThemedText>
-          </Pressable>
+            style={styles.actionBtn}
+          />
         </View>
 
         {dupOpen ? (
           <View
-            style={[styles.dup, { backgroundColor: theme.backgroundElement }]}
+            style={[styles.dup, { backgroundColor: theme.muted }]}
           >
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Copia os tetos deste mês para os meses escolhidos.
             </ThemedText>
             <View style={styles.chips}>
@@ -471,7 +467,7 @@ export default function BudgetScreen() {
                   >
                     <ThemedText
                       type="smallBold"
-                      style={on ? styles.actionOn : undefined}
+                      themeColor={on ? "primaryForeground" : undefined}
                     >
                       {item.label}
                     </ThemedText>
@@ -495,7 +491,7 @@ export default function BudgetScreen() {
                       styles.chip,
                       {
                         backgroundColor: on
-                          ? theme.backgroundSelected
+                          ? theme.border
                           : theme.background,
                       },
                     ]}
@@ -505,19 +501,11 @@ export default function BudgetScreen() {
                 );
               })}
             </View>
-            <Pressable
-              disabled={dupBusy}
+            <Button
+              label="Duplicar"
+              loading={dupBusy}
               onPress={() => void onDuplicate()}
-              style={[styles.dupSave, { backgroundColor: theme.primary }]}
-            >
-              {dupBusy ? (
-                <ActivityIndicator color="#0B0F1A" />
-              ) : (
-                <ThemedText type="smallBold" style={styles.actionOn}>
-                  Duplicar
-                </ThemedText>
-              )}
-            </Pressable>
+            />
           </View>
         ) : null}
 
@@ -534,7 +522,7 @@ export default function BudgetScreen() {
                   <ThemedText type="smallBold">
                     {item.class_name ?? item.type_name}
                   </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {item.class_name ? item.type_name : "Categoria"} ·{" "}
                     {formatBRL(item.suggested_value)}
                   </ThemedText>
@@ -577,7 +565,7 @@ const styles = StyleSheet.create({
   monthBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -585,45 +573,29 @@ const styles = StyleSheet.create({
   kpis: { flexDirection: "row", gap: 8 },
   kpi: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: Radius.xl,
     padding: 12,
     gap: 4,
     borderWidth: 1,
   },
-  kpiLabel: { textTransform: "uppercase", letterSpacing: 0.3, fontSize: 11 },
-  kpiValue: { fontSize: 18, lineHeight: 22 },
-  kpiBar: { height: 6, borderRadius: 999, overflow: "hidden", marginTop: 4 },
-  kpiBarFill: { height: 6, borderRadius: 999 },
-  kpiMuted: { flex: 1, borderRadius: 12, padding: 12, gap: 2 },
+  kpiLabel: { ...TypeScale.micro, textTransform: "uppercase", letterSpacing: 0.3 },
+  kpiValue: TypeScale.heading,
+  kpiBar: { height: 6, borderRadius: Radius.full, overflow: "hidden", marginTop: 4 },
+  kpiBarFill: { height: 6, borderRadius: Radius.full },
+  kpiMuted: { flex: 1, borderRadius: Radius.xl, padding: 12, gap: 2 },
   alert: {
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     padding: 12,
     gap: 4,
-    backgroundColor: "#E11D4814",
   },
-  alertTitle: { color: "#E11D48" },
-  alertText: { color: "#E11D48" },
   actions: { flexDirection: "row", gap: 8 },
-  actionBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionOn: { color: "#0B0F1A" },
-  dup: { borderRadius: 12, padding: 12, gap: 10 },
+  actionBtn: { flex: 1 },
+  dup: { borderRadius: Radius.xl, padding: 12, gap: 10 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: 12,
     paddingVertical: 8,
-  },
-  dupSave: {
-    height: 40,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
   },
   suggest: { gap: 8 },
   suggestRow: {
@@ -633,5 +605,4 @@ const styles = StyleSheet.create({
   },
   suggestCopy: { flex: 1, gap: 2 },
   list: { padding: Spacing.four },
-  error: { color: "#E11D48" },
 });

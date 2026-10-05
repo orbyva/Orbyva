@@ -87,7 +87,7 @@ export const VisitDragHandle = memo(function VisitDragHandle({
         <Ionicons
           name="reorder-three-outline"
           size={22}
-          color={theme.textSecondary}
+          color={theme.mutedForeground}
         />
       </Animated.View>
     </GestureDetector>

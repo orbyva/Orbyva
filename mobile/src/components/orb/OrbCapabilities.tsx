@@ -2,7 +2,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   ORB_CAPABILITY_AREAS,
   ORB_CAPABILITY_CONSULT_COUNT,
@@ -16,8 +16,8 @@ export function OrbCapabilitiesSeal() {
       style={[
         styles.seal,
         {
-          borderColor: theme.backgroundSelected,
-          backgroundColor: theme.backgroundElement,
+          borderColor: theme.border,
+          backgroundColor: theme.muted,
         },
       ]}
     >
@@ -62,7 +62,7 @@ export function OrbCapabilities({
             </ThemedText>
           </Pressable>
         </View>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.desc}>
+        <ThemedText type="small" themeColor="mutedForeground" style={styles.desc}>
           Consulto seus dados no seu login, abro a tela certa e preparo criações
           para você confirmar.
         </ThemedText>
@@ -70,7 +70,7 @@ export function OrbCapabilities({
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           {ORB_CAPABILITY_AREAS.map((area) => (
             <View key={area.nome} style={styles.area}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
+              <ThemedText type="smallBold" themeColor="mutedForeground">
                 {area.nome.toUpperCase()} · {area.tools.length}
               </ThemedText>
               <View style={styles.tools}>
@@ -80,8 +80,8 @@ export function OrbCapabilities({
                     style={[
                       styles.toolChip,
                       {
-                        borderColor: theme.backgroundSelected,
-                        backgroundColor: theme.surface,
+                        borderColor: theme.border,
+                        backgroundColor: theme.card,
                       },
                     ]}
                   >
@@ -91,7 +91,7 @@ export function OrbCapabilities({
               </View>
             </View>
           ))}
-          <ThemedText type="small" themeColor="textSecondary" style={styles.footer}>
+          <ThemedText type="small" themeColor="mutedForeground" style={styles.footer}>
             Não edito e não apago nada — o que precisar mudar, você muda no Orbyva.
             Criar, eu só preparo: a linha só passa a existir depois que você
             confirma no cartão.
@@ -108,12 +108,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     alignSelf: "flex-start",
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: 8, height: 8, borderRadius: Radius.full },
   sheet: { flex: 1, paddingHorizontal: Spacing.four },
   header: {
     flexDirection: "row",
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   tools: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.one },
   toolChip: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     paddingHorizontal: Spacing.two,
     paddingVertical: 6,
   },

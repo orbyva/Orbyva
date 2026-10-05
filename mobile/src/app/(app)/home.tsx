@@ -19,7 +19,7 @@ import { HubUpcoming } from "@/components/hub/HubUpcoming";
 import { MonthShareCard } from "@/components/hub/MonthShareCard";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
+import { Banner } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { formatMomTrend, previousYearMonth } from "@/domain/finance/insights";
 import { daysSinceIsoDate, firstNameFromUser, getTodayIso, todayHeading } from "@/domain/timeline";
@@ -171,7 +171,7 @@ export default function HomeScreen() {
           />
         }
       >
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           {todayHeading()}
         </ThemedText>
         <ThemedText type="value">

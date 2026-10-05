@@ -1,14 +1,11 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
-  View,
 } from "react-native";
 
 import { createFuelLog, fetchFuelLogById, updateFuelLog } from "@/api/car/car";
@@ -16,7 +13,7 @@ import { DateField } from "@/components/DateField";
 import { LedgerClassField } from "@/components/LedgerClassField";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { FormButton } from "@/components/ui/FormButton";
+import { Button, Field, Input } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { getTodayIso } from "@/domain/habits";
 import { useTheme } from "@/hooks/use-theme";
@@ -71,14 +68,6 @@ export default function FuelFormScreen() {
     };
   }, [editId]);
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   async function onSave() {
     if (!vehicleId && !editId) {
@@ -138,20 +127,18 @@ export default function FuelFormScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Field label="Data">
-            <DateField value={date} onChange={setDate} style={inputStyle} />
+            <DateField value={date} onChange={setDate} />
           </Field>
           <Field label="Litros">
-            <TextInput
+            <Input
               keyboardType="decimal-pad"
-              style={inputStyle}
               value={liters}
               onChangeText={setLiters}
             />
           </Field>
           <Field label="Valor">
-            <TextInput
+            <Input
               keyboardType="decimal-pad"
-              style={inputStyle}
               value={totalCost}
               onChangeText={setTotalCost}
             />
@@ -164,33 +151,30 @@ export default function FuelFormScreen() {
               onClassIdChange={setClassId}
             />
           ) : hasLedger ? (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Já lançado no extrato — o valor é atualizado ao salvar.
             </ThemedText>
           ) : null}
           <Field label="Km no painel">
-            <TextInput
+            <Input
               keyboardType="number-pad"
-              style={inputStyle}
               value={km}
               onChangeText={setKm}
             />
           </Field>
           <Field label="Posto">
-            <TextInput
+            <Input
               placeholder="Opcional"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={station}
               onChangeText={setStation}
             />
           </Field>
-          <FormButton
+          <Button
             label={editId ? "Salvar alterações" : "Registrar abastecimento"}
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -198,42 +182,9 @@ export default function FuelFormScreen() {
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    fontSize: 16,
-  },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
 });

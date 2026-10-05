@@ -1,4 +1,3 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
 import * as WebBrowser from "expo-web-browser";
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
@@ -10,7 +9,6 @@ import {
   Share,
   StyleSheet,
   Switch,
-  TextInput,
   View,
 } from "react-native";
 
@@ -36,9 +34,8 @@ import { countReferrals, ensureReferralCode, inviteUrlForCode } from "@/api/refe
 import { ModuleGuideSheet } from "@/components/ModuleGuideSheet";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { Card } from "@/components/ui/Card";
-import { Spacing } from "@/constants/theme";
+import { Banner, Button, Card, Input, ToggleRow } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlan } from "@/hooks/use-plan";
@@ -201,19 +198,19 @@ export default function AccountScreen() {
             {avatar ? (
               <Image source={{ uri: avatar }} style={styles.avatar} />
             ) : (
-              <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]}>
+              <View style={[styles.avatar, { backgroundColor: theme.border }]}>
                 <ThemedText type="smallBold">{initial}</ThemedText>
               </View>
             )}
             <View style={styles.profileText}>
               <ThemedText type="smallBold">{name}</ThemedText>
-              <ThemedText themeColor="textSecondary">{user?.email ?? "sem e-mail"}</ThemedText>
+              <ThemedText themeColor="mutedForeground">{user?.email ?? "sem e-mail"}</ThemedText>
             </View>
           </View>
         </Card>
 
         <Card style={styles.block}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Plano
           </ThemedText>
           {plan.loading ? (
@@ -221,35 +218,26 @@ export default function AccountScreen() {
           ) : (
             <>
               <ThemedText type="smallBold">{planMeta.name}</ThemedText>
-              <ThemedText themeColor="textSecondary">{accessLabel}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText themeColor="mutedForeground">{accessLabel}</ThemedText>
+              <ThemedText type="small" themeColor="mutedForeground">
                 Assinatura e upgrade continuam no web.
               </ThemedText>
-              <Pressable
+              <Button
+                label="Gerenciar em orbyva.app"
+                variant="outline"
                 onPress={() => void WebBrowser.openBrowserAsync(`${SITE}/account`)}
-                style={[styles.btn, { borderColor: theme.backgroundSelected }]}
-              >
-                <ThemedText type="smallBold">Gerenciar em orbyva.app</ThemedText>
-              </Pressable>
+              />
             </>
           )}
         </Card>
 
         <Card style={styles.block}>
           <ThemedText type="smallBold">Aparência</ThemedText>
-          <Pressable
-            onPress={toggleScheme}
-            style={[styles.btn, { borderColor: theme.backgroundSelected }]}
-          >
-            <Ionicons
-              name={scheme === "dark" ? "sunny-outline" : "moon-outline"}
-              size={18}
-              color={theme.text}
-            />
-            <ThemedText type="smallBold">
-              Alternar para {scheme === "dark" ? "Claro" : "Escuro"}
-            </ThemedText>
-          </Pressable>
+          <ToggleRow
+            title="Tema escuro"
+            value={scheme === "dark"}
+            onValueChange={toggleScheme}
+          />
         </Card>
 
         <Card style={styles.block}>
@@ -258,7 +246,7 @@ export default function AccountScreen() {
             <View key={option.kind} style={styles.prefRow}>
               <View style={styles.prefText}>
                 <ThemedText type="smallBold">{option.label}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="mutedForeground">
                   {option.description}
                 </ThemedText>
               </View>
@@ -272,7 +260,7 @@ export default function AccountScreen() {
 
         <Card style={styles.block}>
           <ThemedText type="smallBold">E-mails</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Digest, alertas e lembrete de hábitos. Login, confirmação e reset sempre são enviados.
           </ThemedText>
           {EMAIL_PREF_OPTIONS.map((option) => (
@@ -297,19 +285,19 @@ export default function AccountScreen() {
 
         <Card style={styles.block}>
           <ThemedText type="smallBold">Convide amigos</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {inviteCount} convite{inviteCount === 1 ? "" : "s"} aceito{inviteCount === 1 ? "" : "s"}
           </ThemedText>
-          <Pressable
+          <Button
+            label="Compartilhar link"
+            variant="outline"
+            leftIcon="share-outline"
             disabled={!inviteUrl}
             onPress={() => {
               if (!inviteUrl) return;
               void Share.share({ message: inviteUrl });
             }}
-            style={[styles.btn, { borderColor: theme.backgroundSelected }]}
-          >
-            <ThemedText type="smallBold">Compartilhar link</ThemedText>
-          </Pressable>
+          />
         </Card>
 
         <Card style={styles.block}>
@@ -381,58 +369,50 @@ export default function AccountScreen() {
 
         <Card style={styles.block}>
           <ThemedText type="smallBold">Limpar dados</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Apaga os registros e mantém o login. Digite LIMPAR para confirmar.
           </ThemedText>
-          <TextInput
+          <Input
             value={wipeText}
             onChangeText={setWipeText}
             autoCapitalize="characters"
             placeholder="LIMPAR"
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
-          <Pressable
+          <Button
+            label="Limpar dados"
+            variant="outline"
             disabled={busy || wipeText.trim().toUpperCase() !== "LIMPAR"}
             onPress={() => void handleWipe()}
-            style={[styles.btn, { borderColor: theme.backgroundSelected }]}
-          >
-            <ThemedText type="smallBold">Limpar dados</ThemedText>
-          </Pressable>
+          />
         </Card>
 
         <Card style={styles.block}>
           <ThemedText type="smallBold">Excluir conta</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Apaga a conta e os dados. Digite EXCLUIR para confirmar.
           </ThemedText>
-          <TextInput
+          <Input
             value={deleteText}
             onChangeText={setDeleteText}
             autoCapitalize="characters"
             placeholder="EXCLUIR"
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
-          <Pressable
+          <Button
+            label="Excluir conta"
+            variant="destructive"
             disabled={busy || deleteText.trim().toUpperCase() !== "EXCLUIR"}
             onPress={() => void handleDelete()}
-            style={[styles.btn, { borderColor: "#E11D48" }]}
-          >
-            <ThemedText type="smallBold" style={{ color: "#E11D48" }}>
-              Excluir conta
-            </ThemedText>
-          </Pressable>
+          />
         </Card>
 
         <Banner message={error} />
         <Pressable
           disabled={busy}
           onPress={() => void handleSignOut()}
-          style={[styles.out, { borderColor: theme.backgroundSelected }]}
+          style={[styles.out, { borderColor: theme.border }]}
         >
           {busy ? (
-            <ActivityIndicator color={theme.text} />
+            <ActivityIndicator color={theme.foreground} />
           ) : (
             <ThemedText type="smallBold">Sair</ThemedText>
           )}
@@ -455,21 +435,11 @@ const styles = StyleSheet.create({
   avatar: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
   },
   profileText: { flex: 1, gap: 2 },
-  btn: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
   prefRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -477,16 +447,9 @@ const styles = StyleSheet.create({
   },
   prefText: { flex: 1, gap: 2 },
   linkRow: { paddingVertical: 8 },
-  input: {
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    fontSize: 15,
-  },
   out: {
     height: 48,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",

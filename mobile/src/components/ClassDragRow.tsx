@@ -8,6 +8,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 
+import { Radius } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
 import { useTheme } from "@/hooks/use-theme";
 import { dragItemEntering, dragListLayout } from "@/lib/dragMotion";
@@ -91,7 +92,7 @@ export const ClassDragRow = memo(function ClassDragRow({
             styles.row,
             {
               backgroundColor: theme.background,
-              borderColor: theme.backgroundSelected,
+              borderColor: theme.border,
               opacity: dragging ? 0.35 : 1,
             },
           ]}
@@ -100,7 +101,7 @@ export const ClassDragRow = memo(function ClassDragRow({
             <Ionicons
               name="reorder-three-outline"
               size={22}
-              color={theme.textSecondary}
+              color={theme.mutedForeground}
             />
           </Animated.View>
           <ThemedText type="small" style={styles.name}>
@@ -113,7 +114,7 @@ export const ClassDragRow = memo(function ClassDragRow({
           <Ionicons
             name="ellipsis-horizontal"
             size={18}
-            color={theme.textSecondary}
+            color={theme.mutedForeground}
           />
         </Pressable>
       ) : null}
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
   row: {
     minHeight: 40,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: Radius.lg,
     paddingRight: 12,
     flexDirection: "row",
     alignItems: "center",

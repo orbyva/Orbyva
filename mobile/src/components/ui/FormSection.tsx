@@ -21,11 +21,11 @@ export function FormBlock({
   return (
     <View style={styles.formBlock}>
       <View style={styles.formBlockHead}>
-        <ThemedText type="smallBold" style={styles.formBlockTitle}>
+        <ThemedText type="micro" themeColor="mutedForeground" style={styles.formBlockTitle}>
           {title}
         </ThemedText>
         {subtitle ? (
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {subtitle}
           </ThemedText>
         ) : null}
@@ -33,7 +33,7 @@ export function FormBlock({
       <View
         style={[
           styles.formBlockRule,
-          { backgroundColor: theme.backgroundSelected },
+          { backgroundColor: theme.border },
         ]}
       />
       <View style={styles.formBlockBody}>{children}</View>
@@ -59,7 +59,7 @@ export function FormSection({
     <View
       style={[
         styles.block,
-        { backgroundColor: theme.surface, borderColor: theme.backgroundSelected },
+        { backgroundColor: theme.card, borderColor: theme.border },
       ]}
     >
       <Pressable
@@ -70,9 +70,9 @@ export function FormSection({
         style={styles.head}
       >
         <View style={styles.copy}>
-          <ThemedText type="smallBold">{title}</ThemedText>
+          <ThemedText type="bodyStrong">{title}</ThemedText>
           {!open && hint ? (
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
               {hint}
             </ThemedText>
           ) : null}
@@ -80,7 +80,7 @@ export function FormSection({
         <Ionicons
           name={open ? "chevron-up" : "chevron-down"}
           size={18}
-          color={theme.textSecondary}
+          color={theme.mutedForeground}
         />
       </Pressable>
       {open ? <View style={styles.body}>{children}</View> : null}
@@ -90,7 +90,7 @@ export function FormSection({
 
 const styles = StyleSheet.create({
   block: {
-    borderRadius: Radius.card,
+    borderRadius: Radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
@@ -98,15 +98,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.two,
-    paddingHorizontal: 14,
+    paddingHorizontal: Spacing.three,
     paddingVertical: 14,
   },
   copy: { flex: 1, gap: 2 },
-  body: { paddingHorizontal: 14, paddingBottom: 14, gap: Spacing.three },
+  body: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three, gap: Spacing.three },
   formBlock: { gap: Spacing.two },
   formBlockHead: { gap: 2 },
   formBlockTitle: {
-    fontSize: 11,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },

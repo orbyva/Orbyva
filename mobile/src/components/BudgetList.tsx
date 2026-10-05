@@ -1,25 +1,16 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Card } from "@/components/ui/Card";
-import { Spacing } from "@/constants/theme";
+import { Card, EmptyState } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
 import {
   getBudgetRealizedValue,
   type BudgetGroup,
 } from "@/domain/budget/listView";
+import { budgetStatusTone } from "@/domain/ui/semanticTone";
 import { useTheme } from "@/hooks/use-theme";
 import { formatBRL } from "@/lib/currency";
 import type { MonthlyBudgetSummary } from "@/types/finance";
-
-function statusColor(status: string): string {
-  const key = status
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase();
-  if (key === "ESTOUROU" || key === "CRITICO") return "#E11D48";
-  if (key === "ATENCAO" || key === "QUASE") return "#D97706";
-  return "#16A34A";
-}
 
 function realizedLabel(row: MonthlyBudgetSummary): string {
   return row.nature_name === "Receita" ? "Recebido" : "Gasto";
@@ -43,7 +34,7 @@ function BudgetRow({
   onPress?: (row: MonthlyBudgetSummary) => void;
 }) {
   const theme = useTheme();
-  const color = statusColor(row.status);
+  const color = theme[budgetStatusTone(row.status)];
   const pct = Math.min(100, Number(row.percentage_used || 0));
   const realized = getBudgetRealizedValue(row);
 
@@ -61,7 +52,7 @@ function BudgetRow({
       >
       <View style={styles.cardTop}>
         <View style={styles.cardCopy}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {caption}
           </ThemedText>
           <ThemedText type="smallBold">{title}</ThemedText>
@@ -72,7 +63,7 @@ function BudgetRow({
       </View>
       <View style={styles.metrics}>
         <View style={styles.metric}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             Orçado
           </ThemedText>
           <ThemedText type="smallBold">
@@ -80,13 +71,13 @@ function BudgetRow({
           </ThemedText>
         </View>
         <View style={styles.metric}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {realizedLabel(row)}
           </ThemedText>
           <ThemedText type="smallBold">{formatBRL(realized)}</ThemedText>
         </View>
         <View style={styles.metric}>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="mutedForeground">
             {remainingLabel(row)}
           </ThemedText>
           <ThemedText type="smallBold" style={{ color }}>
@@ -94,7 +85,7 @@ function BudgetRow({
           </ThemedText>
         </View>
       </View>
-      <View style={[styles.bar, { backgroundColor: theme.backgroundSelected }]}>
+      <View style={[styles.bar, { backgroundColor: theme.border }]}>
         <View
           style={[styles.barFill, { width: `${pct}%`, backgroundColor: color }]}
         />
@@ -113,9 +104,11 @@ export function BudgetList({
 }) {
   if (groups.length === 0) {
     return (
-      <ThemedText themeColor="textSecondary">
-        Nenhum orçamento neste mês. Use o + para criar um teto.
-      </ThemedText>
+      <EmptyState
+        icon="pie-chart-outline"
+        title="Nenhum orçamento neste mês"
+        description="Use o + para criar um teto."
+      />
     );
   }
 
@@ -166,6 +159,6 @@ const styles = StyleSheet.create({
   cardCopy: { flex: 1, minWidth: 0, gap: 2 },
   metrics: { flexDirection: "row", gap: 8 },
   metric: { flex: 1, gap: 2 },
-  bar: { height: 6, borderRadius: 999, overflow: "hidden" },
-  barFill: { height: 6, borderRadius: 999 },
+  bar: { height: 6, borderRadius: Radius.full, overflow: "hidden" },
+  barFill: { height: 6, borderRadius: Radius.full },
 });

@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -15,9 +14,9 @@ import { deleteTagApi, fetchTagUsage, fetchTags, updateTagApi } from "@/api/task
 import { ColorDots } from "@/components/ColorDots";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Card } from "@/components/ui/Card";
-import { FormButton } from "@/components/ui/FormButton";
-import { Spacing } from "@/constants/theme";
+import { Button, Card, Input } from "@/components/ui";
+import { Radius, Spacing } from "@/constants/theme";
+import { NEUTRAL_TAG_COLOR } from "@/domain/dimensions/listView";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -32,7 +31,7 @@ export default function TagsScreen() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [color, setColor] = useState("#94a3b8");
+  const [color, setColor] = useState(NEUTRAL_TAG_COLOR);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -110,19 +109,20 @@ export default function TagsScreen() {
   return (
     <ThemedView style={styles.flex}>
       <ScrollView contentContainerStyle={styles.body}>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedForeground">
           Nome, cor e onde cada tag está em uso. Tags novas são criadas direto no formulário da
           tarefa.
         </ThemedText>
-        <FormButton
+        <Button
           label="Ícones de link"
-          compact
           onPress={() => router.push("/tasks/link-icons")}
+          variant="outline"
+          size="sm"
         />
         {tags.length === 0 ? (
           <Card style={styles.card}>
             <ThemedText type="smallBold">Nenhuma tag ainda</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="mutedForeground">
               Digite um nome novo no campo de tags do formulário da tarefa e confirme.
             </ThemedText>
           </Card>
@@ -136,7 +136,7 @@ export default function TagsScreen() {
                   <ThemedText type="smallBold" numberOfLines={1} style={styles.flex}>
                     {tag.name}
                   </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="mutedForeground">
                     {usage.get(tag.id) ?? 0} em uso
                   </ThemedText>
                   <Pressable
@@ -144,48 +144,39 @@ export default function TagsScreen() {
                     hitSlop={8}
                     onPress={() => (editing ? setEditingId(null) : openEdit(tag))}
                   >
-                    <Ionicons name="pencil-outline" size={18} color={theme.textSecondary} />
+                    <Ionicons name="pencil-outline" size={18} color={theme.mutedForeground} />
                   </Pressable>
                   <Pressable
                     accessibilityLabel={`Excluir ${tag.name}`}
                     hitSlop={8}
                     onPress={() => confirmDelete(tag)}
                   >
-                    <Ionicons name="trash-outline" size={18} color={theme.danger} />
+                    <Ionicons name="trash-outline" size={18} color={theme.destructive} />
                   </Pressable>
                 </View>
                 {editing ? (
                   <View style={styles.edit}>
-                    <TextInput
+                    <Input
                       placeholder="Nome"
-                      placeholderTextColor={theme.textSecondary}
                       value={name}
                       onChangeText={setName}
-                      style={[
-                        styles.input,
-                        {
-                          color: theme.text,
-                          borderColor: theme.backgroundSelected,
-                          backgroundColor: theme.backgroundElement,
-                        },
-                      ]}
                     />
                     <ColorDots value={color} onChange={setColor} />
                     <View style={styles.row}>
-                      <FormButton
+                      <Button
                         label="Salvar alterações"
-                        tone="primary"
-                        compact
-                        flex
-                        busy={saving}
+                        loading={saving}
                         disabled={!name.trim()}
                         onPress={() => void save()}
+                        size="sm"
+                        style={{ flex: 1 }}
                       />
-                      <FormButton
+                      <Button
                         label="Cancelar"
-                        compact
-                        flex
                         onPress={() => setEditingId(null)}
+                        variant="outline"
+                        size="sm"
+                        style={{ flex: 1 }}
                       />
                     </View>
                   </View>
@@ -205,12 +196,6 @@ const styles = StyleSheet.create({
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
   card: { gap: 10, padding: Spacing.three },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
-  swatch: { width: 16, height: 16, borderRadius: 8 },
+  swatch: { width: 16, height: 16, borderRadius: Radius.full },
   edit: { gap: 10 },
-  input: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-  },
 });

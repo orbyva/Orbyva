@@ -1,79 +1,39 @@
-import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+import { StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { ThemeColor } from '@/constants/theme';
+import { TypeScale, weightStyle, weightToFamily, type TextStyleToken } from '@/domain/ui/typography';
 import { useTheme } from '@/hooks/use-theme';
 
+const TYPE_STYLES = {
+  display: TypeScale.display,
+  title: TypeScale.title,
+  heading: TypeScale.heading,
+  body: TypeScale.body,
+  bodyStrong: TypeScale.bodyStrong,
+  label: TypeScale.label,
+  caption: TypeScale.caption,
+  micro: TypeScale.micro,
+  value: TypeScale.value,
+  code: TypeScale.mono,
+  /** Nomes anteriores à 201, mantidos para as telas que ainda os usam. */
+  default: TypeScale.body,
+  subtitle: TypeScale.heading,
+  small: TypeScale.caption,
+  smallBold: { ...TypeScale.caption, ...weightStyle(700) },
+  link: TypeScale.caption,
+  linkPrimary: TypeScale.caption,
+} satisfies Record<string, TextStyleToken>;
+
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'value' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?: keyof typeof TYPE_STYLES;
   themeColor?: ThemeColor;
 };
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  const base = TYPE_STYLES[type];
+  const color = theme[themeColor ?? (type === 'linkPrimary' ? 'primary' : 'foreground')];
+  const override = weightToFamily(base, (StyleSheet.flatten(style) ?? {}) as TextStyle);
 
-  return (
-    <Text
-      style={[
-        { color: theme[themeColor ?? 'text'] },
-        type === 'default' && styles.default,
-        type === 'title' && styles.title,
-        type === 'value' && styles.value,
-        type === 'small' && styles.small,
-        type === 'smallBold' && styles.smallBold,
-        type === 'subtitle' && styles.subtitle,
-        type === 'link' && styles.link,
-        type === 'linkPrimary' && styles.linkPrimary,
-        type === 'code' && styles.code,
-        style,
-      ]}
-      {...rest}
-    />
-  );
+  return <Text style={[{ color }, base, override]} {...rest} />;
 }
-
-const styles = StyleSheet.create({
-  small: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: 500,
-  },
-  smallBold: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: 700,
-  },
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 500,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 700,
-    lineHeight: 28,
-  },
-  value: {
-    fontSize: 28,
-    fontWeight: 700,
-    lineHeight: 34,
-  },
-  subtitle: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: 600,
-  },
-  link: {
-    lineHeight: 20,
-    fontSize: 13,
-  },
-  linkPrimary: {
-    lineHeight: 20,
-    fontSize: 13,
-    color: '#0EA5E9',
-  },
-  code: {
-    fontFamily: Fonts.mono,
-    fontWeight: Platform.select({ android: 700 }) ?? 500,
-    fontSize: 12,
-  },
-});

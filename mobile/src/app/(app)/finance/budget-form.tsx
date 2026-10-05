@@ -1,15 +1,12 @@
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
-  View,
 } from "react-native";
 
 import {
@@ -23,9 +20,7 @@ import { fetchMostUsedClassIds } from "@/api/finance/transactions";
 import { ClassSearchPicker } from "@/components/ClassSearchPicker";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Banner } from "@/components/ui/Banner";
-import { FormButton } from "@/components/ui/FormButton";
-import { FormBlock } from "@/components/ui/FormSection";
+import { Banner, Button, Field, FormBlock, Input, ToggleRow } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { formatMoneyInput, moneyFromDigits } from "@/lib/currency";
@@ -198,14 +193,6 @@ export default function BudgetFormScreen() {
     );
   }
 
-  const inputStyle = [
-    styles.input,
-    {
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-      backgroundColor: theme.backgroundElement,
-    },
-  ];
 
   if (loading) {
     return (
@@ -232,7 +219,7 @@ export default function BudgetFormScreen() {
           {parentOnly ? (
             <Field label="Categoria">
               <ThemedText type="smallBold">{typeLabel ?? "Categoria"}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="mutedForeground">
                 Teto da categoria (sem subcategoria).
               </ThemedText>
             </Field>
@@ -253,47 +240,25 @@ export default function BudgetFormScreen() {
 
           <FormBlock title="Detalhes">
           <Field label="Valor planejado" required>
-            <TextInput
+            <Input
               keyboardType="number-pad"
               placeholder="0,00"
-              placeholderTextColor={theme.textSecondary}
-              style={inputStyle}
               value={value != null ? formatMoneyInput(value) : ""}
               onChangeText={(raw) => setDigits(raw.replace(/\D/g, ""))}
             />
           </Field>
 
           {!isEditing ? (
-            <Pressable
-              onPress={() => setApplyAllMonths((cur) => !cur)}
-              style={[
-                styles.toggle,
-                { backgroundColor: theme.backgroundElement },
-              ]}
-            >
-              <View
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor: applyAllMonths
-                      ? theme.primary
-                      : theme.backgroundSelected,
-                  },
-                ]}
-              />
-              <View style={styles.toggleCopy}>
-                <ThemedText type="smallBold">
-                  Replicar nos 12 meses de {year}
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Cria o mesmo valor em todos os meses deste ano.
-                </ThemedText>
-              </View>
-            </Pressable>
+            <ToggleRow
+              title={`Replicar nos 12 meses de ${year}`}
+              description="Cria o mesmo valor em todos os meses deste ano."
+              value={applyAllMonths}
+              onValueChange={setApplyAllMonths}
+            />
           ) : null}
           </FormBlock>
 
-          <FormButton
+          <Button
             label={
               isEditing
                 ? "Salvar alterações"
@@ -301,17 +266,17 @@ export default function BudgetFormScreen() {
                   ? `Salvar nos 12 meses de ${year}`
                   : "Adicionar orçamento"
             }
-            tone="primary"
             disabled={saving}
-            busy={saving}
+            loading={saving}
             onPress={() => void onSave()}
+            size="lg"
           />
 
           {isEditing ? (
-            <FormButton
+            <Button
               label="Excluir teto"
-              tone="danger"
               onPress={onDelete}
+              variant="destructive"
             />
           ) : null}
         </ScrollView>
@@ -320,62 +285,9 @@ export default function BudgetFormScreen() {
   );
 }
 
-function Field({
-  label,
-  required,
-  hint,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-        {required ? " *" : ""}
-      </ThemedText>
-      {hint ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          {hint}
-        </ThemedText>
-      ) : null}
-      {children}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 48 },
-  field: { gap: 8 },
-  input: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-  },
-  toggle: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    borderRadius: 12,
-    padding: 14,
-  },
-  toggleCopy: { flex: 1, gap: 2 },
-  dot: { width: 18, height: 18, borderRadius: 9, marginTop: 2 },
-  primary: {
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.two,
-  },
-  primaryLabel: { color: "#0B0F1A" },
-  danger: { alignItems: "center", paddingVertical: 12 },
-  dangerLabel: { color: "#E11D48" },
 });

@@ -1,3 +1,4 @@
+import { DEFAULT_TAG_COLOR } from "@/domain/dimensions/listView";
 import { countTagUsage } from "@/domain/tasks/tags";
 import { getCurrentUserId } from "@/lib/auth-user";
 import { supabase } from "@/lib/supabase";
@@ -31,7 +32,7 @@ export async function fetchTagUsage(): Promise<Map<string, number>> {
 
 export async function createTagApi(
   name: string,
-  color = "#A855F7"
+  color = DEFAULT_TAG_COLOR
 ): Promise<Tag> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
