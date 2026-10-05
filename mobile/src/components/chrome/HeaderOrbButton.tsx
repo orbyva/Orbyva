@@ -1,7 +1,7 @@
 import { usePathname, useRouter } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { BrandLogo } from "@/components/BrandLogo";
+import { OrbSphere } from "@/components/orb/OrbSphere";
 import { Radius } from "@/constants/theme";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useOrbContext } from "@/hooks/useOrb";
@@ -32,7 +32,7 @@ export function HeaderOrbButton() {
       hitSlop={8}
       style={styles.hit}
     >
-      <BrandLogo size={22} />
+      <OrbSphere size={22} />
       {pending > 0 ? (
         <View
           style={[

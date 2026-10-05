@@ -17,6 +17,7 @@ import { OrbProposalTray } from "@/components/orb/OrbProposalTray";
 import { ThemedView } from "@/components/themed-view";
 import { HeaderTitle } from "@/domain/ui/typography";
 import { OrbProvider } from "@/hooks/useOrb";
+import { OrbAvatarProvider } from "@/hooks/useOrbAvatar";
 import { AppShellProvider } from "@/hooks/use-app-shell";
 import { ActiveTimerProvider } from "@/hooks/use-active-timer";
 import { useAuth } from "@/hooks/use-auth";
@@ -110,7 +111,9 @@ export default function AppLayout() {
     <AppShellProvider>
       <ActiveTimerProvider>
         <OrbProvider>
-          <AppStack />
+          <OrbAvatarProvider>
+            <AppStack />
+          </OrbAvatarProvider>
         </OrbProvider>
       </ActiveTimerProvider>
     </AppShellProvider>

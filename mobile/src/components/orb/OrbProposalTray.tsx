@@ -4,6 +4,7 @@ import { usePathname, useRouter, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OrbActionCard } from "@/components/orb/OrbActionCard";
+import { OrbSphere } from "@/components/orb/OrbSphere";
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
 import { scrim } from "@/domain/ui/color";
@@ -60,7 +61,8 @@ export function OrbProposalTray() {
         ]}
       >
         <View style={styles.head}>
-          <ThemedText type="smallBold">
+          <OrbSphere size={22} />
+          <ThemedText type="smallBold" style={styles.headTitle}>
             {orb.pendingProposals.length > 1
               ? `A Orb preparou ${orb.pendingProposals.length} criações`
               : "A Orb preparou uma criação"}
@@ -110,7 +112,8 @@ const styles = StyleSheet.create({
   head: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: Spacing.two,
     paddingHorizontal: Spacing.one,
   },
+  headTitle: { flex: 1 },
 });

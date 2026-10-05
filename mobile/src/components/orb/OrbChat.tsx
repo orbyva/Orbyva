@@ -12,13 +12,13 @@ import {
 import { useNavigation } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BrandLogo } from "@/components/BrandLogo";
 import {
   OrbCapabilities,
   OrbCapabilitiesSeal,
 } from "@/components/orb/OrbCapabilities";
 import { OrbComposer } from "@/components/orb/OrbComposer";
 import { OrbMessageBubble } from "@/components/orb/OrbMessageBubble";
+import { OrbSphere } from "@/components/orb/OrbSphere";
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
 import { orbChatKeyboardInset } from "@/domain/orb/composerLayout";
@@ -114,7 +114,7 @@ export function OrbChat() {
         >
           {!keyboardOpen ? (
             <>
-              <BrandLogo size={48} />
+              <OrbSphere size={48} />
               <ThemedText type="subtitle" style={styles.emptyTitle}>
                 Converse com a Orb
               </ThemedText>

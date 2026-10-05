@@ -112,6 +112,18 @@ export type OrbStreamEvent =
   | { type: "done"; usage?: unknown }
   | { type: "error"; message: string };
 
+/** Uma versão da Orb gerada por IA — espelha `public.orb_avatar`; no máximo uma `is_active` por dono. */
+export interface OrbAvatar {
+  id: string;
+  user_id: string;
+  prompt: string;
+  /** URL pública do PNG em `orb-avatars/{userId}/{uuid}.png`. */
+  url: string;
+  model: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 /** O que o client manda no corpo do POST. */
 export interface OrbTurnRequest {
   messages: { role: OrbRole; content: string }[];
