@@ -1297,6 +1297,52 @@ body {
   color: var(--m-orb);
 }
 
+/* story de Dúvidas: uma resposta por linha, no tamanho que se lê no celular */
+.qa-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 26px;
+  padding: 30px 0;
+  border-bottom: 2px solid var(--hair);
+}
+
+.qa-row:last-child {
+  border-bottom: 0;
+}
+
+.qa-row .tick {
+  width: 46px;
+  height: 46px;
+  margin-top: 2px;
+}
+
+.qa-row .tick svg {
+  width: 26px;
+  height: 26px;
+}
+
+.qa-row b {
+  display: block;
+  font-weight: 600;
+  font-size: 38px;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.qa-row i {
+  display: block;
+  margin-top: 8px;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--mut);
+}
+
+.s-sky .qa-row .tick.on {
+  background: rgba(255, 255, 255, 0.24);
+}
+
 /* utilitários de layout */
 .col {
   display: flex;
