@@ -20,8 +20,8 @@ export function TeamSwitcher() {
           }}
         >
           <BrandLogo
-            variant="mark"
-            className="size-10 shrink-0 rounded-xl bg-white"
+            variant="favicon"
+            className="size-10 shrink-0"
             alt=""
           />
           <BrandWordmark className="grid flex-1" showSubtitle />

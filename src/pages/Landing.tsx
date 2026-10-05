@@ -265,8 +265,8 @@ export default function Landing() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 rounded-full border border-white/10 bg-[var(--landing-bg)]/80 px-2 pl-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md sm:px-3">
           <Link to="/" aria-label={BRAND.name} className="inline-flex shrink-0">
             <BrandLogo
-              variant="mark"
-              className="size-8 rounded-lg bg-white sm:size-9 sm:rounded-xl"
+              variant="favicon"
+              className="size-8 sm:size-9"
               alt={BRAND.name}
             />
           </Link>

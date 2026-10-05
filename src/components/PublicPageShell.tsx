@@ -49,8 +49,8 @@ export function PublicPageShell({
       >
         <Link to="/" aria-label={BRAND.name} className="inline-flex shrink-0">
           <BrandLogo
-            variant="mark"
-            className="size-9 rounded-lg bg-white sm:size-10 sm:rounded-xl"
+            variant="favicon"
+            className="size-9 sm:size-10"
             alt={BRAND.name}
           />
         </Link>

@@ -14,6 +14,8 @@ export const BRAND = {
   /** Assets em /public */
   logo: "/logo.webp",
   logoMark: "/logo-mark.webp",
+  /** O mesmo PNG do `<link rel="icon">` do `index.html` (loader / extensão). */
+  favicon: "/logo-mark.png",
   /** Mark só no sky, fundo transparente (login / fundo escuro). */
   logoMarkSky: "/logo-mark-sky.png",
   email: "orbyva@gmail.com",

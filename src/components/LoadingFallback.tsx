@@ -1,6 +1,7 @@
-import { BrandLogo } from "@/components/BrandLogo";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { BRAND } from "@/lib/brand";
+import { readStoredTheme } from "@/lib/storedTheme";
+import { cn } from "@/lib/utils";
 
 type LoadingFallbackProps = {
   /** `viewport` = cobre app inteiro (inclui sidebar). */
@@ -10,20 +11,24 @@ type LoadingFallbackProps = {
 export default function LoadingFallback({
   cover = "viewport",
 }: LoadingFallbackProps) {
+  const theme = readStoredTheme();
   return (
     <div
-      className={
+      className={cn(
+        theme === "dark" && "dark",
+        "flex items-center justify-center overflow-hidden bg-background text-foreground",
         cover === "viewport"
-          ? "fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-[#0c1222]"
-          : "relative flex min-h-svh items-center justify-center overflow-hidden bg-[#0c1222]"
-      }
+          ? "fixed inset-0 z-[200]"
+          : "relative min-h-svh"
+      )}
+      data-theme={theme}
       role="status"
       aria-live="polite"
       aria-label="Carregando"
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(14,165,233,0.22),_transparent_55%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(14,165,233,0.16),_transparent_55%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(14,165,233,0.22),_transparent_55%)]"
       />
 
       <div className="relative z-10 flex flex-col items-center px-6">
@@ -36,10 +41,14 @@ export default function LoadingFallback({
             aria-hidden
             className="orbyva-orbit-slow absolute inset-2 rounded-full border border-dashed border-sky-500/25"
           />
-          <BrandLogo
-            variant="mark"
-            className="size-14 rounded-2xl bg-white shadow-[0_0_40px_-8px_rgba(14,165,233,0.55)]"
+          <img
+            src={BRAND.favicon}
             alt={BRAND.name}
+            width={64}
+            height={64}
+            decoding="async"
+            draggable={false}
+            className="size-16 object-contain drop-shadow-[0_0_18px_rgba(14,165,233,0.45)]"
           />
         </div>
 
@@ -47,11 +56,11 @@ export default function LoadingFallback({
           <BrandWordmark
             showSubtitle={false}
             size="md"
-            className="text-center [&_p]:text-zinc-100"
+            className="text-center [&_p]:text-foreground"
           />
         </div>
 
-        <p className="orbyva-fade-delay mt-3 text-xs tracking-wide text-zinc-500">
+        <p className="orbyva-fade-delay mt-3 text-xs tracking-wide text-muted-foreground">
           Entrando na órbita…
         </p>
       </div>

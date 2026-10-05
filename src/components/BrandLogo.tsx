@@ -2,30 +2,33 @@ import { cn } from "@/lib/utils";
 import { BRAND } from "@/lib/brand";
 
 type BrandLogoProps = {
-  /** `full` = lockup completo; `mark` = ícone órbita */
-  variant?: "full" | "mark";
+  /** `full` = lockup completo; `mark` = ícone órbita; `favicon` = PNG transparente do favicon */
+  variant?: "full" | "mark" | "favicon";
   className?: string;
   alt?: string;
 };
+
+const SOURCES = {
+  full: BRAND.logo,
+  mark: BRAND.logoMark,
+  favicon: BRAND.favicon,
+} as const;
 
 export function BrandLogo({
   variant = "full",
   className,
   alt = BRAND.name,
 }: BrandLogoProps) {
-  const src = variant === "mark" ? BRAND.logoMark : BRAND.logo;
+  const square = variant !== "full";
   return (
     <img
-      src={src}
+      src={SOURCES[variant]}
       alt={alt}
-      width={variant === "mark" ? 40 : 160}
-      height={variant === "mark" ? 40 : 40}
+      width={square ? 40 : 160}
+      height={40}
       decoding="async"
       fetchPriority="low"
-      className={cn(
-        variant === "mark" ? "object-contain" : "object-contain",
-        className
-      )}
+      className={cn("object-contain", className)}
       draggable={false}
     />
   );
