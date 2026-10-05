@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { LandingSectionTitle } from "@/components/landing/LandingSectionTitle";
-import { fadeUp, staggerDelay } from "@/components/landing/landingMotion";
+import { fadeUp } from "@/components/landing/landingMotion";
 
 /** O que a pessoa costuma espalhar: categorias, sem nomes de apps. */
 const SCATTERED = [
@@ -16,6 +16,7 @@ const SCATTERED = [
 
 const ORBYVA_CAPS = [
   "Teto do mês e o que ainda dá para gastar",
+  "Orb: pergunte em português, ela responde com os seus dados",
   "Contas, parcelas e simular compra",
   "Hábitos, metas, viagens, lugares, cinema…",
   "Tudo no mesmo login, no bolso",
@@ -42,18 +43,14 @@ export function LandingCompare() {
             Vários apps
           </p>
           <ul className="mt-6 flex flex-wrap gap-2">
-            {SCATTERED.map((item, i) => (
-              <motion.li
+            {SCATTERED.map((item) => (
+              <li
                 key={item.name}
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: staggerDelay(i, 0.04), duration: 0.35 }}
                 className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-300"
               >
                 <span className="text-zinc-100">{item.name}</span>
                 <span className="text-zinc-500"> ({item.role})</span>
-              </motion.li>
+              </li>
             ))}
           </ul>
         </motion.div>

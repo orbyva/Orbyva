@@ -20,6 +20,10 @@ export const FAQS = [
     a: "Hábitos, metas, viagens com roteiro, lugares, cinema, livros, música, veículos e um cronômetro flutuante para acompanhar o tempo nas tarefas, tudo no mesmo login.",
   },
   {
+    q: "O que é a Orb?",
+    a: "A Orb é a IA do Orbyva. Você pergunta em português e ela responde consultando os seus próprios dados (finanças, tarefas, hábitos, viagens, saúde e o resto do app), abre a tela certa já filtrada e prepara lançamentos e tarefas para você confirmar. Nada é gravado sem o seu clique.",
+  },
+  {
     q: "Como funciona o teste?",
     a: `Você começa com ${PLANS.free.priceLabel} e acesso completo, sem cartão. Depois, Pro por ${PLANS.pro.priceLabel}; assine na Conta quando quiser continuar.`,
   },

@@ -5,7 +5,7 @@ import { LandingSectionTitle } from "@/components/landing/LandingSectionTitle";
 import { PLANS } from "@/lib/plan";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
-import { fadeUp, staggerDelay } from "@/components/landing/landingMotion";
+import { fadeUp, reveal, staggerDelay } from "@/components/landing/landingMotion";
 
 /** Redução de risco: o que responde “e se eu não gostar?”. */
 const GUARANTEES = [
@@ -117,10 +117,7 @@ export function LandingPricing({
         {GUARANTEES.map((item, i) => (
           <motion.li
             key={item.title}
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: staggerDelay(i), duration: 0.4 }}
+            {...reveal(staggerDelay(i), 0.4)}
             className={cn(
               i > 0 && "lg:border-l lg:border-white/10 lg:pl-6",
               i < GUARANTEES.length - 1 && "lg:pr-6"

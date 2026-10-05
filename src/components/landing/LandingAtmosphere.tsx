@@ -21,7 +21,7 @@ export function LandingAtmosphere({ className }: { className?: string }) {
       aria-hidden
       className={
         className ??
-        "pointer-events-none fixed inset-0 z-0 overflow-hidden"
+        "landing-atmosphere pointer-events-none fixed inset-0 z-0 overflow-hidden"
       }
     >
       <LandingBeams className="opacity-90" />

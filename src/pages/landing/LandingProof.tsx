@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { LandingSectionTitle } from "@/components/landing/LandingSectionTitle";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
-import { fadeUp, staggerDelay } from "@/components/landing/landingMotion";
+import { fadeUp, reveal, staggerDelay } from "@/components/landing/landingMotion";
 
 /**
  * Depoimentos reais, preencha quando tiver (Fase I ops).
@@ -66,10 +66,7 @@ export function LandingProof({ ctaTo }: { ctaTo: string }) {
           {SOCIAL_SIGNALS.map((item, i) => (
             <motion.li
               key={item.title}
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: staggerDelay(i), duration: 0.4 }}
+              {...reveal(staggerDelay(i), 0.4)}
               className={cn(
                 i > 0 && "sm:border-l sm:border-white/10 sm:pl-8",
                 i < SOCIAL_SIGNALS.length - 1 && "sm:pr-8"

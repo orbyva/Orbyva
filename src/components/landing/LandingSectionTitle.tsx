@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { reveal } from "@/components/landing/landingMotion";
 
 type LandingSectionTitleProps = {
   eyebrow?: string;
@@ -28,10 +29,7 @@ export function LandingSectionTitle({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.55, ease: [0.32, 0.72, 0, 1] }}
+      {...reveal()}
       className={cn(
         "overflow-visible",
         center ? "mx-auto max-w-xl text-center" : "max-w-xl",

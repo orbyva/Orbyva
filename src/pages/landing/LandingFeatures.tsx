@@ -15,7 +15,7 @@ import type { LucideIcon } from "lucide-react";
 import { BRAND } from "@/lib/brand";
 import { LandingPhoneFrame } from "./LandingPhoneFrame";
 import { LandingSectionTitle } from "@/components/landing/LandingSectionTitle";
-import { fadeUp, fadeUpSlow, staggerDelay } from "@/components/landing/landingMotion";
+import { fadeUp, fadeUpSlow, reveal, staggerDelay } from "@/components/landing/landingMotion";
 import { cn } from "@/lib/utils";
 
 /** Ganchos de conversão: 1 print por bloco (sem repetir telas). */
@@ -231,13 +231,7 @@ export function LandingFeatures() {
             {LIFE_MODULES.map((mod, i) => (
               <motion.div
                 key={mod.id}
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true, margin: "-30px" }}
-                transition={{
-                  delay: staggerDelay(i, 0.04),
-                  duration: 0.4,
-                }}
+                {...reveal(staggerDelay(i, 0.04), 0.4)}
                 className={cn(
                   "rounded-2xl border p-5",
                   moduleSpanClass(mod.span),

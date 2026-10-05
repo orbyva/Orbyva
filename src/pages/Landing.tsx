@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Smartphone, Sparkles } from "lucide-react";
+import { Smartphone } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { LandingOrbSphere } from "@/components/landing/LandingOrbSphere";
 import LoadingFallback from "@/components/LoadingFallback";
 import PhoneMockupBasic from "@/components/ui/phone-mockups-1";
 import { LandingAtmosphere } from "@/components/landing/LandingAtmosphere";
@@ -32,6 +33,11 @@ const LandingCompare = lazy(() =>
     default: m.LandingCompare,
   }))
 );
+const LandingOrb = lazy(() =>
+  import("@/pages/landing/LandingOrb").then((m) => ({
+    default: m.LandingOrb,
+  }))
+);
 const LandingFeatures = lazy(() =>
   import("@/pages/landing/LandingFeatures").then((m) => ({
     default: m.LandingFeatures,
@@ -60,6 +66,7 @@ const LandingFaq = lazy(() =>
 
 const NAV = [
   { href: "#comparar", label: "Uma órbita" },
+  { href: "#orb", label: "Orb" },
   { href: "#controle", label: "Controle" },
   { href: "#modulos", label: "Módulos" },
   { href: "#prova", label: "Prova" },
@@ -70,6 +77,7 @@ const NAV = [
 const TRUST = [
   "Parece 5 apps. Custa 1.",
   "Está dentro do orçamento?",
+  "Orb, a IA que conhece o seu mês",
   "7 dias grátis",
   "Life OS incluso",
   "Cancele em 1 clique",
@@ -82,14 +90,23 @@ const ROADMAP = [
     title: "App nas lojas",
     body: "Em breve na App Store e Play Store. O mesmo Orbyva, no bolso, com um toque.",
   },
-  {
-    icon: Sparkles,
-    title: "Assistente com IA",
-    body: "Insights do mês, lembretes e atalhos, e cadastrar dados por você quando fizer sentido.",
-  },
 ] as const;
 
-const SECTION_IDS = ["controle", "planos"] as const;
+const SECTION_IDS = ["orb", "controle", "planos"] as const;
+
+/** As seções abaixo da dobra montam no idle; um clique antes disso ainda não acha o alvo. */
+function scrollToSectionWhenMounted(id: string, framesLeft = 180) {
+  const el = document.getElementById(id);
+  if (el) {
+    history.replaceState(null, "", `#${id}`);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    return;
+  }
+  if (framesLeft > 0) {
+    requestAnimationFrame(() => scrollToSectionWhenMounted(id, framesLeft - 1));
+  }
+}
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -297,6 +314,22 @@ export default function Landing() {
           className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pb-14 pt-8 sm:px-8 sm:pt-10 lg:grid-cols-[0.95fr_1.05fr] lg:gap-12 lg:pb-20"
         >
           <div className="landing-hero-copy">
+            <a
+              href="#orb"
+              onClick={(event) => {
+                event.preventDefault();
+                track("landing_cta_orb_hero");
+                setBelowFold(true);
+                scrollToSectionWhenMounted("orb");
+              }}
+              className="mb-5 inline-flex items-center gap-2.5 rounded-full border border-violet-400/25 bg-violet-500/[0.08] py-1 pl-1 pr-3.5 text-xs text-zinc-300 transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-violet-300/40 hover:text-zinc-100"
+            >
+              <LandingOrbSphere size={22} />
+              <span>
+                <span className="font-medium text-violet-200">Orb</span>, a IA que
+                responde com os seus números
+              </span>
+            </a>
             <h1 className="text-balance font-display text-4xl font-semibold tracking-tighter text-zinc-50 sm:text-5xl lg:text-6xl lg:leading-[1.12]">
               {BRAND.tagline}
             </h1>
@@ -334,6 +367,7 @@ export default function Landing() {
         {belowFold ? (
           <Suspense fallback={null}>
             <LandingCompare />
+            <LandingOrb />
             <LandingFeatures />
             <LandingProof ctaTo={ctaTo} />
             <LandingPricing
