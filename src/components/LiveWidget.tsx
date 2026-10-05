@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Loader2, Play, Square, Timer } from "lucide-react";
+import { Check, Loader2, Play, Square, Timer, X } from "lucide-react";
 import { ActionTooltip } from "@/components/ActionTooltip";
 import { Button } from "@/components/ui/button";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
@@ -7,6 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 import { fetchLastInteractedEntry, fetchTaskById, updateTask } from "@/api/tasks";
 import { elapsedSeconds, formatDuration } from "@/domain/tasks";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  readLiveWidgetHidden,
+  writeLiveWidgetHidden,
+} from "@/lib/liveWidgetVisibility";
 import type { Task, TaskTimeEntry } from "@/types/tasks";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +24,11 @@ import { cn } from "@/lib/utils";
  *
  * Com timer rodando há também o atalho "parar e concluir" (feature 072): fecha o registro de tempo
  * e marca a tarefa como feita sem precisar caçá-la na Lista/Kanban/Agenda.
+ *
+ * Feature 226: o widget pode ser escondido, porque num canto já disputado (`QuickAddExpenseFab`,
+ * `MobileBottomNav`) ele tapa conteúdo clicável de outras telas. Escondido é só visual — o registro
+ * de tempo continua aberto —, a preferência vive em `localStorage` (`@/lib/liveWidgetVisibility`) e
+ * no lugar do pill fica um botão redondo que o traz de volta num clique.
  */
 export function LiveWidget() {
   const { runningEntry, start, stop } = useActiveTimer();
@@ -28,6 +37,9 @@ export function LiveWidget() {
   const [task, setTask] = useState<Task | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [completing, setCompleting] = useState(false);
+  // Leitura só no mount: sem listener de `storage`, esconder numa aba não mexe na outra até
+  // ela recarregar — é o comportamento desenhado, não um esquecimento.
+  const [hidden, setHidden] = useState(() => readLiveWidgetHidden());
 
   useEffect(() => {
     if (runningEntry) return;
@@ -114,9 +126,50 @@ export function LiveWidget() {
     }
   }
 
+  /**
+   * Esconder é só visual: grava a preferência e troca o estado local, nada mais. Nenhum `stop()`,
+   * `updateTask` ou refetch no caminho do clique — o registro de tempo continua aberto no banco.
+   */
+  function hideWidget() {
+    writeLiveWidgetHidden(true);
+    setHidden(true);
+  }
+
+  function showWidget() {
+    writeLiveWidgetHidden(false);
+    setHidden(false);
+  }
+
   if (!activeEntry || !task) return null;
   // Timer parado + última tarefa interagida já concluída: não faz sentido oferecer "Retomar" nela.
   if (!isRunning && task.status === "done") return null;
+
+  // Escondido, no lugar do pill fica um botão mínimo no mesmo canto, que volta num clique — some o
+  // que atrapalha, fica o sinal de "tem timer aberto". Depois das guardas de propósito: sem entrada
+  // ativa (ou com a última tarefa já concluída) não há o que mostrar, escondido ou não.
+  if (hidden) {
+    return (
+      <ActionTooltip label="Mostrar o timer">
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          className={cn(
+            "fixed z-30 rounded-full shadow-lg",
+            "right-3 bottom-[calc(3.25rem+env(safe-area-inset-bottom,0px))]",
+            // Mesmas âncoras do pill: md:bottom-24 mantém o botão acima do QuickAddExpenseFab.
+            "md:bottom-24 md:right-6"
+          )}
+          onClick={showWidget}
+          aria-label="Mostrar o timer"
+        >
+          <Timer
+            className={cn("h-4 w-4", isRunning ? "text-primary" : "text-muted-foreground")}
+          />
+        </Button>
+      </ActionTooltip>
+    );
+  }
 
   const seconds = isRunning
     ? elapsedSeconds(
@@ -171,6 +224,20 @@ export function LiveWidget() {
             </Button>
           </ActionTooltip>
         )}
+        {/* Sem `disabled={completing}`: tirar o widget da frente não depende do "parar e
+            concluir" em curso. */}
+        <ActionTooltip label="Esconder o timer">
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 shrink-0"
+            onClick={hideWidget}
+            aria-label="Esconder o timer"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </ActionTooltip>
         <ActionTooltip label={isRunning ? "Parar timer" : "Retomar timer"}>
           <Button
             type="button"
