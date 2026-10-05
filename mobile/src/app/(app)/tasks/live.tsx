@@ -19,6 +19,7 @@ import {
 } from "@/api/tasks/timeEntries";
 import { ChipBar } from "@/components/ChipBar";
 import { FilterRow, FilterSelect } from "@/components/FilterSelect";
+import { TimeEntryEditor } from "@/components/tasks/TimeEntryEditor";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner, Button, EmptyState } from "@/components/ui";
@@ -61,6 +62,7 @@ export default function LiveScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [editingId, setEditingId] = useState<string | null>(null);
   const hasLoaded = useRef(false);
   const { runningEntry, start, stop } = useActiveTimer();
 
@@ -317,11 +319,9 @@ export default function LiveScreen() {
                 return (
                   <View
                     key={entry.raw.id}
-                    style={[
-                      styles.row,
-                      { backgroundColor: theme.muted },
-                    ]}
+                    style={[styles.entry, { backgroundColor: theme.muted }]}
                   >
+                    <View style={styles.row}>
                     <Pressable
                       style={styles.copy}
                       onPress={() =>
@@ -341,6 +341,20 @@ export default function LiveScreen() {
                       </ThemedText>
                     </Pressable>
                     <Pressable
+                      accessibilityLabel="Editar registro"
+                      hitSlop={8}
+                      onPress={() =>
+                        setEditingId((cur) => (cur === entry.raw.id ? null : entry.raw.id))
+                      }
+                      style={styles.trash}
+                    >
+                      <Ionicons
+                        name="create-outline"
+                        size={18}
+                        color={theme.mutedForeground}
+                      />
+                    </Pressable>
+                    <Pressable
                       accessibilityLabel="Excluir registro"
                       hitSlop={8}
                       onPress={() => confirmDelete(entry.raw.id)}
@@ -352,6 +366,19 @@ export default function LiveScreen() {
                         color={theme.destructive}
                       />
                     </Pressable>
+                    </View>
+                    {editingId === entry.raw.id ? (
+                      <TimeEntryEditor
+                        entry={entry.raw}
+                        onCancel={() => setEditingId(null)}
+                        onSaved={(updated) => {
+                          setEntries((cur) =>
+                            cur.map((row) => (row.id === updated.id ? updated : row))
+                          );
+                          setEditingId(null);
+                        }}
+                      />
+                    ) : null}
                   </View>
                 );
               })}
@@ -369,9 +396,8 @@ const styles = StyleSheet.create({
   body: { padding: Spacing.four, gap: Spacing.three },
   card: { borderRadius: Radius.xl, padding: 14, gap: 10 },
   day: { gap: 8 },
+  entry: { borderRadius: Radius.xl, padding: 12, gap: 8 },
   row: {
-    borderRadius: Radius.xl,
-    padding: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,

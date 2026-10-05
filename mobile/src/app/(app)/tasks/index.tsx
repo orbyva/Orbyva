@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 
+import { fetchDependencies } from "@/api/tasks/dependencies";
 import { fetchProjects } from "@/api/tasks/projects";
 import { fetchFirstExternalLinkByTask } from "@/api/tasks/links";
 import { fetchLinkIconRules } from "@/api/tasks/linkIconRules";
@@ -22,12 +23,14 @@ import {
 import { ChipBar } from "@/components/ChipBar";
 import { FilterRow, FilterSelect } from "@/components/FilterSelect";
 import { SearchField } from "@/components/SearchField";
+import { TasksGantt } from "@/components/tasks/TasksGantt";
 import { TasksKanban } from "@/components/TasksKanban";
 import { TasksList } from "@/components/TasksList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
+import { ganttTasks } from "@/domain/tasks/gantt";
 import { PRIORITY_OPTIONS } from "@/domain/tasks/priority";
 import {
   filterTasksByPriority,
@@ -58,6 +61,7 @@ import {
   type Project,
   type Tag,
   type Task,
+  type TaskDependency,
   type TaskStatus,
 } from "@/types/tasks";
 
@@ -79,7 +83,8 @@ export default function TasksScreen() {
   >({});
   const [linkRules, setLinkRules] = useState<LinkIconRule[]>([]);
   const [query, setQuery] = useState("");
-  const [view, setView] = useState<"lista" | "kanban" | "done">("lista");
+  const [view, setView] = useState<"lista" | "kanban" | "gantt" | "done">("lista");
+  const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +93,7 @@ export default function TasksScreen() {
 
   const load = useCallback(async () => {
     setError(null);
-    const [nextTasks, nextProjects, nextTags, nextLinks, nextRules] = await Promise.all([
+    const [nextTasks, nextProjects, nextTags, nextLinks, nextRules, nextDeps] = await Promise.all([
       fetchTasks(),
       fetchProjects(),
       fetchTags(),
@@ -96,8 +101,10 @@ export default function TasksScreen() {
         () => ({}) as Record<string, { url: string; comment: string | null }>
       ),
       fetchLinkIconRules().catch(() => [] as LinkIconRule[]),
+      fetchDependencies().catch(() => [] as TaskDependency[]),
     ]);
     setRows(nextTasks);
+    setDependencies(nextDeps);
     setProjects(nextProjects);
     setTags(nextTags);
     setLinksByTaskId(nextLinks);
@@ -286,6 +293,7 @@ export default function TasksScreen() {
     ],
     [openTasks, scoped]
   );
+  const ganttScoped = useMemo(() => ganttTasks(scoped), [scoped]);
   const listSections =
     view === "kanban"
       ? kanbanSections
@@ -317,6 +325,7 @@ export default function TasksScreen() {
             options={[
               { id: "lista", label: "Lista" },
               { id: "kanban", label: "Kanban" },
+              { id: "gantt", label: "Gantt" },
               { id: "done", label: "Concluídas" },
             ]}
             value={view}
@@ -327,7 +336,9 @@ export default function TasksScreen() {
               ? "Pendentes nas caixas da agenda: atrasadas, hoje, semana, mês, depois e sem data."
               : view === "kanban"
                 ? "Segure o punho e solte em outra coluna para mudar o status."
-                : "Concluídas recentes — o check reabre."}
+                : view === "gantt"
+                  ? "Barras por início e prazo; tracejada = sem data. Toque numa barra para ligar dependências."
+                  : "Concluídas recentes — o check reabre."}
           </ThemedText>
           <SearchField
             placeholder="Buscar tarefas"
@@ -388,7 +399,14 @@ export default function TasksScreen() {
               </ThemedText>
             </Pressable>
           </View>
-          {view === "kanban" ? (
+          {view === "gantt" ? (
+            <TasksGantt
+              tasks={ganttScoped}
+              dependencies={dependencies}
+              onDependenciesChange={async () => setDependencies(await fetchDependencies())}
+              onOpenTask={(id) => router.push({ pathname: "/tasks/form", params: { id } })}
+            />
+          ) : view === "kanban" ? (
             <TasksKanban
               columns={kanbanSections}
               busyId={busyId}

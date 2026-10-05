@@ -92,6 +92,11 @@ function sortedDesc(metrics: HealthMetric[], type: MetricType): HealthMetric[] {
     });
 }
 
+/** Histórico de um tipo, mais recente primeiro — a lista de "Progresso". */
+export function seriesByType(metrics: HealthMetric[], type: MetricType): HealthMetric[] {
+  return sortedDesc(metrics, type);
+}
+
 /**
  * A medição mais recente de cada tipo. A lista de entrada pode vir em qualquer ordem e misturar
  * tipos — é a janela recente que `loadHealthSummary` traz.

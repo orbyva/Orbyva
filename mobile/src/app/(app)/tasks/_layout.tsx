@@ -40,6 +40,7 @@ export default function TasksStackLayout() {
       <Stack.Screen name="tags" options={{ title: "Tags" }} />
       <Stack.Screen name="link-icons" options={{ title: "Ícones de link" }} />
       <Stack.Screen name="event-invites" options={{ title: "Convidar" }} />
+      <Stack.Screen name="occurrences" options={{ title: "Ocorrências" }} />
       <Stack.Screen
         name="event-invite/[token]"
         options={{ title: "Convite" }}

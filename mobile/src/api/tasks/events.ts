@@ -39,6 +39,30 @@ export async function createProjectEventApi(input: {
   return data as ProjectEvent;
 }
 
+export async function updateProjectEventApi(input: {
+  id: string;
+  title?: string;
+  startsAt?: string;
+}): Promise<ProjectEvent> {
+  const fields: Record<string, string> = {};
+  if (input.title !== undefined) {
+    const title = input.title.trim();
+    if (!title) throw new Error("Informe o título do evento.");
+    fields.title = title;
+  }
+  if (input.startsAt !== undefined) fields.starts_at = input.startsAt;
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("project_event")
+    .update(fields)
+    .eq("id", input.id)
+    .eq("user_id", userId)
+    .select("id, project_id, title, starts_at, ends_at")
+    .single();
+  if (error) throw new Error(error.message);
+  return data as ProjectEvent;
+}
+
 export async function deleteProjectEventApi(id: string): Promise<void> {
   const userId = await getCurrentUserId();
   const { error } = await supabase

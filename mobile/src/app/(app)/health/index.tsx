@@ -293,6 +293,9 @@ export default function HealthScreen() {
                 </View>
               );
             })}
+            <Pressable onPress={() => router.push("/health/progress")} style={styles.row}>
+              <ThemedText type="linkPrimary">Ver todas as medições</ThemedText>
+            </Pressable>
           </ModuleSection>
           ) : null}
 
@@ -398,11 +401,14 @@ export default function HealthScreen() {
                     : "Sem data"}
                 </ThemedText>
               </>
-            ) : (
+              ) : (
               <ThemedText themeColor="mutedForeground">
                 Nenhuma consulta agendada.
               </ThemedText>
             )}
+            <Pressable onPress={() => router.push("/health/consultations")} style={styles.row}>
+              <ThemedText type="linkPrimary">Ver todas as consultas</ThemedText>
+            </Pressable>
           </ModuleSection>
           </>
           ) : null}
@@ -441,9 +447,6 @@ export default function HealthScreen() {
                 </Pressable>
               );
             })}
-            <Pressable onPress={() => router.push("/health/reminders")} style={styles.row}>
-              <ThemedText type="linkPrimary">Frequência e horários</ThemedText>
-            </Pressable>
             <Pressable onPress={() => router.push("/health/reminders")} style={styles.row}>
               <ThemedText type="linkPrimary">Frequência e horários</ThemedText>
             </Pressable>

@@ -15,11 +15,14 @@ import {
   fetchShoppingItems,
   setShoppingItemStatusApi,
 } from "@/api/shopping/items";
+import { fetchDependencies } from "@/api/tasks/dependencies";
 import { fetchProjectEvents } from "@/api/tasks/events";
 import { fetchProjectById } from "@/api/tasks/projects";
 import { completeTaskApi, fetchTasks, reopenTaskApi, setTaskStatusApi } from "@/api/tasks/tasks";
 import { ChipBar } from "@/components/ChipBar";
+import { TasksGantt } from "@/components/tasks/TasksGantt";
 import { TasksKanban } from "@/components/TasksKanban";
+import { ganttTasks } from "@/domain/tasks/gantt";
 import { TasksList } from "@/components/TasksList";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -49,10 +52,11 @@ import {
   type Project,
   type ProjectEvent,
   type Task,
+  type TaskDependency,
   type TaskStatus,
 } from "@/types/tasks";
 
-type ProjectTab = "lista" | "kanban" | "compras" | "notas";
+type ProjectTab = "lista" | "kanban" | "gantt" | "compras" | "notas";
 
 export default function ProjectDetailScreen() {
   const theme = useTheme();
@@ -69,6 +73,7 @@ export default function ProjectDetailScreen() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [categories, setCategories] = useState<ShoppingCategory[]>([]);
   const [tab, setTab] = useState<ProjectTab>("lista");
+  const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
   const [loading, setLoading] = useState(true);
   const hasLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -85,6 +90,7 @@ export default function ProjectDetailScreen() {
       nextNotes,
       nextItems,
       nextCategories,
+      nextDeps,
     ] = await Promise.all([
       fetchProjectById(projectId),
       fetchTasks(),
@@ -92,10 +98,12 @@ export default function ProjectDetailScreen() {
       fetchNotes(),
       fetchShoppingItems(),
       fetchShoppingCategories(),
+      fetchDependencies().catch(() => [] as TaskDependency[]),
     ]);
     if (!nextProject) throw new Error("Projeto não encontrado.");
     setProject(nextProject);
     setRows(nextTasks);
+    setDependencies(nextDeps);
     setEvents(nextEvents);
     setNotes(nextNotes);
     setItems(nextItems);
@@ -229,6 +237,7 @@ export default function ProjectDetailScreen() {
     () => rows.filter((task) => task.project_id === projectId),
     [projectId, rows]
   );
+  const ganttProjectTasks = useMemo(() => ganttTasks(projectTasks), [projectTasks]);
   const grouped = useMemo(() => {
     if (!projectId) return emptyAgendaGroups<Task>();
     return groupTasksForList(projectTasks, todayIsoDate());
@@ -317,13 +326,21 @@ export default function ProjectDetailScreen() {
               ) : null}
               {upcomingEvents.map((event) => (
                 <View key={event.id} style={styles.eventRow}>
-                  <ThemedText
-                    type="small"
-                    themeColor="mutedForeground"
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Editar evento ${event.title}`}
                     style={styles.eventTitle}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/tasks/projects/form",
+                        params: { id: project.id, eventId: event.id },
+                      })
+                    }
                   >
-                    {event.title} · {formatEventWhen(event.starts_at)}
-                  </ThemedText>
+                    <ThemedText type="small" themeColor="mutedForeground">
+                      {event.title} · {formatEventWhen(event.starts_at)}
+                    </ThemedText>
+                  </Pressable>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Convidar para ${event.title}`}
@@ -357,6 +374,7 @@ export default function ProjectDetailScreen() {
             options={[
               { id: "lista", label: "Lista" },
               { id: "kanban", label: "Kanban" },
+              { id: "gantt", label: "Gantt" },
               { id: "compras", label: `Compras (${shoppingGroups.reduce((n, g) => n + g.items.length, 0)})` },
               { id: "notas", label: `Notas (${projectNotes.length})` },
             ]}
@@ -387,6 +405,14 @@ export default function ProjectDetailScreen() {
               }
               onMoveStatus={(task, status) => void onMoveStatus(task, status)}
               childrenByParent={childrenByParent}
+            />
+          ) : null}
+          {tab === "gantt" ? (
+            <TasksGantt
+              tasks={ganttProjectTasks}
+              dependencies={dependencies}
+              onDependenciesChange={async () => setDependencies(await fetchDependencies())}
+              onOpenTask={(id) => router.push({ pathname: "/tasks/form", params: { id } })}
             />
           ) : null}
           {tab === "compras" ? (

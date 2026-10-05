@@ -142,6 +142,25 @@ export interface TripItineraryActivity {
   skipped_at?: string | null;
 }
 
+export type TripActivityAssetKind = "file" | "link";
+
+/** Espelha `public.trip_activity_asset` (web, feature 102). Arquivo vive no bucket privado
+ * `trip-assets` e só abre por URL assinada. */
+export interface TripActivityAsset {
+  id: string;
+  trip_id: string;
+  activity_id: string;
+  kind: TripActivityAssetKind;
+  label: string | null;
+  url: string | null;
+  storage_path: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  position: number;
+  created_by_user_id?: string | null;
+  created_at?: string;
+}
+
 export type TripActivityCategory =
   | "restaurant"
   | "cafe"

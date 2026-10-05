@@ -10,6 +10,7 @@ import {
   resolveFixedRenewalRollback,
 } from "@/domain/recurring/constants";
 import { createTransaction, deleteTransaction } from "@/api/finance/transactions";
+import { syncGoalsFromAporteDescription } from "@/api/goals/goals";
 import type { Recurring, RecurringCreateRequest } from "@/types/recurring";
 
 const RECURRING_SELECT =
@@ -388,6 +389,20 @@ export async function updateRecurringParcelPayment(
     await deleteTransaction(transactionId).catch(() => undefined);
     throw error;
   }
+
+  // Meta: best-effort, não bloqueia o feedback de "pago".
+  void (async () => {
+    try {
+      const { data: rec } = await supabase
+        .from("recurring_transaction")
+        .select("description")
+        .eq("id", recurringId)
+        .maybeSingle();
+      if (rec?.description) await syncGoalsFromAporteDescription(rec.description);
+    } catch {
+      /* best-effort */
+    }
+  })();
 
   try {
     await syncLinkedTaskFromInstallment(recurringId, installmentNumber, true);

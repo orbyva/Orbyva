@@ -26,12 +26,14 @@ import {
   fetchSubtasksApi,
   fetchTaskById,
   reopenTaskApi,
+  setTaskDueApi,
   updateTaskApi,
 } from "@/api/tasks/tasks";
 import { ChipBar } from "@/components/ChipBar";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { ColorDots } from "@/components/ColorDots";
 import { TaskMentionsSection } from "@/components/tasks/TaskMentionsSection";
+import { TaskTimeEntriesSection } from "@/components/tasks/TaskTimeEntriesSection";
 import { DateField } from "@/components/DateField";
 import { StringSelectModal } from "@/components/StringSelectModal";
 import { SubtaskFormRow } from "@/components/SubtaskFormRow";
@@ -54,6 +56,8 @@ import {
   sortSubtasks,
 } from "@/domain/tasks/subtasks";
 import { DEFAULT_TAG_COLOR } from "@/domain/dimensions/listView";
+import { computeImmediateSchedule, describeStartNow } from "@/domain/tasks/immediate";
+import { useActiveTimer } from "@/hooks/use-active-timer";
 import { useTheme } from "@/hooks/use-theme";
 import { useFeedback } from "@/hooks/use-toast";
 import { formatDateBR } from "@/lib/currency";
@@ -111,6 +115,10 @@ export default function TaskFormScreen() {
   const [dueDate, setDueDate] = useState<string | null>(todayIsoDate());
   const [dueTime, setDueTime] = useState<string | null>(null);
   const [isQuick, setIsQuick] = useState(false);
+  const [isMilestone, setIsMilestone] = useState(false);
+  const [startingNow, setStartingNow] = useState(false);
+  const [entriesReloadKey, setEntriesReloadKey] = useState(0);
+  const { runningEntry, start: startActiveTimer } = useActiveTimer();
   const [durationMinutes, setDurationMinutes] = useState("");
   const [projectId, setProjectId] = useState<string | null>(paramProjectId);
   const [priority, setPriority] = useState<TaskPriority | null>(null);
@@ -199,6 +207,7 @@ export default function TaskFormScreen() {
           setDueDate(task.due_date);
           setDueTime(task.due_time ?? null);
           setIsQuick(Boolean(task.is_quick));
+          setIsMilestone(Boolean(task.is_milestone));
           setDurationMinutes(
             task.estimated_duration ? String(task.estimated_duration) : ""
           );
@@ -333,6 +342,7 @@ export default function TaskFormScreen() {
         ? null
         : Math.max(0, Number.parseInt(durationMinutes, 10) || 0) || null,
       is_quick: isQuick,
+      is_milestone: isSubtask ? undefined : isMilestone,
       description: description.trim(),
       project_id: projectId,
       priority,
@@ -406,6 +416,42 @@ export default function TaskFormScreen() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onStartNow() {
+    if (!editId || startingNow) return;
+    setStartingNow(true);
+    const stoppedPrevious = Boolean(runningEntry && runningEntry.task_id !== editId);
+    const previousDue = { due_date: dueDate, due_time: dueTime };
+    try {
+      try {
+        await startActiveTimer(editId);
+      } catch (err) {
+        fail(getErrorMessage(err, "Não foi possível iniciar o timer."));
+        return;
+      }
+      const schedule = computeImmediateSchedule({
+        is_quick: isQuick,
+        estimated_duration: Number.parseInt(durationMinutes, 10) || null,
+      });
+      try {
+        await setTaskDueApi(editId, {
+          due_date: schedule.due_date,
+          due_time: schedule.due_time,
+        });
+      } catch (err) {
+        fail(
+          getErrorMessage(err, "Timer iniciado, mas o prazo não foi salvo. Tente de novo.")
+        );
+        return;
+      }
+      setDueDate(schedule.due_date);
+      setDueTime(schedule.due_time);
+      setEntriesReloadKey((key) => key + 1);
+      ok(describeStartNow({ schedule, previousDue, stoppedPrevious }));
+    } finally {
+      setStartingNow(false);
     }
   }
 
@@ -774,6 +820,19 @@ export default function TaskFormScreen() {
             />
           </Field>
 
+          {editId && status !== "done" && !isSubtask ? (
+            <Button
+              label={
+                runningEntry?.task_id === editId ? "Timer rodando nesta tarefa" : "Começar agora"
+              }
+              leftIcon="play"
+              variant="outline"
+              disabled={startingNow || runningEntry?.task_id === editId}
+              loading={startingNow}
+              onPress={() => void onStartNow()}
+            />
+          ) : null}
+
           <Field label="Projeto">
             <Pressable
               onPress={() => setProjectPickerOpen(true)}
@@ -832,6 +891,20 @@ export default function TaskFormScreen() {
                   value={isQuick ? "quick" : "block"}
                   onChange={(id) => setIsQuick(id === "quick")}
                 />
+                {!isSubtask ? (
+                  <View style={styles.chipRow}>
+                    <ChoiceChip
+                      label="Marco"
+                      active={isMilestone}
+                      onPress={() => setIsMilestone((cur) => !cur)}
+                    />
+                    {isMilestone ? (
+                      <ThemedText type="small" themeColor="mutedForeground">
+                        Vira um losango no Gantt, na data do prazo.
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                ) : null}
                 {!isQuick ? (
                   <Input
                     keyboardType="number-pad"
@@ -1166,6 +1239,17 @@ export default function TaskFormScreen() {
             <ThemedText type="small" themeColor="mutedForeground">
               {repeatHint}
             </ThemedText>
+            {editId && (seriesOriginId || medicationId) ? (
+              <Button
+                label="Ver ocorrências"
+                leftIcon="list-outline"
+                variant="outline"
+                size="sm"
+                onPress={() =>
+                  router.push({ pathname: "/tasks/occurrences", params: { id: editId } })
+                }
+              />
+            ) : null}
           </Field>
           </FormSection>
           ) : null}
@@ -1342,6 +1426,8 @@ export default function TaskFormScreen() {
             />
           </Field>
           </FormSection>
+
+          {editId ? <TaskTimeEntriesSection taskId={editId} reloadKey={entriesReloadKey} /> : null}
 
           {editId ? <TaskMentionsSection taskId={editId} /> : null}
 

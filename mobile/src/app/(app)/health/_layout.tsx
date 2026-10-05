@@ -39,6 +39,8 @@ export default function HealthStackLayout() {
         }}
       />
       <Stack.Screen name="reminders" options={{ title: "Lembretes" }} />
+      <Stack.Screen name="progress" options={{ title: "Progresso" }} />
+      <Stack.Screen name="consultations" options={{ title: "Consultas" }} />
       <Stack.Screen
         name="metric-form"
         options={{

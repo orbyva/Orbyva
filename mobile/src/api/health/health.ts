@@ -486,6 +486,68 @@ export async function recordHealthMetric(
   return data as HealthMetric;
 }
 
+export async function fetchHealthMetricById(id: string): Promise<HealthMetric | null> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("health_metric")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as HealthMetric | null) ?? null;
+}
+
+/** Valor, data ou observação de uma medição já gravada — o tipo não muda, como no web. */
+export async function updateHealthMetric(input: {
+  id: string;
+  value?: number;
+  recorded_date?: string;
+  notes?: string | null;
+}): Promise<HealthMetric> {
+  const userId = await getCurrentUserId();
+  const payload: { value?: number; recorded_date?: string; notes?: string | null } = {};
+  if (input.value !== undefined) payload.value = input.value;
+  if (input.recorded_date !== undefined) payload.recorded_date = input.recorded_date;
+  if (input.notes !== undefined) payload.notes = input.notes?.trim() ? input.notes.trim() : null;
+  const { data, error } = await supabase
+    .from("health_metric")
+    .update(payload)
+    .eq("id", input.id)
+    .eq("user_id", userId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as HealthMetric;
+}
+
+export async function deleteHealthMetric(id: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("health_metric")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
+const CONSULTATION_HISTORY_LIMIT = 100;
+
+/** Todas as consultas, pendentes e já comparecidas, mais recentes primeiro — histórico inteiro. */
+export async function fetchConsultationTasks(): Promise<Task[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("task")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_consultation", true)
+    .order("due_date", { ascending: false, nullsFirst: false })
+    .order("due_time", { ascending: false, nullsFirst: false })
+    .limit(CONSULTATION_HISTORY_LIMIT);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Task[];
+}
+
 export async function fetchReminderPreferences(): Promise<ReminderPreference[]> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase

@@ -34,6 +34,8 @@ export interface Task {
   medication_id?: string | null;
   dose_time?: string | null;
   is_quick?: boolean;
+  is_milestone?: boolean;
+  start_date?: string | null;
   is_medication?: boolean;
   is_consultation?: boolean;
   icon_key?: string | null;
@@ -57,6 +59,12 @@ export interface Tag {
 export interface TaskExternalLinkDraft {
   url: string;
   comment?: string | null;
+}
+
+/** `task_id` depende de `depends_on_task_id` (este precisa terminar antes daquele começar). */
+export interface TaskDependency {
+  task_id: string;
+  depends_on_task_id: string;
 }
 
 export interface ProjectEvent {

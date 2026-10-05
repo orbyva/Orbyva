@@ -8,7 +8,7 @@ import { sortSubtasks } from "@/domain/tasks/subtasks";
 import type { RecurrenceRule, Task, TaskPriority, TaskStatus } from "@/types/tasks";
 
 const TASK_SELECT =
-  "id, title, description, status, due_date, due_time, estimated_duration, completed_at, parent_task_id, project_id, priority, recurrence_rule, recurrence_origin_id, linked_recurring_id, linked_shopping_item_id, linked_installment_number, tag_ids, medication_id, dose_time, is_quick, is_medication, is_consultation, icon_key, icon_url";
+  "id, title, description, status, due_date, due_time, estimated_duration, completed_at, parent_task_id, project_id, priority, recurrence_rule, recurrence_origin_id, linked_recurring_id, linked_shopping_item_id, linked_installment_number, tag_ids, medication_id, dose_time, is_quick, is_milestone, start_date, is_medication, is_consultation, icon_key, icon_url";
 
 export type TaskWriteInput = {
   title: string;
@@ -16,6 +16,7 @@ export type TaskWriteInput = {
   due_time?: string | null;
   estimated_duration?: number | null;
   is_quick?: boolean;
+  is_milestone?: boolean;
   description?: string;
   project_id?: string | null;
   priority?: TaskPriority | null;
@@ -146,7 +147,7 @@ export async function createTaskApi(input: TaskWriteInput): Promise<Task> {
         linked_recurring_id: null,
         icon_key: null,
         icon_url: null,
-        is_milestone: false,
+        is_milestone: input.is_milestone ?? false,
         is_quick: input.is_quick ?? false,
         is_medication: false,
         is_consultation: input.is_consultation ?? false,
@@ -179,6 +180,7 @@ export async function updateTaskApi(
           }
         : {}),
       ...(input.project_id !== undefined ? { project_id: input.project_id } : {}),
+      ...(input.is_milestone !== undefined ? { is_milestone: input.is_milestone } : {}),
       priority: input.priority ?? null,
       ...(input.status ? { status: input.status } : {}),
       ...(input.tag_ids ? { tag_ids: input.tag_ids } : {}),
@@ -336,6 +338,19 @@ export async function setTaskStatusApi(
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
   await syncTaskSideEffects(id, userId, status);
+}
+
+export async function setTaskDueApi(
+  id: string,
+  due: { due_date: string | null; due_time: string | null }
+): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("task")
+    .update({ ...due, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteTaskSeriesApi(originId: string): Promise<void> {

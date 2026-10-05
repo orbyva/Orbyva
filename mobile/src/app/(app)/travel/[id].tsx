@@ -42,6 +42,8 @@ import {
   updateTripMilestone,
 } from "@/api/travel/travel";
 import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
+import { ActivityAssetsSheet } from "@/components/travel/ActivityAssetsSheet";
+import { fetchAssetsForTrip } from "@/api/travel/activityAssets";
 import { TripShareStoryCard } from "@/components/share/TripShareStoryCard";
 import { ChipBar } from "@/components/ChipBar";
 import { ChoiceChip } from "@/components/ChoiceChip";
@@ -115,6 +117,7 @@ import { getTripAccess, type TripAccess } from "@/lib/tripAccess";
 import type { PlaceType, PlaceVisit } from "@/types/places";
 import type {
   Trip,
+  TripActivityAsset,
   TripExpense,
   TripInvite,
   TripItineraryActivity,
@@ -187,6 +190,8 @@ export default function TripDetailScreen() {
   const [members, setMembers] = useState<TripMember[]>([]);
   const [milestones, setMilestones] = useState<TripMilestone[]>([]);
   const [access, setAccess] = useState<TripAccess | null>(null);
+  const [assetsByActivity, setAssetsByActivity] = useState<Record<string, TripActivityAsset[]>>({});
+  const [assetsActivity, setAssetsActivity] = useState<{ id: string; title: string } | null>(null);
   const [routes, setRoutes] = useState<
     { from: string; to: string; leg: RouteLegResult | null }[]
   >([]);
@@ -304,6 +309,9 @@ export default function TripDetailScreen() {
       getTripAccess(id),
       fetchPlaces().catch(() => []),
     ]);
+    void fetchAssetsForTrip(id)
+      .then(setAssetsByActivity)
+      .catch(() => {});
     setTrip(row);
     setStops(nextStops);
     setDays(nextDays);
@@ -1314,6 +1322,27 @@ export default function TripDetailScreen() {
                           ) : null}
                         </Pressable>
                         <Pressable
+                          accessibilityLabel={`Anexos de ${act.title}`}
+                          hitSlop={8}
+                          onPress={() => setAssetsActivity({ id: act.id, title: act.title })}
+                          style={styles.assetButton}
+                        >
+                          <Ionicons
+                            name="attach-outline"
+                            size={18}
+                            color={
+                              (assetsByActivity[act.id]?.length ?? 0) > 0
+                                ? theme.primary
+                                : theme.mutedForeground
+                            }
+                          />
+                          {(assetsByActivity[act.id]?.length ?? 0) > 0 ? (
+                            <ThemedText type="small" style={{ color: theme.primary }}>
+                              {assetsByActivity[act.id].length}
+                            </ThemedText>
+                          ) : null}
+                        </Pressable>
+                        <Pressable
                           accessibilityLabel="Excluir do roteiro"
                           hitSlop={8}
                           onPress={() => {
@@ -1828,6 +1857,14 @@ export default function TripDetailScreen() {
           )}
         />
       ) : null}
+      <ActivityAssetsSheet
+        tripId={id}
+        activity={assetsActivity}
+        onClose={() => setAssetsActivity(null)}
+        onChanged={(activityId, assets) =>
+          setAssetsByActivity((cur) => ({ ...cur, [activityId]: assets }))
+        }
+      />
       </View>
     </ThemedView>
   );
@@ -1835,6 +1872,7 @@ export default function TripDetailScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  assetButton: { flexDirection: "row", alignItems: "center", gap: 2 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   body: { padding: Spacing.four, gap: Spacing.three },
   card: { padding: Spacing.three, gap: Spacing.two },

@@ -1,6 +1,11 @@
 import { getCurrentUserId } from "@/lib/auth-user";
 import { supabase } from "@/lib/supabase";
-import { sumAporteProgress } from "@/domain/goals/finance";
+import {
+  matchesGoalAporte,
+  matchesGoalMetaClass,
+  resolveSyncedGoalProgress,
+  sumAporteProgress,
+} from "@/domain/goals/finance";
 import type { PersonalGoal, PersonalGoalCreateRequest } from "@/types/goals";
 
 function asOne<T>(value: T | T[] | null | undefined): T | null {
@@ -104,6 +109,27 @@ export async function sumGoalAporteFromLedger(goalTitle: string): Promise<number
     })),
     title
   );
+}
+
+/**
+ * Recalcula pelo razão as metas financeiras ativas citadas na descrição de um aporte pago — par de
+ * `syncGoalsFromAporteDescription` do web.
+ */
+export async function syncGoalsFromAporteDescription(description: string): Promise<void> {
+  const goals = await fetchGoals();
+  for (const goal of goals) {
+    if (goal.category !== "financial" || goal.status !== "active") continue;
+    if (
+      !matchesGoalAporte(description, goal.title) &&
+      !matchesGoalMetaClass(description, goal.title)
+    ) {
+      continue;
+    }
+    const summed = await sumGoalAporteFromLedger(goal.title);
+    const resolved = resolveSyncedGoalProgress(goal.current_value, summed, goal.target_value);
+    if (!resolved.changed) continue;
+    await updateGoalProgress(goal.id, resolved.next);
+  }
 }
 
 export async function deleteGoal(id: string): Promise<void> {

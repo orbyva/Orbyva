@@ -15,6 +15,7 @@ import {
   createProjectEventApi,
   deleteProjectEventApi,
   fetchProjectEvents,
+  updateProjectEventApi,
 } from "@/api/tasks/events";
 import {
   createProjectApi,
@@ -32,7 +33,7 @@ import { Radius, Spacing } from "@/constants/theme";
 import { CATEGORY_COLORS } from "@/domain/dimensions/listView";
 import { todayIsoDate } from "@/domain/tasks/listView";
 import { useTheme } from "@/hooks/use-theme";
-import { formatEventWhen, formatLocalIsoDateTime } from "@/lib/dates";
+import { formatEventWhen, formatLocalIsoDate, formatLocalIsoDateTime } from "@/lib/dates";
 import { getErrorMessage } from "@/lib/errors";
 import {
   PROJECT_STATUS_LABELS,
@@ -48,7 +49,8 @@ export default function ProjectFormScreen() {
   const theme = useTheme();
   const router = useRouter();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; eventId?: string }>();
+  const initialEventId = typeof params.eventId === "string" ? params.eventId : null;
   const editId =
     typeof params.id === "string" && params.id.length > 0 ? params.id : null;
 
@@ -61,6 +63,7 @@ export default function ProjectFormScreen() {
   const [eventTitle, setEventTitle] = useState("");
   const [eventDate, setEventDate] = useState(todayIsoDate());
   const [eventTime, setEventTime] = useState("09:00");
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,6 +85,10 @@ export default function ProjectFormScreen() {
         setColor(project.color ?? CATEGORY_COLORS[2]);
         setStatus(project.status);
         setEvents(nextEvents);
+        const target = initialEventId
+          ? nextEvents.find((event) => event.id === initialEventId)
+          : undefined;
+        if (target) startEditEvent(target);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -94,7 +101,8 @@ export default function ProjectFormScreen() {
     return () => {
       cancelled = true;
     };
-  }, [editId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- carga única por projeto
+  }, [editId, initialEventId]);
 
   async function onSave() {
     const trimmed = name.trim();
@@ -165,23 +173,62 @@ export default function ProjectFormScreen() {
     );
   }
 
-  async function addEvent() {
+  function startEditEvent(event: ProjectEvent) {
+    const when = new Date(event.starts_at);
+    setEditingEventId(event.id);
+    setEventTitle(event.title);
+    setEventDate(formatLocalIsoDate(when));
+    setEventTime(
+      `${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}`
+    );
+  }
+
+  function cancelEditEvent() {
+    setEditingEventId(null);
+    setEventTitle("");
+    setEventDate(todayIsoDate());
+    setEventTime("09:00");
+  }
+
+  async function submitEvent() {
     if (!editId) return;
     const trimmed = eventTitle.trim();
     if (!trimmed) {
       setError("Informe o título do evento.");
       return;
     }
+    const startsAt = formatLocalIsoDateTime(eventDate, eventTime);
     try {
+      if (editingEventId) {
+        const updated = await updateProjectEventApi({
+          id: editingEventId,
+          title: trimmed,
+          startsAt,
+        });
+        setEvents((cur) =>
+          cur
+            .map((row) => (row.id === updated.id ? updated : row))
+            .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+        );
+        cancelEditEvent();
+        return;
+      }
       const created = await createProjectEventApi({
         projectId: editId,
         title: trimmed,
-        startsAt: formatLocalIsoDateTime(eventDate, eventTime),
+        startsAt,
       });
       setEvents((cur) => [...cur, created]);
       setEventTitle("");
     } catch (err) {
-      setError(getErrorMessage(err, "Não foi possível criar o evento."));
+      setError(
+        getErrorMessage(
+          err,
+          editingEventId
+            ? "Não foi possível salvar o evento."
+            : "Não foi possível criar o evento."
+        )
+      );
     }
   }
 
@@ -196,6 +243,7 @@ export default function ProjectFormScreen() {
             try {
               await deleteProjectEventApi(event.id);
               setEvents((cur) => cur.filter((row) => row.id !== event.id));
+              if (editingEventId === event.id) cancelEditEvent();
             } catch (err) {
               setError(
                 getErrorMessage(err, "Não foi possível excluir o evento.")
@@ -292,12 +340,23 @@ export default function ProjectFormScreen() {
               ) : (
                 events.map((event) => (
                   <View key={event.id} style={styles.eventRow}>
-                    <View style={styles.flex}>
-                      <ThemedText type="smallBold">{event.title}</ThemedText>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Editar evento ${event.title}`}
+                      onPress={() => startEditEvent(event)}
+                      style={styles.flex}
+                    >
+                      <ThemedText
+                        type="smallBold"
+                        themeColor={editingEventId === event.id ? "primary" : undefined}
+                      >
+                        {event.title}
+                      </ThemedText>
                       <ThemedText type="small" themeColor="mutedForeground">
                         {formatEventWhen(event.starts_at)}
+                        {editingEventId === event.id ? " · editando" : " · toque para editar"}
                       </ThemedText>
-                    </View>
+                    </Pressable>
                     <Button
                       label="Excluir"
                       onPress={() => removeEvent(event)}
@@ -321,10 +380,13 @@ export default function ProjectFormScreen() {
                 onChange={setEventTime}
               />
               <Button
-                label="Adicionar evento"
-                onPress={() => void addEvent()}
+                label={editingEventId ? "Salvar evento" : "Adicionar evento"}
+                onPress={() => void submitEvent()}
                 variant="outline"
               />
+              {editingEventId ? (
+                <Button label="Cancelar edição" onPress={cancelEditEvent} variant="ghost" />
+              ) : null}
             </View>
           ) : (
             <ThemedText type="small" themeColor="mutedForeground">
