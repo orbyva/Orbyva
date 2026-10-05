@@ -37,9 +37,13 @@ export function PublicPageShell({
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(14,165,233,0.22),transparent_55%)]"
       />
 
+      {/* `py-5` quebrado em `pb-5` + `pt-[1.25rem + inset]`: trocar o `py` só pelo `pt` perderia o
+          padding de baixo. Cobre de uma vez `/about`, `/terms`, `/privacy`,
+          `/dentro-do-orcamento` e as páginas de marketing/blog, alcançáveis pelo rodapé sem sair
+          do PWA instalado. */}
       <header
         className={cn(
-          "relative z-10 mx-auto flex w-full items-center justify-between px-5 py-5",
+          "relative z-10 mx-auto flex w-full items-center justify-between px-5 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top,0px))]",
           maxW
         )}
       >

@@ -259,7 +259,9 @@ export default function Landing() {
       </a>
       <LandingAtmosphere />
 
-      <header className="relative z-20 px-4 pt-4 sm:px-6">
+      {/* Mesmo header-pílula do `/login`: o logo do app leva para `/` sem sair do PWA instalado,
+          então esta tela também precisa descontar o inset de topo. O inset SOMA ao `pt-4`. */}
+      <header className="relative z-20 px-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] sm:px-6">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 rounded-full border border-white/10 bg-[var(--landing-bg)]/80 px-2 pl-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md sm:px-3">
           <Link to="/" aria-label={BRAND.name} className="inline-flex shrink-0">
             <BrandLogo

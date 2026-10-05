@@ -14,7 +14,11 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
+      // O `p-4` do mobile vira `px-4 pb-4 pt-[1rem + inset]`: a viewport é `fixed top-0` e não
+      // herda o padding do shell, então o primeiro toast da pilha nasceria sob a status bar do iOS.
+      // O inset SOMA ao padding de antes, e `sm:top-auto`/`sm:bottom-0` ficam intactos — no desktop
+      // a viewport é de baixo e nada muda.
+      "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
       className
     )}
     {...props}

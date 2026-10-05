@@ -32,7 +32,14 @@ describe("Orb — layout do composer", () => {
     );
     const shell = container.querySelector("main");
     expect(shell?.className).toMatch(/overflow-hidden/);
-    expect(shell?.className).toMatch(/max-h-\[calc\(100dvh/);
+    // Exige o termo do inset: o teto sem `env(safe-area-inset-top)` fica maior que a altura útil
+    // no iPhone instalado (o shell desceu ~59px) e o composer volta para baixo da dobra.
+    expect(shell?.className).toMatch(
+      /max-h-\[calc\(100dvh-3\.5rem-env\(safe-area-inset-top/
+    );
+    expect(shell?.className).toMatch(
+      /max-md:max-h-\[calc\(100dvh-3rem-env\(safe-area-inset-top/
+    );
     expect(shell?.className).toMatch(/max-w-none/);
     expect(shell?.className).toMatch(/\[&>section\]:shrink-0/);
   });

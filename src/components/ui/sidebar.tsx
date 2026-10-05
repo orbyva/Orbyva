@@ -206,7 +206,13 @@ const Sidebar = React.forwardRef<
             }
             side={side}
           >
-            <div className="flex h-full w-full flex-col">{children}</div>
+            {/* Os insets do iOS entram no conteúdo do `SheetContent`, não nele: o pai carrega
+                `p-0` e o `--sidebar-width`. Topo: o `TeamSwitcher` ficaria sob a status bar e sem
+                toque. Base: o `NavUser` encosta no home indicator. Overlay `fixed` não herda o
+                padding do shell, então a conta é repetida aqui de propósito. */}
+            <div className="flex h-full w-full flex-col pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
+              {children}
+            </div>
           </SheetContent>
         </Sheet>
       )

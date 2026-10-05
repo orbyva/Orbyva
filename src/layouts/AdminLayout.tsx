@@ -200,7 +200,12 @@ export default function AdminLayout() {
       <SidebarMobileCloser />
       <BreadcrumbTitleProvider>
       <ActiveTimerProvider>
-        <SidebarInset>
+        {/* Inset de topo do iOS entra AQUI, não no `<header>`: o "primeiro de cima" muda com o
+            estado (banner offline, banner de trial ou o header), e este é o único ponto que cobre
+            os três sem repetir a conta. O `min-h` desconta o mesmo inset junto com o padding —
+            padding sem desconto troca o bug de toque por ~59px de rolagem fantasma em toda página.
+            Em aba do Safari, Android e desktop o `env()` resolve 0 e nada muda. */}
+        <SidebarInset className="pt-[env(safe-area-inset-top,0px)] min-h-[calc(100svh-env(safe-area-inset-top,0px))]">
           <OfflineOutboxHost />
           {isTrialActive && trialDaysLeft <= 2 && !onAccount ? (
             <div
