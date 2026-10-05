@@ -93,14 +93,15 @@ function PhoneFrame({
   );
 }
 
-function PhoneSlotFallback() {
+/**
+ * O hub já pinta aqui: esperar o chunk do carrossel (+ framer-motion) para mostrar o <img>
+ * empurrava o LCP em ~6s de render delay no Lighthouse mobile.
+ */
+function PhoneSlotFallback({ screen }: { screen: PhoneScreen }) {
   return (
     <div className="relative w-full select-none">
       <div className="relative" style={SLOT_STYLE}>
-        <div
-          className={FRAME_CLASS}
-          style={{ width: "100%", height: "100%", aspectRatio: "390 / 843" }}
-        />
+        <PhoneFrame screen={screen} priority={screen.src === HUB_SRC} />
       </div>
       <div style={{ height: CHROME_H }} aria-hidden />
     </div>
@@ -133,7 +134,7 @@ export default function PhoneMockupBasic({
 
   return (
     <div className={cn("relative w-full", className)}>
-      <Suspense fallback={<PhoneSlotFallback />}>
+      <Suspense fallback={<PhoneSlotFallback screen={first} />}>
         <PhoneCarousel
           screens={screens}
           intervalMs={intervalMs}

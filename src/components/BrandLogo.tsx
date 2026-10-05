@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { BRAND } from "@/lib/brand";
 
 type BrandLogoProps = {
-  /** `full` = lockup completo; `mark` = ícone órbita; `favicon` = PNG transparente do favicon */
+  /** `full` = lockup completo; `mark` = ícone órbita; `favicon` = desenho transparente do favicon (WebP 128px) */
   variant?: "full" | "mark" | "favicon";
   className?: string;
   alt?: string;
@@ -11,7 +11,7 @@ type BrandLogoProps = {
 const SOURCES = {
   full: BRAND.logo,
   mark: BRAND.logoMark,
-  favicon: BRAND.favicon,
+  favicon: BRAND.faviconSmall,
 } as const;
 
 export function BrandLogo({

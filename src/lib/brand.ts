@@ -16,6 +16,8 @@ export const BRAND = {
   logoMark: "/logo-mark.webp",
   /** O mesmo PNG do `<link rel="icon">` do `index.html` (loader / extensão). */
   favicon: "/logo-mark.png",
+  /** Mesmo desenho do favicon em 128px: o PNG de 1024px pesa 148 KB para um ícone de 32px. */
+  faviconSmall: "/logo-mark-128.webp",
   /** Mark só no sky, fundo transparente (login / fundo escuro). */
   logoMarkSky: "/logo-mark-sky.png",
   email: "orbyva@gmail.com",
