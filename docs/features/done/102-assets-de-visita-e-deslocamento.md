@@ -120,8 +120,8 @@ de assets aqui; a última tarefa registra isso como pendência própria, não co
 - [x] Campo "Embarque" no `TripEditActivityDialog` (só nos modos com embarque) + exibição no card
 - [x] `npm run lint` (0 erros), `npm test` (3856 testes / 336 arquivos), `npm run build` verdes
 - [ ] Rodar `bash supabase/tests/trip_activity_asset/run.sh` (precisa de Docker — ver Notas)
-- [ ] Rodar `supabase db push` (pedir confirmação ao usuário antes — é banco remoto)
-- [ ] Levar a tela de assets para o app nativo (`mobile/`) — fora do escopo desta feature
+- [x] Rodar `supabase db push` (rodado pelo usuário em 06/10/26; conferido em `supabase migration list`)
+- [x] Levar a tela de assets para o app nativo (`mobile/`) — feito na 254
 
 ## Prompts
 
