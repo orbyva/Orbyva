@@ -46,11 +46,13 @@ import type {
   TaskPriority,
   TaskStatus,
 } from "@/types/tasks";
+import type { Note } from "@/types/notes";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { contrastTextColor } from "@/lib/color";
 import { TaskIconBadge } from "./TaskIconBadge";
+import { TaskNotesButton } from "./TaskNotesButton";
 import { TaskQuickFields } from "./TaskQuickFields";
 import { TaskStartNowButton } from "./TaskStartNowButton";
 import { TaskDescriptionSnippet } from "./TaskDescriptionSnippet";
@@ -224,6 +226,7 @@ export function TaskListRow({
   onProjectChange,
   projects,
   externalLinksByTask,
+  notesByTask,
   isNested = false,
   subtaskActions,
 }: {
@@ -286,6 +289,11 @@ export function TaskListRow({
    * `subtasksByParent`. Ausente = nenhum chip; nada é buscado aqui (uma consulta por linha seria
    * uma ida ao banco por tarefa a cada render). */
   externalLinksByTask?: Record<string, TaskExternalLink[]>;
+  /** Notas vinculadas por tarefa (feature 255), carregadas em **lote** pelo dono da página
+   * (`fetchNotesLinkedToMany("task", ids)` no `load()`) — mesmo formato e mesmo motivo de
+   * `externalLinksByTask`: é o mapa inteiro porque a linha aninhada da subtarefa é esta mesma
+   * `TaskListRow` e precisa das dela. Ausente ou sem nota = nenhum ícone; nada é buscado aqui. */
+  notesByTask?: Record<string, Note[]>;
   /** `true` = esta linha é uma subtarefa renderizada aninhada sob a linha da tarefa-mãe (feature
    * 046): aplica indentação/borda visual distinta e desliga `ExpandSubtasksButton`/o próprio
    * aninhamento (sem sub-subtarefas — modelo de 2 níveis já estabelecido pela feature 036). */
@@ -408,6 +416,7 @@ export function TaskListRow({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <TaskNotesButton notes={notesByTask?.[task.id] ?? []} />
           {onToggleTimer && !done && (
             <Button
               variant="ghost"
@@ -490,6 +499,7 @@ export function TaskListRow({
                   : undefined
               }
               externalLinksByTask={externalLinksByTask}
+              notesByTask={notesByTask}
               isNested
             />
           ))}
@@ -528,6 +538,7 @@ export function CompletedTasksSection({
   onProjectChange,
   projects,
   externalLinksByTask,
+  notesByTask,
   subtaskActions,
 }: {
   tasks: Task[];
@@ -557,6 +568,8 @@ export function CompletedTasksSection({
   projects?: Project[];
   /** Repassado direto a cada `TaskListRow` — o mesmo mapa em lote da feature 085. */
   externalLinksByTask?: Record<string, TaskExternalLink[]>;
+  /** Repassado direto a cada `TaskListRow` — o mesmo mapa em lote da feature 255. */
+  notesByTask?: Record<string, Note[]>;
   /** Repassado direto a cada `TaskListRow` — já vem parametrizado por tarefa (feature 046), mesmo
    * formato que os handlers acima, só sem precisar de wrapping aqui. */
   subtaskActions?: SubtaskRowActions;
@@ -607,6 +620,7 @@ export function CompletedTasksSection({
             }
             projects={projects}
             externalLinksByTask={externalLinksByTask}
+            notesByTask={notesByTask}
             subtaskActions={subtaskActions}
           />
         ))}
@@ -775,6 +789,7 @@ export function KanbanCard({
   onProjectChange,
   projects,
   externalLinksByTask,
+  notesByTask,
   subtaskActions,
 }: {
   task: Task;
@@ -818,6 +833,9 @@ export function KanbanCard({
   /** Links externos por tarefa (feature 085), carregados em lote pelo dono da página — mesmo mapa
    * que `TaskListRow` recebe. */
   externalLinksByTask?: Record<string, TaskExternalLink[]>;
+  /** Notas vinculadas por tarefa (feature 255), carregadas em lote pelo dono da página — mesmo
+   * mapa que `TaskListRow` recebe. */
+  notesByTask?: Record<string, Note[]>;
   /** Handlers de quick action parametrizados por subtarefa (mesma interface que `TaskListRow`
    * usa desde a feature 046) — presente = mini-card de subtarefa ganha status editável (Select,
    * sem mudar de coluna) e ícone/prioridade/prazo clicáveis; ausente = cai pro visual
@@ -873,6 +891,7 @@ export function KanbanCard({
           <p className="min-w-0 truncate text-sm font-medium">{task.title}</p>
         </div>
         <div className="flex shrink-0 gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <TaskNotesButton notes={notesByTask?.[task.id] ?? []} size="card" />
           {onToggleTimer && task.status !== "done" && (
             <Button
               variant="ghost"

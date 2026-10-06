@@ -77,6 +77,7 @@ import {
 import { fetchRecurringTransactions } from "@/api/recurring";
 import { countShoppingCategoriesByProject } from "@/api/shopping/categories";
 import { countNotesByProject } from "@/api/notes/notes";
+import { fetchNotesLinkedToMany } from "@/api/notes/noteLinks";
 import {
   AGENDA_BUCKET_LABELS,
   AGENDA_BUCKET_ORDER,
@@ -114,6 +115,7 @@ import type {
   TaskStatus,
 } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
+import type { Note } from "@/types/notes";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
 import { useStartTaskNow } from "@/hooks/useStartTaskNow";
@@ -185,6 +187,9 @@ export default function ProjectDetail() {
   const [externalLinksByTask, setExternalLinksByTask] = useState<Record<string, TaskExternalLink[]>>(
     {}
   );
+  /** Notas vinculadas de todas as tarefas do projeto (feature 255), numa consulta só por `load()` —
+   * mesma carga em lote dos links externos, pelo mesmo motivo. */
+  const [notesByTask, setNotesByTask] = useState<Record<string, Note[]>>({});
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   /**
    * A aba ativa mora na URL (`?tab=`), não em `useState` — mesmo idioma do filtro por projeto da
@@ -288,6 +293,17 @@ export default function ProjectDetail() {
         setExternalLinksByTask(await fetchExternalLinksForTasks(projectTasks.map((t) => t.id)));
       } catch {
         setExternalLinksByTask({});
+      }
+      // Feature 255: idem para o ícone de nota da linha.
+      try {
+        setNotesByTask(
+          await fetchNotesLinkedToMany(
+            "task",
+            projectTasks.map((t) => t.id)
+          )
+        );
+      } catch {
+        setNotesByTask({});
       }
     } catch (error) {
       toast({
@@ -954,6 +970,7 @@ export default function ProjectDetail() {
                                 onDueChange={(next) => handleDueChange(task.id, next)}
                                 onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
                                 externalLinksByTask={externalLinksByTask}
+                                notesByTask={notesByTask}
                                 subtaskActions={subtaskActions}
                               />
                             );
@@ -1041,6 +1058,7 @@ export default function ProjectDetail() {
                                 onDueChange={(next) => handleDueChange(task.id, next)}
                                 onDueOpenChange={(open) => handleDueOpenChange(task.id, open)}
                                 externalLinksByTask={externalLinksByTask}
+                                notesByTask={notesByTask}
                                 subtaskActions={subtaskActions}
                               />
                             ))}
@@ -1073,6 +1091,7 @@ export default function ProjectDetail() {
                       onDueChange={(task, next) => handleDueChange(task.id, next)}
                       onDueOpenChange={(task, open) => handleDueOpenChange(task.id, open)}
                       externalLinksByTask={externalLinksByTask}
+                      notesByTask={notesByTask}
                       subtaskActions={subtaskActions}
                       extraActions={(task) =>
                         !task.linked_recurring_id ? (
