@@ -4,7 +4,8 @@ prompt: |-
   ícone de notas posicionado no início do grupo de ações da linha] quero o ícone de notas, expanda
   se tiver mais de uma nota, e vá direto para as notas daquela tarefa já implemente e suba
 commits:
-pr:
+  - 5fdebc1 — feat(tasks): ícone de notas na linha da tarefa (255)
+pr: "#14 — feat(tasks): ícone de notas na linha da tarefa (255)"
 ---
 
 # 255 — Ícone de notas na linha da tarefa
