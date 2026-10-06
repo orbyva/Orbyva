@@ -178,7 +178,7 @@ export function TripItineraryComposer({
   return (
     <View style={styles.body}>
       <ThemedText type="smallBold">
-        {kind === "visit" ? "Nova visita" : "Novo deslocamento"}
+        {kind === "visit" ? "Novo evento" : "Novo deslocamento"}
       </ThemedText>
       {kind === "visit" ? (
         <>
@@ -322,7 +322,7 @@ export function TripItineraryComposer({
         </>
       )}
       <Button
-        label={kind === "visit" ? "Adicionar visita" : "Adicionar deslocamento"}
+        label={kind === "visit" ? "Adicionar evento" : "Adicionar deslocamento"}
         loading={busy}
         disabled={busy}
         onPress={() => void onSubmit()}

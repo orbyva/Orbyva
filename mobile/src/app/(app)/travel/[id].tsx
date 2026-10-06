@@ -429,7 +429,7 @@ export default function TripDetailScreen() {
     const next = current === "pending" ? "completed" : "pending";
     patchVisitStatusLocal(act.id, next);
     void setItineraryVisitStatus(act.id, next).catch((err) => {
-      fail(getErrorMessage(err, "Não foi possível atualizar a visita."));
+      fail(getErrorMessage(err, "Não foi possível atualizar o evento."));
       void fetchTripItinerary(id).then(setDays).catch(() => undefined);
     });
   }
@@ -475,7 +475,7 @@ export default function TripDetailScreen() {
 
     if (sourceDay.id === targetDayId && moving.activity_time) {
       fail(
-        "Visitas com horário mudam de dia, mas a ordem no dia segue o relógio."
+        "Eventos com horário mudam de dia, mas a ordem no dia segue o relógio."
       );
       return;
     }
@@ -534,7 +534,7 @@ export default function TripDetailScreen() {
         })
       )
     ).catch((err) => {
-      fail(getErrorMessage(err, "Não foi possível mover a visita."));
+      fail(getErrorMessage(err, "Não foi possível mover o evento."));
       void fetchTripItinerary(id).then(setDays);
     });
   }
@@ -1146,7 +1146,7 @@ export default function TripDetailScreen() {
                   ) : null}
                   {(day.activities ?? []).length === 0 ? (
                     <ThemedText type="small" themeColor="mutedForeground">
-                      Nenhuma visita neste dia.
+                      Nenhum evento neste dia.
                     </ThemedText>
                   ) : null}
                   {sortVisitsForDay(day.activities ?? []).map((act) => {
@@ -1349,7 +1349,7 @@ export default function TripDetailScreen() {
                             Alert.alert(
                               transfer
                                 ? "Excluir este deslocamento?"
-                                : "Excluir esta visita?",
+                                : "Excluir este evento?",
                               act.title,
                               [
                                 { text: "Cancelar", style: "cancel" },
@@ -1400,7 +1400,7 @@ export default function TripDetailScreen() {
                   })}
                   <View style={styles.addRow}>
                     <Button
-                      label="Adicionar visita"
+                      label="Adicionar evento"
                       onPress={() =>
                         setAddingFor({ dayId: day.id, kind: "visit" })
                       }
@@ -1476,7 +1476,7 @@ export default function TripDetailScreen() {
                 />
                 {isTransportActivity(editingActivity) ? null : (
                   <Input
-                    placeholder="Observação da visita — opcional"
+                    placeholder="Observação do evento — opcional"
                     value={editNotes}
                     onChangeText={setEditNotes}
                   />
@@ -1835,7 +1835,7 @@ export default function TripDetailScreen() {
         ]}
       >
         <ThemedText type="smallBold" numberOfLines={2}>
-          {draggingAct?.title ?? draggingSavedPlace?.name ?? "Visita"}
+          {draggingAct?.title ?? draggingSavedPlace?.name ?? "Evento"}
         </ThemedText>
       </Animated.View>
       {trip ? (

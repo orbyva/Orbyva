@@ -136,10 +136,10 @@ export function TripEditActivityDialog({
   const dialogTitle = isCreate
     ? form.category === "transport"
       ? "Adicionar deslocamento"
-      : "Adicionar visita"
+      : "Adicionar evento"
     : form.category === "transport"
       ? "Editar deslocamento"
-      : "Editar visita";
+      : "Editar evento";
 
   async function fetchDurationSeconds(): Promise<number | null> {
     const routesMode = routesModeForTransport(transportMode);

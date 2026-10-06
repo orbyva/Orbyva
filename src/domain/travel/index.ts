@@ -70,7 +70,7 @@ export const MILESTONE_TYPE_LABELS: Record<string, string> = {
   other: "Outro",
 };
 
-/** Tipos de visita no roteiro, lugares + deslocamento entre cidades. */
+/** Tipos de evento no roteiro, lugares + deslocamento entre cidades. */
 export const ACTIVITY_CATEGORY_LABELS: Record<TripActivityCategory, string> = {
   ...PLACE_TYPE_LABELS,
   transport: "Deslocamento",

@@ -51,7 +51,7 @@ type Props = {
 };
 
 /**
- * Os assets de uma linha do roteiro (feature 102) — arquivos e links de uma visita ou de um
+ * Os assets de uma linha do roteiro (feature 102) — arquivos e links de um evento ou de um
  * deslocamento.
  *
  * Por que um diálogo próprio, e não um campo no `TripEditActivityDialog`: upload precisa de

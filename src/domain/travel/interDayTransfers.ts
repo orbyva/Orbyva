@@ -539,7 +539,7 @@ export function transferTimesConflictWithVisits(params: {
         day.activities ?? [],
         (t) => t < arrive,
         (act) =>
-          `“${act.title}” (${act.activity_time}) é antes da chegada ${arriveLabel}. Ajuste o horário da visita.`
+          `“${act.title}” (${act.activity_time}) é antes da chegada ${arriveLabel}. Ajuste o horário do evento.`
       );
     }
     if (depart != null && departLabel) {

@@ -276,7 +276,7 @@ export function ItineraryNextRoutePanel({
   if (!nextVisit) {
     return (
       <div className="rounded-lg border bg-muted/20 px-3 py-2.5 text-sm text-muted-foreground">
-        Todas as visitas do dia foram concluídas ou puladas.
+        Todos os eventos do dia foram concluídos ou pulados.
       </div>
     );
   }

@@ -118,7 +118,7 @@ export interface TripItineraryActivity {
   id: string;
   day_id: string;
   title: string;
-  /** Horário da visita ou saída do deslocamento. */
+  /** Horário do evento ou saída do deslocamento. */
   activity_time?: string | null;
   /** Chegada do deslocamento (quando category = transport). */
   arrival_time?: string | null;
@@ -153,7 +153,7 @@ export interface TripItineraryActivity {
   is_reserved?: boolean;
   /** Tipo do lugar (mesmo conjunto de PlaceType) ou transport. */
   category?: TripActivityCategory;
-  /** Checklist da visita, nunca auto por horário. */
+  /** Checklist do evento, nunca auto por horário. */
   visit_status?: TripVisitStatus;
   completed_at?: string | null;
   skipped_at?: string | null;
@@ -171,7 +171,7 @@ export interface TripItineraryActivity {
 /**
  * Um asset de uma linha do roteiro (feature 102) — espelha `public.trip_activity_asset`.
  *
- * Vale igualmente para visita e deslocamento: os dois querem "coisas importantes anexadas a esta
+ * Vale igualmente para evento e deslocamento: os dois querem "coisas importantes anexadas a esta
  * linha", e o pedido-mãe pede o botão nos dois.
  *
  * Arquivo **não** tem URL: o bucket `trip-assets` é privado (um cartão de embarque tem nome, número
@@ -204,7 +204,7 @@ export interface TripActivityAsset {
  * "tem `storage_path`?" — é o que o `check` da tabela ancora e o que a UI lê. */
 export type TripActivityAssetKind = "file" | "link";
 
-/** Tipos de visita no roteiro, alinhados a lugares + transporte entre cidades. */
+/** Tipos de evento no roteiro, alinhados a lugares + transporte entre cidades. */
 export type TripActivityCategory =
   | "restaurant"
   | "cafe"

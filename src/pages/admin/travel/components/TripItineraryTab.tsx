@@ -126,7 +126,7 @@ type TripItineraryTabProps = {
   disableRoutes?: boolean;
   onEditDay: (day: TripItineraryDay) => void;
   onEditActivity: (act: TripItineraryActivity) => void;
-  /** Abre os assets (arquivos e links) da linha — vale igual para visita e deslocamento. */
+  /** Abre os assets (arquivos e links) da linha — vale igual para evento e deslocamento. */
   onOpenAssets: (act: TripItineraryActivity) => void;
   onAddActivity: (dayId: string) => void;
   /** Deslocamento como atividade do dia. */
@@ -451,7 +451,7 @@ export function TripItineraryTab({
         <p className="text-xs text-muted-foreground">
           Arraste por{" "}
           <GripVertical className="inline h-3 w-3 align-text-bottom" /> para
-          mudar a ordem ou o dia. Visitas com horário mudam de dia, mas a ordem
+          mudar a ordem ou o dia. Eventos com horário mudam de dia, mas a ordem
           no dia segue o relógio.
         </p>
       ) : null}
@@ -538,13 +538,13 @@ export function TripItineraryTab({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Esta visita tem horário definido</AlertDialogTitle>
+            <AlertDialogTitle>Este evento tem horário definido</AlertDialogTitle>
             <AlertDialogDescription>
-              “{timedMoveAttempt?.title}” está marcada para{" "}
-              {timedMoveAttempt?.activityTime}. Visitas com horário são
-              ordenadas automaticamente dentro do mesmo dia. Você pode
-              movê-la para outro dia ou remover o horário na edição para
-              ordená-la manualmente.
+              “{timedMoveAttempt?.title}” está marcado para{" "}
+              {timedMoveAttempt?.activityTime}. Eventos com horário são
+              ordenados automaticamente dentro do mesmo dia. Você pode
+              movê-lo para outro dia ou remover o horário na edição para
+              ordená-lo manualmente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -651,7 +651,7 @@ function DayBlock({
     () => new Map(places.map((place) => [place.id, place])),
     [places]
   );
-  /** Próximo destino: visitas + deslocamentos (para não priorizar visita antes da chegada). */
+  /** Próximo destino: eventos + deslocamentos (para não priorizar evento antes da chegada). */
   const routeVisits = useMemo(
     () => enrichVisits(day, places),
     [day, places]
@@ -785,7 +785,7 @@ function DayBlock({
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={summary.donePct}
-                aria-label={`Progresso do dia: ${summary.completed} de ${summary.total} visitas concluídas`}
+                aria-label={`Progresso do dia: ${summary.completed} de ${summary.total} eventos concluídos`}
                 className="h-1.5 min-w-[4rem] flex-1 overflow-hidden rounded-full bg-muted"
               >
                 <div
@@ -867,7 +867,7 @@ function DayBlock({
           <MapPin className="mx-auto mb-2 h-5 w-5 text-primary" aria-hidden />
           <p className="text-sm font-medium">Nada neste dia</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Adicione visitas ou um deslocamento no plano do dia.
+            Adicione eventos ou um deslocamento no plano do dia.
           </p>
         </div>
       ) : (
@@ -999,7 +999,7 @@ function DayBlock({
                     aria-label={
                       status === "pending"
                         ? `${act.title}: ${categoryLabel}. Marcar como concluída`
-                        : `${act.title}: reabrir visita`
+                        : `${act.title}: reabrir evento`
                     }
                     onClick={() =>
                       void onSetStatus(
@@ -1161,7 +1161,7 @@ function DayBlock({
                   </Avatar>
                 ) : null}
 
-                {/* Assets: o mesmo botão em visita e em deslocamento — os dois querem "coisas
+                {/* Assets: o mesmo botão em evento e em deslocamento — os dois querem "coisas
                     importantes anexadas a esta linha". Mostra a contagem quando há algo, para o
                     card dizer que existe documento sem precisar abrir. */}
                 <Button
@@ -1275,7 +1275,7 @@ function DayBlock({
           onClick={() => onAddActivity(day.id)}
         >
           <Plus className="mr-1.5 h-4 w-4" />
-          Adicionar visita
+          Adicionar evento
         </Button>
         {onAddTransfer ? (
           <Button
@@ -1303,7 +1303,7 @@ function DayBlock({
             <AlertDialogTitle>
               {deleting && isTransportActivity(deleting)
                 ? "Excluir este deslocamento?"
-                : "Excluir esta visita?"}
+                : "Excluir este evento?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               “{deleting?.title}” sai do roteiro. Não é possível desfazer.

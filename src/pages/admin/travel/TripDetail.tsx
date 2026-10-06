@@ -693,7 +693,7 @@ export default function TripDetail() {
       }
     } else if (!form.title.trim()) {
       toast({
-        title: "Informe o título da visita",
+        title: "Informe o título do evento",
         variant: "destructive",
       });
       return;
@@ -755,7 +755,7 @@ export default function TripDetail() {
       });
       if (conflict) {
         toast({
-          title: "Horário conflita com visita",
+          title: "Horário conflita com evento",
           description: conflict.message,
           variant: "destructive",
         });
@@ -848,7 +848,7 @@ export default function TripDetail() {
           };
         });
         toast({
-          title: isTransfer ? "Deslocamento adicionado!" : "Visita adicionada!",
+          title: isTransfer ? "Deslocamento adicionado!" : "Evento adicionado!",
           duration: 2000,
         });
         setAddingDayId(null);
@@ -882,7 +882,7 @@ export default function TripDetail() {
           };
         });
         toast({
-          title: isTransfer ? "Deslocamento atualizado!" : "Visita atualizada!",
+          title: isTransfer ? "Deslocamento atualizado!" : "Evento atualizado!",
           duration: 2000,
         });
         setEditingActivity(null);
@@ -1152,7 +1152,7 @@ export default function TripDetail() {
       )
     ).catch(() => {
       toast({
-        title: "Erro ao mover visita",
+        title: "Erro ao mover evento",
         description: "Não foi possível salvar a nova ordem. Recarregando…",
         variant: "destructive",
       });
