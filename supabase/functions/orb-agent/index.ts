@@ -19,6 +19,8 @@
  *
  * Segurança: JWT obrigatório, client com anon key + Authorization (RLS do usuário, igual
  * `home-bundle`). A chave do Gemini vive só no secret `GEMINI_API_KEY`, nunca no browser.
+ * Antes do Gemini: sem `has_app_access()` → 402; cota diária/rajada (`orb_try_consume`, via
+ * service role) estourada → 429 com `Retry-After`. Falha nessas checagens recusa (503).
  * Nenhum log carrega input nem resultado de tool: é dado financeiro pessoal.
  */
 
@@ -28,6 +30,13 @@ import { GoogleGenAI } from "npm:@google/genai@2.21.0";
 import { corsHeadersForRequest } from "../_shared/cors.ts";
 import { findOrbTool, orbTools, runOrbTool } from "../_shared/orb/registry.ts";
 import { stripUiFields } from "../_shared/orb/helpers.ts";
+import {
+  ORB_QUOTA_CHECK_FAILED_MESSAGE,
+  checkOrbAccess,
+  consumeOrbQuota,
+  orbLimitsFromEnv,
+  type OrbGateDenial,
+} from "../_shared/orbQuotaRules.ts";
 import { parseMessages, type IncomingMessage } from "./messages.ts";
 import { orbSystemContext, orbSystemPolicy } from "./prompt.ts";
 
@@ -39,7 +48,7 @@ const MAX_TOOL_ROUNDS = 8;
 const TURN_BUDGET_MS = 90_000;
 /** Intervalo do comentário SSE que segura a conexão enquanto o modelo pensa. */
 const HEARTBEAT_MS = 10_000;
-/** Corpo inteiro e mensagem individual. Metade barata do rate limit — a cota por dia é outra onda. */
+/** Corpo inteiro e mensagem individual. A cota por dia/minuto é `_shared/orbQuotaRules.ts`. */
 const MAX_BODY_BYTES = 60 * 1024;
 const MAX_MESSAGE_BYTES = 8 * 1024;
 /** Uma resposta de tool gigante come o contexto das rodadas seguintes e derruba o turno inteiro. */
@@ -79,6 +88,10 @@ function jsonResponse(body: unknown, status: number, cors: Record<string, string
     status,
     headers: { ...cors, "Content-Type": "application/json" },
   });
+}
+
+function gateResponse(denial: OrbGateDenial, cors: Record<string, string>): Response {
+  return jsonResponse(denial.body, denial.status, { ...cors, ...denial.headers });
 }
 
 const encoder = new TextEncoder();
@@ -211,6 +224,9 @@ Deno.serve(async (req) => {
   } = await db.auth.getUser();
   if (userError || !user) return jsonResponse({ error: "Unauthorized" }, 401, cors);
 
+  const semAcesso = await checkOrbAccess(db);
+  if (semAcesso) return gateResponse(semAcesso, cors);
+
   let corpoBruto: string;
   try {
     corpoBruto = await req.text();
@@ -250,6 +266,21 @@ Deno.serve(async (req) => {
   } catch {
     return jsonResponse({ error: "Invalid body" }, 400, cors);
   }
+
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!serviceKey) {
+    return jsonResponse({ error: ORB_QUOTA_CHECK_FAILED_MESSAGE }, 503, cors);
+  }
+  const adminDb = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+  const semCota = await consumeOrbQuota(
+    adminDb,
+    user.id,
+    orbLimitsFromEnv({
+      ORB_DAILY_LIMIT: Deno.env.get("ORB_DAILY_LIMIT"),
+      ORB_MINUTE_LIMIT: Deno.env.get("ORB_MINUTE_LIMIT"),
+    })
+  );
+  if (semCota) return gateResponse(semCota, cors);
 
   const requestId = crypto.randomUUID();
   const ai = new GoogleGenAI({ apiKey: geminiKey });
