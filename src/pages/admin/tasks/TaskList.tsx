@@ -74,6 +74,7 @@ import {
   updateTasksSortOrder,
 } from "@/api/tasks";
 import { fetchRecurringTransactions } from "@/api/recurring";
+import { fetchNotesLinkedToMany } from "@/api/notes/noteLinks";
 import {
   AGENDA_BUCKET_LABELS,
   AGENDA_BUCKET_ORDER,
@@ -125,6 +126,7 @@ import type {
   TaskStatus,
 } from "@/types/tasks";
 import type { Recurring } from "@/types/recurring";
+import type { Note } from "@/types/notes";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveTimer } from "@/hooks/useActiveTimer";
 import { useStartTaskNow } from "@/hooks/useStartTaskNow";
@@ -194,6 +196,10 @@ export default function TaskList() {
   const [externalLinksByTask, setExternalLinksByTask] = useState<Record<string, TaskExternalLink[]>>(
     {}
   );
+  /** Notas vinculadas de **todas** as tarefas da tela (feature 255), numa consulta só por `load()`,
+   * pelo mesmo motivo dos links externos: o ícone da linha não pode virar uma ida ao banco por
+   * tarefa. */
+  const [notesByTask, setNotesByTask] = useState<Record<string, Note[]>>({});
   const [kanbanSubtaskDrafts, setKanbanSubtaskDrafts] = useState<Record<string, string>>({});
   const [seriesTask, setSeriesTask] = useState<Task | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -258,6 +264,17 @@ export default function TaskList() {
         setExternalLinksByTask(await fetchExternalLinksForTasks(taskList.map((t) => t.id)));
       } catch {
         setExternalLinksByTask({});
+      }
+      // Feature 255: o ícone de nota é enfeite da linha, não a linha — mesma degradação do 085.
+      try {
+        setNotesByTask(
+          await fetchNotesLinkedToMany(
+            "task",
+            taskList.map((t) => t.id)
+          )
+        );
+      } catch {
+        setNotesByTask({});
       }
     } catch (error) {
       toast({
@@ -1236,6 +1253,7 @@ export default function TaskList() {
                           onProjectChange={(projectId) => handleProjectChange(task.id, projectId)}
                           projects={projectsByActivity}
                           externalLinksByTask={externalLinksByTask}
+                          notesByTask={notesByTask}
                           subtaskActions={subtaskActions}
                           extraActions={
                             task.status === "done" && !task.linked_recurring_id ? (
@@ -1279,6 +1297,7 @@ export default function TaskList() {
                   onProjectChange={(task, projectId) => handleProjectChange(task.id, projectId)}
                   projects={projectsByActivity}
                   externalLinksByTask={externalLinksByTask}
+                  notesByTask={notesByTask}
                   subtaskActions={subtaskActions}
                   extraActions={(task) =>
                     !task.linked_recurring_id ? (
@@ -1358,6 +1377,7 @@ export default function TaskList() {
                                 onProjectChange={(projectId) => handleProjectChange(task.id, projectId)}
                                 projects={projectsByActivity}
                                 externalLinksByTask={externalLinksByTask}
+                                notesByTask={notesByTask}
                                 subtaskActions={subtaskActions}
                               />
                             );
