@@ -40,6 +40,7 @@ import {
   type TripTransportMode,
 } from "@/domain/travel/transportModes";
 import { ActivityAssetDraftsField } from "./ActivityAssetDraftsField";
+import { EventTypeIconPicker } from "./EventTypeIconPicker";
 import type { ActivityAssetDraft } from "@/domain/travel/activityAssetDrafts";
 import { useUserLocationBias } from "@/hooks/useUserLocationBias";
 import { fetchTravelRoutes } from "@/lib/googleRoutes";
@@ -450,6 +451,19 @@ export function TripEditActivityDialog({
               </FormField>
             )}
           </FormFieldRow>
+
+          {category !== "transport" ? (
+            // O ícone é do **tipo**, não deste evento — por isso o rótulo nomeia o tipo e a dica diz
+            // o alcance. Fica aqui, e não numa tela de configuração separada, porque é onde o
+            // usuário está quando pensa no tipo; e grava na hora, fora do "Salvar" do formulário.
+            <FormField
+              label={`Ícone do tipo ${ACTIVITY_CATEGORY_LABELS[category]}`}
+              optional
+              hint="Vale para todos os eventos deste tipo, inclusive os que já existem."
+            >
+              <EventTypeIconPicker category={category} />
+            </FormField>
+          ) : null}
 
           {category === "transport" && hasBoarding ? (
             // Fora da `FormFieldRow` de cima de propósito: ali os dois campos são as pontas do

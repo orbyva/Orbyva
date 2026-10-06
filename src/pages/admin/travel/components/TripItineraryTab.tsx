@@ -43,7 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/EmptyState";
-import { PlaceTypeIcon } from "@/components/PlaceTypeIcon";
+import { EventTypeIcon } from "@/components/EventTypeIcon";
 import { ItineraryDayWeather } from "@/components/TripWeatherPanels";
 import { ICON_EDIT_BUTTON_CLASS } from "@/components/FormLabel";
 import {
@@ -61,6 +61,7 @@ import { formatLocalIsoDate } from "@/lib/dates";
 import { dropZoneAttrs, readDropZone } from "@/lib/dropZone";
 import { LIST_LAYOUT_TRANSITION } from "@/lib/layoutMotion";
 import { useTouchDrag } from "@/hooks/useTouchDrag";
+import { useEventTypeIcons } from "@/hooks/useEventTypeIcons";
 import { cn } from "@/lib/utils";
 import {
   describeDayOffset,
@@ -646,6 +647,10 @@ function DayBlock({
 }) {
   const [deleting, setDeleting] = useState<TripItineraryActivity | null>(null);
   const reduceMotion = useReducedMotion();
+  /** Personalização de ícone por tipo (feature 258). O hook tem cache no módulo, então chamá-lo por
+   * bloco de dia custa uma assinatura, não uma consulta — é o mesmo arranjo de `useLinkIconRules`,
+   * que roda por chip de link. Por **card** seria exagero; por dia, o mapa desce pronto. */
+  const eventTypeIcons = useEventTypeIcons();
 
   const placeById = useMemo(
     () => new Map(places.map((place) => [place.id, place])),
@@ -1026,7 +1031,11 @@ function DayBlock({
                     ) : status === "skipped" ? (
                       <Minus className="h-3.5 w-3.5" />
                     ) : (
-                      <PlaceTypeIcon type={placeTypeForUi} className="h-4 w-4" />
+                      <EventTypeIcon
+                        category={placeTypeForUi}
+                        icons={eventTypeIcons}
+                        className="h-4 w-4"
+                      />
                     )}
                   </button>
                 )}

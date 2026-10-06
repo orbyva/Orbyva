@@ -63,25 +63,59 @@ evento.
 
 ## Tarefas
 
-- [ ] Migration `event_type_icon`: tabela, `unique (user_id, category)`, índice, comentários, RLS nas
+- [x] Migration `event_type_icon`: tabela, `unique (user_id, category)`, índice, comentários, RLS nas
       4 operações, `grant`, entrada em `wipe_own_data` e trigger `enforce_app_access`
-- [ ] `supabase/tests/event_type_icon/` (stubs, seed, assert de schema, assert de comportamento,
+- [x] `supabase/tests/event_type_icon/` (stubs, seed, assert de schema, assert de comportamento,
       `run.sh`) no molde de `supabase/tests/icon_asset/`
-- [ ] Tipo `EventTypeIcon` em `src/types/travel.ts`
-- [ ] `src/domain/travel/eventTypes.ts` (puro): `EVENT_TYPE_CATEGORIES` (tudo menos `transport`),
+- [x] Tipo `EventTypeIcon` em `src/types/travel.ts`
+- [x] `src/domain/travel/eventTypes.ts` (puro): `EVENT_TYPE_CATEGORIES` (tudo menos `transport`),
       `isEventTypeCategory`, `eventTypeIconFor(map, category)` + testes Vitest
-- [ ] `src/api/travel/eventTypeIcons.ts`: `fetchEventTypeIcons`, `setEventTypeIcon` (upsert),
+- [x] `src/api/travel/eventTypeIcons.ts`: `fetchEventTypeIcons`, `setEventTypeIcon` (upsert),
       `clearEventTypeIcon`, com degradação de schema ausente + teste com Supabase mockado
-- [ ] `src/hooks/useEventTypeIcons.ts`: cache no módulo + `invalidateEventTypeIcons`
-- [ ] `src/components/EventTypeIcon.tsx`: personalizado (`<img>` da URL ou preset lucide) com queda
+- [x] `src/hooks/useEventTypeIcons.ts`: cache no módulo + `invalidateEventTypeIcons`
+- [x] `src/components/EventTypeIcon.tsx`: personalizado (`<img>` da URL ou preset lucide) com queda
       para `PlaceTypeIcon`
-- [ ] `EventTypeIconPicker` no `TripEditActivityDialog`, ao lado do campo "Tipo" (fora de
+- [x] `EventTypeIconPicker` no `TripEditActivityDialog`, ao lado do campo "Tipo" (fora de
       `transport`), gravando na hora e invalidando o cache
-- [ ] `TripItineraryTab`: o card do evento desenha `EventTypeIcon`
-- [ ] Teste de componente: tipo com ícone personalizado desenha a imagem no card; sem personalização
+- [x] `TripItineraryTab`: o card do evento desenha `EventTypeIcon`
+- [x] Teste de componente: tipo com ícone personalizado desenha a imagem no card; sem personalização
       desenha o ícone padrão; escolher um ícone no formulário grava para o tipo (e não para o evento)
-- [ ] Verificação: `npx tsc --noEmit -p tsconfig.app.json`, `npx eslint` nos arquivos tocados,
+- [x] Verificação: `npx tsc --noEmit -p tsconfig.app.json`, `npx eslint` nos arquivos tocados,
       `npx vitest run` nos testes de viagem
+
+## Prompts
+
+- 2026-10-06 — "crie implemente e faça o push das seguintes features, no need for planning: … -
+  poder personalizar os tipos do evento, adicionando um ícone (da biblioteca de ícones gerais do
+  orbyva)"
+
+## Notas
+
+- **O tipo da linha do banco virou `EventTypeIconRow`**, e não `EventTypeIcon`, porque
+  `EventTypeIcon` é o **componente** que desenha. Dois significados para o mesmo nome em módulos
+  diferentes é exatamente o tipo de ambiguidade que se paga meses depois.
+- **O hook é chamado por bloco de dia, não por card.** `useEventTypeIcons` tem cache no módulo
+  (como `useLinkIconRules`, que roda por chip de link), então chamá-lo em `DayBlock` custa uma
+  assinatura e zero consultas extras — e evita furar vinte props até o card. O `EventTypeIcon`
+  continua recebendo o mapa pronto, para nenhum outro consumidor nascer com hook escondido.
+- **A prévia à esquerda do seletor mostra o que o card vai desenhar** — com personalização ou com o
+  ícone padrão. Sem ela, o "+i" do gatilho pareceria dizer que o tipo não tem ícone nenhum hoje, o
+  que é falso: tem o padrão.
+- **`setEventTypeIcon` zera `icon_key` quando recebe `icon_url`**, mesmo que quem chame mande os
+  dois. A regra não podia depender do chamador: o `check` do banco recusaria, mas a mensagem de lá
+  não diz o que corrigir, e uma tela nova reabriria o buraco.
+- **Nenhum `check` de categoria contra a lista de tipos.** A coluna é texto livre e o catálogo mora
+  no cliente (`EVENT_TYPE_CATEGORIES`): um `check` com a lista obrigaria migration a cada tipo novo,
+  e o que protege de verdade é a leitura ignorar categoria desconhecida — travado em
+  `indexEventTypeIcons`. Pelo mesmo motivo `transport` não é barrado no banco: ele é escopo de
+  interface, não integridade de dado.
+- **Os testes SQL foram escritos mas não executados: o Docker não está rodando nesta máquina**
+  (`docker info` falha). O arquivo está completo e no molde de `supabase/tests/link_icon_rule/`;
+  rodar `bash supabase/tests/event_type_icon/run.sh` antes do `supabase db push` está em **Como
+  testar**, como pré-requisito de ambiente. A migration **não** foi aplicada em banco nenhum.
+- **Quebra de propósito conferida**: desligar o ramo de personalização em `EventTypeIcon` derruba 2
+  dos 6 testes do arquivo; restaurado, verde. Suíte completa no fim: 364 arquivos / 4032 testes,
+  `npm run lint` com 0 erros (30 avisos de `react-refresh` pré-existentes) e `npm run build` verde.
 
 ## Como testar
 

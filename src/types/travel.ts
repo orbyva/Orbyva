@@ -217,6 +217,29 @@ export type TripActivityCategory =
   | "transport"
   | "other";
 
+/**
+ * Uma linha de `public.event_type_icon` (feature 258) — o ícone personalizado de um **tipo de
+ * evento**.
+ *
+ * `Row` no nome porque `EventTypeIcon` é o **componente** que desenha isso
+ * (`src/components/EventTypeIcon.tsx`); aqui é o registro do banco.
+ *
+ * Uma linha por `(user_id, category)`. Sem linha, o tipo desenha o ícone padrão de
+ * `PLACE_TYPE_META`; tirar a personalização é **apagar a linha**, não gravar dois nulos.
+ */
+export interface EventTypeIconRow {
+  id: string;
+  user_id?: string;
+  /** Chave do tipo (`TripActivityCategory` sem `transport` — deslocamento não é tipo de evento). */
+  category: string;
+  /** Preset de `TASK_ICON_PRESETS` — mutuamente exclusivo com `icon_url`, como em `Task`. */
+  icon_key: string | null;
+  /** URL de um ícone da biblioteca (feature 086). Guarda a URL, não o id de `IconAsset`: tirar o
+   * ícone da lista não pode apagar o ícone do tipo. */
+  icon_url: string | null;
+  created_at?: string;
+}
+
 export interface TripMilestone {
   id: string;
   trip_id: string;
