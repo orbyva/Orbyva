@@ -8,7 +8,8 @@ prompt: |-
   ao invéw de visita, troque por 'Evento' pode ser tanto uma visita a um lugar, museu, ou também
   pode ser tipo um concerto, um encontro, algo assim
 commits:
-pr:
+  - 05cdb79 — feat(travel): "evento" no lugar de "visita" no roteiro (256)
+pr: "#15 — feat(travel): evento no roteiro — renome, assets na criação e ícone por tipo (256–258)"
 ---
 
 # 256 — "Evento" no lugar de "visita" no roteiro
