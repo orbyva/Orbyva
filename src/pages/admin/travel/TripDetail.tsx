@@ -99,6 +99,7 @@ import { TripSplitRegisterDialog } from "./components/TripSplitRegisterDialog";
 import { TripMilestoneFormDialog } from "./components/TripMilestoneFormDialog";
 import { TripRoundTripDialog } from "./components/TripRoundTripDialog";
 import { TripActivityAssetsDialog } from "./components/TripActivityAssetsDialog";
+import { createActivityAssetDrafts } from "@/api/travel/activityAssets";
 
 const emptyExpenseForm = () => ({
   description: "",
@@ -165,6 +166,7 @@ export default function TripDetail() {
     pending_catalog: null,
     origin: null,
     destination: null,
+    asset_drafts: [],
   });
 
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm());
@@ -586,6 +588,7 @@ export default function TripDetail() {
       pending_catalog: null,
       origin: null,
       destination: null,
+      asset_drafts: [],
     };
   }
 
@@ -647,6 +650,9 @@ export default function TripDetail() {
             place_id: act.destination_place_id ?? null,
           }
         : null,
+      // Edição não acumula rascunho: a atividade já tem id, e o clipe do card é o caminho completo
+      // (abrir, renomear, excluir). Duas listas da mesma coleção teriam de concordar sozinhas.
+      asset_drafts: [],
     });
   }
 
@@ -833,6 +839,16 @@ export default function TripDetail() {
           sort_order: (day?.activities?.length ?? 0) + 1,
           ...transferFields,
         });
+        // Só agora os rascunhos do formulário (feature 257) têm onde ser gravados: o upload
+        // precisa do `activity_id` que o insert acabou de devolver. A função não lança — o que
+        // falhar vira aviso, porque o evento criado é o que o usuário realmente pediu.
+        const { created: draftAssets, failed: draftFailures } =
+          await createActivityAssetDrafts({
+            tripId: trip.id,
+            activityId: created.id,
+            drafts: form.asset_drafts,
+          });
+        const createdWithAssets = { ...created, assets: draftAssets };
         setTrip((prev) => {
           if (!prev) return prev;
           return {
@@ -842,7 +858,7 @@ export default function TripDetail() {
                 ? d
                 : {
                     ...d,
-                    activities: [...(d.activities ?? []), created],
+                    activities: [...(d.activities ?? []), createdWithAssets],
                   }
             ),
           };
@@ -851,6 +867,15 @@ export default function TripDetail() {
           title: isTransfer ? "Deslocamento adicionado!" : "Evento adicionado!",
           duration: 2000,
         });
+        if (draftFailures.length > 0) {
+          toast({
+            title: "Nem tudo foi anexado",
+            description: `${draftFailures
+              .map((f) => f.label)
+              .join(", ")} — tente de novo pelo clipe do card.`,
+            variant: "destructive",
+          });
+        }
         setAddingDayId(null);
       } else if (editingActivity) {
         const activityPatch = {

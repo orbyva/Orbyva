@@ -8,6 +8,10 @@ import {
   normalizeAssetLabel,
   sortAssets,
 } from "@/domain/travel/activityAssets";
+import {
+  draftDisplayLabel,
+  type ActivityAssetDraft,
+} from "@/domain/travel/activityAssetDrafts";
 import type { TripActivityAsset } from "@/types/travel";
 
 /**
@@ -195,6 +199,60 @@ export async function addActivityLinkAsset(params: {
     .single();
   if (error) throw new Error(error.message);
   return data as TripActivityAsset;
+}
+
+/**
+ * Grava os rascunhos acumulados pelo formulário de criação (feature 257), na ordem da lista.
+ *
+ * Três coisas valem a pena dizer sobre o contrato:
+ *
+ * 1. **Nunca lança.** Devolve `{ created, failed }`. O evento já foi criado quando esta função roda,
+ *    e um erro aqui não pode derrubar o que o usuário realmente pediu — o PDF de 11 MB que falhou
+ *    vira um aviso, não um rollback do show que ele acabou de cadastrar.
+ * 2. **Em série, não em paralelo**, encadeando `existing`: é dele que sai a `position`. Em paralelo
+ *    todos nasceriam com 0 e a ordem na tela passaria a depender do banco.
+ * 3. **O que falhou volta nomeado** (`label`), porque é assim que a mensagem diz qual arquivo
+ *    reenviar.
+ */
+export async function createActivityAssetDrafts(params: {
+  tripId: string;
+  activityId: string;
+  drafts: readonly ActivityAssetDraft[];
+}): Promise<{
+  created: TripActivityAsset[];
+  failed: { label: string; message: string }[];
+}> {
+  const created: TripActivityAsset[] = [];
+  const failed: { label: string; message: string }[] = [];
+
+  for (const draft of params.drafts) {
+    try {
+      const asset =
+        draft.kind === "file"
+          ? await uploadActivityFileAsset({
+              tripId: params.tripId,
+              activityId: params.activityId,
+              file: draft.file,
+              label: draft.label,
+              existing: created,
+            })
+          : await addActivityLinkAsset({
+              tripId: params.tripId,
+              activityId: params.activityId,
+              url: draft.url,
+              label: draft.label,
+              existing: created,
+            });
+      created.push(asset);
+    } catch (error) {
+      failed.push({
+        label: draftDisplayLabel(draft),
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return { created: sortAssets(created), failed };
 }
 
 /** Renomeia o rótulo. Não toca no arquivo nem na URL — rótulo é rótulo. Vazio volta a `null`, e a

@@ -39,6 +39,8 @@ import {
   type TransferEndpoint,
   type TripTransportMode,
 } from "@/domain/travel/transportModes";
+import { ActivityAssetDraftsField } from "./ActivityAssetDraftsField";
+import type { ActivityAssetDraft } from "@/domain/travel/activityAssetDrafts";
 import { useUserLocationBias } from "@/hooks/useUserLocationBias";
 import { fetchTravelRoutes } from "@/lib/googleRoutes";
 import { formatDurationFriendly } from "@/domain/itinerary/visits";
@@ -64,6 +66,15 @@ export type ActivityForm = {
   origin: TransferEndpoint | null;
   /** Destino do deslocamento (país/estado/cidade). */
   destination: TransferEndpoint | null;
+  /**
+   * Assets a anexar assim que a linha existir (feature 257) — só em modo `create`.
+   *
+   * Nada aqui foi ao banco: upload precisa de `activity_id`, que só nasce no insert. Quem grava é o
+   * `TripDetail`, com `createActivityAssetDrafts`, logo depois de criar a atividade. Em modo `edit`
+   * a lista fica vazia e a seção não aparece — lá quem manda é o clipe do card, que já sabe abrir,
+   * renomear e excluir.
+   */
+  asset_drafts: ActivityAssetDraft[];
 };
 
 type Props = {
@@ -528,6 +539,20 @@ export function TripEditActivityDialog({
             />
           </FormField>
         </FormSection>
+
+        {isCreate ? (
+          <FormSection
+            title="Assets"
+            subtitle="Ingresso, voucher, cartão de embarque, link do check-in. Entram junto quando você salvar."
+          >
+            <ActivityAssetDraftsField
+              drafts={form.asset_drafts}
+              onChange={(asset_drafts) =>
+                setForm((prev) => ({ ...prev, asset_drafts }))
+              }
+            />
+          </FormSection>
+        ) : null}
       </FormDialogShell>
     </Dialog>
   );

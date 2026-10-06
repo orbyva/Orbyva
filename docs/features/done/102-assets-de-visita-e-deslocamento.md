@@ -3,6 +3,9 @@ prompt: |
   Preciso que tanto em um lugar quanto um deslocamento, eu tenha um botão de assets, tipo pra salvar no voo os documentos importantes para o voo e na visita também, tipo arquivos importantes e links
 
   não precisa de plano, já crie a feature implemente, e suba
+commits:
+  - d956a7f — feat(travel): assets de visita e deslocamento + horário de embarque
+pr: "#13 — feat(travel): assets de visita e deslocamento + horário de embarque"
 ---
 
 # 102 — Assets de visita e deslocamento no roteiro (+ horário de embarque)
@@ -22,7 +25,7 @@ ou um **link**. Um deslocamento e uma visita não precisam de modelos diferentes
 atividade, e um botão só, que aparece nos dois tipos de card.
 
 Nota de escopo: esta feature é a do **roteiro na web**. O app nativo (`mobile/`) não recebe a tela
-de assets aqui; a última tarefa registra isso como pendência própria, não como parte desta.
+de assets aqui; levar a tela para lá é feature própria — registrada nas Notas, não tarefa desta.
 
 ## Decisões
 
@@ -119,9 +122,6 @@ de assets aqui; a última tarefa registra isso como pendência própria, não co
 - [x] `boarding_time` no tipo, no `ACTIVITY_SELECT`, no create/update da API e no `ActivityForm`
 - [x] Campo "Embarque" no `TripEditActivityDialog` (só nos modos com embarque) + exibição no card
 - [x] `npm run lint` (0 erros), `npm test` (3856 testes / 336 arquivos), `npm run build` verdes
-- [ ] Rodar `bash supabase/tests/trip_activity_asset/run.sh` (precisa de Docker — ver Notas)
-- [ ] Rodar `supabase db push` (pedir confirmação ao usuário antes — é banco remoto)
-- [ ] Levar a tela de assets para o app nativo (`mobile/`) — fora do escopo desta feature
 
 ## Prompts
 
@@ -129,13 +129,32 @@ de assets aqui; a última tarefa registra isso como pendência própria, não co
   tipo pra salvar no voo os documentos importantes para o voo e na visita também, tipo arquivos
   importantes e links / não precisa de plano, já crie a feature implemente, e suba"
 - 2026-09-30 — "adicione nessa mesma a adição do horário de embarque, do voo"
+- 2026-10-06 — "do the same i asked earlier, about not creating tasks like, user need to db push, or
+  manual testing, or nothing like it in 102, so just update the feature, and push to master. update
+  the working tree and commits also in the header"
 
 ## Notas
+
+- **2026-10-06: saíram as três tarefas que não eram auto-contidas.** Eram o `supabase db push`
+  (ação do usuário, banco remoto), o `bash supabase/tests/trip_activity_asset/run.sh` (dependia de
+  Docker na máquina) e "levar a tela para o `mobile/`" (fora do escopo declarado da própria
+  feature). Pela regra da esteira, dependência de ambiente é pré-requisito em **Como testar** e
+  escopo de outra feature é nota, não caixinha — tarefa que espera o usuário prendia esta feature em
+  `in-progress/` para sempre. O código e os testes foram entregues em `d956a7f` (PR #13).
+  Nesta sessão o Docker continua fora (`docker info` falha) e o estado remoto das migrations não foi
+  conferível: `npx supabase migration list` morre em `LegacyDbConfigLoginRoleStatusError`
+  (connection timeout) — o mesmo erro da 247.
+
+- **A tela de assets no app nativo (`mobile/`) segue pendente, como feature própria.** Não foi
+  perdida ao sair da lista de tarefas: o app ainda não tem onde anexar arquivo a uma linha do
+  roteiro, e quem atacar isso parte das decisões desta feature (bucket privado, `kind`, regra de
+  abertura inline).
 
 - **Os testes SQL foram escritos mas não executados: o Docker não estava rodando na máquina** no
   momento da implementação (`docker info` falhou). O arquivo está completo e no formato do
   `supabase/tests/icon_asset/`; rodar `bash supabase/tests/trip_activity_asset/run.sh` antes do
-  `supabase db push` é a tarefa que sobrou. As migrations **não** foram aplicadas em banco nenhum.
+  `supabase db push` está em **Como testar**, como pré-requisito de ambiente — não como tarefa. As
+  migrations **não** foram aplicadas em banco nenhum.
 
 - **Duas resiliências entraram sem estar no plano, pela janela entre o deploy e o `db push`.** Sem
   elas, publicar o front antes de aplicar a migration quebraria o roteiro inteiro em vez de só não ter
@@ -169,3 +188,70 @@ de assets aqui; a última tarefa registra isso como pendência própria, não co
 - O botão do card tem a contagem no `aria-label` (`Assets de X: 2` / `Anexar assets em X`), e é por
   esse rótulo que os testes de componente o encontram. Mudar a frase quebra os testes de propósito:
   a contagem no rótulo é o que faz o leitor de tela dizer que existe documento sem abrir o diálogo.
+
+## Como testar
+
+1. **Pré-requisitos**
+   - As duas migrations desta feature aplicadas no banco remoto (não há Supabase local no projeto):
+     `20260930120000_trip_activity_asset.sql` e `20260930130000_trip_activity_boarding_time.sql`,
+     via `supabase db push` — **banco remoto, confirmar antes de rodar**. Enquanto não estiverem
+     aplicadas o app não quebra, mas a feature não existe: `isMissingAssetSchema` devolve `{}` e o
+     botão de assets não aparece em card nenhum; `selectActivities` repete o select sem
+     `boarding_time` e o campo "Embarque" não grava.
+   - Para os testes SQL: Docker rodando (`docker info` responde). O `run.sh` sobe um Postgres 16
+     descartável e **não** toca no banco remoto.
+   - Logado com um usuário **membro** da viagem, numa viagem com pelo menos um dia de roteiro
+     contendo uma visita e um deslocamento de modo **voo**. Para o caso negativo de RLS, um segundo
+     usuário fora da viagem.
+
+2. **Verificação automatizada**
+   - `npx vitest run src/api/__tests__/tripActivityAssets.test.ts src/domain/travel/__tests__/activityAssets.test.ts src/domain/travel/__tests__/transportModes.test.ts src/pages/admin/travel/components/__tests__/TripItineraryAssets.test.tsx`
+     → 4 arquivos / 78 testes passando (rodado em 2026-10-06). Cobre domínio (rótulo,
+     `isInlineViewableMime` com SVG de fora, `position`, normalização de URL), API com Supabase
+     mockado (upload, link, rename, delete apagando do bucket, `signedAssetUrl`),
+     `transportModeHasBoarding` e o botão de assets nos dois tipos de card.
+   - `bash supabase/tests/trip_activity_asset/run.sh` → sai 0 e imprime as assertivas de
+     schema/`check` do `kind`/índice/FKs/RLS/trigger do `trip_id`/bucket privado/cascade. **Ainda
+     não foi rodado** (Docker fora desde a implementação): é a verificação que falta das migrations.
+   - `npm run lint` (0 erros), `npm test`, `npm run build` — a suíte inteira estava verde no commit
+     da feature (3856 testes / 336 arquivos).
+
+3. **Verificação manual, passo a passo**
+   1. Abrir `/travel/<id da viagem>` → aba **Roteiro**.
+   2. Na linha de uma **visita**, clicar no ícone de clipe (rótulo `Anexar assets em <título>`)
+      → o diálogo de assets abre vazio. O item **Assets** no menu `...` da mesma linha abre o mesmo
+      diálogo.
+   3. "Adicionar arquivo" → escolher um PDF. Ele aparece na lista com o nome do arquivo. Fechar o
+      diálogo: o botão do card agora mostra `1` e o rótulo virou `Assets de <título>: 1` — sem
+      recarregar a página.
+   4. Clicar em "Abrir" no PDF → abre em aba nova (URL assinada, 5 min). Subir um
+      `.docx` e clicar em abrir → **baixa** em vez de renderizar.
+   5. "Adicionar link" → digitar `tap.pt` e salvar: grava `https://tap.pt` e o item aparece com
+      ícone de link.
+   6. Renomear um asset (ícone de lápis) → o nome muda na lista; excluir (ícone de lixeira) → sai da
+      lista e o arquivo sai do bucket `trip-assets` (conferível no Storage do painel do Supabase).
+   7. Repetir os passos 2–3 num **deslocamento**: mesmo botão, mesmo diálogo.
+   8. Embarque: editar um deslocamento de modo **voo** → existe o campo "Embarque". Preencher
+      `13:40` e salvar → o card mostra "Embarque 13:40" como item próprio, **antes** da linha
+      `partida → chegada`. Trocar o modo para **carro** → o campo deixa de ser oferecido (idem
+      "outro"); em **trem** e **ônibus** ele aparece.
+
+4. **Casos de borda e caminhos negativos**
+   - Arquivo acima de 10 MB → toast "…passa de 10 MB, o limite por arquivo." e nada é enviado.
+   - Link `ftp://x` ou `https://` sozinho → "O link precisa começar com http:// ou https://." e
+     nada é gravado.
+   - `.svg` → sempre baixa, nunca abre inline (exceção dentro de `image/*`, travada por teste).
+   - Excluir a atividade do roteiro → os assets dela desaparecem com ela (cascade).
+   - Usuário fora da viagem: não lê a linha nem o objeto no Storage (RLS por `trip_id` e pela
+     primeira pasta do caminho `{tripId}/{activityId}/…`); coberto em `03_assert_behavior.sql`.
+   - URL do objeto sem assinatura, ou assinatura depois de 5 min → 400/403 do Storage, não o arquivo.
+
+5. **Sinais de que quebrou**
+   - Botão de assets ausente em **todos** os cards, sem erro no console: a tabela/bucket não existem
+     — migration não aplicada, `isMissingAssetSchema` engoliu. É "ambiente", não "não implementado".
+   - Roteiro inteiro vazio ou erro ao carregar atividades: migration do `boarding_time` ausente
+     **e** o fallback de `selectActivities` removido — um `select` com coluna inexistente falha
+     inteiro e `fetchTripDetailBundle` dá `throw`.
+   - Contagem no botão desencontrada da lista do diálogo: o callback de volta ao `TripDetail` parou
+     de subir o que o diálogo escreveu (não há refetch do bundle para corrigir).
+   - "Abrir" devolvendo 400: policy de `storage.objects` fora do ar ou assinatura expirada.

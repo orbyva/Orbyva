@@ -4,6 +4,7 @@ import {
   TRIP_ASSET_BUCKET,
   TRIP_ASSET_SIGNED_URL_TTL_SECONDS,
   addActivityLinkAsset,
+  createActivityAssetDrafts,
   deleteActivityAsset,
   fetchAssetsForActivity,
   fetchAssetsForTrip,
@@ -12,6 +13,7 @@ import {
   signedAssetUrl,
   uploadActivityFileAsset,
 } from "@/api/travel/activityAssets";
+import { fileDraft, linkDraft } from "@/domain/travel/activityAssetDrafts";
 import type { TripActivityAsset } from "@/types/travel";
 
 /**
@@ -503,5 +505,100 @@ describe("isMissingAssetSchema", () => {
   it("não engole erro de verdade", () => {
     expect(isMissingAssetSchema(null)).toBe(false);
     expect(isMissingAssetSchema({ message: "network error", code: "XX000" })).toBe(false);
+  });
+});
+
+/**
+ * Feature 257 — a gravação dos rascunhos que o formulário de criação acumulou. O que estes testes
+ * travam é o contrato que a tela depende: ordem preservada, `position` encadeada e **falha que não
+ * derruba o resto** (o evento já existe quando isto roda).
+ */
+describe("createActivityAssetDrafts", () => {
+  function draftFile(name: string): File {
+    return new File([new Blob(["x"])], name, { type: "application/pdf" });
+  }
+
+  it("grava na ordem da lista, encadeando a position", async () => {
+    const link = linkDraft("tap.pt", "Check-in");
+    expect(link.ok).toBe(true);
+    if (!link.ok) return;
+
+    results = [
+      { data: row({ id: "a-1", position: 0, label: "ingresso.pdf" }), error: null },
+      {
+        data: row({
+          id: "a-2",
+          position: 1,
+          kind: "link",
+          label: "Check-in",
+          url: "https://tap.pt/",
+          storage_path: null,
+        }),
+        error: null,
+      },
+    ];
+
+    const result = await createActivityAssetDrafts({
+      tripId: TRIP,
+      activityId: ACT_VISIT,
+      drafts: [fileDraft(draftFile("ingresso.pdf")), link.draft],
+    });
+
+    expect(result.failed).toEqual([]);
+    expect(result.created.map((a) => a.id)).toEqual(["a-1", "a-2"]);
+
+    const inserts = calls.filter((c) => c.op === "insert");
+    expect(inserts).toHaveLength(2);
+    expect((inserts[0].payload as { position: number }).position).toBe(0);
+    // A segunda recebe a primeira como `existing` — em paralelo, as duas nasceriam em 0.
+    expect((inserts[1].payload as { position: number }).position).toBe(1);
+    expect((inserts[1].payload as { url: string }).url).toBe("https://tap.pt/");
+  });
+
+  it("falha num rascunho não impede os outros, e volta nomeada", async () => {
+    uploadError = { message: "Payload too large" };
+    const link = linkDraft("https://tap.pt/checkin");
+    expect(link.ok).toBe(true);
+    if (!link.ok) return;
+
+    results = [
+      {
+        data: row({
+          id: "a-link",
+          position: 0,
+          kind: "link",
+          label: null,
+          url: "https://tap.pt/checkin",
+          storage_path: null,
+        }),
+        error: null,
+      },
+    ];
+
+    const result = await createActivityAssetDrafts({
+      tripId: TRIP,
+      activityId: ACT_VISIT,
+      drafts: [fileDraft(draftFile("gigante.pdf")), link.draft],
+    });
+
+    expect(result.created.map((a) => a.id)).toEqual(["a-link"]);
+    expect(result.failed).toEqual([
+      { label: "gigante.pdf", message: "Payload too large" },
+    ]);
+    // O que falhou não ocupou position: o link entrou em 0.
+    const inserts = calls.filter((c) => c.op === "insert");
+    expect(inserts).toHaveLength(1);
+    expect((inserts[0].payload as { position: number }).position).toBe(0);
+  });
+
+  it("lista vazia não vai ao banco", async () => {
+    const result = await createActivityAssetDrafts({
+      tripId: TRIP,
+      activityId: ACT_VISIT,
+      drafts: [],
+    });
+    expect(result).toEqual({ created: [], failed: [] });
+    expect(calls).toHaveLength(0);
+    expect(uploads).toHaveLength(0);
   });
 });

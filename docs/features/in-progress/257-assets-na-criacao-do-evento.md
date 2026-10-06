@@ -58,24 +58,46 @@ asset, e quem grava é o salvamento, depois que a atividade existe e tem id.
 
 ## Tarefas
 
-- [ ] `src/domain/travel/activityAssetDrafts.ts` (puro): tipo `ActivityAssetDraft`, `fileDraft`,
+- [x] `src/domain/travel/activityAssetDrafts.ts` (puro): tipo `ActivityAssetDraft`, `fileDraft`,
       `linkDraft` (usando `normalizeAssetUrl`), `draftDisplayLabel`, `rejectOversizedFiles` e
       `MAX_ACTIVITY_ASSET_BYTES` reexportado do módulo de assets
-- [ ] Testes Vitest do domínio: rótulo com e sem nome; link normalizado (`tap.pt` → `https://tap.pt`)
+- [x] Testes Vitest do domínio: rótulo com e sem nome; link normalizado (`tap.pt` → `https://tap.pt`)
       e recusado (`ftp://`, vazio); arquivo acima do teto separado dos aceitos
-- [ ] `createActivityAssetDrafts` em `src/api/travel/activityAssets.ts`: grava na ordem, encadeia
+- [x] `createActivityAssetDrafts` em `src/api/travel/activityAssets.ts`: grava na ordem, encadeia
       `existing`, devolve `{ created, failed }` sem lançar quando um item falha
-- [ ] Teste da API com Supabase mockado: dois rascunhos viram duas linhas com `position` 0 e 1; falha
+- [x] Teste da API com Supabase mockado: dois rascunhos viram duas linhas com `position` 0 e 1; falha
       no primeiro não impede o segundo e aparece em `failed`
-- [ ] `ActivityAssetDraftsField.tsx`: botão "Anexar arquivo", campo de link + rótulo, lista dos
+- [x] `ActivityAssetDraftsField.tsx`: botão "Anexar arquivo", campo de link + rótulo, lista dos
       rascunhos com remover, recusa de link no próprio campo
-- [ ] `ActivityForm.asset_drafts` no `TripEditActivityDialog` + a seção "Assets" só em `create`
-- [ ] `TripDetail.handleSaveActivity`: depois do `createItineraryActivity`, grava os rascunhos,
+- [x] `ActivityForm.asset_drafts` no `TripEditActivityDialog` + a seção "Assets" só em `create`
+- [x] `TripDetail.handleSaveActivity`: depois do `createItineraryActivity`, grava os rascunhos,
       anexa `assets` à atividade no estado e avisa o que falhou
-- [ ] Teste de componente: no diálogo de criar, adicionar um link e um arquivo mostra os dois na
+- [x] Teste de componente: no diálogo de criar, adicionar um link e um arquivo mostra os dois na
       lista e o `onSave` recebe os dois rascunhos; em modo `edit` a seção não existe
-- [ ] Verificação: `npx tsc --noEmit -p tsconfig.app.json`, `npx eslint` nos arquivos tocados,
+- [x] Verificação: `npx tsc --noEmit -p tsconfig.app.json`, `npx eslint` nos arquivos tocados,
       `npx vitest run` nos testes de viagem
+
+## Prompts
+
+- 2026-10-06 — "crie implemente e faça o push das seguintes features, no need for planning: - poder
+  adicionar assets direto na criação de um evento …"
+
+## Notas
+
+- **O teto de 10 MB saiu do `TripActivityAssetsDialog` para o domínio** e, de quebra, a recusa
+  deixou de ser "o primeiro arquivo grande cancela o lote": `splitOversizedFiles` separa, os que
+  cabem entram e a mensagem nomeia os que ficaram de fora. O diálogo do card ganhou a mesma frase
+  (`oversizedMessage`) sem mudar de comportamento no caso de um arquivo só.
+- **`Enter` nos campos de link dá `preventDefault`.** Eles vivem dentro do diálogo de formulário do
+  evento; sem isso, Enter submeteria o evento em vez de adicionar o link — exatamente no momento em
+  que o usuário acha que está só anexando.
+- **O teste de componente não mocka API nenhuma**, e isso é a prova de que o formulário não faz I/O:
+  se qualquer rascunho fosse gravado na hora, o teste quebraria por falta de Supabase.
+- **A posição vem de `created`, não de `drafts.length`.** Um rascunho que falha não ocupa `position`
+  — travado por teste, porque a alternativa (numerar pela lista) deixaria buracos na ordem sempre
+  que um upload falhasse.
+- O `TripDetail` tem um segundo caminho de criação de atividade (arrastar um lugar salvo para o dia),
+  que não passa pelo formulário e, portanto, não tem rascunho — nada a fazer lá.
 
 ## Como testar
 

@@ -29,14 +29,14 @@ import {
   formatAssetSize,
   normalizeAssetUrl,
 } from "@/domain/travel/activityAssets";
+import {
+  MAX_ACTIVITY_ASSET_BYTES,
+  oversizedMessage,
+} from "@/domain/travel/activityAssetDrafts";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import type { TripActivityAsset, TripItineraryActivity } from "@/types/travel";
-
-/** Teto do bucket (`20260930120000_trip_activity_asset.sql`). Checado aqui também para a recusa
- * chegar como frase em vez de erro cru do Storage. */
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 type Props = {
   open: boolean;
@@ -137,11 +137,16 @@ export function TripActivityAssetsDialog({
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0 || !activityId) return;
-    const tooBig = Array.from(files).find((f) => f.size > MAX_FILE_BYTES);
-    if (tooBig) {
+    // O teto mora no domínio (feature 257): são dois caminhos de anexo — este diálogo e o
+    // rascunho do formulário de criação — e duas constantes iguais é como uma das duas fica para
+    // trás.
+    const tooBig = Array.from(files).filter(
+      (f) => f.size > MAX_ACTIVITY_ASSET_BYTES
+    );
+    if (tooBig.length > 0) {
       toast({
         title: "Arquivo muito grande",
-        description: `“${tooBig.name}” passa de 10 MB, o limite por arquivo.`,
+        description: oversizedMessage(tooBig),
         variant: "destructive",
       });
       return;
