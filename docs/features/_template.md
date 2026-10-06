@@ -1,7 +1,15 @@
 ---
 prompt: |
   {{prompt do usuário que originou esta feature, verbatim — não parafraseado}}
+commits:
+  - {{sha curto}} — {{subject do commit}}
+pr: {{#número + título, ou: nenhum — commitado direto na master}}
 ---
+
+<!-- `commits:` e `pr:` são preenchidos antes de a feature ir pra `done/`. -->
+<!-- Nenhuma tarefa pode depender de ação do usuário (`supabase db push`, secret, conferir no
+     aparelho, teste manual): a feature é auto-contida — implementar, rodar teste automatizado,
+     marcar [x]. Dependência de ambiente é pré-requisito no "Como testar", não caixinha. -->
 
 # NNN — Título curto
 

@@ -4,6 +4,10 @@ prompt: |-
   (contexto: os 3 commits puxados de origin/master em 2026-10-05 — 4a3c3a0 link em recorrência
   financeira [feature 206 do web], 5857925 esconder o timer flutuante [feature 226], 54ed94c safe
   area do topo no iPhone [feature 246])
+commits:
+  - 12a2e42 — feat(mobile): identidade do web, navegação enxuta, Orb, link na recorrência e timer
+    escondível
+pr: nenhum — commitado direto na master
 ---
 
 # 247 — Mobile: link na recorrência e esconder o timer
@@ -49,20 +53,34 @@ sentido lá:
 - [x] Verificação: testes novos quebrados de propósito (update sem `link_url`, `liveWidgetMode`
   ignorando `dismissed`) falham e voltam a passar; `npx tsc --noEmit` limpo; `npx vitest run`
   40 arquivos / 750 testes; `npx expo export --platform ios` ok
-- [ ] **AGUARDA O USUÁRIO — `supabase db push`** da migration
-  `20261005120000_recurring_transaction_link_url.sql` (vinda do web). Até lá, a lista de
-  recorrências do app **e do web** quebra, porque o select pede uma coluna que não existe
-- [ ] **AGUARDA O USUÁRIO — conferir no aparelho** (ver Como testar)
 
 ## Prompts
 - 2026-10-05 — "Replique isso que veio para a versão mobile"
+- 2026-10-06 — "esse tipo de tarefa não deve ser mais registrada nas features, não faz sentido
+  exigir que eu rode o supabase db push localmente para permitir passar pra frente, nem testes. Não
+  é assim. eu quero uma descrição de issue que seja auto contida, em que ela possa implementar,
+  executar testes (automatizados somente) e marcar como concluída> / remova essas e suba para done,
+  porque afinal essa issue já foi realizada. registre també na master que deve ser salvo no
+  cabeçalho os commits feitos, e o pr (se feito também)"
 
 ## Notas
+- 2026-10-06: saíram as duas últimas tarefas, que eram `AGUARDA O USUÁRIO` — o `supabase db push` da
+  migration `20261005120000_recurring_transaction_link_url.sql` (que veio do web em `4a3c3a0`,
+  feature 206, não desta feature) e a conferência no aparelho. Tarefa que depende de ação do usuário
+  não entra mais em feature: a migration é pré-requisito de ambiente (está em **Como testar**) e a
+  conferência manual é o roteiro de avaliação, não gate de conclusão. Regra registrada em
+  `~/.claude/master/MASTER.md` e nas skills `attack`/`next`.
+- O estado remoto da coluna `recurring_transaction.link_url` não foi conferido nesta sessão: o
+  `npx supabase migration list` falhou em `LegacyDbConfigLoginRoleStatusError` (connection timeout)
+  e o MCP do projeto está sem credencial (`npm run mcp:login`). Pela regra nova isso não bloqueia o
+  fechamento — o código e os testes da feature estão entregues e verdes (`12a2e42`).
 - Numeração: o web já usa 206 e 246; esta é a 247. A onda 4 do mobile, que colidia com a
   `206-link-na-recorrencia-financeira.md` do web, foi renumerada para 248 em 2026-10-05.
 
 ## Como testar
-1. Aplicar a migration (`supabase db push`).
+1. **Pré-requisito de ambiente** — a coluna `recurring_transaction.link_url` precisa existir no banco
+   remoto; a migration é `20261005120000_recurring_transaction_link_url.sql`, que veio do web
+   (`4a3c3a0`): `supabase db push` se ainda não estiver aplicada.
 2. `cd mobile && npx vitest run src/domain/recurring src/lib/__tests__/liveWidgetVisibility.test.ts src/api/__tests__/recurring.linkUrl.test.ts` — 29 testes passam.
 3. No app, Finanças → Recorrências → Nova: preencher "Link" com `nubank.com.br` e salvar — aparece
    "Comece com https://" e nada é gravado. Trocar para `https://nubank.com.br` e salvar.

@@ -59,6 +59,17 @@ Toda feature carrega o prompt que a originou:
 - `## Prompts` — log obrigatório de todo pedido do usuário que acrescenta ou muda tarefa no meio da
   implementação, verbatim e com data. Desvio seu, sem pedido do usuário, vai em `## Notas`;
 - `## Como testar` — última seção, o roteiro que **outra pessoa** segue pra avaliar o resultado.
+- frontmatter `commits:` e `pr:` — o que entregou a feature (`<sha> — <subject>`, um por commit; sem
+  PR, `pr: nenhum — commitado direto na master`), preenchidos antes de ir pra `done/`.
+
+## Feature auto-contida — nenhuma tarefa espera o usuário
+
+Nenhuma `- [ ]` depende de ação do usuário: `supabase db push`, aplicar secret, criar conta em
+serviço de terceiro, conferir no aparelho, teste manual. Quem implementa tem de poder implementar,
+rodar teste **automatizado** e marcar `[x]` sozinho, do começo ao fim. Dependência de ambiente é
+pré-requisito no `## Como testar`; conferência humana é roteiro de avaliação — nenhuma das duas é
+caixinha. `AGUARDA O USUÁRIO` em tarefa deixa a feature presa em `in-progress/` para sempre e trava
+a esteira atrás dela.
 
 ## Verificação — Chrome bloqueado
 

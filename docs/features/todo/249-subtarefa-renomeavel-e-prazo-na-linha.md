@@ -41,6 +41,8 @@ prompt: |-
   P2 — renomear comita no Enter **e** no blur, Esc cancela.
   P3 — o trigger na linha mostra só prazo (data + hora, ou "+ Prazo"); duração só dentro do popover.
   P4 — prazo só depois da linha criada; o input "Adicionar subtarefa" fica como está.
+commits:
+pr:
 ---
 
 # 249 — Subtarefa renomeável e com prazo na linha do form
