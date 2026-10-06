@@ -1,0 +1,1320 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="52">
+<title>V17 · Na prática: dá pra financiar um carro?</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+<style>
+  /*
+   * As telas reproduzem o app mobile (mobile/src): tokens de constants/theme.ts, escala de
+   * domain/ui/typography.ts, ícones Ionicons. Tudo em pontos de RN num iPhone de 390pt,
+   * ampliado por transform — assim os números batem 1:1 com o código.
+   */
+  @font-face {
+    font-family: "Ionicons";
+    font-display: block;
+    src: url("../../../mobile/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf") format("truetype");
+  }
+
+  .scenes { gap: 34px; position: relative; }
+
+  .cap {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 62px;
+    line-height: 1.04;
+    letter-spacing: -0.026em;
+    min-height: 130px;
+  }
+  .cap .orb-t { color: var(--m-orb-light); }
+
+  .phone {
+    position: relative;
+    align-self: center;
+    width: 580px;
+    height: 1060px;
+    border-radius: 68px;
+    border: 12px solid #1f1f23;
+    outline: 2px solid rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+    background: #f8f8f7;
+    box-shadow: 0 50px 110px -40px rgba(14, 165, 233, 0.6);
+  }
+
+  /* ---------- app (pt de RN) ---------- */
+  .app {
+    --bg: #f8f8f7;
+    --fg: #0c0a09;
+    --card: #ffffff;
+    --primary: #0a7aae;
+    --muted: #f0f0ef;
+    --mfg: #726a65;
+    --border: #e7e5e4;
+    --success: #1ca64f;
+    --warning: #db7706;
+    --destructive: #dc2828;
+    --hub: #1216d3;
+    --finance: #0a7aae;
+    --productivity: #8033e6;
+    --life: #10b77f;
+    --health: #f43e5c;
+    --entertainment: #af20c5;
+    --travel: #188b81;
+    --car: #f97015;
+
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 390px;
+    height: 727px;
+    transform: scale(1.4256);
+    transform-origin: 0 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    overflow: hidden;
+  }
+  .app * { -webkit-font-smoothing: antialiased; }
+
+  .ion {
+    font-family: "Ionicons";
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+    display: inline-block;
+  }
+
+  .t-display { font-family: "Syne", sans-serif; font-weight: 700; font-size: 28px; line-height: 38px; }
+  .t-title { font-family: "Syne", sans-serif; font-weight: 700; font-size: 22px; line-height: 30px; }
+  .t-heading { font-weight: 600; font-size: 18px; line-height: 24px; }
+  .t-body { font-weight: 400; font-size: 16px; line-height: 24px; }
+  .t-bs { font-weight: 600; font-size: 16px; line-height: 24px; }
+  .t-label { font-weight: 500; font-size: 14px; line-height: 20px; }
+  .t-cap { font-weight: 500; font-size: 13px; line-height: 18px; }
+  .t-sb { font-weight: 700; font-size: 13px; line-height: 18px; }
+  .t-micro { font-weight: 600; font-size: 11px; line-height: 14px; }
+  .t-nano { font-weight: 600; font-size: 10px; line-height: 12px; }
+  .mut { color: var(--mfg); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .status {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 47px;
+    padding: 14px 30px 0 44px;
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 16px;
+    z-index: 20;
+  }
+  .status i {
+    width: 25px;
+    height: 12px;
+    border-radius: 4px;
+    border: 1.5px solid var(--fg);
+    position: relative;
+    margin-top: 3px;
+  }
+  .status i::after {
+    content: "";
+    position: absolute;
+    inset: 1.5px 5px 1.5px 1.5px;
+    border-radius: 2px;
+    background: var(--fg);
+  }
+  .homebar {
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    width: 134px;
+    height: 5px;
+    margin-left: -67px;
+    border-radius: 3px;
+    background: var(--fg);
+    z-index: 20;
+  }
+
+  /* tela = header nativo + corpo; troca com fade_from_bottom (app/(app)/_layout.tsx) */
+  .scr {
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    padding-top: 47px;
+    --in: k-up;
+    --dy: 14px;
+    --dur: 0.34s;
+    --xdur: 0.2s;
+  }
+  .hdr {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    position: relative;
+    z-index: 2;
+    background: var(--bg);
+  }
+  .empty {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 91px;
+    bottom: 102px;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+  }
+  .seal {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 0.5px solid var(--border);
+    background: var(--muted);
+  }
+  .seal i { width: 8px; height: 8px; border-radius: 999px; background: var(--success); }
+  .sugg {
+    width: 100%;
+    text-align: left;
+    padding: 8px 16px;
+    border-radius: 12px;
+    border: 0.5px solid var(--border);
+    background: var(--muted);
+  }
+  .hdr .menu { font-size: 24px; padding: 0 4px; margin-right: 4px; }
+  .hdr .title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: "Syne", sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    white-space: nowrap;
+  }
+  .hdr .title .ion { font-size: 16px; color: var(--mfg); }
+  .hdr .right { margin-left: auto; display: flex; align-items: center; }
+  .hdr .right > * { width: 36px; height: 36px; display: grid; place-items: center; font-size: 22px; }
+  .hdr .back { font-size: 28px; color: var(--primary); margin-left: -8px; }
+
+  .body { padding: 16px 24px 0; display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(12, 10, 9, 0.06);
+    padding: 0;
+  }
+  .x-hair { border-top: 0.5px solid var(--border); }
+
+  .well {
+    display: grid;
+    place-items: center;
+    flex: none;
+    color: var(--m);
+    background: color-mix(in srgb, var(--m) 16%, transparent);
+  }
+
+  .x-tabs {
+    display: flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 10px;
+    background: var(--muted);
+  }
+  .x-tabs span {
+    flex: 1;
+    min-height: 36px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--mfg);
+    white-space: nowrap;
+    padding: 0 6px;
+  }
+  .x-tabs span.on {
+    background: var(--bg);
+    color: var(--fg);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(12, 10, 9, 0.06);
+  }
+
+  .x-tabs.switch { position: relative; }
+  .x-tabs.switch span { position: relative; z-index: 1; }
+  .x-tabs.switch .x-hl {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc(50% - 4.5px);
+    border-radius: 8px;
+    background: var(--bg);
+    box-shadow: 0 1px 2px rgba(12, 10, 9, 0.06);
+    animation: k-tabmove 0.01s linear 5.8s forwards;
+  }
+  @keyframes k-tabmove { to { transform: translateX(calc(100% + 3px)); } }
+  .x-tabs.switch .off-later { color: var(--fg); font-weight: 600; animation: k-tab-off 0.01s linear 5.8s forwards; }
+  .x-tabs.switch .on-later { animation: k-tab-on 0.01s linear 5.8s forwards; }
+  @keyframes k-tab-off { to { color: #726a65; font-weight: 500; } }
+  @keyframes k-tab-on { to { color: #0c0a09; font-weight: 600; } }
+
+  /* o conteúdo rola por baixo do header; a faixa da status bar acompanha o fundo */
+  .hdr::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 47px;
+    background: var(--bg);
+  }
+
+  .fgrow {
+    height: 20px;
+    animation:
+      k-fgrow 0.18s var(--ease) 15.2s forwards,
+      k-fshrink 0.12s var(--ease) 16.7s forwards;
+  }
+  @keyframes k-fgrow { to { height: 60px; } }
+  @keyframes k-fshrink { from { height: 60px; } to { height: 20px; } }
+
+  .chip {
+    min-height: 32px;
+    border-radius: 999px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    font-size: 13px;
+    white-space: nowrap;
+    letter-spacing: 0;
+    color: var(--fg);
+    background: transparent;
+  }
+  .chip.on {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    font-weight: 600;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 999px;
+    border: 1px solid;
+    padding: 2px 10px;
+    font-weight: 600;
+    font-size: 11px;
+    line-height: 14px;
+  }
+  .badge.warn { color: var(--warning); border-color: rgba(219, 119, 6, 0.3); background: rgba(219, 119, 6, 0.12); }
+  .badge.ok { color: var(--success); border-color: rgba(28, 166, 79, 0.3); background: rgba(28, 166, 79, 0.12); }
+  .badge.new { color: #fff; border-color: var(--primary); background: var(--primary); }
+
+  .btn {
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(12, 10, 9, 0.06);
+  }
+  .btn.primary { background: var(--primary); color: #fff; }
+  .btn.outline { background: var(--bg); border-color: var(--border); color: var(--fg); }
+
+  .fab {
+    position: absolute;
+    right: 20px;
+    bottom: 46px;
+    width: 56px;
+    height: 56px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-size: 30px;
+    background: var(--m);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+    z-index: 6;
+  }
+
+  /* esfera da Orb (OrbSphere.tsx) */
+  .orbs {
+    position: relative;
+    display: inline-block;
+    flex: none;
+    width: var(--os);
+    height: var(--os);
+    border-radius: 999px;
+    overflow: hidden;
+    background: radial-gradient(circle at 32% 28%, #c094f9 0%, #8033e6 38%, #1012b2 72%, #090b67 100%);
+    box-shadow: 0 0 0 1px rgba(128, 51, 230, 0.35), 0 4px 10px -3px rgba(128, 51, 230, 0.6);
+  }
+  .orbs::before {
+    content: "";
+    position: absolute;
+    inset: -30%;
+    background: conic-gradient(from 0deg, transparent 0deg, rgba(72, 190, 244, 0.55) 70deg, transparent 150deg, rgba(247, 110, 224, 0.45) 240deg, transparent 330deg);
+    animation: orb-drift 14s linear infinite;
+  }
+  .orbs::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.12) 22%, transparent 45%),
+      radial-gradient(circle at 70% 82%, rgba(110, 203, 247, 0.35) 0%, transparent 55%);
+  }
+
+  /* ---------- toques, digitação, rolagem ---------- */
+  .tap {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    border-radius: 999px;
+    background: rgba(12, 10, 9, 0.16);
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 0 1px rgba(12, 10, 9, 0.18);
+    z-index: 30;
+    animation: k-tap 0.7s var(--ease) var(--d) both;
+  }
+  @keyframes k-tap {
+    0% { opacity: 0; transform: scale(0.5); }
+    30% { opacity: 1; transform: scale(0.9); }
+    100% { opacity: 0; transform: scale(1.5); }
+  }
+
+  .type {
+    display: inline-block;
+    white-space: nowrap;
+    animation: k-type var(--dur, 1s) steps(var(--steps, 12)) var(--d) both;
+  }
+  @keyframes k-type {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0 -2px 0 0); }
+  }
+
+  .scroll {
+    animation: k-scroll 0.6s var(--ease) var(--sd) forwards;
+  }
+  @keyframes k-scroll {
+    to { transform: translateY(var(--sy)); }
+  }
+
+  /* ---------- Início (home.tsx + hub/*) ---------- */
+  .hero { background: var(--primary); color: #fff; border-radius: 12px; overflow: hidden; }
+  .hero .m { color: rgba(255, 255, 255, 0.72); }
+  .hero .pill { border-radius: 999px; padding: 6px 10px; background: rgba(255, 255, 255, 0.14); }
+  .drow { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+  .drow .well { width: 36px; height: 36px; border-radius: 12px; font-size: 18px; }
+  .hcheck { width: 18px; height: 18px; border-radius: 999px; border: 2px solid var(--mfg); flex: none; }
+  .hcheck.on { border-color: var(--success); background: var(--success); }
+
+  /* ---------- menu lateral (chrome/AppSidebar.tsx) ---------- */
+  .side-wrap { position: absolute; inset: 0; z-index: 15; }
+  .backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.4); }
+  .panel {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 265px;
+    background: var(--bg);
+    padding-top: 47px;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.28);
+    --in: k-right;
+    --dx: 265px;
+    --dur: 0.32s;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 8px 16px 16px; }
+  .brand img { width: 32px; }
+  .brand b { font-weight: 800; font-size: 17px; letter-spacing: 0.13em; }
+  .brand b i { font-style: normal; color: var(--primary); }
+  .navlist { padding: 0 8px 24px; display: flex; flex-direction: column; gap: 4px; }
+  .grp {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 4px;
+    padding: 10px;
+    border-radius: 12px;
+    color: var(--m);
+  }
+  .grp.act { background: color-mix(in srgb, var(--m) 12%, transparent); }
+  .grp .well { width: 28px; height: 28px; border-radius: 8px; font-size: 16px; }
+  .grp .t-sb { flex: 1; color: var(--m); }
+  .grp > .ion:last-child { font-size: 16px; color: var(--mfg); }
+  .leaf {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 4px 0 18px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 24px;
+  }
+  .leaf::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--m); flex: none; }
+  .leaf.act { background: color-mix(in srgb, var(--m) 14%, transparent); font-weight: 700; }
+
+  /* ---------- Recorrências › Projeção (components/RecurringProjection.tsx) ---------- */
+  .x-mrow { display: flex; align-items: center; gap: 8px; }
+  .mbtn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--muted);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .x-mrow .mbtn .ion { font-size: 18px; }
+  .x-mtitle { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 38px; justify-content: center; }
+  .later { max-height: 0; overflow: hidden; animation: k-reveal 0.01s linear var(--at) forwards; }
+  @keyframes k-reveal { to { max-height: 40px; } }
+
+  /* simulação: o CTA vira o cartão; a altura do slot acompanha (--hc vem do script) */
+  .x-simslot { position: relative; height: 66px; animation: k-simgrow 0.3s var(--ease) 7.90s forwards; }
+  @keyframes k-simgrow { to { height: var(--hc, 500px); } }
+  .x-simcta {
+    position: absolute; left: 0; right: 0; top: 0;
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+    background: color-mix(in srgb, var(--warning) 10%, transparent);
+    border-radius: 12px; padding: 12px;
+  }
+  .x-simicon { width: 34px; height: 34px; border-radius: 999px; background: var(--warning); color: #fff; display: grid; place-items: center; font-size: 18px; flex: none; }
+  .x-simcard {
+    position: absolute; left: 0; right: 0; top: 0;
+    border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+    background: color-mix(in srgb, var(--warning) 7%, transparent);
+    border-radius: 12px; padding: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .x-field { display: flex; flex-direction: column; gap: 6px; }
+  .x-lbl { font-weight: 500; font-size: 14px; line-height: 20px; }
+  .x-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .x-chip { border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 13px; line-height: 18px; }
+  .x-chip.on { border-color: var(--warning); background: var(--warning); color: #fff; animation: k-chipoff 0.01s linear 8.90s forwards; }
+  @keyframes k-chipoff { to { border-color: #e7e5e4; background: transparent; color: #0c0a09; } }
+  .x-chips .inp { min-width: 72px; flex-grow: 1; }
+  .inp.f-on { animation: k-focus 0.01s linear var(--fon) forwards, k-blur 0.01s linear var(--foff, 9999s) forwards; }
+  @keyframes k-focus { to { border-color: #0b84bc; } }
+  @keyframes k-blur { to { border-color: #e7e5e4; } }
+  .x-stepper { display: flex; align-items: center; gap: 8px; }
+  .x-stepper .mbtn .ion { font-size: 16px; }
+  .x-simres { border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px; background: color-mix(in srgb, var(--warning) 12%, transparent); }
+  .x-alert { display: flex; align-items: center; gap: 8px; border-radius: 8px; padding: 8px; color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+  .x-alert .ion { font-size: 16px; }
+
+  .x-sum { display: flex; gap: 8px; }
+  .x-sumc { flex: 1; min-width: 0; background: var(--muted); border-radius: 10px; border-top: 3px solid var(--c); padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .x-sumc .later { white-space: nowrap; text-overflow: ellipsis; }
+
+  /* gráfico: receitas ao lado de despesas, a parcela simulada empilhada em cima das despesas */
+  .x-cc { border: 0.5px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .x-legend { display: flex; gap: 14px; }
+  .x-legend span { display: flex; align-items: center; gap: 6px; }
+  .x-legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+  .x-plot { position: relative; height: 172px; overflow: hidden; }
+  .x-plot .base { position: absolute; left: 0; right: 0; top: 150px; height: 1px; background: var(--border); }
+  .x-plot .selr { position: absolute; top: 0; left: 48px; width: 42px; height: 172px; border-radius: 6px; background: var(--muted); animation: k-selmove 0.25s var(--ease) 6.80s forwards; }
+  @keyframes k-selmove { to { transform: translateX(46px); } }
+  .x-plot .sl { position: absolute; top: 0; width: 46px; height: 150px; opacity: var(--o); }
+  .x-plot .sl.to-dim { animation: k-op 0.2s linear 6.80s forwards; --o2: 0.75; }
+  .x-plot .sl.to-sel { animation: k-op 0.2s linear 6.80s forwards; --o2: 1; }
+  @keyframes k-op { to { opacity: var(--o2); } }
+  .x-plot .bar { position: absolute; bottom: 0; width: 18.5px; border-radius: 2px; height: var(--h); animation: k-barup 0.6s var(--ease) var(--d) both; }
+  .x-plot .bar.r { left: 3px; background: var(--success); }
+  .x-plot .bar.p { left: 24.5px; background: var(--destructive); }
+  .x-plot .bar.s { left: 24.5px; bottom: var(--b); background: var(--warning); height: 0; animation: k-grow 0.6s var(--ease) var(--d) forwards; }
+  @keyframes k-barup { from { height: 0; } to { height: var(--h); } }
+  @keyframes k-grow { to { height: var(--h); } }
+  .x-plot .lb { position: absolute; top: 156px; width: 46px; text-align: center; font-size: 10px; line-height: 12px; color: var(--mfg); }
+  .x-plot .lb.sel-off { color: var(--fg); font-weight: 700; animation: k-lboff 0.01s linear 6.80s forwards; }
+  .x-plot .lb.sel-on { animation: k-lbon 0.01s linear 6.80s forwards; }
+  @keyframes k-lboff { to { color: #726a65; font-weight: 400; } }
+  @keyframes k-lbon { to { color: #0c0a09; font-weight: 700; } }
+
+  .x-prow { background: var(--muted); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
+  .x-prow.sel { border: 1px solid var(--primary); }
+  .x-prow .nums { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .inp {
+    min-height: 44px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    font-size: 16px;
+    line-height: 24px;
+  }
+  .inp.focus { border-color: #0b84bc; }
+  .ph { color: var(--mfg); }
+
+  /* lista (components/RecurringList.tsx) */
+  .rrow { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .rrow .well { width: 28px; height: 28px; border-radius: 999px; font-size: 16px; }
+  .inset { background: var(--muted); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .act-main { height: 46px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; background: var(--destructive); }
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--primary);
+    background: rgba(10, 122, 174, 0.14);
+  }
+  .filters .fw { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; font-size: 16px; color: var(--primary); background: rgba(10, 122, 174, 0.22); }
+  .filters > .ion:last-child { color: var(--primary); }
+  .sumcard { flex: 1; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px; border: 1px solid; }
+  .sumcard .k { font-weight: 600; font-size: 11px; line-height: 14px; letter-spacing: 0.3px; text-transform: uppercase; padding-bottom: 6px; border-bottom: 2px solid; }
+
+  /* Orb (components/orb/*) */
+  .msgs { padding: 8px 0; display: flex; flex-direction: column; }
+  .bub {
+    margin: 4px 16px;
+    border-radius: 12px;
+    border: 0.5px solid var(--border);
+    padding: 16px;
+    font-size: 16px;
+    line-height: 24px;
+  }
+  .bub.me { align-self: flex-end; max-width: 92%; background: var(--primary); color: #fff; }
+  .bub.ai { align-self: flex-start; width: 92%; background: var(--muted); }
+  .bub.ai b { font-weight: 700; }
+  .x-proposal {
+    margin-top: 8px;
+    background: var(--muted);
+    border: 0.5px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    filter: brightness(0.985);
+  }
+  .composer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 34px;
+    background: var(--bg);
+    border-top: 0.5px solid var(--border);
+    padding: 8px 16px;
+  }
+  .composer .box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .composer .box.focus { border-color: #0b84bc; }
+  .composer .field { flex: 1; padding: 8px; min-height: 36px; font-size: 16px; line-height: 20px; position: relative; }
+  .send { width: 36px; height: 36px; border-radius: 999px; background: var(--primary); color: #fff; display: grid; place-items: center; font-size: 18px; }
+
+  /* push do sistema (iOS) */
+  .push {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 52px;
+    z-index: 25;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: 20px;
+    background: rgba(245, 245, 244, 0.97);
+    box-shadow: 0 10px 30px -8px rgba(12, 10, 9, 0.35);
+    --in: k-down;
+    --dy: 40px;
+  }
+  .push .ic { width: 38px; height: 38px; border-radius: 9px; background: #070b14; display: grid; place-items: center; flex: none; }
+  .push .ic img { width: 28px; }
+
+  /* Veículos e Viagens */
+  .dtrow { display: flex; align-items: center; gap: 8px; }
+  .meta { display: inline-flex; align-items: center; gap: 4px; }
+  .meta .ion { font-size: 14px; color: var(--mfg); }
+  .circ { width: 36px; height: 36px; border-radius: 999px; display: grid; place-items: center; font-size: 18px; color: var(--primary); background: rgba(10, 122, 174, 0.12); }
+  .x-day { width: 44px; height: 44px; border-radius: 12px; background: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .arow { display: flex; align-items: flex-start; gap: 10px; border-radius: 12px; border: 1px solid rgba(12, 10, 9, 0.08); padding: 8px; }
+  .arow .well { width: 32px; height: 32px; border-radius: 8px; font-size: 16px; }
+  .arow.trans { background: rgba(11, 132, 188, 0.04); border-color: rgba(11, 132, 188, 0.25); }
+  .arow.trans .well { color: #0b84bc; background: rgba(11, 132, 188, 0.1); border: 1px solid rgba(11, 132, 188, 0.3); }
+  .arow.done { background: rgba(28, 166, 79, 0.06); border-color: rgba(28, 166, 79, 0.25); }
+  .arow.done .well { background: var(--success); color: #fff; }
+  .arow.done .t-sb { text-decoration: line-through; opacity: 0.6; }
+
+  /* fecho */
+  .end {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 46px;
+    text-align: center;
+  }
+  .end img { width: 300px; filter: brightness(0) invert(1); }
+  .head-row .mark,
+  .head-row .wordmark i,
+  .head-row .eyebrow {
+    animation: k-white 0.7s var(--ease) 46.6s both;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage stage--story s-ink" data-eyebrow="Na prática" data-sig="br">
+  <div class="sky-wash" style="--d:46.60s"></div>
+
+  <div class="scenes">
+
+    <div class="swap swap--top">
+      <div class="cap a" style="--d:.20s; --x:4.50s">Será que dá pra<br>financiar um carro?</div>
+      <div class="cap a" style="--d:4.80s; --x:9.70s">Primeiro, a projeção<br>dos próximos meses.</div>
+      <div class="cap a" style="--d:10.00s; --x:14.60s">Com a parcela, ainda<br><span class="acc">sobram</span> R$ 820.</div>
+      <div class="cap a" style="--d:14.90s; --x:22.60s">Dá! Então pede pra<br><span class="orb-t">Orb</span> registrar.</div>
+      <div class="cap a" style="--d:22.90s; --x:28.60s">Entra nas contas,<br>com aviso no dia.</div>
+      <div class="cap a" style="--d:28.90s; --x:34.60s">Carro novo?<br>Manutenção com data.</div>
+      <div class="cap a" style="--d:34.90s; --x:40.60s">E a primeira<br>viagem com ele.</div>
+      <div class="cap a" style="--d:40.90s; --x:46.40s">Tudo no mesmo<br>lugar. Num app <span class="acc">só</span>.</div>
+    </div>
+
+    <div class="phone a" style="--in:k-scale; --d:.10s; --x:46.40s">
+     <div class="app" id="app">
+
+      <div class="status"><span>9:41</span><i></i></div>
+
+      <!-- ============ 1 · Início ============ -->
+      <div class="scr a" style="--in:k-fade; --d:.30s; --x:4.70s; --m:var(--hub)">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline" id="t-menu"></span>
+          <span class="title">Início</span>
+          <span class="right"><span class="ion" data-ion="search-outline"></span><span><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div class="body">
+          <div>
+            <div class="t-cap mut">Segunda-feira, 5 de outubro</div>
+            <div class="t-display">Olá, Ana</div>
+          </div>
+
+          <div class="hero">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; padding:16px 16px 0">
+              <div style="display:flex; flex-direction:column; gap:4px">
+                <span class="t-nano m" style="letter-spacing:1.2px; text-transform:uppercase">Lançamentos · Outubro de 2026</span>
+                <span class="t-micro m">Saldo do mês</span>
+                <span class="t-display num" data-count="1920" data-count-fmt="brl" style="letter-spacing:-0.4px; --d:.7s"></span>
+              </div>
+              <span class="pill t-micro">Finanças</span>
+            </div>
+            <div style="display:flex; gap:16px; margin:16px 16px 0; padding-top:16px; border-top:0.5px solid rgba(255,255,255,.22)">
+              <div style="flex:1"><div class="t-micro m">Receitas</div><div class="t-bs num">R$ 6.500,00</div></div>
+              <div style="flex:1"><div class="t-micro m">Despesas</div><div class="t-bs num">R$ 4.580,00</div></div>
+            </div>
+            <div style="display:flex; margin-top:16px; background:rgba(0,0,0,.12)">
+              <div style="flex:1; padding:12px 16px 16px; display:flex; flex-direction:column; gap:4px">
+                <span class="t-micro m">Orçamento</span>
+                <span class="t-label num" style="white-space:nowrap">R$ 2.840,00 <span class="t-micro m">/ R$ 4.000,00</span></span>
+                <span style="display:block; height:4px; border-radius:99px; background:rgba(255,255,255,.22); margin-top:4px; overflow:hidden"><span style="display:block; width:71%; height:100%; border-radius:99px; background:#fbbf24"></span></span>
+                <span class="t-micro m">71% usado</span>
+              </div>
+              <div style="flex:1; padding:12px 16px 16px; display:flex; flex-direction:column; gap:4px">
+                <span class="t-micro m">Parcelas</span>
+                <span class="t-label">Nada urgente</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <span class="t-sb">Resumo do dia</span>
+            <div class="card">
+              <div class="drow">
+                <span class="well ion" style="--m:var(--productivity)" data-ion="checkbox"></span>
+                <div style="flex:1"><div class="t-sb">2 para hoje</div><div class="t-cap mut">Tarefas do dia</div></div>
+                <span class="t-cap mut">2 hoje</span>
+              </div>
+              <div class="drow x-hair" style="align-items:flex-start">
+                <span class="well ion" style="--m:var(--life)" data-ion="leaf"></span>
+                <div style="flex:1">
+                  <div class="t-sb">Hábitos 1/2</div>
+                  <div style="display:flex; align-items:center; gap:8px; padding:4px 0"><span class="hcheck on"></span><span class="t-cap" style="text-decoration:line-through; opacity:.55">Correr</span></div>
+                  <div style="display:flex; align-items:center; gap:8px; padding:4px 0"><span class="hcheck"></span><span class="t-cap">Ler 20 minutos</span></div>
+                </div>
+              </div>
+              <div class="drow x-hair">
+                <span class="well ion" style="--m:var(--destructive)" data-ion="card"></span>
+                <div style="flex:1"><div class="t-sb">Próximo pagamento</div><div class="t-cap mut">Aluguel apartamento · 05/11</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <!-- menu lateral: Início → Finanças › Recorrências -->
+      <div class="side-wrap a" style="--in:k-fade; --dur:.25s; --d:3.10s; --x:4.70s">
+        <div class="backdrop"></div>
+        <div class="panel a" style="--d:3.10s">
+          <div class="brand"><img src="../../../public/logo-mark-sky.png" alt=""><b><i>O</i>RBYV<i>Λ</i></b></div>
+          <div class="navlist">
+            <div class="grp act" style="--m:var(--hub)"><span class="well ion" data-ion="home-outline"></span><span class="t-sb">Início</span><span class="ion" data-ion="chevron-forward"></span></div>
+            <div class="grp" style="--m:var(--finance)"><span class="well ion" data-ion="wallet-outline"></span><span class="t-sb">Finanças</span><span class="ion" data-ion="chevron-down"></span></div>
+            <div class="leaf" style="--m:var(--finance)">Dashboard</div>
+            <div class="leaf" style="--m:var(--finance)">Transações</div>
+            <div class="leaf" style="--m:var(--finance)" id="t-recorrencias">Recorrências</div>
+            <div class="leaf" style="--m:var(--finance)">Orçamento</div>
+            <div class="leaf" style="--m:var(--finance)">Categorias</div>
+            <div class="grp" style="--m:var(--productivity)"><span class="well ion" data-ion="checkbox-outline"></span><span class="t-sb">Produtividade</span><span class="ion" data-ion="chevron-forward"></span></div>
+            <div class="grp" style="--m:var(--life)"><span class="well ion" data-ion="leaf-outline"></span><span class="t-sb">Vida</span><span class="ion" data-ion="chevron-forward"></span></div>
+            <div class="grp" style="--m:var(--entertainment)"><span class="well ion" data-ion="film-outline"></span><span class="t-sb">Conteúdo</span><span class="ion" data-ion="chevron-forward"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 2 · Recorrências › Projeção + simulação ============ -->
+      <div class="scr a" style="--d:4.70s; --x:14.60s; --m:var(--finance)">
+        <div class="hdr" style="z-index:2; background:var(--bg)">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Recorrências<span class="ion" data-ion="chevron-down"></span></span>
+          <span class="right"><span class="ion" data-ion="search-outline"></span><span id="t-orbbtn"><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div class="scroll" style="--sd:10.80s; --sy:-100px"><div class="scroll" style="--sd:12.20s; --sy:-370px">
+          <div style="padding:16px 24px 0">
+            <!-- a aba ativa troca no toque -->
+            <div class="x-tabs switch">
+              <i class="x-hl"></i>
+              <span class="off-later">Lista</span>
+              <span class="on-later" id="t-proj">Projeção</span>
+            </div>
+          </div>
+
+          <div class="body" style="padding-top:12px; gap:12px">
+            <!-- conteúdo da Lista, até o toque em Projeção -->
+            <div class="a" style="--in:k-fade; --d:4.70s; --x:5.80s; --xdur:.12s; position:absolute; left:24px; right:24px">
+              <div class="x-mrow"><span class="mbtn">‹</span><span class="t-sb" style="flex:1; text-align:center">Outubro de 2026</span><span class="mbtn">›</span></div>
+              <div class="filters" style="margin-top:12px">
+                <span class="fw ion" data-ion="funnel-outline"></span>
+                <div style="flex:1"><div class="t-sb" style="color:var(--primary)">Filtros</div><div class="t-cap mut num">Todas · receber R$ 6.500,00 · pagar R$ 2.629,80</div></div>
+                <span class="ion" style="font-size:18px" data-ion="chevron-down"></span>
+              </div>
+              <div class="card" style="margin-top:12px">
+                <div class="rrow">
+                  <div class="rowf g10" style="align-items:flex-start">
+                    <span class="well ion" style="--m:var(--finance)" data-ion="home-outline"></span>
+                    <div style="flex:1"><div class="t-body">Aluguel apartamento</div><div class="t-cap mut">Despesa · Moradia</div></div>
+                    <div class="t-bs num" style="color:var(--destructive)">R$ 2.400,00</div>
+                  </div>
+                  <div class="inset"><span class="t-sb">Mensal fixa</span><span class="t-cap mut">Vence todo dia 5</span></div>
+                  <div class="act-main">Pagar</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="a" style="--in:k-fade; --d:5.90s; display:flex; flex-direction:column; gap:16px">
+              <div class="x-mrow">
+                <span class="mbtn"><span class="ion" data-ion="chevron-back"></span></span>
+                <div class="x-mtitle">
+                  <span class="swap">
+                    <span class="t-sb a" style="--in:k-fade; --dur:.01s; --x:6.80s; --xdur:.01s">out 2026</span>
+                    <span class="t-sb a" style="--in:k-fade; --dur:.15s; --d:6.80s">nov 2026</span>
+                  </span>
+                  <span class="t-cap later" style="--at:6.80s; color:var(--primary)">Voltar para hoje</span>
+                </div>
+                <span class="mbtn"><span class="ion" data-ion="chevron-forward"></span></span>
+              </div>
+
+              <div class="x-simslot">
+                <div class="x-simcta a" id="t-sim" style="--in:k-fade; --x:7.90s; --xdur:.15s">
+                  <span class="x-simicon ion" data-ion="sparkles"></span>
+                  <div style="flex:1"><div class="t-sb" style="color:var(--warning)">Simular compra parcelada</div><div class="t-cap mut">Veja o impacto no saldo antes de comprar</div></div>
+                  <span class="ion" style="font-size:18px; color:var(--warning)" data-ion="chevron-forward"></span>
+                </div>
+                <div class="x-simcard a" id="simcard" style="--in:k-up; --dy:8px; --dur:.22s; --d:7.90s">
+                  <div class="rowf" style="gap:10px">
+                    <span class="x-simicon ion" style="font-size:16px" data-ion="sparkles"></span>
+                    <div style="flex:1"><div class="t-sb">Simular compra</div><div class="t-cap mut">Não grava nada. As parcelas aparecem em laranja.</div></div>
+                    <span class="ion mut" style="font-size:20px" data-ion="close"></span>
+                  </div>
+                  <div class="x-field">
+                    <span class="x-lbl">Valor total</span>
+                    <div class="inp f-on" id="t-valor" style="--fon:9.60s">
+                      <span class="swap">
+                        <span class="ph a" style="--in:k-fade; --dur:.01s; --x:9.75s; --xdur:.01s">R$ 0,00</span>
+                        <span class="type num" style="--d:9.75s; --dur:.8s; --steps:9">52.800,00</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="x-field">
+                    <span class="t-cap mut">Parcelas</span>
+                    <div class="x-chips">
+                      <span class="x-chip">1×</span><span class="x-chip">3×</span><span class="x-chip">6×</span><span class="x-chip">10×</span><span class="x-chip on">12×</span><span class="x-chip">24×</span>
+                      <div class="inp f-on" id="t-outro" style="--fon:8.85s; --foff:9.60s">
+                        <span class="swap">
+                          <span class="ph a" style="--in:k-fade; --dur:.01s; --x:9.00s; --xdur:.01s">Outro</span>
+                          <span class="type num" style="--d:9.00s; --dur:.3s; --steps:2">48</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="x-field">
+                    <span class="t-cap mut">1ª parcela em</span>
+                    <div class="x-stepper">
+                      <span class="mbtn"><span class="ion" data-ion="chevron-back"></span></span>
+                      <span class="t-sb" style="flex:1; text-align:center">nov 2026</span>
+                      <span class="mbtn"><span class="ion" data-ion="chevron-forward"></span></span>
+                    </div>
+                  </div>
+                  <div class="swap">
+                    <span class="t-cap mut a" style="--in:k-fade; --dur:.01s; --x:10.70s; --xdur:.1s">Informe o valor total para ver o efeito nos meses seguintes.</span>
+                    <div class="x-simres a" style="--in:k-fade; --d:10.70s">
+                      <span class="t-cap mut">Parcela estimada</span>
+                      <span class="t-heading num" style="color:var(--warning)">48× R$&nbsp;1.100,00</span>
+                      <span class="t-cap mut">De nov 2026 a out 2030</span>
+                      <span class="t-cap num">Em nov 2026: +R$&nbsp;1.100,00 a pagar · saldo de <b style="color:var(--success)">R$&nbsp;1.920,00</b> para <b style="color:var(--success)">R$&nbsp;820,00</b></span>
+                      <div class="x-alert"><span class="ion" data-ion="checkmark-circle"></span><span class="t-cap" style="flex:1">Nenhum mês da janela fica no vermelho por causa da compra.</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="x-sum">
+                <div class="x-sumc" style="--c:var(--success)">
+                  <span class="t-cap mut">Receitas</span>
+                  <span class="t-sb num" style="color:var(--success)">R$&nbsp;6.500,00</span>
+                </div>
+                <div class="x-sumc" style="--c:var(--destructive)">
+                  <span class="t-cap mut">Despesas</span>
+                  <span class="swap">
+                    <span class="t-sb num a" style="color:var(--destructive); --in:k-fade; --dur:.01s; --x:10.70s; --xdur:.01s">R$&nbsp;4.580,00</span>
+                    <span class="t-sb num a" style="color:var(--destructive); --in:k-fade; --dur:.01s; --d:10.70s">R$&nbsp;5.680,00</span>
+                  </span>
+                  <span class="t-cap num later" style="--at:10.70s; color:var(--warning); white-space:nowrap">+R$&nbsp;1.100,00 sim</span>
+                </div>
+                <div class="x-sumc" style="--c:var(--success)">
+                  <span class="t-cap mut">Saldo</span>
+                  <span class="swap">
+                    <span class="t-sb num a" style="color:var(--success); --in:k-fade; --dur:.01s; --x:10.70s; --xdur:.01s">R$&nbsp;1.920,00</span>
+                    <span class="t-sb num a" style="color:var(--success); --in:k-fade; --dur:.01s; --d:10.70s">R$&nbsp;820,00</span>
+                  </span>
+                  <span class="t-cap mut num later" style="--at:10.70s; white-space:nowrap">antes R$&nbsp;1.920,00</span>
+                </div>
+              </div>
+
+              <!-- escala: R$ 6.500 = 150pt; a parcela de R$ 1.100 = 25,4pt -->
+              <div class="x-cc">
+                <div class="x-legend t-cap mut">
+                  <span style="--c:var(--success)"><i></i>Receitas</span>
+                  <span style="--c:var(--destructive)"><i></i>Despesas</span>
+                  <span class="a" style="--c:var(--warning); --in:k-fade; --d:10.70s"><i></i>Simulação</span>
+                </div>
+                <div class="x-plot" id="t-plot">
+                  <i class="selr"></i>
+                  <i class="base"></i>
+                  <div class="sl" style="left:0; --o:.4"><i class="bar r" style="--h:150px; --d:6.00s"></i><i class="bar p" style="--h:113px; --d:6.03s"></i></div>
+                  <div class="sl to-dim" style="left:46px; --o:1"><i class="bar r" style="--h:150px; --d:6.06s"></i><i class="bar p" style="--h:105.7px; --d:6.09s"></i></div>
+                  <div class="sl to-sel" id="t-nov" style="left:92px; --o:.75"><i class="bar r" style="--h:150px; --d:6.12s"></i><i class="bar p" style="--h:105.7px; --d:6.15s"></i><i class="bar s" style="--b:105.7px; --h:25.4px; --d:12.50s"></i></div>
+                  <div class="sl" style="left:138px; --o:.75"><i class="bar r" style="--h:150px; --d:6.18s"></i><i class="bar p" style="--h:124.6px; --d:6.21s"></i><i class="bar s" style="--b:124.6px; --h:25.4px; --d:12.56s"></i></div>
+                  <div class="sl" style="left:184px; --o:.75"><i class="bar r" style="--h:150px; --d:6.24s"></i><i class="bar p" style="--h:99.2px; --d:6.27s"></i><i class="bar s" style="--b:99.2px; --h:25.4px; --d:12.62s"></i></div>
+                  <div class="sl" style="left:230px; --o:.75"><i class="bar r" style="--h:150px; --d:6.30s"></i><i class="bar p" style="--h:100.4px; --d:6.33s"></i><i class="bar s" style="--b:100.4px; --h:25.4px; --d:12.68s"></i></div>
+                  <div class="sl" style="left:276px; --o:.75"><i class="bar r" style="--h:150px; --d:6.36s"></i><i class="bar p" style="--h:102px; --d:6.39s"></i><i class="bar s" style="--b:102px; --h:25.4px; --d:12.74s"></i></div>
+                  <div class="sl" style="left:322px; --o:.75"><i class="bar r" style="--h:150px; --d:6.42s"></i><i class="bar p" style="--h:101.1px; --d:6.45s"></i><i class="bar s" style="--b:101.1px; --h:25.4px; --d:12.80s"></i></div>
+                  <span class="lb" style="left:0">set/26</span>
+                  <span class="lb sel-off" style="left:46px">out/26</span>
+                  <span class="lb sel-on" style="left:92px">nov/26</span>
+                  <span class="lb" style="left:138px">dez/26</span>
+                  <span class="lb" style="left:184px">jan/27</span>
+                  <span class="lb" style="left:230px">fev/27</span>
+                  <span class="lb" style="left:276px">mar/27</span>
+                  <span class="lb" style="left:322px">abr/27</span>
+                </div>
+                <span class="t-cap mut">Toque num mês para ver os números e filtrar a lista.</span>
+              </div>
+
+              <div style="display:flex; flex-direction:column; gap:8px">
+                <div class="x-prow">
+                  <div style="flex:1"><span class="t-sb">out 2026</span></div>
+                  <div class="nums t-cap num"><span style="color:var(--success)">+R$&nbsp;6.500,00</span><span style="color:var(--destructive)">−R$&nbsp;4.580,00</span></div>
+                  <span class="t-sb num" style="min-width:88px; text-align:right; color:var(--success)">R$&nbsp;1.920,00</span>
+                </div>
+                <div class="x-prow sel">
+                  <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span class="t-sb">nov 2026</span><span class="t-cap num" style="color:var(--warning)">+R$&nbsp;1.100,00 simulação</span></div>
+                  <div class="nums t-cap num"><span style="color:var(--success)">+R$&nbsp;6.500,00</span><span style="color:var(--destructive)">−R$&nbsp;5.680,00</span></div>
+                  <span class="t-sb num" style="min-width:88px; text-align:right; color:var(--success)">R$&nbsp;820,00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <!-- ============ 3 · Orb ============ -->
+      <div class="scr a" style="--d:14.60s; --x:23.00s">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Orb</span>
+          <span class="right"><span class="t-sb" style="color:var(--primary); width:auto; padding:8px; margin-right:4px">?</span></span>
+        </div>
+        <!-- estado vazio do OrbChat, até a primeira mensagem -->
+        <div class="empty a" style="--in:k-fade; --d:14.60s; --x:16.60s; --xdur:.2s">
+          <span class="orbs" style="--os:48px"></span>
+          <div class="t-heading" style="margin-top:8px">Converse com a Orb</div>
+          <div class="t-cap mut" style="margin-bottom:8px">Pergunte sobre suas finanças, tarefas, hábitos e o resto do Orbyva.</div>
+          <span class="seal t-cap"><i></i><span>Conectada · 42 consultas · <b style="color:var(--success)">só cria com confirmação</b></span></span>
+          <span class="t-cap" style="color:var(--primary); margin-top:4px">Ver o que eu sei</span>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px; width:100%">
+            <span class="sugg t-cap">Tenho algum orçamento estourado esse mês?</span>
+            <span class="sugg t-cap">Posso parcelar uma compra de R$ 5.000 em 12x?</span>
+            <span class="sugg t-cap">O que eu tenho pra fazer hoje?</span>
+            <span class="sugg t-cap">O que vence nos próximos 7 dias?</span>
+          </div>
+        </div>
+
+        <div class="msgs scroll" style="--sd:20.70s; --sy:-96px">
+          <div class="bub me a" style="--d:16.75s">Cria o financiamento do carro: R$ 52.800 em 48x, todo dia 10, a partir de novembro.</div>
+
+          <div class="swap" style="align-items:start">
+          <div class="bub ai a" style="--d:17.00s; --x:17.75s; --xdur:.1s; align-self:start"><span class="t-cap mut">Pensando…</span></div>
+
+          <div class="bub ai a" style="--d:17.85s">
+            Montei a compra parcelada. Confere antes de criar:
+            <div class="x-proposal">
+              <span class="t-sb">Nova recorrência</span>
+              <span class="t-cap mut">Compra parcelada · Financiamento do carro</span>
+              <span class="t-cap mut">Total · R$ 52.800,00</span>
+              <span class="t-cap mut">Parcelas · 48x de R$ 1.100,00</span>
+              <span class="t-cap mut">Categoria · Transporte</span>
+              <span class="t-cap mut">Início · 10/11/2026</span>
+              <span class="t-cap mut">Vence dia · 10</span>
+              <div class="swap" style="margin-top:8px">
+                <div class="rowf g8 a" style="--in:k-fade; --d:17.85s; --x:19.90s; --xdur:.15s">
+                  <span class="btn primary" id="t-criar">Criar</span>
+                  <span class="btn outline">Descartar</span>
+                </div>
+                <div class="a" style="--in:k-fade; --d:20.05s; display:flex; align-items:center; gap:12px; min-height:44px">
+                  <span class="t-cap" style="color:var(--primary)">Recorrência criada: Financiamento do carro</span>
+                  <span class="t-sb" style="color:var(--primary)">Ver</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+
+          <div class="bub ai a" style="--d:20.80s">Pronto! Em novembro ainda sobram <b>R$&nbsp;820,00</b>. Te aviso todo dia 10.</div>
+        </div>
+
+        <div class="composer">
+          <div class="box focus">
+            <div class="field">
+              <div class="fgrow" style="position:relative">
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --x:15.20s; --xdur:.01s">Pergunte à Orb…</span>
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --d:16.75s">Pergunte à Orb…</span>
+                <div class="a" style="--in:k-fade; --dur:.01s; --d:15.20s; --x:16.70s; --xdur:.01s">
+                  <span class="type" style="display:block; --d:15.20s; --dur:.45s; --steps:12">Cria o financiamento do carro:</span>
+                  <span class="type" style="display:block; --d:15.65s; --dur:.5s; --steps:12">R$ 52.800 em 48x, todo dia 10,</span>
+                  <span class="type" style="display:block; --d:16.15s; --dur:.35s; --steps:9">a partir de novembro.</span>
+                </div>
+              </div>
+            </div>
+            <span class="send ion" data-ion="arrow-up" id="t-send"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 4 · Recorrências › Lista ============ -->
+      <div class="scr a" style="--d:23.00s; --x:29.00s; --m:var(--finance)">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Recorrências<span class="ion" data-ion="chevron-down"></span></span>
+          <span class="right"><span class="ion" data-ion="search-outline"></span><span><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div style="padding:16px 24px 0; display:flex; flex-direction:column; gap:8px">
+          <div class="x-tabs"><span class="on">Lista</span><span>Projeção</span></div>
+          <div class="x-mrow"><span class="mbtn">‹</span><span class="t-sb" style="flex:1; text-align:center">Novembro de 2026</span><span class="mbtn">›</span></div>
+          <div class="filters">
+            <span class="fw ion" data-ion="funnel-outline"></span>
+            <div style="flex:1"><div class="t-sb" style="color:var(--primary)">Filtros</div><div class="t-cap mut num">Todas · receber R$ 6.500,00 · pagar R$ 3.729,80</div></div>
+            <span class="ion" style="font-size:18px" data-ion="chevron-down"></span>
+          </div>
+        </div>
+        <div class="body" style="padding-top:12px; gap:12px">
+          <div class="card">
+            <div class="rrow" style="background:rgba(10,122,174,.05)">
+              <div class="rowf g10" style="align-items:flex-start">
+                <span class="well ion" style="--m:var(--car); background:rgba(249,112,21,.2)" data-ion="car-outline"></span>
+                <div style="flex:1">
+                  <div class="t-body">Financiamento do carro</div>
+                  <div class="t-cap mut">Despesa · Transporte</div>
+                </div>
+                <div style="text-align:right">
+                  <div class="t-bs num" style="color:var(--destructive)">R$ 1.100,00</div>
+                  <span class="badge new a" style="--in:k-scale; --d:23.70s; margin-top:2px">Nova</span>
+                </div>
+              </div>
+              <div class="inset">
+                <span class="t-sb">48 parcelas</span>
+                <span class="t-cap mut">Vence no dia 10 · 0/48 pagas · resto R$ 52.800,00</span>
+              </div>
+              <div class="act-main">Pagar</div>
+            </div>
+            <div class="rrow x-hair">
+              <div class="rowf g10" style="align-items:flex-start">
+                <span class="well ion" style="--m:var(--finance)" data-ion="home-outline"></span>
+                <div style="flex:1">
+                  <div class="t-body">Aluguel apartamento</div>
+                  <div class="t-cap mut">Despesa · Moradia</div>
+                </div>
+                <div class="t-bs num" style="color:var(--destructive)">R$ 2.400,00</div>
+              </div>
+              <div class="inset">
+                <span class="t-sb">Mensal fixa</span>
+                <span class="t-cap mut">Vence todo dia 5</span>
+              </div>
+            </div>
+            <div class="rrow x-hair">
+              <div class="rowf g10" style="align-items:flex-start">
+                <span class="well ion" style="--m:var(--finance)" data-ion="wifi-outline"></span>
+                <div style="flex:1">
+                  <div class="t-body">Internet</div>
+                  <div class="t-cap mut">Despesa · Contas</div>
+                </div>
+                <div class="t-bs num" style="color:var(--destructive)">R$ 129,90</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <div class="push a" style="--d:25.40s; --x:28.60s">
+        <span class="ic"><img src="../../../public/logo-mark-sky.png" alt=""></span>
+        <div style="flex:1">
+          <div style="display:flex; justify-content:space-between"><b style="font-size:14px">Orbyva</b><span class="t-cap mut" style="font-size:12px">agora</span></div>
+          <div style="font-size:14px; font-weight:600; line-height:18px">Financiamento do carro vence hoje</div>
+          <div class="t-cap mut">Parcela 1/48 · R$ 1.100,00</div>
+        </div>
+      </div>
+
+      <!-- ============ 5 · Veículos ============ -->
+      <div class="scr a" style="--d:29.00s; --x:35.00s; --m:var(--car)">
+        <div class="hdr">
+          <span class="ion back" data-ion="chevron-back"></span>
+          <span class="title">Onix Plus</span>
+        </div>
+        <div class="body">
+          <div class="card" style="padding:16px; display:flex; flex-direction:column; gap:8px">
+            <div class="rowf ac g12">
+              <span class="well ion" style="width:44px; height:44px; border-radius:12px; font-size:22px; background:rgba(249,112,21,.13)" data-ion="car-outline"></span>
+              <div style="flex:1">
+                <div class="t-title">Onix Plus 2026</div>
+                <div class="t-body mut">ABC1D23 · Prata · Flex</div>
+              </div>
+            </div>
+            <div class="rowf ac g12"><span class="t-sb num">0 km</span><span class="t-cap" style="color:var(--primary)">Editar</span></div>
+            <span class="t-cap" style="color:var(--primary)">Editar veículo</span>
+          </div>
+          <div style="display:flex; gap:8px; overflow:hidden; margin-right:-24px">
+            <span class="chip on">Cronograma</span><span class="chip">Manutenções</span><span class="chip">Abastecimentos</span><span class="chip">Documentos</span>
+          </div>
+          <div class="card a" style="--d:29.70s; padding:16px; display:flex; flex-direction:column; gap:8px">
+            <div class="dtrow"><span class="t-sb" style="flex:1">Licenciamento</span><span class="badge warn">Em breve</span></div>
+            <span class="t-cap mut">vence em 12 dias</span>
+          </div>
+          <div class="card a" style="--d:29.95s; padding:16px; display:flex; flex-direction:column; gap:8px">
+            <div class="dtrow"><span class="t-sb" style="flex:1">IPVA</span></div>
+            <span class="t-cap mut">Vence 15/01/2027 · em aberto</span>
+          </div>
+          <div class="card a" style="--d:30.20s; padding:16px; display:flex; flex-direction:column; gap:8px">
+            <div class="dtrow"><span class="t-sb" style="flex:1">Óleo do motor</span></div>
+            <span class="t-cap mut">faltam 5.000 km</span>
+          </div>
+          <div class="card a" style="--d:30.45s; padding:16px; display:flex; flex-direction:column; gap:8px">
+            <div class="dtrow"><span class="t-sb" style="flex:1">Revisão geral</span></div>
+            <span class="t-cap mut">faltam 10.000 km</span>
+          </div>
+        </div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <!-- ============ 6 · Viagem › Roteiro ============ -->
+      <div class="scr a" style="--d:35.00s; --x:41.00s; --m:var(--travel)">
+        <div class="hdr">
+          <span class="ion back" data-ion="chevron-back"></span>
+          <span class="title">Serra Gaúcha</span>
+        </div>
+        <div style="padding:16px 24px 0; display:flex; gap:8px; overflow:hidden">
+          <span class="chip">Resumo</span><span class="chip">Paradas</span><span class="chip on">Roteiro</span><span class="chip">Prazos</span><span class="chip">Gastos</span>
+        </div>
+        <div class="body">
+          <div class="card" style="padding:16px; display:flex; flex-direction:column; gap:8px">
+            <div class="rowf g8" style="align-items:flex-start">
+              <div style="flex:1">
+                <div class="t-title">Serra Gaúcha</div>
+                <div class="rowf ac" style="gap:6px; margin-top:4px"><span class="ion mut" style="font-size:14px" data-ion="location-outline"></span><span class="t-cap mut">Gramado e Bento Gonçalves, RS</span></div>
+              </div>
+              <span class="circ ion" data-ion="share-outline"></span>
+              <span class="circ ion" data-ion="create-outline"></span>
+            </div>
+            <div class="rowf wrap g8 t-cap mut">
+              <span class="meta"><span class="ion" data-ion="flag-outline"></span>Próxima</span>
+              <span class="meta"><span class="ion" data-ion="calendar-outline"></span>14/11/2026 – 17/11/2026</span>
+              <span class="meta"><span class="ion" data-ion="time-outline"></span>4 dias</span>
+              <span class="meta"><span class="ion" data-ion="wallet-outline"></span>R$ 980,00</span>
+            </div>
+          </div>
+
+          <div class="card a" style="--d:35.70s; padding:16px; display:flex; flex-direction:column; gap:8px">
+            <div class="rowf ac g12">
+              <span class="x-day"><span class="t-nano mut" style="letter-spacing:.6px">SEX</span><span class="t-sb">14</span></span>
+              <div style="flex:1"><div class="t-sb">Dia 1 · Gramado</div><div class="t-cap mut">14/11/2026 · Dia 1</div></div>
+            </div>
+            <div class="arow trans a" style="--in:k-right; --dx:20px; --d:36.10s">
+              <span class="well ion" data-ion="car-outline"></span>
+              <div style="flex:1">
+                <div class="t-nano" style="color:#0b84bc; letter-spacing:.4px; text-transform:uppercase">Deslocamento · Carro</div>
+                <div class="t-cap mut">07:00 → 09:10</div>
+                <div class="t-sb">Porto Alegre → Gramado</div>
+              </div>
+            </div>
+            <div class="arow done a" style="--in:k-right; --dx:20px; --d:36.40s">
+              <span class="well ion" data-ion="checkmark"></span>
+              <div style="flex:1"><div class="t-cap mut">10:00</div><div class="t-sb">Lago Negro</div><div class="t-cap mut">Passeio</div></div>
+            </div>
+            <div class="arow a" style="--in:k-right; --dx:20px; --d:36.70s">
+              <span class="well ion" style="color:var(--primary); background:rgba(10,122,174,.12)" data-ion="restaurant-outline"></span>
+              <div style="flex:1"><div class="t-cap mut">13:00</div><div class="t-sb">Almoço na Rua Coberta</div><div class="t-cap mut">Restaurante</div></div>
+            </div>
+            <div class="arow a" style="--in:k-right; --dx:20px; --d:37.00s">
+              <span class="well ion" style="color:var(--primary); background:rgba(10,122,174,.12)" data-ion="bed-outline"></span>
+              <div style="flex:1"><div class="t-cap mut">15:00</div><div class="t-sb">Check-in no hotel</div><div class="t-cap mut">Hotel</div></div>
+            </div>
+          </div>
+        </div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <!-- ============ 7 · menu lateral com tudo ============ -->
+      <div class="scr a" style="--in:k-fade; --d:41.00s; --m:var(--hub)">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Início</span>
+          <span class="right"><span class="ion" data-ion="search-outline"></span><span><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div class="body">
+          <div><div class="t-cap mut">Segunda-feira, 10 de novembro</div><div class="t-display">Olá, Ana</div></div>
+        </div>
+      </div>
+      <div class="side-wrap a" style="--in:k-fade; --dur:.25s; --d:41.40s">
+        <div class="backdrop"></div>
+        <div class="panel a" style="--d:41.40s">
+          <div class="brand"><img src="../../../public/logo-mark-sky.png" alt=""><b><i>O</i>RBYV<i>Λ</i></b></div>
+          <div class="navlist">
+            <div class="grp act a" style="--m:var(--hub); --in:k-fade; --d:41.70s"><span class="well ion" data-ion="home-outline"></span><span class="t-sb">Início</span><span class="ion" data-ion="chevron-forward"></span></div>
+            <div class="grp a" style="--m:var(--finance); --in:k-fade; --d:41.85s"><span class="well ion" data-ion="wallet-outline"></span><span class="t-sb">Finanças</span><span class="ion" data-ion="chevron-forward"></span></div>
+            <div class="grp a" style="--m:var(--productivity); --in:k-fade; --d:42.00s"><span class="well ion" data-ion="checkbox-outline"></span><span class="t-sb">Produtividade</span><span class="ion" data-ion="chevron-forward"></span></div>
+            <div class="grp a" style="--m:var(--life); --in:k-fade; --d:42.15s"><span class="well ion" data-ion="leaf-outline"></span><span class="t-sb">Vida</span><span class="ion" data-ion="chevron-down"></span></div>
+            <div class="leaf a" style="--m:var(--life); --in:k-fade; --d:42.50s">Hábitos</div>
+            <div class="leaf a" style="--m:var(--life); --in:k-fade; --d:42.62s">Saúde</div>
+            <div class="leaf a" style="--m:var(--life); --in:k-fade; --d:42.74s">Metas</div>
+            <div class="leaf a" style="--m:var(--life); --in:k-fade; --d:42.86s">Lugares</div>
+            <div class="leaf a" style="--m:var(--life); --in:k-fade; --d:42.98s">Viagens</div>
+            <div class="leaf a" style="--m:var(--life); --in:k-fade; --d:43.10s">Veículos</div>
+            <div class="grp a" style="--m:var(--entertainment); --in:k-fade; --d:43.30s"><span class="well ion" data-ion="film-outline"></span><span class="t-sb">Conteúdo</span><span class="ion" data-ion="chevron-forward"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="homebar"></div>
+
+      <!-- toques: data-tap aponta o alvo; o script centraliza o anel nele -->
+      <div class="tap" data-tap="#t-menu" style="--d:2.70s"></div>
+      <div class="tap" data-tap="#t-recorrencias" style="--d:4.10s"></div>
+      <div class="tap" data-tap="#t-proj" style="--d:5.40s"></div>
+      <div class="tap" data-tap="#t-nov" style="--d:6.60s"></div>
+      <div class="tap" data-tap="#t-sim" style="--d:7.70s"></div>
+      <div class="tap" data-tap="#t-outro" style="--d:8.65s"></div>
+      <div class="tap" data-tap="#t-valor" style="--d:9.40s"></div>
+      <div class="tap" data-tap="#t-orbbtn" style="--d:14.10s"></div>
+      <div class="tap" data-tap="#t-send" style="--d:16.40s"></div>
+      <div class="tap" data-tap="#t-criar" style="--d:19.50s"></div>
+      <div class="tap" data-tap="#t-menu" style="--d:40.90s"></div>
+     </div>
+    </div>
+
+    <div class="end">
+      <img class="a" src="../../../public/logo-mark-sky.png" alt="" style="--in:k-scale; --d:47.00s">
+      <div class="head a" style="--d:47.40s">A vida inteira<br>num app só.</div>
+      <span class="cta cta--lg a" style="--d:48.20s">Teste 7 dias grátis</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  /* Ionicons: mesmos codepoints do glyphmap de @expo/vector-icons */
+  const ION = {"menu-outline":62546,"search-outline":62819,"notifications-outline":62591,"chevron-down":62002,"chevron-forward":62011,"chevron-back":61993,"add":61699,"checkbox":61978,"checkbox-outline":61979,"leaf":62386,"leaf-outline":62387,"film-outline":62207,"card":61927,"car-outline":61922,"location-outline":62405,"calendar-outline":61910,"time-outline":62942,"wallet-outline":63014,"flag-outline":62225,"share-outline":62834,"create-outline":62099,"arrow-up":61765,"home-outline":62339,"wifi-outline":63026,"checkmark":61981,"restaurant-outline":62774,"bed-outline":61841,"funnel-outline":62258,"sparkles":62860,"close":62026,"checkmark-circle":61982};
+  document.querySelectorAll("[data-ion]").forEach((n) => {
+    n.textContent = String.fromCodePoint(ION[n.dataset.ion]);
+  });
+
+  /* posição do toque pelo layout (offset*, sem transform de animação) */
+  function offsetIn(el, root) {
+    let x = 0, y = 0, n = el;
+    while (n && n !== root) {
+      x += n.offsetLeft;
+      y += n.offsetTop;
+      n = n.offsetParent;
+    }
+    return { x: x + el.offsetWidth / 2, y: y + el.offsetHeight / 2 };
+  }
+  document.fonts.ready.then(() => {
+    const root = document.getElementById("app");
+    const simcard = document.getElementById("simcard");
+    simcard.parentElement.style.setProperty("--hc", simcard.offsetHeight + "px");
+    document.querySelectorAll("[data-tap]").forEach((t) => {
+      const p = offsetIn(document.querySelector(t.dataset.tap), root);
+      t.style.left = p.x + "px";
+      t.style.top = p.y + "px";
+    });
+  });
+</script>
+<script src="../lib/kit.js"></script>
+</body>
+</html>

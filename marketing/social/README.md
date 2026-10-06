@@ -31,7 +31,7 @@ Se o Playwright não achar o Chromium, o script procura o binário no cache e us
 | `lib/kit.js` | injeta lockup, rodapé, assinatura de órbita, ícones, heatmap e números |
 | `lib/mark.svg` | mark oficial vetorizado de `public/logo-mark.png` (o traço também vive em `kit.js`, com o comando que o regera) |
 | `posts/` | 16 peças de feed |
-| `videos/` | 16 peças verticais; `<meta name="duration">` define a duração |
+| `videos/` | 17 peças verticais; `<meta name="duration">` define a duração (`v17-um-dia`: o app sendo usado de ponta a ponta, 52 s) |
 | `highlights/` | 26 capas de Destaques: uma por grupo e por item da sidebar, na mesma ordem, e Dúvidas |
 | `stories/` | stories avulsos para Destaques (`duvidas-*`: as perguntas do FAQ da landing, uma por tela; `novidades-*`: lançamentos) |
 | `profile/` | foto de perfil |
