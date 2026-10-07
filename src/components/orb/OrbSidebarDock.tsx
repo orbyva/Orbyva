@@ -5,6 +5,7 @@ import { ChevronDown, Compass, Maximize2, Plus } from "lucide-react";
 import { OrbComposer, type OrbComposerHandle } from "@/components/orb/OrbComposer";
 import { OrbSphere } from "@/components/orb/OrbSphere";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useOrbContext } from "@/hooks/useOrb";
 import { cn } from "@/lib/utils";
@@ -54,12 +55,13 @@ export function OrbSidebarDock() {
   const mensagens = orb?.messages;
   const visiveis = useMemo(() => (mensagens ?? []).slice(-MENSAGENS_VISIVEIS), [mensagens]);
 
-  /** Rola para a última linha a cada token — na coluna estreita, o que importa é o fim. */
+  /** Rola para a última linha a cada token e ao reabrir — na coluna estreita, o que importa é o fim. */
+  const dockAberto = orb?.dockOpen;
   useEffect(() => {
     const container = listaRef.current;
     if (!container) return;
     container.scrollTop = container.scrollHeight;
-  }, [mensagens]);
+  }, [mensagens, dockAberto]);
 
   const ultimaPergunta = useMemo(() => {
     const lista = mensagens ?? [];
@@ -105,7 +107,11 @@ export function OrbSidebarDock() {
   const emCurso = orb.isStreaming ? consultasEmCurso(ultima?.tools) : 0;
 
   return (
-    <div className="rounded-xl border bg-sidebar-accent/40 p-2">
+    <Collapsible
+      open={orb.dockOpen}
+      onOpenChange={orb.setDockOpen}
+      className="rounded-xl border bg-sidebar-accent/40 p-2 transition-shadow duration-300 data-[state=open]:shadow-sm"
+    >
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -141,8 +147,8 @@ export function OrbSidebarDock() {
         </Button>
       </div>
 
-      {orb.dockOpen ? (
-        <div className="mt-2 flex flex-col gap-2">
+      <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down motion-reduce:animate-none">
+        <div className="flex flex-col gap-2 pt-2 animate-in fade-in-0 slide-in-from-top-2 duration-300 motion-reduce:animate-none">
           {visiveis.length > 0 ? (
             <div
               ref={listaRef}
@@ -219,8 +225,8 @@ export function OrbSidebarDock() {
             ) : null}
           </div>
         </div>
-      ) : null}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

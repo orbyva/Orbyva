@@ -45,10 +45,8 @@ describe("OrbMessageBubble", () => {
       })
     );
 
-    const cartoes = screen
-      .getAllByRole("button")
-      .filter((botao) => botao.getAttribute("aria-expanded") !== null);
-    expect(cartoes).toHaveLength(2);
+    expect(screen.getAllByText("Somei seus gastos por categoria")).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /detalhes técnicos/i })).toHaveLength(2);
   });
 
   it("mostra contexto e cache no rodapé quando o turno reportou uso", () => {
@@ -250,7 +248,7 @@ describe("OrbMessageBubble — editar a pergunta", () => {
     expect(screen.getByText("Jogo do Flamengo")).toBeInTheDocument();
   });
 
-  it("mostra o erro da criação fora da barra amarela colapsada", () => {
+  it("mostra o motivo da criação que falhou na linha de raciocínio, sem a instrução para o modelo", () => {
     renderizar(
       resposta({
         tools: [
@@ -267,8 +265,53 @@ describe("OrbMessageBubble — editar a pergunta", () => {
       })
     );
 
-    expect(screen.getByText(/falta "date"/i)).toBeInTheDocument();
+    expect(screen.getByText("Para criar novo evento falta a data.")).toBeInTheDocument();
+    expect(screen.queryByText(/chame de novo/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Criar$/i })).not.toBeInTheDocument();
+  });
+
+  it("criação refeita com sucesso não deixa aviso de falha ao lado do cartão Criar", () => {
+    renderizar(
+      resposta({
+        tools: [
+          {
+            id: "c1",
+            name: "propose_create",
+            status: "error",
+            summary: {
+              error:
+                'Para criar novo lançamento falta "title". Chame ask_user e só então propose_create de novo.',
+              code: "input_invalido",
+            },
+          },
+          {
+            id: "c2",
+            name: "propose_create",
+            status: "ok",
+            input: { kind: "event", title: "Jogo do Flamengo" },
+            summary: {
+              kind: "event",
+              label: "Novo evento",
+              fields: [
+                { label: "Evento", value: "Jogo do Flamengo" },
+                { label: "Quando", value: "27/09/2026 às 09:00" },
+              ],
+              payload: {
+                title: "Jogo do Flamengo",
+                starts_at: "2026-09-27T12:00:00.000Z",
+              },
+              status: "aguardando_confirmacao",
+              note: "Nada foi gravado.",
+            },
+          },
+        ],
+      })
+    );
+
+    expect(screen.getByRole("button", { name: /^Criar$/i })).toBeInTheDocument();
+    expect(screen.getByText("Ajustei o pedido e tentei de novo")).toBeInTheDocument();
+    expect(screen.queryByText(/ask_user/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Falhou/)).not.toBeInTheDocument();
   });
 
   it("mostra o cartão ask_user com chips que enviam a sugestão", async () => {

@@ -6,7 +6,7 @@ import { AlertTriangle, Check, Copy, Gauge, LogIn, Pencil, RotateCcw } from "luc
 
 import { OrbActionCard } from "@/components/orb/OrbActionCard";
 import { OrbClarifyCard } from "@/components/orb/OrbClarifyCard";
-import { OrbToolCall } from "@/components/orb/OrbToolCall";
+import { OrbReasoning } from "@/components/orb/OrbToolCall";
 import { OrbResultView } from "@/components/orb/results/OrbResultView";
 import { Button } from "@/components/ui/button";
 import { orbResultView } from "@/domain/orb/results";
@@ -191,24 +191,6 @@ export const OrbMessageBubble = memo(function OrbMessageBubble({
     // propostas — se `OrbAskUser` mudar, este ponto passa a acusar.
     .map((tool) => ({ id: tool.id, ask: tool.summary as OrbAskUser }));
 
-  /**
-   * Criação que falhou (faltou campo, categoria inexistente…): a barra amarela colapsada esconde
-   * o motivo. Sem isto, a pessoa só vê "Criar (com confirmação)" em 0ms e acha que a Orb não cria.
-   */
-  const falhasDeCriacao = (message.tools ?? [])
-    .filter((tool) => tool.name === ORB_CREATE_TOOL_NAME && tool.status === "error")
-    .map((tool) => {
-      const summary = tool.summary;
-      const mensagem =
-        summary &&
-        typeof summary === "object" &&
-        !Array.isArray(summary) &&
-        typeof (summary as { error?: unknown }).error === "string"
-          ? (summary as { error: string }).error
-          : "Não consegui preparar essa criação.";
-      return { id: tool.id, mensagem };
-    });
-
   const showThinking = message.pending && !message.content;
   const podeTentarDeNovo = !message.pending && (message.failed || message.interrupted);
   const sessaoCaiu = message.failed && message.errorKind === "session";
@@ -217,13 +199,7 @@ export const OrbMessageBubble = memo(function OrbMessageBubble({
 
   return (
     <div className="group flex min-w-0 flex-col gap-1.5">
-      {message.tools && message.tools.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          {message.tools.map((tool) => (
-            <OrbToolCall key={tool.id} tool={tool} />
-          ))}
-        </div>
-      ) : null}
+      {message.tools && message.tools.length > 0 ? <OrbReasoning tools={message.tools} /> : null}
 
       <div
         className={cn(
@@ -270,20 +246,6 @@ export const OrbMessageBubble = memo(function OrbMessageBubble({
         <div className="flex flex-col gap-2">
           {propostas.map((item) => (
             <OrbActionCard key={item.id} callId={item.id} proposal={item.proposal} />
-          ))}
-        </div>
-      ) : null}
-
-      {falhasDeCriacao.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          {falhasDeCriacao.map((item) => (
-            <div
-              key={item.id}
-              className="flex gap-2 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2 text-[12px] text-foreground"
-            >
-              <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
-              <p className="min-w-0 flex-1 break-words">{item.mensagem}</p>
-            </div>
           ))}
         </div>
       ) : null}

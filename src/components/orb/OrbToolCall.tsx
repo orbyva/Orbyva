@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, type ReactNode } from "react";
-import { AlertTriangle, Check, ChevronRight, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, Loader2, Sparkles } from "lucide-react";
 
 import {
   Collapsible,
@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { narrarPasso, narrarPassos, type OrbPassoNarrado } from "@/domain/orb/narrative";
 import { formatarDuracao, resumoDeToolParaTabela } from "@/domain/orb/stream";
 import { orbToolLabel } from "@/domain/orb/toolLabel";
 import { formatBRL, formatDateBR } from "@/lib/currency";
@@ -271,51 +272,80 @@ function Resultado({ tool }: { tool: ChamadaDeTool }) {
 }
 
 /**
- * Um cartão por chamada de tool: fechado é uma linha discreta ("de onde saiu esse número"), aberto
- * mostra parâmetros e resultado. `memo` porque o balão inteiro re-renderiza a cada token do stream
- * e nenhuma dessas chamadas muda depois de fechada.
+ * Um passo da linha de raciocínio: a frase em português ("Simulei R$ 5.000,00 em 12x…") e, atrás de
+ * "Detalhes técnicos", o nome da tool, os parâmetros e o resultado cru. `memo` porque o balão
+ * inteiro re-renderiza a cada token do stream e nenhum passo muda depois de fechado.
+ *
+ * `passo` é opcional para quem monta um passo solto: sem ele, a narração sai daqui mesmo.
  */
-export const OrbToolCall = memo(function OrbToolCall({ tool }: { tool: ChamadaDeTool }) {
+export const OrbToolCall = memo(function OrbToolCall({
+  tool,
+  passo,
+}: {
+  tool: ChamadaDeTool;
+  passo?: OrbPassoNarrado;
+}) {
   const [aberto, setAberto] = useState(false);
 
-  const status = STATUS[tool.status];
+  const narrado = passo ?? narrarPasso(tool, orbToolLabel(tool.name));
+  // Falha que a Orb refez com sucesso não é falha para quem lê: vira passo concluído.
+  const statusVisivel: OrbToolStatus = narrado.corrigido ? "ok" : tool.status;
+  const status = STATUS[statusVisivel];
   const duracao = formatarDuracao(tool.durationMs);
   const parametros = tool.input ? Object.entries(tool.input) : [];
 
   return (
-    <Collapsible
-      open={aberto}
-      onOpenChange={setAberto}
-      className={cn(
-        "min-w-0 rounded-lg border bg-card/50 text-xs",
-        tool.status === "error" && "border-warning/40 bg-warning/5"
-      )}
-    >
-      <CollapsibleTrigger asChild>
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <span className={status.cor}>
-            <IconeDeStatus status={tool.status} />
-          </span>
-          <span className="sr-only">{status.rotulo}:</span>
-          <span className="truncate font-medium">{orbToolLabel(tool.name)}</span>
-          <span className="hidden truncate font-mono text-[11px] text-muted-foreground sm:inline">
-            {tool.name}
-          </span>
-          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+    <Collapsible open={aberto} onOpenChange={setAberto} className="relative min-w-0 pl-6 text-xs">
+      <span
+        className={cn(
+          "absolute left-0 top-0.5 flex size-[18px] items-center justify-center rounded-full border bg-background",
+          status.cor,
+          statusVisivel === "error" && "border-warning/40 bg-warning/5"
+        )}
+      >
+        <IconeDeStatus status={statusVisivel} />
+      </span>
+
+      <div className="flex min-w-0 items-start gap-2">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="break-words font-medium leading-snug text-foreground">
+            <span className="sr-only">{status.rotulo}: </span>
+            {narrado.titulo}
+          </p>
+          {narrado.detalhe ? (
+            <p className="break-words leading-snug text-muted-foreground">{narrado.detalhe}</p>
+          ) : null}
+        </div>
+
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            aria-label={aberto ? "Ocultar detalhes técnicos" : "Ver detalhes técnicos"}
+            className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
             {duracao ? <span className="tabular-nums">{duracao}</span> : null}
             <ChevronRight
               className={cn("size-3.5 transition-transform", aberto && "rotate-90")}
               aria-hidden
             />
-          </span>
-        </button>
-      </CollapsibleTrigger>
+          </button>
+        </CollapsibleTrigger>
+      </div>
 
-      <CollapsibleContent>
-        <div className="space-y-3 border-t px-2.5 py-2">
+      <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down motion-reduce:animate-none">
+        <div
+          className={cn(
+            "mt-2 space-y-3 rounded-lg border bg-card/50 px-2.5 py-2",
+            tool.status === "error" && "border-warning/40 bg-warning/5"
+          )}
+        >
+          <Secao titulo="Ferramenta">
+            <p className="break-words">
+              {orbToolLabel(tool.name)}{" "}
+              <span className="font-mono text-[11px] text-muted-foreground">{tool.name}</span>
+            </p>
+          </Secao>
+
           <Secao titulo="Parâmetros">
             {parametros.length > 0 ? (
               <dl className="grid gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,auto)_minmax(0,1fr)]">
@@ -335,6 +365,53 @@ export const OrbToolCall = memo(function OrbToolCall({ tool }: { tool: ChamadaDe
             <Resultado tool={tool} />
           </Secao>
         </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+});
+
+/**
+ * Os passos do turno como uma linha do tempo: "Consultei suas categorias" → "Simulei o
+ * parcelamento" → "Preparei o cartão". Começa aberta — mostrar como a Orb chegou na resposta é o
+ * ponto —, e quem já leu recolhe num clique.
+ */
+export const OrbReasoning = memo(function OrbReasoning({ tools }: { tools: ChamadaDeTool[] }) {
+  const [aberto, setAberto] = useState(true);
+  const passos = useMemo(() => narrarPassos(tools, orbToolLabel), [tools]);
+  const emCurso = tools.some((tool) => tool.status === "running");
+  const quantos = tools.length === 1 ? "1 passo" : `${tools.length} passos`;
+
+  return (
+    <Collapsible open={aberto} onOpenChange={setAberto} className="min-w-0 text-xs">
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {emCurso ? (
+            <Loader2 className="size-3 animate-spin" aria-hidden />
+          ) : (
+            <Sparkles className="size-3" aria-hidden />
+          )}
+          <span>{`${emCurso ? "Pensando" : "Linha de raciocínio"} · ${quantos}`}</span>
+          <ChevronRight
+            className={cn("size-3 transition-transform", aberto && "rotate-90")}
+            aria-hidden
+          />
+        </button>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down motion-reduce:animate-none">
+        <ol className="relative mt-1.5 space-y-2.5 pl-1 before:absolute before:bottom-2 before:left-[13px] before:top-2 before:w-px before:bg-border">
+          {tools.map((tool, indice) => (
+            <li
+              key={tool.id}
+              className="relative animate-in fade-in-0 slide-in-from-left-1 duration-300 motion-reduce:animate-none"
+            >
+              <OrbToolCall tool={tool} passo={passos[indice]} />
+            </li>
+          ))}
+        </ol>
       </CollapsibleContent>
     </Collapsible>
   );

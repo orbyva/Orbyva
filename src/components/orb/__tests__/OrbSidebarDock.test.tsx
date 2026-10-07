@@ -87,6 +87,15 @@ describe("OrbSidebarDock", () => {
     expect(screen.queryByText("oi")).not.toBeInTheDocument();
   });
 
+  it("abre a conversa com animação de altura e respeita movimento reduzido", () => {
+    renderizar({ messages: [{ id: "u1", role: "user", content: "oi" }] as OrbMessage[] });
+    const painel = screen.getByText("oi").closest("[data-state]");
+    expect(painel).toHaveAttribute("data-state", "open");
+    expect(painel?.className).toContain("data-[state=open]:animate-collapsible-down");
+    expect(painel?.className).toContain("data-[state=closed]:animate-collapsible-up");
+    expect(painel?.className).toContain("motion-reduce:animate-none");
+  });
+
   it("aponta a última tela que a Orb abriu", () => {
     renderizar({
       lastNavigation: { path: "/tasks?project=p-1", label: "Tarefas · Sacada", screen: "tasks", applied: [] },

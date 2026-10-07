@@ -6,7 +6,7 @@ import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { OrbActionCard } from "@/components/orb/OrbActionCard";
 import { OrbClarifyCard } from "@/components/orb/OrbClarifyCard";
 import { OrbResultView } from "@/components/orb/OrbResultView";
-import { OrbToolCallCard } from "@/components/orb/OrbToolCall";
+import { OrbReasoning } from "@/components/orb/OrbToolCall";
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
 import {
@@ -86,25 +86,7 @@ export function OrbMessageBubble({
     )
     .filter((item): item is NonNullable<typeof item> => item !== null);
 
-  const falhasDeCriacao = (message.tools ?? [])
-    .filter((tool) => tool.name === ORB_CREATE_TOOL_NAME && tool.status === "error")
-    .map((tool) => {
-      const summary = tool.summary;
-      const mensagem =
-        summary &&
-        typeof summary === "object" &&
-        !Array.isArray(summary) &&
-        typeof (summary as { error?: unknown }).error === "string"
-          ? (summary as { error: string }).error
-          : "Não consegui preparar essa criação.";
-      return { id: tool.id, mensagem };
-    });
-
-  const toolsNormais = (message.tools ?? []).filter((tool) => {
-    if (tool.name === ORB_CREATE_TOOL_NAME) return false;
-    if (tool.name === ORB_ASK_USER_TOOL_NAME) return false;
-    return true;
-  });
+  const ferramentas = message.tools ?? [];
 
   const uso = message.pending ? [] : partesDeUso(message);
   const mostrarBarra = !message.pending && message.content.trim() !== "";
@@ -136,9 +118,7 @@ export function OrbMessageBubble({
           </ThemedText>
         ) : null}
 
-        {toolsNormais.map((tool) => (
-          <OrbToolCallCard key={tool.id} tool={tool} />
-        ))}
+        {ferramentas.length > 0 ? <OrbReasoning tools={ferramentas} /> : null}
 
         {perguntas.map((item) => (
           <OrbClarifyCard
@@ -151,15 +131,6 @@ export function OrbMessageBubble({
 
         {propostas.map((item) => (
           <OrbActionCard key={item.id} callId={item.id} proposal={item.proposal} />
-        ))}
-
-        {falhasDeCriacao.map((item) => (
-          <View
-            key={item.id}
-            style={[styles.fail, { borderColor: `${theme.destructive}66` }]}
-          >
-            <ThemedText type="small">{item.mensagem}</ThemedText>
-          </View>
         ))}
 
         {visoes.map((item) => (
@@ -207,10 +178,4 @@ const styles = StyleSheet.create({
   retry: { marginTop: Spacing.two },
   copy: { marginTop: Spacing.two, alignSelf: "flex-start" },
   uso: { marginTop: Spacing.two, ...TypeScale.micro },
-  fail: {
-    marginTop: Spacing.two,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Radius.lg,
-    padding: Spacing.two,
-  },
 });
