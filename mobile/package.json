@@ -61,7 +61,9 @@
   },
   "overrides": {
     "brace-expansion": "5.0.12",
+    "compression": "^1.8.2",
     "decode-uri-component": "0.5.0",
+    "source-map-js": "^1.2.2",
     "uuid": "11.1.1"
   },
   "private": true
