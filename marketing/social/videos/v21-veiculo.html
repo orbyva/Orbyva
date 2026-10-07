@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="34">
+<title>V21 · Na prática: o carro em dia</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+<link rel="stylesheet" href="../lib/app.css">
+<style>
+  /* Veículos › detalhe (app/(app)/cars/[id].tsx) */
+  .x-tabs.ell { min-width: 0; }
+  .x-tabs.ell span { min-width: 0; display: block; line-height: 36px; text-align: center; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
+  .vcard { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .vwell { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; color: var(--car); background: rgba(249, 112, 21, 0.13); flex: none; }
+  .tabc { display: flex; flex-direction: column; gap: 16px; }
+  .fresh { animation: k-fresh 1.6s ease-out var(--at) both; }
+  @keyframes k-fresh { from { background: rgba(249, 112, 21, 0.16); } to { background: #fff; } }
+
+  /* Abastecimento (cars/fuel-form.tsx) */
+  .form { --in: k-up; --dy: 727px; --dur: 0.26s; z-index: 8; }
+  .fbody { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .inp.f-on { animation: k-focus 0.01s linear var(--fon) forwards, k-blur 0.01s linear var(--foff, 9999s) forwards; }
+  @keyframes k-focus { to { border-color: #0b84bc; } }
+  @keyframes k-blur { to { border-color: #e7e5e4; } }
+  /* LedgerClassField: bolinha + texto num bloco muted */
+  .ledger { display: flex; align-items: flex-start; gap: 12px; border-radius: 12px; padding: 14px; background: var(--muted); }
+  .ledger i { width: 18px; height: 18px; border-radius: 999px; background: var(--border); margin-top: 2px; flex: none; }
+</style>
+</head>
+<body>
+
+<div class="stage stage--story s-ink" data-eyebrow="Na prática" data-sig="br" style="--endt:28.40s">
+  <div class="sky-wash" style="--d:28.40s"></div>
+
+  <div class="scenes">
+
+    <div class="swap swap--top">
+      <div class="cap a" style="--d:.20s; --x:4.40s">Quando foi a última<br>troca de óleo?</div>
+      <div class="cap a" style="--d:4.70s; --x:10.40s">O app avisa antes:<br>faltam <span class="acc">650 km</span>.</div>
+      <div class="cap a" style="--d:10.70s; --x:15.80s">Abasteceu? Anota<br>e vê o consumo.</div>
+      <div class="cap a" style="--d:16.10s; --x:21.20s">IPVA e licenciamento<br>também avisam.</div>
+      <div class="cap a" style="--d:21.50s; --x:28.20s">Na dúvida, pergunta<br>pra <span class="orb-t">Orb</span>.</div>
+    </div>
+
+    <div class="phone a" style="--in:k-scale; --d:.10s; --x:28.20s">
+     <div class="app" id="app">
+
+      <div class="status"><span>9:41</span><i></i></div>
+
+      <!-- ============ Veículo › detalhe ============ -->
+      <div class="scr a" style="--in:k-fade; --d:.30s; --m:var(--car)">
+        <div class="hdr">
+          <span class="ion back" data-ion="chevron-back"></span>
+          <span class="title">Chevrolet Onix 2022</span>
+          <span class="right"><span id="t-orbbtn"><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div class="body">
+          <div class="card vcard">
+            <div class="rowf ac g12">
+              <span class="vwell ion" data-ion="car-outline"></span>
+              <div style="flex:1">
+                <div class="t-title">Chevrolet Onix 2022</div>
+                <div class="t-body mut">ABC1D23 · Prata · Flex</div>
+              </div>
+            </div>
+            <div class="rowf ac g12">
+              <span class="swap">
+                <span class="t-sb num a" style="--in:k-fade; --dur:.01s; --x:15.40s; --xdur:.01s">42.350 km</span>
+                <span class="t-sb num a" style="--in:k-up; --dy:6px; --dur:.3s; --d:15.40s">42.810 km</span>
+              </span>
+              <span class="link">Editar</span>
+            </div>
+            <span class="swap">
+              <span class="t-cap mut a" style="--in:k-fade; --dur:.01s; --x:15.40s; --xdur:.01s">Consumo 12,1 km/l</span>
+              <span class="t-cap mut a" style="--in:k-up; --dy:6px; --dur:.3s; --d:15.40s">Consumo <b style="color:var(--fg)">12,4 km/l</b></span>
+            </span>
+            <span class="link">Editar veículo</span>
+          </div>
+
+          <div class="swap">
+            <div class="x-tabs ell a" style="--in:k-fade; --dur:.01s; --x:6.30s; --xdur:.01s"><span class="on">Cronograma</span><span id="t-tab2">Manutenções</span><span id="t-tab3">Abastecimentos</span><span id="t-tab4">Documentos</span></div>
+            <div class="x-tabs ell a" style="--in:k-fade; --dur:.01s; --d:6.30s; --x:11.00s; --xdur:.01s"><span>Cronograma</span><span class="on">Manutenções</span><span>Abastecimentos</span><span>Documentos</span></div>
+            <div class="x-tabs ell a" style="--in:k-fade; --dur:.01s; --d:11.00s; --x:16.60s; --xdur:.01s"><span>Cronograma</span><span>Manutenções</span><span class="on">Abastecimentos</span><span>Documentos</span></div>
+            <div class="x-tabs ell a" style="--in:k-fade; --dur:.01s; --d:16.60s"><span>Cronograma</span><span>Manutenções</span><span>Abastecimentos</span><span class="on">Documentos</span></div>
+          </div>
+
+          <div class="swap swap--top">
+            <!-- Cronograma -->
+            <div class="tabc a" style="--in:k-fade; --d:.60s; --x:6.30s; --xdur:.12s">
+              <div class="card vcard"><div class="dtrow"><span class="t-sb" style="flex:1">Óleo do motor</span><span class="badge warn">Em breve</span></div><span class="t-cap mut">faltam 650 km</span></div>
+              <div class="card vcard"><div class="dtrow"><span class="t-sb" style="flex:1">Filtro de óleo</span><span class="badge warn">Em breve</span></div><span class="t-cap mut">faltam 650 km</span></div>
+              <div class="card vcard"><div class="dtrow"><span class="t-sb" style="flex:1">Filtro de ar</span></div><span class="t-cap mut">Em dia</span></div>
+              <div class="card vcard"><div class="dtrow"><span class="t-sb" style="flex:1">Pneus</span></div><span class="t-cap mut">Em dia</span></div>
+            </div>
+            <!-- Manutenções -->
+            <div class="tabc a" style="--in:k-fade; --dur:.2s; --d:6.40s; --x:11.00s; --xdur:.12s">
+              <span class="link">Registrar manutenção</span>
+              <div class="card vcard"><div class="dtrow"><span class="t-sb" style="flex:1">Óleo do motor</span><span class="badge warn">Em breve</span></div><span class="t-cap mut">faltam 650 km</span></div>
+              <div class="card vcard"><span class="t-sb">Óleo do motor</span><span class="t-cap mut">12/04/2026 · 33.000 km · próximo 43.000 km</span></div>
+              <div class="card vcard"><span class="t-sb">Revisão geral</span><span class="t-cap mut">12/04/2026 · 33.000 km · próxima 12/04/2027 · próximo 53.000 km</span></div>
+            </div>
+            <!-- Abastecimentos -->
+            <div class="tabc a" style="--in:k-fade; --dur:.2s; --d:11.10s; --x:16.60s; --xdur:.12s">
+              <span class="link" id="t-reg">Registrar abastecimento</span>
+              <div class="later" style="--at:15.30s; --mh:120px">
+                <div class="card vcard fresh" style="--at:15.30s; margin-bottom:0"><span class="t-sb">06/10/2026 · 38,7 L</span><span class="t-cap mut">R$ 232,20 · 42.810 km</span></div>
+              </div>
+              <div class="card vcard"><span class="t-sb">28/09/2026 · 39,5 L</span><span class="t-cap mut">R$ 237,00 · 42.330 km · Posto Avenida</span></div>
+              <div class="card vcard"><span class="t-sb">17/09/2026 · 41,2 L</span><span class="t-cap mut">R$ 245,10 · 41.850 km · Posto Avenida</span></div>
+            </div>
+            <!-- Documentos -->
+            <div class="tabc a" style="--in:k-fade; --dur:.2s; --d:16.70s">
+              <span class="link">Novo documento</span>
+              <div class="card vcard"><div class="dtrow"><span class="t-sb" style="flex:1">Multa</span><span class="badge bad">Vencido</span></div><span class="t-cap mut">Vence 30/09/2026 · em aberto</span></div>
+              <div class="card vcard"><div class="dtrow"><span class="t-sb" style="flex:1">Licenciamento</span><span class="badge warn">Em breve</span></div><span class="t-cap mut">Vence 31/10/2026 · em aberto</span></div>
+              <div class="card vcard"><div class="dtrow"><span class="t-sb" style="flex:1">IPVA</span></div><span class="t-cap mut">Vence 15/01/2027 · em aberto</span></div>
+              <div class="card vcard"><div class="dtrow"><span class="t-sb" style="flex:1">Seguro</span></div><span class="t-cap mut">Vence 20/03/2027 · pago</span></div>
+            </div>
+          </div>
+        </div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <!-- ============ Abastecimento (modal) ============ -->
+      <div class="scr form a" style="--d:12.10s; --x:15.20s">
+        <div class="hdr">
+          <span class="close">Fechar</span>
+          <span class="title">Abastecimento</span>
+        </div>
+        <div class="fbody">
+          <div class="field"><span class="lbl">Data</span><div class="inp">06/10/2026</div></div>
+          <div class="field">
+            <span class="lbl">Litros</span>
+            <div class="inp f-on" id="t-litros" style="--fon:12.60s; --foff:13.30s"><span class="type num" style="--d:12.70s; --dur:.4s; --steps:4">38,7</span></div>
+          </div>
+          <div class="field">
+            <span class="lbl">Valor</span>
+            <div class="inp f-on" id="t-valor" style="--fon:13.30s; --foff:14.00s"><span class="type num" style="--d:13.40s; --dur:.5s; --steps:6">232,20</span></div>
+          </div>
+          <div class="ledger"><i></i><div style="flex:1; display:flex; flex-direction:column; gap:2px"><span class="t-sb">Lançar no extrato</span><span class="t-cap mut">Cria um lançamento em Finanças com o mesmo valor.</span></div></div>
+          <div class="field">
+            <span class="lbl">Km no painel</span>
+            <div class="inp f-on" id="t-km" style="--fon:14.00s; --foff:14.80s"><span class="type num" style="--d:14.10s; --dur:.5s; --steps:6">42.810</span></div>
+          </div>
+          <div class="field"><span class="lbl">Posto</span><div class="inp"><span class="ph">Opcional</span></div></div>
+          <div class="bigbtn" id="t-salvar">Registrar abastecimento</div>
+        </div>
+      </div>
+
+      <!-- ============ Orb ============ -->
+      <div class="scr a" style="--d:21.95s">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Orb</span>
+          <span class="right"><span class="t-sb" style="color:var(--primary); width:auto; padding:8px; margin-right:4px">?</span></span>
+        </div>
+        <div class="empty a" style="--in:k-fade; --d:21.95s; --x:23.55s; --xdur:.2s">
+          <span class="orbs" style="--os:48px"></span>
+          <div class="t-heading" style="margin-top:8px">Converse com a Orb</div>
+          <div class="t-cap mut" style="margin-bottom:8px">Pergunte sobre suas finanças, tarefas, hábitos e o resto do Orbyva.</div>
+          <span class="seal t-cap"><i></i><span>Conectada · 42 consultas · <b style="color:var(--success)">só cria com confirmação</b></span></span>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px; width:100%">
+            <span class="sugg t-cap">O que eu tenho pra fazer hoje?</span>
+            <span class="sugg t-cap">O que vence nos próximos 7 dias?</span>
+          </div>
+        </div>
+        <div class="msgs">
+          <div class="bub me a" style="--d:23.55s">Quanto gastei de gasolina no último mês?</div>
+          <div class="swap" style="align-items:start">
+            <div class="bub ai a" style="--d:23.80s; --x:24.75s; --xdur:.1s; align-self:start">
+              <span class="t-cap mut">Pensando…</span>
+              <div class="toolc"><span class="spin"></span><span class="t-sb">Consultando Veículos…</span></div>
+            </div>
+            <div class="bub ai a" style="--d:24.85s">
+              Foram <b>R$&nbsp;714,30</b> em 3 abastecimentos, 119,4&nbsp;L a R$&nbsp;5,98 o litro. O consumo subiu pra <b>12,4&nbsp;km/l</b>.
+              <div class="a" style="--in:k-fade; --d:25.70s; margin-top:8px">Atenção: a troca de óleo vence em <b>menos de 200&nbsp;km</b>.</div>
+              <div class="toolc"><span class="ok">✓</span><div style="flex:1"><div class="t-sb">Veículos</div><div class="t-cap mut">1 veículo · ver</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="box focus">
+            <div class="field">
+              <div style="position:relative">
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --x:22.30s; --xdur:.01s">Pergunte à Orb…</span>
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --d:23.55s">Pergunte à Orb…</span>
+                <div class="a" style="--in:k-fade; --dur:.01s; --d:22.30s; --x:23.50s; --xdur:.01s">
+                  <span class="type" style="display:block; --d:22.30s; --dur:.45s; --steps:12">Quanto gastei de gasolina</span>
+                  <span class="type" style="display:block; --d:22.75s; --dur:.45s; --steps:12">no último mês?</span>
+                </div>
+              </div>
+            </div>
+            <span class="send ion" data-ion="arrow-up" id="t-osend"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="homebar"></div>
+
+      <div class="tap" data-tap="#t-tab2" style="--d:6.00s"></div>
+      <div class="tap" data-tap="#t-tab3" style="--d:10.70s"></div>
+      <div class="tap" data-tap="#t-reg" style="--d:11.70s"></div>
+      <div class="tap" data-tap="#t-litros" style="--d:12.40s"></div>
+      <div class="tap" data-tap="#t-valor" style="--d:13.10s"></div>
+      <div class="tap" data-tap="#t-km" style="--d:13.80s"></div>
+      <div class="tap" data-tap="#t-salvar" style="--d:14.80s"></div>
+      <div class="tap" data-tap="#t-tab4" style="--d:16.30s"></div>
+      <div class="tap" data-tap="#t-orbbtn" style="--d:21.55s"></div>
+      <div class="tap" data-tap="#t-osend" style="--d:23.30s"></div>
+     </div>
+    </div>
+
+    <div class="end">
+      <img class="a" src="../../../public/logo-mark-sky.png" alt="" style="--in:k-scale; --d:28.80s">
+      <div class="head head--sm a" style="--d:29.20s">Seu carro<br>em dia.</div>
+      <span class="cta cta--lg a" style="--d:30.00s">Teste 7 dias grátis</span>
+      <div class="end-sub a" style="--d:30.40s">No navegador, hoje.<br>App para iPhone e Android em breve.</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/app.js"></script>
+<script src="../lib/kit.js"></script>
+</body>
+</html>

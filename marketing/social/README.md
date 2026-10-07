@@ -31,7 +31,9 @@ Se o Playwright não achar o Chromium, o script procura o binário no cache e us
 | `lib/kit.js` | injeta lockup, rodapé, assinatura de órbita, ícones, heatmap e números |
 | `lib/mark.svg` | mark oficial vetorizado de `public/logo-mark.png` (o traço também vive em `kit.js`, com o comando que o regera) |
 | `posts/` | 16 peças de feed |
-| `videos/` | 17 peças verticais; `<meta name="duration">` define a duração (`v17-um-dia`: o app sendo usado de ponta a ponta, 52 s) |
+| `videos/` | 23 peças verticais; `<meta name="duration">` define a duração e `<meta name="audio" content="../audio/x.mp3" data-delay="s">` embute a trilha (`v17-um-dia`: o app sendo usado de ponta a ponta, 52 s; `v18-financiamento`: corte de 29 s para Reels, com música; `v19-tarefas`, `v20-habitos`, `v21-veiculo`, `v22-viagem`: série "Na prática" de 34 s, sem áudio, cada uma fechando com uma conversa com a Orb; `v23-orb`: a Orb sozinha, 27 s) |
+| `lib/app.css`, `lib/app.js` | UI do app mobile para os vídeos "Na prática": tokens, componentes, Ionicons (`data-ion`) e anéis de toque (`data-tap`, com `data-dx`/`data-dy`) |
+| `audio/` | trilhas livres; `startup-promo-short-drive.mp3` é "Upbeat Corporate Startup Promo Short Drive", de Alex Morgan, CC BY 4.0 — creditar na legenda do post |
 | `highlights/` | 26 capas de Destaques: uma por grupo e por item da sidebar, na mesma ordem, e Dúvidas |
 | `stories/` | stories avulsos para Destaques (`duvidas-*`: as perguntas do FAQ da landing, uma por tela; `novidades-*`: lançamentos) |
 | `profile/` | foto de perfil |

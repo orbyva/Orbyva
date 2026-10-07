@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="27">
+<title>V23 · Na prática: a Orb</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+<link rel="stylesheet" href="../lib/app.css">
+<style>
+  .msgs { padding-bottom: 120px; }
+  .sugg.hit { animation: k-press 0.25s ease-out 2.60s both; }
+  @keyframes k-press { 50% { background: rgba(10, 122, 174, 0.14); border-color: #0a7aae; } }
+</style>
+</head>
+<body>
+
+<div class="stage stage--story s-ink" data-eyebrow="Na prática" data-sig="br" style="--endt:21.40s">
+  <div class="sky-wash" style="--d:21.40s"></div>
+
+  <div class="scenes">
+
+    <div class="swap swap--top">
+      <div class="cap a" style="--d:.20s; --x:4.40s">Conheça a <span class="orb-t">Orb</span>,<br>a IA do Orbyva.</div>
+      <div class="cap a" style="--d:4.70s; --x:10.40s">Pergunta em português.<br>Ela olha os seus dados.</div>
+      <div class="cap a" style="--d:10.70s; --x:16.40s">Organiza o seu dia<br>em segundos.</div>
+      <div class="cap a" style="--d:16.70s; --x:21.20s">E registra por você,<br>só com o seu <span class="acc">ok</span>.</div>
+    </div>
+
+    <div class="phone a" style="--in:k-scale; --d:.10s; --x:21.20s">
+     <div class="app" id="app">
+
+      <div class="status"><span>9:41</span><i></i></div>
+
+      <div class="scr a" style="--in:k-fade; --d:.30s">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Orb</span>
+          <span class="right"><span class="t-sb" style="color:var(--primary); width:auto; padding:8px; margin-right:4px">?</span></span>
+        </div>
+
+        <div class="empty a" style="--in:k-fade; --d:.30s; --x:2.95s; --xdur:.2s">
+          <span class="orbs" style="--os:48px"></span>
+          <div class="t-heading" style="margin-top:8px">Converse com a Orb</div>
+          <div class="t-cap mut" style="margin-bottom:8px">Pergunte sobre suas finanças, tarefas, hábitos e o resto do Orbyva.</div>
+          <span class="seal t-cap"><i></i><span>Conectada · 42 consultas · <b style="color:var(--success)">só cria com confirmação</b></span></span>
+          <span class="t-cap" style="color:var(--primary); margin-top:4px">Ver o que eu sei</span>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px; width:100%">
+            <span class="sugg t-cap hit" id="t-sugg">Tenho algum orçamento estourado esse mês?</span>
+            <span class="sugg t-cap">Posso parcelar uma compra de R$ 5.000 em 12x?</span>
+            <span class="sugg t-cap">O que eu tenho pra fazer hoje?</span>
+            <span class="sugg t-cap">O que vence nos próximos 7 dias?</span>
+          </div>
+        </div>
+
+        <div class="scroll" style="--sd:7.85s; --sy:-210px">
+        <div class="scroll" style="--sd:13.85s; --sy:-250px">
+        <div class="msgs">
+          <!-- 1 · orçamento -->
+          <div class="bub me a" style="--d:3.00s">Tenho algum orçamento estourado esse mês?</div>
+          <div class="swap" style="align-items:start">
+            <div class="bub ai a" style="--d:3.20s; --x:4.10s; --xdur:.1s; align-self:start">
+              <span class="t-cap mut">Pensando…</span>
+              <div class="toolc"><span class="spin"></span><span class="t-sb">Consultando Orçamento do mês…</span></div>
+            </div>
+            <div class="bub ai a" style="--d:4.20s">
+              Só <b>Alimentação</b>: R$&nbsp;1.180 de R$&nbsp;1.000, 18% acima. <b>Lazer</b> já está em 92%, então segura até o dia 31.
+              <div class="toolc"><span class="ok">✓</span><div style="flex:1"><div class="t-sb">Orçamento do mês</div><div class="t-cap mut">8 categorias · ver</div></div></div>
+            </div>
+          </div>
+
+          <!-- 2 · tarefas -->
+          <div class="bub me a" style="--d:7.90s">O que eu tenho pra fazer hoje?</div>
+          <div class="swap" style="align-items:start">
+            <div class="bub ai a" style="--d:8.10s; --x:8.90s; --xdur:.1s; align-self:start">
+              <span class="t-cap mut">Pensando…</span>
+              <div class="toolc"><span class="spin"></span><span class="t-sb">Consultando Tarefas…</span></div>
+            </div>
+            <div class="bub ai a" style="--d:9.00s">
+              Três coisas: <b>pagar o boleto do condomínio</b> (atrasado desde sábado), enviar a proposta às 14h e comprar o presente da Bia. Começa pelo boleto.
+              <div class="toolc"><span class="ok">✓</span><div style="flex:1"><div class="t-sb">Tarefas</div><div class="t-cap mut">3 tarefas · ver</div></div></div>
+            </div>
+          </div>
+
+          <!-- 3 · lançamento -->
+          <div class="bub me a" style="--d:13.90s">Gastei 62 no almoço</div>
+          <div class="swap" style="align-items:start">
+            <div class="bub ai a" style="--d:14.10s; --x:14.80s; --xdur:.1s; align-self:start"><span class="t-cap mut">Pensando…</span></div>
+            <div class="bub ai a" style="--d:14.90s">
+              Preparei o lançamento. Confere antes de criar:
+              <div class="x-proposal">
+                <span class="t-sb">Novo lançamento</span>
+                <span class="t-cap mut">Lançamento · Almoço</span>
+                <span class="t-cap mut">Valor · R$ 62,00</span>
+                <span class="t-cap mut">Categoria · Restaurantes (Despesa)</span>
+                <span class="t-cap mut">Data · 07/10/2026</span>
+                <div class="swap" style="margin-top:8px">
+                  <div class="rowf g8 a" style="--in:k-fade; --d:14.90s; --x:17.15s; --xdur:.15s">
+                    <span class="btn primary" id="t-criar">Criar</span>
+                    <span class="btn outline">Descartar</span>
+                  </div>
+                  <div class="a" style="--in:k-fade; --d:17.25s; display:flex; align-items:center; gap:12px; min-height:44px">
+                    <span class="t-sb" style="color:var(--primary)">Lançamento criado.</span>
+                    <span class="t-sb" style="color:var(--primary)">Ver</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+        </div>
+
+        <div class="composer">
+          <div class="box focus">
+            <div class="field">
+              <div style="position:relative">
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --x:6.60s; --xdur:.01s">Pergunte à Orb…</span>
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --d:7.90s; --x:12.60s; --xdur:.01s">Pergunte à Orb…</span>
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --d:13.90s">Pergunte à Orb…</span>
+                <div class="a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --d:6.60s; --x:7.85s; --xdur:.01s">
+                  <span class="type" style="display:block; --d:6.60s; --dur:.45s; --steps:12">O que eu tenho</span>
+                  <span class="type" style="display:block; --d:7.05s; --dur:.5s; --steps:12">pra fazer hoje?</span>
+                </div>
+                <div class="a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --d:12.60s; --x:13.85s; --xdur:.01s">
+                  <span class="type" style="display:block; --d:12.70s; --dur:.7s; --steps:19">Gastei 62 no almoço</span>
+                </div>
+                <span style="visibility:hidden">O que eu tenho<br>pra fazer hoje?</span>
+              </div>
+            </div>
+            <span class="send ion" data-ion="arrow-up" id="t-send"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="homebar"></div>
+
+      <div class="tap" data-tap="#t-sugg" style="--d:2.50s"></div>
+      <div class="tap" data-tap="#t-send" style="--d:7.65s"></div>
+      <div class="tap" data-tap="#t-send" style="--d:13.65s"></div>
+      <div class="tap" data-tap="#t-criar" data-dy="-460" style="--d:16.85s"></div>
+     </div>
+    </div>
+
+    <div class="end">
+      <img class="a" src="../../../public/logo-mark-sky.png" alt="" style="--in:k-scale; --d:21.80s">
+      <div class="head head--sm a" style="--d:22.20s">Pergunte.<br>A Orb resolve.</div>
+      <span class="cta cta--lg a" style="--d:23.00s">Teste 7 dias grátis</span>
+      <div class="end-sub a" style="--d:23.40s">No navegador, hoje.<br>App para iPhone e Android em breve.</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/app.js"></script>
+<script src="../lib/kit.js"></script>
+</body>
+</html>

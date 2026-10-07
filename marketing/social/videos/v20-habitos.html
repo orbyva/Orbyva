@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="34">
+<title>V20 · Na prática: hábitos e metas</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+<link rel="stylesheet" href="../lib/app.css">
+<style>
+  /* Hábitos (app/(app)/habits/index.tsx + components/HabitWeekStrip.tsx) */
+  .hcard { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .hrow { display: flex; align-items: flex-start; gap: 12px; }
+  .hchk { width: 28px; height: 28px; border-radius: 999px; border: 2px solid var(--mfg); margin-top: 2px; flex: none; }
+  .hchk.on { border-color: var(--c); background: var(--c); }
+  .hchk.to-on { animation: k-hon 0.15s linear var(--at) forwards; }
+  @keyframes k-hon { to { border-color: #10b77f; background: #10b77f; } }
+  .strip { display: flex; gap: 6px; }
+  .strip span { flex: 1; min-height: 36px; border-radius: 8px; border: 1px solid var(--border); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+  .strip span.on { color: var(--c); border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); }
+  .strip span.today { border-color: var(--primary); }
+  .strip span.to-on { animation: k-son 0.2s linear var(--at) forwards; }
+  @keyframes k-son { to { color: #10b77f; border-color: #10b77f; background: rgba(16, 183, 127, 0.18); } }
+
+  /* mês: insights + heatmap */
+  .ins { padding: 16px; display: flex; flex-direction: column; gap: 2px; }
+  .hm { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; max-width: 280px; width: 100%; align-self: center; }
+  .grid .wh { text-align: center; color: var(--mfg); font-weight: 600; font-size: 10px; line-height: 12px; }
+  .grid i { aspect-ratio: 1; border-radius: 3px; border: 1.5px solid transparent; background: var(--muted); }
+  .grid i.blank { background: transparent; }
+  .grid i.full { background: var(--life); }
+  .grid i.p70 { background: rgba(16, 183, 127, 0.7); }
+  .grid i.p50 { background: rgba(16, 183, 127, 0.5); }
+  .grid i.p28 { background: rgba(16, 183, 127, 0.28); }
+  .grid i.fut { background: transparent; border-color: var(--border); }
+  .grid i.today { border-color: var(--primary); }
+  .legend { display: flex; gap: 12px; justify-content: center; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* Metas (app/(app)/goals/index.tsx) */
+  .gcard { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .gbadge { align-self: flex-start; border-radius: 999px; padding: 4px 10px; background: var(--muted); }
+  .track { height: 8px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+  .fill { height: 8px; border-radius: 999px; background: var(--primary); width: var(--p); }
+  .fill.grow { animation: k-fill 0.8s var(--ease) var(--at) forwards; }
+  @keyframes k-fill { to { width: var(--p2); } }
+</style>
+</head>
+<body>
+
+<div class="stage stage--story s-ink" data-eyebrow="Na prática" data-sig="br" style="--endt:28.40s">
+  <div class="sky-wash" style="--d:28.40s"></div>
+
+  <div class="scenes">
+
+    <div class="swap swap--top">
+      <div class="cap a" style="--d:.20s; --x:3.60s">Promessa que dura<br>uma semana?</div>
+      <div class="cap a" style="--d:3.90s; --x:8.80s">Marca o dia e vê<br>a sequência subir.</div>
+      <div class="cap a" style="--d:9.10s; --x:14.40s">O mês inteiro<br>num relance.</div>
+      <div class="cap a" style="--d:14.70s; --x:21.20s">E cada corrida soma<br>na sua <span class="acc">meta</span>.</div>
+      <div class="cap a" style="--d:21.50s; --x:28.20s">E a <span class="orb-t">Orb</span> lê<br>o seu mês por você.</div>
+    </div>
+
+    <div class="phone a" style="--in:k-scale; --d:.10s; --x:28.20s">
+     <div class="app" id="app">
+
+      <div class="status"><span>9:41</span><i></i></div>
+
+      <!-- ============ 1 · Hábitos (Hoje → Mês) ============ -->
+      <div class="scr a" style="--in:k-fade; --d:.30s; --x:15.70s; --m:var(--life)">
+        <div class="hdr">
+          <span class="ion menu" id="t-menu" data-ion="menu-outline"></span>
+          <span class="title">Hábitos<span class="ion" data-ion="chevron-down"></span></span>
+          <span class="right"><span class="ion" data-ion="search-outline"></span><span><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div class="scroll" style="--sd:11.80s; --sy:-250px">
+        <div class="body">
+          <div class="x-tabs switch" style="--w:calc(50% - 4.5px); --to:calc(100% + 3px); --at:9.60s">
+            <i class="x-hl"></i>
+            <span class="off-later">Hoje</span><span class="on-later" id="t-mes">Mês</span>
+          </div>
+          <span class="swap">
+            <span class="t-cap mut a" style="--in:k-fade; --dur:.01s; --x:4.90s; --xdur:.01s">Hoje: 2/3</span>
+            <span class="t-cap mut a" style="--in:k-fade; --dur:.01s; --d:4.90s">Hoje: 3/3</span>
+          </span>
+
+          <div class="swap">
+            <!-- Hoje -->
+            <div class="a" style="--in:k-fade; --dur:.01s; --x:9.60s; --xdur:.12s; display:flex; flex-direction:column; gap:16px">
+              <div class="card hcard" style="--c:var(--life)">
+                <div class="hrow"><span class="hchk on"></span><div style="flex:1"><div class="t-sb">Beber água</div><div class="t-cap mut">Todo dia · Sequência: 12 · Semana: 100%</div></div></div>
+                <div class="strip"><span class="on">S</span><span class="on today">T</span><span>Q</span><span>Q</span><span>S</span><span>S</span><span>D</span></div>
+              </div>
+              <div class="card hcard" style="--c:var(--life)">
+                <div class="hrow">
+                  <span class="hchk to-on" id="t-correr" style="--at:4.90s"></span>
+                  <div style="flex:1">
+                    <div class="t-sb">Correr</div>
+                    <span class="swap">
+                      <span class="t-cap mut a" style="--in:k-fade; --dur:.01s; --x:4.90s; --xdur:.01s">3× por semana · Sequência: 2 · Semana: 33%</span>
+                      <span class="t-cap mut a" style="--in:k-fade; --dur:.01s; --d:4.90s">3× por semana · Sequência: 3 · Semana: 67%</span>
+                    </span>
+                  </div>
+                </div>
+                <div class="strip"><span>S</span><span class="today to-on" style="--at:4.95s">T</span><span>Q</span><span>Q</span><span>S</span><span>S</span><span>D</span></div>
+              </div>
+              <div class="card hcard" style="--c:#1c9c91">
+                <div class="hrow"><span class="hchk on"></span><div style="flex:1"><div class="t-sb">Sem delivery</div><div class="t-cap mut">Anti-hábito · Todo dia limpo · Dias limpos: 9 · Semana: 100%</div></div></div>
+                <div class="strip"><span class="on">S</span><span class="on today">T</span><span>Q</span><span>Q</span><span>S</span><span>S</span><span>D</span></div>
+              </div>
+            </div>
+
+            <!-- Mês -->
+            <div class="a" style="--in:k-fade; --dur:.2s; --d:9.70s; display:flex; flex-direction:column; gap:16px">
+              <div class="card ins"><span class="t-sb">Melhor streak: Beber água</span><span class="t-cap mut">12 dias seguidos.</span></div>
+              <div class="card ins"><span class="t-sb">Hoje</span><span class="t-cap mut">3/3 hábitos concluídos.</span></div>
+              <div class="card ins"><span class="t-sb">Taxa dos últimos 7 dias</span><span class="t-cap mut">86% das check-ins possíveis.</span></div>
+              <div class="card hm">
+                <span class="t-sb">Todos os hábitos</span>
+                <div class="x-mrow"><span class="mbtn">‹</span><span class="t-sb" style="flex:1; text-align:center">Outubro de 2026</span><span class="mbtn">›</span></div>
+                <span class="t-cap mut" style="text-align:center">5/6 dias · 83%</span>
+                <div class="grid">
+                  <span class="wh">S</span><span class="wh">T</span><span class="wh">Q</span><span class="wh">Q</span><span class="wh">S</span><span class="wh">S</span><span class="wh">D</span>
+                  <i class="blank"></i><i class="blank"></i><i class="blank"></i><i class="full"></i><i class="p70"></i><i class="full"></i><i class="p50"></i>
+                  <i class="full"></i><i class="full today"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i>
+                  <i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i>
+                  <i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i>
+                  <i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="fut"></i><i class="blank"></i><i class="blank"></i>
+                </div>
+                <div class="legend t-cap mut">
+                  <span><i style="background:var(--life)"></i>Feito</span>
+                  <span><i style="background:rgba(16,183,127,.5)"></i>Parcial</span>
+                  <span><i style="background:rgba(220,40,40,.16)"></i>Falhou</span>
+                  <span><i style="border:1.5px solid var(--border)"></i>Futuro</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <!-- menu lateral: Vida › Metas -->
+      <div class="side-wrap a" style="--in:k-fade; --dur:.25s; --d:14.60s; --x:15.70s">
+        <div class="backdrop"></div>
+        <div class="panel a" style="--d:14.60s">
+          <div class="brand"><img src="../../../public/logo-mark-sky.png" alt=""><b>ORBYV<i>Λ</i></b></div>
+          <div class="navlist">
+            <div class="grp" style="--m:var(--hub)"><span class="well ion" data-ion="home-outline"></span><span class="t-sb">Início</span><span class="ion" data-ion="chevron-forward"></span></div>
+            <div class="grp" style="--m:var(--finance)"><span class="well ion" data-ion="card"></span><span class="t-sb">Finanças</span><span class="ion" data-ion="chevron-forward"></span></div>
+            <div class="grp" style="--m:var(--productivity)"><span class="well ion" data-ion="checkbox-outline"></span><span class="t-sb">Produtividade</span><span class="ion" data-ion="chevron-forward"></span></div>
+            <div class="grp act" style="--m:var(--life)"><span class="well ion" data-ion="leaf-outline"></span><span class="t-sb">Vida</span><span class="ion" data-ion="chevron-down"></span></div>
+            <div class="leaf act" style="--m:var(--life)">Hábitos</div>
+            <div class="leaf" style="--m:var(--life)">Saúde</div>
+            <div class="leaf" style="--m:var(--life)" id="t-metas">Metas</div>
+            <div class="leaf" style="--m:var(--life)">Lugares</div>
+            <div class="leaf" style="--m:var(--life)">Viagens</div>
+            <div class="leaf" style="--m:var(--life)">Veículos</div>
+            <div class="grp" style="--m:var(--entertainment)"><span class="well ion" data-ion="film-outline"></span><span class="t-sb">Conteúdo</span><span class="ion" data-ion="chevron-forward"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 2 · Metas ============ -->
+      <div class="scr a" style="--d:15.70s; --m:var(--life)">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Metas<span class="ion" data-ion="chevron-down"></span></span>
+          <span class="right"><span class="ion" data-ion="search-outline"></span><span id="t-orbbtn"><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div class="body">
+          <div class="x-tabs"><span>Todas</span><span class="on">Ativas</span><span>Concluídas</span></div>
+          <div class="card gcard">
+            <span class="gbadge t-cap mut">Fitness</span>
+            <span class="t-heading">Correr 100 km até dezembro</span>
+            <span class="t-cap mut">Cada corrida soma 5 km.</span>
+            <div class="rowf" style="justify-content:space-between; align-items:center">
+              <span class="swap">
+                <span class="t-cap mut a" style="--in:k-fade; --dur:.01s; --x:16.90s; --xdur:.01s">37 km / 100 km</span>
+                <span class="t-cap mut a" style="--in:k-up; --dy:6px; --dur:.3s; --d:16.90s">42 km / 100 km</span>
+              </span>
+              <span class="swap" style="justify-items:end">
+                <span class="t-sb a" style="--in:k-fade; --dur:.01s; --x:16.90s; --xdur:.01s">37%</span>
+                <span class="t-sb a" style="--in:k-up; --dy:6px; --dur:.3s; --d:16.90s">42%</span>
+              </span>
+            </div>
+            <div class="track"><div class="fill grow" style="--p:37%; --p2:42%; --at:16.90s"></div></div>
+            <span class="t-cap mut">Prazo 31/12/2026</span>
+          </div>
+          <div class="card gcard a" style="--d:16.10s">
+            <span class="gbadge t-cap mut">Aprendizado</span>
+            <span class="t-heading">Ler 12 livros</span>
+            <div class="rowf" style="justify-content:space-between; align-items:center"><span class="t-cap mut">9 livros / 12 livros</span><span class="t-sb">75%</span></div>
+            <div class="track"><div class="fill" style="--p:75%"></div></div>
+            <span class="t-cap mut">Prazo 31/12/2026</span>
+          </div>
+          <div class="card gcard a" style="--d:16.30s">
+            <span class="gbadge t-cap mut">Saúde</span>
+            <span class="t-heading">Meditar 30 dias</span>
+            <div class="rowf" style="justify-content:space-between; align-items:center"><span class="t-cap mut">18 / 30</span><span class="t-sb">60%</span></div>
+            <div class="track"><div class="fill" style="--p:60%"></div></div>
+          </div>
+        </div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <!-- ============ 3 · Orb ============ -->
+      <div class="scr a" style="--d:21.95s">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Orb</span>
+          <span class="right"><span class="t-sb" style="color:var(--primary); width:auto; padding:8px; margin-right:4px">?</span></span>
+        </div>
+        <div class="empty a" style="--in:k-fade; --d:21.95s; --x:23.55s; --xdur:.2s">
+          <span class="orbs" style="--os:48px"></span>
+          <div class="t-heading" style="margin-top:8px">Converse com a Orb</div>
+          <div class="t-cap mut" style="margin-bottom:8px">Pergunte sobre suas finanças, tarefas, hábitos e o resto do Orbyva.</div>
+          <span class="seal t-cap"><i></i><span>Conectada · 42 consultas · <b style="color:var(--success)">só cria com confirmação</b></span></span>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px; width:100%">
+            <span class="sugg t-cap">O que eu tenho pra fazer hoje?</span>
+            <span class="sugg t-cap">O que vence nos próximos 7 dias?</span>
+          </div>
+        </div>
+        <div class="msgs">
+          <div class="bub me a" style="--d:23.55s">Como estou indo nos hábitos esse mês?</div>
+          <div class="swap" style="align-items:start">
+            <div class="bub ai a" style="--d:23.80s; --x:24.75s; --xdur:.1s; align-self:start">
+              <span class="t-cap mut">Pensando…</span>
+              <div class="toolc"><span class="spin"></span><span class="t-sb">Consultando Hábitos…</span></div>
+            </div>
+            <div class="bub ai a" style="--d:24.85s">
+              Outubro vai bem: <b>Beber água</b> está há 12 dias seguidos e <b>Sem delivery</b>, 9 dias limpo.
+              <div class="a" style="--in:k-fade; --d:25.60s; margin-top:8px">Quem pede atenção é <b>Correr</b>: 3 das 4 semanas ficaram abaixo da meta de 3×. Que tal fixar terça, quinta e sábado?</div>
+              <div class="toolc"><span class="ok">✓</span><div style="flex:1"><div class="t-sb">Hábitos</div><div class="t-cap mut">3 hábitos · ver</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="box focus">
+            <div class="field">
+              <div style="position:relative">
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --x:22.30s; --xdur:.01s">Pergunte à Orb…</span>
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --d:23.55s">Pergunte à Orb…</span>
+                <div class="a" style="--in:k-fade; --dur:.01s; --d:22.30s; --x:23.50s; --xdur:.01s">
+                  <span class="type" style="display:block; --d:22.30s; --dur:.45s; --steps:12">Como estou indo nos</span>
+                  <span class="type" style="display:block; --d:22.75s; --dur:.45s; --steps:12">hábitos esse mês?</span>
+                </div>
+              </div>
+            </div>
+            <span class="send ion" data-ion="arrow-up" id="t-osend"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="homebar"></div>
+
+      <div class="tap" data-tap="#t-correr" style="--d:4.60s"></div>
+      <div class="tap" data-tap="#t-mes" style="--d:9.30s"></div>
+      <div class="tap" data-tap="#t-menu" style="--d:14.20s"></div>
+      <div class="tap" data-tap="#t-metas" style="--d:15.20s"></div>
+      <div class="tap" data-tap="#t-orbbtn" style="--d:21.55s"></div>
+      <div class="tap" data-tap="#t-osend" style="--d:23.30s"></div>
+     </div>
+    </div>
+
+    <div class="end">
+      <img class="a" src="../../../public/logo-mark-sky.png" alt="" style="--in:k-scale; --d:28.80s">
+      <div class="head head--sm a" style="--d:29.20s">Constância<br>que aparece.</div>
+      <span class="cta cta--lg a" style="--d:30.00s">Teste 7 dias grátis</span>
+      <div class="end-sub a" style="--d:30.40s">No navegador, hoje.<br>App para iPhone e Android em breve.</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/app.js"></script>
+<script src="../lib/kit.js"></script>
+</body>
+</html>

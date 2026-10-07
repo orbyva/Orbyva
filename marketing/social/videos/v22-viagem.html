@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="34">
+<title>V22 · Na prática: viagem com a turma</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+<link rel="stylesheet" href="../lib/app.css">
+<style>
+  .chiprow .chip { flex: none; }
+
+  /* Viagens (app/(app)/travel/index.tsx e [id].tsx) */
+  .tcard { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .tcard.ongo { border-color: rgba(24, 139, 129, 0.4); background: rgba(24, 139, 129, 0.05); }
+  .invite { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--muted); }
+  .chiprow { display: flex; gap: 8px; animation: k-chipscroll 0.5s var(--ease) 10.30s forwards; }
+  @keyframes k-chipscroll { to { transform: translateX(-112px); } }
+  .chip.to-on { animation: k-chipon 0.01s linear var(--at) forwards; }
+  .chip.to-off { animation: k-chipoff 0.01s linear var(--at) forwards; }
+  @keyframes k-chipon { to { color: #0a7aae; border-color: #0a7aae; background: rgba(10, 122, 174, 0.14); font-weight: 600; } }
+  @keyframes k-chipoff { to { color: #0c0a09; border-color: #e7e5e4; background: transparent; font-weight: 500; } }
+  .sec-h { display: flex; align-items: center; gap: 8px; }
+  .sec-h .ion { font-size: 18px; color: var(--primary); }
+  .prow { display: flex; align-items: center; gap: 10px; }
+  .prow > .ion { font-size: 18px; color: var(--mfg); }
+  .prow .done-t { text-decoration: line-through; opacity: 0.6; }
+  .to-done { animation: k-strike 0.15s linear var(--at) forwards; }
+  @keyframes k-strike { to { text-decoration: line-through; opacity: 0.6; } }
+  .ecta { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 12px; border: 1px solid rgba(10, 122, 174, 0.28); background: rgba(10, 122, 174, 0.1); }
+  .ecta .w { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; color: var(--primary); background: rgba(10, 122, 174, 0.16); flex: none; }
+  .tabc { display: flex; flex-direction: column; gap: 16px; }
+  .fresh { animation: k-fresh 1.6s ease-out var(--at) both; }
+  @keyframes k-fresh { from { background: rgba(24, 139, 129, 0.16); } to { background: #fff; } }
+
+  /* Novo gasto (travel/expense-form.tsx) */
+  .form { --in: k-up; --dy: 727px; --dur: 0.26s; z-index: 8; }
+  .fbody { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .inp.f-on { animation: k-focus 0.01s linear var(--fon) forwards, k-blur 0.01s linear var(--foff, 9999s) forwards; }
+  @keyframes k-focus { to { border-color: #0b84bc; } }
+  @keyframes k-blur { to { border-color: #e7e5e4; } }
+  .ledger { display: flex; align-items: flex-start; gap: 12px; border-radius: 12px; padding: 14px; background: var(--muted); }
+  .ledger i { width: 18px; height: 18px; border-radius: 999px; background: var(--border); margin-top: 2px; flex: none; }
+</style>
+</head>
+<body>
+
+<div class="stage stage--story s-ink" data-eyebrow="Na prática" data-sig="br" style="--endt:28.40s">
+  <div class="sky-wash" style="--d:28.40s"></div>
+
+  <div class="scenes">
+
+    <div class="swap swap--top">
+      <div class="cap a" style="--d:.20s; --x:4.60s">Viagem com a turma<br>sem planilha?</div>
+      <div class="cap a" style="--d:4.90s; --x:10.40s">Prazos de hotel e<br>ingresso num lugar.</div>
+      <div class="cap a" style="--d:10.70s; --x:15.80s">Gasto em grupo?<br>Rateio <span class="acc">igual</span>.</div>
+      <div class="cap a" style="--d:16.10s; --x:21.20s">E o roteiro,<br>dia a dia.</div>
+      <div class="cap a" style="--d:21.50s; --x:28.20s">Falta o dia 2? A <span class="orb-t">Orb</span><br>monta pra você.</div>
+    </div>
+
+    <div class="phone a" style="--in:k-scale; --d:.10s; --x:28.20s">
+     <div class="app" id="app">
+
+      <div class="status"><span>9:41</span><i></i></div>
+
+      <!-- ============ 1 · Viagens ============ -->
+      <div class="scr a" style="--in:k-fade; --d:.30s; --x:3.10s; --m:var(--travel)">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Viagens<span class="ion" data-ion="chevron-down"></span></span>
+          <span class="right"><span class="ion" data-ion="search-outline"></span><span><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div class="body">
+          <div class="x-tabs"><span class="on">Ativas</span><span>Concluídas</span></div>
+          <div class="invite"><span class="ph t-body" style="flex:1">Colar link ou token de convite</span><span class="link">Entrar</span></div>
+          <div class="card tcard" id="t-trip">
+            <div class="rowf g12" style="align-items:flex-start">
+              <div style="flex:1; display:flex; flex-direction:column; gap:4px">
+                <div class="rowf ac" style="gap:6px"><span class="ion" style="font-size:14px; color:var(--travel)" data-ion="airplane-outline"></span><span class="t-cap mut">Próxima</span></div>
+                <span class="t-sb">Serra Gaúcha</span>
+                <span class="t-cap mut">Gramado e Bento Gonçalves, RS</span>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:center"><span class="t-title num" style="color:var(--primary)">39</span><span class="t-cap mut">dias</span></div>
+            </div>
+            <span class="t-cap mut">14/11/2026 → 17/11/2026</span>
+            <span class="t-cap mut">Orçamento R$ 4.000,00 · Gasto R$ 980,00</span>
+          </div>
+          <div class="card tcard">
+            <div class="rowf g12" style="align-items:flex-start">
+              <div style="flex:1; display:flex; flex-direction:column; gap:4px">
+                <div class="rowf ac" style="gap:6px"><span class="ion" style="font-size:14px; color:var(--travel)" data-ion="airplane-outline"></span><span class="t-cap mut">Planejando</span></div>
+                <span class="t-sb">Réveillon em Floripa</span>
+                <span class="t-cap mut">Florianópolis, SC</span>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:center"><span class="t-title num" style="color:var(--primary)">84</span><span class="t-cap mut">dias</span></div>
+            </div>
+            <span class="t-cap mut">29/12/2026 → 02/01/2027</span>
+            <span class="t-cap mut">Orçamento R$ 6.000,00</span>
+          </div>
+        </div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <!-- ============ 2 · Viagem › detalhe ============ -->
+      <div class="scr a" style="--d:3.00s; --m:var(--travel)">
+        <div class="hdr">
+          <span class="ion back" data-ion="chevron-back"></span>
+          <span class="title">Serra Gaúcha</span>
+          <span class="right"><span id="t-orbbtn"><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div style="padding:16px 24px 0; overflow:hidden">
+          <div class="chiprow">
+            <span class="chip on to-off" style="--at:5.60s">Resumo</span>
+            <span class="chip">Paradas</span>
+            <span class="chip" id="t-roteiro" style="animation:k-chipon .01s linear 16.60s forwards">Roteiro</span>
+            <span class="chip" id="t-prazos" style="animation:k-chipon .01s linear 5.60s forwards, k-chipoff .01s linear 11.10s forwards">Prazos</span>
+            <span class="chip" id="t-gastos" style="animation:k-chipon .01s linear 11.10s forwards, k-chipoff .01s linear 16.60s forwards">Gastos</span>
+            <span class="chip">Pessoas</span>
+          </div>
+        </div>
+        <div class="body">
+          <div class="swap swap--top">
+            <!-- Resumo -->
+            <div class="tabc a" style="--in:k-fade; --dur:.01s; --x:5.60s; --xdur:.12s">
+              <div class="card tcard">
+                <div class="rowf g8" style="align-items:flex-start">
+                  <div style="flex:1">
+                    <div class="t-title">Serra Gaúcha</div>
+                    <div class="rowf ac" style="gap:6px; margin-top:4px"><span class="ion mut" style="font-size:14px" data-ion="location-outline"></span><span class="t-cap mut">Gramado e Bento Gonçalves, RS</span></div>
+                  </div>
+                  <span class="circ ion" data-ion="share-outline"></span>
+                  <span class="circ ion" data-ion="create-outline"></span>
+                </div>
+                <div class="rowf wrap g8 t-cap">
+                  <span class="meta"><span class="ion" data-ion="flag-outline"></span>Próxima</span>
+                  <span class="meta"><span class="ion" data-ion="calendar-outline"></span>14/11/2026 – 17/11/2026</span>
+                  <span class="meta"><span class="ion" data-ion="time-outline"></span>4 dias</span>
+                  <span class="meta"><span class="ion" data-ion="wallet-outline"></span>R$ 980,00</span>
+                </div>
+              </div>
+              <div class="card tcard">
+                <div class="sec-h"><span class="ion" data-ion="mail-outline"></span><span class="t-sb">Convites</span></div>
+                <span class="t-cap mut">Quem receber o link pode abrir no app ou colar o token em Viagens.</span>
+                <div class="btn outline">Gerar link de convite</div>
+              </div>
+            </div>
+
+            <!-- Prazos -->
+            <div class="tabc a" style="--in:k-fade; --dur:.2s; --d:5.70s; --x:11.10s; --xdur:.12s">
+              <div class="card tcard" style="gap:12px">
+                <div class="sec-h"><span class="ion" data-ion="alarm-outline"></span><span class="t-sb">Prazos</span></div>
+                <div class="prow"><span class="ion" style="color:var(--primary)" data-ion="checkbox-outline"></span><div style="flex:1"><div class="t-sb done-t">Reservar hotel em Gramado</div><div class="t-cap mut">Hotel · 20/09/2026</div></div></div>
+                <div class="prow">
+                  <span class="swap" id="t-snow">
+                    <span class="ion a" style="--in:k-fade; --dur:.01s; --x:7.80s; --xdur:.01s; font-size:18px; color:var(--mfg)" data-ion="square-outline"></span>
+                    <span class="ion a" style="--in:k-fade; --dur:.01s; --d:7.80s; font-size:18px; color:var(--primary)" data-ion="checkbox-outline"></span>
+                  </span>
+                  <div style="flex:1"><div class="t-sb to-done" style="--at:7.80s">Comprar ingressos do Snowland</div><div class="t-cap mut">Atividade · 10/10/2026</div></div>
+                </div>
+                <div class="prow"><span class="ion" data-ion="square-outline"></span><div style="flex:1"><div class="t-sb">Revisar o carro</div><div class="t-cap mut">Outro · 07/11/2026</div></div></div>
+                <div class="prow"><span class="ion" data-ion="square-outline"></span><div style="flex:1"><div class="t-sb">Levar CNH e documento do carro</div><div class="t-cap mut">Documento · 13/11/2026</div></div></div>
+                <div class="inp"><span class="ph">Título do prazo</span></div>
+                <div class="inp">06/10/2026</div>
+                <div class="chips"><span class="chip">Voo</span><span class="chip">Hotel</span><span class="chip">Documento</span><span class="chip on">Atividade</span><span class="chip">Outro</span></div>
+              </div>
+            </div>
+
+            <!-- Gastos -->
+            <div class="tabc a" style="--in:k-fade; --dur:.2s; --d:11.20s; --x:16.60s; --xdur:.12s">
+              <div class="ecta" id="t-novo">
+                <span class="w ion" data-ion="wallet-outline"></span>
+                <div style="flex:1"><div class="t-sb">Novo gasto</div><div class="t-cap mut">Registrar um gasto desta viagem</div></div>
+                <span class="ion" style="font-size:18px; color:var(--primary)" data-ion="chevron-forward"></span>
+              </div>
+              <div class="later" style="--at:15.30s; --mh:120px">
+                <div class="card tcard fresh" style="--at:15.30s"><span class="t-sb">Ingressos Snowland</span><span class="t-cap mut">Passeio · R$ 640,00 · 06/10/2026 · conjunto · extrato</span></div>
+              </div>
+              <div class="card tcard"><span class="t-sb">Hotel Casa da Montanha</span><span class="t-cap mut">Hospedagem · R$ 980,00 · 20/09/2026 · conjunto · extrato</span></div>
+            </div>
+
+            <!-- Roteiro -->
+            <div class="tabc a" style="--in:k-fade; --dur:.2s; --d:16.70s">
+              <div class="card tcard">
+                <div class="rowf ac g12">
+                  <span class="x-day"><span class="t-nano mut" style="letter-spacing:.6px">SEX</span><span class="t-sb">14</span></span>
+                  <div style="flex:1"><div class="t-sb">Dia 1 · Gramado</div><div class="t-cap mut">14/11/2026 · Dia 1</div></div>
+                </div>
+                <div class="arow trans a" style="--in:k-right; --dx:20px; --d:17.00s">
+                  <span class="well ion" data-ion="car-outline"></span>
+                  <div style="flex:1">
+                    <div class="t-nano" style="color:#0b84bc; letter-spacing:.4px; text-transform:uppercase">Deslocamento · Carro</div>
+                    <div class="t-cap mut">07:00 → 09:10</div>
+                    <div class="t-sb">Porto Alegre → Gramado</div>
+                  </div>
+                </div>
+                <div class="arow a" style="--in:k-right; --dx:20px; --d:17.30s">
+                  <span class="well ion" style="color:var(--primary); background:rgba(10,122,174,.12)" data-ion="leaf-outline"></span>
+                  <div style="flex:1"><div class="t-cap mut">10:00</div><div class="t-sb">Lago Negro</div><div class="t-cap mut">Passeio</div></div>
+                </div>
+                <div class="arow a" style="--in:k-right; --dx:20px; --d:17.60s">
+                  <span class="well ion" style="color:var(--primary); background:rgba(10,122,174,.12)" data-ion="restaurant-outline"></span>
+                  <div style="flex:1"><div class="t-cap mut">13:00</div><div class="t-sb">Almoço na Rua Coberta</div><div class="t-cap mut">Restaurante</div></div>
+                </div>
+                <div class="arow a" style="--in:k-right; --dx:20px; --d:17.90s">
+                  <span class="well ion" style="color:var(--primary); background:rgba(10,122,174,.12)" data-ion="snow-outline"></span>
+                  <div style="flex:1"><div class="t-cap mut">15:30</div><div class="t-sb">Snowland</div><div class="t-cap mut">Passeio</div></div>
+                </div>
+                <div class="arow a" style="--in:k-right; --dx:20px; --d:18.20s">
+                  <span class="well ion" style="color:var(--primary); background:rgba(10,122,174,.12)" data-ion="bed-outline"></span>
+                  <div style="flex:1"><div class="t-cap mut">19:00</div><div class="t-sb">Check-in no hotel</div><div class="t-cap mut">Hotel</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <!-- ============ 3 · Novo gasto (modal) ============ -->
+      <div class="scr form a" style="--d:12.10s; --x:15.20s">
+        <div class="hdr">
+          <span class="close">Fechar</span>
+          <span class="title">Novo gasto</span>
+        </div>
+        <div class="scroll" style="--sd:14.30s; --sy:-200px">
+        <div class="fbody">
+          <div class="field">
+            <span class="lbl">Descrição</span>
+            <div class="inp f-on" style="--fon:12.50s; --foff:13.40s">
+              <span class="swap">
+                <span class="ph a" style="--in:k-fade; --dur:.01s; --x:12.60s; --xdur:.01s">Almoço, Uber…</span>
+                <span class="type" style="--d:12.60s; --dur:.7s; --steps:18">Ingressos Snowland</span>
+              </span>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lbl">Valor</span>
+            <div class="inp f-on" id="t-eval" style="--fon:13.40s; --foff:14.00s"><span class="type num" style="--d:13.50s; --dur:.4s; --steps:6">640,00</span></div>
+          </div>
+          <div class="field"><span class="lbl">Data</span><div class="inp">06/10/2026</div></div>
+          <div class="field">
+            <span class="lbl">Categoria</span>
+            <div class="chips"><span class="chip">Transporte</span><span class="chip">Hospedagem</span><span class="chip">Alimentação</span><span class="chip to-on" id="t-passeio" style="--at:14.10s">Passeio</span><span class="chip">Compras</span><span class="chip">Outro</span></div>
+          </div>
+          <div class="field">
+            <span class="lbl">Quem vê</span>
+            <div class="chips"><span class="chip">Pessoal</span><span class="chip on">Conjunto</span></div>
+          </div>
+          <div class="field">
+            <span class="lbl">Quem pagou</span>
+            <div class="chips"><span class="chip on">Você</span><span class="chip">Lucas</span><span class="chip">Marina</span><span class="chip">Pedro</span></div>
+          </div>
+          <span class="t-cap mut">Rateio igual entre 4 pessoa(s).</span>
+          <div class="ledger"><i style="background:var(--primary)"></i><div style="flex:1; display:flex; flex-direction:column; gap:2px"><span class="t-sb">Lançar no extrato</span><span class="t-cap mut">Lança só a sua fatia no extrato.</span></div></div>
+          <div class="bigbtn" id="t-salvar">Salvar gasto</div>
+        </div>
+        </div>
+      </div>
+
+      <!-- ============ 4 · Orb ============ -->
+      <div class="scr a" style="--d:21.95s">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Orb</span>
+          <span class="right"><span class="t-sb" style="color:var(--primary); width:auto; padding:8px; margin-right:4px">?</span></span>
+        </div>
+        <div class="empty a" style="--in:k-fade; --d:21.95s; --x:23.75s; --xdur:.2s">
+          <span class="orbs" style="--os:48px"></span>
+          <div class="t-heading" style="margin-top:8px">Converse com a Orb</div>
+          <div class="t-cap mut" style="margin-bottom:8px">Pergunte sobre suas finanças, tarefas, hábitos e o resto do Orbyva.</div>
+          <span class="seal t-cap"><i></i><span>Conectada · 42 consultas · <b style="color:var(--success)">só cria com confirmação</b></span></span>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px; width:100%">
+            <span class="sugg t-cap">O que eu tenho pra fazer hoje?</span>
+            <span class="sugg t-cap">O que vence nos próximos 7 dias?</span>
+          </div>
+        </div>
+        <div class="msgs">
+          <div class="bub me a" style="--d:23.75s">Monta o dia 2 em Bento: vinícola e Maria Fumaça.</div>
+          <div class="swap" style="align-items:start">
+            <div class="bub ai a" style="--d:24.00s; --x:24.75s; --xdur:.1s; align-self:start"><span class="t-cap mut">Pensando…</span></div>
+            <div class="bub ai a" style="--d:24.85s">
+              Montei o dia 2. Confere antes de criar:
+              <div class="x-proposal">
+                <span class="t-sb">Roteiro do dia</span>
+                <span class="t-cap mut">Viagem · Serra Gaúcha</span>
+                <span class="t-cap mut">Dia · 15/11/2026</span>
+                <span class="t-cap mut">Atividades · 4</span>
+                <span class="t-cap mut">09:30 · Vinícola Miolo · Passeio</span>
+                <span class="t-cap mut">12:30 · Almoço no Vale dos Vinhedos · Restaurante</span>
+                <span class="t-cap mut">15:00 · Passeio de Maria Fumaça · Passeio</span>
+                <span class="t-cap mut">19:30 · Jantar em Bento Gonçalves · Restaurante</span>
+                <div class="swap" style="margin-top:8px">
+                  <div class="rowf g8 a" style="--in:k-fade; --d:24.85s; --x:26.45s; --xdur:.15s">
+                    <span class="btn primary" id="t-ocriar">Criar</span>
+                    <span class="btn outline">Descartar</span>
+                  </div>
+                  <div class="a" style="--in:k-fade; --d:26.55s; display:flex; align-items:center; gap:12px; min-height:44px">
+                    <span class="t-sb" style="color:var(--primary)">Roteiro do dia adicionado.</span>
+                    <span class="t-sb" style="color:var(--primary)">Ver</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="box focus">
+            <div class="field">
+              <div style="position:relative">
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --x:22.30s; --xdur:.01s">Pergunte à Orb…</span>
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --d:23.75s">Pergunte à Orb…</span>
+                <div class="a" style="--in:k-fade; --dur:.01s; --d:22.30s; --x:23.70s; --xdur:.01s">
+                  <span class="type" style="display:block; --d:22.30s; --dur:.45s; --steps:12">Monta o dia 2 em Bento:</span>
+                  <span class="type" style="display:block; --d:22.80s; --dur:.6s; --steps:14">vinícola e Maria Fumaça.</span>
+                </div>
+              </div>
+            </div>
+            <span class="send ion" data-ion="arrow-up" id="t-osend"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="homebar"></div>
+
+      <div class="tap" data-tap="#t-trip" style="--d:2.50s"></div>
+      <div class="tap" data-tap="#t-prazos" style="--d:5.30s"></div>
+      <div class="tap" data-tap="#t-snow" style="--d:7.50s"></div>
+      <div class="tap" data-tap="#t-gastos" data-dx="-112" style="--d:10.80s"></div>
+      <div class="tap" data-tap="#t-novo" style="--d:11.70s"></div>
+      <div class="tap" data-tap="#t-eval" style="--d:13.20s"></div>
+      <div class="tap" data-tap="#t-passeio" style="--d:13.80s"></div>
+      <div class="tap" data-tap="#t-salvar" data-dy="-200" style="--d:14.80s"></div>
+      <div class="tap" data-tap="#t-roteiro" data-dx="-112" style="--d:16.30s"></div>
+      <div class="tap" data-tap="#t-orbbtn" style="--d:21.55s"></div>
+      <div class="tap" data-tap="#t-osend" style="--d:23.50s"></div>
+      <div class="tap" data-tap="#t-ocriar" style="--d:26.15s"></div>
+     </div>
+    </div>
+
+    <div class="end">
+      <img class="a" src="../../../public/logo-mark-sky.png" alt="" style="--in:k-scale; --d:28.80s">
+      <div class="head head--sm a" style="--d:29.20s">Só falta<br>arrumar a mala.</div>
+      <span class="cta cta--lg a" style="--d:30.00s">Teste 7 dias grátis</span>
+      <div class="end-sub a" style="--d:30.40s">No navegador, hoje.<br>App para iPhone e Android em breve.</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/app.js"></script>
+<script src="../lib/kit.js"></script>
+</body>
+</html>

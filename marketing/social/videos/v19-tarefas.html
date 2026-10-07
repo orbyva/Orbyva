@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="duration" content="34">
+<title>V19 · Na prática: tarefas com prazo e prioridade</title>
+<link rel="stylesheet" href="../lib/orbyva.css">
+<link rel="stylesheet" href="../lib/anim.css">
+<link rel="stylesheet" href="../lib/app.css">
+<style>
+  /* Tarefas (app/(app)/tasks/index.tsx + components/TasksList.tsx) */
+  .fchip { border-radius: 999px; padding: 9px 12px; background: var(--muted); font-weight: 700; font-size: 13px; line-height: 18px; white-space: nowrap; }
+  .search { display: flex; align-items: center; gap: 8px; color: var(--mfg); }
+  .search .ion { font-size: 16px; }
+  .sec { margin-bottom: 24px; display: flex; flex-direction: column; gap: 8px; }
+  .trow { display: flex; align-items: flex-start; gap: 16px; padding: 14px 16px; }
+  .trow + .trow { border-top: 0.5px solid var(--border); }
+  .chk { width: 22px; height: 22px; border-radius: 999px; border: 2px solid var(--mfg); margin-top: 2px; flex: none; }
+  .chk.over { border-color: var(--destructive); }
+  .chk.on { border-color: var(--primary); background: var(--primary); }
+  .chk.to-on { animation: k-chkon 0.15s linear var(--at) forwards; }
+  @keyframes k-chkon { to { border-color: #0a7aae; background: #0a7aae; } }
+  .tcopy { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .ttl { display: flex; align-items: center; gap: 8px; }
+  .prio { width: 8px; height: 8px; border-radius: 999px; flex: none; }
+  .done-t { text-decoration: line-through; opacity: 0.55; }
+  .to-done { animation: k-strike 0.15s linear var(--at) forwards; }
+  @keyframes k-strike { to { text-decoration: line-through; opacity: 0.55; } }
+  .live { font-weight: 500; font-size: 13px; color: var(--primary); }
+  /* concluída sai da lista pendente */
+  .gone { max-height: 160px; overflow: hidden; animation: k-gone 0.35s var(--ease) var(--gt) forwards; }
+  @keyframes k-gone { to { max-height: 0; opacity: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; border-top-width: 0; } }
+  .fresh { animation: k-fresh 1.6s ease-out var(--at) both; }
+  @keyframes k-fresh { from { background: rgba(128, 51, 230, 0.14); } to { background: transparent; } }
+
+  /* formulário (tasks/form.tsx): modal slide_from_bottom */
+  .form { --in: k-up; --dy: 727px; --dur: 0.26s; z-index: 8; }
+  .fbody { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .inp.focus-at { animation: k-focus 0.01s linear var(--at) forwards; }
+  @keyframes k-focus { to { border-color: #0b84bc; } }
+  /* FormSection (components/ui/FormSection.tsx): cartão recolhível, dica some ao abrir */
+  .fsec { background: var(--card); border: 0.5px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .fsec .fh { display: flex; align-items: center; gap: 8px; padding: 14px 16px; }
+  .fsec .fh .ion { font-size: 18px; color: var(--mfg); }
+  .fsec .fb { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 16px; }
+  .hint-out { max-height: 18px; overflow: hidden; animation: k-hout 0.01s linear var(--at) forwards; }
+  @keyframes k-hout { to { max-height: 0; } }
+  .chip.to-on { animation: k-chipon 0.01s linear var(--at) forwards; }
+  .chip.to-off { animation: k-chipoff 0.01s linear var(--at) forwards; }
+  @keyframes k-chipon { to { color: #0a7aae; border-color: #0a7aae; background: rgba(10, 122, 174, 0.14); font-weight: 600; } }
+  @keyframes k-chipoff { to { color: #0c0a09; border-color: #e7e5e4; background: transparent; font-weight: 500; } }
+</style>
+</head>
+<body>
+
+<div class="stage stage--story s-ink" data-eyebrow="Na prática" data-sig="br" style="--endt:28.40s">
+  <div class="sky-wash" style="--d:28.40s"></div>
+
+  <div class="scenes">
+
+    <div class="swap swap--top">
+      <div class="cap a" style="--d:.20s; --x:4.60s">Muita coisa pra<br>lembrar hoje?</div>
+      <div class="cap a" style="--d:4.90s; --x:10.30s">Anota em segundos,<br>com prazo e prioridade.</div>
+      <div class="cap a" style="--d:10.60s; --x:15.60s">Cai no dia certo.<br>Atrasou? Fica <span style="color:#f87171">vermelho</span>.</div>
+      <div class="cap a" style="--d:15.90s; --x:21.20s">Fez? Um toque e<br>sai da sua <span class="acc">lista</span>.</div>
+      <div class="cap a" style="--d:21.50s; --x:28.20s">Ou só pede pra<br><span class="orb-t">Orb</span> anotar.</div>
+    </div>
+
+    <div class="phone a" style="--in:k-scale; --d:.10s; --x:28.20s">
+     <div class="app" id="app">
+
+      <div class="status"><span>9:41</span><i></i></div>
+
+      <!-- ============ 1 · Tarefas › Lista ============ -->
+      <div class="scr a" style="--in:k-fade; --d:.30s; --x:5.20s; --m:var(--productivity)">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Tarefas<span class="ion" data-ion="chevron-down"></span></span>
+          <span class="right"><span class="ion" data-ion="search-outline"></span><span><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div class="body" style="gap:16px">
+          <div class="x-tabs"><span class="on">Lista</span><span>Kanban</span><span>Gantt</span><span>Concluídas</span></div>
+          <span class="t-cap mut">Pendentes nas caixas da agenda: atrasadas, hoje, semana, mês, depois e sem data.</span>
+          <div class="inp search"><span class="ion" data-ion="search-outline"></span><span class="ph">Buscar tarefas</span></div>
+          <div class="rowf g8"><span class="fchip">Prioridade ▾</span><span class="fchip">Agenda ▾</span></div>
+          <div>
+            <div class="sec">
+              <span class="t-cap mut">Atrasadas · 1</span>
+              <div class="card">
+                <div class="trow"><span class="chk over"></span><div class="tcopy"><div class="ttl"><i class="prio" style="background:var(--destructive)"></i><span class="t-body">Pagar boleto do condomínio</span></div><span class="t-cap" style="color:var(--destructive)">03/10/2026 · Alta</span></div><span class="live">Live</span></div>
+              </div>
+            </div>
+            <div class="sec">
+              <span class="t-cap mut">Hoje · 2</span>
+              <div class="card">
+                <div class="trow"><span class="chk"></span><div class="tcopy"><div class="ttl"><i class="prio" style="background:var(--warning)"></i><span class="t-body">Enviar proposta para o cliente</span></div><span class="t-cap mut">06/10/2026 14:00 · Média</span></div><span class="live">Live</span></div>
+                <div class="trow"><span class="chk"></span><div class="tcopy"><div class="ttl"><i class="prio" style="background:var(--primary)"></i><span class="t-body">Comprar presente da Bia</span></div><span class="t-cap mut">06/10/2026 · Baixa</span></div><span class="live">Live</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="fab ion" id="t-fab" data-ion="add"></span>
+      </div>
+
+      <!-- ============ 2 · Nova tarefa ============ -->
+      <div class="scr form a" style="--d:4.80s; --x:10.10s">
+        <div class="hdr">
+          <span class="close">Fechar</span>
+          <span class="title">Nova tarefa</span>
+        </div>
+        <div class="scroll" style="--sd:9.20s; --sy:-180px"><div class="fbody">
+          <div class="field">
+            <span class="lbl">Título<span class="req"> *</span></span>
+            <div class="inp focus-at" style="--at:5.30s">
+              <span class="swap">
+                <span class="ph a" style="--in:k-fade; --dur:.01s; --x:5.60s; --xdur:.01s">O que precisa ser feito?</span>
+                <span class="type" style="--d:5.60s; --dur:1.0s; --steps:13">Renovar a CNH</span>
+              </span>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lbl">Projeto</span>
+            <div class="inp">Sem projeto</div>
+          </div>
+          <div class="field">
+            <span class="lbl">Prazo</span>
+            <div class="chips"><span class="chip on">Hoje</span><span class="chip">Esta semana</span><span class="chip">Sem prazo</span></div>
+            <div class="rowf g8">
+              <div class="inp" style="flex:1">06/10/2026</div>
+              <span class="chip">Sem horário</span>
+            </div>
+          </div>
+          <div class="fsec">
+            <div class="fh" id="t-sec">
+              <div style="flex:1; display:flex; flex-direction:column; gap:2px"><span class="t-bs">Status e prioridade</span><span class="t-cap mut hint-out" style="--at:7.70s">A fazer</span></div>
+              <span class="swap">
+                <span class="ion a" style="--in:k-fade; --dur:.01s; --x:7.70s; --xdur:.01s" data-ion="chevron-down"></span>
+                <span class="ion a" style="--in:k-fade; --dur:.01s; --d:7.70s" data-ion="chevron-up"></span>
+              </span>
+            </div>
+            <div class="later" style="--at:7.70s; --mh:200px">
+              <div class="fb">
+                <div class="field">
+                  <span class="lbl">Status</span>
+                  <div class="chips"><span class="chip on">A fazer</span><span class="chip">Fazendo</span><span class="chip">Feito</span></div>
+                </div>
+                <div class="field">
+                  <span class="lbl">Prioridade</span>
+                  <div class="chips"><span class="chip on to-off" style="--at:8.90s">Nenhuma</span><span class="chip">Baixa</span><span class="chip">Média</span><span class="chip to-on" id="t-alta" style="--at:8.90s">Alta</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fsec"><div class="fh"><span class="t-bs" style="flex:1">Tags</span><span class="ion" data-ion="chevron-down"></span></div></div>
+          <div class="fsec"><div class="fh"><div style="flex:1; display:flex; flex-direction:column; gap:2px"><span class="t-bs">Repetição</span><span class="t-cap mut">Não se repete</span></div><span class="ion" data-ion="chevron-down"></span></div></div>
+          <div class="bigbtn" id="t-criar">Criar tarefa</div>
+        </div></div>
+      </div>
+
+      <!-- ============ 3 · Tarefas com a nova ============ -->
+      <div class="scr a" style="--in:k-fade; --d:10.10s; --m:var(--productivity)">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Tarefas<span class="ion" data-ion="chevron-down"></span></span>
+          <span class="right"><span class="ion" data-ion="search-outline"></span><span id="t-orbbtn"><span class="orbs" style="--os:22px"></span></span><span class="ion" data-ion="notifications-outline"></span></span>
+        </div>
+        <div class="body" style="gap:16px">
+          <div class="x-tabs switch" style="--w:calc(25% - 3.75px); --to:calc(300% + 9px); --at:19.60s">
+            <i class="x-hl"></i>
+            <span class="off-later">Lista</span><span>Kanban</span><span>Gantt</span><span class="on-later" id="t-done">Concluídas</span>
+          </div>
+          <span class="swap">
+            <span class="t-cap mut a" style="--in:k-fade; --dur:.01s; --x:19.60s; --xdur:.01s">Pendentes nas caixas da agenda: atrasadas, hoje, semana, mês, depois e sem data.</span>
+            <span class="t-cap mut a" style="--in:k-fade; --dur:.15s; --d:19.60s">Concluídas recentes — o check reabre.</span>
+          </span>
+          <div class="inp search"><span class="ion" data-ion="search-outline"></span><span class="ph">Buscar tarefas</span></div>
+          <div class="rowf g8"><span class="fchip">Prioridade ▾</span><span class="fchip">Agenda ▾</span></div>
+
+          <div class="swap">
+            <div class="a" style="--in:k-fade; --dur:.01s; --x:19.60s; --xdur:.12s">
+              <div class="sec gone" style="--gt:17.20s">
+                <span class="t-cap mut">Atrasadas · 1</span>
+                <div class="card">
+                  <div class="trow"><span class="chk over to-on" id="t-c1" style="--at:16.60s"></span><div class="tcopy"><div class="ttl"><i class="prio" style="background:var(--destructive)"></i><span class="t-body to-done" style="--at:16.60s">Pagar boleto do condomínio</span></div><span class="t-cap" style="color:var(--destructive)">03/10/2026 · Alta</span></div><span class="live">Live</span></div>
+                </div>
+              </div>
+              <div class="sec">
+                <span class="swap">
+                  <span class="t-cap mut a" style="--in:k-fade; --dur:.01s; --x:18.70s; --xdur:.01s">Hoje · 3</span>
+                  <span class="t-cap mut a" style="--in:k-fade; --dur:.01s; --d:18.70s">Hoje · 2</span>
+                </span>
+                <div class="card" style="overflow:hidden">
+                  <div class="trow fresh" style="--at:10.40s"><span class="chk"></span><div class="tcopy"><div class="ttl"><i class="prio" style="background:var(--destructive)"></i><span class="t-body">Renovar a CNH</span></div><span class="t-cap mut">06/10/2026 · Alta</span></div><span class="live">Live</span></div>
+                  <div class="trow gone" style="--gt:18.70s"><span class="chk to-on" id="t-c2" style="--at:18.10s"></span><div class="tcopy"><div class="ttl"><i class="prio" style="background:var(--warning)"></i><span class="t-body to-done" style="--at:18.10s">Enviar proposta para o cliente</span></div><span class="t-cap mut">06/10/2026 14:00 · Média</span></div><span class="live">Live</span></div>
+                  <div class="trow"><span class="chk"></span><div class="tcopy"><div class="ttl"><i class="prio" style="background:var(--primary)"></i><span class="t-body">Comprar presente da Bia</span></div><span class="t-cap mut">06/10/2026 · Baixa</span></div><span class="live">Live</span></div>
+                </div>
+              </div>
+              <div class="sec">
+                <span class="t-cap mut">Esta semana · 2</span>
+                <div class="card">
+                  <div class="trow"><span class="chk"></span><div class="tcopy"><div class="ttl"><i class="prio" style="background:var(--warning)"></i><span class="t-body">Agendar revisão do carro</span></div><span class="t-cap mut">09/10/2026 · Média</span></div><span class="live">Live</span></div>
+                  <div class="trow"><span class="chk"></span><div class="tcopy"><span class="t-body">Reunião de condomínio</span><span class="t-cap mut">08/10/2026 19:30</span></div><span class="live">Live</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="a" style="--in:k-fade; --dur:.2s; --d:19.70s">
+              <div class="sec">
+                <span class="t-cap mut">Concluídas · 3</span>
+                <div class="card">
+                  <div class="trow"><span class="chk on"></span><div class="tcopy"><div class="ttl"><i class="prio" style="background:var(--warning)"></i><span class="t-body done-t">Enviar proposta para o cliente</span></div><span class="t-cap mut">06/10/2026 14:00 · Média</span></div></div>
+                  <div class="trow"><span class="chk on"></span><div class="tcopy"><div class="ttl"><i class="prio" style="background:var(--destructive)"></i><span class="t-body done-t">Pagar boleto do condomínio</span></div><span class="t-cap mut">03/10/2026 · Alta</span></div></div>
+                  <div class="trow"><span class="chk on"></span><div class="tcopy"><span class="t-body done-t">Ligar para o dentista</span><span class="t-cap mut">05/10/2026</span></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="fab ion" data-ion="add"></span>
+      </div>
+
+      <!-- ============ 4 · Orb ============ -->
+      <div class="scr a" style="--d:21.95s">
+        <div class="hdr">
+          <span class="ion menu" data-ion="menu-outline"></span>
+          <span class="title">Orb</span>
+          <span class="right"><span class="t-sb" style="color:var(--primary); width:auto; padding:8px; margin-right:4px">?</span></span>
+        </div>
+        <div class="empty a" style="--in:k-fade; --d:21.95s; --x:23.55s; --xdur:.2s">
+          <span class="orbs" style="--os:48px"></span>
+          <div class="t-heading" style="margin-top:8px">Converse com a Orb</div>
+          <div class="t-cap mut" style="margin-bottom:8px">Pergunte sobre suas finanças, tarefas, hábitos e o resto do Orbyva.</div>
+          <span class="seal t-cap"><i></i><span>Conectada · 42 consultas · <b style="color:var(--success)">só cria com confirmação</b></span></span>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px; width:100%">
+            <span class="sugg t-cap">O que eu tenho pra fazer hoje?</span>
+            <span class="sugg t-cap">O que vence nos próximos 7 dias?</span>
+          </div>
+        </div>
+        <div class="msgs">
+          <div class="bub me a" style="--d:23.55s">Me lembra de comprar o bolo da Bia sábado às 9h.</div>
+          <div class="swap" style="align-items:start">
+            <div class="bub ai a" style="--d:23.80s; --x:24.55s; --xdur:.1s; align-self:start"><span class="t-cap mut">Pensando…</span></div>
+            <div class="bub ai a" style="--d:24.65s">
+              Preparei a tarefa. Confere antes de criar:
+              <div class="x-proposal">
+                <span class="t-sb">Nova tarefa</span>
+                <span class="t-cap mut">Tarefa · Comprar o bolo da Bia</span>
+                <span class="t-cap mut">Prazo · 10/10/2026 às 09:00</span>
+                <span class="t-cap mut">Prioridade · Média</span>
+                <div class="swap" style="margin-top:8px">
+                  <div class="rowf g8 a" style="--in:k-fade; --d:24.65s; --x:26.25s; --xdur:.15s">
+                    <span class="btn primary" id="t-ocriar">Criar</span>
+                    <span class="btn outline">Descartar</span>
+                  </div>
+                  <div class="a" style="--in:k-fade; --d:26.35s; display:flex; align-items:center; gap:12px; min-height:44px">
+                    <span class="t-sb" style="color:var(--primary)">Tarefa criada.</span>
+                    <span class="t-sb" style="color:var(--primary)">Ver</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="box focus">
+            <div class="field">
+              <div style="position:relative">
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --x:22.30s; --xdur:.01s">Pergunte à Orb…</span>
+                <span class="ph a" style="position:absolute; left:0; top:0; --in:k-fade; --dur:.01s; --d:23.55s">Pergunte à Orb…</span>
+                <div class="a" style="--in:k-fade; --dur:.01s; --d:22.30s; --x:23.50s; --xdur:.01s">
+                  <span class="type" style="display:block; --d:22.30s; --dur:.45s; --steps:12">Me lembra de comprar o bolo</span>
+                  <span class="type" style="display:block; --d:22.75s; --dur:.45s; --steps:12">da Bia sábado às 9h.</span>
+                </div>
+              </div>
+            </div>
+            <span class="send ion" data-ion="arrow-up" id="t-osend"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="homebar"></div>
+
+      <div class="tap" data-tap="#t-fab" style="--d:4.40s"></div>
+      <div class="tap" data-tap="#t-sec" style="--d:7.40s"></div>
+      <div class="tap" data-tap="#t-alta" style="--d:8.60s"></div>
+      <div class="tap" data-tap="#t-criar" data-dy="-48" style="--d:9.80s"></div>
+      <div class="tap" data-tap="#t-c1" style="--d:16.30s"></div>
+      <div class="tap" data-tap="#t-c2" data-dy="-123" style="--d:17.80s"></div>
+      <div class="tap" data-tap="#t-done" style="--d:19.30s"></div>
+      <div class="tap" data-tap="#t-orbbtn" style="--d:21.55s"></div>
+      <div class="tap" data-tap="#t-osend" style="--d:23.30s"></div>
+      <div class="tap" data-tap="#t-ocriar" style="--d:25.95s"></div>
+     </div>
+    </div>
+
+    <div class="end">
+      <img class="a" src="../../../public/logo-mark-sky.png" alt="" style="--in:k-scale; --d:28.80s">
+      <div class="head head--sm a" style="--d:29.20s">Anote, faça<br>e risque.</div>
+      <span class="cta cta--lg a" style="--d:30.00s">Teste 7 dias grátis</span>
+      <div class="end-sub a" style="--d:30.40s">No navegador, hoje.<br>App para iPhone e Android em breve.</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../lib/app.js"></script>
+<script src="../lib/kit.js"></script>
+</body>
+</html>

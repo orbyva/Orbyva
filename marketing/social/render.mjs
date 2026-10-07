@@ -140,6 +140,11 @@ async function renderVideos(browser, filter) {
     const duration = await page.evaluate(() =>
       Number(document.querySelector('meta[name="duration"]')?.content || 8)
     );
+    // Trilha opcional: <meta name="audio" content="../audio/x.mp3" data-delay="0.9">
+    const audio = await page.evaluate(() => {
+      const m = document.querySelector('meta[name="audio"]');
+      return m ? { src: m.content, delay: Number(m.dataset.delay || 0) } : null;
+    });
 
     // Trava a timeline: sem isso cada screenshot pegaria um instante diferente.
     await page.evaluate(() => {
@@ -184,10 +189,21 @@ async function renderVideos(browser, filter) {
     );
 
     const mp4 = path.join(dir, `${name}.mp4`);
+    const audioArgs = audio
+      ? [
+          "-i", path.resolve(path.dirname(file), audio.src),
+          "-filter_complex",
+          `[1:a]adelay=${Math.round(audio.delay * 1000)}:all=1,atrim=0:${duration},` +
+            `afade=t=out:st=${duration - 1.5}:d=1.5,loudnorm=I=-14:TP=-1.5:LRA=11[a]`,
+          "-map", "0:v", "-map", "[a]",
+          "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+        ]
+      : [];
     await run("ffmpeg", [
       "-y", "-loglevel", "error",
       "-framerate", String(FPS),
       "-i", path.join(tmp, "%05d.png"),
+      ...audioArgs,
       "-c:v", "libx264",
       "-profile:v", "high",
       "-pix_fmt", "yuv420p",
