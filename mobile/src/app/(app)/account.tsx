@@ -50,6 +50,7 @@ import { resetOnboarding } from "@/lib/onboarding";
 import { PLANS } from "@/lib/plan";
 import { AUTH_STORAGE_KEY } from "@/lib/supabase";
 import { secureStoreAdapter } from "@/lib/secure-store";
+import { userAvatarUrl } from "@/lib/userAvatar";
 import type { AppAlertKind } from "@/domain/alerts";
 
 const SITE = "https://orbyva.app";
@@ -76,10 +77,7 @@ export default function AccountScreen() {
     (user?.user_metadata?.full_name as string | undefined) ||
     (user?.user_metadata?.name as string | undefined) ||
     "Usuário";
-  const avatar =
-    (user?.user_metadata?.avatar_url as string | undefined) ||
-    (user?.user_metadata?.picture as string | undefined) ||
-    "";
+  const avatar = userAvatarUrl(user);
   const initial = name.trim().slice(0, 1).toUpperCase() || "?";
 
   const planMeta = plan.isPro ? PLANS.pro : PLANS.free;

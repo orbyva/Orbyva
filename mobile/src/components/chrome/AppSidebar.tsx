@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Image } from "expo-image";
 import { usePathname, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -31,6 +32,7 @@ import { useModuleColors, useTheme } from "@/hooks/use-theme";
 import { useThemePreference } from "@/hooks/use-theme-preference";
 import { hexAlpha } from "@/lib/color";
 import { isNavActive, NAV_GROUPS, normalizePath, type AppHref } from "@/lib/nav";
+import { userAvatarUrl } from "@/lib/userAvatar";
 
 const OPEN_MS = 200;
 const CLOSE_MS = 160;
@@ -42,6 +44,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const path = normalizePath(pathname);
   const { user } = useAuth();
+  const avatar = userAvatarUrl(user);
   const { scheme, toggleScheme } = useThemePreference();
   const { sidebarOpen, setSidebarOpen } = useAppShell();
   const insets = useSafeAreaInsets();
@@ -270,9 +273,17 @@ export function AppSidebar() {
                 },
               ]}
             >
-              <View style={[styles.groupIcon, { backgroundColor: theme.border }]}>
-                <Ionicons name="person-outline" size={16} color={theme.foreground} />
-              </View>
+              {avatar ? (
+                <Image
+                  source={{ uri: avatar }}
+                  style={[styles.avatar, { backgroundColor: theme.border }]}
+                  accessibilityIgnoresInvertColors
+                />
+              ) : (
+                <View style={[styles.groupIcon, { backgroundColor: theme.border }]}>
+                  <Ionicons name="person-outline" size={16} color={theme.foreground} />
+                </View>
+              )}
               <View style={styles.accountCopy}>
                 <ThemedText type="smallBold">Conta</ThemedText>
                 <ThemedText type="small" themeColor="mutedForeground" numberOfLines={1}>
@@ -330,6 +341,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: Radius.xl,
   },
+  avatar: { width: 28, height: 28, borderRadius: Radius.full },
   groupIcon: {
     width: 28,
     height: 28,
