@@ -1,7 +1,9 @@
 /**
- * Catálogo estático do painel "O que eu sei" no mobile.
- * Espelha as áreas do web sem puxar o registry Deno no Metro.
+ * Catálogo do painel "O que eu sei" no mobile.
+ * As consultas vêm de `toolCatalog.ts`, que o teste mantém igual ao registro do servidor.
  */
+
+import { ORB_CONSULT_AREAS, ORB_CONSULT_COUNT } from "./toolCatalog";
 
 export interface OrbCapabilityArea {
   nome: string;
@@ -9,32 +11,10 @@ export interface OrbCapabilityArea {
 }
 
 export const ORB_CAPABILITY_AREAS: OrbCapabilityArea[] = [
-  {
-    nome: "Finanças",
-    tools: [
-      "Lançamentos",
-      "Orçamento do mês",
-      "Gasto por categoria",
-      "Recorrências",
-      "Categorias",
-    ],
-  },
-  {
-    nome: "Tarefas e projetos",
-    tools: ["Tarefas", "Projetos", "Agenda"],
-  },
-  {
-    nome: "Rotina e conteúdo",
-    tools: ["Hábitos", "Metas", "Cinema", "Livros", "Música"],
-  },
-  {
-    nome: "Viagens e lugares",
-    tools: ["Viagens", "Lugares", "Roteiro"],
-  },
-  {
-    nome: "Dia a dia",
-    tools: ["Compras", "Notas", "Saúde", "Veículos", "Próximos compromissos"],
-  },
+  ...ORB_CONSULT_AREAS.map((area) => ({
+    nome: area.nome,
+    tools: area.tools.map((tool) => tool.title),
+  })),
   {
     nome: "Abrir telas",
     tools: ["Navegar para a tela certa do app"],
@@ -50,6 +30,4 @@ export const ORB_CAPABILITY_AREAS: OrbCapabilityArea[] = [
   },
 ];
 
-export const ORB_CAPABILITY_CONSULT_COUNT = ORB_CAPABILITY_AREAS.filter(
-  (a) => a.nome !== "Criar (você confirma)" && a.nome !== "Abrir telas"
-).reduce((n, a) => n + a.tools.length, 0);
+export const ORB_CAPABILITY_CONSULT_COUNT = ORB_CONSULT_COUNT;
