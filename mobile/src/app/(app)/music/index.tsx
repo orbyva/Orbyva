@@ -13,6 +13,7 @@ import { deleteAlbum, fetchAllAlbums, updateAlbum } from "@/api/music/albums";
 import { ChipBar } from "@/components/ChipBar";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { CatalogMediaCard } from "@/components/CatalogMediaCard";
+import { catalogCardReview } from "@/domain/catalog/review";
 import { FilterSelect } from "@/components/FilterSelect";
 import { InsightsStrip } from "@/components/InsightsStrip";
 import { ReviewSheet } from "@/components/ReviewSheet";
@@ -170,6 +171,21 @@ export default function MusicScreen() {
     router.push({ pathname: "/music/[id]", params: { id } });
   }
 
+  function toggleFavorite(album: Album) {
+    const next = !album.is_favorite;
+    const apply = (value: boolean) =>
+      setAlbums((cur) =>
+        cur.map((row) =>
+          row.musicbrainz_id === album.musicbrainz_id ? { ...row, is_favorite: value } : row
+        )
+      );
+    apply(next);
+    void updateAlbum({ musicbrainz_id: album.musicbrainz_id, is_favorite: next }).catch((err) => {
+      apply(!next);
+      fail(getErrorMessage(err, "Não foi possível atualizar o favorito."));
+    });
+  }
+
   function confirmDelete(album: Album) {
     Alert.alert("Excluir álbum", album.title, [
       { text: "Cancelar", style: "cancel" },
@@ -279,6 +295,8 @@ export default function MusicScreen() {
                 coverVariant="square"
                 title={album.title}
                 favorite={album.is_favorite === true}
+                onToggleFavorite={() => toggleFavorite(album)}
+                review={catalogCardReview(album, album.status === "listened")}
                 rating={album.rating != null ? String(album.rating) : null}
                 meta={[
                   formatArtists(album.artists),

@@ -1,5 +1,4 @@
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,6 +19,9 @@ import { CoverThumb } from "@/components/CoverThumb";
 import { ReviewSheet } from "@/components/ReviewSheet";
 import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
 import { StoryShareCard } from "@/components/share/StoryShareCard";
+import { FavoriteToggle } from "@/components/catalog/FavoriteToggle";
+import { ReviewBlock } from "@/components/catalog/ReviewBlock";
+import { RatingStar } from "@/components/catalog/RatingStar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner, Button, Input, ModuleSection } from "@/components/ui";
@@ -33,6 +35,7 @@ import {
   getBookRatingLabel,
   getLatestReadDate,
 } from "@/domain/books";
+import { catalogReview } from "@/domain/catalog/review";
 import { buildBookShareText, usableCoverUri } from "@/domain/share";
 import { getTodayIso } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
@@ -179,21 +182,6 @@ export default function BookDetailScreen() {
               <ThemedText type="smallBold" style={styles.title}>
                 {book.title}
               </ThemedText>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  book.is_favorite ? "Remover dos favoritos" : "Favoritar"
-                }
-                disabled={busy}
-                hitSlop={8}
-                onPress={() => void patch({ is_favorite: !book.is_favorite })}
-              >
-                <Ionicons
-                  name={book.is_favorite ? "heart" : "heart-outline"}
-                  size={22}
-                  color={book.is_favorite ? theme.destructive : theme.mutedForeground}
-                />
-              </Pressable>
             </View>
             <ThemedText type="small" themeColor="mutedForeground">
               {[
@@ -205,6 +193,14 @@ export default function BookDetailScreen() {
                 .filter(Boolean)
                 .join(" · ")}
             </ThemedText>
+            {book.rating != null ? (
+              <RatingStar value={formatBookRating(book.rating)} scale={10} />
+            ) : null}
+            <FavoriteToggle
+              favorite={book.is_favorite === true}
+              disabled={busy}
+              onToggle={() => void patch({ is_favorite: !book.is_favorite })}
+            />
           </View>
         </View>
         {book.status === "reading" ? (
@@ -228,12 +224,7 @@ export default function BookDetailScreen() {
             {book.description}
           </ThemedText>
         ) : null}
-        {book.notes ? <ThemedText type="small">{book.notes}</ThemedText> : null}
-        {book.status === "read" ? (
-          <ThemedText type="small" themeColor="mutedForeground">
-            {book.would_recommend === false ? "Não recomendaria" : "Recomendaria"}
-          </ThemedText>
-        ) : null}
+        <ReviewBlock review={catalogReview(book, book.status === "read")} />
 
         <ModuleSection title="Notas de leitura" icon="create-outline" tint={moduleColors.entertainment}>
           <Input

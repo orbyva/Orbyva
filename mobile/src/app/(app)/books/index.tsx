@@ -13,6 +13,7 @@ import { deleteBook, fetchAllBooks, updateBook } from "@/api/books/books";
 import { ChipBar } from "@/components/ChipBar";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { CatalogMediaCard } from "@/components/CatalogMediaCard";
+import { catalogCardReview } from "@/domain/catalog/review";
 import { FilterSelect } from "@/components/FilterSelect";
 import { InsightsStrip } from "@/components/InsightsStrip";
 import { ReviewSheet } from "@/components/ReviewSheet";
@@ -175,6 +176,19 @@ export default function BooksScreen() {
     router.push({ pathname: "/books/[id]", params: { id } });
   }
 
+  function toggleFavorite(book: Book) {
+    const next = !book.is_favorite;
+    const apply = (value: boolean) =>
+      setBooks((cur) =>
+        cur.map((row) => (row.google_id === book.google_id ? { ...row, is_favorite: value } : row))
+      );
+    apply(next);
+    void updateBook({ google_id: book.google_id, is_favorite: next }).catch((err) => {
+      apply(!next);
+      fail(getErrorMessage(err, "Não foi possível atualizar o favorito."));
+    });
+  }
+
   function confirmDelete(book: Book) {
     Alert.alert("Excluir livro", book.title, [
       { text: "Cancelar", style: "cancel" },
@@ -288,6 +302,8 @@ export default function BooksScreen() {
                 fallback={book.title}
                 title={book.title}
                 favorite={book.is_favorite === true}
+                onToggleFavorite={() => toggleFavorite(book)}
+                review={catalogCardReview(book, book.status === "read")}
                 rating={book.rating != null ? String(book.rating) : null}
                 meta={[
                   formatAuthors(book.authors),

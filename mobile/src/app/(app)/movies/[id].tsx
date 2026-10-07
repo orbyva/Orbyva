@@ -34,6 +34,9 @@ import { ReviewSheet } from "@/components/ReviewSheet";
 import { ScorePicker } from "@/components/ScorePicker";
 import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
 import { StoryShareCard } from "@/components/share/StoryShareCard";
+import { FavoriteToggle } from "@/components/catalog/FavoriteToggle";
+import { ReviewBlock } from "@/components/catalog/ReviewBlock";
+import { RatingStar } from "@/components/catalog/RatingStar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner, Button, Chip, Input, ModuleSection } from "@/components/ui";
@@ -47,6 +50,7 @@ import {
   movieStatusUpdate,
   resolveRatedEpisodes,
 } from "@/domain/movies";
+import { catalogReview } from "@/domain/catalog/review";
 import { buildMovieShareText, usableCoverUri } from "@/domain/share";
 import { getTodayIso } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
@@ -408,28 +412,12 @@ export default function MovieDetailScreen() {
               <ThemedText type="smallBold" style={styles.title}>
                 {movie.title}
               </ThemedText>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  movie.is_favorite ? "Remover dos favoritos" : "Favoritar"
-                }
-                disabled={busy}
-                hitSlop={8}
-                onPress={() => void patch({ is_favorite: !movie.is_favorite })}
-              >
-                <Ionicons
-                  name={movie.is_favorite ? "heart" : "heart-outline"}
-                  size={22}
-                  color={movie.is_favorite ? theme.destructive : theme.mutedForeground}
-                />
-              </Pressable>
             </View>
             <ThemedText type="small" themeColor="mutedForeground">
               {[
                 MOVIE_TYPE_LABELS[movie.type],
                 movie.year || null,
                 MOVIE_STATUS_LABELS[movie.status],
-                movie.rating != null ? `Nota ${movie.rating}` : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -439,6 +427,14 @@ export default function MovieDetailScreen() {
                 {progress.watched}/{progress.total} episódios · {progress.percent}%
               </ThemedText>
             ) : null}
+            {movie.rating != null ? (
+              <RatingStar value={formatMovieRating(movie.rating)} scale={10} />
+            ) : null}
+            <FavoriteToggle
+              favorite={movie.is_favorite === true}
+              disabled={busy}
+              onToggle={() => void patch({ is_favorite: !movie.is_favorite })}
+            />
           </View>
         </View>
 
@@ -472,14 +468,7 @@ export default function MovieDetailScreen() {
             {movie.actors.join(", ")}
           </ThemedText>
         ) : null}
-        {movie.notes ? (
-          <ThemedText type="small">{movie.notes}</ThemedText>
-        ) : null}
-        {movie.status === MovieStatus.WATCHED ? (
-          <ThemedText type="small" themeColor="mutedForeground">
-            {movie.would_recommend === false ? "Não recomendaria" : "Recomendaria"}
-          </ThemedText>
-        ) : null}
+        <ReviewBlock review={catalogReview(movie, movie.status === MovieStatus.WATCHED)} />
 
         {movie.type === "series" ? (
           <View style={styles.notify}>

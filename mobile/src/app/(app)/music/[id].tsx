@@ -1,5 +1,4 @@
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,6 +14,9 @@ import { CoverThumb } from "@/components/CoverThumb";
 import { ReviewSheet } from "@/components/ReviewSheet";
 import { OpinionShareSheet } from "@/components/share/OpinionShareSheet";
 import { StoryShareCard } from "@/components/share/StoryShareCard";
+import { FavoriteToggle } from "@/components/catalog/FavoriteToggle";
+import { ReviewBlock } from "@/components/catalog/ReviewBlock";
+import { RatingStar } from "@/components/catalog/RatingStar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Banner, Button, ModuleSection } from "@/components/ui";
@@ -31,6 +33,7 @@ import {
   resolveRatedAlbumTracks,
   trackRatingKey,
 } from "@/domain/music";
+import { catalogReview } from "@/domain/catalog/review";
 import { buildAlbumShareText, usableCoverUri } from "@/domain/share";
 import { getTodayIso } from "@/domain/timeline";
 import { useAppShell } from "@/hooks/use-app-shell";
@@ -154,21 +157,6 @@ export default function AlbumDetailScreen() {
               <ThemedText type="smallBold" style={styles.title}>
                 {album.title}
               </ThemedText>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  album.is_favorite ? "Remover dos favoritos" : "Favoritar"
-                }
-                disabled={busy}
-                hitSlop={8}
-                onPress={() => void patch({ is_favorite: !album.is_favorite })}
-              >
-                <Ionicons
-                  name={album.is_favorite ? "heart" : "heart-outline"}
-                  size={22}
-                  color={album.is_favorite ? theme.destructive : theme.mutedForeground}
-                />
-              </Pressable>
             </View>
             <ThemedText type="small" themeColor="mutedForeground">
               {[
@@ -176,11 +164,18 @@ export default function AlbumDetailScreen() {
                 ALBUM_TYPE_LABELS[album.album_type],
                 album.release_year,
                 ALBUM_STATUS_LABELS[album.status],
-                album.rating != null ? `Nota ${album.rating}` : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
             </ThemedText>
+            {album.rating != null ? (
+              <RatingStar value={formatAlbumRating(album.rating)} scale={10} />
+            ) : null}
+            <FavoriteToggle
+              favorite={album.is_favorite === true}
+              disabled={busy}
+              onToggle={() => void patch({ is_favorite: !album.is_favorite })}
+            />
           </View>
         </View>
         {album.status !== "listened" ? (
@@ -191,12 +186,7 @@ export default function AlbumDetailScreen() {
             size="lg"
           />
         ) : null}
-        {album.notes ? <ThemedText type="small">{album.notes}</ThemedText> : null}
-        {album.status === "listened" ? (
-          <ThemedText type="small" themeColor="mutedForeground">
-            {album.would_recommend === false ? "Não recomendaria" : "Recomendaria"}
-          </ThemedText>
-        ) : null}
+        <ReviewBlock review={catalogReview(album, album.status === "listened")} />
 
         {tracks.length > 0 ? (
           <ModuleSection title="Faixas" icon="musical-notes-outline" tint={moduleColors.entertainment}>

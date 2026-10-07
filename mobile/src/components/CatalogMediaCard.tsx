@@ -1,13 +1,15 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { FavoriteToggle } from "@/components/catalog/FavoriteToggle";
 import { CoverThumb } from "@/components/CoverThumb";
 import { ThemedText } from "@/components/themed-text";
 import { Card } from "@/components/ui";
 import { Radius } from "@/constants/theme";
+import type { CatalogReview } from "@/domain/catalog/review";
 import { ON_MEDIA, scrim } from "@/domain/ui/color";
 import { TypeScale } from "@/domain/ui/typography";
-import { useModuleColors, useTheme } from "@/hooks/use-theme";
+import { useTheme } from "@/hooks/use-theme";
 import { hexAlpha } from "@/lib/color";
 
 export function CatalogMediaCard({
@@ -24,7 +26,11 @@ export function CatalogMediaCard({
   onAction,
   onDelete,
   onPress,
+  review,
+  onToggleFavorite,
 }: {
+  review?: CatalogReview;
+  onToggleFavorite?: () => void;
   coverUri?: string | null;
   fallback: string;
   coverVariant?: "poster" | "square";
@@ -40,7 +46,6 @@ export function CatalogMediaCard({
   onPress: () => void;
 }) {
   const theme = useTheme();
-  const moduleColors = useModuleColors();
   const showProgress = progress != null;
 
   return (
@@ -54,7 +59,8 @@ export function CatalogMediaCard({
           />
           {rating ? (
             <View style={styles.rating}>
-              <ThemedText style={styles.ratingText}>★ {rating}</ThemedText>
+              <Ionicons name="star" size={12} color={theme.warning} />
+              <ThemedText style={styles.ratingText}>{rating}</ThemedText>
             </View>
           ) : showProgress ? (
             <View style={styles.rating}>
@@ -64,7 +70,7 @@ export function CatalogMediaCard({
           ) : null}
           {favorite ? (
             <View style={styles.heart}>
-              <ThemedText style={[styles.heartText, { color: moduleColors.health }]}>♥</ThemedText>
+              <Ionicons name="heart" size={13} color={theme.destructive} />
             </View>
           ) : null}
           {showProgress ? (
@@ -100,6 +106,33 @@ export function CatalogMediaCard({
               {meta}
             </ThemedText>
           ) : null}
+          {review?.recommend != null ? (
+            <View style={styles.progressRow}>
+              <Ionicons
+                name={review.recommend ? "thumbs-up" : "thumbs-down"}
+                size={13}
+                color={review.recommend ? theme.success : theme.destructive}
+              />
+              <ThemedText
+                type="smallBold"
+                style={{ color: review.recommend ? theme.success : theme.destructive }}
+              >
+                {review.recommend ? "Indicaria" : "Não indicaria"}
+              </ThemedText>
+            </View>
+          ) : null}
+          {review?.notes ? (
+            <View style={[styles.note, { borderLeftColor: theme.border }]}>
+              <ThemedText
+                type="small"
+                themeColor="mutedForeground"
+                numberOfLines={2}
+                style={styles.noteText}
+              >
+                {review.notes}
+              </ThemedText>
+            </View>
+          ) : null}
           {showProgress && progressLabel ? (
             <View style={styles.progressRow}>
               <Ionicons name="film-outline" size={13} color={theme.primary} />
@@ -127,15 +160,27 @@ export function CatalogMediaCard({
           ) : null}
         </View>
       </Pressable>
-      {onDelete ? (
-        <Pressable
-          accessibilityLabel={`Excluir ${title}`}
-          hitSlop={8}
-          onPress={onDelete}
-          style={styles.deleteBtn}
-        >
-          <Ionicons name="trash-outline" size={18} color={theme.destructive} />
-        </Pressable>
+      {onToggleFavorite || onDelete ? (
+        <View style={styles.side}>
+          {onToggleFavorite ? (
+            <FavoriteToggle
+              variant="icon"
+              favorite={favorite === true}
+              onToggle={onToggleFavorite}
+              subject={title}
+            />
+          ) : null}
+          {onDelete ? (
+            <Pressable
+              accessibilityLabel={`Excluir ${title}`}
+              hitSlop={8}
+              onPress={onDelete}
+              style={styles.deleteBtn}
+            >
+              <Ionicons name="trash-outline" size={18} color={theme.mutedForeground} />
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
     </Card>
   );
@@ -185,11 +230,9 @@ const styles = StyleSheet.create({
     top: 6,
     right: 6,
     backgroundColor: scrim(0.72),
-    borderRadius: Radius.md,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
+    borderRadius: Radius.full,
+    padding: 4,
   },
-  heartText: TypeScale.micro,
   progressCaption: {
     position: "absolute",
     left: 0,
@@ -218,6 +261,9 @@ const styles = StyleSheet.create({
   progressFill: { height: 3 },
   copy: { flex: 1, gap: 6, justifyContent: "center", paddingVertical: 2 },
   progressRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  note: { borderLeftWidth: 2, paddingLeft: 8 },
+  noteText: { fontStyle: "italic" },
+  side: { alignSelf: "stretch", justifyContent: "space-between", alignItems: "center", gap: 8 },
   action: {
     alignSelf: "flex-start",
     borderRadius: Radius.full,

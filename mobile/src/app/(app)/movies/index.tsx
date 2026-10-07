@@ -14,6 +14,7 @@ import { deleteMovie, fetchAllMovies, updateMovie } from "@/api/movies/movies";
 import { ChipBar } from "@/components/ChipBar";
 import { ChoiceChip } from "@/components/ChoiceChip";
 import { CatalogMediaCard } from "@/components/CatalogMediaCard";
+import { catalogCardReview } from "@/domain/catalog/review";
 import { FilterSelect } from "@/components/FilterSelect";
 import { InsightsStrip } from "@/components/InsightsStrip";
 import { ReviewSheet } from "@/components/ReviewSheet";
@@ -219,6 +220,19 @@ export default function MoviesScreen() {
     router.push({ pathname: "/movies/[id]", params: { id } });
   }
 
+  function toggleFavorite(movie: Movie) {
+    const next = !movie.is_favorite;
+    const apply = (value: boolean) =>
+      setMovies((cur) =>
+        cur.map((row) => (row.imdb_id === movie.imdb_id ? { ...row, is_favorite: value } : row))
+      );
+    apply(next);
+    void updateMovie({ imdb_id: movie.imdb_id, is_favorite: next }).catch((err) => {
+      apply(!next);
+      fail(getErrorMessage(err, "Não foi possível atualizar o favorito."));
+    });
+  }
+
   function confirmDelete(movie: Movie) {
     Alert.alert("Excluir título", movie.title, [
       { text: "Cancelar", style: "cancel" },
@@ -349,6 +363,8 @@ export default function MoviesScreen() {
                   fallback={movie.title}
                   title={movie.title}
                   favorite={movie.is_favorite === true}
+                  onToggleFavorite={() => toggleFavorite(movie)}
+                  review={catalogCardReview(movie, movie.status === MovieStatus.WATCHED)}
                   rating={rating?.value}
                   progress={showWatchProgress ? seriesProgress.percent : null}
                   progressLabel={progressLabel}
