@@ -35,6 +35,14 @@ export function filterDimensionTree(
     .filter((nature) => !q || nature.types.length > 0);
 }
 
+/** Resumo do cabeçalho da natureza: "3 categorias · 12 subcategorias". */
+export function natureSummary(nature: Pick<Dimension, "types">): string {
+  const tipos = nature.types.length;
+  const classes = nature.types.reduce((n, type) => n + type.classes.length, 0);
+  const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+  return `${plural(tipos, "categoria", "categorias")} · ${plural(classes, "subcategoria", "subcategorias")}`;
+}
+
 type DimClass = Dimension["types"][number]["classes"][number];
 
 export function typeIdForClass(

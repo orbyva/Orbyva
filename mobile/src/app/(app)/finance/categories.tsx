@@ -36,11 +36,14 @@ import { Radius, Spacing } from "@/constants/theme";
 import {
   filterDimensionTree,
   moveClassToType,
+  natureSummary,
   typeIdAtPoint,
   typeIdForClass,
 } from "@/domain/dimensions/listView";
+import { natureIcon, natureTone } from "@/domain/ui/semanticTone";
 import { useAppShell } from "@/hooks/use-app-shell";
 import { useTheme } from "@/hooks/use-theme";
+import { tintedSurface } from "@/lib/color";
 import { useDropLanding } from "@/lib/dragMotion";
 import { getErrorMessage } from "@/lib/errors";
 import type { Dimension } from "@/types/dimensions";
@@ -416,9 +419,32 @@ export default function CategoriesScreen() {
             ) : (
               filtered.map((nature) => (
                 <View key={nature.id} style={styles.nature}>
-                  <ThemedText type="small" themeColor="mutedForeground">
-                    {nature.name}
-                  </ThemedText>
+                  <View style={styles.natureHead}>
+                    <View
+                      style={[
+                        styles.natureIcon,
+                        tintedSurface(theme[natureTone(nature.name)]),
+                      ]}
+                    >
+                      <Ionicons
+                        name={natureIcon(nature.name)}
+                        size={20}
+                        color={theme[natureTone(nature.name)]}
+                      />
+                    </View>
+                    <View style={styles.natureCopy}>
+                      <ThemedText type="subtitle">{nature.name}</ThemedText>
+                      <ThemedText type="small" themeColor="mutedForeground">
+                        {natureSummary(nature)}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.natureRule,
+                      { backgroundColor: theme[natureTone(nature.name)] },
+                    ]}
+                  />
                   {nature.types.length === 0 ? (
                     <ThemedText type="small" themeColor="mutedForeground">
                       Sem categorias nesta natureza.
@@ -604,6 +630,17 @@ const styles = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   list: { padding: Spacing.four, gap: Spacing.four },
   nature: { gap: Spacing.two },
+  natureHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  natureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  natureCopy: { flex: 1, gap: 2 },
+  natureRule: { height: 2, borderRadius: Radius.full, opacity: 0.35, marginBottom: 4 },
   card: {
     borderWidth: 2,
     borderRadius: Radius.xl,

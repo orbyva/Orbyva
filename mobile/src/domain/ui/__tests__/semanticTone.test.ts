@@ -4,6 +4,7 @@ import {
   alertSeverityTone,
   budgetStatusTone,
   carAlertBadge,
+  natureIcon,
   natureTone,
   netTone,
   taskStatusTone,
@@ -32,6 +33,13 @@ describe("natureTone", () => {
     expect(natureTone("Investimento")).toBe("chart6");
     expect(natureTone("Despesa")).toBe("destructive");
     expect(natureTone(null)).toBe("destructive");
+  });
+
+  it("dá à natureza um ícone no mesmo sentido do tom", () => {
+    expect(natureIcon("Receita")).toBe("trending-up-outline");
+    expect(natureIcon("Investimento")).toBe("bar-chart-outline");
+    expect(natureIcon("Despesa")).toBe("trending-down-outline");
+    expect(natureIcon(undefined)).toBe("trending-down-outline");
   });
 });
 

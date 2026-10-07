@@ -21,6 +21,15 @@ export function natureTone(name?: string | null): ThemeColor {
   return "destructive";
 }
 
+/** Ícone (Ionicons) da natureza, no mesmo sentido do tom: entra, guarda, sai. */
+export function natureIcon(
+  name?: string | null
+): "trending-up-outline" | "bar-chart-outline" | "trending-down-outline" {
+  if (name === "Receita") return "trending-up-outline";
+  if (name === "Investimento") return "bar-chart-outline";
+  return "trending-down-outline";
+}
+
 /** Token do status da tarefa: a fazer neutro, fazendo em destaque, feita em sucesso. */
 export function taskStatusTone(status: string): ThemeColor {
   if (status === "doing") return "primary";
